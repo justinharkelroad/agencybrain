@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
-import { ChevronRight, FileText, RefreshCw, AlertTriangle, Target } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, RefreshCw, AlertTriangle, Target, DollarSign } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import { PremiumChangeDisplay } from './PremiumChangeDisplay';
+import { WinbackPoliciesTable, LqsQuotesTable, LqsSalesTable } from './PolicyDetailsTable';
 import type {
   LinkedLQSRecord,
   LinkedRenewalRecord,
@@ -49,6 +53,7 @@ export function SystemRecords({
           title="LQS Records"
           icon={<FileText className="h-4 w-4 text-blue-600" />}
           iconBg="bg-blue-50"
+          count={lqsRecords.length}
         >
           {lqsRecords.map((record) => (
             <LQSRecordCard
@@ -66,6 +71,7 @@ export function SystemRecords({
           title="Renewal Records"
           icon={<RefreshCw className="h-4 w-4 text-green-600" />}
           iconBg="bg-green-50"
+          count={renewalRecords.length}
         >
           {renewalRecords.map((record) => (
             <RenewalRecordCard
@@ -83,6 +89,7 @@ export function SystemRecords({
           title="Cancel Audit Records"
           icon={<AlertTriangle className="h-4 w-4 text-orange-600" />}
           iconBg="bg-orange-50"
+          count={cancelAuditRecords.length}
         >
           {cancelAuditRecords.map((record) => (
             <CancelAuditRecordCard
@@ -100,6 +107,7 @@ export function SystemRecords({
           title="Winback Records"
           icon={<Target className="h-4 w-4 text-purple-600" />}
           iconBg="bg-purple-50"
+          count={winbackRecords.length}
         >
           {winbackRecords.map((record) => (
             <WinbackRecordCard
@@ -114,16 +122,18 @@ export function SystemRecords({
   );
 }
 
-// Section wrapper
+// Section wrapper with count badge
 function RecordSection({
   title,
   icon,
   iconBg,
+  count,
   children,
 }: {
   title: string;
   icon: React.ReactNode;
   iconBg: string;
+  count?: number;
   children: React.ReactNode;
 }) {
   return (
@@ -131,13 +141,19 @@ function RecordSection({
       <div className="flex items-center gap-2 mb-2">
         <div className={cn('p-1.5 rounded', iconBg)}>{icon}</div>
         <h4 className="text-sm font-medium">{title}</h4>
+        {count && count > 0 && (
+          <Badge variant="secondary" className="text-xs">
+            {count}
+          </Badge>
+        )}
       </div>
       <div className="space-y-2">{children}</div>
     </div>
   );
 }
 
-// Individual record cards
+// ==================== LQS Record Card (Enhanced) ====================
+
 function LQSRecordCard({
   record,
   onView,
@@ -145,43 +161,89 @@ function LQSRecordCard({
   record: LinkedLQSRecord;
   onView?: () => void;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const hasDetails = (record.quotes?.length || 0) > 0 || (record.sales?.length || 0) > 0;
+
+  // Calculate totals
+  const totalQuotedPremium = (record.quotes || []).reduce((sum, q) => sum + (q.premium_cents || 0), 0);
+  const totalSoldPremium = (record.sales || []).reduce((sum, s) => sum + (s.premium_cents || 0), 0);
+
   return (
     <Card className="bg-muted/30">
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Badge
-                variant={record.status === 'sold' || record.status === 'Sold' ? 'default' : 'secondary'}
-                className="text-xs"
-              >
-                {record.status || 'Quoted'}
-              </Badge>
-              {record.quoted_premium && (
-                <span className="text-sm text-muted-foreground">
-                  ${record.quoted_premium.toLocaleString()}/yr
-                </span>
-              )}
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1 flex-1">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={record.status === 'sold' || record.status === 'Sold' ? 'default' : 'secondary'}
+                  className="text-xs"
+                >
+                  {record.status || 'Lead'}
+                </Badge>
+                {record.lead_source_name && (
+                  <span className="text-xs text-muted-foreground">
+                    Source: {record.lead_source_name}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                {record.team_member_name && <span>Agent: {record.team_member_name}</span>}
+                {record.created_at && (
+                  <span>Created: {format(new Date(record.created_at), 'MMM d, yyyy')}</span>
+                )}
+              </div>
+              {/* Quick summary of quotes and sales */}
+              <div className="flex items-center gap-4 text-xs mt-1">
+                {(record.quotes?.length || 0) > 0 && (
+                  <span className="text-blue-600">
+                    {record.quotes?.length} quote{record.quotes?.length !== 1 ? 's' : ''} (${(totalQuotedPremium / 100).toLocaleString()})
+                  </span>
+                )}
+                {(record.sales?.length || 0) > 0 && (
+                  <span className="text-green-600">
+                    {record.sales?.length} sale{record.sales?.length !== 1 ? 's' : ''} (${(totalSoldPremium / 100).toLocaleString()})
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="text-xs text-muted-foreground">
-              {record.team_member_name && <span>Agent: {record.team_member_name}</span>}
-              {record.created_at && (
-                <span className="ml-2">
-                  Created: {format(new Date(record.created_at), 'MMM d, yyyy')}
-                </span>
+            <div className="flex items-center gap-1">
+              {hasDetails && (
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    {isOpen ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
               )}
             </div>
           </div>
-          {onView && (
-            <Button variant="ghost" size="sm" onClick={onView}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </CardContent>
+
+          {/* Expandable details */}
+          <CollapsibleContent className="mt-3 space-y-3">
+            {(record.quotes?.length || 0) > 0 && (
+              <div>
+                <h5 className="text-xs font-medium mb-1 text-blue-600">Quotes ({record.quotes?.length})</h5>
+                <LqsQuotesTable quotes={record.quotes || []} />
+              </div>
+            )}
+            {(record.sales?.length || 0) > 0 && (
+              <div>
+                <h5 className="text-xs font-medium mb-1 text-green-600">Sales ({record.sales?.length})</h5>
+                <LqsSalesTable sales={record.sales || []} />
+              </div>
+            )}
+          </CollapsibleContent>
+        </CardContent>
+      </Collapsible>
     </Card>
   );
 }
+
+// ==================== Renewal Record Card (Enhanced) ====================
 
 function RenewalRecordCard({
   record,
@@ -200,36 +262,65 @@ function RenewalRecordCard({
   return (
     <Card className="bg-muted/30">
       <CardContent className="p-3">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
+        <div className="space-y-2">
+          {/* Header row */}
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">{record.policy_number}</span>
+              <span className="text-sm font-medium font-mono">{record.policy_number}</span>
               <Badge
                 className={cn('text-xs', statusColors[record.current_status] || 'bg-gray-100')}
               >
                 {record.current_status}
               </Badge>
             </div>
-            <div className="text-xs text-muted-foreground">
-              <span>Due: {format(new Date(record.renewal_effective_date), 'MMM d, yyyy')}</span>
-              {record.premium_new && (
-                <span className="ml-2">${record.premium_new.toLocaleString()}/yr</span>
-              )}
-              {record.assigned_team_member_name && (
-                <span className="ml-2">Assigned: {record.assigned_team_member_name}</span>
-              )}
-            </div>
+            {record.assigned_team_member_name && (
+              <span className="text-xs text-muted-foreground">
+                Assigned: {record.assigned_team_member_name}
+              </span>
+            )}
           </div>
-          {onView && (
-            <Button variant="ghost" size="sm" onClick={onView}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+
+          {/* Product and due date */}
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            {record.product_name && <span>{record.product_name}</span>}
+            <span>Due: {format(new Date(record.renewal_effective_date), 'MMM d, yyyy')}</span>
+          </div>
+
+          {/* Premium change - the main enhancement */}
+          {(record.premium_old != null || record.premium_new != null) && (
+            <div className="flex items-center gap-2 pt-1">
+              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+              <PremiumChangeDisplay
+                premiumOld={record.premium_old}
+                premiumNew={record.premium_new}
+                changePercent={record.premium_change_percent}
+                isCents={false}
+                size="sm"
+              />
+            </div>
           )}
+
+          {/* Additional info row */}
+          <div className="flex items-center gap-3 text-xs">
+            {record.amount_due != null && record.amount_due > 0 && (
+              <span className="text-orange-600 font-medium">
+                Amount Due: ${record.amount_due.toLocaleString()}
+              </span>
+            )}
+            {record.easy_pay && (
+              <Badge variant="outline" className="text-xs py-0">Easy Pay</Badge>
+            )}
+            {record.multi_line_indicator && (
+              <Badge variant="outline" className="text-xs py-0">Multi-Line</Badge>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
   );
 }
+
+// ==================== Cancel Audit Record Card (Enhanced) ====================
 
 function CancelAuditRecordCard({
   record,
@@ -245,44 +336,78 @@ function CancelAuditRecordCard({
     Lost: 'bg-red-100 text-red-700',
   };
 
+  const hasOutstandingBalance = (record.amount_due_cents || 0) > 0;
+
   return (
     <Card className="bg-muted/30">
       <CardContent className="p-3">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
+        <div className="space-y-2">
+          {/* Header row */}
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
+              {record.policy_number && (
+                <span className="text-sm font-medium font-mono">{record.policy_number}</span>
+              )}
               <Badge
                 className={cn('text-xs', statusColors[record.cancel_status || ''] || 'bg-gray-100')}
               >
                 {record.cancel_status || 'Unknown'}
               </Badge>
-              {record.cancel_reason && (
-                <span className="text-xs text-muted-foreground">
-                  Reason: {record.cancel_reason}
-                </span>
-              )}
             </div>
-            <div className="text-xs text-muted-foreground">
-              {record.assigned_team_member_name && (
-                <span>Assigned: {record.assigned_team_member_name}</span>
-              )}
-              {record.created_at && (
-                <span className="ml-2">
-                  Created: {format(new Date(record.created_at), 'MMM d, yyyy')}
-                </span>
-              )}
-            </div>
+            {record.assigned_team_member_name && (
+              <span className="text-xs text-muted-foreground">
+                Assigned: {record.assigned_team_member_name}
+              </span>
+            )}
           </div>
-          {onView && (
-            <Button variant="ghost" size="sm" onClick={onView}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+
+          {/* Product and dates */}
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            {record.product_name && <span>{record.product_name}</span>}
+            {record.account_type && (
+              <Badge variant="outline" className="text-xs py-0">{record.account_type}</Badge>
+            )}
+          </div>
+
+          {/* Financial info - the main enhancement */}
+          <div className="flex items-center gap-4 text-xs">
+            {record.premium_cents != null && (
+              <span>
+                Premium: <span className="font-medium">${((record.premium_cents || 0) / 100).toLocaleString()}</span>
+              </span>
+            )}
+            {hasOutstandingBalance && (
+              <span className={cn('font-medium', 'text-orange-600')}>
+                Amount Due: ${((record.amount_due_cents || 0) / 100).toLocaleString()}
+              </span>
+            )}
+          </div>
+
+          {/* Dates */}
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            {record.cancel_date && (
+              <span>Cancel Date: {format(new Date(record.cancel_date), 'MMM d, yyyy')}</span>
+            )}
+            {record.pending_cancel_date && (
+              <span className="text-orange-600">
+                Pending Cancel: {format(new Date(record.pending_cancel_date), 'MMM d, yyyy')}
+              </span>
+            )}
+          </div>
+
+          {/* Cancel reason */}
+          {record.cancel_reason && (
+            <div className="text-xs text-muted-foreground">
+              Reason: {record.cancel_reason}
+            </div>
           )}
         </div>
       </CardContent>
     </Card>
   );
 }
+
+// ==================== Winback Record Card (Enhanced - Main Gap Fix) ====================
 
 function WinbackRecordCard({
   record,
@@ -291,49 +416,94 @@ function WinbackRecordCard({
   record: LinkedWinbackRecord;
   onView?: () => void;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const hasDetails = (record.policies?.length || 0) > 0;
+
   const statusColors: Record<string, string> = {
     untouched: 'bg-gray-100 text-gray-700',
     in_progress: 'bg-yellow-100 text-yellow-700',
     teed_up_this_week: 'bg-blue-100 text-blue-700',
     won_back: 'bg-green-100 text-green-700',
     dismissed: 'bg-red-100 text-red-700',
+    moved_to_quoted: 'bg-cyan-100 text-cyan-700',
   };
+
+  // Calculate total premium from policies
+  const totalOldPremium = (record.policies || []).reduce(
+    (sum, p) => sum + (p.premium_old_cents || 0),
+    0
+  );
 
   return (
     <Card className="bg-muted/30">
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Badge
-                className={cn('text-xs', statusColors[record.status || ''] || 'bg-gray-100')}
-              >
-                {(record.status || 'Unknown').replace(/_/g, ' ')}
-              </Badge>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1 flex-1">
+              <div className="flex items-center gap-2">
+                <Badge
+                  className={cn('text-xs', statusColors[record.status || ''] || 'bg-gray-100')}
+                >
+                  {(record.status || 'Unknown').replace(/_/g, ' ')}
+                </Badge>
+                {record.assigned_team_member_name && (
+                  <span className="text-xs text-muted-foreground">
+                    Assigned: {record.assigned_team_member_name}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                {record.termination_date && (
+                  <span>
+                    Terminated: {format(new Date(record.termination_date), 'MMM d, yyyy')}
+                  </span>
+                )}
+                {record.earliest_winback_date && (
+                  <span className="text-purple-600">
+                    Eligible: {format(new Date(record.earliest_winback_date), 'MMM d, yyyy')}
+                  </span>
+                )}
+              </div>
+              {/* Quick summary */}
+              {hasDetails && (
+                <div className="flex items-center gap-4 text-xs mt-1">
+                  <span className="text-purple-600">
+                    {record.policies?.length} terminated polic{record.policies?.length !== 1 ? 'ies' : 'y'}
+                  </span>
+                  {totalOldPremium > 0 && (
+                    <span className="text-muted-foreground">
+                      (${(totalOldPremium / 100).toLocaleString()} potential)
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="text-xs text-muted-foreground">
-              {record.termination_date && (
-                <span>
-                  Terminated: {format(new Date(record.termination_date), 'MMM d, yyyy')}
-                </span>
-              )}
-              {record.earliest_winback_date && (
-                <span className="ml-2">
-                  Eligible: {format(new Date(record.earliest_winback_date), 'MMM d, yyyy')}
-                </span>
-              )}
-              {record.assigned_team_member_name && (
-                <span className="ml-2">Assigned: {record.assigned_team_member_name}</span>
+            <div className="flex items-center gap-1">
+              {hasDetails && (
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    {isOpen ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
               )}
             </div>
           </div>
-          {onView && (
-            <Button variant="ghost" size="sm" onClick={onView}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </CardContent>
+
+          {/* Expandable policies table - THE MAIN FIX */}
+          <CollapsibleContent className="mt-3">
+            <div>
+              <h5 className="text-xs font-medium mb-1 text-purple-600">
+                Terminated Policies ({record.policies?.length})
+              </h5>
+              <WinbackPoliciesTable policies={record.policies || []} />
+            </div>
+          </CollapsibleContent>
+        </CardContent>
+      </Collapsible>
     </Card>
   );
 }

@@ -79,7 +79,45 @@ export interface ContactActivity {
   updated_at: string;
 }
 
-// Linked record summaries for profile view
+// ==================== Detail Types for Nested Records ====================
+
+// LQS Quote detail (from lqs_quotes table)
+export interface LqsQuoteDetail {
+  id: string;
+  quote_date: string;
+  product_type: string;
+  items_quoted: number;
+  premium_cents: number;
+  issued_policy_number: string | null;
+}
+
+// LQS Sale detail (from lqs_sales table)
+export interface LqsSaleDetail {
+  id: string;
+  sale_date: string;
+  product_type: string;
+  items_sold: number;
+  policies_sold: number;
+  premium_cents: number;
+  policy_number: string | null;
+}
+
+// Winback Policy detail (from winback_policies table)
+export interface WinbackPolicyDetail {
+  id: string;
+  policy_number: string;
+  product_name: string | null;
+  product_code: string | null;
+  termination_effective_date: string | null;
+  termination_reason: string | null;
+  premium_old_cents: number | null;
+  premium_new_cents: number | null;
+  premium_change_percent: number | null;
+  calculated_winback_date: string | null;
+}
+
+// ==================== Linked Record Summaries for Profile View ====================
+
 export interface LinkedLQSRecord {
   id: string;
   status: string | null;
@@ -87,6 +125,10 @@ export interface LinkedLQSRecord {
   sold_date: string | null;
   team_member_name: string | null;
   created_at: string;
+  // Extended fields
+  lead_source_name: string | null;
+  quotes: LqsQuoteDetail[];
+  sales: LqsSaleDetail[];
 }
 
 export interface LinkedRenewalRecord {
@@ -97,6 +139,13 @@ export interface LinkedRenewalRecord {
   current_status: string;
   premium_new: number | null;
   assigned_team_member_name: string | null;
+  // Extended fields
+  premium_old: number | null;
+  premium_change_percent: number | null;
+  product_name: string | null;
+  amount_due: number | null;
+  easy_pay: boolean | null;
+  multi_line_indicator: boolean | null;
 }
 
 export interface LinkedCancelAuditRecord {
@@ -106,6 +155,14 @@ export interface LinkedCancelAuditRecord {
   resolution: string | null;
   assigned_team_member_name: string | null;
   created_at: string;
+  // Extended fields
+  policy_number: string | null;
+  product_name: string | null;
+  premium_cents: number | null;
+  amount_due_cents: number | null;
+  cancel_date: string | null;
+  pending_cancel_date: string | null;
+  account_type: string | null;
 }
 
 export interface LinkedWinbackRecord {
@@ -114,6 +171,8 @@ export interface LinkedWinbackRecord {
   termination_date: string | null;
   earliest_winback_date: string | null;
   assigned_team_member_name: string | null;
+  // Extended fields
+  policies: WinbackPolicyDetail[];
 }
 
 // Full contact profile with all linked records

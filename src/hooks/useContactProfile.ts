@@ -11,6 +11,9 @@ import type {
   LinkedWinbackRecord,
   LifecycleStage,
   JourneyEvent,
+  LqsQuoteDetail,
+  LqsSaleDetail,
+  WinbackPolicyDetail,
 } from '@/types/contact';
 
 interface UseContactProfileOptions {
@@ -62,7 +65,7 @@ export function useContactProfile(
           .limit(100)
           .then(res => res.error ? { data: [], error: null } : res), // Gracefully handle RLS errors
 
-        // LQS records
+        // LQS records with nested quotes, sales, and lead source
         supabase
           .from('lqs_households')
           .select(`
@@ -70,13 +73,16 @@ export function useContactProfile(
             status,
             created_at,
             team_member_id,
-            team_members:team_member_id (id, name)
+            team_members:team_member_id (id, name),
+            lead_source:lead_sources (name),
+            quotes:lqs_quotes (id, quote_date, product_type, items_quoted, premium_cents, issued_policy_number),
+            sales:lqs_sales (id, sale_date, product_type, items_sold, policies_sold, premium_cents, policy_number)
           `)
           .eq('contact_id', contactId)
           .eq('agency_id', agencyId)
           .order('created_at', { ascending: false }),
 
-        // Renewal records
+        // Renewal records with premium change details
         supabase
           .from('renewal_records')
           .select(`
@@ -86,6 +92,12 @@ export function useContactProfile(
             renewal_status,
             current_status,
             premium_new,
+            premium_old,
+            premium_change_percent,
+            product_name,
+            amount_due,
+            easy_pay,
+            multi_line_indicator,
             assigned_team_member:team_members!renewal_records_assigned_team_member_id_fkey (id, name)
           `)
           .eq('contact_id', contactId)
@@ -93,7 +105,7 @@ export function useContactProfile(
           .eq('is_active', true)
           .order('renewal_effective_date', { ascending: false }),
 
-        // Cancel audit records
+        // Cancel audit records with policy details
         supabase
           .from('cancel_audit_records')
           .select(`
@@ -103,6 +115,13 @@ export function useContactProfile(
             cancel_reason,
             created_at,
             assigned_team_member_id,
+            policy_number,
+            product_name,
+            premium_cents,
+            amount_due_cents,
+            cancel_date,
+            pending_cancel_date,
+            account_type,
             team_members:assigned_team_member_id (id, name)
           `)
           .eq('contact_id', contactId)
@@ -126,14 +145,39 @@ export function useContactProfile(
       ]);
 
       // Transform linked records
-      const lqsRecords: LinkedLQSRecord[] = (lqsResult.data || []).map((r: any) => ({
-        id: r.id,
-        status: r.status,
-        quoted_premium: null, // LQS might not have this field directly
-        sold_date: r.status === 'sold' || r.status === 'Sold' ? r.created_at : null,
-        team_member_name: r.team_members?.name || null,
-        created_at: r.created_at,
-      }));
+      const lqsRecords: LinkedLQSRecord[] = (lqsResult.data || []).map((r: any) => {
+        // Calculate total quoted premium from quotes
+        const quotes: LqsQuoteDetail[] = (r.quotes || []).map((q: any) => ({
+          id: q.id,
+          quote_date: q.quote_date,
+          product_type: q.product_type,
+          items_quoted: q.items_quoted,
+          premium_cents: q.premium_cents,
+          issued_policy_number: q.issued_policy_number,
+        }));
+        const sales: LqsSaleDetail[] = (r.sales || []).map((s: any) => ({
+          id: s.id,
+          sale_date: s.sale_date,
+          product_type: s.product_type,
+          items_sold: s.items_sold,
+          policies_sold: s.policies_sold,
+          premium_cents: s.premium_cents,
+          policy_number: s.policy_number,
+        }));
+        const totalQuotedPremium = quotes.reduce((sum, q) => sum + (q.premium_cents || 0), 0);
+
+        return {
+          id: r.id,
+          status: r.status,
+          quoted_premium: totalQuotedPremium > 0 ? totalQuotedPremium / 100 : null,
+          sold_date: r.status === 'sold' || r.status === 'Sold' ? r.created_at : null,
+          team_member_name: r.team_members?.name || null,
+          created_at: r.created_at,
+          lead_source_name: r.lead_source?.name || null,
+          quotes,
+          sales,
+        };
+      });
 
       const renewalRecords: LinkedRenewalRecord[] = (renewalResult.data || []).map((r: any) => ({
         id: r.id,
@@ -143,6 +187,13 @@ export function useContactProfile(
         current_status: r.current_status,
         premium_new: r.premium_new,
         assigned_team_member_name: r.assigned_team_member?.name || null,
+        // Extended fields
+        premium_old: r.premium_old,
+        premium_change_percent: r.premium_change_percent,
+        product_name: r.product_name,
+        amount_due: r.amount_due,
+        easy_pay: r.easy_pay,
+        multi_line_indicator: r.multi_line_indicator,
       }));
 
       const cancelAuditRecords: LinkedCancelAuditRecord[] = (cancelAuditResult.data || []).map((r: any) => ({
@@ -152,6 +203,14 @@ export function useContactProfile(
         resolution: null, // May need to add this field
         assigned_team_member_name: r.team_members?.name || null,
         created_at: r.created_at,
+        // Extended fields
+        policy_number: r.policy_number,
+        product_name: r.product_name,
+        premium_cents: r.premium_cents,
+        amount_due_cents: r.amount_due_cents,
+        cancel_date: r.cancel_date,
+        pending_cancel_date: r.pending_cancel_date,
+        account_type: r.account_type,
       }));
 
       const winbackRecords: LinkedWinbackRecord[] = (winbackResult.data || []).map((r: any) => ({
@@ -160,6 +219,8 @@ export function useContactProfile(
         termination_date: r.termination_date,
         earliest_winback_date: r.earliest_winback_date,
         assigned_team_member_name: r.team_members?.name || null,
+        // Policies will be added after fetching winback_policies
+        policies: [],
       }));
 
       // Determine current stage
@@ -190,8 +251,8 @@ export function useContactProfile(
         ? [renewalRecordId]
         : renewalRecords.map(r => r.id);
 
-      // Fetch module activities in parallel
-      const [winbackActivitiesResult, cancelAuditActivitiesResult, renewalActivitiesResult] = await Promise.all([
+      // Fetch module activities and winback policies in parallel
+      const [winbackActivitiesResult, cancelAuditActivitiesResult, renewalActivitiesResult, winbackPoliciesResult] = await Promise.all([
         // Winback activities
         winbackHouseholdIds.length > 0
           ? supabase
@@ -223,6 +284,26 @@ export function useContactProfile(
               .in('renewal_record_id', renewalRecordIds)
               .order('created_at', { ascending: false })
               .limit(50)
+          : Promise.resolve({ data: [], error: null }),
+
+        // Winback policies (for terminated policy details)
+        winbackHouseholdIds.length > 0
+          ? supabase
+              .from('winback_policies')
+              .select(`
+                id,
+                household_id,
+                policy_number,
+                product_name,
+                product_code,
+                termination_effective_date,
+                termination_reason,
+                premium_old_cents,
+                premium_new_cents,
+                premium_change_percent,
+                calculated_winback_date
+              `)
+              .in('household_id', winbackHouseholdIds)
           : Promise.resolve({ data: [], error: null }),
       ]);
 
@@ -272,6 +353,32 @@ export function useContactProfile(
       const allActivities = [...unifiedActivities, ...winbackActivities, ...cancelAuditActivities, ...renewalActivities]
         .sort((a, b) => new Date(b.activity_date || b.created_at).getTime() - new Date(a.activity_date || a.created_at).getTime());
 
+      // Group winback policies by household_id and add to winback records
+      const policiesByHouseholdId = new Map<string, WinbackPolicyDetail[]>();
+      (winbackPoliciesResult.data || []).forEach((p: any) => {
+        const policy: WinbackPolicyDetail = {
+          id: p.id,
+          policy_number: p.policy_number,
+          product_name: p.product_name,
+          product_code: p.product_code,
+          termination_effective_date: p.termination_effective_date,
+          termination_reason: p.termination_reason,
+          premium_old_cents: p.premium_old_cents,
+          premium_new_cents: p.premium_new_cents,
+          premium_change_percent: p.premium_change_percent,
+          calculated_winback_date: p.calculated_winback_date,
+        };
+        const existing = policiesByHouseholdId.get(p.household_id) || [];
+        existing.push(policy);
+        policiesByHouseholdId.set(p.household_id, existing);
+      });
+
+      // Update winback records with their policies
+      const winbackRecordsWithPolicies: LinkedWinbackRecord[] = winbackRecords.map(r => ({
+        ...r,
+        policies: policiesByHouseholdId.get(r.id) || [],
+      }));
+
       return {
         ...contact,
         current_stage: currentStage,
@@ -279,7 +386,7 @@ export function useContactProfile(
         lqs_records: lqsRecords,
         renewal_records: renewalRecords,
         cancel_audit_records: cancelAuditRecords,
-        winback_records: winbackRecords,
+        winback_records: winbackRecordsWithPolicies,
       };
     },
     enabled: !!contactId && !!agencyId,
