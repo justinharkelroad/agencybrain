@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -39,13 +39,38 @@ export function WinbackActivityStats({ agencyId, wonBackCount }: WinbackActivity
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
   const isCurrentWeek = isSameWeek(selectedDate, new Date(), { weekStartsOn: 1 });
+  
+  // Use ref to avoid stale closure in subscription callback
+  const isCurrentWeekRef = useRef(isCurrentWeek);
+  isCurrentWeekRef.current = isCurrentWeek;
+
+  const fetchStats = useCallback(async () => {
+    if (!agencyId) return;
+    
+    setLoading(true);
+    try {
+      const currentWeekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+      const currentWeekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
+      
+      const [counts, wonBack] = await Promise.all([
+        winbackApi.getActivityStats(agencyId, currentWeekStart, currentWeekEnd),
+        winbackApi.getWeeklyWonBackCount(agencyId, currentWeekStart, currentWeekEnd),
+      ]);
+      setStats(counts);
+      setWeeklyWonBack(wonBack);
+    } catch (err) {
+      console.error('Error fetching activity stats:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [agencyId, selectedDate]);
 
   useEffect(() => {
     if (!agencyId) return;
     
     fetchStats();
     
-    // Subscribe to real-time updates with unique channel name
+    // Subscribe to real-time updates with server-side agency filtering
     const channelName = `winback-activities-stats-${agencyId}-${Date.now()}`;
     const channel = supabase
       .channel(channelName)
@@ -55,10 +80,11 @@ export function WinbackActivityStats({ agencyId, wonBackCount }: WinbackActivity
           event: 'INSERT',
           schema: 'public',
           table: 'winback_activities',
+          filter: `agency_id=eq.${agencyId}`,
         },
-        (payload) => {
-          // Only refetch if this activity belongs to our agency and we're viewing current week
-          if (payload.new && (payload.new as any).agency_id === agencyId && isCurrentWeek) {
+        () => {
+          // Use ref to check current week status (avoids stale closure)
+          if (isCurrentWeekRef.current) {
             fetchStats();
           }
         }
@@ -68,25 +94,8 @@ export function WinbackActivityStats({ agencyId, wonBackCount }: WinbackActivity
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [agencyId, selectedDate]);
+  }, [agencyId, fetchStats]);
 
-  const fetchStats = async () => {
-    if (!agencyId) return;
-    
-    setLoading(true);
-    try {
-      const [counts, wonBack] = await Promise.all([
-        winbackApi.getActivityStats(agencyId, weekStart, weekEnd),
-        winbackApi.getWeeklyWonBackCount(agencyId, weekStart, weekEnd),
-      ]);
-      setStats(counts);
-      setWeeklyWonBack(wonBack);
-    } catch (err) {
-      console.error('Error fetching activity stats:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePreviousWeek = () => {
     setSelectedDate(subWeeks(selectedDate, 1));
