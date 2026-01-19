@@ -38,6 +38,8 @@ export interface CancelAuditRecord {
   last_upload_id: string | null;
   assigned_team_member_id: string | null;
   contact_id?: string | null;
+  winback_household_id: string | null;
+  sent_to_winback_at: string | null;
   created_at: string;
   updated_at: string;
 }
