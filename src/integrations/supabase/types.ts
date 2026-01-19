@@ -8896,10 +8896,8 @@ export type Database = {
           p_stage?: string
         }
         Returns: {
-          agency_id: string
           assigned_team_member_name: string
-          computed_stage: string
-          created_at: string
+          current_stage: string
           emails: string[]
           first_name: string
           household_key: string
@@ -8908,9 +8906,6 @@ export type Database = {
           last_activity_type: string
           last_name: string
           phones: string[]
-          total_count: number
-          updated_at: string
-          zip_code: string
         }[]
       }
       get_conversation_participants: {
