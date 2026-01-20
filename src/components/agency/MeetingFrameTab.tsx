@@ -19,6 +19,7 @@ import { CallScoringSubmissionsSection, CallScoringData } from './CallScoringSub
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Json } from '@/integrations/supabase/types';
+import { fetchWithAuth } from '@/lib/staffRequest';
 
 interface MeetingFrameTabProps {
   agencyId: string;
@@ -70,13 +71,14 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const staffToken = localStorage.getItem('staff_session_token');
   const isStaffMode = !!staffToken;
 
-  // Helper function for staff edge function calls
+  // Helper function for staff edge function calls - uses fetchWithAuth to avoid JWT collision
   const invokeWithStaff = async (action: string, params: Record<string, unknown> = {}) => {
-    const { data, error } = await supabase.functions.invoke('scorecards_admin', {
-      headers: { 'x-staff-session': staffToken! },
+    const response = await fetchWithAuth('scorecards_admin', {
+      method: 'POST',
       body: { action, ...params },
     });
-    if (error) throw error;
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || 'Request failed');
     if (data?.error) throw new Error(data.error);
     return data;
   };

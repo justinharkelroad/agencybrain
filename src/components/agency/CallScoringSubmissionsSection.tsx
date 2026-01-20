@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { CallScorecard } from '@/components/CallScorecard';
 import { ServiceCallReportCard } from '@/components/call-scoring/ServiceCallReportCard';
+import { fetchWithAuth } from '@/lib/staffRequest';
 
 interface CallScoringSubmissionsProps {
   agencyId: string;
@@ -61,9 +62,9 @@ export function CallScoringSubmissionsSection({
         const endStr = format(endDate, 'yyyy-MM-dd');
 
         if (isStaffMode) {
-          // Staff mode: use edge function
-          const { data, error } = await supabase.functions.invoke('scorecards_admin', {
-            headers: { 'x-staff-session': staffToken! },
+          // Staff mode: use fetchWithAuth to avoid JWT collision
+          const response = await fetchWithAuth('scorecards_admin', {
+            method: 'POST',
             body: { 
               action: 'meeting_frame_call_submissions',
               team_member_id: teamMemberId,
@@ -71,9 +72,11 @@ export function CallScoringSubmissionsSection({
               end_date: endStr,
             },
           });
+          
+          const data = await response.json();
 
-          if (error) {
-            console.error('Error fetching call scoring submissions via edge function:', error);
+          if (!response.ok || data?.error) {
+            console.error('Error fetching call scoring submissions via edge function:', data?.error);
             setSubmissions([]);
           } else {
             setSubmissions(data?.submissions || []);
@@ -113,17 +116,19 @@ export function CallScoringSubmissionsSection({
     setLoadingCallDetails(true);
     try {
       if (isStaffMode) {
-        // Staff mode: use edge function
-        const { data, error } = await supabase.functions.invoke('scorecards_admin', {
-          headers: { 'x-staff-session': staffToken! },
+        // Staff mode: use fetchWithAuth to avoid JWT collision
+        const response = await fetchWithAuth('scorecards_admin', {
+          method: 'POST',
           body: { 
             action: 'meeting_frame_call_details',
             call_id: submissionId,
           },
         });
+        
+        const data = await response.json();
 
-        if (error) {
-          console.error('Error fetching call details via edge function:', error);
+        if (!response.ok || data?.error) {
+          console.error('Error fetching call details via edge function:', data?.error);
           toast.error('Failed to load call details');
           return;
         }
