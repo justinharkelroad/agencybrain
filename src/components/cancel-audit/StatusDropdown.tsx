@@ -19,6 +19,8 @@ import {
 import { useUpdateRecordStatus } from '@/hooks/useCancelAuditActivities';
 import { RecordStatus, CancelAuditRecord } from '@/types/cancel-audit';
 import { sendCancelAuditToWinback } from '@/lib/sendToWinback';
+import { sendStaffCancelToWinback } from '@/integrations/supabase/staff-winback-api';
+import { getStaffSessionToken } from '@/lib/cancel-audit-api';
 import { toast } from 'sonner';
 import { Loader2, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -94,22 +96,31 @@ export function StatusDropdown({
       // First update the status
       await performStatusUpdate(pendingStatus);
       
-      // Then send to winback
-      const result = await sendCancelAuditToWinback({
-        id: record.id,
-        agency_id: record.agency_id,
-        insured_first_name: record.insured_first_name,
-        insured_last_name: record.insured_last_name,
-        insured_email: record.insured_email,
-        insured_phone: record.insured_phone,
-        policy_number: record.policy_number,
-        product_name: record.product_name,
-        premium_cents: record.premium_cents,
-        cancel_date: record.cancel_date,
-        pending_cancel_date: record.pending_cancel_date,
-        agent_number: record.agent_number,
-        household_key: record.household_key,
-      });
+      // Check if we're in the staff portal
+      const staffToken = getStaffSessionToken();
+      let result: { success: boolean; householdId?: string; error?: string };
+      
+      if (staffToken) {
+        // Use edge function for staff users to bypass RLS
+        result = await sendStaffCancelToWinback({ recordId: record.id });
+      } else {
+        // Use client-side function for owner/admin users
+        result = await sendCancelAuditToWinback({
+          id: record.id,
+          agency_id: record.agency_id,
+          insured_first_name: record.insured_first_name,
+          insured_last_name: record.insured_last_name,
+          insured_email: record.insured_email,
+          insured_phone: record.insured_phone,
+          policy_number: record.policy_number,
+          product_name: record.product_name,
+          premium_cents: record.premium_cents,
+          cancel_date: record.cancel_date,
+          pending_cancel_date: record.pending_cancel_date,
+          agent_number: record.agent_number,
+          household_key: record.household_key,
+        });
+      }
       
       if (result.success) {
         toast.success('Sent to Win-Back', {
@@ -117,6 +128,7 @@ export function StatusDropdown({
         });
         // Invalidate queries to refresh data
         queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
+        queryClient.invalidateQueries({ queryKey: ['cancel-audit-activities'] });
         queryClient.invalidateQueries({ queryKey: ['winback'] });
       } else {
         toast.error('Failed to send to Win-Back', {

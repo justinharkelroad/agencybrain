@@ -1,5 +1,8 @@
 project_id = "wjqyccbytctqwceuhzhk"
 
+[functions.send_staff_cancel_to_winback]
+verify_jwt = false
+
 [functions.get_staff_winback]
 verify_jwt = false
 
