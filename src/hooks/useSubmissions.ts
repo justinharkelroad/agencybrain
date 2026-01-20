@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { fetchWithAuth } from "@/lib/staffRequest";
 
 interface Submission {
   id: string;
@@ -56,18 +57,17 @@ export function useSubmissions(staffAgencyId?: string) {
           return;
         }
 
-        const { data, error } = await supabase.functions.invoke('scorecards_admin', {
-          headers: {
-            'x-staff-session': staffToken,
-          },
-          body: {
-            action: 'submissions_list',
-          },
+        // Use fetchWithAuth to avoid JWT collision when owner is also logged in
+        const response = await fetchWithAuth('scorecards_admin', {
+          method: 'POST',
+          body: { action: 'submissions_list' },
         });
-
-        if (error) {
-          console.error('Edge function error:', error);
-          throw error;
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          console.error('Edge function error:', data.error);
+          throw new Error(data.error || 'Failed to fetch submissions');
         }
 
         if (data?.error) {
