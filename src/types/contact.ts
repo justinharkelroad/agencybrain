@@ -210,7 +210,7 @@ export interface ContactFilters {
   search?: string;
   stage?: LifecycleStage[];
   hasActivity?: boolean;
-  sortBy?: 'name' | 'last_activity' | 'created_at';
+  sortBy?: 'name' | 'last_activity' | 'status' | 'assigned';
   sortDirection?: 'asc' | 'desc';
 }
 

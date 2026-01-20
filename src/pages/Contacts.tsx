@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Users, Filter, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Users, RefreshCw, ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -28,7 +28,9 @@ import { ContactProfileModal, CustomerJourneyBadge } from '@/components/contacts
 import type { ContactWithStatus, LifecycleStage, ContactFilters } from '@/types/contact';
 import { LIFECYCLE_STAGE_CONFIGS } from '@/types/contact';
 import { cn } from '@/lib/utils';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
+
+type SortColumn = 'name' | 'last_activity' | 'status' | 'assigned';
 
 interface PageContext {
   agencyId: string;
@@ -46,8 +48,42 @@ export default function Contacts() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<LifecycleStage | 'all'>('all');
-  const [sortBy, setSortBy] = useState<'name' | 'last_activity' | 'created_at'>('name');
+  const [sortBy, setSortBy] = useState<SortColumn>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+
+  // Handle column header click for sorting
+  const handleSort = (column: SortColumn) => {
+    if (column === sortBy) {
+      setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sortable header component
+  const SortHeader = ({ column, children }: { column: SortColumn; children: React.ReactNode }) => {
+    const isActive = column === sortBy;
+    return (
+      <TableHead
+        className="cursor-pointer hover:bg-muted/50 select-none transition-colors"
+        onClick={() => handleSort(column)}
+      >
+        <div className="flex items-center gap-1">
+          {children}
+          {isActive ? (
+            sortDirection === 'asc' ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )
+          ) : (
+            <ChevronsUpDown className="h-4 w-4 opacity-30" />
+          )}
+        </div>
+      </TableHead>
+    );
+  };
 
   // Profile modal state
   const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
@@ -240,34 +276,6 @@ export default function Contacts() {
               ))}
             </SelectContent>
           </Select>
-
-          {/* Sort */}
-          <Select
-            value={sortBy}
-            onValueChange={(value) => setSortBy(value as 'name' | 'last_activity' | 'created_at')}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="name">Name</SelectItem>
-              <SelectItem value="last_activity">Last Activity</SelectItem>
-              <SelectItem value="created_at">Date Added</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Sort direction toggle */}
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'))}
-          >
-            {sortDirection === 'asc' ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </Button>
         </div>
       </Card>
 
@@ -283,12 +291,12 @@ export default function Contacts() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[250px]">Name</TableHead>
+                <SortHeader column="name">Name</SortHeader>
                 <TableHead>Phone</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Assigned To</TableHead>
-                <TableHead>Last Activity</TableHead>
+                <SortHeader column="status">Status</SortHeader>
+                <SortHeader column="assigned">Assigned To</SortHeader>
+                <SortHeader column="last_activity">Last Activity</SortHeader>
               </TableRow>
             </TableHeader>
             <TableBody>

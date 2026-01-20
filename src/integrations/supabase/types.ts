@@ -8936,6 +8936,35 @@ export type Database = {
         | {
             Args: {
               p_agency_id: string
+              p_limit?: number
+              p_offset?: number
+              p_search?: string
+              p_sort_by?: string
+              p_sort_direction?: string
+              p_stage?: string
+            }
+            Returns: {
+              agency_id: string
+              assigned_team_member_name: string
+              computed_stage: string
+              created_at: string
+              current_stage: string
+              emails: string[]
+              first_name: string
+              household_key: string
+              id: string
+              last_activity_at: string
+              last_activity_type: string
+              last_name: string
+              phones: string[]
+              total_count: number
+              updated_at: string
+              zip_code: string
+            }[]
+          }
+        | {
+            Args: {
+              p_agency_id: string
               p_cursor_id?: string
               p_cursor_value?: string
               p_limit?: number
