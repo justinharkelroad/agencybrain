@@ -411,16 +411,22 @@ export async function updateHouseholdStatus(
   }
 
   // Only update if old status matches (prevents overwriting won_back or in_progress)
-  const { error: updateError, count } = await supabase
+  // IMPORTANT: Use { count: 'exact' } to get actual row count (Supabase JS v2 returns null otherwise)
+  const { data: updatedRows, error: updateError, count } = await supabase
     .from('winback_households')
-    .update(updateData)
+    .update(updateData, { count: 'exact' })
     .eq('id', householdId)
-    .eq('status', oldStatus);
+    .eq('status', oldStatus)
+    .select('id');
 
   if (updateError) throw updateError;
 
   // If no rows were updated (status didn't match), return failure
-  if (count === 0) return { success: false, assigned_to: undefined };
+  // With count: 'exact', count will be 0 (not null) when no rows match
+  if (count === 0 || !updatedRows || updatedRows.length === 0) {
+    console.log('[winbackApi] Status update failed - no rows matched', { householdId, oldStatus, newStatus });
+    return { success: false, assigned_to: undefined };
+  }
 
   // Log status change
   const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
