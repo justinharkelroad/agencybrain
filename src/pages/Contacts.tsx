@@ -234,7 +234,7 @@ export default function Contacts() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Contacts</h1>
+          <h1 className="text-2xl font-bold">Contacts <span className="text-destructive">(BETA)</span></h1>
           <p className="text-muted-foreground">
             View and manage all contacts across your agency
           </p>
