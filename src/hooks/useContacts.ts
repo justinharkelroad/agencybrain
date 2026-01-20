@@ -22,6 +22,8 @@ export function useContacts(agencyId: string | null, filters: ContactFilters = {
         p_search: filters.search || null,
         p_limit: PAGE_SIZE,
         p_offset: pageParam,
+        p_sort_by: filters.sortBy || 'name',
+        p_sort_direction: filters.sortDirection || 'asc',
       });
 
       if (error) {
