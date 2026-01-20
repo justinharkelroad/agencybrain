@@ -337,6 +337,7 @@ export function ContactProfileModal({
 
         // Upsert LQS record - if exists, update status to quoted; if not, create it
         // Auto-assign to the person who clicked Quoted
+        // Carry over phone/email from the contact profile
         const { error: lqsError } = await supabase
           .from('lqs_households')
           .upsert({
@@ -352,6 +353,8 @@ export function ContactProfileModal({
             first_quote_date: today, // Reset quote date for new quote cycle
             lead_received_date: today,
             updated_at: new Date().toISOString(),
+            phone: profile.phones || [], // Carry over phone array from contact
+            email: profile.emails?.[0] || null, // Carry over primary email from contact
           }, {
             onConflict: 'agency_id,household_key',
           });
