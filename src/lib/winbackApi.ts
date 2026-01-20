@@ -243,7 +243,7 @@ export async function listHouseholds(params: ListHouseholdsParams): Promise<{ ho
   if (params.activeTab === 'dismissed') {
     query = query.eq('status', 'dismissed');
   } else {
-    query = query.neq('status', 'dismissed');
+    query = query.neq('status', 'dismissed').neq('status', 'moved_to_quoted');
     query = query.not('earliest_winback_date', 'is', null);
   }
 
