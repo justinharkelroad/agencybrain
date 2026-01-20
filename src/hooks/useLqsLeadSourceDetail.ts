@@ -121,16 +121,6 @@ export function useLqsLeadSourceDetail(
           query = query.eq('lead_source_id', leadSourceId);
         }
 
-        // Date filtering based on lead_received_date if provided
-        if (dateRange) {
-          const startStr = format(dateRange.start, 'yyyy-MM-dd');
-          const endStr = format(dateRange.end, 'yyyy-MM-dd');
-          // Filter by lead received date or created_at fallback
-          query = query
-            .or(`lead_received_date.gte.${startStr},created_at.gte.${startStr}`)
-            .or(`lead_received_date.lte.${endStr},created_at.lte.${endStr}`);
-        }
-
         const { data: page, error } = await query
           .order('lead_received_date', { ascending: false, nullsFirst: false })
           .range(from, from + PAGE_SIZE - 1);
@@ -138,7 +128,18 @@ export function useLqsLeadSourceDetail(
         if (error) throw error;
         if (!page || page.length === 0) break;
 
-        allRows.push(...page);
+        // Filter in memory if date range provided
+        if (dateRange) {
+          const filtered = page.filter(h => {
+            const dateToUse = h.lead_received_date || (h as any).created_at;
+            if (!dateToUse) return true; // Include if no date
+            const d = new Date(dateToUse);
+            return d >= dateRange.start && d <= dateRange.end;
+          });
+          allRows.push(...filtered);
+        } else {
+          allRows.push(...page);
+        }
         if (page.length < PAGE_SIZE) break;
       }
 

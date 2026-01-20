@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Fragment } from 'react';
 import { ChevronDown, ChevronRight, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -220,10 +220,9 @@ export function LqsRoiBucketTable({ data, isLoading, onLeadSourceClick }: LqsRoi
                 </TableRow>
               ) : (
                 groupedData.map((bucket) => (
-                  <>
+                  <Fragment key={bucket.bucketId ?? 'unassigned'}>
                     {/* Bucket Row */}
                     <TableRow
-                      key={bucket.bucketId ?? 'unassigned'}
                       className={cn(
                         'cursor-pointer font-semibold',
                         bucket.bucketId === null
@@ -320,7 +319,7 @@ export function LqsRoiBucketTable({ data, isLoading, onLeadSourceClick }: LqsRoi
                           )}
                         </TableRow>
                       ))}
-                  </>
+                  </Fragment>
                 ))
               )}
             </TableBody>

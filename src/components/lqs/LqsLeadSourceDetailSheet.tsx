@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, ChevronDown, ChevronRight, Users, Target, DollarSign, Flame } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronLeft, Users, Target, DollarSign } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -7,6 +7,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -274,6 +275,8 @@ function HouseholdRow({ household }: { household: HouseholdDetailRow }) {
   );
 }
 
+const ITEMS_PER_PAGE = 50;
+
 export function LqsLeadSourceDetailSheet({
   agencyId,
   leadSourceId,
@@ -281,15 +284,37 @@ export function LqsLeadSourceDetailSheet({
   open,
   onOpenChange,
 }: LqsLeadSourceDetailSheetProps) {
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+
   const { data, isLoading, error } = useLqsLeadSourceDetail(
     agencyId,
     open ? leadSourceId : undefined, // Only fetch when open
     dateRange
   );
 
+  // Filter households by status
+  const filteredHouseholds = data?.households.filter(h => {
+    if (!statusFilter) return true;
+    return h.status === statusFilter;
+  }) || [];
+
+  // Paginate
+  const totalPages = Math.ceil(filteredHouseholds.length / ITEMS_PER_PAGE);
+  const paginatedHouseholds = filteredHouseholds.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  // Reset page when filter changes
+  const handleStatusFilter = (status: string | null) => {
+    setStatusFilter(status);
+    setCurrentPage(1);
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-3xl overflow-hidden flex flex-col">
+      <SheetContent className="w-full sm:max-w-4xl overflow-hidden flex flex-col">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -308,21 +333,45 @@ export function LqsLeadSourceDetailSheet({
           </div>
         ) : data ? (
           <>
-            {/* Summary Cards */}
+            {/* Summary Cards - Clickable for filtering */}
             <div className="grid grid-cols-4 gap-4 p-4 border-b">
-              <div className="text-center">
+              <div
+                className={cn(
+                  "text-center cursor-pointer rounded-lg p-2 transition-colors",
+                  statusFilter === null ? "bg-primary/10 ring-2 ring-primary" : "hover:bg-muted"
+                )}
+                onClick={() => handleStatusFilter(null)}
+              >
                 <div className="text-2xl font-bold">{data.summary.totalHouseholds}</div>
                 <div className="text-xs text-muted-foreground">Total HH</div>
               </div>
-              <div className="text-center">
+              <div
+                className={cn(
+                  "text-center cursor-pointer rounded-lg p-2 transition-colors",
+                  statusFilter === 'lead' ? "bg-blue-500/20 ring-2 ring-blue-500" : "hover:bg-muted"
+                )}
+                onClick={() => handleStatusFilter('lead')}
+              >
                 <div className="text-2xl font-bold text-blue-500">{data.summary.leadsCount}</div>
                 <div className="text-xs text-muted-foreground">Leads</div>
               </div>
-              <div className="text-center">
+              <div
+                className={cn(
+                  "text-center cursor-pointer rounded-lg p-2 transition-colors",
+                  statusFilter === 'quoted' ? "bg-amber-500/20 ring-2 ring-amber-500" : "hover:bg-muted"
+                )}
+                onClick={() => handleStatusFilter('quoted')}
+              >
                 <div className="text-2xl font-bold text-amber-500">{data.summary.quotedCount}</div>
                 <div className="text-xs text-muted-foreground">Quoted</div>
               </div>
-              <div className="text-center">
+              <div
+                className={cn(
+                  "text-center cursor-pointer rounded-lg p-2 transition-colors",
+                  statusFilter === 'sold' ? "bg-green-500/20 ring-2 ring-green-500" : "hover:bg-muted"
+                )}
+                onClick={() => handleStatusFilter('sold')}
+              >
                 <div className="text-2xl font-bold text-green-500">{data.summary.soldCount}</div>
                 <div className="text-xs text-muted-foreground">Sold</div>
               </div>
@@ -340,35 +389,71 @@ export function LqsLeadSourceDetailSheet({
               </div>
             </div>
 
+            {/* Filter indicator */}
+            {statusFilter && (
+              <div className="px-4 py-2 text-sm text-muted-foreground">
+                Showing {filteredHouseholds.length} {statusFilter} households
+              </div>
+            )}
+
             {/* Households Table */}
             <ScrollArea className="flex-1">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[200px]">Household</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Temp</TableHead>
-                    <TableHead>Lead Date</TableHead>
-                    <TableHead>Quoted</TableHead>
-                    <TableHead>Sold</TableHead>
-                    <TableHead className="text-right">Premium</TableHead>
+                    <TableHead className="w-[180px]">Household</TableHead>
+                    <TableHead className="w-[80px]">Status</TableHead>
+                    <TableHead className="w-[60px]">Temp</TableHead>
+                    <TableHead className="w-[100px]">Lead Date</TableHead>
+                    <TableHead className="w-[100px]">Quoted</TableHead>
+                    <TableHead className="w-[100px]">Sold</TableHead>
+                    <TableHead className="w-[100px] text-right">Premium</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {data.households.length === 0 ? (
+                  {paginatedHouseholds.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                         No households found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    data.households.map((household) => (
+                    paginatedHouseholds.map((household) => (
                       <HouseholdRow key={household.id} household={household} />
                     ))
                   )}
                 </TableBody>
               </Table>
             </ScrollArea>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between p-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Page {currentPage} of {totalPages} ({filteredHouseholds.length} households)
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         ) : null}
       </SheetContent>
