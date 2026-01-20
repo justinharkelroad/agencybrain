@@ -19,11 +19,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -138,140 +133,86 @@ function StatusBadge({ status }: { status: string | null }) {
   );
 }
 
-// Expandable household row
-function HouseholdRow({ household }: { household: HouseholdDetailRow }) {
-  const [expanded, setExpanded] = useState(false);
-  const temperature = calculateTemperature(household);
-
+// Expanded detail content for a household
+function HouseholdDetailContent({ household }: { household: HouseholdDetailRow }) {
   return (
-    <Collapsible open={expanded} onOpenChange={setExpanded}>
-      <TableRow className="hover:bg-muted/50">
-        <TableCell className="w-[180px]">
-          <CollapsibleTrigger className="flex items-center gap-2 w-full text-left">
-            {expanded ? (
-              <ChevronDown className="h-4 w-4 shrink-0" />
-            ) : (
-              <ChevronRight className="h-4 w-4 shrink-0" />
-            )}
-            <span className="font-medium truncate">
-              {household.firstName} {household.lastName}
-            </span>
-          </CollapsibleTrigger>
-        </TableCell>
-        <TableCell className="w-[80px]">
-          <StatusBadge status={household.status} />
-        </TableCell>
-        <TableCell className="w-[60px]">
-          <TemperatureRating temperature={temperature} />
-        </TableCell>
-        <TableCell className="w-[100px]">{formatDate(household.leadReceivedDate)}</TableCell>
-        <TableCell className="w-[100px]">
-          {household.quotedPolicies > 0 ? (
-            <span className="text-amber-500">
-              {household.quotedPolicies} pol / {household.quotedItems} items
-            </span>
-          ) : (
-            '-'
-          )}
-        </TableCell>
-        <TableCell className="w-[100px]">
-          {household.soldPolicies > 0 ? (
-            <span className="text-green-500">
-              {household.soldPolicies} pol / {household.soldItems} items
-            </span>
-          ) : (
-            '-'
-          )}
-        </TableCell>
-        <TableCell className="w-[100px] text-right font-medium text-green-500">
-          {household.soldPremiumCents > 0 ? formatCurrency(household.soldPremiumCents) : '-'}
-        </TableCell>
-      </TableRow>
+    <div className="p-4 space-y-4">
+      {/* Quotes Section */}
+      {household.quotes.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+            <Target className="h-4 w-4 text-amber-500" />
+            Quotes ({household.quotes.length})
+          </h4>
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-2">Date</th>
+                  <th className="text-left p-2">Product</th>
+                  <th className="text-right p-2">Items</th>
+                  <th className="text-right p-2">Premium</th>
+                  <th className="text-left p-2">Quoted By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {household.quotes.map((q, idx) => (
+                  <tr key={idx} className="border-t border-border/50">
+                    <td className="p-2">{formatDate(q.quoteDate)}</td>
+                    <td className="p-2">{q.productType}</td>
+                    <td className="p-2 text-right">{q.itemsQuoted}</td>
+                    <td className="p-2 text-right">{formatCurrency(q.premiumCents)}</td>
+                    <td className="p-2">{q.teamMemberName || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-      <CollapsibleContent asChild>
-        <TableRow className="bg-muted/30">
-          <TableCell colSpan={7} className="p-0">
-            <div className="p-4 space-y-4">
-              {/* Quotes Section */}
-              {household.quotes.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <Target className="h-4 w-4 text-amber-500" />
-                    Quotes ({household.quotes.length})
-                  </h4>
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="text-left p-2">Date</th>
-                          <th className="text-left p-2">Product</th>
-                          <th className="text-right p-2">Items</th>
-                          <th className="text-right p-2">Premium</th>
-                          <th className="text-left p-2">Quoted By</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {household.quotes.map((q, idx) => (
-                          <tr key={idx} className="border-t border-border/50">
-                            <td className="p-2">{formatDate(q.quoteDate)}</td>
-                            <td className="p-2">{q.productType}</td>
-                            <td className="p-2 text-right">{q.itemsQuoted}</td>
-                            <td className="p-2 text-right">{formatCurrency(q.premiumCents)}</td>
-                            <td className="p-2">{q.teamMemberName || '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+      {/* Sales Section */}
+      {household.sales.length > 0 && (
+        <div>
+          <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+            <DollarSign className="h-4 w-4 text-green-500" />
+            Sales ({household.sales.length})
+          </h4>
+          <div className="border rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="text-left p-2">Date</th>
+                  <th className="text-left p-2">Product</th>
+                  <th className="text-right p-2">Policies</th>
+                  <th className="text-right p-2">Items</th>
+                  <th className="text-right p-2">Premium</th>
+                  <th className="text-left p-2">Sold By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {household.sales.map((s, idx) => (
+                  <tr key={idx} className="border-t border-border/50">
+                    <td className="p-2">{formatDate(s.saleDate)}</td>
+                    <td className="p-2">{s.productType}</td>
+                    <td className="p-2 text-right">{s.policiesSold}</td>
+                    <td className="p-2 text-right">{s.itemsSold}</td>
+                    <td className="p-2 text-right text-green-500">{formatCurrency(s.premiumCents)}</td>
+                    <td className="p-2">{s.teamMemberName || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-              {/* Sales Section */}
-              {household.sales.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-green-500" />
-                    Sales ({household.sales.length})
-                  </h4>
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="text-left p-2">Date</th>
-                          <th className="text-left p-2">Product</th>
-                          <th className="text-right p-2">Policies</th>
-                          <th className="text-right p-2">Items</th>
-                          <th className="text-right p-2">Premium</th>
-                          <th className="text-left p-2">Sold By</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {household.sales.map((s, idx) => (
-                          <tr key={idx} className="border-t border-border/50">
-                            <td className="p-2">{formatDate(s.saleDate)}</td>
-                            <td className="p-2">{s.productType}</td>
-                            <td className="p-2 text-right">{s.policiesSold}</td>
-                            <td className="p-2 text-right">{s.itemsSold}</td>
-                            <td className="p-2 text-right text-green-500">{formatCurrency(s.premiumCents)}</td>
-                            <td className="p-2">{s.teamMemberName || '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {household.quotes.length === 0 && household.sales.length === 0 && (
-                <div className="text-center text-muted-foreground py-4">
-                  No quotes or sales yet
-                </div>
-              )}
-            </div>
-          </TableCell>
-        </TableRow>
-      </CollapsibleContent>
-    </Collapsible>
+      {household.quotes.length === 0 && household.sales.length === 0 && (
+        <div className="text-center text-muted-foreground py-4">
+          No quotes or sales yet
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -286,6 +227,19 @@ export function LqsLeadSourceDetailSheet({
 }: LqsLeadSourceDetailSheetProps) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   const { data, isLoading, error } = useLqsLeadSourceDetail(
     agencyId,
@@ -398,16 +352,16 @@ export function LqsLeadSourceDetailSheet({
 
             {/* Households Table */}
             <ScrollArea className="flex-1">
-              <Table className="table-fixed w-full">
+              <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[180px]">Household</TableHead>
-                    <TableHead className="w-[80px]">Status</TableHead>
-                    <TableHead className="w-[60px]">Temp</TableHead>
-                    <TableHead className="w-[100px]">Lead Date</TableHead>
-                    <TableHead className="w-[100px]">Quoted</TableHead>
-                    <TableHead className="w-[100px]">Sold</TableHead>
-                    <TableHead className="w-[100px] text-right">Premium</TableHead>
+                    <TableHead style={{ width: 180 }}>Household</TableHead>
+                    <TableHead style={{ width: 80 }}>Status</TableHead>
+                    <TableHead style={{ width: 60 }}>Temp</TableHead>
+                    <TableHead style={{ width: 100 }}>Lead Date</TableHead>
+                    <TableHead style={{ width: 100 }}>Quoted</TableHead>
+                    <TableHead style={{ width: 100 }}>Sold</TableHead>
+                    <TableHead style={{ width: 100 }} className="text-right">Premium</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -418,9 +372,66 @@ export function LqsLeadSourceDetailSheet({
                       </TableCell>
                     </TableRow>
                   ) : (
-                    paginatedHouseholds.map((household) => (
-                      <HouseholdRow key={household.id} household={household} />
-                    ))
+                    paginatedHouseholds.flatMap((household) => {
+                      const temperature = calculateTemperature(household);
+                      const isExpanded = expandedIds.has(household.id);
+
+                      return [
+                        <TableRow
+                          key={`row-${household.id}`}
+                          className="hover:bg-muted/50 cursor-pointer"
+                          onClick={() => toggleExpanded(household.id)}
+                        >
+                          <TableCell style={{ width: 180 }}>
+                            <div className="flex items-center gap-2">
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4 shrink-0" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 shrink-0" />
+                              )}
+                              <span className="font-medium truncate">
+                                {household.firstName} {household.lastName}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell style={{ width: 80 }}>
+                            <StatusBadge status={household.status} />
+                          </TableCell>
+                          <TableCell style={{ width: 60 }}>
+                            <TemperatureRating temperature={temperature} />
+                          </TableCell>
+                          <TableCell style={{ width: 100 }}>{formatDate(household.leadReceivedDate)}</TableCell>
+                          <TableCell style={{ width: 100 }}>
+                            {household.quotedPolicies > 0 ? (
+                              <span className="text-amber-500">
+                                {household.quotedPolicies} pol / {household.quotedItems} items
+                              </span>
+                            ) : (
+                              '-'
+                            )}
+                          </TableCell>
+                          <TableCell style={{ width: 100 }}>
+                            {household.soldPolicies > 0 ? (
+                              <span className="text-green-500">
+                                {household.soldPolicies} pol / {household.soldItems} items
+                              </span>
+                            ) : (
+                              '-'
+                            )}
+                          </TableCell>
+                          <TableCell style={{ width: 100 }} className="text-right font-medium text-green-500">
+                            {household.soldPremiumCents > 0 ? formatCurrency(household.soldPremiumCents) : '-'}
+                          </TableCell>
+                        </TableRow>,
+                        ...(isExpanded ? [
+                          <TableRow key={`detail-${household.id}`} className="bg-muted/30">
+                            <TableCell colSpan={7} className="p-0">
+                              <HouseholdDetailContent household={household} />
+                            </TableCell>
+                          </TableRow>
+                        ] : [])
+                      ];
+                    })
                   )}
                 </TableBody>
               </Table>

@@ -251,26 +251,12 @@ export function LqsRoiBucketTable({ data, isLoading, onLeadSourceClick }: LqsRoi
                       <TableCell className="text-right">{bucket.writtenHouseholds.toLocaleString()}</TableCell>
                       <TableCell className="text-right">{bucket.writtenPolicies.toLocaleString()}</TableCell>
                       <TableCell className="text-right">{bucket.writtenItems.toLocaleString()}</TableCell>
-                      {/* For unassigned, don't show cost calculations */}
-                      {bucket.bucketId === null ? (
-                        <>
-                          <TableCell className="text-right text-muted-foreground">-</TableCell>
-                          <TableCell className="text-right text-muted-foreground">-</TableCell>
-                          <TableCell className="text-right text-muted-foreground">-</TableCell>
-                          <TableCell className="text-right text-muted-foreground">-</TableCell>
-                          <TableCell className="text-right text-muted-foreground">-</TableCell>
-                          <TableCell className="text-right text-muted-foreground">-</TableCell>
-                        </>
-                      ) : (
-                        <>
-                          <TableCell className="text-right">{formatCurrency(bucket.costPerQuotedHH)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(bucket.costPerQuotedPolicy)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(bucket.costPerQuotedItem)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(bucket.householdAcqCost)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(bucket.policyAcqCost)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(bucket.itemAcqCost)}</TableCell>
-                        </>
-                      )}
+                      <TableCell className="text-right">{bucket.bucketId === null ? '-' : formatCurrency(bucket.costPerQuotedHH)}</TableCell>
+                      <TableCell className="text-right">{bucket.bucketId === null ? '-' : formatCurrency(bucket.costPerQuotedPolicy)}</TableCell>
+                      <TableCell className="text-right">{bucket.bucketId === null ? '-' : formatCurrency(bucket.costPerQuotedItem)}</TableCell>
+                      <TableCell className="text-right">{bucket.bucketId === null ? '-' : formatCurrency(bucket.householdAcqCost)}</TableCell>
+                      <TableCell className="text-right">{bucket.bucketId === null ? '-' : formatCurrency(bucket.policyAcqCost)}</TableCell>
+                      <TableCell className="text-right">{bucket.bucketId === null ? '-' : formatCurrency(bucket.itemAcqCost)}</TableCell>
                   </TableRow>,
 
                   /* Lead Source Rows (expanded) */
@@ -297,26 +283,12 @@ export function LqsRoiBucketTable({ data, isLoading, onLeadSourceClick }: LqsRoi
                           <TableCell className="text-right">{source.totalSales.toLocaleString()}</TableCell>
                           <TableCell className="text-right">{source.writtenPolicies.toLocaleString()}</TableCell>
                           <TableCell className="text-right">{source.writtenItems.toLocaleString()}</TableCell>
-                          {/* For unassigned sources, don't show cost calculations */}
-                          {bucket.bucketId === null ? (
-                            <>
-                              <TableCell className="text-right text-muted-foreground">-</TableCell>
-                              <TableCell className="text-right text-muted-foreground">-</TableCell>
-                              <TableCell className="text-right text-muted-foreground">-</TableCell>
-                              <TableCell className="text-right text-muted-foreground">-</TableCell>
-                              <TableCell className="text-right text-muted-foreground">-</TableCell>
-                              <TableCell className="text-right text-muted-foreground">-</TableCell>
-                            </>
-                          ) : (
-                            <>
-                              <TableCell className="text-right">{formatCurrency(source.costPerQuotedHousehold)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(source.costPerQuotedPolicy)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(source.costPerQuotedItem)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(source.householdAcqCost)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(source.policyAcqCost)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(source.itemAcqCost)}</TableCell>
-                            </>
-                          )}
+                          <TableCell className="text-right">{bucket.bucketId === null ? '-' : formatCurrency(source.costPerQuotedHousehold)}</TableCell>
+                          <TableCell className="text-right">{bucket.bucketId === null ? '-' : formatCurrency(source.costPerQuotedPolicy)}</TableCell>
+                          <TableCell className="text-right">{bucket.bucketId === null ? '-' : formatCurrency(source.costPerQuotedItem)}</TableCell>
+                          <TableCell className="text-right">{bucket.bucketId === null ? '-' : formatCurrency(source.householdAcqCost)}</TableCell>
+                          <TableCell className="text-right">{bucket.bucketId === null ? '-' : formatCurrency(source.policyAcqCost)}</TableCell>
+                          <TableCell className="text-right">{bucket.bucketId === null ? '-' : formatCurrency(source.itemAcqCost)}</TableCell>
                         </TableRow>
                       ))
                     : []),

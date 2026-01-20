@@ -216,6 +216,7 @@ export function useLqsRoiAnalytics(
   const leadsReceivedQuery = useQuery({
     queryKey: ['lqs-roi-leads-activity', agencyId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
     enabled: !!agencyId && isActivityView,
+    staleTime: 30000, // Cache for 30 seconds to prevent refetch storms
     queryFn: async (): Promise<LeadRow[]> => {
       if (!dateRange) return [];
 
@@ -224,29 +225,19 @@ export function useLqsRoiAnalytics(
       const endStr = format(dateRange.end, 'yyyy-MM-dd');
 
       for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
-        // Use database filtering with lead_received_date, fallback to created_at handled separately
+        // Filter by lead_received_date at database level (the correct date field)
         const { data: page, error } = await supabase
           .from('lqs_households')
           .select('id, lead_source_id, lead_received_date, created_at')
           .eq('agency_id', agencyId!)
-          .gte('created_at', startStr)
-          .lte('created_at', `${endStr}T23:59:59`)
+          .gte('lead_received_date', startStr)
+          .lte('lead_received_date', `${endStr}T23:59:59`)
           .range(from, from + PAGE_SIZE - 1);
 
         if (error) throw error;
         if (!page || page.length === 0) break;
 
-        // Further filter by lead_received_date if it exists and is more accurate
-        const filtered = page.filter(h => {
-          if (h.lead_received_date) {
-            const d = new Date(h.lead_received_date);
-            return d >= dateRange.start && d <= dateRange.end;
-          }
-          // Already filtered by created_at in query
-          return true;
-        });
-
-        allRows.push(...(filtered as LeadRow[]));
+        allRows.push(...(page as LeadRow[]));
         if (page.length < PAGE_SIZE) break;
       }
 
@@ -258,6 +249,7 @@ export function useLqsRoiAnalytics(
   const quotesCreatedQuery = useQuery({
     queryKey: ['lqs-roi-quotes-activity', agencyId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
     enabled: !!agencyId && isActivityView,
+    staleTime: 30000,
     queryFn: async (): Promise<QuoteRow[]> => {
       if (!dateRange) return [];
 
@@ -268,7 +260,7 @@ export function useLqsRoiAnalytics(
       for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
         const { data: page, error } = await supabase
           .from('lqs_quotes')
-          .select('household_id, quote_date, premium_cents, items_quoted, product_type, household:lqs_households(lead_source_id)')
+          .select('household_id, quote_date, premium_cents, items_quoted, product_type, household:lqs_households!inner(lead_source_id)')
           .eq('agency_id', agencyId!)
           .gte('quote_date', startStr)
           .lte('quote_date', endStr)
@@ -289,6 +281,7 @@ export function useLqsRoiAnalytics(
   const salesClosedQuery = useQuery({
     queryKey: ['lqs-roi-sales-activity', agencyId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
     enabled: !!agencyId && isActivityView,
+    staleTime: 30000,
     queryFn: async (): Promise<SaleRow[]> => {
       if (!dateRange) return [];
 
@@ -299,7 +292,7 @@ export function useLqsRoiAnalytics(
       for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
         const { data: page, error } = await supabase
           .from('lqs_sales')
-          .select('household_id, sale_date, premium_cents, policies_sold, items_sold, product_type, household:lqs_households(lead_source_id)')
+          .select('household_id, sale_date, premium_cents, policies_sold, items_sold, product_type, household:lqs_households!inner(lead_source_id)')
           .eq('agency_id', agencyId!)
           .gte('sale_date', startStr)
           .lte('sale_date', endStr)
