@@ -25,7 +25,7 @@ export interface WinbackHousehold {
   city: string | null;
   state: string | null;
   zip_code: string | null;
-  status: 'untouched' | 'in_progress' | 'won_back' | 'dismissed';
+  status: 'untouched' | 'in_progress' | 'won_back' | 'dismissed' | 'moved_to_quoted' | 'declined' | 'no_contact';
   assigned_to: string | null;
   assigned_name?: string | null;
   notes: string | null;
@@ -441,6 +441,68 @@ export async function updateHouseholdStatus(
   });
 
   return { success: true, assigned_to: updateData.assigned_to };
+}
+
+/**
+ * Transition a winback household to moved_to_quoted from ANY active status.
+ * This is more robust than the two-step approach used elsewhere.
+ * Also sets the assigned_to field to the current user if provided.
+ */
+export async function transitionToQuoted(
+  householdId: string,
+  agencyId: string,
+  currentUserTeamMemberId: string | null,
+  teamMembers: TeamMember[]
+): Promise<{ success: boolean; previousStatus?: string }> {
+  if (isStaffUser()) {
+    return callStaffWinback('transition_to_quoted', {
+      householdId,
+      currentUserTeamMemberId,
+    });
+  }
+
+  // Active statuses that can transition to moved_to_quoted
+  const activeStatuses = ['untouched', 'in_progress', 'declined', 'no_contact'];
+
+  const updateData: Record<string, any> = {
+    status: 'moved_to_quoted',
+    updated_at: new Date().toISOString(),
+  };
+
+  // Always set assigned_to when moving to quoted (shows who did it)
+  if (currentUserTeamMemberId) {
+    updateData.assigned_to = currentUserTeamMemberId;
+  }
+
+  // Update from any active status
+  const { data: updatedRows, error: updateError, count } = await supabase
+    .from('winback_households')
+    .update(updateData, { count: 'exact' })
+    .eq('id', householdId)
+    .in('status', activeStatuses)
+    .select('id');
+
+  if (updateError) throw updateError;
+
+  // If no rows were updated (not in an active status), return failure
+  if (count === 0 || !updatedRows || updatedRows.length === 0) {
+    console.log('[winbackApi] transitionToQuoted failed - no rows matched active statuses', { householdId, activeStatuses });
+    return { success: false };
+  }
+
+  // Log the status change
+  const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
+  await supabase.from('winback_activities').insert({
+    household_id: householdId,
+    agency_id: agencyId,
+    activity_type: 'status_change',
+    old_status: null, // We don't know the exact old status from the bulk update
+    new_status: 'moved_to_quoted',
+    created_by_team_member_id: currentUserTeamMemberId || null,
+    created_by_name: userName,
+  });
+
+  return { success: true };
 }
 
 // ============ Assignment ============

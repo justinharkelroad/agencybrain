@@ -361,36 +361,25 @@ export function ContactProfileModal({
 
         if (lqsError) throw lqsError;
 
-        // Step 3: Mark winback as moved_to_quoted (they agreed to get a quote)
-        // Try from in_progress first, then from untouched if that fails
-        let winbackResult = await winbackApi.updateHouseholdStatus(
+        // Step 3: Mark winback as moved_to_quoted using robust transition
+        // This handles any active status (untouched, in_progress, declined, no_contact)
+        const winbackResult = await winbackApi.transitionToQuoted(
           winbackHousehold.id,
           agencyId,
-          'moved_to_quoted',
-          'in_progress',
           currentUserTeamMemberId || null,
-          teamMembers,
-          null
+          teamMembers
         );
         
-        // If in_progress didn't match, try from untouched
+        // FAIL FAST: If winback status update failed, don't proceed
         if (!winbackResult.success) {
-          winbackResult = await winbackApi.updateHouseholdStatus(
-            winbackHousehold.id,
-            agencyId,
-            'moved_to_quoted',
-            'untouched',
-            currentUserTeamMemberId || null,
-            teamMembers,
-            null
-          );
-        }
-        
-        if (!winbackResult.success) {
-          console.warn('Failed to update winback status to moved_to_quoted - status may have already changed');
+          toast.error('Failed to move to Quoted', { 
+            description: 'Winback status could not be updated. The record may already be in a terminal state.' 
+          });
+          return;
         }
 
         // Step 4: Log the quoted activity so it appears in Daily Activity Summary
+        // Only log if the status update succeeded
         await winbackApi.logActivity(
           winbackHousehold.id,
           agencyId,
