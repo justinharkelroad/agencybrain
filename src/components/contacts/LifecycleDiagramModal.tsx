@@ -30,8 +30,8 @@ const stages: Record<string, StageInfo> = {
     icon: UserPlus,
     color: "text-blue-600",
     bgColor: "bg-blue-50",
-    borderColor: "border-blue-200",
-    description: "New lead record in LQS with status 'lead'. Entry point for prospects.",
+    borderColor: "border-blue-300",
+    description: "New lead record in LQS with status 'lead'. This is the entry point for all prospects entering your sales pipeline.",
   },
   quoted: {
     id: "quoted",
@@ -39,8 +39,8 @@ const stages: Record<string, StageInfo> = {
     icon: FileText,
     color: "text-amber-600",
     bgColor: "bg-amber-50",
-    borderColor: "border-amber-200",
-    description: "Has an LQS quote or was moved from Winback to quoted status.",
+    borderColor: "border-amber-300",
+    description: "Contact has received a quote in LQS, or was moved here from Winback for re-quoting. Ready for conversion.",
   },
   customer: {
     id: "customer",
@@ -48,26 +48,26 @@ const stages: Record<string, StageInfo> = {
     icon: CheckCircle,
     color: "text-green-600",
     bgColor: "bg-green-50",
-    borderColor: "border-green-200",
-    description: "Active customer with a sold policy, successful renewal, won-back, or saved cancel audit.",
+    borderColor: "border-green-300",
+    description: "Active customer with a sold policy, successful renewal, won-back sale, or a saved cancel audit. Your book of business.",
   },
   renewal: {
     id: "renewal",
     label: "Renewal",
     icon: RefreshCw,
-    color: "text-blue-600",
-    bgColor: "bg-blue-50",
-    borderColor: "border-blue-200",
-    description: "Customer with an active renewal record that is pending or uncontacted.",
+    color: "text-purple-600",
+    bgColor: "bg-purple-50",
+    borderColor: "border-purple-300",
+    description: "Customer with an upcoming renewal that is pending or uncontacted. Requires follow-up to retain the policy.",
   },
   cancel_audit: {
     id: "cancel_audit",
     label: "Cancel Audit",
     icon: AlertTriangle,
-    color: "text-yellow-600",
-    bgColor: "bg-yellow-50",
-    borderColor: "border-yellow-200",
-    description: "Customer with an active cancel audit that has not yet been marked as Saved.",
+    color: "text-orange-600",
+    bgColor: "bg-orange-50",
+    borderColor: "border-orange-300",
+    description: "Customer at risk with an active cancel audit. If saved, returns to Customer. If lost, moves to Winback.",
   },
   winback: {
     id: "winback",
@@ -75,218 +75,277 @@ const stages: Record<string, StageInfo> = {
     icon: Target,
     color: "text-red-600",
     bgColor: "bg-red-50",
-    borderColor: "border-red-200",
-    description: "Terminated policy in active winback status. Can loop back to Quoted.",
+    borderColor: "border-red-300",
+    description: "Terminated policy needing win-back effort. Success loops back to Quoted for re-quoting, completing the lifecycle circle.",
   },
 };
 
 const StageBox = ({ 
   stage, 
-  isHovered, 
-  onHover,
-  onLeave,
-  onTap,
-  size = "normal",
+  isSelected,
+  onClick,
   className
 }: { 
   stage: StageInfo; 
-  isHovered: boolean; 
-  onHover: () => void;
-  onLeave: () => void;
-  onTap: () => void;
-  size?: "normal" | "large";
+  isSelected: boolean; 
+  onClick: () => void;
   className?: string;
 }) => {
   const Icon = stage.icon;
   
   return (
-    <div 
-      className={cn("relative", className)}
-      onMouseEnter={onHover}
-      onMouseLeave={onLeave}
-      onClick={onTap}
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex flex-col items-center justify-center rounded-xl border-2 transition-all duration-200 cursor-pointer",
+        stage.bgColor,
+        stage.borderColor,
+        "hover:shadow-md hover:scale-105",
+        "w-[70px] h-[56px] sm:w-[90px] sm:h-[70px]",
+        isSelected && "ring-2 ring-primary ring-offset-2 shadow-lg scale-105",
+        className
+      )}
     >
-      <div
-        className={cn(
-          "flex flex-col items-center justify-center rounded-xl border-2 transition-all duration-200 cursor-pointer",
-          stage.bgColor,
-          stage.borderColor,
-          "hover:shadow-lg hover:scale-105",
-          size === "large" ? "w-24 h-20 sm:w-28 sm:h-24" : "w-20 h-16 sm:w-24 sm:h-20",
-          isHovered && "ring-2 ring-primary ring-offset-2 shadow-lg scale-105"
-        )}
-      >
-        <Icon className={cn(stage.color, size === "large" ? "h-6 w-6 sm:h-8 sm:w-8" : "h-5 w-5 sm:h-6 sm:w-6")} />
-        <span className={cn(
-          "font-medium text-center mt-1 px-1",
-          stage.color,
-          size === "large" ? "text-xs sm:text-sm" : "text-[10px] sm:text-xs"
-        )}>
-          {stage.label}
-        </span>
-      </div>
-      
-      {/* Info box - always visible when hovered/tapped */}
-      <div className={cn(
-        "absolute z-20 transition-all duration-200 pointer-events-none",
-        "bg-card text-card-foreground text-xs p-3 rounded-lg shadow-xl border-2 w-44",
-        isHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2",
-        // Position based on stage
-        stage.id === "customer" ? "top-full left-1/2 -translate-x-1/2 mt-2" :
-        stage.id === "renewal" ? "top-full left-0 mt-2" :
-        stage.id === "cancel_audit" ? "top-full right-0 mt-2" :
-        stage.id === "winback" ? "-top-2 left-full ml-2 -translate-y-full" :
-        "top-full left-1/2 -translate-x-1/2 mt-2"
+      <Icon className={cn(stage.color, "h-5 w-5 sm:h-6 sm:w-6")} />
+      <span className={cn(
+        "font-semibold text-center mt-0.5 px-1 leading-tight",
+        stage.color,
+        "text-[9px] sm:text-xs"
       )}>
-        <div className="font-medium mb-1">{stage.label}</div>
-        <div className="text-muted-foreground leading-relaxed">{stage.description}</div>
-      </div>
-    </div>
+        {stage.label}
+      </span>
+    </button>
   );
 };
 
 export function LifecycleDiagramModal({ open, onOpenChange }: LifecycleDiagramModalProps) {
-  const [hoveredStage, setHoveredStage] = useState<string | null>(null);
+  const [selectedStage, setSelectedStage] = useState<string | null>("customer");
+
+  const handleStageClick = (stageId: string) => {
+    setSelectedStage(stageId);
+  };
+
+  const currentStage = selectedStage ? stages[selectedStage] : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">Contact Lifecycle Stages</DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Contacts move through stages based on their activity. Tap or hover over a stage to learn more.
+            Tap any stage to see details. Contacts flow through this circular journey.
           </p>
         </DialogHeader>
 
-        <div className="py-6 px-4">
-          {/* Circular Flow Diagram */}
-          <div className="relative min-h-[420px] sm:min-h-[480px]">
-            
-            {/* SVG Arrows - The circular flow */}
-            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 700 420" preserveAspectRatio="xMidYMid meet">
-              <defs>
-                <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                  <polygon points="0 0, 8 3, 0 6" fill="#22c55e" />
-                </marker>
-                <marker id="arrowRed" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                  <polygon points="0 0, 8 3, 0 6" fill="#ef4444" />
-                </marker>
-                <marker id="arrowGray" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-                  <polygon points="0 0, 8 3, 0 6" fill="#9ca3af" />
-                </marker>
-              </defs>
+        <div className="py-4">
+          {/* Diagram Container - Fixed aspect ratio */}
+          <div className="relative w-full" style={{ paddingBottom: "75%" }}>
+            <div className="absolute inset-0">
+              {/* SVG Arrows Layer */}
+              <svg 
+                className="absolute inset-0 w-full h-full" 
+                viewBox="0 0 400 300" 
+                preserveAspectRatio="xMidYMid meet"
+              >
+                <defs>
+                  <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#22c55e" />
+                  </marker>
+                  <marker id="arrowRed" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#ef4444" />
+                  </marker>
+                  <marker id="arrowYellow" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#eab308" />
+                  </marker>
+                </defs>
+                
+                {/* Open Lead → Quoted */}
+                <path 
+                  d="M 75 130 L 130 130" 
+                  stroke="#22c55e" 
+                  strokeWidth="2.5" 
+                  fill="none" 
+                  markerEnd="url(#arrowGreen)" 
+                />
+                <text x="102" y="122" fill="#22c55e" fontSize="10" fontWeight="700" textAnchor="middle">YES!</text>
+                
+                {/* Quoted → Customer */}
+                <path 
+                  d="M 195 115 C 220 90, 260 60, 290 65" 
+                  stroke="#22c55e" 
+                  strokeWidth="2.5" 
+                  fill="none" 
+                  markerEnd="url(#arrowGreen)" 
+                />
+                <text x="240" y="70" fill="#22c55e" fontSize="10" fontWeight="700" textAnchor="middle">YES!</text>
+                
+                {/* Customer → Renewal */}
+                <path 
+                  d="M 350 85 C 380 100, 380 140, 355 165" 
+                  stroke="#22c55e" 
+                  strokeWidth="2.5" 
+                  fill="none" 
+                  markerEnd="url(#arrowGreen)" 
+                />
+                
+                {/* Renewal → back to Customer (success) */}
+                <path 
+                  d="M 315 165 C 290 140, 290 100, 310 80" 
+                  stroke="#22c55e" 
+                  strokeWidth="2" 
+                  fill="none" 
+                  markerEnd="url(#arrowGreen)" 
+                  strokeDasharray="4 2"
+                />
+                <text x="285" y="125" fill="#22c55e" fontSize="8" fontWeight="600" textAnchor="middle">Paid</text>
+                
+                {/* Customer → Cancel Audit */}
+                <path 
+                  d="M 290 95 C 260 130, 235 165, 220 175" 
+                  stroke="#ef4444" 
+                  strokeWidth="2.5" 
+                  fill="none" 
+                  markerEnd="url(#arrowRed)" 
+                />
+                <text x="270" y="145" fill="#ef4444" fontSize="9" fontWeight="600" textAnchor="middle" fontStyle="italic">At Risk</text>
+                
+                {/* Cancel Audit → Customer (saved) */}
+                <path 
+                  d="M 230 175 C 255 145, 275 115, 295 95" 
+                  stroke="#eab308" 
+                  strokeWidth="2" 
+                  fill="none" 
+                  markerEnd="url(#arrowYellow)" 
+                  strokeDasharray="4 2"
+                />
+                <text x="275" y="160" fill="#eab308" fontSize="8" fontWeight="600" textAnchor="middle">Saved</text>
+                
+                {/* Renewal → Winback (lost) */}
+                <path 
+                  d="M 310 210 C 280 250, 180 270, 120 255" 
+                  stroke="#ef4444" 
+                  strokeWidth="2.5" 
+                  fill="none" 
+                  markerEnd="url(#arrowRed)" 
+                />
+                <text x="220" y="265" fill="#ef4444" fontSize="10" fontWeight="700" textAnchor="middle">NO</text>
+                
+                {/* Cancel Audit → Winback */}
+                <path 
+                  d="M 175 210 C 150 235, 120 245, 100 245" 
+                  stroke="#ef4444" 
+                  strokeWidth="2.5" 
+                  fill="none" 
+                  markerEnd="url(#arrowRed)" 
+                />
+                <text x="145" y="240" fill="#ef4444" fontSize="9" fontWeight="600" textAnchor="middle">Lost</text>
+                
+                {/* Winback → Quoted (loop back!) */}
+                <path 
+                  d="M 55 225 C 20 180, 20 140, 55 130" 
+                  stroke="#22c55e" 
+                  strokeWidth="3" 
+                  fill="none" 
+                  markerEnd="url(#arrowGreen)" 
+                  strokeDasharray="6 3"
+                />
+                <text x="25" y="175" fill="#22c55e" fontSize="10" fontWeight="700" textAnchor="middle">RE-</text>
+                <text x="25" y="186" fill="#22c55e" fontSize="10" fontWeight="700" textAnchor="middle">QUOTE</text>
+              </svg>
+
+              {/* Stage Boxes - Positioned with percentages */}
               
-              {/* Open Lead → Quoted */}
-              <path d="M 95 200 L 175 200" stroke="#22c55e" strokeWidth="2" fill="none" markerEnd="url(#arrowGreen)" />
-              <text x="135" y="185" fill="#22c55e" fontSize="12" fontWeight="600" textAnchor="middle">YES!</text>
+              {/* Open Lead - Far left */}
+              <div className="absolute" style={{ left: "2%", top: "38%", transform: "translateY(-50%)" }}>
+                <StageBox 
+                  stage={stages.open_lead} 
+                  isSelected={selectedStage === "open_lead"}
+                  onClick={() => handleStageClick("open_lead")}
+                />
+              </div>
               
-              {/* Quoted → Customer (curved up) */}
-              <path d="M 280 180 Q 350 80 420 130" stroke="#22c55e" strokeWidth="2" fill="none" markerEnd="url(#arrowGreen)" />
-              <text x="350" y="85" fill="#22c55e" fontSize="12" fontWeight="600" textAnchor="middle">YES!</text>
+              {/* Quoted - Left-center */}
+              <div className="absolute" style={{ left: "28%", top: "38%", transform: "translateY(-50%)" }}>
+                <StageBox 
+                  stage={stages.quoted} 
+                  isSelected={selectedStage === "quoted"}
+                  onClick={() => handleStageClick("quoted")}
+                />
+              </div>
               
-              {/* Customer → Renewal (curved right) */}
-              <path d="M 530 145 Q 600 145 600 220" stroke="#22c55e" strokeWidth="2" fill="none" markerEnd="url(#arrowGreen)" />
-              <text x="580" y="175" fill="#22c55e" fontSize="12" fontWeight="600" textAnchor="middle">YES!</text>
+              {/* Customer - Top center-right */}
+              <div className="absolute" style={{ left: "68%", top: "18%", transform: "translateX(-50%) translateY(-50%)" }}>
+                <StageBox 
+                  stage={stages.customer} 
+                  isSelected={selectedStage === "customer"}
+                  onClick={() => handleStageClick("customer")}
+                />
+              </div>
               
-              {/* Renewal → Customer (success - curved back up) */}
-              <path d="M 580 270 Q 560 200 530 165" stroke="#22c55e" strokeWidth="2" fill="none" markerEnd="url(#arrowGreen)" />
+              {/* Renewal - Right side */}
+              <div className="absolute" style={{ right: "5%", top: "58%", transform: "translateY(-50%)" }}>
+                <StageBox 
+                  stage={stages.renewal} 
+                  isSelected={selectedStage === "renewal"}
+                  onClick={() => handleStageClick("renewal")}
+                />
+              </div>
               
-              {/* Customer → Cancel Audit (down) */}
-              <path d="M 450 175 Q 430 230 400 260" stroke="#ef4444" strokeWidth="2" fill="none" markerEnd="url(#arrowRed)" />
-              <text x="400" y="225" fill="#ef4444" fontSize="11" fontStyle="italic" textAnchor="middle">At Risk</text>
+              {/* Cancel Audit - Center */}
+              <div className="absolute" style={{ left: "42%", top: "62%", transform: "translateX(-50%) translateY(-50%)" }}>
+                <StageBox 
+                  stage={stages.cancel_audit} 
+                  isSelected={selectedStage === "cancel_audit"}
+                  onClick={() => handleStageClick("cancel_audit")}
+                />
+              </div>
               
-              {/* Cancel Audit → Customer (saved) */}
-              <path d="M 380 280 Q 420 220 450 170" stroke="#eab308" strokeWidth="2" fill="none" markerEnd="url(#arrowGreen)" />
-              
-              {/* Renewal → Winback (lost) */}
-              <path d="M 560 320 Q 500 380 320 380" stroke="#ef4444" strokeWidth="2" fill="none" markerEnd="url(#arrowRed)" />
-              <text x="450" y="370" fill="#ef4444" fontSize="11" fontWeight="600" textAnchor="middle">NO</text>
-              
-              {/* Cancel Audit → Winback (lost) */}
-              <path d="M 350 320 Q 300 360 280 370" stroke="#ef4444" strokeWidth="2" fill="none" markerEnd="url(#arrowRed)" />
-              <text x="290" y="345" fill="#ef4444" fontSize="11" fontWeight="600" textAnchor="middle">NOT PAID</text>
-              
-              {/* Winback → Quoted (loop back - big curved arrow) */}
-              <path d="M 180 360 Q 60 300 100 220" stroke="#22c55e" strokeWidth="2.5" strokeDasharray="6 3" fill="none" markerEnd="url(#arrowGreen)" />
-              <text x="70" y="290" fill="#22c55e" fontSize="12" fontWeight="600" textAnchor="middle">YES!</text>
-            </svg>
-            
-            {/* Stage Boxes - Positioned absolutely for circular layout */}
-            
-            {/* Open Lead - Left */}
-            <div className="absolute left-[2%] sm:left-[5%] top-[42%] -translate-y-1/2">
-              <StageBox 
-                stage={stages.open_lead} 
-                isHovered={hoveredStage === "open_lead"}
-                onHover={() => setHoveredStage("open_lead")}
-                onLeave={() => setHoveredStage(null)}
-                onTap={() => setHoveredStage(hoveredStage === "open_lead" ? null : "open_lead")}
-              />
+              {/* Winback - Bottom left */}
+              <div className="absolute" style={{ left: "8%", top: "82%", transform: "translateY(-50%)" }}>
+                <StageBox 
+                  stage={stages.winback} 
+                  isSelected={selectedStage === "winback"}
+                  onClick={() => handleStageClick("winback")}
+                />
+              </div>
             </div>
-            
-            {/* Quoted - Center-left, slightly higher */}
-            <div className="absolute left-[22%] sm:left-[25%] top-[38%] -translate-y-1/2">
-              <StageBox 
-                stage={stages.quoted} 
-                isHovered={hoveredStage === "quoted"}
-                onHover={() => setHoveredStage("quoted")}
-                onLeave={() => setHoveredStage(null)}
-                onTap={() => setHoveredStage(hoveredStage === "quoted" ? null : "quoted")}
-              />
-            </div>
-            
-            {/* Customer - Top center, larger */}
-            <div className="absolute left-[52%] sm:left-[55%] top-[18%] -translate-x-1/2 -translate-y-1/2">
-              <StageBox 
-                stage={stages.customer} 
-                isHovered={hoveredStage === "customer"}
-                onHover={() => setHoveredStage("customer")}
-                onLeave={() => setHoveredStage(null)}
-                onTap={() => setHoveredStage(hoveredStage === "customer" ? null : "customer")}
-                size="large"
-              />
-            </div>
-            
-            {/* Renewal - Right side */}
-            <div className="absolute right-[8%] sm:right-[12%] top-[55%] -translate-y-1/2">
-              <StageBox 
-                stage={stages.renewal} 
-                isHovered={hoveredStage === "renewal"}
-                onHover={() => setHoveredStage("renewal")}
-                onLeave={() => setHoveredStage(null)}
-                onTap={() => setHoveredStage(hoveredStage === "renewal" ? null : "renewal")}
-              />
-            </div>
-            
-            {/* Cancel Audit - Center, below Customer */}
-            <div className="absolute left-[45%] sm:left-[48%] top-[62%] -translate-x-1/2 -translate-y-1/2">
-              <StageBox 
-                stage={stages.cancel_audit} 
-                isHovered={hoveredStage === "cancel_audit"}
-                onHover={() => setHoveredStage("cancel_audit")}
-                onLeave={() => setHoveredStage(null)}
-                onTap={() => setHoveredStage(hoveredStage === "cancel_audit" ? null : "cancel_audit")}
-              />
-            </div>
-            
-            {/* Winback - Bottom center-left */}
-            <div className="absolute left-[25%] sm:left-[28%] top-[85%] -translate-y-1/2">
-              <StageBox 
-                stage={stages.winback} 
-                isHovered={hoveredStage === "winback"}
-                onHover={() => setHoveredStage("winback")}
-                onLeave={() => setHoveredStage(null)}
-                onTap={() => setHoveredStage(hoveredStage === "winback" ? null : "winback")}
-              />
-            </div>
+          </div>
+
+          {/* Info Panel - Always visible below diagram */}
+          <div className="mt-6 border rounded-lg bg-muted/30 p-4 min-h-[80px]">
+            {currentStage ? (
+              <div className="flex items-start gap-3">
+                <div className={cn(
+                  "flex-shrink-0 p-2 rounded-lg",
+                  currentStage.bgColor,
+                  currentStage.borderColor,
+                  "border"
+                )}>
+                  <currentStage.icon className={cn(currentStage.color, "h-5 w-5")} />
+                </div>
+                <div>
+                  <h4 className={cn("font-semibold", currentStage.color)}>
+                    {currentStage.label}
+                  </h4>
+                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                    {currentStage.description}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center">
+                Tap a stage above to see its description.
+              </p>
+            )}
           </div>
 
           {/* Legend */}
           <div className="mt-4 pt-4 border-t">
             <h4 className="text-sm font-medium mb-2">Stage Priority</h4>
-            <p className="text-xs text-muted-foreground">
-              Contacts are assigned to the <span className="font-medium">highest priority</span> stage that applies. 
-              Priority: Winback → Cancel Audit → Customer → Renewal → Quoted → Open Lead.
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Contacts are assigned to the <span className="font-semibold">highest priority</span> stage. 
+              Priority order: Winback → Cancel Audit → Customer → Renewal → Quoted → Open Lead.
             </p>
           </div>
         </div>
