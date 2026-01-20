@@ -8887,111 +8887,35 @@ export type Database = {
         }[]
       }
       get_agency_settings: { Args: { p_agency_id: string }; Returns: Json }
-      get_contacts_by_stage:
-        | {
-            Args: {
-              p_agency_id: string
-              p_cursor?: string
-              p_limit?: number
-              p_search?: string
-              p_sort?: string
-              p_stage?: string
-            }
-            Returns: {
-              assigned_team_member_name: string
-              current_stage: string
-              emails: string[]
-              first_name: string
-              household_key: string
-              id: string
-              last_activity_at: string
-              last_activity_type: string
-              last_name: string
-              phones: string[]
-              total_count: number
-            }[]
-          }
-        | {
-            Args: {
-              p_agency_id: string
-              p_limit?: number
-              p_offset?: number
-              p_search?: string
-              p_stage?: string
-            }
-            Returns: {
-              assigned_team_member_name: string
-              current_stage: string
-              emails: string[]
-              first_name: string
-              household_key: string
-              id: string
-              last_activity_at: string
-              last_activity_type: string
-              last_name: string
-              phones: string[]
-              total_count: number
-            }[]
-          }
-        | {
-            Args: {
-              p_agency_id: string
-              p_limit?: number
-              p_offset?: number
-              p_search?: string
-              p_sort_by?: string
-              p_sort_direction?: string
-              p_stage?: string
-            }
-            Returns: {
-              agency_id: string
-              assigned_team_member_name: string
-              computed_stage: string
-              created_at: string
-              current_stage: string
-              emails: string[]
-              first_name: string
-              household_key: string
-              id: string
-              last_activity_at: string
-              last_activity_type: string
-              last_name: string
-              phones: string[]
-              total_count: number
-              updated_at: string
-              zip_code: string
-            }[]
-          }
-        | {
-            Args: {
-              p_agency_id: string
-              p_cursor_id?: string
-              p_cursor_value?: string
-              p_limit?: number
-              p_search?: string
-              p_sort_by?: string
-              p_sort_order?: string
-              p_stage?: string
-            }
-            Returns: {
-              assigned_team_member: string
-              city: string
-              created_at: string
-              current_stage: string
-              emails: string[]
-              first_name: string
-              household_key: string
-              id: string
-              last_activity_date: string
-              last_name: string
-              phones: string[]
-              state: string
-              street_address: string
-              total_count: number
-              updated_at: string
-              zip_code: string
-            }[]
-          }
+      get_contacts_by_stage: {
+        Args: {
+          p_agency_id: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_sort_by?: string
+          p_sort_direction?: string
+          p_stage?: string
+        }
+        Returns: {
+          agency_id: string
+          assigned_team_member_name: string
+          computed_stage: string
+          created_at: string
+          current_stage: string
+          emails: string[]
+          first_name: string
+          household_key: string
+          id: string
+          last_activity_at: string
+          last_activity_type: string
+          last_name: string
+          phones: string[]
+          total_count: number
+          updated_at: string
+          zip_code: string
+        }[]
+      }
       get_conversation_participants: {
         Args: { participant_ids: string[] }
         Returns: {
