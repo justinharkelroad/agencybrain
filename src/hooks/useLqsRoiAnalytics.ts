@@ -224,25 +224,24 @@ export function useLqsRoiAnalytics(
       const endStr = format(dateRange.end, 'yyyy-MM-dd');
       
       for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
+        // Fetch all households and filter in memory for complex date logic
         const { data: page, error } = await supabase
           .from('lqs_households')
           .select('id, lead_source_id, lead_received_date, created_at')
           .eq('agency_id', agencyId!)
-          .or(`lead_received_date.gte.${startStr},and(lead_received_date.is.null,created_at.gte.${startStr})`)
-          .or(`lead_received_date.lte.${endStr},and(lead_received_date.is.null,created_at.lte.${endStr})`)
           .range(from, from + PAGE_SIZE - 1);
-        
+
         if (error) throw error;
         if (!page || page.length === 0) break;
-        
-        // Filter in memory for precise date logic
+
+        // Filter in memory for precise date logic (lead_received_date or created_at fallback)
         const filtered = page.filter(h => {
           const dateToUse = h.lead_received_date || h.created_at;
           if (!dateToUse) return false;
           const d = new Date(dateToUse);
           return d >= dateRange.start && d <= dateRange.end;
         });
-        
+
         allRows.push(...(filtered as LeadRow[]));
         if (page.length < PAGE_SIZE) break;
       }
