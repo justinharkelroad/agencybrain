@@ -390,10 +390,6 @@ export function LifecycleDiagramModal({ open, onOpenChange }: LifecycleDiagramMo
                 Tap a stage above to see its description.
               </p>
             )}
-              <p className="text-sm text-muted-foreground text-center">
-                Tap a stage above to see its description.
-              </p>
-            )}
           </div>
 
           {/* Legend */}
