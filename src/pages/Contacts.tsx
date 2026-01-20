@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Search, Users, RefreshCw, ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
+import { Search, Users, RefreshCw, ChevronDown, ChevronUp, ChevronsUpDown, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -25,6 +25,7 @@ import { useAuth } from '@/lib/auth';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useContacts } from '@/hooks/useContacts';
 import { ContactProfileModal, CustomerJourneyBadge } from '@/components/contacts';
+import { LifecycleDiagramModal } from '@/components/contacts/LifecycleDiagramModal';
 import type { ContactWithStatus, LifecycleStage, ContactFilters } from '@/types/contact';
 import { LIFECYCLE_STAGE_CONFIGS } from '@/types/contact';
 import { cn } from '@/lib/utils';
@@ -48,6 +49,7 @@ export default function Contacts() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState<LifecycleStage | 'all'>('all');
+  const [showLifecycleModal, setShowLifecycleModal] = useState(false);
   const [sortBy, setSortBy] = useState<SortColumn>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
@@ -237,6 +239,13 @@ export default function Contacts() {
           <h1 className="text-2xl font-bold">Contacts <span className="text-destructive">(BETA)</span></h1>
           <p className="text-muted-foreground">
             View and manage all contacts across your agency
+            <button 
+              onClick={() => setShowLifecycleModal(true)}
+              className="ml-2 text-primary hover:underline inline-flex items-center gap-1"
+            >
+              <HelpCircle className="h-4 w-4" />
+              <span className="text-sm">How stages work</span>
+            </button>
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={() => refetch()}>
@@ -404,6 +413,12 @@ export default function Contacts() {
           displayName={context.displayName}
         />
       )}
+
+      {/* Lifecycle Diagram Modal */}
+      <LifecycleDiagramModal 
+        open={showLifecycleModal} 
+        onOpenChange={setShowLifecycleModal} 
+      />
     </div>
   );
 }
