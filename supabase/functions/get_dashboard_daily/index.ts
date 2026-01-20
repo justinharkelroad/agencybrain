@@ -128,13 +128,14 @@ serve(async (req) => {
     }
 
     // Query vw_metrics_with_team view directly, filtering by role
-    // Include both the selected role AND Hybrid (hybrid team members appear in both tabs)
+    // Include the selected role, Hybrid (hybrid team members appear in both tabs),
+    // and Manager (managers have scorecard form access parity with Hybrid)
     const { data, error } = await supabase
       .from('vw_metrics_with_team')
       .select('*')
       .eq('agency_id', agencyId)
       .eq('date', workDate)
-      .or(`role.eq.${role},role.eq.Hybrid`)
+      .or(`role.eq.${role},role.eq.Hybrid,role.eq.Manager`)
       .order('rep_name', { ascending: true, nullsFirst: false });
 
     if (error) {
