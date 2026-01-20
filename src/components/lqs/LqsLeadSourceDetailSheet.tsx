@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, ChevronLeft, Users, Target, DollarSign } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronLeft, Users, Target, DollarSign, ExternalLink } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -26,6 +26,8 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useLqsLeadSourceDetail, HouseholdDetailRow } from '@/hooks/useLqsLeadSourceDetail';
+import { useLqsHouseholdById } from '@/hooks/useLqsHouseholdById';
+import { LqsHouseholdDetailModal } from './LqsHouseholdDetailModal';
 import { format, differenceInDays } from 'date-fns';
 
 interface LqsLeadSourceDetailSheetProps {
@@ -228,6 +230,10 @@ export function LqsLeadSourceDetailSheet({
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [selectedHouseholdId, setSelectedHouseholdId] = useState<string | null>(null);
+
+  // Fetch full household data when a name is clicked
+  const { data: selectedHousehold, isLoading: isLoadingHousehold } = useLqsHouseholdById(selectedHouseholdId);
 
   const toggleExpanded = (id: string) => {
     setExpandedIds(prev => {
@@ -239,6 +245,11 @@ export function LqsLeadSourceDetailSheet({
       }
       return next;
     });
+  };
+
+  const handleOpenHouseholdDetail = (householdId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't trigger row expand/collapse
+    setSelectedHouseholdId(householdId);
   };
 
   const { data, isLoading, error } = useLqsLeadSourceDetail(
@@ -379,7 +390,7 @@ export function LqsLeadSourceDetailSheet({
                       return [
                         <TableRow
                           key={`row-${household.id}`}
-                          className="hover:bg-muted/50 cursor-pointer"
+                          className="hover:bg-muted/50 cursor-pointer group"
                           onClick={() => toggleExpanded(household.id)}
                         >
                           <TableCell style={{ width: 180 }}>
@@ -389,9 +400,13 @@ export function LqsLeadSourceDetailSheet({
                               ) : (
                                 <ChevronRight className="h-4 w-4 shrink-0" />
                               )}
-                              <span className="font-medium truncate">
+                              <button
+                                onClick={(e) => handleOpenHouseholdDetail(household.id, e)}
+                                className="font-medium truncate text-left hover:text-primary hover:underline transition-colors"
+                              >
                                 {household.firstName} {household.lastName}
-                              </span>
+                              </button>
+                              <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                             </div>
                           </TableCell>
                           <TableCell style={{ width: 80 }}>
@@ -468,6 +483,15 @@ export function LqsLeadSourceDetailSheet({
           </>
         ) : null}
       </SheetContent>
+
+      {/* Household Detail Modal - opens on name click */}
+      <LqsHouseholdDetailModal
+        household={selectedHousehold || null}
+        open={!!selectedHouseholdId}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setSelectedHouseholdId(null);
+        }}
+      />
     </Sheet>
   );
 }
