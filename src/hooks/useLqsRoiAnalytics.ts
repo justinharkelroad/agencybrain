@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useMemo } from 'react';
-import { startOfMonth, endOfMonth, format, subDays, startOfQuarter, startOfYear } from 'date-fns';
+import { startOfMonth, endOfMonth, format, subDays, startOfQuarter, startOfYear, startOfDay, endOfDay } from 'date-fns';
 
 export interface LeadSourceRoiRow {
   leadSourceId: string | null;
@@ -74,18 +74,21 @@ export type DateRangePreset = 'last30' | 'last60' | 'last90' | 'quarter' | 'ytd'
 
 export function getDateRangeFromPreset(preset: DateRangePreset): { start: Date; end: Date } | null {
   const now = new Date();
-  
+
+  // Normalize dates to start/end of day to ensure stable query keys
+  // This prevents React Query from constantly restarting queries due to
+  // changing timestamps in the millisecond precision
   switch (preset) {
     case 'last30':
-      return { start: subDays(now, 30), end: now };
+      return { start: startOfDay(subDays(now, 30)), end: endOfDay(now) };
     case 'last60':
-      return { start: subDays(now, 60), end: now };
+      return { start: startOfDay(subDays(now, 60)), end: endOfDay(now) };
     case 'last90':
-      return { start: subDays(now, 90), end: now };
+      return { start: startOfDay(subDays(now, 90)), end: endOfDay(now) };
     case 'quarter':
-      return { start: startOfQuarter(now), end: now };
+      return { start: startOfDay(startOfQuarter(now)), end: endOfDay(now) };
     case 'ytd':
-      return { start: startOfYear(now), end: now };
+      return { start: startOfDay(startOfYear(now)), end: endOfDay(now) };
     case 'all':
     default:
       return null;
