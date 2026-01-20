@@ -39,9 +39,24 @@ export function isSessionError(error: any): boolean {
 }
 
 /**
+ * Check if current session is a staff session (not Supabase Auth)
+ */
+function isStaffSession(): boolean {
+  return !!localStorage.getItem('staff_session_token');
+}
+
+/**
  * Handles session recovery - clears invalid session and redirects to login
+ * IMPORTANT: Staff sessions are managed separately and should NOT trigger recovery
  */
 export async function handleSessionRecovery(customMessage?: string): Promise<void> {
+  // CRITICAL: Staff users authenticate via session tokens, not Supabase Auth
+  // Never trigger recovery for staff sessions
+  if (isStaffSession()) {
+    console.log('[SessionRecovery] Skipping recovery - staff session detected');
+    return;
+  }
+  
   // Prevent multiple simultaneous recovery attempts
   if (isHandlingSessionError) return;
   isHandlingSessionError = true;
@@ -78,6 +93,11 @@ export async function handleSessionRecovery(customMessage?: string): Promise<voi
  * Returns true if valid, triggers recovery if not
  */
 export async function validateSession(): Promise<boolean> {
+  // Staff sessions don't use Supabase Auth - skip validation entirely
+  if (isStaffSession()) {
+    return true;
+  }
+  
   try {
     const { data: { session }, error } = await supabase.auth.getSession();
     
@@ -112,7 +132,8 @@ export async function withSessionRecovery<T>(
   try {
     return await apiCall();
   } catch (error: any) {
-    if (isSessionError(error)) {
+    // Staff sessions don't use Supabase Auth - never trigger recovery
+    if (isSessionError(error) && !isStaffSession()) {
       await handleSessionRecovery(options?.customMessage);
       throw new Error('Session expired - redirecting to login');
     }
@@ -126,6 +147,11 @@ export async function withSessionRecovery<T>(
 export function setupGlobalSessionRecovery(): void {
   // Listen for auth state changes that indicate session issues
   supabase.auth.onAuthStateChange((event, session) => {
+    // Staff sessions don't use Supabase Auth - skip recovery
+    if (isStaffSession()) {
+      return;
+    }
+    
     if (event === 'TOKEN_REFRESHED' && !session) {
       // Token refresh failed - session is invalid
       handleSessionRecovery('Unable to refresh your session. Please sign in again.');

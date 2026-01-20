@@ -9,16 +9,39 @@ export interface StaffRequestContext {
   supabaseToken?: string;
 }
 
+export type AuthPreference = 'staff' | 'supabase' | 'auto';
+
 /**
  * Get the current authentication context.
- * Supabase Auth (owner) takes precedence over staff tokens to prevent stale token collisions.
+ * 
+ * @param prefer - Which auth type to prefer when both exist:
+ *   - 'staff': Always use staff token if it exists (for staff pages)
+ *   - 'supabase': Always use Supabase JWT if it exists (for owner pages)
+ *   - 'auto': Use staff token only if no Supabase session (default, legacy behavior)
  */
-export async function getAuthContext(): Promise<StaffRequestContext> {
-  // ALWAYS check Supabase session first - owner auth takes precedence
+export async function getAuthContext(prefer: AuthPreference = 'auto'): Promise<StaffRequestContext> {
+  const staffToken = localStorage.getItem("staff_session_token");
   const { data: { session: supabaseSession } } = await supabase.auth.getSession();
   
-  // If user has a Supabase Auth session, use that (they're an owner/admin)
-  // Staff tokens should be ignored when Supabase Auth is active
+  // Staff preference: ALWAYS use staff token if it exists
+  if (prefer === 'staff' && staffToken) {
+    return {
+      isStaff: true,
+      staffToken,
+      supabaseToken: undefined,
+    };
+  }
+  
+  // Supabase preference: ALWAYS use Supabase JWT if it exists
+  if (prefer === 'supabase' && supabaseSession?.access_token) {
+    return {
+      isStaff: false,
+      staffToken: undefined,
+      supabaseToken: supabaseSession.access_token,
+    };
+  }
+  
+  // Auto mode (legacy): Supabase takes precedence, then staff
   if (supabaseSession?.access_token) {
     return {
       isStaff: false,
@@ -27,8 +50,6 @@ export async function getAuthContext(): Promise<StaffRequestContext> {
     };
   }
   
-  // Only use staff token if no Supabase session exists
-  const staffToken = localStorage.getItem("staff_session_token");
   if (staffToken) {
     return {
       isStaff: true,
@@ -46,9 +67,11 @@ export async function getAuthContext(): Promise<StaffRequestContext> {
 /**
  * Get headers for making authenticated requests to edge functions.
  * Automatically uses staff token or Supabase JWT based on context.
+ * 
+ * @param prefer - Which auth type to prefer (default: 'staff' for staff-safe behavior)
  */
-export async function getAuthHeaders(): Promise<Record<string, string>> {
-  const context = await getAuthContext();
+export async function getAuthHeaders(prefer: AuthPreference = 'staff'): Promise<Record<string, string>> {
+  const context = await getAuthContext(prefer);
   
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -67,18 +90,21 @@ export async function getAuthHeaders(): Promise<Record<string, string>> {
 /**
  * Make an authenticated fetch request to a Supabase edge function.
  * Automatically handles staff vs Supabase auth.
+ * 
+ * @param prefer - Which auth type to prefer (default: 'staff' for staff-safe behavior)
  */
 export async function fetchWithAuth(
   functionName: string,
   options: {
     method?: "GET" | "POST" | "PUT" | "DELETE";
+    prefer?: AuthPreference;
     body?: Record<string, any>;
     queryParams?: Record<string, string>;
   } = {}
 ): Promise<Response> {
-  const { method = "POST", body, queryParams } = options;
+  const { method = "POST", body, queryParams, prefer = 'staff' } = options;
   
-  const headers = await getAuthHeaders();
+  const headers = await getAuthHeaders(prefer);
   
   let url = `${SUPABASE_URL}/functions/v1/${functionName}`;
   

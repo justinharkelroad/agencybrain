@@ -927,6 +927,7 @@ const App = () => {
               <Route path="metrics/settings" element={<ScorecardSettings role="Sales" />} />
               <Route path="metrics/builder" element={<ScorecardFormBuilder />} />
               <Route path="metrics/edit/:formId" element={<ScorecardFormEditor />} />
+              <Route path="scorecards/submissions/:submissionId" element={<SubmissionDetail />} />
               {/* Cancel Audit */}
               <Route path="cancel-audit" element={<CancelAudit />} />
               {/* Renewals */}
