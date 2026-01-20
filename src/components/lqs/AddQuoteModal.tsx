@@ -50,6 +50,7 @@ const PRODUCT_OPTIONS = [
 interface ProductEntry {
   productType: string;
   premium: string;
+  items: string;
 }
 
 export function AddQuoteModal({
@@ -67,7 +68,7 @@ export function AddQuoteModal({
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [zipCode, setZipCode] = useState('');
-  const [products, setProducts] = useState<ProductEntry[]>([{ productType: '', premium: '' }]);
+  const [products, setProducts] = useState<ProductEntry[]>([{ productType: '', premium: '', items: '1' }]);
   const [quoteDate, setQuoteDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [teamMemberId, setTeamMemberId] = useState(currentTeamMemberId || '');
   const [leadSourceId, setLeadSourceId] = useState('');
@@ -79,7 +80,7 @@ export function AddQuoteModal({
     setFirstName('');
     setLastName('');
     setZipCode('');
-    setProducts([{ productType: '', premium: '' }]);
+    setProducts([{ productType: '', premium: '', items: '1' }]);
     setQuoteDate(format(new Date(), 'yyyy-MM-dd'));
     setTeamMemberId(currentTeamMemberId || '');
     setLeadSourceId('');
@@ -89,7 +90,7 @@ export function AddQuoteModal({
   };
 
   const addProduct = () => {
-    setProducts([...products, { productType: '', premium: '' }]);
+    setProducts([...products, { productType: '', premium: '', items: '1' }]);
   };
 
   const removeProduct = (index: number) => {
@@ -213,7 +214,7 @@ export function AddQuoteModal({
         premium_cents: Math.round(parseFloat(p.premium) * 100),
         quote_date: quoteDate,
         team_member_id: teamMemberId || null,
-        items_quoted: 1,
+        items_quoted: parseInt(p.items, 10) || 1,
         source: 'manual' as const,
       }));
 
@@ -322,7 +323,7 @@ export function AddQuoteModal({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="w-32">
+                <div className="w-28">
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                     <Input
@@ -335,6 +336,18 @@ export function AddQuoteModal({
                       className="pl-7"
                     />
                   </div>
+                </div>
+                <div className="w-16">
+                  <Input
+                    type="number"
+                    min="1"
+                    max="99"
+                    value={product.items}
+                    onChange={(e) => updateProduct(index, 'items', e.target.value)}
+                    placeholder="#"
+                    className="text-center"
+                    title="# of items"
+                  />
                 </div>
                 {products.length > 1 && (
                   <Button
