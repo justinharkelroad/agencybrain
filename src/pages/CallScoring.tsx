@@ -886,11 +886,11 @@ export default function CallScoring() {
         // Staff users use RPC to bypass RLS
         // Managers pass null team_member_id + agency_id to view any call in their agency
         // Regular staff pass their team_member_id to view only their own calls
-        console.log('Staff user - fetching full call via RPC...', { isManager, staffTeamMemberId, staffAgencyId });
+        console.log('Staff user - fetching full call via RPC...', { isStaffManager, staffTeamMemberId, staffAgencyId });
         const { data: fullCall, error } = await supabase.rpc('get_staff_call_details', {
           p_call_id: call.id,
-          p_team_member_id: isManager ? null : staffTeamMemberId,
-          p_agency_id: isManager ? staffAgencyId : null
+          p_team_member_id: isStaffManager ? null : staffTeamMemberId,
+          p_agency_id: isStaffManager ? staffAgencyId : null
         });
 
         if (error) {
