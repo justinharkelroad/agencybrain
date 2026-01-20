@@ -33,10 +33,10 @@ export function useSessionRecovery() {
 
   useEffect(() => {
     // Helper to check if current session is a staff session
+    // Only check for staff token presence - don't check route because
+    // staff users may access shared components that aren't under /staff/
     const isStaffSession = () => {
-      const hasStaffToken = !!localStorage.getItem('staff_session_token');
-      const onStaffRoute = window.location.pathname.startsWith('/staff');
-      return hasStaffToken && onStaffRoute;
+      return !!localStorage.getItem('staff_session_token');
     };
 
     // Set up global error handler for fetch to catch 401s

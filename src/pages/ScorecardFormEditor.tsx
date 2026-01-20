@@ -22,6 +22,7 @@ import { useAgencyKpis } from "@/hooks/useKpis";
 import { toast } from "sonner";
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from "@/lib/auth";
+import { fetchWithAuth } from "@/lib/staffRequest";
 
 // Validate that all KPI IDs in schema exist in active KPI list
 function validateKpiIds(
@@ -283,20 +284,20 @@ export default function ScorecardFormEditor() {
   const loadForm = async () => {
     try {
       if (isStaffMode) {
-        // Staff mode: use edge function
+        // Staff mode: use fetchWithAuth to avoid JWT collision
         setAgencyId(staffAgencyId!);
         
-        const { data, error } = await supabase.functions.invoke('scorecards_admin', {
-          headers: {
-            'x-staff-session': staffToken!,
-          },
+        const response = await fetchWithAuth('scorecards_admin', {
+          method: 'POST',
           body: {
             action: 'form_get',
             form_id: formId,
           },
         });
+        
+        const data = await response.json();
 
-        if (error) throw error;
+        if (!response.ok) throw new Error(data?.error || 'Failed to load form');
         if (data?.error) throw new Error(data.error);
         
         setFormSchema(data.schema_json as unknown as FormSchema);

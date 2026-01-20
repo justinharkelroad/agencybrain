@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { EnhancedKPIConfigDialog } from "@/components/dialogs/EnhancedKPIConfigDialog";
 import { Settings } from "lucide-react";
+import { fetchWithAuth } from "@/lib/staffRequest";
 
 interface KPIOption {
   key: string;
@@ -76,17 +77,18 @@ export default function ScorecardSettings({ role: propRole = "Sales" }: Scorecar
       let currentAgencyId: string;
       
       if (isStaffMode) {
-        // Staff mode: use edge function
+        // Staff mode: use fetchWithAuth to avoid JWT collision
         currentAgencyId = staffAgencyId!;
         setAgencyId(currentAgencyId);
         
         // Load KPIs via edge function - pass role to filter by selected role
-        const { data: kpisData, error: kpisError } = await supabase.functions.invoke('scorecards_admin', {
-          headers: { 'x-staff-session': staffToken! },
+        const kpisResponse = await fetchWithAuth('scorecards_admin', {
+          method: 'POST',
           body: { action: 'kpis_list', role: selectedRole },
         });
+        const kpisData = await kpisResponse.json();
         
-        if (kpisError) throw kpisError;
+        if (!kpisResponse.ok) throw new Error(kpisData?.error || 'Failed to load KPIs');
         if (kpisData?.error) throw new Error(kpisData.error);
         
         // Dedupe by key (prefer role-specific over NULL role) as defensive measure
@@ -100,12 +102,13 @@ export default function ScorecardSettings({ role: propRole = "Sales" }: Scorecar
         setAvailableMetrics(Array.from(kpiMap.values()));
         
         // Load scorecard rules via edge function
-        const { data: rulesData, error: rulesError } = await supabase.functions.invoke('scorecards_admin', {
-          headers: { 'x-staff-session': staffToken! },
+        const rulesResponse = await fetchWithAuth('scorecards_admin', {
+          method: 'POST',
           body: { action: 'scorecard_rules_get', role: selectedRole },
         });
+        const rulesData = await rulesResponse.json();
         
-        if (rulesError) throw rulesError;
+        if (!rulesResponse.ok) throw new Error(rulesData?.error || 'Failed to load rules');
         
         const rules = rulesData?.rules;
         if (rules) {
@@ -232,9 +235,9 @@ export default function ScorecardSettings({ role: propRole = "Sales" }: Scorecar
     setSaving(true);
     try {
       if (isStaffMode) {
-        // Staff mode: use edge function
-        const { data, error } = await supabase.functions.invoke('scorecards_admin', {
-          headers: { 'x-staff-session': staffToken! },
+        // Staff mode: use fetchWithAuth to avoid JWT collision
+        const response = await fetchWithAuth('scorecards_admin', {
+          method: 'POST',
           body: { 
             action: 'scorecard_rules_upsert',
             role: selectedRole,
@@ -248,7 +251,8 @@ export default function ScorecardSettings({ role: propRole = "Sales" }: Scorecar
           },
         });
         
-        if (error) throw error;
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || 'Failed to save settings');
         if (data?.error) throw new Error(data.error);
       } else {
         // Owner mode: direct Supabase

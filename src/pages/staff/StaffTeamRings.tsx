@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
+import { fetchWithAuth } from "@/lib/staffRequest";
 import { getPreviousBusinessDay } from "@/utils/businessDays";
 import MemberRingsCard from "@/components/rings/MemberRingsCard";
 import RingLegend from "@/components/rings/RingLegend";
@@ -72,25 +73,21 @@ export default function StaffTeamRings() {
         return;
       }
 
-      // Call edge function with x-staff-session header
-      const { data, error } = await supabase.functions.invoke('scorecards_admin', {
-        headers: { 'x-staff-session': staffToken },
+      // Use fetchWithAuth to avoid JWT collision when owner is also logged in
+      const response = await fetchWithAuth('scorecards_admin', {
+        method: 'POST',
         body: { 
           action: 'team_rings_data', 
           role: selectedRole, 
           date: selectedDate 
         },
       });
+      
+      const data = await response.json();
 
-      if (error) {
-        console.error('Edge function error:', error);
-        toast.error('Failed to load team performance data');
-        return;
-      }
-
-      if (data?.error) {
-        console.error('Data error:', data.error);
-        toast.error(data.error);
+      if (!response.ok || data?.error) {
+        console.error('Edge function error:', data?.error);
+        toast.error(data?.error || 'Failed to load team performance data');
         return;
       }
 

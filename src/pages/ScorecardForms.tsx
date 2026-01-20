@@ -17,6 +17,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { getPreviousBusinessDay } from "@/utils/businessDays";
+import { fetchWithAuth } from "@/lib/staffRequest";
 
 // Interface for form templates loaded via edge function
 interface StaffFormTemplate {
@@ -115,22 +116,16 @@ export default function ScorecardForms() {
       
       setStaffFormsLoading(true);
       try {
-        const { data, error } = await supabase.functions.invoke('scorecards_admin', {
-          headers: {
-            'x-staff-session': token,
-          },
-          body: {
-            action: 'forms_list',
-          },
+        // Use fetchWithAuth to avoid JWT collision when owner is also logged in
+        const response = await fetchWithAuth('scorecards_admin', {
+          method: 'POST',
+          body: { action: 'forms_list' },
         });
         
-        if (error) {
-          console.error('Edge function error loading forms:', error);
-          return;
-        }
+        const data = await response.json();
         
-        if (data?.error) {
-          console.error('scorecards_admin forms error:', data.error);
+        if (!response.ok || data?.error) {
+          console.error('scorecards_admin forms error:', data?.error);
           return;
         }
         // Map forms with default values for schema_json and settings_json
@@ -224,14 +219,15 @@ export default function ScorecardForms() {
   const handleDuplicateForm = async (newForm: any) => {
     // Refresh the forms list to show the new duplicate
     if (isStaffUser) {
-      // Reload staff forms via edge function
+      // Reload staff forms via edge function - use fetchWithAuth to avoid JWT collision
       const token = localStorage.getItem('staff_session_token');
       if (token) {
-        const { data } = await supabase.functions.invoke('scorecards_admin', {
-          headers: { 'x-staff-session': token },
+        const response = await fetchWithAuth('scorecards_admin', {
+          method: 'POST',
           body: { action: 'forms_list' },
         });
-        if (data?.forms) {
+        const data = await response.json();
+        if (response.ok && data?.forms) {
           setStaffForms(data.forms.map((f: any) => ({
             ...f,
             schema_json: f.schema_json || {},
