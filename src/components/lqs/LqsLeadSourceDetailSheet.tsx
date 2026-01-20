@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, ChevronLeft, Users, Target, DollarSign, ExternalLink } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronLeft, Users, Target, DollarSign, ExternalLink, Tag } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -25,9 +26,12 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { useLqsLeadSourceDetail, HouseholdDetailRow } from '@/hooks/useLqsLeadSourceDetail';
 import { useLqsHouseholdById } from '@/hooks/useLqsHouseholdById';
+import { useLqsLeadSources, useBulkAssignLeadSource } from '@/hooks/useLqsData';
 import { LqsHouseholdDetailModal } from './LqsHouseholdDetailModal';
+import { AssignLeadSourceModal } from './AssignLeadSourceModal';
 import { format, differenceInDays } from 'date-fns';
 
 interface LqsLeadSourceDetailSheetProps {
@@ -231,9 +235,18 @@ export function LqsLeadSourceDetailSheet({
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [selectedHouseholdId, setSelectedHouseholdId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+
+  // Is this the unattributed view?
+  const isUnattributed = leadSourceId === null;
 
   // Fetch full household data when a name is clicked
-  const { data: selectedHousehold, isLoading: isLoadingHousehold } = useLqsHouseholdById(selectedHouseholdId);
+  const { data: selectedHousehold } = useLqsHouseholdById(selectedHouseholdId);
+
+  // Fetch lead sources for assignment (only needed for unattributed)
+  const { data: leadSources = [] } = useLqsLeadSources(isUnattributed ? agencyId : null);
+  const bulkAssignMutation = useBulkAssignLeadSource();
 
   const toggleExpanded = (id: string) => {
     setExpandedIds(prev => {
@@ -252,7 +265,43 @@ export function LqsLeadSourceDetailSheet({
     setSelectedHouseholdId(householdId);
   };
 
-  const { data, isLoading, error } = useLqsLeadSourceDetail(
+  const toggleSelect = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredHouseholds.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredHouseholds.map(h => h.id)));
+    }
+  };
+
+  const handleBulkAssign = async (leadSourceId: string) => {
+    try {
+      const result = await bulkAssignMutation.mutateAsync({
+        householdIds: Array.from(selectedIds),
+        leadSourceId,
+      });
+      toast.success(`Assigned lead source to ${result.updated} households`);
+      setAssignModalOpen(false);
+      setSelectedIds(new Set());
+      // Data will refresh via query invalidation
+    } catch (error) {
+      toast.error('Failed to assign lead source');
+    }
+  };
+
+  const { data, isLoading, error, refetch } = useLqsLeadSourceDetail(
     agencyId,
     open ? leadSourceId : undefined, // Only fetch when open
     dateRange
@@ -354,6 +403,31 @@ export function LqsLeadSourceDetailSheet({
               </div>
             </div>
 
+            {/* Bulk Action Bar - Only for unattributed */}
+            {isUnattributed && (
+              <div className="flex items-center justify-between px-4 py-3 bg-muted/50 border-b">
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    checked={selectedIds.size > 0 && selectedIds.size === filteredHouseholds.length}
+                    onCheckedChange={toggleSelectAll}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {selectedIds.size > 0
+                      ? `${selectedIds.size} selected`
+                      : 'Select households to assign'}
+                  </span>
+                </div>
+                <Button
+                  size="sm"
+                  disabled={selectedIds.size === 0}
+                  onClick={() => setAssignModalOpen(true)}
+                >
+                  <Tag className="h-4 w-4 mr-2" />
+                  Assign Lead Source
+                </Button>
+              </div>
+            )}
+
             {/* Filter indicator */}
             {statusFilter && (
               <div className="px-4 py-2 text-sm text-muted-foreground">
@@ -366,7 +440,8 @@ export function LqsLeadSourceDetailSheet({
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead style={{ width: 180 }}>Household</TableHead>
+                    {isUnattributed && <TableHead style={{ width: 40 }} />}
+                    <TableHead style={{ width: isUnattributed ? 160 : 180 }}>Household</TableHead>
                     <TableHead style={{ width: 80 }}>Status</TableHead>
                     <TableHead style={{ width: 60 }}>Temp</TableHead>
                     <TableHead style={{ width: 100 }}>Lead Date</TableHead>
@@ -378,7 +453,7 @@ export function LqsLeadSourceDetailSheet({
                 <TableBody>
                   {paginatedHouseholds.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={isUnattributed ? 8 : 7} className="text-center text-muted-foreground py-8">
                         No households found
                       </TableCell>
                     </TableRow>
@@ -386,14 +461,26 @@ export function LqsLeadSourceDetailSheet({
                     paginatedHouseholds.flatMap((household) => {
                       const temperature = calculateTemperature(household);
                       const isExpanded = expandedIds.has(household.id);
+                      const isSelected = selectedIds.has(household.id);
 
                       return [
                         <TableRow
                           key={`row-${household.id}`}
-                          className="hover:bg-muted/50 cursor-pointer group"
+                          className={cn(
+                            "hover:bg-muted/50 cursor-pointer group",
+                            isSelected && "bg-primary/5"
+                          )}
                           onClick={() => toggleExpanded(household.id)}
                         >
-                          <TableCell style={{ width: 180 }}>
+                          {isUnattributed && (
+                            <TableCell style={{ width: 40 }} onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleSelect(household.id, { stopPropagation: () => {} } as React.MouseEvent)}
+                              />
+                            </TableCell>
+                          )}
+                          <TableCell style={{ width: isUnattributed ? 160 : 180 }}>
                             <div className="flex items-center gap-2">
                               {isExpanded ? (
                                 <ChevronDown className="h-4 w-4 shrink-0" />
@@ -440,7 +527,7 @@ export function LqsLeadSourceDetailSheet({
                         </TableRow>,
                         ...(isExpanded ? [
                           <TableRow key={`detail-${household.id}`} className="bg-muted/30">
-                            <TableCell colSpan={7} className="p-0">
+                            <TableCell colSpan={isUnattributed ? 8 : 7} className="p-0">
                               <HouseholdDetailContent household={household} />
                             </TableCell>
                           </TableRow>
@@ -491,6 +578,19 @@ export function LqsLeadSourceDetailSheet({
         onOpenChange={(isOpen) => {
           if (!isOpen) setSelectedHouseholdId(null);
         }}
+      />
+
+      {/* Assign Lead Source Modal - for bulk assignment of unattributed */}
+      <AssignLeadSourceModal
+        open={assignModalOpen}
+        onOpenChange={setAssignModalOpen}
+        household={null}
+        leadSources={leadSources}
+        onAssign={() => {}}
+        isAssigning={bulkAssignMutation.isPending}
+        bulkMode={true}
+        bulkCount={selectedIds.size}
+        onBulkAssign={handleBulkAssign}
       />
     </Sheet>
   );
