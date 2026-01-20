@@ -261,7 +261,7 @@ export function LifecycleDiagramModal({ open, onOpenChange }: LifecycleDiagramMo
               <text x="495" y="18" fill="hsl(var(--success))" fontSize="10" fontWeight="600" textAnchor="middle">RENEWED</text>
 
               {/* 5. Renewal → Winback (NOT RENEWED - right) */}
-              <line x1="625" y1="70" x2="690" y2="70" stroke="hsl(var(--destructive))" strokeWidth="3" />
+              <line x1="625" y1="70" x2="745" y2="70" stroke="hsl(var(--destructive))" strokeWidth="3" />
               <line x1="745" y1="70" x2="745" y2="100" stroke="hsl(var(--destructive))" strokeWidth="3" markerEnd="url(#arrowDestructive)" />
               <rect x="630" y="78" width="85" height="18" rx="4" fill="hsl(var(--background))" stroke="hsl(var(--border))" />
               <text x="672" y="91" fill="hsl(var(--destructive))" fontSize="10" fontWeight="600" textAnchor="middle">NOT RENEWED</text>
