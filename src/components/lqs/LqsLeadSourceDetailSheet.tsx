@@ -146,26 +146,26 @@ function HouseholdRow({ household }: { household: HouseholdDetailRow }) {
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded}>
       <TableRow className="hover:bg-muted/50">
-        <TableCell>
+        <TableCell className="w-[180px]">
           <CollapsibleTrigger className="flex items-center gap-2 w-full text-left">
             {expanded ? (
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-4 w-4 shrink-0" />
             ) : (
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 shrink-0" />
             )}
-            <span className="font-medium">
+            <span className="font-medium truncate">
               {household.firstName} {household.lastName}
             </span>
           </CollapsibleTrigger>
         </TableCell>
-        <TableCell>
+        <TableCell className="w-[80px]">
           <StatusBadge status={household.status} />
         </TableCell>
-        <TableCell>
+        <TableCell className="w-[60px]">
           <TemperatureRating temperature={temperature} />
         </TableCell>
-        <TableCell>{formatDate(household.leadReceivedDate)}</TableCell>
-        <TableCell>
+        <TableCell className="w-[100px]">{formatDate(household.leadReceivedDate)}</TableCell>
+        <TableCell className="w-[100px]">
           {household.quotedPolicies > 0 ? (
             <span className="text-amber-500">
               {household.quotedPolicies} pol / {household.quotedItems} items
@@ -174,7 +174,7 @@ function HouseholdRow({ household }: { household: HouseholdDetailRow }) {
             '-'
           )}
         </TableCell>
-        <TableCell>
+        <TableCell className="w-[100px]">
           {household.soldPolicies > 0 ? (
             <span className="text-green-500">
               {household.soldPolicies} pol / {household.soldItems} items
@@ -183,7 +183,7 @@ function HouseholdRow({ household }: { household: HouseholdDetailRow }) {
             '-'
           )}
         </TableCell>
-        <TableCell className="text-right font-medium text-green-500">
+        <TableCell className="w-[100px] text-right font-medium text-green-500">
           {household.soldPremiumCents > 0 ? formatCurrency(household.soldPremiumCents) : '-'}
         </TableCell>
       </TableRow>
@@ -398,7 +398,7 @@ export function LqsLeadSourceDetailSheet({
 
             {/* Households Table */}
             <ScrollArea className="flex-1">
-              <Table>
+              <Table className="table-fixed w-full">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="w-[180px]">Household</TableHead>

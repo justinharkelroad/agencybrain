@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, BarChart3 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -219,11 +219,11 @@ export function LqsRoiBucketTable({ data, isLoading, onLeadSourceClick }: LqsRoi
                   </TableCell>
                 </TableRow>
               ) : (
-                groupedData.map((bucket) => (
-                  <Fragment key={bucket.bucketId ?? 'unassigned'}>
-                    {/* Bucket Row */}
-                    <TableRow
-                      className={cn(
+                groupedData.flatMap((bucket) => [
+                  /* Bucket Row */
+                  <TableRow
+                    key={`bucket-${bucket.bucketId ?? 'unassigned'}`}
+                    className={cn(
                         'cursor-pointer font-semibold',
                         bucket.bucketId === null
                           ? 'bg-amber-500/10 hover:bg-amber-500/20 border-l-4 border-l-amber-500'
@@ -271,13 +271,13 @@ export function LqsRoiBucketTable({ data, isLoading, onLeadSourceClick }: LqsRoi
                           <TableCell className="text-right">{formatCurrency(bucket.itemAcqCost)}</TableCell>
                         </>
                       )}
-                    </TableRow>
+                  </TableRow>,
 
-                    {/* Lead Source Rows (expanded) */}
-                    {isBucketExpanded(bucket.bucketId) &&
-                      bucket.sources.map((source) => (
+                  /* Lead Source Rows (expanded) */
+                  ...(isBucketExpanded(bucket.bucketId)
+                    ? bucket.sources.map((source) => (
                         <TableRow
-                          key={source.leadSourceId ?? 'unattributed'}
+                          key={`source-${bucket.bucketId ?? 'unassigned'}-${source.leadSourceId ?? 'unattributed'}`}
                           className={cn(
                             'hover:bg-muted/30',
                             onLeadSourceClick && 'cursor-pointer'
@@ -318,9 +318,9 @@ export function LqsRoiBucketTable({ data, isLoading, onLeadSourceClick }: LqsRoi
                             </>
                           )}
                         </TableRow>
-                      ))}
-                  </Fragment>
-                ))
+                      ))
+                    : []),
+                ])
               )}
             </TableBody>
           </Table>

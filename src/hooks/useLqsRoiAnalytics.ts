@@ -218,34 +218,38 @@ export function useLqsRoiAnalytics(
     enabled: !!agencyId && isActivityView,
     queryFn: async (): Promise<LeadRow[]> => {
       if (!dateRange) return [];
-      
+
       const allRows: LeadRow[] = [];
       const startStr = format(dateRange.start, 'yyyy-MM-dd');
       const endStr = format(dateRange.end, 'yyyy-MM-dd');
-      
+
       for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
-        // Fetch all households and filter in memory for complex date logic
+        // Use database filtering with lead_received_date, fallback to created_at handled separately
         const { data: page, error } = await supabase
           .from('lqs_households')
           .select('id, lead_source_id, lead_received_date, created_at')
           .eq('agency_id', agencyId!)
+          .gte('created_at', startStr)
+          .lte('created_at', `${endStr}T23:59:59`)
           .range(from, from + PAGE_SIZE - 1);
 
         if (error) throw error;
         if (!page || page.length === 0) break;
 
-        // Filter in memory for precise date logic (lead_received_date or created_at fallback)
+        // Further filter by lead_received_date if it exists and is more accurate
         const filtered = page.filter(h => {
-          const dateToUse = h.lead_received_date || h.created_at;
-          if (!dateToUse) return false;
-          const d = new Date(dateToUse);
-          return d >= dateRange.start && d <= dateRange.end;
+          if (h.lead_received_date) {
+            const d = new Date(h.lead_received_date);
+            return d >= dateRange.start && d <= dateRange.end;
+          }
+          // Already filtered by created_at in query
+          return true;
         });
 
         allRows.push(...(filtered as LeadRow[]));
         if (page.length < PAGE_SIZE) break;
       }
-      
+
       return allRows;
     },
   });
