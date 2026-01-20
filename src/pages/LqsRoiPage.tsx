@@ -59,6 +59,8 @@ import { useLqsProducerBreakdown } from '@/hooks/useLqsProducerBreakdown';
 import { LqsLeadSourceDetailSheet } from '@/components/lqs/LqsLeadSourceDetailSheet';
 import { LqsGoalsHeader } from '@/components/lqs/LqsGoalsHeader';
 import { LqsSameMonthConversion } from '@/components/lqs/LqsSameMonthConversion';
+import { LqsRoiSpendBubbleChart } from '@/components/lqs/LqsRoiSpendBubbleChart';
+import { LqsPerformanceTrendChart } from '@/components/lqs/LqsPerformanceTrendChart';
 import { differenceInDays } from 'date-fns';
 
 // Format currency from cents
@@ -835,6 +837,18 @@ export default function LqsRoiPage() {
             })()}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Charts Row: Bubble Chart + Trend Chart */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        {/* ROI vs Spend Bubble Chart */}
+        <LqsRoiSpendBubbleChart
+          data={analytics?.byLeadSource || []}
+          isLoading={analyticsLoading}
+        />
+
+        {/* Performance Trend Chart */}
+        <LqsPerformanceTrendChart agencyId={agencyProfile?.agencyId ?? null} />
       </div>
 
       {/* Marketing ROI by Bucket Table */}
