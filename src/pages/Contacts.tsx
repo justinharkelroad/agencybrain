@@ -239,19 +239,25 @@ export default function Contacts() {
           <h1 className="text-2xl font-bold">Contacts <span className="text-destructive">(BETA)</span></h1>
           <p className="text-muted-foreground">
             View and manage all contacts across your agency
-            <button 
-              onClick={() => setShowLifecycleModal(true)}
-              className="ml-2 text-primary hover:underline inline-flex items-center gap-1"
-            >
-              <HelpCircle className="h-4 w-4" />
-              <span className="text-sm">How stages work</span>
-            </button>
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => setShowLifecycleModal(true)}
+          >
+            AgencyBrain Sequence
+          </Button>
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={() => refetch()}
+            title="Refresh contacts"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
