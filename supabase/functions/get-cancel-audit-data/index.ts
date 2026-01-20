@@ -439,7 +439,7 @@ async function logActivity(supabase: any, agencyId: string, teamMemberId: string
   if (activityType === "payment_made") {
     await supabase
       .from("cancel_audit_records")
-      .update({ status: "resolved", updated_at: new Date().toISOString() })
+      .update({ status: "resolved", cancel_status: "Saved", updated_at: new Date().toISOString() })
       .eq("agency_id", agencyId)
       .eq("household_key", householdKey);
   } else if (activityType === "payment_promised") {
@@ -456,6 +456,31 @@ async function logActivity(supabase: any, agencyId: string, teamMemberId: string
       .eq("agency_id", agencyId)
       .eq("household_key", householdKey)
       .eq("status", "new");
+  }
+
+  // Mirror to contact_activities for "Last Activity" display
+  // First get the contact_id from the cancel audit record
+  const { data: recordData } = await supabase
+    .from("cancel_audit_records")
+    .select("contact_id")
+    .eq("agency_id", agencyId)
+    .eq("household_key", householdKey)
+    .maybeSingle();
+
+  if (recordData?.contact_id) {
+    try {
+      await supabase.rpc("insert_contact_activity", {
+        p_contact_id: recordData.contact_id,
+        p_agency_id: agencyId,
+        p_activity_type: activityType,
+        p_activity_subtype: null,
+        p_description: `Cancel Audit: ${activityType}${notes ? ` - ${notes}` : ""}`,
+        p_created_by_name: displayName,
+      });
+    } catch (mirrorError) {
+      console.error("[logActivity] contact_activities mirror error:", mirrorError);
+      // Don't fail - this is for display only
+    }
   }
 
   return data;

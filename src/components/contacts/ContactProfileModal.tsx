@@ -493,6 +493,9 @@ export function ContactProfileModal({
 
     setModuleActionLoading(activityType + (activityStatus || ''));
     try {
+      const isStaff = winbackApi.isStaffUser();
+      const isSuccessful = activityStatus === 'successful';
+
       await createRenewalActivity.mutateAsync({
         renewalRecordId: record.id,
         agencyId,
@@ -501,10 +504,15 @@ export function ContactProfileModal({
         displayName,
         userId: userId || null,
         updateRecordStatus,
+        // Staff-specific params - edge function handles these operations
+        markAsSuccessful: isStaff && isSuccessful,
+        winbackHouseholdId: isStaff && isSuccessful ? record.winback_household_id : undefined,
+        contactId: isStaff ? contactId : undefined,
       });
 
       // If marked as successful, also update renewal_status and close out any winback
-      if (activityStatus === 'successful') {
+      // For staff users, this is handled by the edge function
+      if (isSuccessful && !isStaff) {
         // Update renewal_status to 'Renewal Taken' for display consistency
         await supabase
           .from('renewal_records')
@@ -529,11 +537,12 @@ export function ContactProfileModal({
             .eq('agency_id', agencyId)
             .in('status', ['untouched', 'in_progress']); // Only update active winbacks
         }
+      }
 
-        // Invalidate winback queries too since we may have updated a winback record
+      // Invalidate winback queries if successful (may have updated a winback record)
+      if (isSuccessful) {
         queryClient.invalidateQueries({ queryKey: ['winback-households'] });
         queryClient.invalidateQueries({ queryKey: ['winback-activity-summary'] });
-
         toast.success('Renewal marked as successful!', { description: 'Great work!' });
       } else if (activityStatus === 'push_to_winback') {
         toast.success('Pushed to Winback', { description: 'Record will appear in Winback module' });
