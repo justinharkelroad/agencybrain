@@ -145,7 +145,7 @@ export function LifecycleDiagramModal({ open, onOpenChange }: LifecycleDiagramMo
           {/* SVG Diagram - Grid layout with straight lines */}
           <div className="relative w-full overflow-x-auto">
             <svg
-              viewBox="0 0 820 300"
+              viewBox="0 0 820 320"
               className="w-full h-auto min-w-[600px]"
               preserveAspectRatio="xMidYMid meet"
             >
@@ -294,15 +294,15 @@ export function LifecycleDiagramModal({ open, onOpenChange }: LifecycleDiagramMo
 
               {/* 9. Winback → Quoted (YES TO QUOTE - bottom loop) */}
               <path
-                d="M 745 175 L 745 280 L 245 280 L 245 175"
+                d="M 745 175 L 745 305 L 245 305 L 245 175"
                 stroke="hsl(var(--success))"
                 strokeWidth="3"
                 fill="none"
                 strokeDasharray="8 5"
                 markerEnd="url(#arrowSuccess)"
               />
-              <rect x="440" y="268" width="90" height="20" rx="4" fill="hsl(var(--background))" stroke="hsl(var(--border))" />
-              <text x="485" y="282" fill="hsl(var(--success))" fontSize="11" fontWeight="700" textAnchor="middle">YES TO QUOTE</text>
+              <rect x="440" y="293" width="90" height="20" rx="4" fill="hsl(var(--background))" stroke="hsl(var(--border))" />
+              <text x="485" y="307" fill="hsl(var(--success))" fontSize="11" fontWeight="700" textAnchor="middle">YES TO QUOTE</text>
             </svg>
           </div>
 
