@@ -51,6 +51,7 @@ export function useStaffAuth() {
         if (error || !data?.valid) {
           localStorage.removeItem('staff_session_token');
           localStorage.removeItem('staff_is_impersonation');
+          localStorage.removeItem('auth_mode'); // Clear staff mode on invalid session
           setState({ user: null, sessionToken: null, loading: false, error: null, isImpersonation: false });
           return;
         }
@@ -67,6 +68,7 @@ export function useStaffAuth() {
         console.error('Session verification error:', err);
         localStorage.removeItem('staff_session_token');
         localStorage.removeItem('staff_is_impersonation');
+        localStorage.removeItem('auth_mode'); // Clear staff mode on error
         setState({ user: null, sessionToken: null, loading: false, error: null, isImpersonation: false });
       }
     };
@@ -90,6 +92,7 @@ export function useStaffAuth() {
 
       localStorage.setItem('staff_session_token', data.session_token);
       localStorage.setItem('staff_agency_id', data.user.agency_id);
+      localStorage.setItem('auth_mode', 'staff'); // Prevent AuthProvider from wiping staff tokens
       localStorage.removeItem('staff_is_impersonation');
       
       // Clear sidebar folder state on login so folders start closed
@@ -118,6 +121,7 @@ export function useStaffAuth() {
   const setImpersonationSession = useCallback((sessionToken: string, user: StaffUser) => {
     localStorage.setItem('staff_session_token', sessionToken);
     localStorage.setItem('staff_agency_id', user.agency_id);
+    localStorage.setItem('auth_mode', 'staff'); // Prevent AuthProvider from wiping staff tokens
     localStorage.setItem('staff_is_impersonation', 'true');
     
     setState({
@@ -136,6 +140,7 @@ export function useStaffAuth() {
     localStorage.removeItem('staff_session_token');
     localStorage.removeItem('staff_agency_id');
     localStorage.removeItem('staff_is_impersonation');
+    localStorage.removeItem('auth_mode'); // Clear staff mode flag on logout
     localStorage.removeItem('sidebarOpenFolder');
 
     if (token) {

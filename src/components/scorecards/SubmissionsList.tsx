@@ -59,7 +59,14 @@ export function SubmissionsList({ staffAgencyId }: SubmissionsListProps) {
               <TableRow 
                 key={submission.id} 
                 className="cursor-pointer hover:bg-muted/50"
-                onClick={() => navigate(`/submissions/${submission.id}`)}
+                onClick={() => {
+                  // Staff users should stay in staff routes to prevent auth collisions
+                  if (staffAgencyId) {
+                    navigate(`/staff/scorecards/submissions/${submission.id}`);
+                  } else {
+                    navigate(`/submissions/${submission.id}`);
+                  }
+                }}
               >
                 <TableCell>
                   <div className="font-medium">

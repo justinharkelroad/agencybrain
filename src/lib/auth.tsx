@@ -107,21 +107,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           queryClient.removeQueries({ queryKey: ["auth-user"] });
         }
         
-        // On Supabase Auth sign-in, clear stale staff tokens to prevent collision
-        // Also clear sidebar folder state so folders start closed
+        // On Supabase Auth sign-in, only clear staff tokens if NOT in staff mode
+        // This prevents the destructive collision when an owner JWT exists but user is logged in as staff
         if (event === 'SIGNED_IN') {
-          // Clear any stale staff session tokens - owner auth takes precedence
-          localStorage.removeItem('staff_session_token');
-          localStorage.removeItem('staff_agency_id');
-          localStorage.removeItem('staff_is_impersonation');
-          localStorage.removeItem('staff_user');
-          localStorage.removeItem('staff_session_expiry');
+          // Check if user is currently in staff mode - if so, DON'T wipe their session
+          const isInStaffMode = localStorage.getItem('auth_mode') === 'staff';
           
-          Object.keys(localStorage).forEach(key => {
-            if (key.startsWith('sidebar-folder-') || key.startsWith('staff-sidebar-folder-')) {
-              localStorage.removeItem(key);
-            }
-          });
+          if (!isInStaffMode) {
+            // Only clear staff tokens when explicitly logging in as owner (not staff)
+            localStorage.removeItem('staff_session_token');
+            localStorage.removeItem('staff_agency_id');
+            localStorage.removeItem('staff_is_impersonation');
+            localStorage.removeItem('staff_user');
+            localStorage.removeItem('staff_session_expiry');
+            
+            Object.keys(localStorage).forEach(key => {
+              if (key.startsWith('sidebar-folder-') || key.startsWith('staff-sidebar-folder-')) {
+                localStorage.removeItem(key);
+              }
+            });
+          }
         }
         
         setSession(session);
