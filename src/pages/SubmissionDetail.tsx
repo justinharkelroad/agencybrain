@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ArrowLeft, Clock, CheckCircle, AlertCircle, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { hasStaffToken } from "@/lib/staffRequest";
+import { hasStaffToken, getStaffToken } from "@/lib/staffRequest";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -215,29 +215,79 @@ export default function SubmissionDetail() {
   }, [submissionId]);
 
   const fetchSubmission = async () => {
+    const isStaff = hasStaffToken();
+
     try {
-      const { data, error } = await supabase
-        .from('submissions')
-        .select(`
-          *,
-          form_templates(name, slug, agency_id, schema_json),
-          team_members(name, email)
-        `)
-        .eq('id', submissionId)
-        .single();
+      if (isStaff) {
+        // Staff users: use edge function to bypass RLS
+        const staffToken = getStaffToken();
+        console.log('[SubmissionDetail] Staff user - fetching via edge function');
 
-      if (error) throw error;
-      setSubmission(data);
+        const { data: response, error: fnError } = await supabase.functions.invoke('scorecards_admin', {
+          body: { action: 'submission_get', submission_id: submissionId },
+          headers: { 'x-staff-session': staffToken || '' },
+        });
 
-      // Fetch lead sources for the form's agency
-      if (data?.form_templates?.agency_id) {
-        const { data: leadSourcesData } = await supabase
-          .from('lead_sources')
-          .select('id, name')
-          .eq('agency_id', data.form_templates.agency_id)
-          .eq('is_active', true);
-        
-        setLeadSources(leadSourcesData || []);
+        if (fnError) {
+          console.error('[SubmissionDetail] Edge function error:', fnError);
+          toast.error('Failed to load submission details');
+          setLoading(false);
+          return;
+        }
+
+        if (response?.error) {
+          console.error('[SubmissionDetail] Response error:', response.error);
+          if (response.error === 'Submission not found') {
+            // Don't toast for not found - just show the not found UI
+            setSubmission(null);
+          } else {
+            toast.error(response.error);
+          }
+          setLoading(false);
+          return;
+        }
+
+        console.log('[SubmissionDetail] Staff fetch success:', response);
+        setSubmission(response.submission);
+        setLeadSources(response.leadSources || []);
+      } else {
+        // Regular users: use direct Supabase query
+        const { data, error } = await supabase
+          .from('submissions')
+          .select(`
+            *,
+            form_templates(name, slug, agency_id, schema_json),
+            team_members(name, email)
+          `)
+          .eq('id', submissionId)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error fetching submission:', error);
+          toast.error('Failed to load submission details');
+          setLoading(false);
+          return;
+        }
+
+        if (!data) {
+          // Not found - don't toast, just show the not found UI
+          setSubmission(null);
+          setLoading(false);
+          return;
+        }
+
+        setSubmission(data);
+
+        // Fetch lead sources for the form's agency
+        if (data?.form_templates?.agency_id) {
+          const { data: leadSourcesData } = await supabase
+            .from('lead_sources')
+            .select('id, name')
+            .eq('agency_id', data.form_templates.agency_id)
+            .eq('is_active', true);
+
+          setLeadSources(leadSourcesData || []);
+        }
       }
     } catch (error: any) {
       console.error('Error fetching submission:', error);
