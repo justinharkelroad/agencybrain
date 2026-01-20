@@ -177,13 +177,13 @@ Deno.serve(async (req) => {
 
         logStructured('date_range', { yesterday: yesterdayStr });
 
-        // Get team members for this form's role (include Hybrid)
+        // Get team members for this form's role (include Hybrid and Manager)
         const { data: teamMembers, error: tmError } = await supabase
           .from('team_members')
           .select('id, name, email, role')
           .eq('agency_id', agency.id)
           .eq('status', 'active')
-          .or(`role.eq.${form.role},role.eq.Hybrid`);
+          .or(`role.eq.${form.role},role.eq.Hybrid,role.eq.Manager`);
 
         if (tmError) {
           logStructured('team_members_fetch_error', { formId: form.id, error: tmError.message });
@@ -314,7 +314,7 @@ Deno.serve(async (req) => {
             .eq('status', 'active');
           
           if (roleFilter) {
-            membersQuery = membersQuery.or(`role.eq.${roleFilter},role.eq.Hybrid`);
+            membersQuery = membersQuery.or(`role.eq.${roleFilter},role.eq.Hybrid,role.eq.Manager`);
           }
 
           const { data: roleMembers } = await membersQuery;
