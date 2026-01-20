@@ -61,6 +61,10 @@ serve(async (req) => {
       sendCalendarInvite,
       assignedTeamMemberId,
       updateRecordStatus,
+      // New params for staff-specific handling
+      markAsSuccessful,
+      winbackHouseholdId,
+      contactId,
     } = body;
 
     if (!renewalRecordId || !activityType) {
@@ -121,6 +125,11 @@ serve(async (req) => {
       recordUpdates.current_status = updateRecordStatus;
     }
 
+    // If marked as successful, also update renewal_status
+    if (markAsSuccessful) {
+      recordUpdates.renewal_status = 'Renewal Taken';
+    }
+
     const { error: updateError } = await supabase
       .from('renewal_records')
       .update(recordUpdates)
@@ -129,6 +138,51 @@ serve(async (req) => {
     if (updateError) {
       console.error('[log_staff_renewal_activity] Record update error:', updateError);
       // Don't fail the whole operation for update error
+    }
+
+    // If marked as successful, close out any associated winback record
+    if (markAsSuccessful) {
+      if (winbackHouseholdId) {
+        // Direct link exists - update that winback
+        const { error: winbackError } = await supabase
+          .from('winback_households')
+          .update({ status: 'won_back', updated_at: new Date().toISOString() })
+          .eq('id', winbackHouseholdId)
+          .eq('agency_id', agencyId);
+
+        if (winbackError) {
+          console.error('[log_staff_renewal_activity] Winback update error:', winbackError);
+        }
+      } else if (contactId) {
+        // No direct link - find winback by contact_id and close it
+        const { error: winbackError } = await supabase
+          .from('winback_households')
+          .update({ status: 'won_back', updated_at: new Date().toISOString() })
+          .eq('contact_id', contactId)
+          .eq('agency_id', agencyId)
+          .in('status', ['untouched', 'in_progress']);
+
+        if (winbackError) {
+          console.error('[log_staff_renewal_activity] Winback update by contact error:', winbackError);
+        }
+      }
+    }
+
+    // Mirror to contact_activities for "Last Activity" display
+    if (contactId) {
+      try {
+        await supabase.rpc('insert_contact_activity', {
+          p_contact_id: contactId,
+          p_agency_id: agencyId,
+          p_activity_type: activityType,
+          p_activity_subtype: activityStatus || null,
+          p_description: `Renewal: ${activityType}${activityStatus ? ` - ${activityStatus}` : ''}`,
+          p_created_by_name: displayName,
+        });
+      } catch (mirrorError) {
+        console.error('[log_staff_renewal_activity] contact_activities mirror error:', mirrorError);
+        // Don't fail - this is for display only
+      }
     }
 
     console.log('[log_staff_renewal_activity] Activity logged successfully');

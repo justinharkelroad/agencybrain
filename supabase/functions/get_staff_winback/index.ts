@@ -237,10 +237,10 @@ Deno.serve(async (req) => {
       case "log_activity": {
         const { householdId, activityType, notes } = params;
 
-        // Verify household belongs to agency
+        // Verify household belongs to agency and get contact_id for mirroring
         const { data: household } = await supabase
           .from("winback_households")
-          .select("id")
+          .select("id, contact_id")
           .eq("id", householdId)
           .eq("agency_id", agencyId)
           .single();
@@ -275,6 +275,24 @@ Deno.serve(async (req) => {
           });
 
         if (error) throw error;
+
+        // Mirror to contact_activities for "Last Activity" display
+        if (household.contact_id) {
+          try {
+            await supabase.rpc("insert_contact_activity", {
+              p_contact_id: household.contact_id,
+              p_agency_id: agencyId,
+              p_activity_type: activityType,
+              p_activity_subtype: null,
+              p_description: `Winback: ${activityType}${notes ? ` - ${notes}` : ""}`,
+              p_created_by_name: userName,
+            });
+          } catch (mirrorError) {
+            console.error("[log_activity] contact_activities mirror error:", mirrorError);
+            // Don't fail - this is for display only
+          }
+        }
+
         result = { success: true };
         break;
       }

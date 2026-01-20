@@ -55,6 +55,10 @@ interface CreateActivityParams {
   displayName: string;
   userId: string | null;
   updateRecordStatus?: WorkflowStatus;
+  // Staff-specific params for handling successful renewals
+  markAsSuccessful?: boolean;
+  winbackHouseholdId?: string | null;
+  contactId?: string | null;
 }
 
 export function useCreateRenewalActivity() {
@@ -77,6 +81,10 @@ export function useCreateRenewalActivity() {
             sendCalendarInvite: params.sendCalendarInvite,
             assignedTeamMemberId: params.assignedTeamMemberId,
             updateRecordStatus: params.updateRecordStatus,
+            // Staff-specific params
+            markAsSuccessful: params.markAsSuccessful,
+            winbackHouseholdId: params.winbackHouseholdId,
+            contactId: params.contactId,
           },
           headers: { 'x-staff-session': staffSessionToken }
         });
