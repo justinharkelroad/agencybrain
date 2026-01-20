@@ -145,16 +145,15 @@ serve(async (req) => {
       });
     }
 
-    // Note: staff_users is returned as array from joined query
-    const staffUser = session.staff_users?.[0];
-    if (!session || new Date(session.expires_at) < new Date() || !staffUser?.is_active) {
+    // Note: staff_users is returned as an object (not array) when using .single()
+    if (!session || new Date(session.expires_at) < new Date() || !session.staff_users?.is_active) {
       console.error('[get_staff_renewals] Session expired or user inactive');
       return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    const agencyId = staffUser.agency_id;
+    const agencyId = session.staff_users.agency_id;
     console.log('[get_staff_renewals] Valid session for agency:', agencyId);
 
     const body = await req.json().catch(() => ({}));
