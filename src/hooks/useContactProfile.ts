@@ -684,7 +684,7 @@ export function useContactJourney(contactId: string | null, agencyId: string | n
 
         supabase
           .from('winback_households')
-          .select('id, status, termination_date, created_at')
+          .select('id, status, earliest_winback_date, created_at')
           .eq('contact_id', contactId)
           .eq('agency_id', agencyId)
           .order('created_at', { ascending: true }),
