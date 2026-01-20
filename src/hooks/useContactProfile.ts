@@ -16,12 +16,183 @@ import type {
   WinbackPolicyDetail,
 } from '@/types/contact';
 
+const SUPABASE_URL = 'https://wjqyccbytctqwceuhzhk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw';
+
 interface UseContactProfileOptions {
   // Direct IDs from parent page - more reliable than trying to discover via contact_id
   cancelAuditHouseholdKey?: string;
   winbackHouseholdId?: string;
   renewalRecordId?: string;
 }
+
+/**
+ * Fetch contact profile via edge function for staff users (bypasses RLS)
+ */
+async function fetchStaffContactProfile(
+  sessionToken: string,
+  contactId: string,
+  agencyId: string,
+  options?: UseContactProfileOptions
+): Promise<ContactProfile | null> {
+  const response = await fetch(
+    `${SUPABASE_URL}/functions/v1/get_staff_contact_profile`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'x-staff-session': sessionToken,
+      },
+      body: JSON.stringify({
+        contactId,
+        agencyId,
+        cancelAuditHouseholdKey: options?.cancelAuditHouseholdKey,
+        winbackHouseholdId: options?.winbackHouseholdId,
+        renewalRecordId: options?.renewalRecordId,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error('[fetchStaffContactProfile] Error:', errorData);
+    if (response.status === 401 || response.status === 403) {
+      return null; // Access denied
+    }
+    throw new Error(errorData.error || `Request failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  if (!data.profile) {
+    return null;
+  }
+
+  // Transform edge function response to match ContactProfile interface
+  const profile = data.profile;
+  const contact = profile.contact as Contact;
+
+  // Map linked records from edge function format
+  const lqsRecords: LinkedLQSRecord[] = (profile.lqsRecords || []).map((r: any) => {
+    const quotes: LqsQuoteDetail[] = (r.quotes || []).map((q: any) => ({
+      id: q.id,
+      quote_date: q.quote_date,
+      product_type: q.product_type,
+      items_quoted: q.items_quoted,
+      premium_cents: q.premium_cents,
+      issued_policy_number: q.issued_policy_number,
+    }));
+    const sales: LqsSaleDetail[] = (r.sales || []).map((s: any) => ({
+      id: s.id,
+      sale_date: s.sale_date,
+      product_type: s.product_type,
+      items_sold: s.items_sold,
+      policies_sold: s.policies_sold,
+      premium_cents: s.premium_cents,
+      policy_number: s.policy_number,
+    }));
+    const totalQuotedPremium = quotes.reduce((sum, q) => sum + (q.premium_cents || 0), 0);
+
+    return {
+      id: r.id,
+      status: r.status,
+      quoted_premium: totalQuotedPremium > 0 ? totalQuotedPremium / 100 : null,
+      sold_date: r.status === 'sold' || r.status === 'Sold' ? r.created_at : null,
+      team_member_name: r.team_members?.name || null,
+      created_at: r.created_at,
+      lead_source_name: r.lead_source?.name || null,
+      quotes,
+      sales,
+    };
+  });
+
+  const renewalRecords: LinkedRenewalRecord[] = (profile.renewalRecords || []).map((r: any) => ({
+    id: r.id,
+    policy_number: r.policy_number,
+    renewal_effective_date: r.renewal_effective_date,
+    renewal_status: r.renewal_status,
+    current_status: r.current_status,
+    premium_new: r.premium_new,
+    assigned_team_member_name: r.assigned_team_member?.name || null,
+    premium_old: r.premium_old,
+    premium_change_percent: r.premium_change_percent,
+    product_name: r.product_name,
+    amount_due: r.amount_due,
+    easy_pay: r.easy_pay,
+    multi_line_indicator: r.multi_line_indicator,
+  }));
+
+  const cancelAuditRecords: LinkedCancelAuditRecord[] = (profile.cancelAuditRecords || []).map((r: any) => ({
+    id: r.id,
+    cancel_status: r.cancel_status || r.status,
+    assigned_team_member_name: r.assigned_team_member?.name || null,
+    created_at: r.created_at,
+    policy_number: r.policy_number,
+    product_name: r.product_name,
+    premium_cents: r.premium_cents,
+    amount_due_cents: r.amount_due_cents,
+    cancel_date: r.cancel_date,
+    pending_cancel_date: r.pending_cancel_date,
+    account_type: r.account_type,
+    report_type: r.report_type,
+  }));
+
+  const winbackRecords: LinkedWinbackRecord[] = (profile.winbackRecords || []).map((r: any) => {
+    const policies: WinbackPolicyDetail[] = (r.policies || []).map((p: any) => ({
+      id: p.id,
+      policy_number: p.policy_number,
+      product_name: p.product_name,
+      product_code: p.product_code,
+      termination_effective_date: p.termination_effective_date,
+      termination_reason: p.termination_reason,
+      premium_old_cents: p.premium_old_cents,
+      premium_new_cents: p.premium_new_cents,
+      premium_change_percent: p.premium_change_percent,
+      calculated_winback_date: p.calculated_winback_date,
+    }));
+
+    return {
+      id: r.id,
+      status: r.status,
+      earliest_winback_date: r.next_contact_date,
+      total_premium_potential_cents: policies.reduce((sum, p) => sum + (p.premium_new_cents || 0), 0),
+      policy_count: policies.length,
+      assigned_team_member_name: null,
+      policies,
+    };
+  });
+
+  // Determine lifecycle stage
+  const currentStage = profile.lifecycleStage as LifecycleStage || determineLifecycleStage(lqsRecords, renewalRecords, cancelAuditRecords, winbackRecords);
+
+  // Map activities from edge function format
+  const allActivities: ContactActivity[] = (profile.activities || []).map((a: any) => ({
+    id: a.id,
+    contact_id: contactId,
+    agency_id: agencyId,
+    source_module: a.source_module || 'other',
+    activity_type: a.activity_type,
+    activity_subtype: a.activity_subtype,
+    notes: a.notes,
+    subject: a.subject,
+    outcome: a.outcome,
+    created_by_display_name: a.created_by_display_name,
+    activity_date: a.activity_date,
+    created_at: a.created_at,
+  }));
+
+  return {
+    ...contact,
+    current_stage: currentStage,
+    activities: allActivities,
+    lqs_records: lqsRecords,
+    renewal_records: renewalRecords,
+    cancel_audit_records: cancelAuditRecords,
+    winback_records: winbackRecords,
+  };
+}
+
 
 export function useContactProfile(
   contactId: string | null,
@@ -36,6 +207,17 @@ export function useContactProfile(
     queryFn: async (): Promise<ContactProfile | null> => {
       if (!contactId || !agencyId) return null;
 
+      // Staff users need to use edge function to bypass RLS
+      if (staffSessionToken) {
+        return fetchStaffContactProfile(
+          staffSessionToken,
+          contactId,
+          agencyId,
+          { cancelAuditHouseholdKey, winbackHouseholdId, renewalRecordId }
+        );
+      }
+
+      // Owner/admin users use direct Supabase queries
       // Fetch the contact
       const { data: contact, error: contactError } = await supabase
         .from('agency_contacts')
