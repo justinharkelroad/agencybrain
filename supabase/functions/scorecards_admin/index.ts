@@ -593,6 +593,54 @@ serve(async (req) => {
         break;
       }
 
+      case 'submission_get': {
+        const { submission_id } = params;
+
+        if (!submission_id) {
+          return new Response(
+            JSON.stringify({ error: 'submission_id is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fetch submission with form_templates (for agency check) and team_members
+        const { data: submission, error: subError } = await supabase
+          .from('submissions')
+          .select(`
+            *,
+            form_templates!inner(name, slug, agency_id, schema_json),
+            team_members(name, email)
+          `)
+          .eq('id', submission_id)
+          .eq('form_templates.agency_id', agencyId)
+          .maybeSingle();
+
+        if (subError) {
+          console.error('Error fetching submission:', subError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to fetch submission' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        if (!submission) {
+          return new Response(
+            JSON.stringify({ error: 'Submission not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fetch lead sources for the agency
+        const { data: leadSources } = await supabase
+          .from('lead_sources')
+          .select('id, name')
+          .eq('agency_id', agencyId)
+          .eq('is_active', true);
+
+        result = { submission, leadSources: leadSources || [] };
+        break;
+      }
+
       // ==================== TEAM RINGS DATA ====================
       case 'team_rings_data': {
         const { role, date } = params;
