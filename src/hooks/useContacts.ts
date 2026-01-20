@@ -81,6 +81,8 @@ export function useContactSearch(agencyId: string | null, searchTerm: string) {
         p_search: searchTerm,
         p_limit: 20,
         p_offset: 0,
+        p_sort_by: 'name',
+        p_sort_direction: 'asc',
       });
 
       if (error) throw error;
