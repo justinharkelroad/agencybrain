@@ -269,17 +269,17 @@ export function LifecycleDiagramModal({ open, onOpenChange }: LifecycleDiagramMo
               {/* 6. Customer → Cancel Audit (down) */}
               <line x1="415" y1="175" x2="415" y2="200" stroke="hsl(var(--muted-foreground))" strokeWidth="2" markerEnd="url(#arrowMuted)" />
 
-              {/* 7. Cancel Audit → Customer (PAID - up, dashed) */}
+              {/* 7. Cancel Audit → Customer (PAID - right then up) */}
               <path
-                d="M 445 205 L 460 205 L 460 155 L 465 155"
+                d="M 465 230 L 500 230 L 500 155 L 465 155"
                 stroke="hsl(var(--success))"
                 strokeWidth="2"
                 fill="none"
                 strokeDasharray="6 4"
                 markerEnd="url(#arrowSuccess)"
               />
-              <rect x="445" y="170" width="35" height="16" rx="4" fill="hsl(var(--background))" stroke="hsl(var(--border))" />
-              <text x="462" y="182" fill="hsl(var(--success))" fontSize="9" fontWeight="600" textAnchor="middle">PAID</text>
+              <rect x="482" y="180" width="35" height="16" rx="4" fill="hsl(var(--background))" stroke="hsl(var(--border))" />
+              <text x="500" y="192" fill="hsl(var(--success))" fontSize="9" fontWeight="600" textAnchor="middle">PAID</text>
 
               {/* 8. Cancel Audit → Winback (NOT PAID - right then up) */}
               <polyline
