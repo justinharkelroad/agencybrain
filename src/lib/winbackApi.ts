@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { getStaffToken, hasStaffToken } from './staffRequest';
+import { getStaffToken, hasStaffToken, fetchWithAuth } from './staffRequest';
 import { startOfWeek, endOfWeek } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -87,18 +87,22 @@ interface UploadStats {
   skipped: number;
 }
 
-// Helper to call staff edge function
+// Helper to call staff edge function using fetchWithAuth to avoid invalid JWT issues
 async function callStaffWinback<T>(operation: string, params: Record<string, any> = {}): Promise<T> {
   const token = getStaffToken();
   if (!token) throw new Error('No staff token');
 
-  const response = await supabase.functions.invoke('get_staff_winback', {
+  const response = await fetchWithAuth('get_staff_winback', {
+    method: 'POST',
     body: { operation, params },
-    headers: { 'x-staff-session': token },
   });
 
-  if (response.error) throw response.error;
-  return response.data as T;
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.error || `HTTP ${response.status}`);
+  }
+
+  return await response.json() as T;
 }
 
 // Check if current user is staff
