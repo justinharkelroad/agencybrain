@@ -299,10 +299,18 @@ export function AddQuoteModal({
           </div>
 
           {/* Products Section */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Label>
               Products <span className="text-destructive">*</span>
             </Label>
+            
+            {/* Column Headers */}
+            <div className="flex gap-2 items-center text-xs text-muted-foreground">
+              <div className="flex-1">Product Type</div>
+              <div className="w-28 text-center">Premium</div>
+              <div className="w-16 text-center"># Items</div>
+              {products.length > 1 && <div className="w-10" />}
+            </div>
             
             {products.map((product, index) => (
               <div key={index} className="flex gap-2 items-start">
@@ -346,7 +354,6 @@ export function AddQuoteModal({
                     onChange={(e) => updateProduct(index, 'items', e.target.value)}
                     placeholder="#"
                     className="text-center"
-                    title="# of items"
                   />
                 </div>
                 {products.length > 1 && (
