@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { ArrowLeft, Clock, CheckCircle, AlertCircle, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-import { hasStaffToken, getStaffToken } from "@/lib/staffRequest";
+import { hasStaffToken, fetchWithAuth } from "@/lib/staffRequest";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -220,36 +220,30 @@ export default function SubmissionDetail() {
     try {
       if (isStaff) {
         // Staff users: use edge function to bypass RLS
-        const staffToken = getStaffToken();
         console.log('[SubmissionDetail] Staff user - fetching via edge function');
 
-        const { data: response, error: fnError } = await supabase.functions.invoke('scorecards_admin', {
+        const response = await fetchWithAuth('scorecards_admin', {
+          method: 'POST',
           body: { action: 'submission_get', submission_id: submissionId },
-          headers: { 'x-staff-session': staffToken || '' },
         });
 
-        if (fnError) {
-          console.error('[SubmissionDetail] Edge function error:', fnError);
-          toast.error('Failed to load submission details');
-          setLoading(false);
-          return;
-        }
+        const data = await response.json();
 
-        if (response?.error) {
-          console.error('[SubmissionDetail] Response error:', response.error);
-          if (response.error === 'Submission not found') {
+        if (!response.ok) {
+          console.error('[SubmissionDetail] Edge function error:', response.status, data);
+          if (response.status === 404 || data?.error === 'Submission not found') {
             // Don't toast for not found - just show the not found UI
             setSubmission(null);
           } else {
-            toast.error(response.error);
+            toast.error(data?.error || 'Failed to load submission details');
           }
           setLoading(false);
           return;
         }
 
-        console.log('[SubmissionDetail] Staff fetch success:', response);
-        setSubmission(response.submission);
-        setLeadSources(response.leadSources || []);
+        console.log('[SubmissionDetail] Staff fetch success:', data);
+        setSubmission(data.submission);
+        setLeadSources(data.leadSources || []);
       } else {
         // Regular users: use direct Supabase query
         const { data, error } = await supabase

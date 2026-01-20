@@ -872,6 +872,224 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "transition_to_quoted": {
+        const { householdId, currentUserTeamMemberId } = params;
+
+        if (!householdId) {
+          return new Response(JSON.stringify({ error: "householdId is required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Verify household belongs to agency
+        const { data: household } = await supabase
+          .from("winback_households")
+          .select("id, status")
+          .eq("id", householdId)
+          .eq("agency_id", agencyId)
+          .single();
+
+        if (!household) {
+          return new Response(JSON.stringify({ error: "Household not found" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Active statuses that can transition to moved_to_quoted
+        const activeStatuses = ["untouched", "in_progress", "declined", "no_contact"];
+
+        if (!activeStatuses.includes(household.status)) {
+          result = { success: false, error: "Household not in active status" };
+          break;
+        }
+
+        const teamMemberId = verified.staffMemberId || currentUserTeamMemberId;
+
+        // Update status to moved_to_quoted
+        const { error: updateError } = await supabase
+          .from("winback_households")
+          .update({
+            status: "moved_to_quoted",
+            assigned_to: teamMemberId || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", householdId)
+          .in("status", activeStatuses);
+
+        if (updateError) throw updateError;
+
+        // Log the status change
+        let userName = "Unknown";
+        if (teamMemberId) {
+          const { data: member } = await supabase
+            .from("team_members")
+            .select("name")
+            .eq("id", teamMemberId)
+            .single();
+          if (member) userName = member.name;
+        }
+
+        await supabase.from("winback_activities").insert({
+          household_id: householdId,
+          agency_id: agencyId,
+          activity_type: "status_change",
+          old_status: household.status,
+          new_status: "moved_to_quoted",
+          created_by_team_member_id: teamMemberId || null,
+          created_by_name: userName,
+        });
+
+        result = { success: true };
+        break;
+      }
+
+      case "winback_to_quoted": {
+        // Full flow: find/create lead source, create LQS, update winback status, log activity
+        const { householdId, contactId, firstName, lastName, zipCode, phones, email, currentUserTeamMemberId } = params;
+
+        if (!householdId) {
+          return new Response(JSON.stringify({ error: "householdId is required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Verify household belongs to agency
+        const { data: household } = await supabase
+          .from("winback_households")
+          .select("id, status")
+          .eq("id", householdId)
+          .eq("agency_id", agencyId)
+          .single();
+
+        if (!household) {
+          return new Response(JSON.stringify({ error: "Household not found" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const activeStatuses = ["untouched", "in_progress", "declined", "no_contact"];
+        if (!activeStatuses.includes(household.status)) {
+          result = { success: false, error: "Household not in active status" };
+          break;
+        }
+
+        const teamMemberId = verified.staffMemberId || currentUserTeamMemberId;
+
+        // Step 1: Find or create "Winback" lead source
+        let winbackLeadSourceId: string | null = null;
+
+        const { data: existingSource } = await supabase
+          .from("lead_sources")
+          .select("id")
+          .eq("agency_id", agencyId)
+          .ilike("name", "winback")
+          .limit(1)
+          .maybeSingle();
+
+        if (existingSource) {
+          winbackLeadSourceId = existingSource.id;
+        } else {
+          const { data: newSource, error: createError } = await supabase
+            .from("lead_sources")
+            .insert({
+              agency_id: agencyId,
+              name: "Winback",
+              is_active: true,
+              is_self_generated: false,
+              cost_type: "per_lead",
+              cost_per_lead_cents: 0,
+            })
+            .select("id")
+            .single();
+
+          if (!createError && newSource) {
+            winbackLeadSourceId = newSource.id;
+          }
+        }
+
+        // Step 2: Create/update LQS record
+        const householdKey = `${(firstName || "").toLowerCase()}-${(lastName || "").toLowerCase()}-${(zipCode || "").substring(0, 5)}`;
+        const today = new Date().toISOString().split("T")[0];
+
+        const { error: lqsError } = await supabase
+          .from("lqs_households")
+          .upsert({
+            agency_id: agencyId,
+            household_key: householdKey,
+            first_name: (firstName || "").toUpperCase(),
+            last_name: (lastName || "").toUpperCase(),
+            zip_code: zipCode || "",
+            contact_id: contactId || null,
+            status: "quoted",
+            lead_source_id: winbackLeadSourceId,
+            team_member_id: teamMemberId || null,
+            first_quote_date: today,
+            lead_received_date: today,
+            updated_at: new Date().toISOString(),
+            phone: phones || [],
+            email: email || null,
+          }, {
+            onConflict: "agency_id,household_key",
+          });
+
+        if (lqsError) {
+          console.error("[winback_to_quoted] LQS upsert error:", lqsError);
+          // Continue anyway - LQS creation is not critical
+        }
+
+        // Step 3: Update winback status to moved_to_quoted
+        const { error: updateError } = await supabase
+          .from("winback_households")
+          .update({
+            status: "moved_to_quoted",
+            assigned_to: teamMemberId || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", householdId)
+          .in("status", activeStatuses);
+
+        if (updateError) throw updateError;
+
+        // Step 4: Log the activity
+        let userName = "Unknown";
+        if (teamMemberId) {
+          const { data: member } = await supabase
+            .from("team_members")
+            .select("name")
+            .eq("id", teamMemberId)
+            .single();
+          if (member) userName = member.name;
+        }
+
+        // Log status change
+        await supabase.from("winback_activities").insert({
+          household_id: householdId,
+          agency_id: agencyId,
+          activity_type: "status_change",
+          old_status: household.status,
+          new_status: "moved_to_quoted",
+          created_by_team_member_id: teamMemberId || null,
+          created_by_name: userName,
+        });
+
+        // Log quoted activity
+        await supabase.from("winback_activities").insert({
+          household_id: householdId,
+          agency_id: agencyId,
+          activity_type: "quoted",
+          notes: "Moved to Quoted Household",
+          created_by_team_member_id: teamMemberId || null,
+          created_by_name: userName,
+        });
+
+        result = { success: true, leadSourceId: winbackLeadSourceId };
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: "Unknown operation" }), {
           status: 400,

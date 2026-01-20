@@ -290,112 +290,137 @@ export function ContactProfileModal({
     setModuleActionLoading(outcome);
     try {
       if (outcome === 'quoted') {
-        // Step 1: Find or create "Winback" lead source
-        let winbackLeadSourceId: string | null = null;
-        let createdNewLeadSource = false;
+        // Staff users: use edge function for the full flow (bypasses RLS)
+        if (winbackApi.isStaffUser()) {
+          const result = await winbackApi.winbackToQuoted(
+            winbackHousehold.id,
+            agencyId,
+            contactId,
+            profile.first_name,
+            profile.last_name,
+            profile.zip_code || '',
+            profile.phones || [],
+            profile.emails?.[0] || null,
+            currentUserTeamMemberId || null
+          );
 
-        // Look for existing "Winback" lead source (case-insensitive)
-        const { data: existingSource } = await supabase
-          .from('lead_sources')
-          .select('id')
-          .eq('agency_id', agencyId)
-          .ilike('name', 'winback')
-          .limit(1)
-          .single();
+          if (!result.success) {
+            toast.error('Failed to move to Quoted', {
+              description: result.error || 'Winback status could not be updated.'
+            });
+            return;
+          }
 
-        if (existingSource) {
-          winbackLeadSourceId = existingSource.id;
+          toast.success('Moved to Quoted!', { description: 'Contact is now a Quoted Household' });
         } else {
-          // Create "Winback" lead source for this agency
-          const { data: newSource, error: createError } = await supabase
+          // Non-staff users: use direct Supabase queries
+          // Step 1: Find or create "Winback" lead source
+          let winbackLeadSourceId: string | null = null;
+          let createdNewLeadSource = false;
+
+          // Look for existing "Winback" lead source (case-insensitive)
+          const { data: existingSource } = await supabase
             .from('lead_sources')
-            .insert({
-              agency_id: agencyId,
-              name: 'Winback',
-              is_active: true,
-              is_self_generated: false, // Not self-generated - originally paid marketing
-              cost_type: 'per_lead',
-              cost_per_lead_cents: 0,
-            })
             .select('id')
+            .eq('agency_id', agencyId)
+            .ilike('name', 'winback')
+            .limit(1)
             .single();
 
-          if (!createError && newSource) {
-            winbackLeadSourceId = newSource.id;
-            createdNewLeadSource = true;
+          if (existingSource) {
+            winbackLeadSourceId = existingSource.id;
+          } else {
+            // Create "Winback" lead source for this agency
+            const { data: newSource, error: createError } = await supabase
+              .from('lead_sources')
+              .insert({
+                agency_id: agencyId,
+                name: 'Winback',
+                is_active: true,
+                is_self_generated: false, // Not self-generated - originally paid marketing
+                cost_type: 'per_lead',
+                cost_per_lead_cents: 0,
+              })
+              .select('id')
+              .single();
+
+            if (!createError && newSource) {
+              winbackLeadSourceId = newSource.id;
+              createdNewLeadSource = true;
+            }
           }
-        }
 
-        // Step 2: Create/update LQS record with status 'quoted' and Winback lead source
-        const householdKey = generateHouseholdKey(
-          profile.first_name,
-          profile.last_name,
-          profile.zip_code
-        );
+          // Step 2: Create/update LQS record with status 'quoted' and Winback lead source
+          const householdKey = generateHouseholdKey(
+            profile.first_name,
+            profile.last_name,
+            profile.zip_code
+          );
 
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+          const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
-        // Upsert LQS record - if exists, update status to quoted; if not, create it
-        // Auto-assign to the person who clicked Quoted
-        // Carry over phone/email from the contact profile
-        const { error: lqsError } = await supabase
-          .from('lqs_households')
-          .upsert({
-            agency_id: agencyId,
-            household_key: householdKey,
-            first_name: profile.first_name.toUpperCase(),
-            last_name: profile.last_name.toUpperCase(),
-            zip_code: profile.zip_code || '',
-            contact_id: contactId,
-            status: 'quoted',
-            lead_source_id: winbackLeadSourceId,
-            team_member_id: currentUserTeamMemberId || null, // Auto-assign to the person who clicked Quoted
-            first_quote_date: today, // Reset quote date for new quote cycle
-            lead_received_date: today,
-            updated_at: new Date().toISOString(),
-            phone: profile.phones || [], // Carry over phone array from contact
-            email: profile.emails?.[0] || null, // Carry over primary email from contact
-          }, {
-            onConflict: 'agency_id,household_key',
-          });
+          // Upsert LQS record - if exists, update status to quoted; if not, create it
+          // Auto-assign to the person who clicked Quoted
+          // Carry over phone/email from the contact profile
+          const { error: lqsError } = await supabase
+            .from('lqs_households')
+            .upsert({
+              agency_id: agencyId,
+              household_key: householdKey,
+              first_name: profile.first_name.toUpperCase(),
+              last_name: profile.last_name.toUpperCase(),
+              zip_code: profile.zip_code || '',
+              contact_id: contactId,
+              status: 'quoted',
+              lead_source_id: winbackLeadSourceId,
+              team_member_id: currentUserTeamMemberId || null, // Auto-assign to the person who clicked Quoted
+              first_quote_date: today, // Reset quote date for new quote cycle
+              lead_received_date: today,
+              updated_at: new Date().toISOString(),
+              phone: profile.phones || [], // Carry over phone array from contact
+              email: profile.emails?.[0] || null, // Carry over primary email from contact
+            }, {
+              onConflict: 'agency_id,household_key',
+            });
 
-        if (lqsError) throw lqsError;
+          if (lqsError) throw lqsError;
 
-        // Step 3: Mark winback as moved_to_quoted using robust transition
-        // This handles any active status (untouched, in_progress, declined, no_contact)
-        const winbackResult = await winbackApi.transitionToQuoted(
-          winbackHousehold.id,
-          agencyId,
-          currentUserTeamMemberId || null,
-          teamMembers
-        );
-        
-        // FAIL FAST: If winback status update failed, don't proceed
-        if (!winbackResult.success) {
-          toast.error('Failed to move to Quoted', { 
-            description: 'Winback status could not be updated. The record may already be in a terminal state.' 
-          });
-          return;
-        }
+          // Step 3: Mark winback as moved_to_quoted using robust transition
+          // This handles any active status (untouched, in_progress, declined, no_contact)
+          const winbackResult = await winbackApi.transitionToQuoted(
+            winbackHousehold.id,
+            agencyId,
+            currentUserTeamMemberId || null,
+            teamMembers
+          );
 
-        // Step 4: Log the quoted activity so it appears in Daily Activity Summary
-        // Only log if the status update succeeded
-        await winbackApi.logActivity(
-          winbackHousehold.id,
-          agencyId,
-          'quoted',
-          'Moved to Quoted Household',
-          currentUserTeamMemberId || null,
-          teamMembers
-        );
+          // FAIL FAST: If winback status update failed, don't proceed
+          if (!winbackResult.success) {
+            toast.error('Failed to move to Quoted', {
+              description: 'Winback status could not be updated. The record may already be in a terminal state.'
+            });
+            return;
+          }
 
-        // Show success with note if we created a new lead source
-        if (createdNewLeadSource) {
-          toast.success('Moved to Quoted!', {
-            description: 'Contact is now a Quoted Household. "Winback" lead source was added to your settings.'
-          });
-        } else {
-          toast.success('Moved to Quoted!', { description: 'Contact is now a Quoted Household' });
+          // Step 4: Log the quoted activity so it appears in Daily Activity Summary
+          // Only log if the status update succeeded
+          await winbackApi.logActivity(
+            winbackHousehold.id,
+            agencyId,
+            'quoted',
+            'Moved to Quoted Household',
+            currentUserTeamMemberId || null,
+            teamMembers
+          );
+
+          // Show success with note if we created a new lead source
+          if (createdNewLeadSource) {
+            toast.success('Moved to Quoted!', {
+              description: 'Contact is now a Quoted Household. "Winback" lead source was added to your settings.'
+            });
+          } else {
+            toast.success('Moved to Quoted!', { description: 'Contact is now a Quoted Household' });
+          }
         }
       } else {
         // Update to won_back status - this transitions contact to Customer
