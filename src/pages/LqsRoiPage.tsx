@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { BarChart3, TrendingUp, Users, DollarSign, Percent, Target, Info, CalendarIcon, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -46,13 +46,20 @@ import { useAuth } from '@/lib/auth';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { 
-  useLqsRoiAnalytics, 
-  DateRangePreset, 
+import {
+  useLqsRoiAnalytics,
+  DateRangePreset,
   getDateRangeFromPreset,
-  LeadSourceRoiRow 
+  LeadSourceRoiRow
 } from '@/hooks/useLqsRoiAnalytics';
 import { useLqsRoiExport } from '@/hooks/useLqsRoiExport';
+import { LqsRoiBucketTable } from '@/components/lqs/LqsRoiBucketTable';
+import { LqsProducerBreakdown } from '@/components/lqs/LqsProducerBreakdown';
+import { useLqsProducerBreakdown } from '@/hooks/useLqsProducerBreakdown';
+import { LqsLeadSourceDetailSheet } from '@/components/lqs/LqsLeadSourceDetailSheet';
+import { LqsGoalsHeader } from '@/components/lqs/LqsGoalsHeader';
+import { LqsSameMonthConversion } from '@/components/lqs/LqsSameMonthConversion';
+import { differenceInDays } from 'date-fns';
 
 // Format currency from cents
 function formatCurrency(cents: number): string {
@@ -387,7 +394,17 @@ export default function LqsRoiPage() {
   const [customDateRange, setCustomDateRange] = useState<{ start: Date; end: Date } | null>(null);
   const [commissionRate, setCommissionRate] = useState<string>('22');
   const [isSavingRate, setIsSavingRate] = useState(false);
-  
+
+  // Lead source detail sheet state
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [selectedLeadSourceId, setSelectedLeadSourceId] = useState<string | null | undefined>(undefined);
+
+  // Handler for lead source click
+  const handleLeadSourceClick = (leadSourceId: string | null) => {
+    setSelectedLeadSourceId(leadSourceId);
+    setDetailSheetOpen(true);
+  };
+
   // Get date range from preset or use custom
   const dateRange = datePreset === 'custom' 
     ? customDateRange 
@@ -399,6 +416,36 @@ export default function LqsRoiPage() {
     agencyProfile?.agencyId ?? null,
     dateRange
   );
+
+  // Producer breakdown data
+  const { data: producerData, isLoading: producerLoading } = useLqsProducerBreakdown(
+    agencyProfile?.agencyId ?? null,
+    dateRange
+  );
+
+  // Fetch agency goals
+  const agencyGoalsQuery = useQuery({
+    queryKey: ['lqs-agency-goals', agencyProfile?.agencyId],
+    enabled: !!agencyProfile?.agencyId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agencies')
+        .select('daily_quoted_households_target, daily_sold_items_target')
+        .eq('id', agencyProfile!.agencyId)
+        .single();
+
+      if (error) throw error;
+      return {
+        dailyQuotedHouseholdsTarget: data?.daily_quoted_households_target ?? null,
+        dailySoldItemsTarget: data?.daily_sold_items_target ?? null,
+      };
+    },
+  });
+
+  // Calculate days in period
+  const daysInPeriod = dateRange
+    ? Math.max(1, differenceInDays(dateRange.end, dateRange.start) + 1)
+    : 365; // Default to 1 year for "all time"
 
   // Export functionality
   const { exportSummary, exportDetails } = useLqsRoiExport(
@@ -629,6 +676,14 @@ export default function LqsRoiPage() {
         Used for ROI calculations (Commission Earned = Premium × Rate)
       </p>
 
+      {/* Goals Header */}
+      <LqsGoalsHeader
+        summary={analytics?.summary ?? null}
+        agencyGoals={agencyGoalsQuery.data ?? null}
+        daysInPeriod={daysInPeriod}
+        isLoading={analyticsLoading || agencyGoalsQuery.isLoading}
+      />
+
       {/* Summary Cards */}
       {analyticsLoading || !summary ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -782,10 +837,38 @@ export default function LqsRoiPage() {
         </Card>
       </div>
 
-      {/* Lead Source ROI Table */}
-      <LeadSourceTable 
-        data={analytics?.byLeadSource || []} 
-        isLoading={analyticsLoading} 
+      {/* Marketing ROI by Bucket Table */}
+      <LqsRoiBucketTable
+        data={analytics?.byLeadSource || []}
+        isLoading={analyticsLoading}
+        onLeadSourceClick={handleLeadSourceClick}
+      />
+
+      {/* Producer Breakdown (Quoted By / Sold By) */}
+      <LqsProducerBreakdown
+        data={producerData}
+        isLoading={producerLoading}
+      />
+
+      {/* Same-Month Conversion Metric */}
+      <LqsSameMonthConversion
+        agencyId={agencyProfile?.agencyId ?? null}
+        dateRange={dateRange}
+      />
+
+      {/* Legacy Lead Source ROI Table (flat view) */}
+      <LeadSourceTable
+        data={analytics?.byLeadSource || []}
+        isLoading={analyticsLoading}
+      />
+
+      {/* Lead Source Detail Sheet */}
+      <LqsLeadSourceDetailSheet
+        agencyId={agencyProfile?.agencyId ?? null}
+        leadSourceId={selectedLeadSourceId}
+        dateRange={dateRange}
+        open={detailSheetOpen}
+        onOpenChange={setDetailSheetOpen}
       />
     </div>
   );
