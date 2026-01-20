@@ -505,6 +505,42 @@ export async function transitionToQuoted(
   return { success: true };
 }
 
+/**
+ * Full flow for staff users to move winback to quoted:
+ * 1. Find/create "Winback" lead source
+ * 2. Create/update LQS household
+ * 3. Update winback status to moved_to_quoted
+ * 4. Log activities
+ */
+export async function winbackToQuoted(
+  householdId: string,
+  agencyId: string,
+  contactId: string | null,
+  firstName: string,
+  lastName: string,
+  zipCode: string,
+  phones: string[],
+  email: string | null,
+  currentUserTeamMemberId: string | null
+): Promise<{ success: boolean; leadSourceId?: string; error?: string }> {
+  if (isStaffUser()) {
+    return callStaffWinback('winback_to_quoted', {
+      householdId,
+      contactId,
+      firstName,
+      lastName,
+      zipCode,
+      phones,
+      email,
+      currentUserTeamMemberId,
+    });
+  }
+
+  // Non-staff users should use the existing flow in ContactProfileModal
+  // This function is primarily for staff users
+  throw new Error('winbackToQuoted is only available for staff users');
+}
+
 // ============ Assignment ============
 
 export async function updateAssignment(
