@@ -1,8 +1,5 @@
 project_id = "wjqyccbytctqwceuhzhk"
 
-[functions.send_staff_cancel_to_winback]
-verify_jwt = false
-
 [functions.get_staff_winback]
 verify_jwt = false
 
@@ -321,9 +318,9 @@ verify_jwt = false
 [functions.evaluate_quiz_engagement]
 verify_jwt = false
 
-[functions.send_staff_cancel_to_winback]
+[functions.get_staff_contact_profile]
 verify_jwt = false
 
-[functions.get_staff_contact_profile]
+[functions.send_staff_cancel_to_winback]
 verify_jwt = false
 
