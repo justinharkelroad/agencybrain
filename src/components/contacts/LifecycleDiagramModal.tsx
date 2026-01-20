@@ -30,7 +30,7 @@ const stages: Record<string, StageInfo> = {
     icon: UserPlus,
     color: "text-primary",
     bgColor: "bg-primary/10",
-    borderColor: "border-primary/35",
+    borderColor: "border-primary/40",
     description:
       "New lead record in LQS with status 'lead'. This is the entry point for all prospects entering your sales pipeline.",
   },
@@ -90,12 +90,10 @@ const StageBox = ({
   stage, 
   isSelected,
   onClick,
-  className
 }: { 
   stage: StageInfo; 
   isSelected: boolean; 
   onClick: () => void;
-  className?: string;
 }) => {
   const Icon = stage.icon;
   
@@ -108,16 +106,15 @@ const StageBox = ({
         stage.bgColor,
         stage.borderColor,
         "hover:shadow-md hover:scale-105",
-        "w-[70px] h-[56px] sm:w-[90px] sm:h-[70px]",
-        isSelected && "ring-2 ring-primary ring-offset-2 shadow-lg scale-105",
-        className
+        "w-[80px] h-[60px] sm:w-[100px] sm:h-[70px]",
+        isSelected && "ring-2 ring-primary ring-offset-2 shadow-lg scale-105"
       )}
     >
       <Icon className={cn(stage.color, "h-5 w-5 sm:h-6 sm:w-6")} />
       <span className={cn(
         "font-semibold text-center mt-0.5 px-1 leading-tight",
         stage.color,
-        "text-[9px] sm:text-xs"
+        "text-[10px] sm:text-xs"
       )}>
         {stage.label}
       </span>
@@ -136,227 +133,180 @@ export function LifecycleDiagramModal({ open, onOpenChange }: LifecycleDiagramMo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-[1200px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-[1000px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">Contact Lifecycle Stages</DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Tap any stage to see details. Contacts flow through this circular journey.
+            Click any stage to see details. Contacts flow through this circular journey.
           </p>
         </DialogHeader>
 
         <div className="py-4">
-          {/* Diagram */}
-          <div className="relative w-full" style={{ paddingBottom: "46%" }}>
-            <div className="absolute inset-0">
-              {/* SVG Arrows Layer (fixed coords; routed to avoid crossings) */}
-              <svg
-                className="absolute inset-0 h-full w-full"
-                viewBox="0 0 900 420"
-                preserveAspectRatio="xMidYMid meet"
-              >
-                <defs>
-                  <marker
-                    id="arrowSuccess"
-                    markerWidth="10"
-                    markerHeight="8"
-                    refX="9"
-                    refY="4"
-                    orient="auto"
-                  >
-                    <polygon points="0 0, 10 4, 0 8" fill="hsl(var(--success))" />
-                  </marker>
-                  <marker
-                    id="arrowDanger"
-                    markerWidth="10"
-                    markerHeight="8"
-                    refX="9"
-                    refY="4"
-                    orient="auto"
-                  >
-                    <polygon points="0 0, 10 4, 0 8" fill="hsl(var(--destructive))" />
-                  </marker>
-                  <marker
-                    id="arrowWarning"
-                    markerWidth="10"
-                    markerHeight="8"
-                    refX="9"
-                    refY="4"
-                    orient="auto"
-                  >
-                    <polygon points="0 0, 10 4, 0 8" fill="hsl(var(--warning))" />
-                  </marker>
-                </defs>
+          {/* SVG Diagram - Grid layout with straight lines */}
+          <div className="relative w-full overflow-x-auto">
+            <svg
+              viewBox="0 0 820 300"
+              className="w-full h-auto min-w-[600px]"
+              preserveAspectRatio="xMidYMid meet"
+            >
+              <defs>
+                <marker id="arrowSuccess" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                  <polygon points="0 0, 8 3, 0 6" fill="hsl(var(--success))" />
+                </marker>
+                <marker id="arrowDestructive" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                  <polygon points="0 0, 8 3, 0 6" fill="hsl(var(--destructive))" />
+                </marker>
+                <marker id="arrowMuted" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                  <polygon points="0 0, 8 3, 0 6" fill="hsl(var(--muted-foreground))" />
+                </marker>
+              </defs>
 
-                {/* Open Lead → Quoted */}
-                <path
-                  d="M 217 189 L 251 189"
-                  stroke="hsl(var(--success))"
-                  strokeWidth="4"
-                  fill="none"
-                  markerEnd="url(#arrowSuccess)"
-                />
-                <g>
-                  <rect x="220" y="160" width="48" height="22" rx="8" fill="hsl(var(--background) / 0.85)" stroke="hsl(var(--border))" />
-                  <text x="244" y="176" fill="hsl(var(--success))" fontSize="12" fontWeight="800" textAnchor="middle">YES!</text>
-                </g>
+              {/* ===== STAGE BOXES (positioned in a grid-like arrangement) ===== */}
+              
+              {/* Row 1: Renewal (top right area) */}
+              <foreignObject x="520" y="30" width="110" height="80">
+                <div className="flex items-center justify-center h-full">
+                  <StageBox
+                    stage={stages.renewal}
+                    isSelected={selectedStage === "renewal"}
+                    onClick={() => handleStageClick("renewal")}
+                  />
+                </div>
+              </foreignObject>
 
-                {/* Quoted → Customer */}
-                <path
-                  d="M 361 179 C 420 120 440 80 467 110"
-                  stroke="hsl(var(--success))"
-                  strokeWidth="4"
-                  fill="none"
-                  markerEnd="url(#arrowSuccess)"
-                />
-                <g>
-                  <rect x="416" y="88" width="48" height="22" rx="8" fill="hsl(var(--background) / 0.85)" stroke="hsl(var(--border))" />
-                  <text x="440" y="104" fill="hsl(var(--success))" fontSize="12" fontWeight="800" textAnchor="middle">YES!</text>
-                </g>
+              {/* Row 2: Main horizontal flow - Open Lead → Quoted → Customer */}
+              <foreignObject x="30" y="100" width="110" height="80">
+                <div className="flex items-center justify-center h-full">
+                  <StageBox
+                    stage={stages.open_lead}
+                    isSelected={selectedStage === "open_lead"}
+                    onClick={() => handleStageClick("open_lead")}
+                  />
+                </div>
+              </foreignObject>
 
-                {/* Customer → Renewal (outer right arc) */}
-                <path
-                  d="M 577 102 C 680 84 800 140 701 206"
-                  stroke="hsl(var(--success))"
-                  strokeWidth="4"
-                  fill="none"
-                  markerEnd="url(#arrowSuccess)"
-                />
+              <foreignObject x="190" y="100" width="110" height="80">
+                <div className="flex items-center justify-center h-full">
+                  <StageBox
+                    stage={stages.quoted}
+                    isSelected={selectedStage === "quoted"}
+                    onClick={() => handleStageClick("quoted")}
+                  />
+                </div>
+              </foreignObject>
 
-                {/* Renewal → Customer (Paid - inner dashed arc) */}
-                <path
-                  d="M 701 221 C 640 168 620 140 577 117"
-                  stroke="hsl(var(--success))"
-                  strokeWidth="3"
-                  fill="none"
-                  markerEnd="url(#arrowSuccess)"
-                  strokeDasharray="8 6"
-                />
-                <g>
-                  <rect x="598" y="148" width="46" height="20" rx="8" fill="hsl(var(--background) / 0.85)" stroke="hsl(var(--border))" />
-                  <text x="621" y="163" fill="hsl(var(--success))" fontSize="11" fontWeight="700" textAnchor="middle">Paid</text>
-                </g>
+              <foreignObject x="360" y="100" width="110" height="80">
+                <div className="flex items-center justify-center h-full">
+                  <StageBox
+                    stage={stages.customer}
+                    isSelected={selectedStage === "customer"}
+                    onClick={() => handleStageClick("customer")}
+                  />
+                </div>
+              </foreignObject>
 
-                {/* Customer → Cancel Audit (At Risk - routed down-left) */}
-                <path
-                  d="M 520 132 C 470 185 455 220 445 262"
-                  stroke="hsl(var(--destructive))"
-                  strokeWidth="4"
-                  fill="none"
-                  markerEnd="url(#arrowDanger)"
-                />
-                <g>
-                  <rect x="455" y="195" width="64" height="20" rx="8" fill="hsl(var(--background) / 0.85)" stroke="hsl(var(--border))" />
-                  <text x="487" y="210" fill="hsl(var(--destructive))" fontSize="11" fontWeight="700" textAnchor="middle" fontStyle="italic">At Risk</text>
-                </g>
+              {/* Winback (far right) */}
+              <foreignObject x="690" y="100" width="110" height="80">
+                <div className="flex items-center justify-center h-full">
+                  <StageBox
+                    stage={stages.winback}
+                    isSelected={selectedStage === "winback"}
+                    onClick={() => handleStageClick("winback")}
+                  />
+                </div>
+              </foreignObject>
 
-                {/* Cancel Audit → Customer (Saved - dashed, different curvature) */}
-                <path
-                  d="M 468 262 C 490 220 510 165 535 120"
-                  stroke="hsl(var(--warning))"
-                  strokeWidth="3"
-                  fill="none"
-                  markerEnd="url(#arrowWarning)"
-                  strokeDasharray="8 6"
-                />
-                <g>
-                  <rect x="498" y="214" width="58" height="20" rx="8" fill="hsl(var(--background) / 0.85)" stroke="hsl(var(--border))" />
-                  <text x="527" y="229" fill="hsl(var(--warning))" fontSize="11" fontWeight="700" textAnchor="middle">Saved</text>
-                </g>
+              {/* Row 3: Cancel Audit (below Customer) */}
+              <foreignObject x="360" y="200" width="110" height="80">
+                <div className="flex items-center justify-center h-full">
+                  <StageBox
+                    stage={stages.cancel_audit}
+                    isSelected={selectedStage === "cancel_audit"}
+                    onClick={() => handleStageClick("cancel_audit")}
+                  />
+                </div>
+              </foreignObject>
 
-                {/* Cancel Audit → Winback (Lost - short bottom-left arc) */}
-                <path
-                  d="M 377 330 C 325 360 280 360 235 330"
-                  stroke="hsl(var(--destructive))"
-                  strokeWidth="4"
-                  fill="none"
-                  markerEnd="url(#arrowDanger)"
-                />
-                <g>
-                  <rect x="290" y="356" width="48" height="20" rx="8" fill="hsl(var(--background) / 0.85)" stroke="hsl(var(--border))" />
-                  <text x="314" y="371" fill="hsl(var(--destructive))" fontSize="11" fontWeight="700" textAnchor="middle">Lost</text>
-                </g>
+              {/* ===== ARROWS (straight lines with 90° bends) ===== */}
 
-                {/* Renewal → Winback (NO - outer bottom arc, kept below everything) */}
-                <path
-                  d="M 735 286 C 610 410 365 420 235 360"
-                  stroke="hsl(var(--destructive))"
-                  strokeWidth="4"
-                  fill="none"
-                  markerEnd="url(#arrowDanger)"
-                />
-                <g>
-                  <rect x="455" y="392" width="42" height="22" rx="8" fill="hsl(var(--background) / 0.85)" stroke="hsl(var(--border))" />
-                  <text x="476" y="408" fill="hsl(var(--destructive))" fontSize="12" fontWeight="800" textAnchor="middle">NO</text>
-                </g>
+              {/* 1. Open Lead → Quoted */}
+              <line x1="135" y1="140" x2="190" y2="140" stroke="hsl(var(--success))" strokeWidth="3" markerEnd="url(#arrowSuccess)" />
+              <rect x="145" y="122" width="35" height="16" rx="4" fill="hsl(var(--background))" stroke="hsl(var(--border))" />
+              <text x="162" y="134" fill="hsl(var(--success))" fontSize="10" fontWeight="700" textAnchor="middle">YES</text>
 
-                {/* Winback → Quoted (Re-Quote loop - outer left arc, above Open Lead) */}
-                <path
-                  d="M 180 294 C 40 260 20 190 40 120 C 55 80 90 60 140 60 C 240 60 250 120 251 244"
-                  stroke="hsl(var(--success))"
-                  strokeWidth="4"
-                  fill="none"
-                  markerEnd="url(#arrowSuccess)"
-                  strokeDasharray="10 8"
-                />
-                <g>
-                  <rect x="56" y="138" width="72" height="34" rx="10" fill="hsl(var(--background) / 0.85)" stroke="hsl(var(--border))" />
-                  <text x="92" y="152" fill="hsl(var(--success))" fontSize="11" fontWeight="800" textAnchor="middle">RE-</text>
-                  <text x="92" y="166" fill="hsl(var(--success))" fontSize="11" fontWeight="800" textAnchor="middle">QUOTE</text>
-                </g>
-              </svg>
+              {/* 2. Quoted → Customer */}
+              <line x1="295" y1="140" x2="360" y2="140" stroke="hsl(var(--success))" strokeWidth="3" markerEnd="url(#arrowSuccess)" />
+              <rect x="310" y="122" width="35" height="16" rx="4" fill="hsl(var(--background))" stroke="hsl(var(--border))" />
+              <text x="327" y="134" fill="hsl(var(--success))" fontSize="10" fontWeight="700" textAnchor="middle">YES</text>
 
-              {/* Stage Boxes */}
-              <div className="absolute" style={{ left: "18%", top: "45%", transform: "translate(-50%, -50%)" }}>
-                <StageBox
-                  stage={stages.open_lead}
-                  isSelected={selectedStage === "open_lead"}
-                  onClick={() => handleStageClick("open_lead")}
-                />
-              </div>
+              {/* 3. Customer → Renewal (up then right) */}
+              <polyline
+                points="465,130 490,130 490,70 520,70"
+                stroke="hsl(var(--muted-foreground))"
+                strokeWidth="2"
+                fill="none"
+                markerEnd="url(#arrowMuted)"
+              />
 
-              <div className="absolute" style={{ left: "34%", top: "45%", transform: "translate(-50%, -50%)" }}>
-                <StageBox
-                  stage={stages.quoted}
-                  isSelected={selectedStage === "quoted"}
-                  onClick={() => handleStageClick("quoted")}
-                />
-              </div>
+              {/* 4. Renewal → Customer (RENEWED - loop back, dashed) */}
+              <path
+                d="M 575 35 L 575 15 L 415 15 L 415 100"
+                stroke="hsl(var(--success))"
+                strokeWidth="2"
+                fill="none"
+                strokeDasharray="6 4"
+                markerEnd="url(#arrowSuccess)"
+              />
+              <rect x="460" y="5" width="70" height="18" rx="4" fill="hsl(var(--background))" stroke="hsl(var(--border))" />
+              <text x="495" y="18" fill="hsl(var(--success))" fontSize="10" fontWeight="600" textAnchor="middle">RENEWED</text>
 
-              <div className="absolute" style={{ left: "58%", top: "22%", transform: "translate(-50%, -50%)" }}>
-                <StageBox
-                  stage={stages.customer}
-                  isSelected={selectedStage === "customer"}
-                  onClick={() => handleStageClick("customer")}
-                />
-              </div>
+              {/* 5. Renewal → Winback (NOT RENEWED - right) */}
+              <line x1="625" y1="70" x2="690" y2="70" stroke="hsl(var(--destructive))" strokeWidth="3" />
+              <line x1="745" y1="70" x2="745" y2="100" stroke="hsl(var(--destructive))" strokeWidth="3" markerEnd="url(#arrowDestructive)" />
+              <rect x="645" y="52" width="85" height="18" rx="4" fill="hsl(var(--background))" stroke="hsl(var(--border))" />
+              <text x="687" y="65" fill="hsl(var(--destructive))" fontSize="10" fontWeight="600" textAnchor="middle">NOT RENEWED</text>
 
-              <div className="absolute" style={{ left: "84%", top: "55%", transform: "translate(-50%, -50%)" }}>
-                <StageBox
-                  stage={stages.renewal}
-                  isSelected={selectedStage === "renewal"}
-                  onClick={() => handleStageClick("renewal")}
-                />
-              </div>
+              {/* 6. Customer → Cancel Audit (down) */}
+              <line x1="415" y1="175" x2="415" y2="200" stroke="hsl(var(--muted-foreground))" strokeWidth="2" markerEnd="url(#arrowMuted)" />
 
-              <div className="absolute" style={{ left: "48%", top: "72%", transform: "translate(-50%, -50%)" }}>
-                <StageBox
-                  stage={stages.cancel_audit}
-                  isSelected={selectedStage === "cancel_audit"}
-                  onClick={() => handleStageClick("cancel_audit")}
-                />
-              </div>
+              {/* 7. Cancel Audit → Customer (PAID - up, dashed) */}
+              <path
+                d="M 445 205 L 460 205 L 460 155 L 465 155"
+                stroke="hsl(var(--success))"
+                strokeWidth="2"
+                fill="none"
+                strokeDasharray="6 4"
+                markerEnd="url(#arrowSuccess)"
+              />
+              <rect x="445" y="170" width="35" height="16" rx="4" fill="hsl(var(--background))" stroke="hsl(var(--border))" />
+              <text x="462" y="182" fill="hsl(var(--success))" fontSize="9" fontWeight="600" textAnchor="middle">PAID</text>
 
-              <div className="absolute" style={{ left: "20%", top: "83%", transform: "translate(-50%, -50%)" }}>
-                <StageBox
-                  stage={stages.winback}
-                  isSelected={selectedStage === "winback"}
-                  onClick={() => handleStageClick("winback")}
-                />
-              </div>
-            </div>
+              {/* 8. Cancel Audit → Winback (NOT PAID - right then up) */}
+              <polyline
+                points="465,240 660,240 660,175 690,175"
+                stroke="hsl(var(--destructive))"
+                strokeWidth="3"
+                fill="none"
+              />
+              <line x1="690" y1="175" x2="720" y2="175" stroke="hsl(var(--destructive))" strokeWidth="3" markerEnd="url(#arrowDestructive)" />
+              <rect x="530" y="225" width="70" height="18" rx="4" fill="hsl(var(--background))" stroke="hsl(var(--border))" />
+              <text x="565" y="238" fill="hsl(var(--destructive))" fontSize="10" fontWeight="600" textAnchor="middle">NOT PAID</text>
+
+              {/* 9. Winback → Quoted (YES TO QUOTE - bottom loop) */}
+              <path
+                d="M 745 175 L 745 280 L 245 280 L 245 175"
+                stroke="hsl(var(--success))"
+                strokeWidth="3"
+                fill="none"
+                strokeDasharray="8 5"
+                markerEnd="url(#arrowSuccess)"
+              />
+              <rect x="440" y="268" width="90" height="20" rx="4" fill="hsl(var(--background))" stroke="hsl(var(--border))" />
+              <text x="485" y="282" fill="hsl(var(--success))" fontSize="11" fontWeight="700" textAnchor="middle">YES TO QUOTE</text>
+            </svg>
           </div>
 
-          {/* Info Panel - Always visible below diagram */}
+          {/* Info Panel */}
           <div className="mt-6 border rounded-lg bg-muted/30 p-4 min-h-[80px]">
             {currentStage ? (
               <div className="flex items-start gap-3">
@@ -387,18 +337,25 @@ export function LifecycleDiagramModal({ open, onOpenChange }: LifecycleDiagramMo
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center">
-                Tap a stage above to see its description.
+                Click a stage above to see its description.
               </p>
             )}
           </div>
 
           {/* Legend */}
-          <div className="mt-4 pt-4 border-t">
-            <h4 className="text-sm font-medium mb-2">Stage Priority</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Contacts are assigned to the <span className="font-semibold">highest priority</span> stage. 
-              Priority order: Winback → Cancel Audit → Customer → Renewal → Quoted → Open Lead.
-            </p>
+          <div className="mt-4 flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <div className="h-0.5 w-4 bg-success rounded" />
+              <span>Success path</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-0.5 w-4 bg-destructive rounded" />
+              <span>Lost / At-risk path</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="h-0.5 w-4 border-t-2 border-dashed border-success" />
+              <span>Return loop</span>
+            </div>
           </div>
         </div>
       </DialogContent>
