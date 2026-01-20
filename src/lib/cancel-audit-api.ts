@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { fetchWithAuth } from "./staffRequest";
 
 interface StaffApiOptions {
   operation: string;
@@ -6,21 +6,22 @@ interface StaffApiOptions {
   sessionToken: string;
 }
 
+// Use fetchWithAuth to avoid JWT collision issues with staff sessions
 export async function callCancelAuditApi({ operation, params, sessionToken }: StaffApiOptions) {
   console.log('[callCancelAuditApi] Invoking edge function:', operation, params);
 
-  const { data, error } = await supabase.functions.invoke("get-cancel-audit-data", {
+  const response = await fetchWithAuth("get-cancel-audit-data", {
+    method: "POST",
     body: { operation, params },
-    headers: {
-      "x-staff-session-token": sessionToken,
-    },
   });
 
-  console.log('[callCancelAuditApi] Response:', { data, error });
+  const data = await response.json();
 
-  if (error) {
-    console.error('[callCancelAuditApi] Edge function error:', error);
-    throw error;
+  console.log('[callCancelAuditApi] Response:', { data, ok: response.ok });
+
+  if (!response.ok) {
+    console.error('[callCancelAuditApi] Edge function error:', data);
+    throw new Error(data?.error || `HTTP ${response.status}`);
   }
 
   // Check if the data contains an error (edge function returned 200 but with error in body)

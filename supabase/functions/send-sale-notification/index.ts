@@ -100,21 +100,22 @@ serve(async (req) => {
       );
     }
 
-    // 3. Get all sales team members (Sales role OR Hybrid with Sales assignment)
+    // 3. Get all sales team members (Sales, Hybrid with Sales assignment, or Manager)
     const { data: salesTeamMembers, error: teamError } = await supabase
       .from('team_members')
       .select('id, name, role, hybrid_team_assignments')
       .eq('agency_id', body.agency_id)
       .eq('status', 'active')
-      .or('role.eq.Sales,role.eq.Hybrid');
+      .or('role.eq.Sales,role.eq.Hybrid,role.eq.Manager');
 
     if (teamError) {
       console.error('[send-sale-notification] Team members lookup failed:', teamError);
     }
 
-    // Filter to only include Sales role or Hybrid with Sales in their assignments
+    // Filter to only include Sales role, Hybrid with Sales in their assignments, or Manager
     const eligibleTeamMembers = (salesTeamMembers || []).filter(tm => {
       if (tm.role === 'Sales') return true;
+      if (tm.role === 'Manager') return true; // Managers see all sales notifications
       if (tm.role === 'Hybrid' && Array.isArray(tm.hybrid_team_assignments)) {
         return tm.hybrid_team_assignments.includes('Sales');
       }
