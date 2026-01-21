@@ -48,6 +48,7 @@ import ClientDetail from "./pages/admin/ClientDetail";
 import FieldMappingSetup from "./pages/admin/FieldMappingSetup";
 import AdminFocusManagement from "./pages/admin/AdminFocusManagement";
 import AdminChatbot from "./pages/admin/AdminChatbot";
+import AdminSupportTickets from "./pages/admin/AdminSupportTickets";
 import AdminTraining from "./pages/admin/AdminTraining";
 import AdminStandardPlaybook from "./pages/admin/AdminStandardPlaybook";
 import AdminSPCategoryEditor from "./pages/admin/AdminSPCategoryEditor";
@@ -620,6 +621,13 @@ const App = () => {
               <ProtectedRoute requireAdmin>
                 <SidebarLayout>
                   <AdminChatbot />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/support-tickets" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminSupportTickets />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
