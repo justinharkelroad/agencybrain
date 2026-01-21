@@ -324,3 +324,6 @@ verify_jwt = false
 [functions.send_staff_cancel_to_winback]
 verify_jwt = false
 
+[functions.submit-support-ticket]
+verify_jwt = false
+
