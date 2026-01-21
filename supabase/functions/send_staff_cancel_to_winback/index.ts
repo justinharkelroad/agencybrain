@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-staff-session-token",
-};
+import { corsHeaders } from "../_shared/cors.ts";
 
 function getPolicyTermMonths(productName: string | null): number {
   if (!productName) return 12;
@@ -54,7 +50,7 @@ serve(async (req) => {
   }
 
   try {
-    const staffToken = req.headers.get("x-staff-session-token");
+    const staffToken = req.headers.get("x-staff-session");
     if (!staffToken) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing staff session token" }),
