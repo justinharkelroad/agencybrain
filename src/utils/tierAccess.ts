@@ -13,8 +13,8 @@ export function normalizeTier(tier: string | null | undefined): TierType {
   // Boardroom check
   if (lowerTier.includes('boardroom')) return 'boardroom';
   
-  // Call Scoring check
-  if (lowerTier.includes('call scoring') || lowerTier.includes('call_scoring')) return 'call_scoring';
+  // Call Scoring check - matches "Call Scoring", "Call Scoring 50", "call_scoring", etc.
+  if (lowerTier.includes('call scoring') || lowerTier.includes('call_scoring') || lowerTier.startsWith('call scoring')) return 'call_scoring';
   
   // Inactive check
   if (lowerTier === 'inactive') return 'inactive';
