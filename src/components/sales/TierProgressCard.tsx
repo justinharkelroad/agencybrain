@@ -29,11 +29,21 @@ interface TierProgressCardProps {
   className?: string;
 }
 
-function formatRate(rate: number, payoutType: string): string {
-  if (payoutType === "percentage") {
-    return `${rate}%`;
+// Format rate with proper context based on payout type
+// Supports: percent_of_premium, flat_per_item, flat_per_policy, flat_per_household
+function formatRateWithContext(rate: number, payoutType: string, tierMetric: string): string {
+  switch (payoutType) {
+    case "percent_of_premium":
+    case "percentage": // Legacy fallback
+      return `${rate}%`;
+    case "flat_per_policy":
+      return `$${rate}/policy`;
+    case "flat_per_household":
+      return `$${rate}/household`;
+    case "flat_per_item":
+    default:
+      return `$${rate}/item`;
   }
-  return `$${rate}`;
 }
 
 function formatMetricLabel(metric: string): string {
@@ -117,7 +127,7 @@ export function TierProgressCard({
             <div className="font-bold text-lg text-foreground">
               {current_tier.name}
               <span className="ml-2 text-primary">
-                @ {formatRate(current_tier.rate, payoutType)}/{tier_metric === "premium" ? "item" : "item"}
+                @ {formatRateWithContext(current_tier.rate, payoutType, tier_metric)}
               </span>
             </div>
           </div>
@@ -171,7 +181,7 @@ export function TierProgressCard({
                   </span>{" "}
                   more {metricLabel} to{" "}
                   <span className="font-bold">{next_tier.name}</span>{" "}
-                  @ {formatRate(next_tier.rate, payoutType)}/item
+                  @ {formatRateWithContext(next_tier.rate, payoutType, tier_metric)}
                 </div>
                 {next_tier.bonus_if_hit > 0 && (
                   <div className="flex items-center gap-1 text-xs text-primary">
@@ -203,7 +213,7 @@ export function TierProgressCard({
             <span className="font-semibold">You're at the top tier!</span>
           </div>
           <div className="text-xs text-muted-foreground mt-1">
-            Keep crushing it at {formatRate(current_tier.rate, payoutType)}/item
+            Keep crushing it at {formatRateWithContext(current_tier.rate, payoutType, tier_metric)}
           </div>
         </motion.div>
       )}

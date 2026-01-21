@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ConfettiProps {
@@ -118,22 +118,30 @@ interface GoalConfettiProps {
 }
 
 export function GoalConfetti({ current, target, children }: GoalConfettiProps) {
-  const [hasTriggered, setHasTriggered] = useState(false);
+  const prevCurrentRef = useRef<number | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
-  const isComplete = target > 0 && current >= target;
+  const hasInitialFiredRef = useRef(false);
 
   useEffect(() => {
-    // Only trigger once when goal is first completed
-    if (isComplete && !hasTriggered) {
-      setHasTriggered(true);
+    const prevCurrent = prevCurrentRef.current;
+    const nowComplete = target > 0 && current >= target;
+
+    // Case 1: First load and already at goal - fire once
+    if (prevCurrent === null && nowComplete && !hasInitialFiredRef.current) {
+      hasInitialFiredRef.current = true;
+      setTimeout(() => {
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3500);
+      }, 500);
+    }
+    // Case 2: Crossed the threshold (was below, now complete)
+    else if (prevCurrent !== null && prevCurrent < target && nowComplete) {
       setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3500);
     }
 
-    // Reset if goal changes and we're no longer complete
-    if (!isComplete) {
-      setHasTriggered(false);
-    }
-  }, [isComplete, hasTriggered]);
+    prevCurrentRef.current = current;
+  }, [current, target]);
 
   return (
     <>

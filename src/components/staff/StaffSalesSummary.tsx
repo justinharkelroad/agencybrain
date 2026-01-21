@@ -526,23 +526,11 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
 
   // Use tier_progress directly from the edge function response
   const tierProgress = useMemo(() => {
-    console.log("[TierProgressCard] commissionData:", commissionData);
-    console.log("[TierProgressCard] tier_progress:", commissionData?.tier_progress);
-
-    // The edge function already calculates and returns tier_progress
-    if (!commissionData?.tier_progress) {
-      console.log("[TierProgressCard] No tier_progress in response");
-      return null;
-    }
+    if (!commissionData?.tier_progress) return null;
 
     const tp = commissionData.tier_progress;
-    // Only show if there are tiers configured
-    if (tp.total_tiers === 0) {
-      console.log("[TierProgressCard] total_tiers is 0");
-      return null;
-    }
+    if (tp.total_tiers === 0) return null;
 
-    console.log("[TierProgressCard] Returning tier progress:", tp);
     return {
       ...tp,
       payout_type: commissionData.plan?.payout_type || "flat_per_item",
