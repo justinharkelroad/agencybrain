@@ -8977,10 +8977,19 @@ export type Database = {
         Returns: string
       }
       get_my_agency_id: { Args: never; Returns: string }
-      get_staff_call_details: {
-        Args: { p_call_id: string; p_team_member_id: string }
-        Returns: Json
-      }
+      get_staff_call_details:
+        | {
+            Args: { p_call_id: string; p_team_member_id: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_agency_id?: string
+              p_call_id: string
+              p_team_member_id?: string
+            }
+            Returns: Json
+          }
       get_staff_call_scoring_data: {
         Args: {
           p_agency_id: string

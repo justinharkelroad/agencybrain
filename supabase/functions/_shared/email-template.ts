@@ -37,7 +37,7 @@ export function buildEmailHtml(options: EmailTemplateOptions): string {
     
     <!-- Header -->
     <div style="background: linear-gradient(135deg, ${BRAND.colors.primary}, ${BRAND.colors.secondary}); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
-      <img src="${BRAND.logo}" alt="${BRAND.name}" style="height: 40px; margin-bottom: 16px; display: block;">
+      <img src="${BRAND.logo}" alt="${BRAND.name}" style="width: 180px; max-width: 100%; height: auto; margin-bottom: 16px; display: block;">
       <h1 style="margin: 0; font-size: 24px;">${title}</h1>
       ${subtitle ? `<p style="margin: 8px 0 0 0; opacity: 0.9;">${subtitle}</p>` : ''}
     </div>
