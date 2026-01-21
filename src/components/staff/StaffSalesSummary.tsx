@@ -362,8 +362,10 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
   const leaderboard = useMemo(() => {
     const data = viewMode === "personal" ? personalData?.leaderboard : teamData?.leaderboard;
     if (!data) return [];
-    // Sort by items descending
-    return [...data].sort((a, b) => b.items - a.items);
+    // Sort by items descending and add rank
+    return [...data]
+      .sort((a, b) => b.items - a.items)
+      .map((entry, index) => ({ ...entry, rank: index + 1 }));
   }, [viewMode, personalData?.leaderboard, teamData?.leaderboard]);
   
   // Calculate projections for all metrics using business days
