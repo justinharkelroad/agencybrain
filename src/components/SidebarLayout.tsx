@@ -6,6 +6,7 @@ import { ROIForecastersModal, type CalcKey } from "@/components/ROIForecastersMo
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { cleanupRadixLocks, isPageLocked } from "@/lib/radixCleanup";
 import { StanChatBot } from "@/components/chatbot/StanChatBot";
+import { ReportIssueButton } from "@/components/feedback";
 import { isCallScoringTier } from "@/utils/tierAccess";
 import { useAuth } from "@/lib/auth";
 
@@ -134,6 +135,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
         initialTool={roiInitialTool}
       />
       <StanChatBot portal="brain" />
+      <ReportIssueButton />
     </SidebarProvider>
   );
 }

@@ -54,6 +54,9 @@ export function AdminTopNav({ title, className }: AdminTopNavProps) {
             <Link to="/admin/roleplay-reports" aria-label="Roleplay Reports">
               <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>Roleplay Reports</Button>
             </Link>
+            <Link to="/admin/support-tickets" aria-label="Support Tickets">
+              <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>Support</Button>
+            </Link>
             <Link to="/agency" aria-label="My Agency">
               <Button variant="glass" size="sm" className="rounded-full" isHeaderButton>My Agency</Button>
             </Link>
@@ -102,6 +105,9 @@ export function AdminTopNav({ title, className }: AdminTopNavProps) {
               </Link>
               <Link to="/admin/roleplay-reports" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start" isHeaderButton>Roleplay Reports</Button>
+              </Link>
+              <Link to="/admin/support-tickets" onClick={() => setOpen(false)}>
+                <Button variant="secondary" className="w-full justify-start" isHeaderButton>Support Tickets</Button>
               </Link>
               <Link to="/agency" onClick={() => setOpen(false)}>
                 <Button variant="secondary" className="w-full justify-start" isHeaderButton>My Agency</Button>
