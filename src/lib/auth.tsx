@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         // Clear user-specific cache on auth state change
-        if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        if ((event === 'SIGNED_OUT' || event === 'USER_UPDATED') && queryClient) {
           queryClient.removeQueries({ queryKey: ["focus-items"] });
           queryClient.removeQueries({ queryKey: ["brainstorm-targets"] });
           queryClient.removeQueries({ queryKey: ["quarterly-targets"] });
