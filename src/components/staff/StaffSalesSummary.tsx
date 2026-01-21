@@ -13,12 +13,15 @@ import { GoalProgressRing } from "@/components/sales/GoalProgressRing";
 import { StatOrb } from "@/components/sales/StatOrb";
 import { StaffPromoGoalsWidget } from "@/components/sales/StaffPromoGoalsWidget";
 import { SalesBreakdownTabs } from "@/components/sales/SalesBreakdownTabs";
+import { RankBadgeHeader } from "@/components/sales/RankBadge";
+import { StreakBadge } from "@/components/sales/StreakBadge";
+import { MiniLeaderboard } from "@/components/sales/MiniLeaderboard";
 import { cn } from "@/lib/utils";
-import { 
-  getBusinessDaysInMonth, 
-  getBusinessDaysElapsed, 
+import {
+  getBusinessDaysInMonth,
+  getBusinessDaysElapsed,
   calculateProjection,
-  formatProjection 
+  formatProjection
 } from "@/utils/businessDays";
 
 interface StaffSalesSummaryProps {
@@ -33,6 +36,41 @@ interface SalesTotals {
   points: number;
   policies: number;
   households: number;
+}
+
+interface SalesTrends {
+  premium: number | null;
+  items: number | null;
+  points: number | null;
+  policies: number | null;
+  households: number | null;
+}
+
+interface SalesStreak {
+  current: number;
+  longest: number;
+  last_sale_date: string | null;
+}
+
+interface MyRank {
+  rank: number;
+  total_producers: number;
+}
+
+interface LeaderboardEntry {
+  team_member_id: string;
+  name: string;
+  items: number;
+  premium: number;
+  points: number;
+}
+
+interface SalesDataWithGamification {
+  totals: SalesTotals;
+  trends: SalesTrends | null;
+  streak: SalesStreak | null;
+  my_rank: MyRank | null;
+  leaderboard: LeaderboardEntry[];
 }
 
 interface TierData {
@@ -140,17 +178,17 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
     enabled: !!agencyId && !!sessionToken,
   });
 
-  // Fetch personal sales
+  // Fetch personal sales with gamification data
   const { data: personalData, isLoading } = useQuery({
     queryKey: ["staff-sales-summary", agencyId, teamMemberId, monthStart, monthEnd, sessionToken],
-    queryFn: async (): Promise<SalesTotals> => {
+    queryFn: async (): Promise<SalesDataWithGamification> => {
       if (sessionToken) {
         const { data, error } = await supabase.functions.invoke('get_staff_sales', {
           headers: { 'x-staff-session': sessionToken },
-          body: { 
-            date_start: monthStart, 
+          body: {
+            date_start: monthStart,
             date_end: monthEnd,
-            include_leaderboard: false,
+            include_leaderboard: true,
             scope: "personal"
           }
         });
@@ -166,11 +204,17 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         }
 
         return {
-          premium: data.totals?.premium || 0,
-          items: data.totals?.items || 0,
-          points: data.totals?.points || 0,
-          policies: data.totals?.policies || 0,
-          households: data.totals?.households || 0,
+          totals: {
+            premium: data.totals?.premium || 0,
+            items: data.totals?.items || 0,
+            points: data.totals?.points || 0,
+            policies: data.totals?.policies || 0,
+            households: data.totals?.households || 0,
+          },
+          trends: data.trends || null,
+          streak: data.streak || null,
+          my_rank: data.my_rank || null,
+          leaderboard: data.leaderboard || [],
         };
       }
 
@@ -204,7 +248,13 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         { premium: 0, items: 0, points: 0, policies: 0, households: 0 }
       );
 
-      return totals;
+      return {
+        totals,
+        trends: null,
+        streak: null,
+        my_rank: null,
+        leaderboard: [],
+      };
     },
     enabled: !!agencyId && !!teamMemberId,
   });
@@ -212,15 +262,15 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
   // Fetch team sales (only when toggle is on team)
   const { data: teamData, isLoading: teamLoading } = useQuery({
     queryKey: ["staff-team-sales", agencyId, monthStart, monthEnd, sessionToken],
-    queryFn: async (): Promise<SalesTotals | null> => {
+    queryFn: async (): Promise<SalesDataWithGamification | null> => {
       if (!sessionToken) return null;
-      
+
       const { data, error } = await supabase.functions.invoke('get_staff_sales', {
         headers: { 'x-staff-session': sessionToken },
-        body: { 
-          date_start: monthStart, 
+        body: {
+          date_start: monthStart,
           date_end: monthEnd,
-          include_leaderboard: false,
+          include_leaderboard: true,
           scope: "team"
         }
       });
@@ -231,11 +281,17 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
       }
 
       return {
-        premium: data.totals?.premium || 0,
-        items: data.totals?.items || 0,
-        points: data.totals?.points || 0,
-        policies: data.totals?.policies || 0,
-        households: data.totals?.households || 0,
+        totals: {
+          premium: data.totals?.premium || 0,
+          items: data.totals?.items || 0,
+          points: data.totals?.points || 0,
+          policies: data.totals?.policies || 0,
+          households: data.totals?.households || 0,
+        },
+        trends: data.trends || null,
+        streak: null, // Team view doesn't have personal streak
+        my_rank: null,
+        leaderboard: data.leaderboard || [],
       };
     },
     enabled: viewMode === "team" && !!sessionToken,
@@ -292,11 +348,23 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
   const displayData = viewMode === "personal" ? personalData : teamData;
   const displayLoading = viewMode === "personal" ? isLoading : teamLoading;
 
-  const premium = displayData?.premium || 0;
-  const items = displayData?.items || 0;
-  const points = displayData?.points || 0;
-  const policies = displayData?.policies || 0;
-  const households = displayData?.households || 0;
+  // Extract totals from the nested structure
+  const premium = displayData?.totals?.premium || 0;
+  const items = displayData?.totals?.items || 0;
+  const points = displayData?.totals?.points || 0;
+  const policies = displayData?.totals?.policies || 0;
+  const households = displayData?.totals?.households || 0;
+
+  // Extract gamification data (personal view only)
+  const trends = viewMode === "personal" ? personalData?.trends : displayData?.trends;
+  const streak = personalData?.streak;
+  const myRank = personalData?.my_rank;
+  const leaderboard = useMemo(() => {
+    const data = viewMode === "personal" ? personalData?.leaderboard : teamData?.leaderboard;
+    if (!data) return [];
+    // Sort by items descending
+    return [...data].sort((a, b) => b.items - a.items);
+  }, [viewMode, personalData?.leaderboard, teamData?.leaderboard]);
   
   // Calculate projections for all metrics using business days
   const premiumProj = calculateProjection(premium, bizDaysElapsed, bizDaysTotal);
@@ -315,7 +383,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
       return {
         type: "agency" as const,
         target: goalData?.goal || 0,
-        current: getMetricValue(teamData, metric),
+        current: getMetricValue(teamData?.totals || null, metric),
         metric,
         label: goalData?.name || "Agency Goal",
         sublabel: null,
@@ -325,14 +393,14 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         formatValue: (v: number) => formatMetricValue(v, metric)
       };
     }
-    
+
     // Priority 1: Personal goal
     if (goalData?.has_personal_goal && goalData?.goal) {
       const metric = goalData.measurement || "premium";
       return {
         type: "personal" as const,
         target: goalData.goal,
-        current: getMetricValue(personalData || null, metric),
+        current: getMetricValue(personalData?.totals || null, metric),
         metric,
         label: goalData.name || "Personal Goal",
         sublabel: null,
@@ -347,11 +415,11 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
     if (commissionData?.plan && commissionData?.tiers?.length > 0) {
       const tierMetric = commissionData.plan.tier_metric || "premium";
       // Use commission data's current values for consistency
-      const currentMetricValue = tierMetric === "premium" 
-        ? (commissionData.current_month_written_premium || getMetricValue(personalData || null, tierMetric))
-        : tierMetric === "items" 
-          ? (commissionData.current_month_written_items || getMetricValue(personalData || null, tierMetric))
-          : getMetricValue(personalData || null, tierMetric);
+      const currentMetricValue = tierMetric === "premium"
+        ? (commissionData.current_month_written_premium || getMetricValue(personalData?.totals || null, tierMetric))
+        : tierMetric === "items"
+          ? (commissionData.current_month_written_items || getMetricValue(personalData?.totals || null, tierMetric))
+          : getMetricValue(personalData?.totals || null, tierMetric);
       
       const tierData = calculateTierGoal(commissionData.tiers, currentMetricValue);
       
@@ -412,7 +480,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
       return {
         type: "agency" as const,
         target: goalData.goal,
-        current: getMetricValue(personalData || null, metric),
+        current: getMetricValue(personalData?.totals || null, metric),
         metric,
         label: goalData.name || "Agency Goal",
         sublabel: null,
@@ -442,7 +510,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
       showCelebration: false,
       formatValue: (v: number) => `$${v.toLocaleString()}`
     };
-  }, [viewMode, personalData, teamData, goalData, commissionData, premium]);
+  }, [viewMode, personalData?.totals, teamData?.totals, goalData, commissionData, premium]);
 
   if (isLoading || displayLoading) {
     return (
@@ -467,9 +535,18 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
     <div className="sales-widget-glass rounded-3xl p-6 overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <h3 className="text-lg font-semibold text-foreground">
-          {viewMode === "personal" ? "My Sales" : "Team Sales"}
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-foreground">
+            {viewMode === "personal" ? "My Sales" : "Team Sales"}
+          </h3>
+          {/* Gamification badges - personal view only */}
+          {viewMode === "personal" && myRank && (
+            <RankBadgeHeader rank={myRank.rank} totalProducers={myRank.total_producers} />
+          )}
+          {viewMode === "personal" && streak && streak.current > 0 && (
+            <StreakBadge streak={streak.current} size="sm" />
+          )}
+        </div>
         <div className="flex flex-wrap items-center gap-3">
           {/* View Toggle */}
           <div className="flex rounded-lg bg-muted p-1">
@@ -551,6 +628,9 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
             color="green"
             animationDelay={0}
             projection={formatProjection(premiumProj, '$')}
+            trend={trends?.premium !== null && trends?.premium !== undefined
+              ? { value: Math.abs(trends.premium), direction: trends.premium >= 0 ? "up" : "down" }
+              : undefined}
           />
           <StatOrb
             value={points}
@@ -559,6 +639,9 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
             color="orange"
             animationDelay={100}
             projection={pointsProj}
+            trend={trends?.points !== null && trends?.points !== undefined
+              ? { value: Math.abs(trends.points), direction: trends.points >= 0 ? "up" : "down" }
+              : undefined}
           />
           <StatOrb
             value={households}
@@ -567,6 +650,9 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
             color="cyan"
             animationDelay={150}
             projection={householdsProj}
+            trend={trends?.households !== null && trends?.households !== undefined
+              ? { value: Math.abs(trends.households), direction: trends.households >= 0 ? "up" : "down" }
+              : undefined}
           />
         </div>
 
@@ -617,6 +703,9 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
             color="blue"
             animationDelay={200}
             projection={itemsProj}
+            trend={trends?.items !== null && trends?.items !== undefined
+              ? { value: Math.abs(trends.items), direction: trends.items >= 0 ? "up" : "down" }
+              : undefined}
           />
           <StatOrb
             value={policies}
@@ -625,6 +714,9 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
             color="purple"
             animationDelay={300}
             projection={policiesProj}
+            trend={trends?.policies !== null && trends?.policies !== undefined
+              ? { value: Math.abs(trends.policies), direction: trends.policies >= 0 ? "up" : "down" }
+              : undefined}
           />
         </div>
       </div>
@@ -649,6 +741,18 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
           </p>
         </div>
       </div>
+
+      {/* Mini Leaderboard */}
+      {leaderboard.length > 0 && (
+        <div className="mt-6 pt-4 border-t border-border/30">
+          <MiniLeaderboard
+            entries={leaderboard}
+            currentTeamMemberId={teamMemberId}
+            metric="items"
+            maxEntries={4}
+          />
+        </div>
+      )}
 
       {/* Promo Goals Section - only show in personal view */}
       {viewMode === "personal" && (
