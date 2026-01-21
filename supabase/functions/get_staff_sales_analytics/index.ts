@@ -41,7 +41,10 @@ serve(async (req) => {
 
   try {
     const staffSession = req.headers.get("x-staff-session");
+    console.log("[get_staff_sales_analytics] Staff session header:", staffSession ? "present" : "missing");
+
     if (!staffSession) {
+      console.error("[get_staff_sales_analytics] No x-staff-session header found");
       return new Response(JSON.stringify({ error: "Missing staff session" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -54,23 +57,29 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Verify staff session
+    // Verify staff session - match get_staff_sales validation pattern
+    const nowISO = new Date().toISOString();
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("staff_sessions")
-      .select("staff_user_id, expires_at")
+      .select("staff_user_id, expires_at, is_valid")
       .eq("session_token", staffSession)
-      .single();
+      .eq("is_valid", true)
+      .gt("expires_at", nowISO)
+      .maybeSingle();
 
-    if (sessionError || !session) {
-      console.error("[get_staff_sales_analytics] Session not found:", sessionError);
-      return new Response(JSON.stringify({ error: "Invalid session" }), {
+    console.log("[get_staff_sales_analytics] Session lookup result:", session ? "found" : "not found");
+
+    if (sessionError) {
+      console.error("[get_staff_sales_analytics] Session query error:", sessionError);
+      return new Response(JSON.stringify({ error: "Session validation failed" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (new Date(session.expires_at) < new Date()) {
-      return new Response(JSON.stringify({ error: "Session expired" }), {
+    if (!session) {
+      console.error("[get_staff_sales_analytics] No valid session found for token");
+      return new Response(JSON.stringify({ error: "Invalid or expired session" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
