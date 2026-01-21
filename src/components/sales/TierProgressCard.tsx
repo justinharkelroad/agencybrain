@@ -30,13 +30,20 @@ interface TierProgressCardProps {
 }
 
 // Format rate with proper context based on payout type
+// Supports: percent_of_premium, flat_per_item, flat_per_policy, flat_per_household
 function formatRateWithContext(rate: number, payoutType: string, tierMetric: string): string {
-  if (payoutType === "percentage") {
-    // Percentage of premium - just show the percentage
-    return `${rate}%`;
+  switch (payoutType) {
+    case "percent_of_premium":
+    case "percentage": // Legacy fallback
+      return `${rate}%`;
+    case "flat_per_policy":
+      return `$${rate}/policy`;
+    case "flat_per_household":
+      return `$${rate}/household`;
+    case "flat_per_item":
+    default:
+      return `$${rate}/item`;
   }
-  // Flat per item - show dollar amount per item
-  return `$${rate}/item`;
 }
 
 function formatMetricLabel(metric: string): string {
