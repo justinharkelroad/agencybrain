@@ -64,27 +64,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
         
       if (!error && data) {
-        setMembershipTier(data.membership_tier);
         // User is an agency owner if they have an agency_id
         setIsAgencyOwner(!!data.agency_id);
       } else {
-        setMembershipTier(null);
         setIsAgencyOwner(false);
       }
 
-      // Check if user is a key employee
+      // Check if user is a key employee and get inviter's tier
       const { data: keyEmployeeData } = await supabase
         .from('key_employees')
-        .select('agency_id')
+        .select('agency_id, invited_by')
         .eq('user_id', userId)
         .maybeSingle();
       
       if (keyEmployeeData) {
         setIsKeyEmployee(true);
         setKeyEmployeeAgencyId(keyEmployeeData.agency_id);
+        
+        // KEY FIX: Inherit membership tier from the inviting owner
+        if (keyEmployeeData.invited_by) {
+          const { data: inviterProfile } = await supabase
+            .from('profiles')
+            .select('membership_tier')
+            .eq('id', keyEmployeeData.invited_by)
+            .maybeSingle();
+          
+          if (inviterProfile?.membership_tier) {
+            console.log('[Auth] Key employee inheriting tier from inviter:', inviterProfile.membership_tier);
+            setMembershipTier(inviterProfile.membership_tier);
+          } else {
+            // Fallback to user's own tier if inviter has none
+            setMembershipTier(data?.membership_tier ?? null);
+          }
+        } else {
+          setMembershipTier(data?.membership_tier ?? null);
+        }
       } else {
         setIsKeyEmployee(false);
         setKeyEmployeeAgencyId(null);
+        // Not a key employee - use their own tier
+        setMembershipTier(data?.membership_tier ?? null);
       }
     } catch (error) {
       console.error('Error checking membership tier:', error);
