@@ -5,6 +5,115 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-staff-session",
 };
 
+interface Tier {
+  min_threshold: number;
+  commission_value: number;
+  sort_order: number;
+}
+
+interface TierProgress {
+  current_tier: {
+    name: string;
+    rate: number;
+    min_threshold: number;
+    tier_index: number;
+  } | null;
+  next_tier: {
+    name: string;
+    rate: number;
+    min_threshold: number;
+    amount_needed: number;
+    bonus_if_hit: number;
+  } | null;
+  current_value: number;
+  tier_metric: string;
+  progress_percent: number;
+  total_tiers: number;
+}
+
+// Calculate tier progression
+function calculateTierProgress(
+  tiers: Tier[],
+  currentValue: number,
+  tierMetric: string,
+  payoutType: string
+): TierProgress {
+  if (!tiers || tiers.length === 0) {
+    return {
+      current_tier: null,
+      next_tier: null,
+      current_value: currentValue,
+      tier_metric: tierMetric,
+      progress_percent: 0,
+      total_tiers: 0,
+    };
+  }
+
+  // Sort tiers by threshold ascending
+  const sortedTiers = [...tiers].sort((a, b) => a.min_threshold - b.min_threshold);
+
+  // Find current tier (highest threshold that's been met)
+  let currentTierIndex = -1;
+  for (let i = sortedTiers.length - 1; i >= 0; i--) {
+    if (currentValue >= sortedTiers[i].min_threshold) {
+      currentTierIndex = i;
+      break;
+    }
+  }
+
+  const currentTier = currentTierIndex >= 0 ? sortedTiers[currentTierIndex] : null;
+  const nextTier = currentTierIndex < sortedTiers.length - 1
+    ? sortedTiers[currentTierIndex + 1]
+    : null;
+
+  // Calculate progress toward next tier
+  let progressPercent = 0;
+  let amountNeeded = 0;
+  let bonusIfHit = 0;
+
+  if (nextTier) {
+    amountNeeded = nextTier.min_threshold - currentValue;
+    const rangeStart = currentTier?.min_threshold || 0;
+    const rangeSize = nextTier.min_threshold - rangeStart;
+    const progressInRange = currentValue - rangeStart;
+    progressPercent = rangeSize > 0 ? Math.round((progressInRange / rangeSize) * 100) : 0;
+
+    // Calculate bonus if they hit next tier
+    // For percentage-based: calculate the extra $ they'd earn on all items at higher rate
+    if (currentTier && payoutType === 'percentage') {
+      const rateDiff = nextTier.commission_value - currentTier.commission_value;
+      // Assuming premium-based, calculate approximate bonus
+      bonusIfHit = Math.round((rateDiff / 100) * currentValue);
+    } else if (currentTier && payoutType === 'flat_per_item') {
+      const rateDiff = nextTier.commission_value - currentTier.commission_value;
+      bonusIfHit = Math.round(rateDiff * nextTier.min_threshold);
+    }
+  } else if (currentTier) {
+    // At highest tier
+    progressPercent = 100;
+  }
+
+  return {
+    current_tier: currentTier ? {
+      name: `Tier ${currentTierIndex + 1}`,
+      rate: currentTier.commission_value,
+      min_threshold: currentTier.min_threshold,
+      tier_index: currentTierIndex,
+    } : null,
+    next_tier: nextTier ? {
+      name: `Tier ${currentTierIndex + 2}`,
+      rate: nextTier.commission_value,
+      min_threshold: nextTier.min_threshold,
+      amount_needed: Math.max(0, amountNeeded),
+      bonus_if_hit: bonusIfHit,
+    } : null,
+    current_value: currentValue,
+    tier_metric: tierMetric,
+    progress_percent: Math.min(100, Math.max(0, progressPercent)),
+    total_tiers: sortedTiers.length,
+  };
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -207,6 +316,27 @@ Deno.serve(async (req) => {
 
     console.log(`[get-staff-commission] Success - plan=${plan.name}, premium=${currentMonthWrittenPremium}, items=${currentMonthWrittenItems}, policies=${currentMonthWrittenPolicies}, households=${currentMonthWrittenHouseholds}`);
 
+    // Calculate tier progress based on the plan's tier_metric
+    const tierMetric = plan.tier_metric || 'items';
+    let currentValueForTier = currentMonthWrittenItems;
+
+    if (tierMetric === 'premium') {
+      currentValueForTier = currentMonthWrittenPremium;
+    } else if (tierMetric === 'policies') {
+      currentValueForTier = currentMonthWrittenPolicies;
+    } else if (tierMetric === 'households') {
+      currentValueForTier = currentMonthWrittenHouseholds;
+    }
+
+    const tierProgress = calculateTierProgress(
+      (tiers || []) as Tier[],
+      currentValueForTier,
+      tierMetric,
+      plan.payout_type || 'flat_per_item'
+    );
+
+    console.log(`[get-staff-commission] Tier progress:`, JSON.stringify(tierProgress));
+
     return new Response(
       JSON.stringify({
         plan,
@@ -218,6 +348,8 @@ Deno.serve(async (req) => {
         current_month_written_policies: currentMonthWrittenPolicies,
         current_month_written_households: currentMonthWrittenHouseholds,
         team_member_name: teamMember.name,
+        // NEW: Tier progression data
+        tier_progress: tierProgress,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

@@ -45,6 +45,117 @@ interface LeaderboardEntry {
   households: number;
 }
 
+interface Trends {
+  premium: number | null;
+  items: number | null;
+  points: number | null;
+  policies: number | null;
+  households: number | null;
+}
+
+interface Streak {
+  current: number;
+  longest: number;
+  last_sale_date: string | null;
+}
+
+interface MyRank {
+  rank: number;
+  total_producers: number;
+  ranked_by: string;
+}
+
+// Helper: Calculate percent change
+function calcPercentChange(current: number, previous: number): number | null {
+  if (previous === 0) {
+    return current > 0 ? 100 : null;
+  }
+  return Math.round(((current - previous) / previous) * 1000) / 10;
+}
+
+// Helper: Get previous month date range
+function getPreviousMonthRange(dateStart: string, dateEnd: string): { prevStart: string; prevEnd: string } {
+  const start = new Date(dateStart);
+  const end = new Date(dateEnd);
+
+  // Move to previous month
+  start.setMonth(start.getMonth() - 1);
+  end.setMonth(end.getMonth() - 1);
+
+  // Adjust end date to last day of previous month
+  const lastDay = new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
+  end.setDate(Math.min(end.getDate(), lastDay));
+
+  return {
+    prevStart: start.toISOString().split('T')[0],
+    prevEnd: end.toISOString().split('T')[0],
+  };
+}
+
+// Helper: Calculate streak from sale dates
+function calculateStreak(saleDates: string[]): Streak {
+  if (saleDates.length === 0) {
+    return { current: 0, longest: 0, last_sale_date: null };
+  }
+
+  // Sort dates descending (most recent first)
+  const uniqueDates = [...new Set(saleDates)].sort((a, b) => b.localeCompare(a));
+  const lastSaleDate = uniqueDates[0];
+
+  // Calculate current streak (consecutive days from most recent)
+  let currentStreak = 1;
+  const today = new Date().toISOString().split('T')[0];
+
+  // If last sale wasn't today or yesterday, streak is broken
+  const lastSale = new Date(lastSaleDate);
+  const todayDate = new Date(today);
+  const daysDiff = Math.floor((todayDate.getTime() - lastSale.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (daysDiff > 1) {
+    // Streak is broken (more than 1 day gap)
+    currentStreak = 0;
+  } else {
+    // Count consecutive days backwards
+    for (let i = 1; i < uniqueDates.length; i++) {
+      const prevDate = new Date(uniqueDates[i - 1]);
+      const currDate = new Date(uniqueDates[i]);
+      const diff = Math.floor((prevDate.getTime() - currDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (diff === 1) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  // Calculate longest streak ever
+  let longestStreak = 1;
+  let tempStreak = 1;
+
+  // Sort ascending for longest streak calculation
+  const sortedAsc = [...uniqueDates].sort((a, b) => a.localeCompare(b));
+
+  for (let i = 1; i < sortedAsc.length; i++) {
+    const prevDate = new Date(sortedAsc[i - 1]);
+    const currDate = new Date(sortedAsc[i]);
+    const diff = Math.floor((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diff === 1) {
+      tempStreak++;
+      longestStreak = Math.max(longestStreak, tempStreak);
+    } else {
+      tempStreak = 1;
+    }
+  }
+
+  return {
+    current: currentStreak,
+    longest: Math.max(longestStreak, currentStreak),
+    last_sale_date: lastSaleDate,
+  };
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -365,8 +476,106 @@ serve(async (req) => {
       console.log('Leaderboard entries:', leaderboard.length);
     }
 
+    // === NEW: Calculate trends (month-over-month comparison) ===
+    let trends: Trends = {
+      premium: null,
+      items: null,
+      points: null,
+      policies: null,
+      households: null,
+    };
+
+    if (date_start && date_end && !isTeamScope && teamMemberId) {
+      const { prevStart, prevEnd } = getPreviousMonthRange(date_start, date_end);
+      console.log('Fetching previous month data:', prevStart, 'to', prevEnd);
+
+      const { data: prevSales, error: prevError } = await supabase
+        .from('sales')
+        .select(`
+          total_premium,
+          total_items,
+          total_points,
+          customer_name,
+          sale_policies(id)
+        `)
+        .eq('agency_id', agencyId)
+        .eq('team_member_id', teamMemberId)
+        .gte('sale_date', prevStart)
+        .lte('sale_date', prevEnd);
+
+      if (!prevError && prevSales) {
+        const prevUniqueCustomers = new Set(
+          prevSales
+            .map(sale => (sale as any).customer_name?.toLowerCase().trim())
+            .filter(Boolean)
+        );
+
+        const prevTotals = prevSales.reduce(
+          (acc, sale) => ({
+            premium: acc.premium + ((sale as any).total_premium || 0),
+            items: acc.items + ((sale as any).total_items || 0),
+            points: acc.points + ((sale as any).total_points || 0),
+            policies: acc.policies + ((sale as any).sale_policies?.length || 0),
+          }),
+          { premium: 0, items: 0, points: 0, policies: 0 }
+        );
+
+        trends = {
+          premium: calcPercentChange(totals.premium, prevTotals.premium),
+          items: calcPercentChange(totals.items, prevTotals.items),
+          points: calcPercentChange(totals.points, prevTotals.points),
+          policies: calcPercentChange(totals.policies, prevTotals.policies),
+          households: calcPercentChange(totals.households, prevUniqueCustomers.size),
+        };
+
+        console.log('Trends calculated:', JSON.stringify(trends));
+      }
+    }
+
+    // === NEW: Calculate streak (consecutive days with sales) ===
+    let streak: Streak = { current: 0, longest: 0, last_sale_date: null };
+
+    if (!isTeamScope && teamMemberId) {
+      // Get all sale dates for this team member (last 90 days for performance)
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      const streakStartDate = ninetyDaysAgo.toISOString().split('T')[0];
+
+      const { data: streakSales, error: streakError } = await supabase
+        .from('sales')
+        .select('sale_date')
+        .eq('agency_id', agencyId)
+        .eq('team_member_id', teamMemberId)
+        .gte('sale_date', streakStartDate)
+        .order('sale_date', { ascending: false });
+
+      if (!streakError && streakSales) {
+        const saleDates = streakSales.map(s => s.sale_date);
+        streak = calculateStreak(saleDates);
+        console.log('Streak calculated:', JSON.stringify(streak));
+      }
+    }
+
+    // === NEW: Calculate my_rank from leaderboard ===
+    let myRank: MyRank | null = null;
+
+    if (leaderboard.length > 0 && teamMemberId) {
+      // Sort by items (default ranking metric)
+      const sortedByItems = [...leaderboard].sort((a, b) => b.items - a.items);
+      const myIndex = sortedByItems.findIndex(e => e.team_member_id === teamMemberId);
+
+      if (myIndex !== -1) {
+        myRank = {
+          rank: myIndex + 1,
+          total_producers: sortedByItems.length,
+          ranked_by: 'items',
+        };
+        console.log('My rank calculated:', JSON.stringify(myRank));
+      }
+    }
+
     console.log('Returning success response');
-    
+
     return new Response(JSON.stringify({
       personal_sales: isTeamScope ? [] : personalSales,
       totals,
@@ -375,6 +584,10 @@ serve(async (req) => {
       agency_id: agencyId,
       lead_sources: leadSources || [],
       scope,
+      // NEW fields
+      trends,
+      streak,
+      my_rank: myRank,
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
