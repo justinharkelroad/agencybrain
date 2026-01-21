@@ -16,6 +16,8 @@ import { SalesBreakdownTabs } from "@/components/sales/SalesBreakdownTabs";
 import { RankBadgeHeader } from "@/components/sales/RankBadge";
 import { StreakBadge } from "@/components/sales/StreakBadge";
 import { MiniLeaderboard } from "@/components/sales/MiniLeaderboard";
+import { GoalConfetti } from "@/components/sales/Confetti";
+import { TierProgressCard } from "@/components/sales/TierProgressCard";
 import { cn } from "@/lib/utils";
 import {
   getBusinessDaysInMonth,
@@ -522,6 +524,31 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
     };
   }, [viewMode, personalData?.totals, teamData?.totals, goalData, commissionData, premium]);
 
+  // Use tier_progress directly from the edge function response
+  const tierProgress = useMemo(() => {
+    console.log("[TierProgressCard] commissionData:", commissionData);
+    console.log("[TierProgressCard] tier_progress:", commissionData?.tier_progress);
+
+    // The edge function already calculates and returns tier_progress
+    if (!commissionData?.tier_progress) {
+      console.log("[TierProgressCard] No tier_progress in response");
+      return null;
+    }
+
+    const tp = commissionData.tier_progress;
+    // Only show if there are tiers configured
+    if (tp.total_tiers === 0) {
+      console.log("[TierProgressCard] total_tiers is 0");
+      return null;
+    }
+
+    console.log("[TierProgressCard] Returning tier progress:", tp);
+    return {
+      ...tp,
+      payout_type: commissionData.plan?.payout_type || "flat_per_item",
+    };
+  }, [commissionData]);
+
   if (isLoading || displayLoading) {
     return (
       <div className="sales-widget-glass rounded-3xl p-6">
@@ -669,18 +696,20 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         {/* Center Ring - Larger and prominent */}
         <div className="flex-shrink-0 order-1 lg:order-2">
           {goalConfig.target > 0 || goalConfig.showCelebration ? (
-            <GoalProgressRing
-              current={goalConfig.current}
-              target={goalConfig.target || goalConfig.current}
-              label={goalConfig.label}
-              sublabel={goalConfig.sublabel || undefined}
-              footer={goalConfig.footer || undefined}
-              size="lg"
-              showPercentage
-              animated
-              showCelebration={goalConfig.showCelebration}
-              formatValue={goalConfig.formatValue}
-            />
+            <GoalConfetti current={goalConfig.current} target={goalConfig.target || goalConfig.current}>
+              <GoalProgressRing
+                current={goalConfig.current}
+                target={goalConfig.target || goalConfig.current}
+                label={goalConfig.label}
+                sublabel={goalConfig.sublabel || undefined}
+                footer={goalConfig.footer || undefined}
+                size="lg"
+                showPercentage
+                animated
+                showCelebration={goalConfig.showCelebration}
+                formatValue={goalConfig.formatValue}
+              />
+            </GoalConfetti>
           ) : (
             <div className="relative flex items-center justify-center" style={{ width: 200, height: 200 }}>
               <svg width={200} height={200} className="transform -rotate-90 opacity-30">
@@ -751,6 +780,16 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
           </p>
         </div>
       </div>
+
+      {/* Tier Progress Card - only show in personal view when tier data available */}
+      {viewMode === "personal" && tierProgress && tierProgress.total_tiers > 0 && (
+        <div className="mt-6">
+          <TierProgressCard
+            tierProgress={tierProgress}
+            payoutType={tierProgress.payout_type}
+          />
+        </div>
+      )}
 
       {/* Mini Leaderboard */}
       {leaderboard.length > 0 && (
