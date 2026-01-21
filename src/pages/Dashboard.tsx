@@ -41,6 +41,14 @@ const Dashboard = () => {
     loading: permissionsLoading,
   } = useUserPermissions();
 
+  // ALL useState hooks MUST be declared before any conditional returns (React Rules of Hooks)
+  const [agencyName, setAgencyName] = useState<string | null>(null);
+  const [agencyId, setAgencyId] = useState<string | null>(null);
+  const [envOverride, setEnvOverride] = useState<EnvOverride | null>(getEnvironmentOverride());
+  const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
+  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
+
   // Redirect Call Scoring tier users to /call-scoring
   useEffect(() => {
     if (isCallScoringTier(membershipTier)) {
@@ -48,6 +56,7 @@ const Dashboard = () => {
     }
   }, [membershipTier, navigate]);
 
+  // Early returns AFTER all hooks are declared
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
@@ -60,13 +69,6 @@ const Dashboard = () => {
   const handleSignOut = async () => {
     await signOut();
   };
-
-  const [agencyName, setAgencyName] = useState<string | null>(null);
-  const [agencyId, setAgencyId] = useState<string | null>(null);
-  const [envOverride, setEnvOverride] = useState<EnvOverride | null>(getEnvironmentOverride());
-  const [showQuoteModal, setShowQuoteModal] = useState(false);
-  const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
-  const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
 
   const fetchAgencyName = async () => {
     if (!user) return;
