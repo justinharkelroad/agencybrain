@@ -40,27 +40,15 @@ export function useSalesMonthSummary({
 
       // If using staff session token, call the edge function
       if (staffSessionToken) {
-        const response = await fetch(
-          `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/get_staff_sales_analytics`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${staffSessionToken}`,
-            },
-            body: JSON.stringify({
-              start_date: startDate,
-              end_date: endDate,
-            }),
-          }
-        );
+        const { data, error } = await supabase.functions.invoke('get_staff_sales_analytics', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: { type: 'summary', start_date: startDate, end_date: endDate }
+        });
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch sales summary");
-        }
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
 
-        const data = await response.json();
-        const sales = data.sales || [];
+        const sales = data?.sales || [];
 
         let totals = { premium: 0, items: 0, policies: 0, points: 0 };
         for (const sale of sales) {
