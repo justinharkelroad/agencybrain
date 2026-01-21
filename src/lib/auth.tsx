@@ -64,9 +64,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
         
       if (!error && data) {
+        setMembershipTier(data.membership_tier);
         // User is an agency owner if they have an agency_id
         setIsAgencyOwner(!!data.agency_id);
       } else {
+        setMembershipTier(null);
         setIsAgencyOwner(false);
       }
 
@@ -80,28 +82,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (keyEmployeeData) {
         setIsKeyEmployee(true);
         setKeyEmployeeAgencyId(keyEmployeeData.agency_id);
-        
-        // KEY FIX: Key employees inherit their agency OWNER's tier, not their own
-        // Fetch the agency owner's membership_tier
-        const { data: ownerProfile } = await supabase
-          .from('profiles')
-          .select('membership_tier')
-          .eq('agency_id', keyEmployeeData.agency_id)
-          .not('membership_tier', 'is', null)
-          .limit(1)
-          .maybeSingle();
-        
-        if (ownerProfile?.membership_tier) {
-          setMembershipTier(ownerProfile.membership_tier);
-        } else {
-          // Fallback to key employee's own tier if owner has none
-          setMembershipTier(data?.membership_tier ?? null);
-        }
       } else {
         setIsKeyEmployee(false);
         setKeyEmployeeAgencyId(null);
-        // Non-key-employee: use their own tier
-        setMembershipTier(data?.membership_tier ?? null);
       }
     } catch (error) {
       console.error('Error checking membership tier:', error);
@@ -117,7 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         // Clear user-specific cache on auth state change
-        if ((event === 'SIGNED_OUT' || event === 'USER_UPDATED') && queryClient) {
+        if (event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
           queryClient.removeQueries({ queryKey: ["focus-items"] });
           queryClient.removeQueries({ queryKey: ["brainstorm-targets"] });
           queryClient.removeQueries({ queryKey: ["quarterly-targets"] });
