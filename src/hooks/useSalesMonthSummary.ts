@@ -38,29 +38,30 @@ export function useSalesMonthSummary({
         return { premium: 0, items: 0, policies: 0, points: 0, salesCount: 0 };
       }
 
-      // If using staff session token, call the edge function
+      // If using staff session token, use get_staff_sales which returns totals
       if (staffSessionToken) {
-        const { data, error } = await supabase.functions.invoke('get_staff_sales_analytics', {
+        const { data, error } = await supabase.functions.invoke('get_staff_sales', {
           headers: { 'x-staff-session': staffSessionToken },
-          body: { type: 'summary', start_date: startDate, end_date: endDate }
+          body: {
+            date_start: startDate,
+            date_end: endDate,
+            include_leaderboard: false,
+            scope: "team"  // Use team scope to get agency-wide totals
+          }
         });
 
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
 
-        const sales = data?.sales || [];
-
-        let totals = { premium: 0, items: 0, policies: 0, points: 0 };
-        for (const sale of sales) {
-          const policies = (sale.sale_policies || []) as SalePolicy[];
-          const countable = calculateCountableTotals(policies);
-          totals.premium += countable.premium;
-          totals.items += countable.items;
-          totals.policies += countable.policyCount;
-          totals.points += countable.points;
-        }
-
-        return { ...totals, salesCount: sales.length };
+        // get_staff_sales returns totals directly
+        const totals = data?.totals || {};
+        return {
+          premium: totals.premium || 0,
+          items: totals.items || 0,
+          policies: totals.policies || 0,
+          points: totals.points || 0,
+          salesCount: data?.personal_sales?.length || 0,
+        };
       }
 
       // Direct Supabase query for admin users
