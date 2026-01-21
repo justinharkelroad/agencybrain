@@ -1378,11 +1378,17 @@ export default function CallScoring() {
       </Tabs>
       
       {selectedCall?.call_type === 'service' ? (
-        <ServiceCallReportCard 
+        <ServiceCallReportCard
           call={selectedCall}
           open={scorecardOpen}
           onClose={() => setScorecardOpen(false)}
           isReadOnly={false}
+          isStaffUser={isStaffUser}
+          staffTeamMemberId={staffTeamMemberId || undefined}
+          acknowledgedAt={selectedCall?.acknowledged_at}
+          staffFeedbackPositive={selectedCall?.staff_feedback_positive}
+          staffFeedbackImprovement={selectedCall?.staff_feedback_improvement}
+          onAcknowledge={handleStaffAcknowledge}
         />
       ) : (
         <CallScorecard 
