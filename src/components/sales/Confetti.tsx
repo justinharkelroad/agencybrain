@@ -124,15 +124,11 @@ export function GoalConfetti({ current, target, children }: GoalConfettiProps) {
 
   useEffect(() => {
     const prevCurrent = prevCurrentRef.current;
-    console.log("[GoalConfetti] current:", current, "target:", target, "prevCurrent:", prevCurrent);
-
     const nowComplete = target > 0 && current >= target;
 
     // Case 1: First load and already at goal - fire once
     if (prevCurrent === null && nowComplete && !hasInitialFiredRef.current) {
-      console.log("[GoalConfetti] 🎉 Already at goal on load!");
       hasInitialFiredRef.current = true;
-      // Small delay to let page render first
       setTimeout(() => {
         setShowConfetti(true);
         setTimeout(() => setShowConfetti(false), 3500);
@@ -140,12 +136,10 @@ export function GoalConfetti({ current, target, children }: GoalConfettiProps) {
     }
     // Case 2: Crossed the threshold (was below, now complete)
     else if (prevCurrent !== null && prevCurrent < target && nowComplete) {
-      console.log("[GoalConfetti] 🎉 TRIGGERING CONFETTI! Crossed from", prevCurrent, "to", current);
       setShowConfetti(true);
       setTimeout(() => setShowConfetti(false), 3500);
     }
 
-    // Update previous value for next comparison
     prevCurrentRef.current = current;
   }, [current, target]);
 
