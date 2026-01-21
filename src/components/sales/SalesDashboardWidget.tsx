@@ -11,6 +11,9 @@ import { StatOrb } from "./StatOrb";
 import { PacingIndicator } from "./PacingIndicator";
 import { AdminPromoGoalsWidget } from "./AdminPromoGoalsWidget";
 import { SalesBreakdownTabs } from "./SalesBreakdownTabs";
+import { StreakBadge } from "./StreakBadge";
+import { MiniLeaderboard } from "./MiniLeaderboard";
+import { HeroStat } from "./HeroStat";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
@@ -20,13 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  getBusinessDaysInMonth, 
-  getBusinessDaysElapsed, 
+import {
+  getBusinessDaysInMonth,
+  getBusinessDaysElapsed,
   getBusinessDaysRemaining,
   calculateProjection,
-  formatProjection 
+  formatProjection
 } from "@/utils/businessDays";
+import { useSalesTrends } from "@/hooks/useSalesTrends";
+import { useSalesStreak } from "@/hooks/useSalesStreak";
+import { useSalesLeaderboard } from "@/hooks/useSalesLeaderboard";
 
 interface SalesDashboardWidgetProps {
   agencyId: string | null;
@@ -166,11 +172,37 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
 
   // Set default selected goal when goals load
   const goals = goalsData || [];
-  const activeGoal = selectedGoalId 
-    ? goals.find(g => g.id === selectedGoalId) 
+  const activeGoal = selectedGoalId
+    ? goals.find(g => g.id === selectedGoalId)
     : goals[0];
 
+  // Fetch trends (month-over-month comparison)
+  const { data: trendsData } = useSalesTrends({
+    agencyId,
+    teamMemberId: isStaff ? teamMemberId : undefined,
+    currentMonth: today,
+  });
+
+  // Fetch streak
+  const { data: streakData } = useSalesStreak({
+    agencyId,
+    teamMemberId: isStaff ? teamMemberId : undefined,
+  });
+
+  // Fetch leaderboard for mini display
+  const { data: leaderboardData } = useSalesLeaderboard({
+    agencyId,
+    currentTeamMemberId: teamMemberId,
+    startDate: monthStart,
+    endDate: monthEnd,
+    rankBy: "items",
+  });
+
   if (!agencyId) return null;
+
+  const trends = trendsData?.trends || { premium: null, items: null, points: null, policies: null, households: null };
+  const streak = streakData || { current: 0, longest: 0, lastSaleDate: null };
+  const leaderboard = leaderboardData?.leaderboard || [];
 
   const stats = salesData || { totalPremium: 0, totalItems: 0, totalPoints: 0, totalPolicies: 0, totalHouseholds: 0, todayPremium: 0, weekPremium: 0 };
   const hasGoal = !!activeGoal;
@@ -218,13 +250,18 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
             <Trophy className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-foreground">Sales Performance</h2>
+            <h2 className="text-lg font-semibold text-foreground">
+              {isStaff ? "Your Sales Performance" : "Agency Sales Performance"}
+            </h2>
             <p className="text-sm text-muted-foreground">{monthLabel}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
+          {streak.current > 0 && (
+            <StreakBadge streak={streak.current} size="sm" />
+          )}
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => navigate('/sales?tab=upload')}
             className="gap-2"
@@ -232,8 +269,8 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
             <Upload className="h-4 w-4" />
             <span className="hidden sm:inline">Upload Sale</span>
           </Button>
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => setShowAnalytics(true)}
             className="gap-2"
@@ -302,6 +339,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 color="green"
                 animationDelay={0}
                 projection={formatProjection(premiumProj, '$')}
+                trend={trends.premium !== null ? { value: Math.abs(trends.premium), direction: trends.premium >= 0 ? "up" : "down" } : undefined}
               />
               <StatOrb
                 value={stats.totalPoints}
@@ -310,6 +348,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 color="orange"
                 animationDelay={100}
                 projection={pointsProj}
+                trend={trends.points !== null ? { value: Math.abs(trends.points), direction: trends.points >= 0 ? "up" : "down" } : undefined}
               />
               <StatOrb
                 value={stats.totalHouseholds}
@@ -318,6 +357,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 color="cyan"
                 animationDelay={150}
                 projection={householdsProj}
+                trend={trends.households !== null ? { value: Math.abs(trends.households), direction: trends.households >= 0 ? "up" : "down" } : undefined}
               />
             </div>
 
@@ -368,6 +408,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 color="blue"
                 animationDelay={200}
                 projection={itemsProj}
+                trend={trends.items !== null ? { value: Math.abs(trends.items), direction: trends.items >= 0 ? "up" : "down" } : undefined}
               />
               <StatOrb
                 value={stats.totalPolicies}
@@ -376,6 +417,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 color="purple"
                 animationDelay={300}
                 projection={policiesProj}
+                trend={trends.policies !== null ? { value: Math.abs(trends.policies), direction: trends.policies >= 0 ? "up" : "down" } : undefined}
               />
             </div>
           </div>
@@ -389,6 +431,18 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
               daysRemaining={bizDaysRemaining}
               measurement={goalMeasurement}
             />
+          )}
+
+          {/* Mini Leaderboard (for owners/admins) */}
+          {(isAgencyOwner || isAdmin) && leaderboard.length > 0 && (
+            <div className="pt-3 border-t border-white/10">
+              <MiniLeaderboard
+                entries={leaderboard}
+                currentTeamMemberId={teamMemberId}
+                metric="items"
+                maxEntries={4}
+              />
+            </div>
           )}
 
           {/* Footer Stats Row */}
