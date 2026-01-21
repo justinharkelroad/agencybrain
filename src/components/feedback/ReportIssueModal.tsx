@@ -34,7 +34,7 @@ export function ReportIssueModal({ open, onOpenChange }: ReportIssueModalProps) 
   const { toast } = useToast();
 
   // Get auth from both contexts
-  const { user: brainUser } = useAuth();
+  const { user: brainUser, isAdmin } = useAuth();
   const { user: staffUser } = useStaffAuth();
 
   // Determine submitter info based on who is logged in
@@ -43,7 +43,7 @@ export function ReportIssueModal({ open, onOpenChange }: ReportIssueModalProps) 
       return {
         submitter_name: brainUser.user_metadata?.full_name || brainUser.email || "Unknown User",
         submitter_email: brainUser.email || "",
-        submitter_type: "owner" as const,
+        submitter_type: isAdmin ? "admin" : "owner",
         agency_id: null,
         agency_name: null,
         user_id: brainUser.id,

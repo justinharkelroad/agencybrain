@@ -17,11 +17,11 @@ export function ReportIssueButton() {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          {/* Positioned above Stan chatbot (which is at bottom-6 right-6) */}
+          {/* Positioned well above Stan chatbot (which is at bottom-6 right-6) */}
           <Button
             variant="outline"
             size="icon"
-            className="fixed bottom-20 right-6 z-[99998] h-10 w-10 rounded-full shadow-lg bg-background hover:bg-accent border-border"
+            className="fixed bottom-32 right-6 z-[99998] h-10 w-10 rounded-full shadow-lg bg-background hover:bg-accent border-border"
             onClick={() => setIsOpen(true)}
           >
             <Bug className="h-4 w-4" />
