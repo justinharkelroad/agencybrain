@@ -41,32 +41,20 @@ const Dashboard = () => {
     loading: permissionsLoading,
   } = useUserPermissions();
 
-  // Redirect Call Scoring tier users to /call-scoring
-  useEffect(() => {
-    if (isCallScoringTier(membershipTier)) {
-      navigate('/call-scoring', { replace: true });
-    }
-  }, [membershipTier, navigate]);
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-  
-  // Don't render dashboard for Call Scoring tier users (redirect is happening)
-  if (isCallScoringTier(membershipTier)) {
-    return null;
-  }
-
-  const handleSignOut = async () => {
-    await signOut();
-  };
-
+  // ALL HOOKS MUST BE BEFORE ANY EARLY RETURNS
   const [agencyName, setAgencyName] = useState<string | null>(null);
   const [agencyId, setAgencyId] = useState<string | null>(null);
   const [envOverride, setEnvOverride] = useState<EnvOverride | null>(getEnvironmentOverride());
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Redirect Call Scoring tier users to /call-scoring
+  useEffect(() => {
+    if (isCallScoringTier(membershipTier)) {
+      navigate('/call-scoring', { replace: true });
+    }
+  }, [membershipTier, navigate]);
 
   const fetchAgencyName = async () => {
     if (!user) return;
@@ -95,6 +83,20 @@ const Dashboard = () => {
     fetchAgencyName();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // EARLY RETURNS AFTER ALL HOOKS
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+  
+  // Don't render dashboard for Call Scoring tier users (redirect is happening)
+  if (isCallScoringTier(membershipTier)) {
+    return null;
+  }
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   // Fetch lead sources and team members for the quote modal
   useEffect(() => {
