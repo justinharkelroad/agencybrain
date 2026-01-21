@@ -39,15 +39,17 @@ serve(async (req) => {
       });
     }
 
-    // Note: staff_users is returned as an object (not array) when using .single()
-    if (!session || new Date(session.expires_at) < new Date() || !session.staff_users?.is_active) {
+    // Cast staff_users to object (Supabase returns object for many-to-one FK joins with .single())
+    const staffUser = session?.staff_users as unknown as { id: string; agency_id: string; is_active: boolean; display_name: string; team_member_id: string | null } | null;
+
+    if (!session || new Date(session.expires_at) < new Date() || !staffUser?.is_active) {
       console.error('[log_staff_renewal_activity] Session expired or user inactive');
       return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
         status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    const agencyId = session.staff_users.agency_id;
+    const agencyId = staffUser.agency_id;
     console.log('[log_staff_renewal_activity] Valid session for agency:', agencyId);
 
     const body = await req.json();
@@ -87,7 +89,7 @@ serve(async (req) => {
       });
     }
 
-    const displayName = session.staff_users.display_name || 'Staff User';
+    const displayName = staffUser.display_name || 'Staff User';
 
     // Create the activity
     const { error: activityError } = await supabase
@@ -101,7 +103,7 @@ serve(async (req) => {
         comments: comments || null,
         scheduled_date: scheduledDate || null,
         send_calendar_invite: sendCalendarInvite || false,
-        assigned_team_member_id: assignedTeamMemberId || session.staff_users.team_member_id || null,
+        assigned_team_member_id: assignedTeamMemberId || staffUser.team_member_id || null,
         created_by: null, // Staff users don't have auth.uid()
         created_by_display_name: displayName,
       });
