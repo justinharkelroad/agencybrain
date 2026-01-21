@@ -52,29 +52,22 @@ export function SalesPeriodSummaryTable({
     queryFn: async (): Promise<SaleSummaryRow[]> => {
       if (!agencyId) return [];
 
-      // If using staff session token, call the edge function
+      // If using staff session token, use get_staff_sales edge function
       if (staffSessionToken) {
-        const response = await fetch(
-          `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/get_staff_sales_analytics`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${staffSessionToken}`,
-            },
-            body: JSON.stringify({
-              start_date: startDate,
-              end_date: endDate,
-            }),
+        const { data, error } = await supabase.functions.invoke('get_staff_sales', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: {
+            date_start: startDate,
+            date_end: endDate,
+            include_leaderboard: false,
+            scope: "team"
           }
-        );
+        });
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch sales");
-        }
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
 
-        const data = await response.json();
-        const salesData = data.sales || [];
+        const salesData = data?.personal_sales || [];
 
         return salesData.map((sale: any) => {
           const policies = (sale.sale_policies || []) as SalePolicy[];
@@ -83,8 +76,8 @@ export function SalesPeriodSummaryTable({
             id: sale.id,
             sale_date: sale.sale_date,
             customer_name: sale.customer_name,
-            lead_source_name: sale.lead_source?.name || null,
-            producer_name: sale.team_member?.name || null,
+            lead_source_name: null, // get_staff_sales doesn't include lead_source
+            producer_name: null, // get_staff_sales doesn't include team_member name
             premium: countable.premium,
             items: countable.items,
             policies: countable.policyCount,

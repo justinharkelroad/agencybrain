@@ -63,6 +63,9 @@ interface LeaderboardEntry {
   items: number;
   premium: number;
   points: number;
+  policies: number;
+  households: number;
+  rank?: number;
 }
 
 interface SalesDataWithGamification {
