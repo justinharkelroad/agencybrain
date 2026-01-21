@@ -9,6 +9,7 @@ import { getStaffHomePath, isCallScoringTier } from "@/utils/tierAccess";
 import { Button } from "@/components/ui/button";
 import { Eye, X } from "lucide-react";
 import { StanChatBot } from "@/components/chatbot/StanChatBot";
+import { ReportIssueButton } from "@/components/feedback";
 
 export function StaffLayout() {
   const { user, isImpersonation, logout } = useStaffAuth();
@@ -104,6 +105,7 @@ export function StaffLayout() {
         initialTool={roiInitialTool}
       />
       <StanChatBot portal="staff" />
+      <ReportIssueButton />
     </SidebarProvider>
   );
 }
