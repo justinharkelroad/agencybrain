@@ -3,6 +3,47 @@ import { supabase } from '@/integrations/supabase/client';
 import { useMemo } from 'react';
 import { format, subMonths, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 
+// Type definitions for query results
+type LqsLeadRow = {
+  id: string;
+  lead_source_id: string | null;
+  lead_received_date: string | null;
+};
+
+type LqsQuoteRow = {
+  household_id: string;
+  quote_date: string | null;
+  household: { lead_source_id: string | null } | null;
+};
+
+type LqsSaleRow = {
+  household_id: string;
+  sale_date: string | null;
+  premium_cents: number | null;
+  household: { lead_source_id: string | null } | null;
+};
+
+type SpendRow = {
+  lead_source_id: string | null;
+  total_spend_cents: number | null;
+  month: string | null;
+};
+
+type LeadSourceRow = {
+  id: string;
+  name: string;
+  bucket_id: string | null;
+};
+
+type BucketRow = {
+  id: string;
+  name: string;
+};
+
+type AgencyRow = {
+  default_commission_rate: number | null;
+};
+
 export interface MonthlyPerformanceData {
   month: string; // YYYY-MM format
   monthLabel: string; // "Jan 2024" format
@@ -32,11 +73,11 @@ export function useLqsPerformanceTrend(agencyId: string | null) {
   }, []);
 
   // Fetch leads received by month
-  const leadsQuery = useQuery({
+  const leadsQuery = useQuery<LqsLeadRow[]>({
     queryKey: ['lqs-trend-leads', agencyId],
     enabled: !!agencyId,
     staleTime: 60000,
-    queryFn: async () => {
+    queryFn: async (): Promise<LqsLeadRow[]> => {
       const startStr = format(dateRange.start, 'yyyy-MM-dd');
       const endStr = format(dateRange.end, 'yyyy-MM-dd');
 
@@ -48,16 +89,16 @@ export function useLqsPerformanceTrend(agencyId: string | null) {
         .lte('lead_received_date', endStr);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as LqsLeadRow[];
     },
   });
 
   // Fetch quotes by month
-  const quotesQuery = useQuery({
+  const quotesQuery = useQuery<LqsQuoteRow[]>({
     queryKey: ['lqs-trend-quotes', agencyId],
     enabled: !!agencyId,
     staleTime: 60000,
-    queryFn: async () => {
+    queryFn: async (): Promise<LqsQuoteRow[]> => {
       const startStr = format(dateRange.start, 'yyyy-MM-dd');
       const endStr = format(dateRange.end, 'yyyy-MM-dd');
 
@@ -69,16 +110,16 @@ export function useLqsPerformanceTrend(agencyId: string | null) {
         .lte('quote_date', endStr);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as LqsQuoteRow[];
     },
   });
 
   // Fetch sales by month
-  const salesQuery = useQuery({
+  const salesQuery = useQuery<LqsSaleRow[]>({
     queryKey: ['lqs-trend-sales', agencyId],
     enabled: !!agencyId,
     staleTime: 60000,
-    queryFn: async () => {
+    queryFn: async (): Promise<LqsSaleRow[]> => {
       const startStr = format(dateRange.start, 'yyyy-MM-dd');
       const endStr = format(dateRange.end, 'yyyy-MM-dd');
 
@@ -90,16 +131,16 @@ export function useLqsPerformanceTrend(agencyId: string | null) {
         .lte('sale_date', endStr);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as LqsSaleRow[];
     },
   });
 
   // Fetch monthly spend
-  const spendQuery = useQuery({
+  const spendQuery = useQuery<SpendRow[]>({
     queryKey: ['lqs-trend-spend', agencyId],
     enabled: !!agencyId,
     staleTime: 60000,
-    queryFn: async () => {
+    queryFn: async (): Promise<SpendRow[]> => {
       const startMonth = format(dateRange.start, 'yyyy-MM-dd');
       const endMonth = format(dateRange.end, 'yyyy-MM-dd');
 
@@ -111,30 +152,30 @@ export function useLqsPerformanceTrend(agencyId: string | null) {
         .lte('month', endMonth);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as SpendRow[];
     },
   });
 
   // Fetch lead sources with buckets
-  const leadSourcesQuery = useQuery({
+  const leadSourcesQuery = useQuery<LeadSourceRow[]>({
     queryKey: ['lqs-trend-lead-sources', agencyId],
     enabled: !!agencyId,
-    queryFn: async () => {
+    queryFn: async (): Promise<LeadSourceRow[]> => {
       const { data, error } = await supabase
         .from('lead_sources')
         .select('id, name, bucket_id')
         .eq('agency_id', agencyId!);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as LeadSourceRow[];
     },
   });
 
   // Fetch buckets
-  const bucketsQuery = useQuery({
+  const bucketsQuery = useQuery<BucketRow[]>({
     queryKey: ['lqs-trend-buckets', agencyId],
     enabled: !!agencyId,
-    queryFn: async () => {
+    queryFn: async (): Promise<BucketRow[]> => {
       const { data, error } = await supabase
         .from('marketing_buckets')
         .select('id, name')
@@ -142,15 +183,15 @@ export function useLqsPerformanceTrend(agencyId: string | null) {
         .order('order_index', { ascending: true });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as BucketRow[];
     },
   });
 
   // Fetch agency commission rate
-  const agencyQuery = useQuery({
+  const agencyQuery = useQuery<AgencyRow>({
     queryKey: ['agency-commission-rate', agencyId],
     enabled: !!agencyId,
-    queryFn: async () => {
+    queryFn: async (): Promise<AgencyRow> => {
       const { data, error } = await supabase
         .from('agencies')
         .select('default_commission_rate')
@@ -158,7 +199,7 @@ export function useLqsPerformanceTrend(agencyId: string | null) {
         .single();
 
       if (error) throw error;
-      return data;
+      return data as AgencyRow;
     },
   });
 
@@ -177,8 +218,8 @@ export function useLqsPerformanceTrend(agencyId: string | null) {
     }
 
     // Create lead source to bucket mapping
-    const sourceToucket = new Map(leadSources.map((ls) => [ls.id, ls.bucket_id]));
-    const bucketNames = new Map(buckets.map((b) => [b.id, b.name]));
+    const sourceToBucket = new Map<string, string | null>(leadSources.map((ls) => [ls.id, ls.bucket_id]));
+    const bucketNames = new Map<string, string>(buckets.map((b) => [b.id, b.name]));
 
     // Generate month keys for last 12 months
     const months: string[] = [];
@@ -223,7 +264,7 @@ export function useLqsPerformanceTrend(agencyId: string | null) {
     leads.forEach((lead) => {
       if (!lead.lead_received_date) return;
       const month = lead.lead_received_date.substring(0, 7);
-      const bucketId = lead.lead_source_id ? sourceToucket.get(lead.lead_source_id) ?? null : null;
+      const bucketId = lead.lead_source_id ? sourceToBucket.get(lead.lead_source_id) ?? null : null;
 
       const bucketMetrics = initBucket(bucketId);
       const metrics = bucketMetrics.get(month);
@@ -243,7 +284,7 @@ export function useLqsPerformanceTrend(agencyId: string | null) {
       if (!quote.quote_date) return;
       const month = quote.quote_date.substring(0, 7);
       const leadSourceId = (quote.household as { lead_source_id: string | null } | null)?.lead_source_id ?? null;
-      const bucketId = leadSourceId ? sourceToucket.get(leadSourceId) ?? null : null;
+      const bucketId = leadSourceId ? sourceToBucket.get(leadSourceId) ?? null : null;
 
       const bucketMetrics = initBucket(bucketId);
       const metrics = bucketMetrics.get(month);
@@ -263,7 +304,7 @@ export function useLqsPerformanceTrend(agencyId: string | null) {
       if (!sale.sale_date) return;
       const month = sale.sale_date.substring(0, 7);
       const leadSourceId = (sale.household as { lead_source_id: string | null } | null)?.lead_source_id ?? null;
-      const bucketId = leadSourceId ? sourceToucket.get(leadSourceId) ?? null : null;
+      const bucketId = leadSourceId ? sourceToBucket.get(leadSourceId) ?? null : null;
 
       const bucketMetrics = initBucket(bucketId);
       const metrics = bucketMetrics.get(month);
@@ -284,7 +325,7 @@ export function useLqsPerformanceTrend(agencyId: string | null) {
     spend.forEach((s) => {
       if (!s.month) return;
       const month = s.month.substring(0, 7);
-      const bucketId = s.lead_source_id ? sourceToucket.get(s.lead_source_id) ?? null : null;
+      const bucketId = s.lead_source_id ? sourceToBucket.get(s.lead_source_id) ?? null : null;
 
       const bucketMetrics = initBucket(bucketId);
       const metrics = bucketMetrics.get(month);

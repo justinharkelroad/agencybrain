@@ -365,10 +365,15 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
   const leaderboard = useMemo(() => {
     const data = viewMode === "personal" ? personalData?.leaderboard : teamData?.leaderboard;
     if (!data) return [];
-    // Sort by items descending and add rank
+    // Sort by items descending, add rank, and ensure policies/households have defaults
     return [...data]
       .sort((a, b) => b.items - a.items)
-      .map((entry, index) => ({ ...entry, rank: index + 1 }));
+      .map((entry, index) => ({
+        ...entry,
+        policies: entry.policies ?? 0,
+        households: entry.households ?? 0,
+        rank: index + 1,
+      }));
   }, [viewMode, personalData?.leaderboard, teamData?.leaderboard]);
   
   // Calculate projections for all metrics using business days

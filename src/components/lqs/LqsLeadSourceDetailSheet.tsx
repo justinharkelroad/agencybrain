@@ -301,7 +301,7 @@ export function LqsLeadSourceDetailSheet({
     }
   };
 
-  const { data, isLoading, error, refetch } = useLqsLeadSourceDetail(
+  const { data, isLoading, error } = useLqsLeadSourceDetail(
     agencyId,
     open ? leadSourceId : undefined, // Only fetch when open
     dateRange
