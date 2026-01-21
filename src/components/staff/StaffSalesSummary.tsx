@@ -16,6 +16,8 @@ import { SalesBreakdownTabs } from "@/components/sales/SalesBreakdownTabs";
 import { RankBadgeHeader } from "@/components/sales/RankBadge";
 import { StreakBadge } from "@/components/sales/StreakBadge";
 import { MiniLeaderboard } from "@/components/sales/MiniLeaderboard";
+import { GoalConfetti } from "@/components/sales/Confetti";
+import { TierProgressCard } from "@/components/sales/TierProgressCard";
 import { cn } from "@/lib/utils";
 import {
   getBusinessDaysInMonth,
@@ -522,6 +524,81 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
     };
   }, [viewMode, personalData?.totals, teamData?.totals, goalData, commissionData, premium]);
 
+  // Transform commission data to TierProgress format for TierProgressCard
+  const tierProgress = useMemo(() => {
+    if (!commissionData?.plan || !commissionData?.tiers?.length) return null;
+
+    const tierMetric = commissionData.plan.tier_metric || "items";
+    const payoutType = commissionData.plan.payout_type || "flat_per_item";
+
+    // Get current value based on tier metric
+    const currentValue = tierMetric === "premium"
+      ? (commissionData.current_month_written_premium || getMetricValue(personalData?.totals || null, tierMetric))
+      : tierMetric === "items"
+        ? (commissionData.current_month_written_items || getMetricValue(personalData?.totals || null, tierMetric))
+        : getMetricValue(personalData?.totals || null, tierMetric);
+
+    // Sort tiers by min_threshold
+    const sortedTiers = [...commissionData.tiers].sort((a, b) =>
+      Number(a.min_threshold) - Number(b.min_threshold)
+    );
+
+    // Find current and next tiers
+    let currentTier = null;
+    let currentTierIndex = -1;
+    let nextTier = null;
+
+    for (let i = 0; i < sortedTiers.length; i++) {
+      const tier = sortedTiers[i];
+      if (currentValue >= Number(tier.min_threshold)) {
+        currentTier = tier;
+        currentTierIndex = i;
+      } else if (!nextTier) {
+        nextTier = tier;
+      }
+    }
+
+    // Calculate progress percent
+    let progressPercent = 0;
+    if (nextTier) {
+      const rangeStart = currentTier ? Number(currentTier.min_threshold) : 0;
+      const rangeEnd = Number(nextTier.min_threshold);
+      const range = rangeEnd - rangeStart;
+      if (range > 0) {
+        progressPercent = Math.min(100, ((currentValue - rangeStart) / range) * 100);
+      }
+    } else if (currentTier) {
+      // At max tier
+      progressPercent = 100;
+    }
+
+    // Calculate bonus if hitting next tier
+    const bonusIfHit = nextTier && currentTier
+      ? (Number(nextTier.commission_value) - Number(currentTier.commission_value)) * currentValue
+      : 0;
+
+    return {
+      current_tier: currentTier ? {
+        name: currentTier.name || `Tier ${currentTierIndex + 1}`,
+        rate: Number(currentTier.commission_value),
+        min_threshold: Number(currentTier.min_threshold),
+        tier_index: currentTierIndex,
+      } : null,
+      next_tier: nextTier ? {
+        name: nextTier.name || `Tier ${currentTierIndex + 2}`,
+        rate: Number(nextTier.commission_value),
+        min_threshold: Number(nextTier.min_threshold),
+        amount_needed: Number(nextTier.min_threshold) - currentValue,
+        bonus_if_hit: bonusIfHit > 0 ? Math.round(bonusIfHit) : 0,
+      } : null,
+      current_value: currentValue,
+      tier_metric: tierMetric,
+      progress_percent: progressPercent,
+      total_tiers: sortedTiers.length,
+      payout_type: payoutType,
+    };
+  }, [commissionData, personalData?.totals]);
+
   if (isLoading || displayLoading) {
     return (
       <div className="sales-widget-glass rounded-3xl p-6">
@@ -669,18 +746,20 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         {/* Center Ring - Larger and prominent */}
         <div className="flex-shrink-0 order-1 lg:order-2">
           {goalConfig.target > 0 || goalConfig.showCelebration ? (
-            <GoalProgressRing
-              current={goalConfig.current}
-              target={goalConfig.target || goalConfig.current}
-              label={goalConfig.label}
-              sublabel={goalConfig.sublabel || undefined}
-              footer={goalConfig.footer || undefined}
-              size="lg"
-              showPercentage
-              animated
-              showCelebration={goalConfig.showCelebration}
-              formatValue={goalConfig.formatValue}
-            />
+            <GoalConfetti current={goalConfig.current} target={goalConfig.target || goalConfig.current}>
+              <GoalProgressRing
+                current={goalConfig.current}
+                target={goalConfig.target || goalConfig.current}
+                label={goalConfig.label}
+                sublabel={goalConfig.sublabel || undefined}
+                footer={goalConfig.footer || undefined}
+                size="lg"
+                showPercentage
+                animated
+                showCelebration={goalConfig.showCelebration}
+                formatValue={goalConfig.formatValue}
+              />
+            </GoalConfetti>
           ) : (
             <div className="relative flex items-center justify-center" style={{ width: 200, height: 200 }}>
               <svg width={200} height={200} className="transform -rotate-90 opacity-30">
@@ -751,6 +830,16 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
           </p>
         </div>
       </div>
+
+      {/* Tier Progress Card - only show in personal view when tier data available */}
+      {viewMode === "personal" && tierProgress && tierProgress.total_tiers > 0 && (
+        <div className="mt-6">
+          <TierProgressCard
+            tierProgress={tierProgress}
+            payoutType={tierProgress.payout_type}
+          />
+        </div>
+      )}
 
       {/* Mini Leaderboard */}
       {leaderboard.length > 0 && (
