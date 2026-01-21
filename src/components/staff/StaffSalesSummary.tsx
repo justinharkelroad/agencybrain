@@ -524,80 +524,30 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
     };
   }, [viewMode, personalData?.totals, teamData?.totals, goalData, commissionData, premium]);
 
-  // Transform commission data to TierProgress format for TierProgressCard
+  // Use tier_progress directly from the edge function response
   const tierProgress = useMemo(() => {
-    if (!commissionData?.plan || !commissionData?.tiers?.length) return null;
+    console.log("[TierProgressCard] commissionData:", commissionData);
+    console.log("[TierProgressCard] tier_progress:", commissionData?.tier_progress);
 
-    const tierMetric = commissionData.plan.tier_metric || "items";
-    const payoutType = commissionData.plan.payout_type || "flat_per_item";
-
-    // Get current value based on tier metric
-    const currentValue = tierMetric === "premium"
-      ? (commissionData.current_month_written_premium || getMetricValue(personalData?.totals || null, tierMetric))
-      : tierMetric === "items"
-        ? (commissionData.current_month_written_items || getMetricValue(personalData?.totals || null, tierMetric))
-        : getMetricValue(personalData?.totals || null, tierMetric);
-
-    // Sort tiers by min_threshold
-    const sortedTiers = [...commissionData.tiers].sort((a, b) =>
-      Number(a.min_threshold) - Number(b.min_threshold)
-    );
-
-    // Find current and next tiers
-    let currentTier = null;
-    let currentTierIndex = -1;
-    let nextTier = null;
-
-    for (let i = 0; i < sortedTiers.length; i++) {
-      const tier = sortedTiers[i];
-      if (currentValue >= Number(tier.min_threshold)) {
-        currentTier = tier;
-        currentTierIndex = i;
-      } else if (!nextTier) {
-        nextTier = tier;
-      }
+    // The edge function already calculates and returns tier_progress
+    if (!commissionData?.tier_progress) {
+      console.log("[TierProgressCard] No tier_progress in response");
+      return null;
     }
 
-    // Calculate progress percent
-    let progressPercent = 0;
-    if (nextTier) {
-      const rangeStart = currentTier ? Number(currentTier.min_threshold) : 0;
-      const rangeEnd = Number(nextTier.min_threshold);
-      const range = rangeEnd - rangeStart;
-      if (range > 0) {
-        progressPercent = Math.min(100, ((currentValue - rangeStart) / range) * 100);
-      }
-    } else if (currentTier) {
-      // At max tier
-      progressPercent = 100;
+    const tp = commissionData.tier_progress;
+    // Only show if there are tiers configured
+    if (tp.total_tiers === 0) {
+      console.log("[TierProgressCard] total_tiers is 0");
+      return null;
     }
 
-    // Calculate bonus if hitting next tier
-    const bonusIfHit = nextTier && currentTier
-      ? (Number(nextTier.commission_value) - Number(currentTier.commission_value)) * currentValue
-      : 0;
-
+    console.log("[TierProgressCard] Returning tier progress:", tp);
     return {
-      current_tier: currentTier ? {
-        name: currentTier.name || `Tier ${currentTierIndex + 1}`,
-        rate: Number(currentTier.commission_value),
-        min_threshold: Number(currentTier.min_threshold),
-        tier_index: currentTierIndex,
-      } : null,
-      next_tier: nextTier ? {
-        name: nextTier.name || `Tier ${currentTierIndex + 2}`,
-        rate: Number(nextTier.commission_value),
-        min_threshold: Number(nextTier.min_threshold),
-        amount_needed: Number(nextTier.min_threshold) - currentValue,
-        bonus_if_hit: bonusIfHit > 0 ? Math.round(bonusIfHit) : 0,
-      } : null,
-      current_value: currentValue,
-      tier_metric: tierMetric,
-      progress_percent: progressPercent,
-      total_tiers: sortedTiers.length,
-      payout_type: payoutType,
+      ...tp,
+      payout_type: commissionData.plan?.payout_type || "flat_per_item",
     };
-  }, [commissionData, personalData?.totals]);
+  }, [commissionData]);
 
   if (isLoading || displayLoading) {
     return (
