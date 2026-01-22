@@ -45,22 +45,28 @@ When users mention "paid on issued" - that's how our system works by default. Do
 - **chargeback_rule**: How chargebacks are handled (ONLY these 3 options exist - nothing else)
   - "none" - No chargeback deductions
   - "three_month" - Only if cancelled within first 90 days
-  - "full" - All chargebacks (use this for "first term" or any time-based rule)
+  - "full" - First term chargebacks (this is what agencies mean by "first term" cancellations)
 
-  NEVER ask about 6 months, 12 months, policy terms, or renewal periods - we can't configure those.
-  Just ask: "Do you deduct chargebacks? Options: 90 days only / All / None"
-  If they say anything other than "90 days" or "none", use "full".
+  NEVER ask about specific months or time periods - we can't configure custom periods.
+  Just ask: "Do you deduct chargebacks? Options: First 90 days only / First term / None"
+  If they say "first term", "until renewal", or similar, use "full".
 
 ### Commission Tiers (Array)
 Each tier has:
 - **min_threshold**: Minimum metric value to qualify (number)
 - **commission_value**: The commission rate/amount for this tier (number)
 
-Example: [
-  { min_threshold: 0, commission_value: 0 },
-  { min_threshold: 200, commission_value: 50 },
-  { min_threshold: 300, commission_value: 75 },
-  { min_threshold: 400, commission_value: 100 }
+**CRITICAL: How to interpret tier ranges:**
+- "0-25 = 5%" means: min_threshold: 0, commission_value: 5
+- "26-40 = 6%" means: min_threshold: 26, commission_value: 6
+- The FIRST tier starts at 0 and gets the FIRST rate (not 0%)
+- NEVER add a "0 items = 0%" tier unless explicitly stated
+
+Example for "0-25: 5%, 26-40: 6%, 41-50: 8%":
+[
+  { min_threshold: 0, commission_value: 5 },
+  { min_threshold: 26, commission_value: 6 },
+  { min_threshold: 41, commission_value: 8 }
 ]
 
 ### Brokered Business
