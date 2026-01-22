@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useCompPlans, CompPlan } from "@/hooks/useCompPlans";
+import { useCompPlanMutations } from "@/hooks/useCompPlanMutations";
 import { CompPlanCard } from "./CompPlanCard";
 import { CreateCompPlanModal, CompPlanPrefillConfig } from "./CreateCompPlanModal";
 import { CompPlanCreationChoice } from "./CompPlanCreationChoice";
@@ -20,6 +21,7 @@ interface CompPlansTabProps {
 
 export function CompPlansTab({ agencyId }: CompPlansTabProps) {
   const { data: plans, isLoading, error } = useCompPlans(agencyId);
+  const { deletePlan } = useCompPlanMutations(agencyId);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<CompPlan | null>(null);
   const [activeTab, setActiveTab] = useState("calculate");
@@ -175,6 +177,8 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
               key={plan.id} 
               plan={plan} 
               onEdit={() => handleEditClick(plan)}
+              onDelete={() => deletePlan.mutate(plan.id)}
+              isDeleting={deletePlan.isPending}
             />
           ))}
         </div>

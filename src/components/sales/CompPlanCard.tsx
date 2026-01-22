@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompPlan } from "@/hooks/useCompPlans";
-import { Users, DollarSign, Percent, TrendingUp, FileText, Pencil } from "lucide-react";
+import { Users, DollarSign, Percent, TrendingUp, FileText, Pencil, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -11,10 +11,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface CompPlanCardProps {
   plan: CompPlan;
   onEdit?: () => void;
+  onDelete?: () => void;
+  isDeleting?: boolean;
 }
 
 const TIER_METRIC_LABELS: Record<string, string> = {
@@ -38,7 +51,7 @@ const CHARGEBACK_LABELS: Record<string, string> = {
   three_month: "3-Month Rule",
 };
 
-export function CompPlanCard({ plan, onEdit }: CompPlanCardProps) {
+export function CompPlanCard({ plan, onEdit, onDelete, isDeleting }: CompPlanCardProps) {
   const formatValue = (value: number, type: string) => {
     if (type === "percent_of_premium") {
       return `${value}%`;
@@ -71,6 +84,29 @@ export function CompPlanCard({ plan, onEdit }: CompPlanCardProps) {
               <Button variant="ghost" size="icon" onClick={onEdit}>
                 <Pencil className="h-4 w-4" />
               </Button>
+            )}
+            {onDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isDeleting}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Compensation Plan</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete "{plan.name}"? This will also remove all tier configurations and staff assignments. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
         </div>
