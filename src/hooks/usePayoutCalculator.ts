@@ -90,6 +90,58 @@ export interface CompPayout {
   updated_at: string | null;
 }
 
+// Fetch self-gen item counts from sales data for a given period
+async function fetchSelfGenCounts(
+  agencyId: string,
+  month: number,
+  year: number
+): Promise<Map<string, number>> {
+  // Get first and last day of the period
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0); // Last day of month
+
+  const startStr = startDate.toISOString().split('T')[0];
+  const endStr = endDate.toISOString().split('T')[0];
+
+  // Fetch sales with lead_source self-gen flag
+  const { data: sales, error } = await supabase
+    .from("sales")
+    .select(`
+      team_member_id,
+      lead_source_id,
+      lead_sources!inner(is_self_generated),
+      sale_policies(total_items)
+    `)
+    .eq("agency_id", agencyId)
+    .gte("sale_date", startStr)
+    .lte("sale_date", endStr);
+
+  if (error) {
+    console.error("Error fetching self-gen counts:", error);
+    return new Map();
+  }
+
+  // Aggregate self-gen items by team_member_id
+  const selfGenByMember = new Map<string, number>();
+
+  for (const sale of sales || []) {
+    if (!sale.team_member_id) continue;
+
+    // Check if this sale's lead source is marked as self-generated
+    const leadSource = sale.lead_sources as { is_self_generated: boolean } | null;
+    if (!leadSource?.is_self_generated) continue;
+
+    // Sum up items from sale_policies
+    const policies = sale.sale_policies as { total_items: number | null }[] | null;
+    const itemCount = (policies || []).reduce((sum, p) => sum + (p.total_items || 0), 0);
+
+    const current = selfGenByMember.get(sale.team_member_id) || 0;
+    selfGenByMember.set(sale.team_member_id, current + itemCount);
+  }
+
+  return selfGenByMember;
+}
+
 export function usePayoutCalculator(agencyId: string | null) {
   const queryClient = useQueryClient();
   const { data: plans = [] } = useCompPlans(agencyId);
@@ -154,6 +206,9 @@ export function usePayoutCalculator(agencyId: string | null) {
       return { payouts: [], warnings: ['No agency ID available'] };
     }
 
+    // Fetch self-gen counts from sales data for this period
+    const selfGenByMember = await fetchSelfGenCounts(agencyId, month, year);
+
     return await calculateAllPayouts(
       subProducerData,
       plans,
@@ -162,7 +217,8 @@ export function usePayoutCalculator(agencyId: string | null) {
       month,
       year,
       agencyId,
-      manualOverrides
+      manualOverrides,
+      selfGenByMember
     );
   };
 
