@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, Phone, Calendar, Star, X } from 'lucide-react';
+import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, EyeOff, Phone, Calendar, Star, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -55,7 +55,16 @@ export default function Renewals() {
   const [quickActivityRecord, setQuickActivityRecord] = useState<RenewalRecord | null>(null);
   const [quickActivityType, setQuickActivityType] = useState<'phone_call' | 'appointment' | null>(null);
   const [showPriorityOnly, setShowPriorityOnly] = useState(false);
-  
+
+  // Hide "Renewal Taken" toggle with session persistence
+  const [hideRenewalTaken, setHideRenewalTaken] = useState(() => {
+    return sessionStorage.getItem('renewals_hide_taken') === 'true';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('renewals_hide_taken', String(hideRenewalTaken));
+  }, [hideRenewalTaken]);
+
   // Chart filter state
   const [chartDateFilter, setChartDateFilter] = useState<string | null>(null);
   const [chartDayFilter, setChartDayFilter] = useState<number | null>(null);
@@ -298,6 +307,11 @@ export default function Renewals() {
       );
     }
 
+    // Hide "Renewal Taken" filter (if toggle is on)
+    if (hideRenewalTaken) {
+      result = result.filter(r => r.renewal_status !== 'Renewal Taken');
+    }
+
     // Comparator used for both default and column sorting
     const compare = (a: RenewalRecord, b: RenewalRecord) => {
       // When Priority Only is active, always group starred items first
@@ -374,7 +388,7 @@ export default function Renewals() {
     if (sortCriteria.length === 0) return result;
 
     return [...result].sort(compare);
-  }, [records, sortCriteria, showPriorityOnly, chartDateFilter, chartDayFilter]);
+  }, [records, sortCriteria, showPriorityOnly, hideRenewalTaken, chartDateFilter, chartDayFilter]);
 
   const toggleSelectAll = () => { selectedIds.size === records.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(records.map(r => r.id))); };
   const toggleSelect = (id: string) => { const s = new Set(selectedIds); s.has(id) ? s.delete(id) : s.add(id); setSelectedIds(s); };
@@ -407,18 +421,37 @@ export default function Renewals() {
       {(chartDateFilter || chartDayFilter !== null) && (
         <div className="flex items-center gap-3 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
           <span className="text-sm text-blue-400">
-            Filtered by: {chartDateFilter 
-              ? format(parseISO(chartDateFilter), 'EEEE, MMM d, yyyy') 
+            Filtered by: {chartDateFilter
+              ? format(parseISO(chartDateFilter), 'EEEE, MMM d, yyyy')
               : `${DAY_NAMES_FULL[chartDayFilter!]}s`}
           </span>
-          <Button 
-            variant="ghost" 
-            size="sm" 
+          <Button
+            variant="ghost"
+            size="sm"
             className="h-6 px-2 text-xs text-blue-400 hover:text-white hover:bg-blue-500/20"
             onClick={() => { setChartDateFilter(null); setChartDayFilter(null); }}
           >
             <X className="h-3 w-3 mr-1" />
             Clear
+          </Button>
+        </div>
+      )}
+
+      {/* Hide Renewal Taken Indicator */}
+      {hideRenewalTaken && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-lg">
+          <EyeOff className="h-4 w-4 text-green-400" />
+          <span className="text-sm text-green-400">
+            Hiding {records.filter(r => r.renewal_status === 'Renewal Taken').length} "Renewal Taken" records
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-green-400 hover:text-white hover:bg-green-500/20"
+            onClick={() => setHideRenewalTaken(false)}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Show All
           </Button>
         </div>
       )}
@@ -474,6 +507,19 @@ export default function Renewals() {
         >
           <Star className={cn("h-4 w-4", showPriorityOnly && "fill-current")} />
           Priority Only
+        </Button>
+
+        {/* Hide Renewal Taken button */}
+        <Button
+          variant={hideRenewalTaken ? "default" : "outline"}
+          onClick={() => setHideRenewalTaken(!hideRenewalTaken)}
+          className={cn(
+            "gap-2",
+            hideRenewalTaken && "bg-green-600 hover:bg-green-700 text-white"
+          )}
+        >
+          <EyeOff className="h-4 w-4" />
+          Hide Taken
         </Button>
       </div>
       
