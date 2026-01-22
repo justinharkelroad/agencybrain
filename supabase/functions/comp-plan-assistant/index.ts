@@ -14,13 +14,14 @@ const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 const CAPABILITY_MANIFEST = `
 ## COMP PLAN SCHEMA - What You Can Configure
 
-### IMPORTANT: Written vs Issued Premium
+### IMPORTANT: Industry Standards (Don't ask about these)
+- **Commission is ALWAYS MONTHLY** - tiers reset each month. Never ask about time periods.
 - **Written premium** = What agents enter when they make a sale (the quoted amount)
 - **Issued premium** = What the insurance company actually issues (may differ from written)
 - **Commission is calculated on ISSUED premium** - this is industry standard
 - **Tier qualification uses ITEMS/POLICIES WRITTEN** (the count of sales made)
 
-When users mention "paid on issued" - that's how our system works by default. Don't make it sound complicated.
+When users mention "paid on issued" - that's how our system works by default. Don't overcomplicate it.
 
 ### Basic Settings
 - **name**: Plan name (string, required)
