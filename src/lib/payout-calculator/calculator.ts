@@ -179,7 +179,7 @@ export function calculateCustomPoints(
   for (const productData of performance.byProduct) {
     const productName = productData.product;
     const pointValue = pointValues[productName] ?? 1; // Default to 1 point if not specified
-    totalPoints += productData.itemsWritten * pointValue;
+    totalPoints += productData.itemsIssued * pointValue;
   }
 
   return totalPoints;
@@ -222,7 +222,7 @@ export function calculateBundlingPercent(performance: SubProducerPerformance): n
   for (const bundleData of performance.byBundleType) {
     const bundleType = bundleData.bundleType.toLowerCase();
     if (bundleType === 'standard' || bundleType === 'preferred') {
-      bundledItems += bundleData.itemsWritten;
+      bundledItems += bundleData.itemsIssued;
     }
   }
 
