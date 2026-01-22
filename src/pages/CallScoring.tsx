@@ -901,8 +901,8 @@ export default function CallScoring() {
           fullCall = result.data;
           error = result.error;
 
-          // If that didn't work (old RPC version), try with their own team_member_id
-          if (!fullCall && !error) {
+          // If that didn't work (old RPC version or no match), try with their own team_member_id
+          if (!fullCall) {
             console.log('Manager agency-wide call failed, trying with own team_member_id...');
             const fallbackResult = await supabase.rpc('get_staff_call_details', {
               p_call_id: call.id,
