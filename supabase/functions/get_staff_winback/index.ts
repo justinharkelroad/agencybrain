@@ -1030,7 +1030,11 @@ Deno.serve(async (req) => {
         }
 
         // Step 2: Create/update LQS record
-        const householdKey = `${(firstName || "").toLowerCase()}-${(lastName || "").toLowerCase()}-${(zipCode || "").substring(0, 5)}`;
+        // Use canonical household_key format: LASTNAME_FIRSTNAME_ZIP (uppercase, underscores)
+        const normalizedLast = (lastName || "UNKNOWN").toUpperCase().trim().replace(/[^A-Z]/g, "");
+        const normalizedFirst = (firstName || "UNKNOWN").toUpperCase().trim().replace(/[^A-Z]/g, "");
+        const normalizedZip = zipCode ? zipCode.substring(0, 5) : "NOZIP";
+        const householdKey = `${normalizedLast}_${normalizedFirst}_${normalizedZip}`;
         const today = new Date().toISOString().split("T")[0];
 
         const { error: lqsError } = await supabase
@@ -1103,6 +1107,23 @@ Deno.serve(async (req) => {
           created_by_team_member_id: teamMemberId || null,
           created_by_name: userName,
         });
+
+        // Mirror to contact_activities for "Last Activity" display on Contacts page
+        if (contactId) {
+          try {
+            await supabase.rpc("insert_contact_activity", {
+              p_contact_id: contactId,
+              p_agency_id: agencyId,
+              p_activity_type: "quoted",
+              p_activity_subtype: null,
+              p_description: "Winback: Moved to Quoted Household",
+              p_created_by_name: userName,
+            });
+          } catch (mirrorError) {
+            console.error("[winback_to_quoted] contact_activities mirror error:", mirrorError);
+            // Don't fail - this is for display only
+          }
+        }
 
         result = { success: true, leadSourceId: winbackLeadSourceId };
         break;

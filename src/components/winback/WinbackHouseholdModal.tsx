@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import type { Household } from './WinbackHouseholdTable';
 import * as winbackApi from '@/lib/winbackApi';
 import { supabase } from '@/integrations/supabase/client';
+import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 
 interface Policy {
   id: string;
@@ -125,14 +126,6 @@ export function WinbackHouseholdModal({
       setLoading(false);
       setActivitiesLoading(false);
     }
-  };
-
-  // Helper to generate LQS household key (same format as ContactProfileModal)
-  const generateHouseholdKey = (firstName: string, lastName: string, zipCode: string | null): string => {
-    const fn = (firstName || '').toLowerCase().trim();
-    const ln = (lastName || '').toLowerCase().trim();
-    const zip = (zipCode || '').substring(0, 5);
-    return `${fn}-${ln}-${zip}`;
   };
 
   const logActivity = async (type: string, notes: string) => {
@@ -254,6 +247,10 @@ export function WinbackHouseholdModal({
             teamMembers
           );
         }
+
+        // Refresh activities to show the new "Quoted" entry
+        const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
+        setActivities(refreshedActivities as Activity[]);
 
         toast.success('Moved to Quoted!', { description: 'Contact is now a Quoted Household' });
         setLocalStatus('moved_to_quoted');
