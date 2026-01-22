@@ -39,7 +39,7 @@ export function LaptopVideoFrame({ videoUrl, className = '' }: LaptopVideoFrameP
             <div className="h-2.5 w-2.5 rounded-full bg-yellow-500/80" />
             <div className="h-2.5 w-2.5 rounded-full bg-green-500/80" />
             <div className="ml-4 flex-1 rounded-md bg-zinc-800 px-3 py-1 text-xs text-zinc-500 truncate">
-              agencybrain.lovable.app
+              myagencybrain.com
             </div>
           </div>
           
