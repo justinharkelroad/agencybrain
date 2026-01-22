@@ -1139,6 +1139,546 @@ export type Database = {
           },
         ]
       }
+      challenge_assignments: {
+        Row: {
+          agency_id: string
+          assigned_by: string | null
+          challenge_product_id: string
+          created_at: string
+          end_date: string | null
+          id: string
+          purchase_id: string
+          staff_user_id: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["challenge_assignment_status"]
+          team_member_id: string | null
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          assigned_by?: string | null
+          challenge_product_id: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          purchase_id: string
+          staff_user_id?: string | null
+          start_date: string
+          status?: Database["public"]["Enums"]["challenge_assignment_status"]
+          team_member_id?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          assigned_by?: string | null
+          challenge_product_id?: string
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          purchase_id?: string
+          staff_user_id?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["challenge_assignment_status"]
+          team_member_id?: string | null
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_assignments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_assignments_challenge_product_id_fkey"
+            columns: ["challenge_product_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_assignments_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_assignments_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_assignments_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_core4_logs: {
+        Row: {
+          assignment_id: string
+          balance: boolean
+          being: boolean
+          body: boolean
+          business: boolean
+          created_at: string
+          id: string
+          log_date: string
+          notes: string | null
+          staff_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          assignment_id: string
+          balance?: boolean
+          being?: boolean
+          body?: boolean
+          business?: boolean
+          created_at?: string
+          id?: string
+          log_date: string
+          notes?: string | null
+          staff_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string
+          balance?: boolean
+          being?: boolean
+          body?: boolean
+          business?: boolean
+          created_at?: string
+          id?: string
+          log_date?: string
+          notes?: string | null
+          staff_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_core4_logs_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_core4_logs_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_email_queue: {
+        Row: {
+          assignment_id: string
+          created_at: string
+          email_subject: string
+          error_message: string | null
+          id: string
+          lesson_id: string
+          recipient_email: string
+          recipient_name: string | null
+          resend_message_id: string | null
+          retry_count: number
+          scheduled_for: string
+          sent_at: string | null
+          staff_user_id: string | null
+          status: Database["public"]["Enums"]["challenge_email_status"]
+          updated_at: string
+        }
+        Insert: {
+          assignment_id: string
+          created_at?: string
+          email_subject: string
+          error_message?: string | null
+          id?: string
+          lesson_id: string
+          recipient_email: string
+          recipient_name?: string | null
+          resend_message_id?: string | null
+          retry_count?: number
+          scheduled_for: string
+          sent_at?: string | null
+          staff_user_id?: string | null
+          status?: Database["public"]["Enums"]["challenge_email_status"]
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string
+          created_at?: string
+          email_subject?: string
+          error_message?: string | null
+          id?: string
+          lesson_id?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          resend_message_id?: string | null
+          retry_count?: number
+          scheduled_for?: string
+          sent_at?: string | null
+          staff_user_id?: string | null
+          status?: Database["public"]["Enums"]["challenge_email_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_email_queue_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_email_queue_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_email_queue_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_lessons: {
+        Row: {
+          action_items: Json | null
+          challenge_product_id: string
+          content_html: string | null
+          created_at: string
+          day_number: number
+          day_of_week: number | null
+          email_preview: string | null
+          email_subject: string | null
+          id: string
+          is_discovery_stack: boolean
+          module_id: string
+          preview_text: string | null
+          questions: Json | null
+          sort_order: number
+          title: string
+          updated_at: string
+          video_thumbnail_url: string | null
+          video_url: string | null
+          week_number: number | null
+        }
+        Insert: {
+          action_items?: Json | null
+          challenge_product_id: string
+          content_html?: string | null
+          created_at?: string
+          day_number: number
+          day_of_week?: number | null
+          email_preview?: string | null
+          email_subject?: string | null
+          id?: string
+          is_discovery_stack?: boolean
+          module_id: string
+          preview_text?: string | null
+          questions?: Json | null
+          sort_order?: number
+          title: string
+          updated_at?: string
+          video_thumbnail_url?: string | null
+          video_url?: string | null
+          week_number?: number | null
+        }
+        Update: {
+          action_items?: Json | null
+          challenge_product_id?: string
+          content_html?: string | null
+          created_at?: string
+          day_number?: number
+          day_of_week?: number | null
+          email_preview?: string | null
+          email_subject?: string | null
+          id?: string
+          is_discovery_stack?: boolean
+          module_id?: string
+          preview_text?: string | null
+          questions?: Json | null
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          video_thumbnail_url?: string | null
+          video_url?: string | null
+          week_number?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_lessons_challenge_product_id_fkey"
+            columns: ["challenge_product_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_modules: {
+        Row: {
+          challenge_product_id: string
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+          week_number: number
+        }
+        Insert: {
+          challenge_product_id: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+          week_number: number
+        }
+        Update: {
+          challenge_product_id?: string
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_modules_challenge_product_id_fkey"
+            columns: ["challenge_product_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_products: {
+        Row: {
+          created_at: string
+          description: string | null
+          duration_weeks: number
+          id: string
+          is_active: boolean
+          name: string
+          price_boardroom_cents: number
+          price_one_on_one_cents: number
+          price_standalone_cents: number
+          slug: string
+          total_lessons: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          duration_weeks?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          price_boardroom_cents?: number
+          price_one_on_one_cents?: number
+          price_standalone_cents?: number
+          slug: string
+          total_lessons?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          duration_weeks?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_boardroom_cents?: number
+          price_one_on_one_cents?: number
+          price_standalone_cents?: number
+          slug?: string
+          total_lessons?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      challenge_progress: {
+        Row: {
+          assignment_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          lesson_id: string
+          reflection_response: Json | null
+          staff_user_id: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["challenge_progress_status"]
+          unlocked_at: string | null
+          updated_at: string
+          video_completed: boolean | null
+          video_watched_seconds: number | null
+        }
+        Insert: {
+          assignment_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_id: string
+          reflection_response?: Json | null
+          staff_user_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["challenge_progress_status"]
+          unlocked_at?: string | null
+          updated_at?: string
+          video_completed?: boolean | null
+          video_watched_seconds?: number | null
+        }
+        Update: {
+          assignment_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          reflection_response?: Json | null
+          staff_user_id?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["challenge_progress_status"]
+          unlocked_at?: string | null
+          updated_at?: string
+          video_completed?: boolean | null
+          video_watched_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_progress_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_progress_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_purchases: {
+        Row: {
+          agency_id: string
+          challenge_product_id: string
+          created_at: string
+          id: string
+          membership_tier: string | null
+          price_per_seat_cents: number
+          purchased_at: string | null
+          purchaser_id: string
+          quantity: number
+          seats_used: number
+          status: Database["public"]["Enums"]["challenge_purchase_status"]
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
+          total_price_cents: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          challenge_product_id: string
+          created_at?: string
+          id?: string
+          membership_tier?: string | null
+          price_per_seat_cents: number
+          purchased_at?: string | null
+          purchaser_id: string
+          quantity: number
+          seats_used?: number
+          status?: Database["public"]["Enums"]["challenge_purchase_status"]
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          total_price_cents: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          challenge_product_id?: string
+          created_at?: string
+          id?: string
+          membership_tier?: string | null
+          price_per_seat_cents?: number
+          purchased_at?: string | null
+          purchaser_id?: string
+          quantity?: number
+          seats_used?: number
+          status?: Database["public"]["Enums"]["challenge_purchase_status"]
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
+          total_price_cents?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_purchases_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_purchases_challenge_product_id_fkey"
+            columns: ["challenge_product_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_purchases_purchaser_id_fkey"
+            columns: ["purchaser_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chatbot_conversations: {
         Row: {
           agency_id: string | null
@@ -8977,6 +9517,14 @@ export type Database = {
         }[]
       }
       get_agency_settings: { Args: { p_agency_id: string }; Returns: Json }
+      get_challenge_business_day: {
+        Args: { p_check_date: string; p_start_date: string }
+        Returns: number
+      }
+      get_challenge_price_cents: {
+        Args: { p_membership_tier: string; p_product_id: string }
+        Returns: number
+      }
       get_contacts_by_stage: {
         Args: {
           p_agency_id: string
@@ -9067,6 +9615,7 @@ export type Database = {
         Returns: string
       }
       get_my_agency_id: { Args: never; Returns: string }
+      get_next_monday: { Args: { p_from_date?: string }; Returns: string }
       get_staff_call_details: {
         Args: {
           p_agency_id?: string
@@ -9202,6 +9751,10 @@ export type Database = {
       }
       is_call_scoring_enabled: {
         Args: { p_agency_id: string }
+        Returns: boolean
+      }
+      is_challenge_lesson_unlocked: {
+        Args: { p_assignment_id: string; p_day_number: number }
         Returns: boolean
       }
       is_key_employee: {
@@ -9388,6 +9941,19 @@ export type Database = {
       app_member_status: "active" | "inactive"
       app_role: "admin" | "user"
       call_type_enum: "sales" | "service"
+      challenge_assignment_status:
+        | "pending"
+        | "active"
+        | "paused"
+        | "completed"
+        | "cancelled"
+      challenge_email_status: "pending" | "sent" | "failed" | "skipped"
+      challenge_progress_status:
+        | "locked"
+        | "available"
+        | "in_progress"
+        | "completed"
+      challenge_purchase_status: "pending" | "completed" | "failed" | "refunded"
       exchange_visibility: "call_scoring" | "boardroom" | "one_on_one"
       membership_tier:
         | "1:1 Coaching"
@@ -9528,6 +10094,21 @@ export const Constants = {
       app_member_status: ["active", "inactive"],
       app_role: ["admin", "user"],
       call_type_enum: ["sales", "service"],
+      challenge_assignment_status: [
+        "pending",
+        "active",
+        "paused",
+        "completed",
+        "cancelled",
+      ],
+      challenge_email_status: ["pending", "sent", "failed", "skipped"],
+      challenge_progress_status: [
+        "locked",
+        "available",
+        "in_progress",
+        "completed",
+      ],
+      challenge_purchase_status: ["pending", "completed", "failed", "refunded"],
       exchange_visibility: ["call_scoring", "boardroom", "one_on_one"],
       membership_tier: [
         "1:1 Coaching",
