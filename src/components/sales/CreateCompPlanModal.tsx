@@ -38,11 +38,33 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 
+// Pre-fill config from AI assistant
+export interface CompPlanPrefillConfig {
+  name?: string;
+  description?: string;
+  is_active?: boolean;
+  payout_type?: string;
+  tier_metric?: string;
+  chargeback_rule?: string;
+  tiers?: Array<{ min_threshold: number; commission_value: number; sort_order?: number }>;
+  brokered_payout_type?: string;
+  brokered_flat_rate?: number;
+  brokered_counts_toward_tier?: boolean;
+  brokered_tiers?: Array<{ min_threshold: number; commission_value: number; sort_order?: number }>;
+  bundle_configs?: BundleConfigs;
+  product_rates?: ProductRates;
+  point_values?: PointValues;
+  bundling_multipliers?: BundlingMultipliers;
+  commission_modifiers?: CommissionModifiers;
+}
+
 interface CreateCompPlanModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   agencyId: string | null;
   editPlan?: CompPlan | null;
+  prefillConfig?: CompPlanPrefillConfig | null;
+  showAIBanner?: boolean;
 }
 
 const PAYOUT_TYPES = [
@@ -77,10 +99,11 @@ export function CreateCompPlanModal({
   onOpenChange,
   agencyId,
   editPlan,
+  prefillConfig,
+  showAIBanner = false,
 }: CreateCompPlanModalProps) {
-  
-  
   const isEditing = !!editPlan;
+  const [showPrefillBanner, setShowPrefillBanner] = useState(showAIBanner);
   const { createPlan, updatePlan } = useCompPlanMutations(agencyId);
 
   // Form state
@@ -246,10 +269,80 @@ export function CreateCompPlanModal({
         setUseCommissionModifiers(false);
         setCommissionModifiers({});
       }
-    } else {
+    } else if (!prefillConfig) {
       resetForm();
     }
   }, [editPlan]);
+
+  // Initialize form when AI assistant provides prefill config
+  useEffect(() => {
+    if (!prefillConfig || editPlan) return;
+
+    // Apply prefill values
+    if (prefillConfig.name) setName(prefillConfig.name);
+    if (prefillConfig.description) setDescription(prefillConfig.description);
+    if (prefillConfig.payout_type) setPayoutType(prefillConfig.payout_type);
+    if (prefillConfig.tier_metric) setTierMetric(prefillConfig.tier_metric);
+    if (prefillConfig.chargeback_rule) setChargebackRule(prefillConfig.chargeback_rule);
+    if (prefillConfig.is_active !== undefined) setIsActive(prefillConfig.is_active);
+
+    // Tiers
+    if (prefillConfig.tiers && prefillConfig.tiers.length > 0) {
+      setTiers(prefillConfig.tiers.map((t, i) => ({
+        min_threshold: t.min_threshold,
+        commission_value: t.commission_value,
+        sort_order: t.sort_order ?? i,
+      })));
+    }
+
+    // Brokered business
+    if (prefillConfig.brokered_payout_type) setBrokeredPayoutType(prefillConfig.brokered_payout_type);
+    if (prefillConfig.brokered_flat_rate !== undefined) setBrokeredFlatRate(prefillConfig.brokered_flat_rate.toString());
+    if (prefillConfig.brokered_counts_toward_tier !== undefined) setBrokeredCountsTowardTier(prefillConfig.brokered_counts_toward_tier);
+    if (prefillConfig.brokered_tiers && prefillConfig.brokered_tiers.length > 0) {
+      setBrokeredTiers(prefillConfig.brokered_tiers.map((t, i) => ({
+        min_threshold: t.min_threshold,
+        commission_value: t.commission_value,
+        sort_order: t.sort_order ?? i,
+      })));
+    }
+
+    // Bundle configs
+    if (prefillConfig.bundle_configs) {
+      setUseBundleConfigs(true);
+      setBundleConfigs({
+        monoline: prefillConfig.bundle_configs.monoline || { enabled: false, payout_type: 'percent_of_premium', rate: 5 },
+        standard: prefillConfig.bundle_configs.standard || { enabled: false, payout_type: 'flat_per_item', rate: 20 },
+        preferred: prefillConfig.bundle_configs.preferred || { enabled: false, payout_type: 'flat_per_item', rate: 25 },
+      });
+    }
+
+    // Product rates
+    if (prefillConfig.product_rates && Object.keys(prefillConfig.product_rates).length > 0) {
+      setUseProductRates(true);
+      setProductRates(prefillConfig.product_rates);
+    }
+
+    // Point values
+    if (prefillConfig.point_values && Object.keys(prefillConfig.point_values).length > 0) {
+      setUsePointValues(true);
+      setPointValues(prefillConfig.point_values);
+    }
+
+    // Bundling multipliers
+    if (prefillConfig.bundling_multipliers?.thresholds && prefillConfig.bundling_multipliers.thresholds.length > 0) {
+      setUseBundlingMultipliers(true);
+      setBundlingMultipliers(prefillConfig.bundling_multipliers);
+    }
+
+    // Commission modifiers
+    if (prefillConfig.commission_modifiers) {
+      setUseCommissionModifiers(true);
+      setCommissionModifiers(prefillConfig.commission_modifiers);
+    }
+
+    setShowPrefillBanner(true);
+  }, [prefillConfig, editPlan]);
 
   // Set existing assignments when loaded
   useEffect(() => {
@@ -418,6 +511,23 @@ export function CreateCompPlanModal({
               : "Configure commission structure and assign team members."}
           </DialogDescription>
         </DialogHeader>
+
+        {/* AI Prefill Banner */}
+        {showPrefillBanner && prefillConfig && (
+          <div className="mx-1 mb-2 p-3 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-between">
+            <p className="text-sm">
+              This form has been pre-filled based on your conversation with the AI assistant. Review and adjust as needed.
+            </p>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowPrefillBanner(false)}
+            >
+              Dismiss
+            </Button>
+          </div>
+        )}
 
         <div
           className="flex-1 overflow-auto pr-4"

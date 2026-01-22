@@ -922,6 +922,7 @@ export function calculateMemberPayout(
 /**
  * Calculate payouts for all assigned team members (async for promo bonus calculation)
  * @param manualOverrides - Optional manual overrides for written metrics (for testing)
+ * @param selfGenByMember - Map of team_member_id -> self-gen item count from sales data
  */
 export async function calculateAllPayouts(
   subProducerData: SubProducerMetrics[] | undefined | null,
@@ -931,7 +932,8 @@ export async function calculateAllPayouts(
   periodMonth: number,
   periodYear: number,
   agencyId: string,
-  manualOverrides?: ManualOverride[]
+  manualOverrides?: ManualOverride[],
+  selfGenByMember?: Map<string, number>
 ): Promise<{ payouts: PayoutCalculation[]; warnings: string[] }> {
   // Guard against missing data
   if (!subProducerData || !Array.isArray(subProducerData)) {
@@ -1043,7 +1045,10 @@ export async function calculateAllPayouts(
         }
       }
 
-      const payout = calculateMemberPayout(performance, plan, periodMonth, periodYear, promoBonus);
+      // Get self-gen item count for this team member
+      const selfGenItems = selfGenByMember?.get(teamMember.id) || 0;
+
+      const payout = calculateMemberPayout(performance, plan, periodMonth, periodYear, promoBonus, selfGenItems);
       payouts.push(payout);
     }
   }

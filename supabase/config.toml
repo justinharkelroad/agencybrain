@@ -326,3 +326,6 @@ verify_jwt = false
 
 [functions.send_staff_cancel_to_winback]
 verify_jwt = false
+
+[functions.comp-plan-assistant]
+verify_jwt = false
