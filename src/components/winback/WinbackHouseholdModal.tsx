@@ -23,6 +23,7 @@ import { format, isBefore, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Household } from './WinbackHouseholdTable';
 import * as winbackApi from '@/lib/winbackApi';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Policy {
   id: string;
@@ -126,10 +127,141 @@ export function WinbackHouseholdModal({
     }
   };
 
+  // Helper to generate LQS household key (same format as ContactProfileModal)
+  const generateHouseholdKey = (firstName: string, lastName: string, zipCode: string | null): string => {
+    const fn = (firstName || '').toLowerCase().trim();
+    const ln = (lastName || '').toLowerCase().trim();
+    const zip = (zipCode || '').substring(0, 5);
+    return `${fn}-${ln}-${zip}`;
+  };
+
   const logActivity = async (type: string, notes: string) => {
     if (!household || !agencyId) return;
 
     try {
+      // SPECIAL CASE: "quoted" triggers full LQS transition, not just activity log
+      if (type === 'quoted') {
+        if (winbackApi.isStaffUser()) {
+          // Staff users: call edge function for full flow
+          const result = await winbackApi.winbackToQuoted(
+            household.id,
+            agencyId,
+            household.contact_id || null,
+            household.first_name || '',
+            household.last_name || '',
+            household.zip_code || '',
+            household.phone ? [household.phone] : [],
+            household.email || null,
+            currentUserTeamMemberId
+          );
+
+          if (!result.success) {
+            toast.error('Failed to move to Quoted', { description: result.error });
+            return;
+          }
+        } else {
+          // Agency owners: replicate ContactProfileModal logic
+          
+          // Step 1: Find or create "Winback" lead source
+          let winbackLeadSourceId: string | null = null;
+
+          const { data: existingSource } = await supabase
+            .from('lead_sources')
+            .select('id')
+            .eq('agency_id', agencyId)
+            .ilike('name', 'winback')
+            .limit(1)
+            .single();
+
+          if (existingSource) {
+            winbackLeadSourceId = existingSource.id;
+          } else {
+            const { data: newSource, error: createError } = await supabase
+              .from('lead_sources')
+              .insert({
+                agency_id: agencyId,
+                name: 'Winback',
+                is_active: true,
+                is_self_generated: false,
+                cost_type: 'per_lead',
+                cost_per_lead_cents: 0,
+              })
+              .select('id')
+              .single();
+
+            if (!createError && newSource) {
+              winbackLeadSourceId = newSource.id;
+            }
+          }
+
+          // Step 2: Create/update LQS record
+          const householdKey = generateHouseholdKey(
+            household.first_name || '',
+            household.last_name || '',
+            household.zip_code
+          );
+
+          const today = new Date().toISOString().split('T')[0];
+
+          const { error: lqsError } = await supabase
+            .from('lqs_households')
+            .upsert({
+              agency_id: agencyId,
+              household_key: householdKey,
+              first_name: (household.first_name || '').toUpperCase(),
+              last_name: (household.last_name || '').toUpperCase(),
+              zip_code: household.zip_code || '',
+              contact_id: household.contact_id || null,
+              status: 'quoted',
+              lead_source_id: winbackLeadSourceId,
+              team_member_id: currentUserTeamMemberId || null,
+              first_quote_date: today,
+              lead_received_date: today,
+              updated_at: new Date().toISOString(),
+              phone: household.phone ? [household.phone] : [],
+              email: household.email || null,
+            }, {
+              onConflict: 'agency_id,household_key',
+            });
+
+          if (lqsError) {
+            console.error('LQS upsert error:', lqsError);
+            // Continue anyway - LQS creation is not critical for status update
+          }
+
+          // Step 3: Update winback status to moved_to_quoted
+          const winbackResult = await winbackApi.transitionToQuoted(
+            household.id,
+            agencyId,
+            currentUserTeamMemberId,
+            teamMembers
+          );
+
+          if (!winbackResult.success) {
+            toast.error('Failed to move to Quoted', {
+              description: 'Winback status could not be updated. The record may already be in a terminal state.'
+            });
+            return;
+          }
+
+          // Step 4: Log the activity
+          await winbackApi.logActivity(
+            household.id,
+            agencyId,
+            'quoted',
+            notes || 'Moved to Quoted Household',
+            currentUserTeamMemberId,
+            teamMembers
+          );
+        }
+
+        toast.success('Moved to Quoted!', { description: 'Contact is now a Quoted Household' });
+        setLocalStatus('moved_to_quoted');
+        onUpdate();
+        return;
+      }
+
+      // Normal activity logging for other types (called, texted, emailed, etc.)
       await winbackApi.logActivity(
         household.id,
         agencyId,

@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 
-type WinbackStatusType = 'untouched' | 'in_progress' | 'won_back' | 'dismissed' | 'moved_to_quoted';
+export type WinbackStatusType = 'untouched' | 'in_progress' | 'won_back' | 'dismissed' | 'moved_to_quoted' | 'declined' | 'no_contact';
 
 interface WinbackStatusBadgeProps {
   status: WinbackStatusType;
@@ -27,6 +27,14 @@ const statusConfig: Record<WinbackStatusType, { label: string; className: string
   moved_to_quoted: {
     label: 'Moved to Quoted',
     className: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+  },
+  declined: {
+    label: 'Declined',
+    className: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+  },
+  no_contact: {
+    label: 'No Contact',
+    className: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
   },
 };
 
