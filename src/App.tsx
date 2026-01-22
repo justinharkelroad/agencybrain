@@ -140,7 +140,11 @@ import UnifiedTrainingHub from "./pages/training/UnifiedTrainingHub";
 import TrainingHub from "./pages/training/TrainingHub";
 import TrainingCategory from "./pages/training/TrainingCategory";
 import TrainingLesson from "./pages/training/TrainingLesson";
+import ChallengePurchase from "./pages/training/ChallengePurchase";
+import ChallengeAssign from "./pages/training/ChallengeAssign";
+import ChallengePurchaseSuccess from "./pages/training/ChallengePurchaseSuccess";
 import StaffUnifiedTrainingHub from "./pages/staff/StaffUnifiedTrainingHub";
+import StaffChallenge from "./pages/staff/StaffChallenge";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -399,6 +403,28 @@ const App = () => {
               <ProtectedRoute requireAgencyOwner>
                 <SidebarLayout>
                   <AdminTraining />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* The Challenge Routes */}
+            <Route path="/training/challenge" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <ChallengePurchase />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/training/challenge/assign" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <ChallengeAssign />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/training/challenge/purchase-success" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <ChallengePurchaseSuccess />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
@@ -919,6 +945,8 @@ const App = () => {
               <Route path="training/agency" element={<StaffTraining />} />
               {/* Manager Training Management */}
               <Route path="training/manage" element={<StaffTrainingManagement />} />
+              {/* The Challenge */}
+              <Route path="challenge" element={<StaffChallenge />} />
               {/* Legacy redirects for backward compatibility */}
               <Route path="playbook/*" element={<Navigate to="/staff/training/standard" replace />} />
               <Route path="account" element={<StaffAccountSettings />} />

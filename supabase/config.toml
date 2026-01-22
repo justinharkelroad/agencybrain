@@ -329,3 +329,21 @@ verify_jwt = false
 
 [functions.comp-plan-assistant]
 verify_jwt = false
+
+[functions.challenge-create-checkout]
+verify_jwt = false
+
+[functions.challenge-webhook]
+verify_jwt = false
+
+[functions.challenge-assign-staff]
+verify_jwt = false
+
+[functions.get-staff-challenge]
+verify_jwt = false
+
+[functions.challenge-update-core4]
+verify_jwt = false
+
+[functions.challenge-send-daily-emails]
+verify_jwt = false
