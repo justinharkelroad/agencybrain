@@ -284,7 +284,8 @@ export function CompPlanAssistantChat({
                 className="min-h-[44px] max-h-[120px] resize-none"
                 disabled={isLoading}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
+                  // Shift+Enter to send, Enter alone creates new line
+                  if (e.key === "Enter" && e.shiftKey) {
                     e.preventDefault();
                     handleSubmit(e);
                   }
@@ -292,7 +293,7 @@ export function CompPlanAssistantChat({
               />
 
               {/* Send button */}
-              <Button type="submit" size="icon" disabled={isLoading || (!inputValue.trim() && !selectedFile)}>
+              <Button type="submit" size="icon" disabled={isLoading || (!inputValue.trim() && !selectedFile)} title="Send (Shift+Enter)">
                 {isLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
@@ -302,7 +303,7 @@ export function CompPlanAssistantChat({
             </div>
 
             <p className="text-xs text-muted-foreground text-center">
-              Supports PDF, images, and text files up to 10MB
+              Supports PDF, images, and text files up to 10MB • Shift+Enter to send
             </p>
           </form>
         </div>

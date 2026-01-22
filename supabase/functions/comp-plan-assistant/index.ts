@@ -14,6 +14,14 @@ const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 const CAPABILITY_MANIFEST = `
 ## COMP PLAN SCHEMA - What You Can Configure
 
+### IMPORTANT: Written vs Issued Premium
+- **Written premium** = What agents enter when they make a sale (the quoted amount)
+- **Issued premium** = What the insurance company actually issues (may differ from written)
+- **Commission is calculated on ISSUED premium** - this is industry standard
+- **Tier qualification uses ITEMS/POLICIES WRITTEN** (the count of sales made)
+
+When users mention "paid on issued" - that's how our system works by default. Don't make it sound complicated.
+
 ### Basic Settings
 - **name**: Plan name (string, required)
 - **description**: Plan description (string, optional)
@@ -21,15 +29,15 @@ const CAPABILITY_MANIFEST = `
 
 ### Payout Configuration
 - **payout_type**: How commission is calculated
-  - "percent_of_premium" - Percentage of written premium
-  - "flat_per_item" - Flat dollar amount per item/policy written
+  - "percent_of_premium" - Percentage of issued premium
+  - "flat_per_item" - Flat dollar amount per item written
   - "flat_per_policy" - Flat dollar amount per policy
   - "flat_per_household" - Flat dollar amount per household
 
-- **tier_metric**: What metric determines tier qualification
+- **tier_metric**: What metric determines tier qualification (based on WRITTEN counts)
   - "items" - Number of items written
   - "policies" - Number of policies written
-  - "premium" - Dollar amount of written premium
+  - "premium" - Dollar amount of premium
   - "points" - Custom points (requires point_values config)
   - "households" - Number of households sold
 
