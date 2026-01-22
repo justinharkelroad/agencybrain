@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useCompPlans, CompPlan } from "@/hooks/useCompPlans";
 import { CompPlanCard } from "./CompPlanCard";
-import { CreateCompPlanModal } from "./CreateCompPlanModal";
+import { CreateCompPlanModal, CompPlanPrefillConfig } from "./CreateCompPlanModal";
+import { CompPlanCreationChoice } from "./CompPlanCreationChoice";
+import { CompPlanAssistantChat } from "./CompPlanAssistantChat";
 import { StatementReportSelector } from "./StatementReportSelector";
 import { PayoutPreview } from "./PayoutPreview";
 import { PayoutHistoryTab } from "./PayoutHistoryTab";
@@ -10,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
+import { ExtractedCompPlanConfig } from "@/hooks/useCompPlanAssistant";
 
 interface CompPlansTabProps {
   agencyId: string | null;
@@ -20,7 +23,13 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPlan, setEditingPlan] = useState<CompPlan | null>(null);
   const [activeTab, setActiveTab] = useState("calculate");
-  
+
+  // Choice modal and AI assistant state
+  const [choiceModalOpen, setChoiceModalOpen] = useState(false);
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [prefillConfig, setPrefillConfig] = useState<CompPlanPrefillConfig | null>(null);
+  const [showAIBanner, setShowAIBanner] = useState(false);
+
   // Payout calculator state - subProducerData is an object with producers array
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [subProducerData, setSubProducerData] = useState<{ producers: SubProducerMetrics[]; producerCount: number } | undefined>();
@@ -48,11 +57,29 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
 
   const handleCreateClick = () => {
     setEditingPlan(null);
+    setPrefillConfig(null);
+    setShowAIBanner(false);
+    setChoiceModalOpen(true);
+  };
+
+  const handleChooseManual = () => {
+    setModalOpen(true);
+  };
+
+  const handleChooseAI = () => {
+    setAiChatOpen(true);
+  };
+
+  const handleAIConfigReady = (config: ExtractedCompPlanConfig) => {
+    setPrefillConfig(config as CompPlanPrefillConfig);
+    setShowAIBanner(true);
     setModalOpen(true);
   };
 
   const handleEditClick = (plan: CompPlan) => {
     setEditingPlan(plan);
+    setPrefillConfig(null);
+    setShowAIBanner(false);
     setModalOpen(true);
   };
 
@@ -60,6 +87,8 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
     setModalOpen(open);
     if (!open) {
       setEditingPlan(null);
+      setPrefillConfig(null);
+      setShowAIBanner(false);
     }
   };
 
@@ -98,11 +127,27 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
           </Button>
         </div>
         
+        <CompPlanCreationChoice
+          open={choiceModalOpen}
+          onOpenChange={setChoiceModalOpen}
+          onChooseManual={handleChooseManual}
+          onChooseAI={handleChooseAI}
+        />
+
+        <CompPlanAssistantChat
+          open={aiChatOpen}
+          onOpenChange={setAiChatOpen}
+          agencyId={agencyId}
+          onConfigReady={handleAIConfigReady}
+        />
+
         <CreateCompPlanModal
           open={modalOpen}
           onOpenChange={handleModalClose}
           agencyId={agencyId}
           editPlan={editingPlan}
+          prefillConfig={prefillConfig}
+          showAIBanner={showAIBanner}
         />
       </>
     );
@@ -163,11 +208,27 @@ export function CompPlansTab({ agencyId }: CompPlansTabProps) {
         </Tabs>
       </div>
 
+      <CompPlanCreationChoice
+        open={choiceModalOpen}
+        onOpenChange={setChoiceModalOpen}
+        onChooseManual={handleChooseManual}
+        onChooseAI={handleChooseAI}
+      />
+
+      <CompPlanAssistantChat
+        open={aiChatOpen}
+        onOpenChange={setAiChatOpen}
+        agencyId={agencyId}
+        onConfigReady={handleAIConfigReady}
+      />
+
       <CreateCompPlanModal
         open={modalOpen}
         onOpenChange={handleModalClose}
         agencyId={agencyId}
         editPlan={editingPlan}
+        prefillConfig={prefillConfig}
+        showAIBanner={showAIBanner}
       />
     </>
   );
