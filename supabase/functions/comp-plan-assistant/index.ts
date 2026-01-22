@@ -348,6 +348,13 @@ serve(async (req) => {
       }
     }
 
+    // Strip JSON blocks from response so user doesn't see them
+    const cleanedResponse = assistantResponse
+      .replace(/\*\*Configuration Preview:\*\*\s*/g, '')
+      .replace(/```json\n[\s\S]*?\n```/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
     // Save conversation if we have agency context
     if (agency_id && user_id) {
       try {
@@ -395,7 +402,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        response: assistantResponse,
+        response: cleanedResponse,
         extracted_config: extractedConfig,
         has_config: !!extractedConfig
       }),
