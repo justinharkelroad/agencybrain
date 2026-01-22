@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useCompPlanAssistant, ExtractedCompPlanConfig } from "@/hooks/useCompPlanAssistant";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/lib/auth";
 
 interface CompPlanAssistantChatProps {
   open: boolean;
