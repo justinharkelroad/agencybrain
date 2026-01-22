@@ -347,3 +347,6 @@ verify_jwt = false
 
 [functions.challenge-send-daily-emails]
 verify_jwt = false
+
+[functions.submit-landing-lead]
+verify_jwt = false

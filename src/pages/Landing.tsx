@@ -1,14 +1,19 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
-import { Brain, Users } from "lucide-react";
+import { LaptopVideoFrame } from "@/components/landing/LaptopVideoFrame";
+import { LeadCaptureModal } from "@/components/landing/LeadCaptureModal";
+import { Brain, Users, ArrowRight } from "lucide-react";
+
 const agencyBrainLogo = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
+const DEMO_VIDEO_URL = "https://vimeo.com/1157362034";
 
 export default function Landing() {
   const { user, loading } = useAuth();
   const previewMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('preview') === '1';
+  const [showLeadModal, setShowLeadModal] = useState(false);
 
   // Basic SEO setup for this page
   useEffect(() => {
@@ -56,50 +61,70 @@ export default function Landing() {
       <AnimatedBackground />
 
       {/* Centered content */}
-      <div className="relative z-10 flex min-h-svh items-center justify-center p-6">
-        <section className="w-full max-w-2xl text-center text-foreground animate-fade-in">
+      <div className="relative z-10 flex min-h-svh flex-col items-center justify-center p-4 sm:p-6">
+        <section className="w-full max-w-4xl text-center text-foreground animate-fade-in">
           {/* SEO: keep a single H1 for the page intent */}
           <h1 className="sr-only">AgencyBrain – Unlock Clarity. Move Faster.</h1>
 
-          <div className="flex flex-col items-center justify-center gap-8">
-            {/* Animated Logo */}
+          {/* Logo */}
+          <div className="flex justify-center mb-6 sm:mb-8">
             <div className="relative animate-float">
               <div className="absolute inset-0 rounded-full bg-primary/20 blur-3xl animate-glow-pulse" />
               <img 
                 src={agencyBrainLogo} 
                 alt="AgencyBrain - powered by Standard Playbook" 
-                className="relative w-64 sm:w-80 md:w-96 h-auto drop-shadow-2xl"
+                className="relative w-40 sm:w-56 md:w-64 h-auto drop-shadow-2xl"
               />
             </div>
+          </div>
+
+          {/* Laptop Video Frame */}
+          <div className="mb-8 sm:mb-10">
+            <LaptopVideoFrame videoUrl={DEMO_VIDEO_URL} />
+          </div>
+          
+          {/* Portal Buttons */}
+          <div className="flex flex-col gap-3 w-full max-w-sm mx-auto">
+            {/* Brain Portal - for Agency Owners/Admins */}
+            <Button asChild variant="flat" size="lg" className="rounded-full px-8 text-base sm:text-lg w-full h-14">
+              <Link to="/auth" aria-label="Enter Brain Portal" className="flex items-center justify-center gap-3">
+                <Brain className="h-5 w-5" />
+                <div className="flex flex-col items-start leading-tight">
+                  <span className="font-semibold">Brain Portal</span>
+                  <span className="text-xs opacity-80">For Agency Owners</span>
+                </div>
+              </Link>
+            </Button>
             
-            <div className="flex flex-col gap-4 w-full max-w-sm mt-4">
-              {/* Brain Portal - for Agency Owners/Admins */}
-              <Button asChild variant="flat" size="lg" className="rounded-full px-8 text-base sm:text-lg w-full h-14">
-                <Link to="/auth" aria-label="Enter Brain Portal" className="flex items-center justify-center gap-3">
-                  <Brain className="h-5 w-5" />
-                  <div className="flex flex-col items-start leading-tight">
-                    <span className="font-semibold">Brain Portal</span>
-                    <span className="text-xs opacity-80">For Agency Owners</span>
-                  </div>
-                </Link>
-              </Button>
-              
-              {/* Staff Portal - for Team Members */}
-              <Button asChild variant="outline" size="lg" className="rounded-full px-8 text-base sm:text-lg w-full h-14 border-2">
-                <Link to="/staff/login" aria-label="Enter Staff Portal" className="flex items-center justify-center gap-3">
-                  <Users className="h-5 w-5" />
-                  <div className="flex flex-col items-start leading-tight">
-                    <span className="font-semibold">Staff Portal</span>
-                    <span className="text-xs opacity-80">For Team Members</span>
-                  </div>
-                </Link>
-              </Button>
-            </div>
+            {/* Staff Portal - for Team Members */}
+            <Button asChild variant="outline" size="lg" className="rounded-full px-8 text-base sm:text-lg w-full h-14 border-2">
+              <Link to="/staff/login" aria-label="Enter Staff Portal" className="flex items-center justify-center gap-3">
+                <Users className="h-5 w-5" />
+                <div className="flex flex-col items-start leading-tight">
+                  <span className="font-semibold">Staff Portal</span>
+                  <span className="text-xs opacity-80">For Team Members</span>
+                </div>
+              </Link>
+            </Button>
+
+            {/* Lead Capture CTA */}
+            <Button 
+              variant="gradient-glow" 
+              size="lg" 
+              className="rounded-full px-8 text-base sm:text-lg w-full h-14 mt-2"
+              onClick={() => setShowLeadModal(true)}
+            >
+              <span className="font-semibold">I Want Info on AgencyBrain</span>
+              <ArrowRight className="h-5 w-5 ml-2" />
+            </Button>
           </div>
 
           <span className="sr-only">Animated abstract background with brand colors.</span>
         </section>
       </div>
+
+      {/* Lead Capture Modal */}
+      <LeadCaptureModal open={showLeadModal} onOpenChange={setShowLeadModal} />
     </main>
   );
 }

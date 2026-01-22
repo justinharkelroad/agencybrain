@@ -4168,6 +4168,45 @@ export type Database = {
           },
         ]
       }
+      landing_page_leads: {
+        Row: {
+          agency_name: string
+          carrier: string
+          created_at: string | null
+          email: string
+          full_name: string
+          id: string
+          ip_address: string | null
+          phone: string
+          source: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          agency_name: string
+          carrier: string
+          created_at?: string | null
+          email: string
+          full_name: string
+          id?: string
+          ip_address?: string | null
+          phone: string
+          source?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          agency_name?: string
+          carrier?: string
+          created_at?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          ip_address?: string | null
+          phone?: string
+          source?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       lead_source_monthly_spend: {
         Row: {
           agency_id: string
