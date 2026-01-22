@@ -1728,13 +1728,16 @@ export type Database = {
           brokered_flat_rate: number | null
           brokered_payout_type: string | null
           bundle_configs: Json | null
+          bundling_multipliers: Json | null
           chargeback_rule: string
+          commission_modifiers: Json | null
           created_at: string | null
           description: string | null
           id: string
           is_active: boolean | null
           name: string
           payout_type: string
+          point_values: Json | null
           policy_type_filter: string[] | null
           product_rates: Json | null
           tier_metric: string
@@ -1746,13 +1749,16 @@ export type Database = {
           brokered_flat_rate?: number | null
           brokered_payout_type?: string | null
           bundle_configs?: Json | null
+          bundling_multipliers?: Json | null
           chargeback_rule?: string
+          commission_modifiers?: Json | null
           created_at?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
           name: string
           payout_type?: string
+          point_values?: Json | null
           policy_type_filter?: string[] | null
           product_rates?: Json | null
           tier_metric?: string
@@ -1764,13 +1770,16 @@ export type Database = {
           brokered_flat_rate?: number | null
           brokered_payout_type?: string | null
           bundle_configs?: Json | null
+          bundling_multipliers?: Json | null
           chargeback_rule?: string
+          commission_modifiers?: Json | null
           created_at?: string | null
           description?: string | null
           id?: string
           is_active?: boolean | null
           name?: string
           payout_type?: string
+          point_values?: Json | null
           policy_type_filter?: string[] | null
           product_rates?: Json | null
           tier_metric?: string
@@ -6993,6 +7002,87 @@ export type Database = {
           },
         ]
       }
+      support_tickets: {
+        Row: {
+          admin_notes: string | null
+          agency_id: string | null
+          agency_name: string | null
+          attachment_urls: string[] | null
+          browser_info: string | null
+          created_at: string
+          description: string
+          id: string
+          page_url: string | null
+          priority: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          staff_member_id: string | null
+          status: string
+          submitter_email: string
+          submitter_name: string
+          submitter_type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          agency_id?: string | null
+          agency_name?: string | null
+          attachment_urls?: string[] | null
+          browser_info?: string | null
+          created_at?: string
+          description: string
+          id?: string
+          page_url?: string | null
+          priority?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          staff_member_id?: string | null
+          status?: string
+          submitter_email: string
+          submitter_name: string
+          submitter_type: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          agency_id?: string | null
+          agency_name?: string | null
+          attachment_urls?: string[] | null
+          browser_info?: string | null
+          created_at?: string
+          description?: string
+          id?: string
+          page_url?: string | null
+          priority?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          staff_member_id?: string | null
+          status?: string
+          submitter_email?: string
+          submitter_name?: string
+          submitter_type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_staff_member_id_fkey"
+            columns: ["staff_member_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       targets: {
         Row: {
           agency_id: string
@@ -8977,19 +9067,14 @@ export type Database = {
         Returns: string
       }
       get_my_agency_id: { Args: never; Returns: string }
-      get_staff_call_details:
-        | {
-            Args: { p_call_id: string; p_team_member_id: string }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_agency_id?: string
-              p_call_id: string
-              p_team_member_id?: string
-            }
-            Returns: Json
-          }
+      get_staff_call_details: {
+        Args: {
+          p_agency_id?: string
+          p_call_id: string
+          p_team_member_id?: string
+        }
+        Returns: Json
+      }
       get_staff_call_scoring_data: {
         Args: {
           p_agency_id: string
