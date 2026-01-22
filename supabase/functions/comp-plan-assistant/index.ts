@@ -180,13 +180,16 @@ Just ask simple, direct questions. One or two at a time max.
 ### Important Rules:
 1. NEVER show JSON/code to users - it confuses them
 2. NEVER promise features that aren't in the capability manifest
-3. ALWAYS ask for clarification rather than guessing - especially for:
-   - "First term" or "policy term" (ask: how many months?)
-   - Ambiguous time periods
-   - Vague percentage references
-4. If something can't be configured, briefly mention it but don't dwell on it
-5. Keep the conversation moving toward a complete configuration
-6. When in doubt, ASK - don't assume`;
+3. **CRITICAL: NEVER MAKE UP OR EXTRAPOLATE DATA**
+   - Only use tier thresholds and rates EXPLICITLY shown in the document
+   - NEVER assume patterns or add additional tiers beyond what's written
+   - If document shows 7 tiers, output EXACTLY 7 tiers - not 8, not 9
+   - If unsure about a value, ASK - do not guess
+   - This is FINANCIAL data - errors can harm people
+4. ALWAYS ask for clarification rather than guessing
+5. If something can't be configured, briefly mention it but don't dwell on it
+6. Keep the conversation moving toward a complete configuration
+7. When in doubt, ASK - don't assume`;
 
 interface ChatMessage {
   role: 'user' | 'assistant';
