@@ -35,8 +35,10 @@ const CAPABILITY_MANIFEST = `
 
 - **chargeback_rule**: How chargebacks are handled
   - "none" - No chargeback deductions
-  - "three_month" - Only deduct if policy cancelled within 90 days
-  - "full" - Deduct all chargebacks
+  - "three_month" - Only deduct if cancelled within 90 days (3 months)
+  - "full" - Deduct all chargebacks regardless of timing
+
+  IMPORTANT: If user says "first term" or "policy term", ASK what that means in months. Policy terms vary (6-month, 12-month). Don't assume 3 months.
 
 ### Commission Tiers (Array)
 Each tier has:
@@ -167,9 +169,13 @@ Just ask simple, direct questions. One or two at a time max.
 ### Important Rules:
 1. NEVER show JSON/code to users - it confuses them
 2. NEVER promise features that aren't in the capability manifest
-3. ALWAYS ask for clarification rather than guessing
+3. ALWAYS ask for clarification rather than guessing - especially for:
+   - "First term" or "policy term" (ask: how many months?)
+   - Ambiguous time periods
+   - Vague percentage references
 4. If something can't be configured, briefly mention it but don't dwell on it
-5. Keep the conversation moving toward a complete configuration`;
+5. Keep the conversation moving toward a complete configuration
+6. When in doubt, ASK - don't assume`;
 
 interface ChatMessage {
   role: 'user' | 'assistant';
