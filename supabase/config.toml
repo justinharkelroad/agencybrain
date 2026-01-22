@@ -21,6 +21,9 @@ verify_jwt = false
 [functions.submit-staff-identity]
 verify_jwt = false
 
+[functions.submit-support-ticket]
+verify_jwt = false
+
 [functions.invalidate-roleplay-token]
 verify_jwt = false
 
@@ -329,4 +332,3 @@ verify_jwt = false
 
 [functions.comp-plan-assistant]
 verify_jwt = false
-

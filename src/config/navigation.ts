@@ -141,7 +141,7 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/lqs-roadmap',
         access: { staff: false, manager: true, owner: true },
-        emailRestriction: 'justin@hfiagencies.com', // Beta restriction
+        adminOnly: true, // Uses hasSalesBetaAccess() check
       },
       {
         id: 'lqs-roi',
@@ -150,7 +150,7 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/lqs-roi',
         access: { staff: true, manager: true, owner: true },
-        emailRestriction: 'justin@hfiagencies.com',
+        adminOnly: true, // Uses hasSalesBetaAccess() check
       },
       {
         id: 'ai-sales-bot',

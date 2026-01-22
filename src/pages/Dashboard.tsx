@@ -41,26 +41,7 @@ const Dashboard = () => {
     loading: permissionsLoading,
   } = useUserPermissions();
 
-  // Redirect Call Scoring tier users to /call-scoring
-  useEffect(() => {
-    if (isCallScoringTier(membershipTier)) {
-      navigate('/call-scoring', { replace: true });
-    }
-  }, [membershipTier, navigate]);
-
-  if (!user) {
-    return <Navigate to="/auth" replace />;
-  }
-  
-  // Don't render dashboard for Call Scoring tier users (redirect is happening)
-  if (isCallScoringTier(membershipTier)) {
-    return null;
-  }
-
-  const handleSignOut = async () => {
-    await signOut();
-  };
-
+  // ALL useState hooks MUST be declared before any conditional returns (React Rules of Hooks)
   const [agencyName, setAgencyName] = useState<string | null>(null);
   const [agencyId, setAgencyId] = useState<string | null>(null);
   const [envOverride, setEnvOverride] = useState<EnvOverride | null>(getEnvironmentOverride());
@@ -68,39 +49,48 @@ const Dashboard = () => {
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
 
-  const fetchAgencyName = async () => {
-    if (!user) return;
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('agency_id')
-      .eq('id', user.id)
-      .maybeSingle();
-    if (!error && profile?.agency_id) {
-      setAgencyId(profile.agency_id);
-      const { data: agency, error: agencyError } = await supabase
-        .from('agencies')
-        .select('name')
-        .eq('id', profile.agency_id)
-        .maybeSingle();
-      if (!agencyError) {
-        setAgencyName(agency?.name || null);
-      }
-    } else {
-      setAgencyName(null);
-      setAgencyId(null);
-    }
-  };
+  // ALL useEffect hooks MUST also be declared before any conditional returns (React Rules of Hooks)
 
+  // Redirect Call Scoring tier users to /call-scoring
   useEffect(() => {
+    if (isCallScoringTier(membershipTier)) {
+      navigate('/call-scoring', { replace: true });
+    }
+  }, [membershipTier, navigate]);
+
+  // Fetch agency name - moved BEFORE early returns to fix hooks order
+  useEffect(() => {
+    const fetchAgencyName = async () => {
+      if (!user) return;
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (!error && profile?.agency_id) {
+        setAgencyId(profile.agency_id);
+        const { data: agency, error: agencyError } = await supabase
+          .from('agencies')
+          .select('name')
+          .eq('id', profile.agency_id)
+          .maybeSingle();
+        if (!agencyError) {
+          setAgencyName(agency?.name || null);
+        }
+      } else {
+        setAgencyName(null);
+        setAgencyId(null);
+      }
+    };
+
     fetchAgencyName();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Fetch lead sources and team members for the quote modal
+  // Fetch lead sources and team members for the quote modal - moved BEFORE early returns
   useEffect(() => {
     async function fetchModalData() {
       if (!agencyId) return;
-      
+
       const [sourcesRes, membersRes] = await Promise.all([
         supabase
           .from('lead_sources')
@@ -128,6 +118,20 @@ const Dashboard = () => {
 
     fetchModalData();
   }, [agencyId]);
+
+  // Early returns AFTER all hooks are declared
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  // Don't render dashboard for Call Scoring tier users (redirect is happening)
+  if (isCallScoringTier(membershipTier)) {
+    return null;
+  }
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
 
   return (
     <div className="min-h-screen">

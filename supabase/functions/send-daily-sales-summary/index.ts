@@ -205,11 +205,11 @@ serve(async (req) => {
         }
 
         // Add sales data - include ANYONE who sold, regardless of role
-        for (const s of todaysSales || []) {
+        for (const s of (todaysSales || []) as any[]) {
           // If this seller isn't in scoreboard yet, add them dynamically
           // Note: team_member is returned as object (not array) for many-to-one FK joins
           if (!scoreboard[s.team_member_id]) {
-            const sellerName = s.team_member?.name || 'Unknown';
+            const sellerName = (s.team_member as { name: string } | null)?.name || 'Unknown';
             scoreboard[s.team_member_id] = {
               name: sellerName,
               premium: 0,
@@ -302,11 +302,11 @@ serve(async (req) => {
 
         // Build sales log
         // Note: team_member is returned as object (not array) for many-to-one FK joins
-        const salesLogHtml = (todaysSales || []).length > 0
-          ? (todaysSales || []).map(s => `
+        const salesLogHtml = ((todaysSales || []) as any[]).length > 0
+          ? ((todaysSales || []) as any[]).map(s => `
             <tr>
               <td style="padding: 6px 12px; color: #6b7280;">${formatTime(s.created_at)}</td>
-              <td style="padding: 6px 12px;">${s.team_member?.name || 'Unknown'}</td>
+              <td style="padding: 6px 12px;">${(s.team_member as { name: string } | null)?.name || 'Unknown'}</td>
               <td style="padding: 6px 12px;">${s.customer_name}</td>
               <td style="padding: 6px 12px; text-align: right;">${formatCurrency(s.total_premium || 0)}</td>
             </tr>

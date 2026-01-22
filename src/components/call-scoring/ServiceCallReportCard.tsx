@@ -2,11 +2,13 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { 
-  User, CheckCircle2, XCircle, Clock, Download, 
+import {
+  User, CheckCircle2, XCircle, Clock, Download,
   Loader2, Headphones, FileText, Lightbulb, ClipboardList,
-  MessageSquareQuote
+  MessageSquareQuote, CheckCircle
 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useState, useRef } from "react";
 import { toast } from 'sonner';
 import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecard';
@@ -61,6 +63,13 @@ interface ServiceCallReportCardProps {
   open: boolean;
   onClose: () => void;
   isReadOnly?: boolean;
+  // Staff acknowledgment props
+  isStaffUser?: boolean;
+  staffTeamMemberId?: string;
+  acknowledgedAt?: string | null;
+  staffFeedbackPositive?: string | null;
+  staffFeedbackImprovement?: string | null;
+  onAcknowledge?: (positive: string, improvement: string) => Promise<void>;
 }
 
 // Inline colors for PNG export compatibility
@@ -80,14 +89,44 @@ const COLORS = {
   blueBg: 'rgba(59, 130, 246, 0.1)',
 };
 
-export function ServiceCallReportCard({ 
-  call, 
-  open, 
+export function ServiceCallReportCard({
+  call,
+  open,
   onClose,
-  isReadOnly = false
+  isReadOnly = false,
+  isStaffUser = false,
+  staffTeamMemberId,
+  acknowledgedAt,
+  staffFeedbackPositive,
+  staffFeedbackImprovement,
+  onAcknowledge
 }: ServiceCallReportCardProps) {
   const [exporting, setExporting] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+
+  // Staff acknowledgment state
+  const [showAcknowledgeForm, setShowAcknowledgeForm] = useState(false);
+  const [feedbackPositive, setFeedbackPositive] = useState('');
+  const [feedbackImprovement, setFeedbackImprovement] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAcknowledge = async () => {
+    if (!feedbackPositive.trim() || !feedbackImprovement.trim()) {
+      toast.error('Please fill in both fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await onAcknowledge?.(feedbackPositive, feedbackImprovement);
+      toast.success('Review acknowledged!');
+      setShowAcknowledgeForm(false);
+    } catch (error) {
+      toast.error('Failed to submit acknowledgment');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!call) return null;
 
@@ -494,7 +533,7 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
 
           {/* Final Checklist */}
           {mappedChecklist.length > 0 && (
-            <Card 
+            <Card
               style={{ backgroundColor: COLORS.cardBg, borderColor: COLORS.border }}
             >
               <CardHeader className="pb-2">
@@ -506,10 +545,10 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {mappedChecklist.map((item, i) => (
-                    <div 
+                    <div
                       key={i}
                       className="p-3 rounded-lg"
-                      style={{ 
+                      style={{
                         backgroundColor: item.checked ? COLORS.greenBg : COLORS.redBg,
                         border: `1px solid ${item.checked ? COLORS.green : COLORS.red}30`
                       }}
@@ -523,7 +562,7 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
                         <span className="text-sm font-medium">{item.label}</span>
                       </div>
                       {item.evidence && (
-                        <p 
+                        <p
                           className="text-xs italic mt-2 ml-6"
                           style={{ color: COLORS.textMuted }}
                         >
@@ -536,6 +575,116 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
               </CardContent>
             </Card>
           )}
+
+          {/* Staff Acknowledgment Section */}
+          <div className="mt-6 pt-6 border-t" style={{ borderColor: COLORS.border }}>
+            {acknowledgedAt ? (
+              // Already acknowledged - show responses (visible to everyone)
+              <div className="space-y-4">
+                <div className="flex items-center gap-2" style={{ color: COLORS.green }}>
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="font-medium">
+                    Staff reviewed on {new Date(acknowledgedAt).toLocaleDateString()}
+                  </span>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div
+                    className="p-4 rounded-lg"
+                    style={{ backgroundColor: COLORS.greenBg, border: `1px solid ${COLORS.green}30` }}
+                  >
+                    <p className="text-sm font-medium mb-2" style={{ color: COLORS.green }}>What I did well:</p>
+                    <p className="text-sm">{staffFeedbackPositive}</p>
+                  </div>
+                  <div
+                    className="p-4 rounded-lg"
+                    style={{ backgroundColor: COLORS.blueBg, border: `1px solid ${COLORS.blue}30` }}
+                  >
+                    <p className="text-sm font-medium mb-2" style={{ color: COLORS.blue }}>What I'm working on:</p>
+                    <p className="text-sm">{staffFeedbackImprovement}</p>
+                  </div>
+                </div>
+              </div>
+            ) : isStaffUser ? (
+              // Staff viewing their own unacknowledged call
+              !showAcknowledgeForm ? (
+                <div className="text-center py-4">
+                  <p className="mb-4" style={{ color: COLORS.textMuted }}>
+                    Take a moment to reflect on this call and acknowledge your review.
+                  </p>
+                  <Button
+                    onClick={() => setShowAcknowledgeForm(true)}
+                    className="bg-primary"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Acknowledge & Reflect
+                  </Button>
+                </div>
+              ) : (
+                // Show reflection form
+                <div className="space-y-4">
+                  <h4 className="font-semibold text-center">Self-Reflection</h4>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="positive" style={{ color: COLORS.green }}>
+                      What is one thing you did well on this call?
+                    </Label>
+                    <Textarea
+                      id="positive"
+                      value={feedbackPositive}
+                      onChange={(e) => setFeedbackPositive(e.target.value)}
+                      placeholder="I built great rapport by asking about their family..."
+                      className="min-h-[80px]"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="improvement" style={{ color: COLORS.blue }}>
+                      What is one thing you're going to work on moving forward?
+                    </Label>
+                    <Textarea
+                      id="improvement"
+                      value={feedbackImprovement}
+                      onChange={(e) => setFeedbackImprovement(e.target.value)}
+                      placeholder="I need to be more assumptive when asking for the sale..."
+                      className="min-h-[80px]"
+                    />
+                  </div>
+
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowAcknowledgeForm(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleAcknowledge}
+                      disabled={isSubmitting || !feedbackPositive.trim() || !feedbackImprovement.trim()}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Submit Acknowledgment
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )
+            ) : (
+              // Owner/Manager viewing unacknowledged call
+              <div className="flex items-center gap-2 py-4" style={{ color: COLORS.yellow }}>
+                <Clock className="h-5 w-5" />
+                <span className="font-medium">Pending staff review</span>
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

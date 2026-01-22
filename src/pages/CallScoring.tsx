@@ -884,14 +884,42 @@ export default function CallScoring() {
     try {
       if (isStaffUser) {
         // Staff users use RPC to bypass RLS
-        // Managers pass null team_member_id + agency_id to view any call in their agency
-        // Regular staff pass their team_member_id to view only their own calls
         console.log('Staff user - fetching full call via RPC...', { isStaffManager, staffTeamMemberId, staffAgencyId });
-        const { data: fullCall, error } = await supabase.rpc('get_staff_call_details', {
-          p_call_id: call.id,
-          p_team_member_id: isStaffManager ? null : staffTeamMemberId,
-          p_agency_id: isStaffManager ? staffAgencyId : null
-        });
+
+        // For staff viewing their own calls, use their team_member_id
+        // For managers viewing other calls, try with agency_id first, fallback to team_member_id for their own
+        let fullCall = null;
+        let error = null;
+
+        if (isStaffManager) {
+          // Managers: try to view any agency call first (requires updated RPC)
+          const result = await supabase.rpc('get_staff_call_details', {
+            p_call_id: call.id,
+            p_team_member_id: null,
+            p_agency_id: staffAgencyId
+          });
+          fullCall = result.data;
+          error = result.error;
+
+          // If that didn't work (old RPC version or no match), try with their own team_member_id
+          if (!fullCall) {
+            console.log('Manager agency-wide call failed, trying with own team_member_id...');
+            const fallbackResult = await supabase.rpc('get_staff_call_details', {
+              p_call_id: call.id,
+              p_team_member_id: staffTeamMemberId
+            });
+            fullCall = fallbackResult.data;
+            error = fallbackResult.error;
+          }
+        } else {
+          // Regular staff: only view their own calls
+          const result = await supabase.rpc('get_staff_call_details', {
+            p_call_id: call.id,
+            p_team_member_id: staffTeamMemberId
+          });
+          fullCall = result.data;
+          error = result.error;
+        }
 
         if (error) {
           console.error('Error fetching call details:', error);
@@ -901,7 +929,11 @@ export default function CallScoring() {
         }
 
         console.log('Staff RPC full call:', fullCall);
-        setSelectedCall(fullCall);
+        // Preserve team_member_name from the original call if RPC didn't return it
+        setSelectedCall({
+          ...fullCall,
+          team_member_name: fullCall?.team_member_name || call.team_member_name
+        });
       } else {
         // Regular users fetch directly from database
         console.log('Regular user - fetching full call from database...');
@@ -1378,11 +1410,17 @@ export default function CallScoring() {
       </Tabs>
       
       {selectedCall?.call_type === 'service' ? (
-        <ServiceCallReportCard 
+        <ServiceCallReportCard
           call={selectedCall}
           open={scorecardOpen}
           onClose={() => setScorecardOpen(false)}
           isReadOnly={false}
+          isStaffUser={isStaffUser}
+          staffTeamMemberId={staffTeamMemberId || undefined}
+          acknowledgedAt={selectedCall?.acknowledged_at}
+          staffFeedbackPositive={selectedCall?.staff_feedback_positive}
+          staffFeedbackImprovement={selectedCall?.staff_feedback_improvement}
+          onAcknowledge={handleStaffAcknowledge}
         />
       ) : (
         <CallScorecard 
