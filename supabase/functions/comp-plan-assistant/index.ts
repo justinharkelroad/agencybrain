@@ -14,6 +14,15 @@ const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY');
 const CAPABILITY_MANIFEST = `
 ## COMP PLAN SCHEMA - What You Can Configure
 
+### IMPORTANT: Industry Standards (Don't ask about these)
+- **Commission is ALWAYS MONTHLY** - tiers reset each month. Never ask about time periods.
+- **Written premium** = What agents enter when they make a sale (the quoted amount)
+- **Issued premium** = What the insurance company actually issues (may differ from written)
+- **Commission is calculated on ISSUED premium** - this is industry standard
+- **Tier qualification uses ITEMS/POLICIES WRITTEN** (the count of sales made)
+
+When users mention "paid on issued" - that's how our system works by default. Don't overcomplicate it.
+
 ### Basic Settings
 - **name**: Plan name (string, required)
 - **description**: Plan description (string, optional)
@@ -21,33 +30,43 @@ const CAPABILITY_MANIFEST = `
 
 ### Payout Configuration
 - **payout_type**: How commission is calculated
-  - "percent_of_premium" - Percentage of written premium
-  - "flat_per_item" - Flat dollar amount per item/policy written
+  - "percent_of_premium" - Percentage of issued premium
+  - "flat_per_item" - Flat dollar amount per item written
   - "flat_per_policy" - Flat dollar amount per policy
   - "flat_per_household" - Flat dollar amount per household
 
-- **tier_metric**: What metric determines tier qualification
+- **tier_metric**: What metric determines tier qualification (based on WRITTEN counts)
   - "items" - Number of items written
   - "policies" - Number of policies written
-  - "premium" - Dollar amount of written premium
+  - "premium" - Dollar amount of premium
   - "points" - Custom points (requires point_values config)
   - "households" - Number of households sold
 
-- **chargeback_rule**: How chargebacks are handled
+- **chargeback_rule**: How chargebacks are handled (ONLY these 3 options exist - nothing else)
   - "none" - No chargeback deductions
-  - "three_month" - Only deduct if policy cancelled within 90 days
-  - "full" - Deduct all chargebacks
+  - "three_month" - Only if cancelled within first 90 days
+  - "full" - First term chargebacks (this is what agencies mean by "first term" cancellations)
+
+  NEVER ask about specific months or time periods - we can't configure custom periods.
+  Just ask: "Do you deduct chargebacks? Options: First 90 days only / First term / None"
+  If they say "first term", "until renewal", or similar, use "full".
 
 ### Commission Tiers (Array)
 Each tier has:
 - **min_threshold**: Minimum metric value to qualify (number)
 - **commission_value**: The commission rate/amount for this tier (number)
 
-Example: [
-  { min_threshold: 0, commission_value: 0 },
-  { min_threshold: 200, commission_value: 50 },
-  { min_threshold: 300, commission_value: 75 },
-  { min_threshold: 400, commission_value: 100 }
+**CRITICAL: How to interpret tier ranges:**
+- "0-25 = 5%" means: min_threshold: 0, commission_value: 5
+- "26-40 = 6%" means: min_threshold: 26, commission_value: 6
+- The FIRST tier starts at 0 and gets the FIRST rate (not 0%)
+- NEVER add a "0 items = 0%" tier unless explicitly stated
+
+Example for "0-25: 5%, 26-40: 6%, 41-50: 8%":
+[
+  { min_threshold: 0, commission_value: 5 },
+  { min_threshold: 26, commission_value: 6 },
+  { min_threshold: 41, commission_value: 8 }
 ]
 
 ### Brokered Business
@@ -127,7 +146,7 @@ const SYSTEM_PROMPT = `You are a compensation plan configuration assistant for A
 Your job is to help users set up commission/compensation plans for their insurance sales team by:
 1. Understanding their requirements (from conversation OR uploaded documents)
 2. Mapping their requirements to our system's capabilities
-3. Generating a valid configuration that can be used to pre-fill our form
+3. Generating a configuration when ready
 
 ${CAPABILITY_MANIFEST}
 
@@ -136,41 +155,47 @@ ${CAPABILITY_MANIFEST}
 ### When analyzing a document or user description:
 1. Extract all compensation-related information
 2. Map each element to our schema fields
-3. Identify anything that CANNOT be configured (and explain why)
-4. Ask clarifying questions for ambiguous items
+3. Ask clarifying questions for ambiguous items
+4. Keep responses simple and conversational - avoid technical jargon
 
-### When generating a configuration:
-- Output valid JSON that matches our schema
-- Include ONLY fields that have explicit values
-- Use the exact field names and value types from the manifest
+### Response Style:
+- Be conversational and friendly
+- Use simple bullet points and checkmarks
+- NEVER show JSON or code to the user - they don't need to see technical details
+- Keep responses concise (under 200 words when possible)
 
-### Response Format
-Your responses should be conversational but structured. When you have enough information, provide a summary like:
+### When you have enough information to create the plan:
+1. Summarize what you understood with checkmarks (✅)
+2. Tell the user: "Your plan is ready! Click **'Open in Builder'** below to review and create it."
+3. THEN output the JSON config block (the system extracts this automatically - user won't see it)
 
-**What I understood:**
-- [List key points]
+### Response Format when ready:
+✅ [Key point 1]
+✅ [Key point 2]
+✅ [Key point 3]
 
-**Configuration Preview:**
+Your plan is ready! Click **"Open in Builder"** below to review and finalize it.
+
 \`\`\`json
-{
-  "name": "...",
-  "payout_type": "...",
-  ...
-}
+{ ... your config here ... }
 \`\`\`
 
-**Questions/Clarifications needed:**
-- [List any unclear items]
-
-**Cannot be configured (needs custom setup):**
-- [List any items outside our capabilities]
+### If you need more information:
+Just ask simple, direct questions. One or two at a time max.
 
 ### Important Rules:
-1. NEVER promise features that aren't in the capability manifest
-2. ALWAYS ask for clarification rather than guessing
-3. If multiple comp structures exist in a document, ask which one to set up first
-4. Keep responses concise but thorough
-5. Use insurance industry terminology appropriately`;
+1. NEVER show JSON/code to users - it confuses them
+2. NEVER promise features that aren't in the capability manifest
+3. **CRITICAL: NEVER MAKE UP OR EXTRAPOLATE DATA**
+   - Only use tier thresholds and rates EXPLICITLY shown in the document
+   - NEVER assume patterns or add additional tiers beyond what's written
+   - If document shows 7 tiers, output EXACTLY 7 tiers - not 8, not 9
+   - If unsure about a value, ASK - do not guess
+   - This is FINANCIAL data - errors can harm people
+4. ALWAYS ask for clarification rather than guessing
+5. If something can't be configured, briefly mention it but don't dwell on it
+6. Keep the conversation moving toward a complete configuration
+7. When in doubt, ASK - don't assume`;
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -329,6 +354,13 @@ serve(async (req) => {
       }
     }
 
+    // Strip JSON blocks from response so user doesn't see them
+    const cleanedResponse = assistantResponse
+      .replace(/\*\*Configuration Preview:\*\*\s*/g, '')
+      .replace(/```json\n[\s\S]*?\n```/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+
     // Save conversation if we have agency context
     if (agency_id && user_id) {
       try {
@@ -376,7 +408,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        response: assistantResponse,
+        response: cleanedResponse,
         extracted_config: extractedConfig,
         has_config: !!extractedConfig
       }),
