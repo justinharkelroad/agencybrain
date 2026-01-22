@@ -16,6 +16,7 @@ import { StaffCore4MonthlyMissions } from './StaffCore4MonthlyMissions';
 import { StaffSalesSummary } from './StaffSalesSummary';
 import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
+import { ChallengeDashboardWidget } from '@/components/challenge/ChallengeDashboardWidget';
 interface KPIData {
   key: string;
   slug: string;
@@ -235,12 +236,15 @@ export function StaffDashboard() {
 
       {/* Sales Summary Widget - At Top (only for whitelisted agencies) */}
       {user?.agency_id && user?.team_member_id && hasSalesBetaAccess(user.agency_id) && (
-        <StaffSalesSummary 
-          agencyId={user.agency_id} 
-          teamMemberId={user.team_member_id} 
-          showViewAll 
+        <StaffSalesSummary
+          agencyId={user.agency_id}
+          teamMemberId={user.team_member_id}
+          showViewAll
         />
       )}
+
+      {/* The Challenge Widget */}
+      <ChallengeDashboardWidget />
 
       {/* Yesterday's Team Goals */}
       {user?.agency_id && (
