@@ -1,6 +1,6 @@
 // Core payout calculation logic
 
-import { CompPlan, CompPlanTier, BundleConfigs, BundleTypeConfig, ProductRates } from "@/hooks/useCompPlans";
+import { CompPlan, CompPlanTier, BundleConfigs, BundleTypeConfig, ProductRates, PointValues, BundlingMultipliers, CommissionModifiers } from "@/hooks/useCompPlans";
 import { SubProducerMetrics, SubProducerTransaction, BundleTypeBreakdown, ProductBreakdown } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { PayoutCalculation, TierMatch, SubProducerPerformance, AchievedPromo } from "./types";
 import { supabase } from "@/integrations/supabase/client";
@@ -158,6 +158,142 @@ export function getMetricValue(
     default:
       return performance.writtenPremium;
   }
+}
+
+/**
+ * Calculate custom points using point_values configuration
+ * Each product gets a custom point weight (e.g., Auto=1, Home=2, Life=3)
+ */
+export function calculateCustomPoints(
+  performance: SubProducerPerformance,
+  pointValues: PointValues
+): number {
+  if (!pointValues || Object.keys(pointValues).length === 0) {
+    // No custom point values, return standard points (item count)
+    return performance.writtenPoints;
+  }
+
+  let totalPoints = 0;
+
+  // Calculate points for each product
+  for (const productData of performance.byProduct) {
+    const productName = productData.product;
+    const pointValue = pointValues[productName] ?? 1; // Default to 1 point if not specified
+    totalPoints += productData.itemsWritten * pointValue;
+  }
+
+  return totalPoints;
+}
+
+/**
+ * Get the bundling multiplier based on bundling percentage
+ * Returns 1.0 if no multiplier applies
+ */
+export function getBundlingMultiplier(
+  bundlingPercent: number,
+  bundlingMultipliers: BundlingMultipliers | null
+): number {
+  if (!bundlingMultipliers?.thresholds || bundlingMultipliers.thresholds.length === 0) {
+    return 1.0;
+  }
+
+  // Sort thresholds descending to find highest qualifying multiplier
+  const sortedThresholds = [...bundlingMultipliers.thresholds]
+    .sort((a, b) => b.min_percent - a.min_percent);
+
+  for (const threshold of sortedThresholds) {
+    if (bundlingPercent >= threshold.min_percent) {
+      return threshold.multiplier;
+    }
+  }
+
+  return 1.0; // No threshold met
+}
+
+/**
+ * Calculate bundling percentage from performance data
+ * Bundling % = (Standard + Preferred items) / Total items * 100
+ */
+export function calculateBundlingPercent(performance: SubProducerPerformance): number {
+  const totalItems = performance.writtenItems;
+  if (totalItems === 0) return 0;
+
+  let bundledItems = 0;
+  for (const bundleData of performance.byBundleType) {
+    const bundleType = bundleData.bundleType.toLowerCase();
+    if (bundleType === 'standard' || bundleType === 'preferred') {
+      bundledItems += bundleData.itemsWritten;
+    }
+  }
+
+  return (bundledItems / totalItems) * 100;
+}
+
+/**
+ * Check if self-gen requirement is met
+ * Returns { met: boolean, selfGenPercent: number }
+ */
+export function checkSelfGenRequirement(
+  performance: SubProducerPerformance,
+  modifiers: CommissionModifiers | null,
+  selfGenItems: number // From sales data - items marked as self-generated
+): { met: boolean; selfGenPercent: number } {
+  if (!modifiers?.self_gen_requirement) {
+    return { met: true, selfGenPercent: 0 };
+  }
+
+  const req = modifiers.self_gen_requirement;
+  const totalItems = req.source === 'written'
+    ? performance.writtenItems
+    : performance.issuedItems;
+
+  if (totalItems === 0) {
+    return { met: false, selfGenPercent: 0 };
+  }
+
+  const selfGenPercent = (selfGenItems / totalItems) * 100;
+  const met = selfGenPercent >= req.min_percent;
+
+  return { met, selfGenPercent };
+}
+
+/**
+ * Calculate self-gen kicker bonus
+ * Returns bonus amount if qualification is met, otherwise 0
+ */
+export function calculateSelfGenKicker(
+  performance: SubProducerPerformance,
+  modifiers: CommissionModifiers | null,
+  selfGenItems: number
+): number {
+  if (!modifiers?.self_gen_kicker?.enabled) {
+    return 0;
+  }
+
+  const kicker = modifiers.self_gen_kicker;
+  const { selfGenPercent } = checkSelfGenRequirement(performance, modifiers, selfGenItems);
+
+  if (selfGenPercent < kicker.min_self_gen_percent) {
+    return 0;
+  }
+
+  // Calculate bonus based on kicker type
+  let count = 0;
+  switch (kicker.type) {
+    case 'per_item':
+      count = selfGenItems;
+      break;
+    case 'per_policy':
+      // Approximate: use self-gen ratio on policies
+      count = Math.round((selfGenPercent / 100) * performance.writtenPolicies);
+      break;
+    case 'per_household':
+      // Approximate: use self-gen ratio on households
+      count = Math.round((selfGenPercent / 100) * performance.writtenHouseholds);
+      break;
+  }
+
+  return count * kicker.amount;
 }
 
 /**
@@ -632,19 +768,40 @@ function hasProductRates(productRates: ProductRates | null | undefined): boolean
 /**
  * Calculate payout for a single team member
  * Supports bundle-type-specific and product-specific rate configurations
+ * Also supports custom point values, bundling multipliers, and self-gen modifiers
  */
 export function calculateMemberPayout(
   performance: SubProducerPerformance,
   plan: CompPlan,
   periodMonth: number,
   periodYear: number,
-  promoBonus: { bonusAmount: number; achievedPromos: AchievedPromo[] } = { bonusAmount: 0, achievedPromos: [] }
+  promoBonus: { bonusAmount: number; achievedPromos: AchievedPromo[] } = { bonusAmount: 0, achievedPromos: [] },
+  selfGenItems: number = 0 // From sales data - items marked as self-generated
 ): PayoutCalculation {
-  // Get the metric value for tier matching
-  const metricValue = getMetricValue(performance, plan.tier_metric);
+  // Calculate custom points if point_values is configured and tier_metric is 'points'
+  let customPointsCalculated: number | undefined;
+  let metricValue = getMetricValue(performance, plan.tier_metric);
+
+  if (plan.tier_metric === 'points' && plan.point_values && Object.keys(plan.point_values).length > 0) {
+    customPointsCalculated = calculateCustomPoints(performance, plan.point_values);
+    metricValue = customPointsCalculated;
+  }
+
+  // Check self-gen requirement (may affect tier qualification)
+  const selfGenCheck = checkSelfGenRequirement(performance, plan.commission_modifiers, selfGenItems);
+  const selfGenPercent = selfGenCheck.selfGenPercent;
+
+  // If self-gen requirement affects qualification and not met, track it (full implementation in Phase 5)
+  if (plan.commission_modifiers?.self_gen_requirement?.affects_qualification && !selfGenCheck.met) {
+    console.log(`[calculateMemberPayout] Self-gen requirement not met (${selfGenPercent.toFixed(1)}% < ${plan.commission_modifiers.self_gen_requirement.min_percent}%)`);
+  }
 
   // Find matching tier (used for default calculation and display)
   const tierMatch = findMatchingTier(plan.tiers, metricValue);
+
+  // Calculate bundling percentage and get multiplier
+  const bundlingPercent = calculateBundlingPercent(performance);
+  const bundlingMultiplier = getBundlingMultiplier(bundlingPercent, plan.bundling_multipliers);
 
   // Determine which calculation method to use
   // Priority: product_rates > bundle_configs > default
@@ -677,8 +834,17 @@ export function calculateMemberPayout(
     baseCommission = result.baseCommission;
   }
 
-  // Add promo bonus to total
-  const totalPayout = baseCommission + promoBonus.bonusAmount;
+  // Apply bundling multiplier to base commission
+  if (bundlingMultiplier > 1.0) {
+    console.log(`[calculateMemberPayout] Applying bundling multiplier: ${bundlingMultiplier}x (bundling ${bundlingPercent.toFixed(1)}%)`);
+    baseCommission = baseCommission * bundlingMultiplier;
+  }
+
+  // Calculate self-gen kicker bonus
+  const selfGenKickerAmount = calculateSelfGenKicker(performance, plan.commission_modifiers, selfGenItems);
+
+  // Add promo bonus and self-gen kicker to total
+  const totalPayout = baseCommission + promoBonus.bonusAmount + selfGenKickerAmount;
 
   console.log(`[calculateMemberPayout] ${performance.teamMemberName}: creditInsureds=${performance.creditInsureds?.length || 0}, chargebackInsureds=${performance.chargebackInsureds?.length || 0}`);
 
@@ -730,6 +896,13 @@ export function calculateMemberPayout(
     // Commission breakdowns (when using advanced configurations)
     commissionByBundleType,
     commissionByProduct,
+
+    // Extended modifier tracking (Phase 2)
+    customPointsCalculated,
+    bundlingPercent,
+    bundlingMultiplier: bundlingMultiplier > 1.0 ? bundlingMultiplier : undefined,
+    selfGenPercent: selfGenPercent > 0 ? selfGenPercent : undefined,
+    selfGenKickerAmount: selfGenKickerAmount > 0 ? selfGenKickerAmount : undefined,
 
     // Promo bonuses
     achievedPromos: promoBonus.achievedPromos,

@@ -34,6 +34,44 @@ export interface ProductRates {
   [productName: string]: ProductRateConfig;
 }
 
+// Point values per product for tier qualification (when tier_metric = 'points')
+export interface PointValues {
+  [productName: string]: number;
+}
+
+// Bundling multiplier threshold
+export interface BundlingThreshold {
+  min_percent: number;
+  multiplier: number;
+}
+
+// Bundling multipliers configuration
+export interface BundlingMultipliers {
+  thresholds: BundlingThreshold[];
+}
+
+// Self-gen requirement configuration
+export interface SelfGenRequirement {
+  min_percent: number;
+  source: 'written' | 'issued';
+  affects_qualification: boolean;
+  affects_payout: boolean;
+}
+
+// Self-gen kicker bonus configuration
+export interface SelfGenKicker {
+  enabled: boolean;
+  type: 'per_item' | 'per_policy' | 'per_household';
+  amount: number;
+  min_self_gen_percent: number;
+}
+
+// Commission modifiers (self-gen requirements and kickers)
+export interface CommissionModifiers {
+  self_gen_requirement?: SelfGenRequirement;
+  self_gen_kicker?: SelfGenKicker;
+}
+
 export interface CompPlan {
   id: string;
   agency_id: string;
@@ -55,6 +93,10 @@ export interface CompPlan {
   // New optional bundle and product configuration fields
   bundle_configs: BundleConfigs | null;
   product_rates: ProductRates | null;
+  // Extended configuration fields (Phase 2)
+  point_values: PointValues | null;
+  bundling_multipliers: BundlingMultipliers | null;
+  commission_modifiers: CommissionModifiers | null;
 }
 
 export function useCompPlans(agencyId: string | null) {
