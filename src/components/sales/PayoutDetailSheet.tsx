@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, XCircle, AlertTriangle, Info, Download } from 'lucide-react';
+import { FileText, XCircle, AlertTriangle, Info, Download, Trophy, Sparkles, Layers } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -124,6 +124,71 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
                 </div>
               </div>
             </div>
+
+            {/* Bonus Breakdown - shows promos, self-gen kicker, bundling multiplier */}
+            {(payout.achievedPromos?.length > 0 || payout.selfGenKickerAmount || payout.bundlingMultiplier) && (
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Bonus Breakdown</h4>
+                <div className="space-y-2">
+                  {/* Achieved Promos */}
+                  {payout.achievedPromos?.map((promo) => (
+                    <div
+                      key={promo.promoId}
+                      className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-500/20"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Trophy className="h-4 w-4 text-amber-500" />
+                        <div>
+                          <div className="text-sm font-medium">{promo.promoName}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Achieved: {promo.achievedValue.toLocaleString()} / {promo.targetValue.toLocaleString()} target
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                        +{formatCurrency(promo.bonusAmount)}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Self-Gen Kicker */}
+                  {payout.selfGenKickerAmount && payout.selfGenKickerAmount > 0 && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-emerald-500" />
+                        <div>
+                          <div className="text-sm font-medium">Self-Gen Kicker</div>
+                          <div className="text-xs text-muted-foreground">
+                            {payout.selfGenPercent?.toFixed(1)}% self-generated
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                        +{formatCurrency(payout.selfGenKickerAmount)}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bundling Multiplier */}
+                  {payout.bundlingMultiplier && payout.bundlingMultiplier > 1 && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-blue-500" />
+                        <div>
+                          <div className="text-sm font-medium">Bundling Multiplier</div>
+                          <div className="text-xs text-muted-foreground">
+                            {payout.bundlingPercent?.toFixed(1)}% bundled policies
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                        {payout.bundlingMultiplier}x
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Chargeback Rule */}
             <div className="flex items-center gap-2">
