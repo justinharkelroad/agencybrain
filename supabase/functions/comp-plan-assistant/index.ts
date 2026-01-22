@@ -323,7 +323,7 @@ serve(async (req) => {
     if (jsonMatch) {
       try {
         extractedConfig = JSON.parse(jsonMatch[1]);
-        console.log('Extracted config:', Object.keys(extractedConfig));
+        console.log('Extracted config:', extractedConfig ? Object.keys(extractedConfig) : 'null');
       } catch (e) {
         console.log('Could not parse JSON from response');
       }

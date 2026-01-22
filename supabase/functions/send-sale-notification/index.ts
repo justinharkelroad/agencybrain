@@ -235,8 +235,9 @@ serve(async (req) => {
     }
 
     // 6. Build email content
-    // Note: team_member is returned as object (not array) for many-to-one FK joins
-    const producerName = (sale.team_member as { id: string; name: string } | null)?.name || 'Unknown';
+    // Note: team_member may be returned as object or array depending on join
+    const teamMember = sale.team_member as { id: string; name: string }[] | { id: string; name: string } | null;
+    const producerName = Array.isArray(teamMember) ? teamMember[0]?.name : teamMember?.name || 'Unknown';
     const customerName = sale.customer_name || 'Unknown';
     const formatCurrency = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
