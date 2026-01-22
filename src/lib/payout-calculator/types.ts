@@ -120,6 +120,13 @@ export interface PayoutCalculation {
     commission: number;
   }>;
 
+  // Extended modifier tracking (Phase 2)
+  customPointsCalculated?: number; // Points calculated using custom point_values
+  bundlingPercent?: number; // Percentage of bundled policies
+  bundlingMultiplier?: number; // Multiplier applied (1.0 = none)
+  selfGenPercent?: number; // Percentage of self-generated leads
+  selfGenKickerAmount?: number; // Bonus from self-gen kicker
+
   // Promo bonuses
   achievedPromos: AchievedPromo[];
   
