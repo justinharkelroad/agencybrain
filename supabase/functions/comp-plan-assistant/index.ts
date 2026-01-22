@@ -42,17 +42,14 @@ When users mention "paid on issued" - that's how our system works by default. Do
   - "points" - Custom points (requires point_values config)
   - "households" - Number of households sold
 
-- **chargeback_rule**: How chargebacks are handled
+- **chargeback_rule**: How chargebacks are handled (ONLY these 3 options exist - nothing else)
   - "none" - No chargeback deductions
   - "three_month" - Only if cancelled within first 90 days
-  - "full" - All chargebacks
+  - "full" - All chargebacks (use this for "first term" or any time-based rule)
 
-  WHEN ASKING ABOUT CHARGEBACKS, just ask:
-  "Do you deduct chargebacks from commission? Options:
-   • Only cancellations within first 90 days
-   • All chargebacks
-   • No chargebacks"
-  Don't try to interpret terms like "first term" - just present the options.
+  NEVER ask about 6 months, 12 months, policy terms, or renewal periods - we can't configure those.
+  Just ask: "Do you deduct chargebacks? Options: 90 days only / All / None"
+  If they say anything other than "90 days" or "none", use "full".
 
 ### Commission Tiers (Array)
 Each tier has:
