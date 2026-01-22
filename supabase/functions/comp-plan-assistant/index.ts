@@ -35,10 +35,15 @@ const CAPABILITY_MANIFEST = `
 
 - **chargeback_rule**: How chargebacks are handled
   - "none" - No chargeback deductions
-  - "three_month" - Only deduct if cancelled within 90 days (3 months)
-  - "full" - Deduct all chargebacks regardless of timing
+  - "three_month" - Only if cancelled within first 90 days
+  - "full" - All chargebacks
 
-  IMPORTANT: If user says "first term" or "policy term", ASK what that means in months. Policy terms vary (6-month, 12-month). Don't assume 3 months.
+  WHEN ASKING ABOUT CHARGEBACKS, just ask:
+  "Do you deduct chargebacks from commission? Options:
+   • Only cancellations within first 90 days
+   • All chargebacks
+   • No chargebacks"
+  Don't try to interpret terms like "first term" - just present the options.
 
 ### Commission Tiers (Array)
 Each tier has:
