@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { BundleConfigs, ProductRates } from "./useCompPlans";
+import { BundleConfigs, ProductRates, PointValues, BundlingMultipliers, CommissionModifiers } from "./useCompPlans";
 
 export interface CompPlanFormData {
   id?: string;
@@ -21,6 +21,10 @@ export interface CompPlanFormData {
   // New optional fields for advanced compensation configuration
   bundle_configs?: BundleConfigs | null;
   product_rates?: ProductRates | null;
+  // Extended configuration fields (Phase 2)
+  point_values?: PointValues | null;
+  bundling_multipliers?: BundlingMultipliers | null;
+  commission_modifiers?: CommissionModifiers | null;
 }
 
 export interface TierFormData {
@@ -54,6 +58,9 @@ export function useCompPlanMutations(agencyId: string | null) {
           is_active: data.is_active,
           bundle_configs: data.bundle_configs || null,
           product_rates: data.product_rates || null,
+          point_values: data.point_values || null,
+          bundling_multipliers: data.bundling_multipliers || null,
+          commission_modifiers: data.commission_modifiers || null,
         })
         .select("id")
         .single();
@@ -143,6 +150,9 @@ export function useCompPlanMutations(agencyId: string | null) {
           is_active: data.is_active,
           bundle_configs: data.bundle_configs || null,
           product_rates: data.product_rates || null,
+          point_values: data.point_values || null,
+          bundling_multipliers: data.bundling_multipliers || null,
+          commission_modifiers: data.commission_modifiers || null,
         })
         .eq("id", data.id);
 
