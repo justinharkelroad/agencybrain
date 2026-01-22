@@ -1,11 +1,11 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { WinbackStatusBadge } from './WinbackStatusBadge';
+import { WinbackStatusBadge, WinbackStatusType } from './WinbackStatusBadge';
 import { Phone, Mail, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-export type WinbackStatusType = 'untouched' | 'in_progress' | 'won_back' | 'dismissed';
+export type { WinbackStatusType };
 
 export interface Household {
   id: string;
