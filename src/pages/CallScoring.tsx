@@ -929,7 +929,11 @@ export default function CallScoring() {
         }
 
         console.log('Staff RPC full call:', fullCall);
-        setSelectedCall(fullCall);
+        // Preserve team_member_name from the original call if RPC didn't return it
+        setSelectedCall({
+          ...fullCall,
+          team_member_name: fullCall?.team_member_name || call.team_member_name
+        });
       } else {
         // Regular users fetch directly from database
         console.log('Regular user - fetching full call from database...');
