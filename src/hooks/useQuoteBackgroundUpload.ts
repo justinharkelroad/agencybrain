@@ -240,24 +240,16 @@ async function processInBackground(
                   ignoreDuplicates: true,
                 }
               )
-              .select('id, created_at, updated_at')
+              .select('id, created_at')
               .maybeSingle();
 
             if (quoteError) {
               throw new Error(`Failed to upsert quote: ${quoteError.message}`);
             }
             
-            // If quote is null, it was a duplicate that was ignored
+            // Count as created (upsert succeeded)
             if (quote) {
-              // Check if created or updated based on timestamps
-              if (quote.created_at === quote.updated_at) {
-                quotesCreatedInGroup++;
-              } else {
-                quotesUpdatedInGroup++;
-              }
-            } else {
-              // Duplicate skipped - count as "updated" (already exists)
-              quotesUpdatedInGroup++;
+              quotesCreatedInGroup++;
             }
           }
 
