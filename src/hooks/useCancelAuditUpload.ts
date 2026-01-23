@@ -142,6 +142,7 @@ export function useCancelAuditUpload() {
             p_renewal_effective_date: record.renewal_effective_date,
             p_pending_cancel_date: record.pending_cancel_date,
             p_last_upload_id: uploadId,
+            p_original_year: record.original_year,
           });
 
           if (rpcError) {

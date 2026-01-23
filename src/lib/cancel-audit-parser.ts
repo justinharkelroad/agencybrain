@@ -19,6 +19,7 @@ export interface ParsedCancelAuditRecord {
   renewal_effective_date: string | null;
   pending_cancel_date: string | null;
   cancel_status: string | null;
+  original_year: string | null;
 }
 
 export interface ParseResult {
@@ -203,6 +204,7 @@ export function parseCancelAuditExcel(
         renewal_effective_date: derivedReportType === 'pending_cancel' ? parseDate(getValue('Renewal Effective Date')) : null,
         pending_cancel_date: derivedReportType === 'pending_cancel' ? parseDate(getValue('Pending Cancel Date')) : null,
         cancel_status: excelStatus,
+        original_year: getValue('Original Year') ? String(getValue('Original Year')).trim() : null,
       };
 
       records.push(record);

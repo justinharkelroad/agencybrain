@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { hasOneOnOneAccess } from "@/utils/tierAccess";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Upload, Loader2 } from "lucide-react";
+import { Upload, Loader2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
@@ -57,7 +57,8 @@ const CancelAuditPage = () => {
   const [statusFilter, setStatusFilter] = useState<RecordStatusType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [sortBy, setSortBy] = useState<'urgency' | 'name' | 'date_added' | 'cancel_status'>('urgency');
+  const [sortBy, setSortBy] = useState<'urgency' | 'name' | 'date_added' | 'cancel_status' | 'original_year' | 'policy_number' | 'premium'>('urgency');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [showUntouchedOnly, setShowUntouchedOnly] = useState(false);
@@ -172,6 +173,127 @@ const CancelAuditPage = () => {
       cancellation: all.filter(r => r.report_type === 'cancellation').length,
     };
   }, [records]);
+
+  // Client-side sorting
+  const sortedRecords = useMemo(() => {
+    const data = filteredRecords || [];
+    if (!data.length) return [];
+
+    return [...data].sort((a, b) => {
+      let aVal: string | number;
+      let bVal: string | number;
+
+      switch (sortBy) {
+        case 'urgency': {
+          const aDate = a.cancel_date || a.pending_cancel_date;
+          const bDate = b.cancel_date || b.pending_cancel_date;
+          aVal = aDate ? Math.max(0, Math.floor((Date.now() - new Date(aDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
+          bVal = bDate ? Math.max(0, Math.floor((Date.now() - new Date(bDate).getTime()) / (1000 * 60 * 60 * 24))) : 0;
+          break;
+        }
+        case 'name':
+          aVal = `${a.insured_last_name || ''} ${a.insured_first_name || ''}`.toLowerCase().trim();
+          bVal = `${b.insured_last_name || ''} ${b.insured_first_name || ''}`.toLowerCase().trim();
+          break;
+        case 'policy_number':
+          aVal = a.policy_number || '';
+          bVal = b.policy_number || '';
+          break;
+        case 'original_year':
+          aVal = parseInt(a.original_year || '0') || 0;
+          bVal = parseInt(b.original_year || '0') || 0;
+          break;
+        case 'date_added':
+          aVal = a.created_at ? new Date(a.created_at).getTime() : 0;
+          bVal = b.created_at ? new Date(b.created_at).getTime() : 0;
+          break;
+        case 'cancel_status':
+          aVal = (a.cancel_status || a.status || '').toLowerCase();
+          bVal = (b.cancel_status || b.status || '').toLowerCase();
+          break;
+        case 'premium':
+          aVal = a.premium_cents || a.amount_due_cents || 0;
+          bVal = b.premium_cents || b.amount_due_cents || 0;
+          break;
+        default:
+          aVal = 0;
+          bVal = 0;
+      }
+
+      if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+      if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredRecords, sortBy, sortDirection]);
+
+  // Sortable header row component
+  const SortableHeaderRow = () => {
+    const handleHeaderClick = (column: typeof sortBy) => {
+      if (sortBy === column) {
+        setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+      } else {
+        setSortBy(column);
+        setSortDirection('desc');
+      }
+    };
+
+    const SortIndicator = ({ column }: { column: typeof sortBy }) => {
+      if (sortBy !== column) return <ChevronsUpDown className="h-4 w-4 opacity-40" />;
+      return sortDirection === 'asc'
+        ? <ChevronUp className="h-4 w-4" />
+        : <ChevronDown className="h-4 w-4" />;
+    };
+
+    return (
+      <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-muted/50 rounded-lg border mb-2 text-sm font-medium text-muted-foreground">
+        <div className="col-span-1" />
+        <div
+          className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+          onClick={() => handleHeaderClick('urgency')}
+        >
+          Overdue <SortIndicator column="urgency" />
+        </div>
+        <div
+          className="col-span-2 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+          onClick={() => handleHeaderClick('name')}
+        >
+          Customer <SortIndicator column="name" />
+        </div>
+        <div
+          className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+          onClick={() => handleHeaderClick('policy_number')}
+        >
+          Policy # <SortIndicator column="policy_number" />
+        </div>
+        <div
+          className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+          onClick={() => handleHeaderClick('original_year')}
+        >
+          Orig Year <SortIndicator column="original_year" />
+        </div>
+        <div className="col-span-1">Product</div>
+        <div
+          className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+          onClick={() => handleHeaderClick('date_added')}
+        >
+          Date <SortIndicator column="date_added" />
+        </div>
+        <div
+          className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+          onClick={() => handleHeaderClick('cancel_status')}
+        >
+          Status <SortIndicator column="cancel_status" />
+        </div>
+        <div
+          className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+          onClick={() => handleHeaderClick('premium')}
+        >
+          Premium <SortIndicator column="premium" />
+        </div>
+        <div className="col-span-1">Actions</div>
+      </div>
+    );
+  };
 
   // Clear selection when filters change
   useEffect(() => {
@@ -496,13 +618,15 @@ const CancelAuditPage = () => {
               <CancelAuditRecordSkeletonList count={5} />
             ) : hasFilteredRecords ? (
               <div className="space-y-3">
+                {/* Sortable Header Row */}
+                <SortableHeaderRow />
                 {/* Select All Header */}
                 <div className="flex items-center gap-2 px-1 py-2 border-b border-border">
                   <Checkbox
-                    checked={selectedRecordIds.length === filteredRecords.length && filteredRecords.length > 0}
+                    checked={selectedRecordIds.length === sortedRecords.length && sortedRecords.length > 0}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setSelectedRecordIds(filteredRecords.map(r => r.id));
+                        setSelectedRecordIds(sortedRecords.map(r => r.id));
                       } else {
                         setSelectedRecordIds([]);
                       }
@@ -510,10 +634,10 @@ const CancelAuditPage = () => {
                     className="flex-shrink-0"
                   />
                   <span className="text-sm text-muted-foreground">
-                    Select all ({filteredRecords.length})
+                    Select all ({sortedRecords.length})
                   </span>
                 </div>
-                {filteredRecords.map((record) => (
+                {sortedRecords.map((record) => (
                   <div key={record.id} className="flex items-start gap-2">
                     <Checkbox
                       checked={selectedRecordIds.includes(record.id)}
