@@ -2,7 +2,7 @@
 // PUBLIC FORM SUBMIT - NO AUTH REQUIRED
 // TOKEN-BASED VALIDATION ONLY
 import { serve } from "https://deno.land/std/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 // Declare EdgeRuntime global for Supabase Edge Functions
 declare const EdgeRuntime: {
