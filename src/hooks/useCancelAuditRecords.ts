@@ -10,7 +10,7 @@ interface UseCancelAuditRecordsOptions {
   viewMode: ViewMode;
   reportTypeFilter: ReportType | 'all';
   searchQuery: string;
-  sortBy: 'urgency' | 'name' | 'date_added' | 'cancel_status';
+  sortBy: 'urgency' | 'name' | 'date_added' | 'cancel_status' | 'original_year' | 'policy_number' | 'premium';
   showCurrentOnly?: boolean;
 }
 
@@ -97,6 +97,12 @@ export function useCancelAuditRecords({
         query = query
           .order('cancel_status', { ascending: true })
           .order('pending_cancel_date', { ascending: true, nullsFirst: false });
+      } else if (sortBy === 'original_year') {
+        query = query.order('renewal_effective_date', { ascending: false, nullsFirst: false });
+      } else if (sortBy === 'policy_number') {
+        query = query.order('policy_number', { ascending: true });
+      } else if (sortBy === 'premium') {
+        query = query.order('premium_cents', { ascending: false, nullsFirst: false });
       } else {
         query = query.order('created_at', { ascending: false });
       }
