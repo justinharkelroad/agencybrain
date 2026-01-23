@@ -144,7 +144,7 @@ export default function Renewals() {
         setContext({
           agencyId: staffUser.agency_id,
           userId: staffUser.id,
-          staffMemberId: staffUser.team_member_id,
+          staffMemberId: staffUser.id,  // Use staff_users.id, not team_member_id (FK references staff_users)
           displayName: staffUser.display_name || staffUser.username || 'Staff User'
         });
         
