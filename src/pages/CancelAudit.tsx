@@ -279,7 +279,7 @@ const CancelAuditPage = () => {
             className="hidden md:flex w-16 items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
             onClick={() => handleHeaderClick('original_year')}
           >
-            Year <SortIndicator column="original_year" />
+            Orig Yr <SortIndicator column="original_year" />
           </div>
 
           {/* Product */}
