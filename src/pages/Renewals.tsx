@@ -16,6 +16,7 @@ import { clearStaffTokenIfNotStaffRoute } from '@/lib/cancel-audit-api';
 import { useAuth } from '@/lib/auth';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useRenewalRecords, useRenewalStats, useRenewalProductNames, useBulkUpdateRenewals, useBulkDeleteRenewals, useUpdateRenewalRecord, type RenewalFilters } from '@/hooks/useRenewalRecords';
+import { useActiveCancelAuditPolicies } from '@/hooks/useActiveCancelAuditPolicies';
 import { RenewalUploadModal } from '@/components/renewals/RenewalUploadModal';
 import { RenewalDetailDrawer } from '@/components/renewals/RenewalDetailDrawer';
 import { ScheduleActivityModal } from '@/components/renewals/ScheduleActivityModal';
@@ -64,6 +65,15 @@ export default function Renewals() {
   useEffect(() => {
     sessionStorage.setItem('renewals_hide_taken', String(hideRenewalTaken));
   }, [hideRenewalTaken]);
+
+  // Hide "In Cancel Audit" toggle with session persistence (default ON)
+  const [hideInCancelAudit, setHideInCancelAudit] = useState(() => {
+    return sessionStorage.getItem('renewals_hide_in_cancel') !== 'false';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('renewals_hide_in_cancel', String(hideInCancelAudit));
+  }, [hideInCancelAudit]);
 
   // Chart filter state
   const [chartDateFilter, setChartDateFilter] = useState<string | null>(null);
@@ -230,6 +240,7 @@ export default function Renewals() {
   const { data: records = [], isLoading: recordsLoading } = useRenewalRecords(context?.agencyId || null, effectiveFilters);
   const { data: stats } = useRenewalStats(context?.agencyId || null);
   const { data: productNames = [] } = useRenewalProductNames(context?.agencyId || null);
+  const { data: activeCancelPolicies } = useActiveCancelAuditPolicies(context?.agencyId || null);
   const bulkUpdate = useBulkUpdateRenewals();
   const bulkDelete = useBulkDeleteRenewals();
   const updateRecord = useUpdateRenewalRecord();
@@ -312,6 +323,11 @@ export default function Renewals() {
       result = result.filter(r => r.renewal_status !== 'Renewal Taken');
     }
 
+    // Hide renewals that are in active cancel audit (if toggle is on)
+    if (hideInCancelAudit && activeCancelPolicies?.size) {
+      result = result.filter(r => !activeCancelPolicies.has(r.policy_number));
+    }
+
     // Comparator used for both default and column sorting
     const compare = (a: RenewalRecord, b: RenewalRecord) => {
       // When Priority Only is active, always group starred items first
@@ -388,7 +404,7 @@ export default function Renewals() {
     if (sortCriteria.length === 0) return result;
 
     return [...result].sort(compare);
-  }, [records, sortCriteria, showPriorityOnly, hideRenewalTaken, chartDateFilter, chartDayFilter]);
+  }, [records, sortCriteria, showPriorityOnly, hideRenewalTaken, hideInCancelAudit, activeCancelPolicies, chartDateFilter, chartDayFilter]);
 
   const toggleSelectAll = () => { selectedIds.size === records.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(records.map(r => r.id))); };
   const toggleSelect = (id: string) => { const s = new Set(selectedIds); s.has(id) ? s.delete(id) : s.add(id); setSelectedIds(s); };
@@ -449,6 +465,25 @@ export default function Renewals() {
             size="sm"
             className="h-6 px-2 text-xs text-green-400 hover:text-white hover:bg-green-500/20"
             onClick={() => setHideRenewalTaken(false)}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Show All
+          </Button>
+        </div>
+      )}
+
+      {/* Hide In Cancel Audit Indicator */}
+      {hideInCancelAudit && activeCancelPolicies && activeCancelPolicies.size > 0 && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+          <EyeOff className="h-4 w-4 text-orange-400" />
+          <span className="text-sm text-orange-400">
+            Hiding {records.filter(r => activeCancelPolicies.has(r.policy_number)).length} records in active Cancel Audit
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-orange-400 hover:text-white hover:bg-orange-500/20"
+            onClick={() => setHideInCancelAudit(false)}
           >
             <X className="h-3 w-3 mr-1" />
             Show All
@@ -520,6 +555,19 @@ export default function Renewals() {
         >
           <EyeOff className="h-4 w-4" />
           Hide Taken
+        </Button>
+
+        {/* Hide In Cancel Audit button */}
+        <Button
+          variant={hideInCancelAudit ? "default" : "outline"}
+          onClick={() => setHideInCancelAudit(!hideInCancelAudit)}
+          className={cn(
+            "gap-2",
+            hideInCancelAudit && "bg-orange-600 hover:bg-orange-700 text-white"
+          )}
+        >
+          <EyeOff className="h-4 w-4" />
+          Hide In Cancel
         </Button>
       </div>
       
