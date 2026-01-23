@@ -19,6 +19,7 @@ import {
   HelpCircle,
   Clock,
   Share2,
+  Eye,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -285,6 +286,19 @@ export default function AdminSPModuleDetail() {
                       checked={lesson.is_published}
                       onCheckedChange={() => toggleLessonPublished(lesson)}
                     />
+
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => navigate(`/training/standard/${module.category?.slug}/${module.slug}/${lesson.slug}`)}
+                        >
+                          <Eye className="h-4 w-4" strokeWidth={1.5} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Preview Lesson</TooltipContent>
+                    </Tooltip>
 
                     <Tooltip>
                       <TooltipTrigger asChild>
