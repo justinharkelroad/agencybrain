@@ -119,6 +119,13 @@ export function CancelAuditRecordCard({
             <p className="font-mono text-sm text-foreground">{record.policy_number}</p>
           </div>
 
+          {/* Original Year */}
+          <div className="hidden md:block w-16">
+            <p className="text-sm font-mono text-muted-foreground">
+              {record.original_year || '—'}
+            </p>
+          </div>
+
           {/* Product */}
           <div className="hidden md:block w-24">
             <p className="text-sm text-foreground truncate">{record.product_name || '--'}</p>
@@ -262,6 +269,10 @@ export function CancelAuditRecordCard({
                 <div>
                   <span className="text-muted-foreground">Agent #: </span>
                   <span className="text-foreground">{record.agent_number || '--'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Original Year: </span>
+                  <span className="text-foreground font-mono">{record.original_year || '--'}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Items: </span>

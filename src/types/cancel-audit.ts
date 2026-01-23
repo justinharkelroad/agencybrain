@@ -33,6 +33,7 @@ export interface CancelAuditRecord {
   renewal_effective_date: string | null;
   pending_cancel_date: string | null;
   cancel_status: string | null;
+  original_year: string | null;
   status: RecordStatus;
   is_active: boolean;
   last_upload_id: string | null;
