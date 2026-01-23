@@ -294,9 +294,9 @@ serve(async (req) => {
     // Priority order matches get_contacts_by_stage RPC for consistency
     let lifecycleStage = 'open_lead';  // Default to valid stage
 
-    // 1. Winback (highest priority) - only active winback records
+    // 1. Winback (highest priority) - only ACTIVE winback records (NOT moved_to_quoted)
     if (winbackRecords.length > 0 && winbackRecords.some((r: any) =>
-        r.status === 'untouched' || r.status === 'in_progress' || r.status === 'moved_to_quoted'
+        r.status === 'untouched' || r.status === 'in_progress'
     )) {
       lifecycleStage = 'winback';
     }
@@ -320,8 +320,12 @@ serve(async (req) => {
     )) {
       lifecycleStage = 'renewal';
     }
-    // 5. Quoted - has quotes
-    else if (lqsRecords.some((r: any) => r.quotes && r.quotes.length > 0)) {
+    // 5. Quoted - has quotes OR lqs_households with status='quoted' OR winback moved_to_quoted
+    else if (
+      lqsRecords.some((r: any) => r.quotes && r.quotes.length > 0) ||
+      lqsRecords.some((r: any) => r.status === 'quoted') ||
+      winbackRecords.some((r: any) => r.status === 'moved_to_quoted')
+    ) {
       lifecycleStage = 'quoted';
     }
     // 6. Default: open_lead (already set)

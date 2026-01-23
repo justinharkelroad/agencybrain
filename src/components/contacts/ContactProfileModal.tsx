@@ -271,10 +271,11 @@ export function ContactProfileModal({
 
       toast.success('Activity logged');
 
-      // Invalidate queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
+      // Invalidate and refetch to ensure activity shows immediately
       queryClient.invalidateQueries({ queryKey: ['winback-activity-summary'] });
       queryClient.invalidateQueries({ queryKey: ['winback-households'] });
+      // Force refetch contact profile to show new activity
+      await queryClient.refetchQueries({ queryKey: ['contact-profile', contactId] });
       onActivityLogged?.();
     } catch (error: any) {
       toast.error('Failed to log activity', { description: error.message });
@@ -466,11 +467,12 @@ export function ContactProfileModal({
         toast.success('Customer won back!', { description: 'Contact is now a Customer' });
       }
 
-      // Invalidate queries to refresh data - including contacts for real-time stage updates
-      queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
+      // Invalidate and refetch to ensure fresh data after mutation
       queryClient.invalidateQueries({ queryKey: ['winback-activity-summary'] });
       queryClient.invalidateQueries({ queryKey: ['winback-households'] });
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      // Force refetch contact profile to get updated stage and activities
+      await queryClient.refetchQueries({ queryKey: ['contact-profile', contactId] });
       setHasMutated(true); // Enable real-time stage update display
       onActivityLogged?.();
     } catch (error: any) {
