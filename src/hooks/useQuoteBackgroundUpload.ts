@@ -173,6 +173,7 @@ async function processInBackground(
           }
 
           // ATOMIC UPSERT for household - prevents race conditions
+          // Note: We don't set needs_attention here to avoid overwriting existing false values
           const { data: household, error: hhError } = await supabase
             .from('lqs_households')
             .upsert(
@@ -185,14 +186,13 @@ async function processInBackground(
                 status: 'lead',
                 lead_received_date: primaryRecord.quoteDate,
                 team_member_id: teamMemberId,
-                needs_attention: true,
               },
               {
                 onConflict: 'agency_id,household_key',
                 ignoreDuplicates: false,
               }
             )
-            .select('id, needs_attention, created_at, updated_at')
+            .select('id, lead_source_id, created_at, updated_at')
             .single();
 
           if (hhError) {
@@ -203,7 +203,17 @@ async function processInBackground(
           // Determine if created or updated based on timestamps
           const householdResult: 'created' | 'updated' = 
             household.created_at === household.updated_at ? 'created' : 'updated';
-          const needsAttention = household.needs_attention || false;
+          
+          // For NEW households without a lead source, set needs_attention to true
+          // For existing households with a lead source, leave needs_attention as-is
+          if (householdResult === 'created' && !household.lead_source_id) {
+            await supabase
+              .from('lqs_households')
+              .update({ needs_attention: true })
+              .eq('id', householdId);
+          }
+          
+          const needsAttention = householdResult === 'created' && !household.lead_source_id;
 
           // Process all quotes for this household
           let quotesCreatedInGroup = 0;
