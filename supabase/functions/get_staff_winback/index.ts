@@ -863,6 +863,7 @@ Deno.serve(async (req) => {
             id,
             policy_number,
             agent_number,
+            original_year,
             product_name,
             line_code,
             items_count,

@@ -827,6 +827,7 @@ export interface TerminationPolicy {
   id: string;
   policy_number: string;
   agent_number: string | null;
+  original_year: number | null;
   product_name: string | null;
   line_code: string | null;
   items_count: number | null;
@@ -875,6 +876,7 @@ export async function getTerminationPolicies(
       id,
       policy_number,
       agent_number,
+      original_year,
       product_name,
       line_code,
       items_count,

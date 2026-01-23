@@ -77,6 +77,7 @@ interface TerminationPolicy {
   id: string;
   policy_number: string;
   agent_number: string | null;
+  original_year: number | null;
   product_name: string | null;
   line_code: string | null;
   items_count: number | null;
@@ -100,7 +101,7 @@ interface ProducerStats {
   policiesLost: number;
 }
 
-type SortColumn = 'date' | 'policy' | 'customer' | 'type' | 'items' | 'points' | 'premium' | 'reason';
+type SortColumn = 'date' | 'policy' | 'customer' | 'originalYear' | 'type' | 'items' | 'points' | 'premium' | 'reason';
 type SortDirection = 'asc' | 'desc';
 type AnalyticsTab = 'all' | 'by-type' | 'by-reason' | 'by-source' | 'by-zipcode' | 'leaderboard' | 'by-origin';
 
@@ -237,10 +238,14 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
         case 'policy':
           comparison = a.policy_number.localeCompare(b.policy_number);
           break;
-        case 'customer':
+        case 'customer': {
           const nameA = `${a.winback_households?.last_name || ''} ${a.winback_households?.first_name || ''}`;
           const nameB = `${b.winback_households?.last_name || ''} ${b.winback_households?.first_name || ''}`;
           comparison = nameA.localeCompare(nameB);
+          break;
+        }
+        case 'originalYear':
+          comparison = (a.original_year || 0) - (b.original_year || 0);
           break;
         case 'type':
           comparison = (a.product_name || '').localeCompare(b.product_name || '');
@@ -701,6 +706,12 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                       </TableHead>
                       <TableHead
                         className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => handleSort('originalYear')}
+                      >
+                        Orig Year <SortIcon column="originalYear" />
+                      </TableHead>
+                      <TableHead
+                        className="cursor-pointer hover:bg-muted/50"
                         onClick={() => handleSort('customer')}
                       >
                         Customer <SortIcon column="customer" />
@@ -754,6 +765,9 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                         >
                           <TableCell>{format(new Date(policy.termination_effective_date), 'M/d/yyyy')}</TableCell>
                           <TableCell className="font-mono text-sm">{policy.policy_number}</TableCell>
+                          <TableCell className="font-mono text-sm text-muted-foreground">
+                            {policy.original_year || '—'}
+                          </TableCell>
                           <TableCell>
                             {policy.winback_households?.first_name} {policy.winback_households?.last_name}
                           </TableCell>
@@ -983,6 +997,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Policy #</TableHead>
+                  <TableHead>Orig Year</TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead className="text-right">Items</TableHead>
@@ -999,6 +1014,9 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                         {format(new Date(policy.termination_effective_date), 'M/d/yyyy')}
                       </TableCell>
                       <TableCell className="font-mono text-sm">{policy.policy_number}</TableCell>
+                      <TableCell className="font-mono text-sm text-muted-foreground">
+                        {policy.original_year || '—'}
+                      </TableCell>
                       <TableCell>
                         {policy.winback_households?.first_name} {policy.winback_households?.last_name}
                       </TableCell>
