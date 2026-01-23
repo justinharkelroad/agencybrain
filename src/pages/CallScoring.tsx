@@ -54,7 +54,7 @@ interface AnalyticsCall {
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg'];
 const ALLOWED_TYPES = ['audio/mpeg', 'audio/wav', 'audio/x-m4a', 'audio/ogg', 'audio/mp4'];
-const MAX_SIZE_MB = 100; // Allow up to 100MB (will be converted if > 25MB)
+const MAX_SIZE_MB = 50; // Allow up to 50MB (will be converted if > 25MB)
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 const WHISPER_MAX_SIZE_MB = 25; // Files over this will be converted
 const WHISPER_MAX_SIZE_BYTES = WHISPER_MAX_SIZE_MB * 1024 * 1024;
@@ -1100,7 +1100,7 @@ export default function CallScoring() {
               Upload Call Recording
             </CardTitle>
             <CardDescription>
-              Upload an audio file to analyze (MP3, WAV, M4A, OGG - up to 100MB)
+              Upload an audio file to analyze (MP3, WAV, M4A, OGG - up to 50MB)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1155,7 +1155,7 @@ export default function CallScoring() {
                     Drag & drop an audio file, or click to browse
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    MP3, WAV, M4A, OGG up to 100MB
+                    MP3, WAV, M4A, OGG up to 50MB
                   </p>
                 </div>
               )}
