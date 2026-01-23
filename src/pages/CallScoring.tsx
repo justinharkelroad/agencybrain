@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3, CheckCircle, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { HelpVideoButton } from '@/components/HelpVideoButton';
@@ -54,7 +55,7 @@ interface AnalyticsCall {
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg'];
 const ALLOWED_TYPES = ['audio/mpeg', 'audio/wav', 'audio/x-m4a', 'audio/ogg', 'audio/mp4'];
-const MAX_SIZE_MB = 50; // Allow up to 50MB (will be converted if > 25MB)
+const MAX_SIZE_MB = 75; // Allow up to 75MB (will be converted if > 25MB)
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 const WHISPER_MAX_SIZE_MB = 25; // Files over this will be converted
 const WHISPER_MAX_SIZE_BYTES = WHISPER_MAX_SIZE_MB * 1024 * 1024;
@@ -99,6 +100,11 @@ export default function CallScoring() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [selectedTeamMember, setSelectedTeamMember] = useState<string>('');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+
+  // Split call state
+  const [isSplitCall, setIsSplitCall] = useState(false);
+  const [secondaryFile, setSecondaryFile] = useState<File | null>(null);
+  const [secondaryFileError, setSecondaryFileError] = useState<string | null>(null);
   
   // Scorecard modal state
   const [selectedCall, setSelectedCall] = useState<any>(null);
@@ -629,6 +635,66 @@ export default function CallScoring() {
     handleFileSelect(file);
   };
 
+  // Secondary file handlers for split calls
+  const handleSecondaryFileSelect = async (file: File | null) => {
+    setSecondaryFileError(null);
+
+    if (!file) {
+      setSecondaryFile(null);
+      return;
+    }
+
+    const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(extension) && !ALLOWED_TYPES.includes(file.type)) {
+      setSecondaryFileError(`Invalid file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
+      setSecondaryFile(null);
+      return;
+    }
+
+    if (file.size > MAX_SIZE_BYTES) {
+      setSecondaryFileError(`File too large. Maximum size: ${MAX_SIZE_MB}MB`);
+      setSecondaryFile(null);
+      return;
+    }
+
+    // For large files (> 25MB), check duration before accepting
+    if (file.size > WHISPER_MAX_SIZE_BYTES) {
+      try {
+        const audioContext = new AudioContext();
+        const arrayBuffer = await file.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        const durationMinutes = audioBuffer.duration / 60;
+
+        audioContext.close();
+
+        if (durationMinutes > MAX_DURATION_MINUTES) {
+          setSecondaryFileError(`Call recordings over ${MAX_DURATION_MINUTES} minutes cannot be processed.`);
+          setSecondaryFile(null);
+          return;
+        }
+
+        toast.info("This file is larger and may take a couple extra minutes to process.", {
+          duration: 5000,
+        });
+      } catch (err) {
+        console.error('Error checking audio duration:', err);
+      }
+    }
+
+    setSecondaryFile(file);
+  };
+
+  const handleSecondaryDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    handleSecondaryFileSelect(file);
+  };
+
+  const handleSecondaryFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    handleSecondaryFileSelect(file);
+  };
+
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
@@ -642,12 +708,13 @@ export default function CallScoring() {
     return `${mins}:${String(secs).padStart(2, '0')}`;
   };
 
-  const canUpload = selectedFile && selectedTeamMember && selectedTemplate && 
-    usage.calls_used < usage.calls_limit;
+  const canUpload = selectedFile && selectedTeamMember && selectedTemplate &&
+    usage.calls_used < usage.calls_limit &&
+    (!isSplitCall || secondaryFile);
 
   const handleUpload = async () => {
     if (!canUpload || !selectedFile || !agencyId) return;
-    
+
     // Get team member name for display
     const selectedMember = teamMembers.find(m => m.id === selectedTeamMember);
     const teamMemberName = selectedMember?.name || 'Unknown';
@@ -657,10 +724,14 @@ export default function CallScoring() {
 
     // Capture current values before resetting
     const fileToUpload = selectedFile;
+    const secondaryFileToUpload = isSplitCall ? secondaryFile : null;
     const teamMemberId = selectedTeamMember;
     const templateId = selectedTemplate;
     const currentAgencyId = agencyId;
-    const fileName = selectedFile.name;
+    const fileName = isSplitCall && secondaryFile
+      ? `${selectedFile.name} + ${secondaryFile.name}`
+      : selectedFile.name;
+    const currentIsSplitCall = isSplitCall;
 
     // Add to processing queue IMMEDIATELY
     setProcessingCalls(prev => [...prev, {
@@ -672,11 +743,17 @@ export default function CallScoring() {
 
     // Reset form
     setSelectedFile(null);
+    setSecondaryFile(null);
+    setIsSplitCall(false);
     setSelectedTeamMember('');
     setSelectedTemplate('');
 
     // Process in background (don't await)
-    processCallInBackground(fileToUpload, teamMemberId, templateId, currentAgencyId, tempId, fileName);
+    if (currentIsSplitCall && secondaryFileToUpload) {
+      processSplitCallInBackground(fileToUpload, secondaryFileToUpload, teamMemberId, templateId, currentAgencyId, tempId, fileName);
+    } else {
+      processCallInBackground(fileToUpload, teamMemberId, templateId, currentAgencyId, tempId, fileToUpload.name);
+    }
   };
 
   // Separate background function
@@ -800,6 +877,173 @@ export default function CallScoring() {
       console.error('Background processing error:', err);
       setProcessingCalls(prev => prev.filter(c => c.id !== tempId));
       toast.error(`Failed to process "${fileName}"`);
+    }
+  };
+
+  // Background function for split calls (two audio files merged into one)
+  const processSplitCallInBackground = async (
+    file1: File,
+    file2: File,
+    teamMemberId: string,
+    templateId: string,
+    agencyIdParam: string,
+    tempId: string,
+    displayFileName: string
+  ) => {
+    try {
+      // Generate unique call ID and storage paths for both files
+      const callId = crypto.randomUUID();
+      let storagePath1 = `${agencyIdParam}/${callId}/part1_${file1.name}`;
+      let storagePath2 = `${agencyIdParam}/${callId}/part2_${file2.name}`;
+
+      const staffToken = localStorage.getItem('staff_session_token');
+
+      if (staffToken) {
+        // STAFF USER: Get signed upload URLs for both files
+        console.log('Staff mode detected - using signed upload URLs for split call');
+
+        // Get signed URL for file 1
+        const response1 = await fetch(
+          `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/get_staff_upload_url`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-staff-session': staffToken,
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw',
+            },
+            body: JSON.stringify({
+              fileName: `part1_${file1.name}`,
+              contentType: file1.type || 'audio/wav',
+              agencyId: agencyIdParam,
+            }),
+          }
+        );
+
+        if (!response1.ok) {
+          const errData = await response1.json();
+          throw new Error(`Failed to get upload URL for Part 1: ${errData.error}`);
+        }
+
+        const signedUrlData1 = await response1.json();
+        storagePath1 = signedUrlData1.storagePath;
+
+        // Get signed URL for file 2
+        const response2 = await fetch(
+          `https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/get_staff_upload_url`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-staff-session': staffToken,
+              'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw',
+            },
+            body: JSON.stringify({
+              fileName: `part2_${file2.name}`,
+              contentType: file2.type || 'audio/wav',
+              agencyId: agencyIdParam,
+            }),
+          }
+        );
+
+        if (!response2.ok) {
+          const errData = await response2.json();
+          throw new Error(`Failed to get upload URL for Part 2: ${errData.error}`);
+        }
+
+        const signedUrlData2 = await response2.json();
+        storagePath2 = signedUrlData2.storagePath;
+
+        // Upload both files in parallel
+        const [uploadResponse1, uploadResponse2] = await Promise.all([
+          fetch(signedUrlData1.signedUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': file1.type || 'audio/wav' },
+            body: file1,
+          }),
+          fetch(signedUrlData2.signedUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': file2.type || 'audio/wav' },
+            body: file2,
+          }),
+        ]);
+
+        if (!uploadResponse1.ok) {
+          throw new Error(`Storage upload failed for Part 1: ${uploadResponse1.statusText}`);
+        }
+        if (!uploadResponse2.ok) {
+          throw new Error(`Storage upload failed for Part 2: ${uploadResponse2.statusText}`);
+        }
+
+        console.log('Staff split call upload successful via signed URLs');
+      } else {
+        // AUTHENTICATED USER: Direct upload to Supabase Storage
+        const [result1, result2] = await Promise.all([
+          supabase.storage.from('call-recordings').upload(storagePath1, file1, {
+            contentType: file1.type || 'audio/wav',
+          }),
+          supabase.storage.from('call-recordings').upload(storagePath2, file2, {
+            contentType: file2.type || 'audio/wav',
+          }),
+        ]);
+
+        if (result1.error) {
+          throw new Error(`Storage upload failed for Part 1: ${result1.error.message}`);
+        }
+        if (result2.error) {
+          throw new Error(`Storage upload failed for Part 2: ${result2.error.message}`);
+        }
+      }
+
+      // Call transcribe-split-call edge function
+      const { data, error } = await supabase.functions.invoke('transcribe-split-call', {
+        body: {
+          storagePath1,
+          storagePath2,
+          originalFilename1: file1.name,
+          originalFilename2: file2.name,
+          fileSizeBytes1: file1.size,
+          fileSizeBytes2: file2.size,
+          mimeType1: file1.type || 'audio/wav',
+          mimeType2: file2.type || 'audio/wav',
+          callId,
+          agencyId: agencyIdParam,
+          teamMemberId,
+          templateId,
+        }
+      });
+
+      // Remove from processing queue
+      setProcessingCalls(prev => prev.filter(c => c.id !== tempId));
+
+      if (error) {
+        console.error('Split call transcription error:', error);
+        toast.error(`Failed to process split call`);
+        return;
+      }
+
+      console.log('Split call transcription complete:', data);
+
+      // Refresh the calls list
+      setCurrentPage(1);
+
+      if (isStaffUser && hasAccess) {
+        await fetchStaffData();
+      } else if (agencyId) {
+        fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
+      }
+
+      toast.success(`Split call uploaded! Analysis in progress...`);
+
+      // Poll for analysis completion
+      if (data.call_id) {
+        pollForAnalysis(data.call_id, displayFileName);
+      }
+
+    } catch (err) {
+      console.error('Split call background processing error:', err);
+      setProcessingCalls(prev => prev.filter(c => c.id !== tempId));
+      toast.error(`Failed to process split call`);
     }
   };
 
@@ -1100,7 +1344,7 @@ export default function CallScoring() {
               Upload Call Recording
             </CardTitle>
             <CardDescription>
-              Upload an audio file to analyze (MP3, WAV, M4A, OGG - up to 50MB)
+              Upload an audio file to analyze (MP3, WAV, M4A, OGG - up to 75MB)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -1155,7 +1399,7 @@ export default function CallScoring() {
                     Drag & drop an audio file, or click to browse
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    MP3, WAV, M4A, OGG up to 50MB
+                    MP3, WAV, M4A, OGG up to 75MB
                   </p>
                 </div>
               )}
@@ -1166,6 +1410,89 @@ export default function CallScoring() {
                 <AlertCircle className="h-4 w-4" />
                 {fileError}
               </p>
+            )}
+
+            {/* Split Call Checkbox */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="split-call"
+                checked={isSplitCall}
+                onCheckedChange={(checked) => {
+                  setIsSplitCall(checked === true);
+                  if (!checked) {
+                    setSecondaryFile(null);
+                    setSecondaryFileError(null);
+                  }
+                }}
+              />
+              <label
+                htmlFor="split-call"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                This call is split across two recordings
+              </label>
+            </div>
+
+            {/* Secondary File Dropzone (for split calls) */}
+            {isSplitCall && (
+              <>
+                <div className="text-sm text-muted-foreground mb-2">
+                  Part 2 Recording
+                </div>
+                <div
+                  onDrop={handleSecondaryDrop}
+                  onDragOver={(e) => e.preventDefault()}
+                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
+                    ${secondaryFile ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-muted-foreground/50'}
+                    ${secondaryFileError ? 'border-destructive bg-destructive/5' : ''}`}
+                  onClick={() => document.getElementById('secondary-file-input')?.click()}
+                >
+                  <input
+                    id="secondary-file-input"
+                    type="file"
+                    accept=".mp3,.wav,.m4a,.ogg,audio/*"
+                    onChange={handleSecondaryFileInputChange}
+                    className="hidden"
+                  />
+
+                  {secondaryFile ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-center gap-2 text-primary">
+                        <FileAudio className="h-8 w-8" />
+                      </div>
+                      <p className="font-medium">{secondaryFile.name}</p>
+                      <p className="text-sm text-muted-foreground">{formatFileSize(secondaryFile.size)}</p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSecondaryFile(null);
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Upload className="h-10 w-10 mx-auto text-muted-foreground/50" />
+                      <p className="text-muted-foreground">
+                        Drag & drop Part 2, or click to browse
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        MP3, WAV, M4A, OGG up to 75MB
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {secondaryFileError && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4" />
+                    {secondaryFileError}
+                  </p>
+                )}
+              </>
             )}
 
             {/* Team Member Dropdown */}
