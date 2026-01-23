@@ -245,52 +245,73 @@ const CancelAuditPage = () => {
     };
 
     return (
-      <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-muted/50 rounded-lg border mb-2 text-sm font-medium text-muted-foreground">
-        <div className="col-span-1" />
-        <div
-          className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
-          onClick={() => handleHeaderClick('urgency')}
-        >
-          Overdue <SortIndicator column="urgency" />
+      <div className="flex items-start gap-2 mb-2">
+        {/* Spacer for checkbox column */}
+        <div className="w-4 flex-shrink-0" />
+        {/* Header row matching card layout */}
+        <div className="flex-1 flex items-center gap-4 px-4 py-2 bg-muted/50 rounded-lg border text-sm font-medium text-muted-foreground">
+          {/* Status/Overdue column */}
+          <div
+            className="flex-shrink-0 w-20 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+            onClick={() => handleHeaderClick('urgency')}
+          >
+            Overdue <SortIndicator column="urgency" />
+          </div>
+
+          {/* Customer name */}
+          <div
+            className="min-w-0 flex-1 sm:flex-none sm:w-48 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+            onClick={() => handleHeaderClick('name')}
+          >
+            Customer <SortIndicator column="name" />
+          </div>
+
+          {/* Policy Number */}
+          <div
+            className="hidden sm:flex w-28 items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+            onClick={() => handleHeaderClick('policy_number')}
+          >
+            Policy # <SortIndicator column="policy_number" />
+          </div>
+
+          {/* Original Year */}
+          <div
+            className="hidden md:flex w-16 items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+            onClick={() => handleHeaderClick('original_year')}
+          >
+            Year <SortIndicator column="original_year" />
+          </div>
+
+          {/* Product */}
+          <div className="hidden md:block w-24">Product</div>
+
+          {/* Date */}
+          <div
+            className="hidden sm:flex w-28 items-center justify-end gap-1 cursor-pointer hover:text-foreground transition-colors"
+            onClick={() => handleHeaderClick('date_added')}
+          >
+            Date <SortIndicator column="date_added" />
+          </div>
+
+          {/* Premium */}
+          <div
+            className="hidden md:flex w-24 items-center justify-end gap-1 cursor-pointer hover:text-foreground transition-colors"
+            onClick={() => handleHeaderClick('premium')}
+          >
+            Premium <SortIndicator column="premium" />
+          </div>
+
+          {/* Status */}
+          <div
+            className="flex-shrink-0 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
+            onClick={() => handleHeaderClick('cancel_status')}
+          >
+            Status <SortIndicator column="cancel_status" />
+          </div>
+
+          {/* Spacer for chevron */}
+          <div className="flex-shrink-0 w-5 ml-auto" />
         </div>
-        <div
-          className="col-span-2 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
-          onClick={() => handleHeaderClick('name')}
-        >
-          Customer <SortIndicator column="name" />
-        </div>
-        <div
-          className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
-          onClick={() => handleHeaderClick('policy_number')}
-        >
-          Policy # <SortIndicator column="policy_number" />
-        </div>
-        <div
-          className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
-          onClick={() => handleHeaderClick('original_year')}
-        >
-          Orig Year <SortIndicator column="original_year" />
-        </div>
-        <div className="col-span-1">Product</div>
-        <div
-          className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
-          onClick={() => handleHeaderClick('date_added')}
-        >
-          Date <SortIndicator column="date_added" />
-        </div>
-        <div
-          className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
-          onClick={() => handleHeaderClick('cancel_status')}
-        >
-          Status <SortIndicator column="cancel_status" />
-        </div>
-        <div
-          className="col-span-1 flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors"
-          onClick={() => handleHeaderClick('premium')}
-        >
-          Premium <SortIndicator column="premium" />
-        </div>
-        <div className="col-span-1">Actions</div>
       </div>
     );
   };
