@@ -443,10 +443,8 @@ serve(async (req) => {
               agency_id: agencyId,
               team_member_id: teamMemberId,
               template_id: templateId,
-              audio_storage_path: storagePath1, // Use primary file path
-              original_filename: originalFilename1 || storagePath1.split('/').pop() || 'audio.wav',
-              secondary_original_filename: originalFilename2 || storagePath2.split('/').pop() || 'audio_part2.wav',
-              is_split_call: true,
+              audio_storage_path: storagePath1,
+              original_filename: `${originalFilename1 || 'part1.wav'} + ${originalFilename2 || 'part2.wav'}`,
               transcript: mergedTranscript,
               transcript_segments: mergedSegments,
               call_duration_seconds: Math.round(totalDuration),
