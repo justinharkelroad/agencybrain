@@ -78,7 +78,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Send confirmation email to user
     const userEmailResult = await resend.emails.send({
-      from: "AgencyBrain <info@standardplaybook.com>",
+      from: "AgencyBrain <info@agencybrain.standardplaybook.com>",
       to: [email],
       subject: "Thanks for your interest in AgencyBrain!",
       html: `
@@ -129,7 +129,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Send notification email to admin (CC)
     const adminEmailResult = await resend.emails.send({
-      from: "AgencyBrain Leads <info@standardplaybook.com>",
+      from: "AgencyBrain Leads <info@agencybrain.standardplaybook.com>",
       to: [ADMIN_EMAIL],
       subject: `🆕 New Lead: ${full_name} - ${carrier}`,
       html: `
