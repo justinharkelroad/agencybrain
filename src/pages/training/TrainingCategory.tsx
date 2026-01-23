@@ -53,7 +53,7 @@ interface SPLesson {
 export default function TrainingCategory() {
   const { categorySlug } = useParams<{ categorySlug: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
   const [category, setCategory] = useState<SPCategory | null>(null);
   const [modules, setModules] = useState<SPModule[]>([]);
@@ -61,10 +61,16 @@ export default function TrainingCategory() {
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    // Wait for auth to finish loading before fetching
+    if (authLoading) return;
+    
     if (user?.id && categorySlug) {
       fetchData();
+    } else if (!authLoading && !user) {
+      // Not authenticated, redirect to login
+      navigate('/auth');
     }
-  }, [user?.id, categorySlug]);
+  }, [user?.id, categorySlug, authLoading]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -153,7 +159,7 @@ export default function TrainingCategory() {
     return { completed, total, percent: total > 0 ? Math.round((completed / total) * 100) : 0 };
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="p-6 flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
