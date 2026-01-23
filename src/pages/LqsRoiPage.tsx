@@ -43,6 +43,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -455,9 +456,8 @@ export default function LqsRoiPage() {
     dateRange
   );
 
-  // Admin-only access (same as LQS Roadmap)
-  const ADMIN_EMAIL = 'justin@hfiagencies.com';
-  const hasAccess = user?.email === ADMIN_EMAIL;
+  // Check access via agency whitelist
+  const hasAccess = hasSalesBetaAccess(agencyProfile?.agencyId ?? null);
   
   // Load commission rate from agency when available
   useEffect(() => {
@@ -467,11 +467,11 @@ export default function LqsRoiPage() {
   }, [analytics?.summary?.commissionRate]);
   
   useEffect(() => {
-    if (!authLoading && user && !hasAccess) {
+    if (!authLoading && !agencyLoading && user && agencyProfile && !hasAccess) {
       toast.error('This feature is currently in development');
       navigate('/dashboard', { replace: true });
     }
-  }, [authLoading, user, hasAccess, navigate]);
+  }, [authLoading, agencyLoading, user, agencyProfile, hasAccess, navigate]);
 
   // Save commission rate handler
   const handleSaveCommissionRate = async () => {

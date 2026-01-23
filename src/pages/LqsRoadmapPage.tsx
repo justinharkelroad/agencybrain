@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
+import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -57,19 +58,31 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const { user, isAgencyOwner, isKeyEmployee } = useAuth();
   const navigate = useNavigate();
 
-  // Restrict access to justin@hfiagencies.com only
-  const ALLOWED_EMAIL = 'justin@hfiagencies.com';
-  const userEmail = user?.email?.toLowerCase();
+  // Check access via agency whitelist
+  const { data: profile } = useQuery({
+    queryKey: ['profile-agency', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user!.id)
+        .maybeSingle();
+      return data;
+    },
+  });
+  
+  const hasAccess = hasSalesBetaAccess(profile?.agency_id ?? null);
 
   useEffect(() => {
-    if (user && userEmail && userEmail !== ALLOWED_EMAIL.toLowerCase()) {
+    if (user && profile && !hasAccess) {
       toast.error('Access restricted');
       navigate(isStaffPortal ? '/staff/dashboard' : '/dashboard', { replace: true });
     }
-  }, [user, userEmail, isStaffPortal, navigate]);
+  }, [user, profile, hasAccess, isStaffPortal, navigate]);
 
   // Show nothing while checking access or if not allowed
-  if (!user || (userEmail && userEmail !== ALLOWED_EMAIL.toLowerCase())) {
+  if (!user || (profile && !hasAccess)) {
     return null;
   }
   const { data: agencyProfile, isLoading: agencyLoading } = useAgencyProfile(user?.id, 'Manager');
