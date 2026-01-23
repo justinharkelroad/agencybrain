@@ -73,6 +73,7 @@ const adminOnlyItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Stan Chatbot", url: "/admin/chatbot", icon: Bot },
   { title: "Training Admin", url: "/admin/training", icon: GraduationCap },
+  { title: "6-Week Challenge", url: "/admin/challenge", icon: Target },
   { title: "Standard Playbook", url: "/admin/standard-playbook", icon: BookOpen },
   { title: "Flow Templates", url: "/admin/flows", icon: Sparkles },
   { title: "Call Scoring", url: "/admin/call-scoring/templates", icon: Phone },
