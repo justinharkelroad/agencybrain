@@ -103,16 +103,19 @@ export default function TrainingLesson() {
     setLoading(true);
     try {
       // Fetch lesson with module and category
+      // Use !inner join to filter by moduleSlug, ensuring we get the correct lesson
+      // (lesson slugs are only unique within a module, not globally)
       const { data: lessonData, error: lessonError } = await supabase
         .from('sp_lessons')
         .select(`
           *,
-          module:sp_modules(
+          module:sp_modules!inner(
             id, name, slug,
             category:sp_categories(id, name, slug)
           )
         `)
         .eq('slug', lessonSlug)
+        .eq('module.slug', moduleSlug)
         .eq('is_published', true)
         .single();
 
