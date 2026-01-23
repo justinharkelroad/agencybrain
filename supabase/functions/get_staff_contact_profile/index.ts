@@ -198,7 +198,7 @@ serve(async (req) => {
             .eq('is_active', true)
             .order('created_at', { ascending: false }),
 
-      // Winback records
+      // Winback records - use ID if provided, otherwise contact_id
       winbackHouseholdId
         ? supabase
             .from('winback_households')
@@ -255,23 +255,82 @@ serve(async (req) => {
     const cancelAuditRecords = cancelAuditResult.data || [];
     const winbackRecords = winbackResult.data || [];
 
+    // Fetch winback activities if we have winback records OR if winbackHouseholdId was provided
+    const winbackHouseholdIds = winbackHouseholdId
+      ? [winbackHouseholdId]
+      : winbackRecords.map((r: any) => r.id);
+
+    let allActivities = [...activities];
+
+    if (winbackHouseholdIds.length > 0) {
+      const { data: wbActivities } = await supabase
+        .from('winback_activities')
+        .select('id, activity_type, notes, created_by_name, created_at, household_id, old_status, new_status')
+        .eq('agency_id', agencyId)
+        .in('household_id', winbackHouseholdIds)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      // Map winback activities to unified format and merge
+      const mappedWinbackActivities = (wbActivities || []).map((wa: any) => ({
+        id: wa.id,
+        contact_id: contactId,
+        agency_id: agencyId,
+        source_module: 'winback',
+        activity_type: mapWinbackActivityType(wa.activity_type),
+        notes: wa.notes,
+        created_by_display_name: wa.created_by_name,
+        activity_date: wa.created_at,
+        created_at: wa.created_at,
+        old_status: wa.old_status,
+        new_status: wa.new_status,
+      }));
+
+      allActivities = [...activities, ...mappedWinbackActivities]
+        .sort((a, b) => new Date(b.activity_date || b.created_at).getTime() - new Date(a.activity_date || a.created_at).getTime());
+    }
+
     // Calculate lifecycle stage based on linked records
-    let lifecycleStage = 'prospect';
-    if (winbackRecords.length > 0) {
+    // Priority order matches get_contacts_by_stage RPC for consistency
+    let lifecycleStage = 'open_lead';  // Default to valid stage
+
+    // 1. Winback (highest priority) - only active winback records
+    if (winbackRecords.length > 0 && winbackRecords.some((r: any) =>
+        r.status === 'untouched' || r.status === 'in_progress' || r.status === 'moved_to_quoted'
+    )) {
       lifecycleStage = 'winback';
-    } else if (cancelAuditRecords.some((r: any) => r.status === 'lost')) {
-      lifecycleStage = 'former_client';
-    } else if (lqsRecords.some((r: any) => r.sales && r.sales.length > 0)) {
-      lifecycleStage = 'client';
-    } else if (lqsRecords.some((r: any) => r.quotes && r.quotes.length > 0)) {
+    }
+    // 2. Cancel Audit - active records not saved
+    else if (cancelAuditRecords.length > 0 && cancelAuditRecords.some((r: any) =>
+        r.cancel_status !== 'Saved' && r.cancel_status !== 'saved'
+    )) {
+      lifecycleStage = 'cancel_audit';
+    }
+    // 3. Customer - has sales, successful renewals, or saved cancel audits
+    else if (
+      lqsRecords.some((r: any) => r.sales && r.sales.length > 0) ||
+      renewalRecords.some((r: any) => r.current_status === 'success') ||
+      cancelAuditRecords.some((r: any) => r.cancel_status === 'Saved' || r.cancel_status === 'saved')
+    ) {
+      lifecycleStage = 'customer';
+    }
+    // 4. Renewal - active renewal records
+    else if (renewalRecords.length > 0 && renewalRecords.some((r: any) =>
+        r.current_status === 'uncontacted' || r.current_status === 'pending'
+    )) {
+      lifecycleStage = 'renewal';
+    }
+    // 5. Quoted - has quotes
+    else if (lqsRecords.some((r: any) => r.quotes && r.quotes.length > 0)) {
       lifecycleStage = 'quoted';
     }
+    // 6. Default: open_lead (already set)
 
     // Build journey events from all activities and records
     const journeyEvents: any[] = [];
 
     // Add activities to journey
-    for (const activity of activities) {
+    for (const activity of allActivities) {
       journeyEvents.push({
         id: activity.id,
         date: activity.activity_date,
@@ -315,7 +374,7 @@ serve(async (req) => {
 
     const profile = {
       contact,
-      activities,
+      activities: allActivities,
       lqsRecords,
       renewalRecords,
       cancelAuditRecords,
@@ -331,11 +390,26 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[get_staff_contact_profile] Unexpected error:', error);
-    return new Response(JSON.stringify({ 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : 'Unknown error'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
+
+// Map winback activity types to unified activity types
+function mapWinbackActivityType(type: string): string {
+  const mapping: Record<string, string> = {
+    'called': 'call',
+    'left_vm': 'voicemail',
+    'texted': 'text',
+    'emailed': 'email',
+    'note': 'note',
+    'status_change': 'status_change',
+    'quoted': 'quoted',
+    'won_back': 'won_back',
+  };
+  return mapping[type] || type;
+}

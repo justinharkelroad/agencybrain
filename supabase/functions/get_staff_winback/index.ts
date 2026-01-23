@@ -282,10 +282,12 @@ Deno.serve(async (req) => {
             await supabase.rpc("insert_contact_activity", {
               p_contact_id: household.contact_id,
               p_agency_id: agencyId,
+              p_source_module: "winback",
               p_activity_type: activityType,
               p_activity_subtype: null,
-              p_description: `Winback: ${activityType}${notes ? ` - ${notes}` : ""}`,
-              p_created_by_name: userName,
+              p_source_record_id: householdId,
+              p_notes: `Winback: ${activityType}${notes ? ` - ${notes}` : ""}`,
+              p_created_by_display_name: userName,
             });
           } catch (mirrorError) {
             console.error("[log_activity] contact_activities mirror error:", mirrorError);
@@ -1114,10 +1116,12 @@ Deno.serve(async (req) => {
             await supabase.rpc("insert_contact_activity", {
               p_contact_id: contactId,
               p_agency_id: agencyId,
+              p_source_module: "winback",
               p_activity_type: "quoted",
               p_activity_subtype: null,
-              p_description: "Winback: Moved to Quoted Household",
-              p_created_by_name: userName,
+              p_source_record_id: householdId,
+              p_notes: "Winback: Moved to Quoted Household",
+              p_created_by_display_name: userName,
             });
           } catch (mirrorError) {
             console.error("[winback_to_quoted] contact_activities mirror error:", mirrorError);

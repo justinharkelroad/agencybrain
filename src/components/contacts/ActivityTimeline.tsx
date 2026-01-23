@@ -11,6 +11,7 @@ interface ActivityTimelineProps {
   maxHeight?: string;
   showSourceTags?: boolean;
   filterBySource?: SourceModule;
+  disableScroll?: boolean;
 }
 
 export function ActivityTimeline({
@@ -18,6 +19,7 @@ export function ActivityTimeline({
   maxHeight = '400px',
   showSourceTags = true,
   filterBySource,
+  disableScroll = false,
 }: ActivityTimelineProps) {
   // Filter by source if specified
   const filteredActivities = filterBySource
@@ -36,28 +38,37 @@ export function ActivityTimeline({
     );
   }
 
+  const content = (
+    <div className="space-y-6">
+      {Object.entries(groupedActivities).map(([dateKey, dayActivities]) => (
+        <div key={dateKey}>
+          <div className="sticky top-0 bg-background/95 backdrop-blur py-1 mb-3">
+            <h4 className="text-sm font-medium text-muted-foreground">
+              {formatDateHeader(dateKey)}
+            </h4>
+          </div>
+          <div className="space-y-3">
+            {dayActivities.map((activity) => (
+              <ActivityItem
+                key={activity.id}
+                activity={activity}
+                showSourceTag={showSourceTags}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  // When disableScroll is true, let parent handle scrolling
+  if (disableScroll) {
+    return content;
+  }
+
   return (
     <ScrollArea style={{ maxHeight }} className="pr-4">
-      <div className="space-y-6">
-        {Object.entries(groupedActivities).map(([dateKey, dayActivities]) => (
-          <div key={dateKey}>
-            <div className="sticky top-0 bg-background/95 backdrop-blur py-1 mb-3">
-              <h4 className="text-sm font-medium text-muted-foreground">
-                {formatDateHeader(dateKey)}
-              </h4>
-            </div>
-            <div className="space-y-3">
-              {dayActivities.map((activity) => (
-                <ActivityItem
-                  key={activity.id}
-                  activity={activity}
-                  showSourceTag={showSourceTags}
-                />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      {content}
     </ScrollArea>
   );
 }

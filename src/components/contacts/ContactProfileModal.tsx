@@ -591,7 +591,7 @@ export function ContactProfileModal({
   return (
     <>
       <Sheet open={open} onOpenChange={onClose}>
-        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto" side="right">
           {isLoading ? (
             <LoadingSkeleton />
           ) : error ? (
@@ -788,7 +788,7 @@ export function ContactProfileModal({
                 <TabsContent value="activity" className="mt-4">
                   <ActivityTimeline
                     activities={profile.activities}
-                    maxHeight="calc(100vh - 400px)"
+                    disableScroll={true}
                   />
                 </TabsContent>
 

@@ -171,15 +171,28 @@ serve(async (req) => {
     }
 
     // Mirror to contact_activities for "Last Activity" display
-    if (contactId) {
+    // First get contact_id from the renewal record if not passed
+    let mirrorContactId = contactId;
+    if (!mirrorContactId) {
+      const { data: renewalRecord } = await supabase
+        .from('renewal_records')
+        .select('contact_id')
+        .eq('id', renewalRecordId)
+        .single();
+      mirrorContactId = renewalRecord?.contact_id;
+    }
+
+    if (mirrorContactId) {
       try {
         await supabase.rpc('insert_contact_activity', {
-          p_contact_id: contactId,
+          p_contact_id: mirrorContactId,
           p_agency_id: agencyId,
+          p_source_module: 'renewal',
           p_activity_type: activityType,
           p_activity_subtype: activityStatus || null,
-          p_description: `Renewal: ${activityType}${activityStatus ? ` - ${activityStatus}` : ''}`,
-          p_created_by_name: displayName,
+          p_source_record_id: renewalRecordId,
+          p_notes: `Renewal: ${activityType}${activityStatus ? ` - ${activityStatus}` : ''}`,
+          p_created_by_display_name: displayName,
         });
       } catch (mirrorError) {
         console.error('[log_staff_renewal_activity] contact_activities mirror error:', mirrorError);
