@@ -6331,6 +6331,7 @@ export type Database = {
         Row: {
           agency_id: string
           bundle_type: string | null
+          contact_id: string | null
           created_at: string | null
           created_by: string | null
           customer_email: string | null
@@ -6361,6 +6362,7 @@ export type Database = {
         Insert: {
           agency_id: string
           bundle_type?: string | null
+          contact_id?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_email?: string | null
@@ -6391,6 +6393,7 @@ export type Database = {
         Update: {
           agency_id?: string
           bundle_type?: string | null
+          contact_id?: string | null
           created_at?: string | null
           created_by?: string | null
           customer_email?: string | null
@@ -6424,6 +6427,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "agency_contacts"
             referencedColumns: ["id"]
           },
           {
@@ -9577,7 +9587,6 @@ export type Database = {
         Returns: {
           agency_id: string
           assigned_team_member_name: string
-          computed_stage: string
           created_at: string
           current_stage: string
           emails: string[]
