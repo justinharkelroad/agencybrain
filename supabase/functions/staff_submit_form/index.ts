@@ -1,6 +1,6 @@
 // STAFF FORM SUBMIT - REQUIRES STAFF SESSION AUTH
 // team_member_id derived from session, NOT from request body
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { corsHeaders } from '../_shared/cors.ts';
 
 // Declare EdgeRuntime global for Supabase Edge Functions

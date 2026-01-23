@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { BRAND, buildEmailHtml, EmailComponents } from '../_shared/email-template.ts';
 import { shouldSendDailySummary, getDayName } from '../_shared/business-days.ts';
 
