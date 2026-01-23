@@ -119,6 +119,9 @@ serve(async (req) => {
       case "bulk_delete_records":
         result = await bulkDeleteRecords(supabase, agencyId, params);
         break;
+      case "get_active_policy_numbers":
+        result = await getActivePolicyNumbers(supabase, agencyId);
+        break;
       default:
         console.error(`[get-cancel-audit-data] Unknown operation: ${operation}`);
         return new Response(
@@ -1112,4 +1115,30 @@ async function bulkDeleteRecords(supabase: any, agencyId: string, params: any) {
   
   console.log(`[bulkDeleteRecords] Successfully deleted ${recordIds.length} records`);
   return { count: recordIds.length };
+}
+
+// Get policy numbers for active cancel audit records (new/in_progress)
+// Used by Renewals page to filter out policies being worked in Cancel Audit
+async function getActivePolicyNumbers(supabase: any, agencyId: string) {
+  console.log(`[getActivePolicyNumbers] Fetching active cancel audit policies for agency ${agencyId}`);
+
+  const { data, error } = await supabase
+    .from("cancel_audit_records")
+    .select("policy_number")
+    .eq("agency_id", agencyId)
+    .eq("is_active", true)
+    .in("status", ["new", "in_progress"]);
+
+  if (error) {
+    console.error("[getActivePolicyNumbers] Error:", error);
+    throw error;
+  }
+
+  const policyNumbers = (data || [])
+    .map((r: any) => r.policy_number)
+    .filter(Boolean);
+
+  console.log(`[getActivePolicyNumbers] Found ${policyNumbers.length} active cancel audit policies`);
+
+  return { policyNumbers };
 }
