@@ -128,6 +128,9 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
   const [activeTab, setActiveTab] = useState<AnalyticsTab>('leaderboard');
   const [teamMembersLoaded, setTeamMembersLoaded] = useState(false);
 
+  // Cancel/Rewrite filter
+  const [hideCancelRewrites, setHideCancelRewrites] = useState(false);
+
   // Table state
   const [sortColumn, setSortColumn] = useState<SortColumn>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
@@ -201,10 +204,21 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
     }
   };
 
-  // Calculate stats
+  // Count of cancel/rewrite policies
+  const cancelRewriteCount = useMemo(() => {
+    return policies.filter((p) => p.is_cancel_rewrite).length;
+  }, [policies]);
+
+  // Base filtered policies (cancel/rewrite filter applied first)
+  const basePolicies = useMemo(() => {
+    if (!hideCancelRewrites) return policies;
+    return policies.filter((p) => !p.is_cancel_rewrite);
+  }, [policies, hideCancelRewrites]);
+
+  // Calculate stats (uses filtered data)
   const stats = useMemo(() => {
     return calculateTerminationStats(
-      policies.map((p) => ({
+      basePolicies.map((p) => ({
         product_name: p.product_name,
         line_code: p.line_code,
         items_count: p.items_count,
@@ -212,20 +226,20 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
         is_cancel_rewrite: p.is_cancel_rewrite,
       }))
     );
-  }, [policies]);
+  }, [basePolicies]);
 
   // Filter policies based on search
   const filteredPolicies = useMemo(() => {
-    if (!search) return policies;
+    if (!search) return basePolicies;
     const searchLower = search.toLowerCase();
-    return policies.filter((p) => {
+    return basePolicies.filter((p) => {
       const customerName = `${p.winback_households?.first_name || ''} ${p.winback_households?.last_name || ''}`.toLowerCase();
       return (
         customerName.includes(searchLower) ||
         p.policy_number.toLowerCase().includes(searchLower)
       );
     });
-  }, [policies, search]);
+  }, [basePolicies, search]);
 
   // Sort policies
   const sortedPolicies = useMemo(() => {
@@ -273,7 +287,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
   const producerStats = useMemo(() => {
     const producerMap = new Map<string, ProducerStats>();
 
-    for (const policy of policies) {
+    for (const policy of basePolicies) {
       const agentNumber = policy.agent_number || 'Unknown';
       const existing = producerMap.get(agentNumber) || {
         agentNumber,
@@ -296,13 +310,13 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
     }
 
     return Array.from(producerMap.values()).sort((a, b) => b.itemsLost - a.itemsLost);
-  }, [policies, teamMembers]);
+  }, [basePolicies, teamMembers]);
 
   // Policy type breakdown - using granular types
   const policyTypeData = useMemo(() => {
     const typeMap = new Map<string, { name: string; value: number; items: number; premium: number }>();
 
-    for (const policy of policies) {
+    for (const policy of basePolicies) {
       const type = detectPolicyType(policy.product_name, policy.line_code);
       const label = getPolicyTypeLabel(type);
       const existing = typeMap.get(label) || { name: label, value: 0, items: 0, premium: 0 };
@@ -313,13 +327,13 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
     }
 
     return Array.from(typeMap.values()).sort((a, b) => b.items - a.items);
-  }, [policies]);
+  }, [basePolicies]);
 
   // Reason breakdown (top 10)
   const reasonData = useMemo(() => {
     const reasonMap = new Map<string, number>();
 
-    for (const policy of policies) {
+    for (const policy of basePolicies) {
       const reason = policy.termination_reason || 'Unknown';
       reasonMap.set(reason, (reasonMap.get(reason) || 0) + 1);
     }
@@ -328,31 +342,31 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .map(([reason, count]) => ({ reason, count }));
-  }, [policies]);
+  }, [basePolicies]);
 
   // Drill-down filtered policies
   const drillDownPolicies = useMemo(() => {
     if (!drillDown.open) return [];
-    
+
     switch (drillDown.type) {
       case 'producer':
-        return policies.filter(p => {
+        return basePolicies.filter(p => {
           const agentNumber = p.agent_number || 'Unknown';
           const producerName = teamMembers.get(agentNumber) || agentNumber;
           return producerName === drillDown.filterValue || agentNumber === drillDown.filterValue;
         });
       case 'type':
-        return policies.filter(p => {
+        return basePolicies.filter(p => {
           const type = detectPolicyType(p.product_name, p.line_code);
           const label = getPolicyTypeLabel(type);
           return label === drillDown.filterValue;
         });
       case 'reason':
-        return policies.filter(p => (p.termination_reason || 'Unknown') === drillDown.filterValue);
+        return basePolicies.filter(p => (p.termination_reason || 'Unknown') === drillDown.filterValue);
       default:
         return [];
     }
-  }, [drillDown, policies, teamMembers]);
+  }, [drillDown, basePolicies, teamMembers]);
 
   // Chart click handlers
   const handleProducerBarClick = (data: any) => {
@@ -544,6 +558,20 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
               />
             </PopoverContent>
           </Popover>
+
+          {/* Cancel/Rewrite Toggle */}
+          {cancelRewriteCount > 0 && (
+            <Button
+              variant={hideCancelRewrites ? "default" : "outline"}
+              size="sm"
+              onClick={() => setHideCancelRewrites(!hideCancelRewrites)}
+              className="whitespace-nowrap"
+            >
+              {hideCancelRewrites
+                ? `Hiding ${cancelRewriteCount} Cancel/Rewrites`
+                : `Hide Cancel/Rewrites (${cancelRewriteCount})`}
+            </Button>
+          )}
         </div>
 
         {/* Search */}
