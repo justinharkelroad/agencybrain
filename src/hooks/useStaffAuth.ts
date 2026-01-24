@@ -45,6 +45,8 @@ export function useStaffAuth() {
   // Track the toast ID so we can dismiss it after refresh
   const toastIdRef = useRef<string | number | null>(null);
 
+  // === All useCallbacks must be defined before useEffects that use them ===
+
   // Refresh session by calling edge function
   const refreshSession = useCallback(async () => {
     const token = state.sessionToken || localStorage.getItem('staff_session_token');
@@ -84,6 +86,113 @@ export function useStaffAuth() {
       return { success: false, error: 'Failed to refresh session' };
     }
   }, [state.sessionToken]);
+
+  const login = useCallback(async (username: string, password: string, agencySlug?: string) => {
+    setState(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('staff_login', {
+        body: { username, password, agency_slug: agencySlug }
+      });
+
+      if (error || !data?.success) {
+        const errorMsg = data?.error || 'Unable to sign in. Please try again.';
+        setState(prev => ({ ...prev, loading: false, error: errorMsg }));
+        return { error: errorMsg };
+      }
+
+      const expiresAt = data.expires_at ? new Date(data.expires_at) : null;
+
+      localStorage.setItem('staff_session_token', data.session_token);
+      localStorage.setItem('staff_agency_id', data.user.agency_id);
+      localStorage.setItem('auth_mode', 'staff'); // Prevent AuthProvider from wiping staff tokens
+      if (data.expires_at) {
+        localStorage.setItem('staff_session_expiry', data.expires_at);
+      }
+      localStorage.removeItem('staff_is_impersonation');
+
+      // Clear sidebar folder state on login so folders start closed
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('staff-sidebar-folder-')) {
+          localStorage.removeItem(key);
+        }
+      });
+
+      // Reset warning flag on new login
+      warningShownRef.current = false;
+
+      setState({
+        user: data.user,
+        sessionToken: data.session_token,
+        expiresAt,
+        loading: false,
+        error: null,
+        isImpersonation: false,
+      });
+
+      return { error: null, user: data.user };
+    } catch (err: any) {
+      const errorMsg = err?.message || 'Login failed';
+      setState(prev => ({ ...prev, loading: false, error: errorMsg }));
+      return { error: errorMsg };
+    }
+  }, []);
+
+  const setImpersonationSession = useCallback((sessionToken: string, user: StaffUser, expiresAt?: string) => {
+    localStorage.setItem('staff_session_token', sessionToken);
+    localStorage.setItem('staff_agency_id', user.agency_id);
+    localStorage.setItem('auth_mode', 'staff'); // Prevent AuthProvider from wiping staff tokens
+    localStorage.setItem('staff_is_impersonation', 'true');
+    if (expiresAt) {
+      localStorage.setItem('staff_session_expiry', expiresAt);
+    }
+
+    // Reset warning flag on new session
+    warningShownRef.current = false;
+
+    setState({
+      user: { ...user, is_impersonation: true },
+      sessionToken,
+      expiresAt: expiresAt ? new Date(expiresAt) : null,
+      loading: false,
+      error: null,
+      isImpersonation: true,
+    });
+  }, []);
+
+  const logout = useCallback(async () => {
+    const token = state.sessionToken;
+
+    setState({ user: null, sessionToken: null, expiresAt: null, loading: false, error: null, isImpersonation: false });
+    localStorage.removeItem('staff_session_token');
+    localStorage.removeItem('staff_agency_id');
+    localStorage.removeItem('staff_is_impersonation');
+    localStorage.removeItem('staff_session_expiry');
+    localStorage.removeItem('auth_mode'); // Clear staff mode flag on logout
+    localStorage.removeItem('sidebarOpenFolder');
+    localStorage.removeItem('staff_session_last_refresh');
+
+    // Reset warning ref
+    warningShownRef.current = false;
+
+    // Dismiss any warning toast
+    if (toastIdRef.current) {
+      toast.dismiss(toastIdRef.current);
+      toastIdRef.current = null;
+    }
+
+    if (token) {
+      try {
+        await supabase.functions.invoke('staff_logout', {
+          body: { session_token: token }
+        });
+      } catch (err) {
+        console.error('Logout error:', err);
+      }
+    }
+  }, [state.sessionToken]);
+
+  // === useEffects come after all useCallbacks ===
 
   // Check for existing session on mount
   useEffect(() => {
@@ -196,111 +305,6 @@ export function useStaffAuth() {
 
     return () => clearInterval(intervalId);
   }, [state.sessionToken, state.expiresAt, refreshSession, logout]);
-
-  const login = useCallback(async (username: string, password: string, agencySlug?: string) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
-
-    try {
-      const { data, error } = await supabase.functions.invoke('staff_login', {
-        body: { username, password, agency_slug: agencySlug }
-      });
-
-      if (error || !data?.success) {
-        const errorMsg = data?.error || 'Unable to sign in. Please try again.';
-        setState(prev => ({ ...prev, loading: false, error: errorMsg }));
-        return { error: errorMsg };
-      }
-
-      const expiresAt = data.expires_at ? new Date(data.expires_at) : null;
-
-      localStorage.setItem('staff_session_token', data.session_token);
-      localStorage.setItem('staff_agency_id', data.user.agency_id);
-      localStorage.setItem('auth_mode', 'staff'); // Prevent AuthProvider from wiping staff tokens
-      if (data.expires_at) {
-        localStorage.setItem('staff_session_expiry', data.expires_at);
-      }
-      localStorage.removeItem('staff_is_impersonation');
-
-      // Clear sidebar folder state on login so folders start closed
-      Object.keys(localStorage).forEach(key => {
-        if (key.startsWith('staff-sidebar-folder-')) {
-          localStorage.removeItem(key);
-        }
-      });
-
-      // Reset warning flag on new login
-      warningShownRef.current = false;
-
-      setState({
-        user: data.user,
-        sessionToken: data.session_token,
-        expiresAt,
-        loading: false,
-        error: null,
-        isImpersonation: false,
-      });
-
-      return { error: null, user: data.user };
-    } catch (err: any) {
-      const errorMsg = err?.message || 'Login failed';
-      setState(prev => ({ ...prev, loading: false, error: errorMsg }));
-      return { error: errorMsg };
-    }
-  }, []);
-
-  const setImpersonationSession = useCallback((sessionToken: string, user: StaffUser, expiresAt?: string) => {
-    localStorage.setItem('staff_session_token', sessionToken);
-    localStorage.setItem('staff_agency_id', user.agency_id);
-    localStorage.setItem('auth_mode', 'staff'); // Prevent AuthProvider from wiping staff tokens
-    localStorage.setItem('staff_is_impersonation', 'true');
-    if (expiresAt) {
-      localStorage.setItem('staff_session_expiry', expiresAt);
-    }
-
-    // Reset warning flag on new session
-    warningShownRef.current = false;
-
-    setState({
-      user: { ...user, is_impersonation: true },
-      sessionToken,
-      expiresAt: expiresAt ? new Date(expiresAt) : null,
-      loading: false,
-      error: null,
-      isImpersonation: true,
-    });
-  }, []);
-
-  const logout = useCallback(async () => {
-    const token = state.sessionToken;
-
-    setState({ user: null, sessionToken: null, expiresAt: null, loading: false, error: null, isImpersonation: false });
-    localStorage.removeItem('staff_session_token');
-    localStorage.removeItem('staff_agency_id');
-    localStorage.removeItem('staff_is_impersonation');
-    localStorage.removeItem('staff_session_expiry');
-    localStorage.removeItem('auth_mode'); // Clear staff mode flag on logout
-    localStorage.removeItem('sidebarOpenFolder');
-    localStorage.removeItem('staff_session_last_refresh');
-
-    // Reset warning ref
-    warningShownRef.current = false;
-
-    // Dismiss any warning toast
-    if (toastIdRef.current) {
-      toast.dismiss(toastIdRef.current);
-      toastIdRef.current = null;
-    }
-
-    if (token) {
-      try {
-        await supabase.functions.invoke('staff_logout', {
-          body: { session_token: token }
-        });
-      } catch (err) {
-        console.error('Logout error:', err);
-      }
-    }
-  }, [state.sessionToken]);
 
   return {
     user: state.user,
