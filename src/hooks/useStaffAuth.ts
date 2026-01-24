@@ -44,6 +44,8 @@ export function useStaffAuth() {
   const warningShownRef = useRef(false);
   // Track the toast ID so we can dismiss it after refresh
   const toastIdRef = useRef<string | number | null>(null);
+  // Ref to hold logout function to avoid TDZ issues in useEffect
+  const logoutRef = useRef<() => Promise<void>>();
 
   // === All useCallbacks must be defined before useEffects that use them ===
 
@@ -192,6 +194,9 @@ export function useStaffAuth() {
     }
   }, [state.sessionToken]);
 
+  // Keep ref updated with latest logout function
+  logoutRef.current = logout;
+
   // === useEffects come after all useCallbacks ===
 
   // Check for existing session on mount
@@ -267,7 +272,7 @@ export function useStaffAuth() {
 
       // Session has expired
       if (timeRemaining <= 0) {
-        logout();
+        logoutRef.current?.();
         toast.error('Your session has expired. Please log in again.');
         return;
       }
@@ -304,7 +309,7 @@ export function useStaffAuth() {
     const intervalId = setInterval(checkExpiry, CHECK_INTERVAL_MS);
 
     return () => clearInterval(intervalId);
-  }, [state.sessionToken, state.expiresAt, refreshSession, logout]);
+  }, [state.sessionToken, state.expiresAt, refreshSession]);
 
   return {
     user: state.user,
