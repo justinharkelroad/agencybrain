@@ -114,6 +114,8 @@ serve(async (req) => {
 
     const body: CreateSaleRequest = await req.json();
     console.log('[create_staff_sale] Creating sale for staff:', staffUser.id);
+    console.log('[create_staff_sale] Request body lead_source_id:', body.lead_source_id);
+    console.log('[create_staff_sale] Customer:', body.customer_name, 'Phone:', body.customer_phone, 'Zip:', body.customer_zip);
 
     // Get team member name for activity logging
     const { data: teamMember } = await supabase
@@ -183,21 +185,13 @@ serve(async (req) => {
       let existingHousehold: { id: string } | null = null;
 
       if (body.customer_phone) {
-        // Normalize phone: strip all non-digits
+        // Normalize phone: strip all non-digits, get last 10
         const normalizedPhone = body.customer_phone.replace(/\D/g, '');
-        // Try to find household by phone (last 10 digits)
         const phoneLast10 = normalizedPhone.slice(-10);
+        console.log('[create_staff_sale] Looking for phone match:', phoneLast10);
 
-        const { data: phoneMatch } = await supabase
-          .from('lqs_households')
-          .select('id, phone, household_key')
-          .eq('agency_id', staffUser.agency_id)
-          .not('phone', 'is', null)
-          .maybeSingle();
-
-        // Check if any household has matching phone
-        if (!phoneMatch) {
-          // Query with phone pattern matching
+        if (phoneLast10.length === 10) {
+          // Query all households with phones and compare
           const { data: phoneMatches } = await supabase
             .from('lqs_households')
             .select('id, phone, household_key')
@@ -208,7 +202,7 @@ serve(async (req) => {
             for (const h of phoneMatches) {
               if (h.phone) {
                 const hPhoneLast10 = h.phone.replace(/\D/g, '').slice(-10);
-                if (hPhoneLast10 === phoneLast10 && phoneLast10.length === 10) {
+                if (hPhoneLast10 === phoneLast10) {
                   existingHousehold = { id: h.id };
                   console.log('[create_staff_sale] Found existing LQS household by phone:', h.id, 'key:', h.household_key);
                   break;
