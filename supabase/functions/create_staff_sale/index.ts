@@ -145,14 +145,14 @@ serve(async (req) => {
       );
     }
 
+    // Parse customer name into first/last
+    const nameParts = body.customer_name.trim().split(/\s+/);
+    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+
     // Find or create contact for this customer
     let contactId: string | null = null;
     try {
-      // Parse customer name into first/last
-      const nameParts = body.customer_name.trim().split(/\s+/);
-      const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
-      const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
-
       const { data: contactResult } = await supabase.rpc('find_or_create_contact', {
         p_agency_id: staffUser.agency_id,
         p_first_name: firstName,
@@ -166,6 +166,100 @@ serve(async (req) => {
     } catch (contactErr) {
       console.warn('[create_staff_sale] Could not link contact:', contactErr);
       // Continue without contact - not a fatal error
+    }
+
+    // Create LQS pipeline records (household → quote → sale)
+    let lqsHouseholdId: string | null = null;
+    try {
+      // Generate household key
+      const { data: householdKey } = await supabase.rpc('generate_household_key', {
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_zip_code: body.customer_zip || '00000',
+      });
+
+      // Find or create lqs_households record
+      const { data: existingHousehold } = await supabase
+        .from('lqs_households')
+        .select('id')
+        .eq('agency_id', staffUser.agency_id)
+        .eq('household_key', householdKey)
+        .maybeSingle();
+
+      if (existingHousehold) {
+        lqsHouseholdId = existingHousehold.id;
+        console.log('[create_staff_sale] Found existing LQS household:', lqsHouseholdId);
+      } else {
+        // Create new household (starts as 'lead')
+        const { data: newHousehold, error: householdErr } = await supabase
+          .from('lqs_households')
+          .insert({
+            agency_id: staffUser.agency_id,
+            household_key: householdKey,
+            first_name: firstName.toUpperCase(),
+            last_name: lastName.toUpperCase(),
+            zip_code: body.customer_zip || '00000',
+            phone: body.customer_phone || null,
+            email: body.customer_email || null,
+            lead_source_id: body.lead_source_id,
+            status: 'lead',
+            lead_received_date: body.sale_date,
+            team_member_id: staffUser.team_member_id,
+            contact_id: contactId,
+          })
+          .select('id')
+          .single();
+
+        if (householdErr) {
+          console.warn('[create_staff_sale] Failed to create LQS household:', householdErr);
+        } else {
+          lqsHouseholdId = newHousehold.id;
+          console.log('[create_staff_sale] Created LQS household:', lqsHouseholdId);
+        }
+      }
+
+      // Create quote and sale records for each policy (this auto-updates household status via triggers)
+      if (lqsHouseholdId) {
+        for (const policy of body.policies) {
+          const premiumCents = Math.round((policy.items.reduce((sum, i) => sum + i.premium, 0)) * 100);
+          const itemsCount = policy.items.reduce((sum, i) => sum + i.item_count, 0);
+
+          // Create quote (triggers status → 'quoted')
+          await supabase
+            .from('lqs_quotes')
+            .insert({
+              household_id: lqsHouseholdId,
+              agency_id: staffUser.agency_id,
+              team_member_id: staffUser.team_member_id,
+              quote_date: body.sale_date,
+              product_type: policy.policy_type_name,
+              items_quoted: itemsCount,
+              premium_cents: premiumCents,
+              issued_policy_number: policy.policy_number || null,
+              source: 'manual',
+            });
+
+          // Create sale (triggers status → 'sold')
+          await supabase
+            .from('lqs_sales')
+            .insert({
+              household_id: lqsHouseholdId,
+              agency_id: staffUser.agency_id,
+              team_member_id: staffUser.team_member_id,
+              sale_date: body.sale_date,
+              product_type: policy.policy_type_name,
+              items_sold: itemsCount,
+              policies_sold: 1,
+              premium_cents: premiumCents,
+              policy_number: policy.policy_number || null,
+              source: 'sales_dashboard',
+            });
+        }
+        console.log('[create_staff_sale] LQS quotes and sales created');
+      }
+    } catch (lqsErr) {
+      console.warn('[create_staff_sale] LQS pipeline creation failed:', lqsErr);
+      // Continue - LQS tracking is non-critical
     }
 
     // Insert the main sale record
