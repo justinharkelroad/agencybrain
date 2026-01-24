@@ -44,6 +44,10 @@ export function useStaffAuth() {
   const warningShownRef = useRef(false);
   // Track the toast ID so we can dismiss it after refresh
   const toastIdRef = useRef<string | number | null>(null);
+  // Ref to hold logout function to avoid TDZ issues in useEffect
+  const logoutRef = useRef<() => Promise<void>>();
+
+  // === All useCallbacks must be defined before useEffects that use them ===
 
   // Refresh session by calling edge function
   const refreshSession = useCallback(async () => {
@@ -84,118 +88,6 @@ export function useStaffAuth() {
       return { success: false, error: 'Failed to refresh session' };
     }
   }, [state.sessionToken]);
-
-  // Check for existing session on mount
-  useEffect(() => {
-    const checkSession = async () => {
-      const token = localStorage.getItem('staff_session_token');
-      const isImpersonation = localStorage.getItem('staff_is_impersonation') === 'true';
-      const storedExpiry = localStorage.getItem('staff_session_expiry');
-
-      if (!token) {
-        setState(prev => ({ ...prev, loading: false }));
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase.functions.invoke('staff_verify_session', {
-          body: { session_token: token }
-        });
-
-        if (error || !data?.valid) {
-          localStorage.removeItem('staff_session_token');
-          localStorage.removeItem('staff_is_impersonation');
-          localStorage.removeItem('staff_session_expiry');
-          localStorage.removeItem('auth_mode'); // Clear staff mode on invalid session
-          setState({ user: null, sessionToken: null, expiresAt: null, loading: false, error: null, isImpersonation: false });
-          return;
-        }
-
-        // Get expires_at from response or stored value
-        const expiresAt = data.expires_at
-          ? new Date(data.expires_at)
-          : storedExpiry
-            ? new Date(storedExpiry)
-            : null;
-
-        // Store expiry in localStorage if we got it from server
-        if (data.expires_at) {
-          localStorage.setItem('staff_session_expiry', data.expires_at);
-        }
-
-        localStorage.setItem('staff_agency_id', data.user.agency_id);
-        setState({
-          user: data.user,
-          sessionToken: token,
-          expiresAt,
-          loading: false,
-          error: null,
-          isImpersonation: isImpersonation || data.user?.is_impersonation || false,
-        });
-      } catch (err) {
-        console.error('Session verification error:', err);
-        localStorage.removeItem('staff_session_token');
-        localStorage.removeItem('staff_is_impersonation');
-        localStorage.removeItem('staff_session_expiry');
-        localStorage.removeItem('auth_mode'); // Clear staff mode on error
-        setState({ user: null, sessionToken: null, expiresAt: null, loading: false, error: null, isImpersonation: false });
-      }
-    };
-
-    checkSession();
-  }, []);
-
-  // Monitor session expiry
-  useEffect(() => {
-    if (!state.sessionToken || !state.expiresAt) return;
-
-    const checkExpiry = () => {
-      const now = new Date();
-      const expiresAt = state.expiresAt;
-      if (!expiresAt) return;
-
-      const timeRemaining = expiresAt.getTime() - now.getTime();
-
-      // Session has expired
-      if (timeRemaining <= 0) {
-        logout();
-        toast.error('Your session has expired. Please log in again.');
-        return;
-      }
-
-      // Warning threshold reached - show toast with action button
-      if (timeRemaining <= WARNING_THRESHOLD_MS && !warningShownRef.current) {
-        warningShownRef.current = true;
-        const minutes = Math.ceil(timeRemaining / 60000);
-
-        toastIdRef.current = toast.warning(
-          `Your session expires in ${minutes} minute${minutes !== 1 ? 's' : ''}`,
-          {
-            duration: Infinity, // Keep showing until dismissed
-            action: {
-              label: 'Extend Session',
-              onClick: async () => {
-                const result = await refreshSession();
-                if (result.success) {
-                  toast.success('Session extended for 24 hours');
-                } else {
-                  toast.error('Failed to extend session');
-                }
-              },
-            },
-          }
-        );
-      }
-    };
-
-    // Check immediately
-    checkExpiry();
-
-    // Set up interval
-    const intervalId = setInterval(checkExpiry, CHECK_INTERVAL_MS);
-
-    return () => clearInterval(intervalId);
-  }, [state.sessionToken, state.expiresAt, refreshSession, logout]);
 
   const login = useCallback(async (username: string, password: string, agencySlug?: string) => {
     setState(prev => ({ ...prev, loading: true, error: null }));
@@ -301,6 +193,123 @@ export function useStaffAuth() {
       }
     }
   }, [state.sessionToken]);
+
+  // Keep ref updated with latest logout function
+  logoutRef.current = logout;
+
+  // === useEffects come after all useCallbacks ===
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const token = localStorage.getItem('staff_session_token');
+      const isImpersonation = localStorage.getItem('staff_is_impersonation') === 'true';
+      const storedExpiry = localStorage.getItem('staff_session_expiry');
+
+      if (!token) {
+        setState(prev => ({ ...prev, loading: false }));
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.functions.invoke('staff_verify_session', {
+          body: { session_token: token }
+        });
+
+        if (error || !data?.valid) {
+          localStorage.removeItem('staff_session_token');
+          localStorage.removeItem('staff_is_impersonation');
+          localStorage.removeItem('staff_session_expiry');
+          localStorage.removeItem('auth_mode'); // Clear staff mode on invalid session
+          setState({ user: null, sessionToken: null, expiresAt: null, loading: false, error: null, isImpersonation: false });
+          return;
+        }
+
+        // Get expires_at from response or stored value
+        const expiresAt = data.expires_at
+          ? new Date(data.expires_at)
+          : storedExpiry
+            ? new Date(storedExpiry)
+            : null;
+
+        // Store expiry in localStorage if we got it from server
+        if (data.expires_at) {
+          localStorage.setItem('staff_session_expiry', data.expires_at);
+        }
+
+        localStorage.setItem('staff_agency_id', data.user.agency_id);
+        setState({
+          user: data.user,
+          sessionToken: token,
+          expiresAt,
+          loading: false,
+          error: null,
+          isImpersonation: isImpersonation || data.user?.is_impersonation || false,
+        });
+      } catch (err) {
+        console.error('Session verification error:', err);
+        localStorage.removeItem('staff_session_token');
+        localStorage.removeItem('staff_is_impersonation');
+        localStorage.removeItem('staff_session_expiry');
+        localStorage.removeItem('auth_mode'); // Clear staff mode on error
+        setState({ user: null, sessionToken: null, expiresAt: null, loading: false, error: null, isImpersonation: false });
+      }
+    };
+
+    checkSession();
+  }, []);
+
+  // Monitor session expiry
+  useEffect(() => {
+    if (!state.sessionToken || !state.expiresAt) return;
+
+    const checkExpiry = () => {
+      const now = new Date();
+      const expiresAt = state.expiresAt;
+      if (!expiresAt) return;
+
+      const timeRemaining = expiresAt.getTime() - now.getTime();
+
+      // Session has expired
+      if (timeRemaining <= 0) {
+        logoutRef.current?.();
+        toast.error('Your session has expired. Please log in again.');
+        return;
+      }
+
+      // Warning threshold reached - show toast with action button
+      if (timeRemaining <= WARNING_THRESHOLD_MS && !warningShownRef.current) {
+        warningShownRef.current = true;
+        const minutes = Math.ceil(timeRemaining / 60000);
+
+        toastIdRef.current = toast.warning(
+          `Your session expires in ${minutes} minute${minutes !== 1 ? 's' : ''}`,
+          {
+            duration: Infinity, // Keep showing until dismissed
+            action: {
+              label: 'Extend Session',
+              onClick: async () => {
+                const result = await refreshSession();
+                if (result.success) {
+                  toast.success('Session extended for 24 hours');
+                } else {
+                  toast.error('Failed to extend session');
+                }
+              },
+            },
+          }
+        );
+      }
+    };
+
+    // Check immediately
+    checkExpiry();
+
+    // Set up interval
+    const intervalId = setInterval(checkExpiry, CHECK_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [state.sessionToken, state.expiresAt, refreshSession]);
 
   return {
     user: state.user,
