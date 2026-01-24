@@ -74,18 +74,14 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   
   const hasAccess = hasSalesBetaAccess(profile?.agency_id ?? null);
 
+  const { data: agencyProfile, isLoading: agencyLoading } = useAgencyProfile(user?.id, 'Manager');
+
   useEffect(() => {
     if (user && profile && !hasAccess) {
       toast.error('Access restricted');
       navigate(isStaffPortal ? '/staff/dashboard' : '/dashboard', { replace: true });
     }
   }, [user, profile, hasAccess, isStaffPortal, navigate]);
-
-  // Show nothing while checking access or if not allowed
-  if (!user || (profile && !hasAccess)) {
-    return null;
-  }
-  const { data: agencyProfile, isLoading: agencyLoading } = useAgencyProfile(user?.id, 'Manager');
 
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>('overview');
@@ -430,6 +426,11 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const needsAttentionCount = useMemo(() => {
     return bucketFilteredHouseholds.filter(h => h.needs_attention).length;
   }, [bucketFilteredHouseholds]);
+
+  // Show nothing while checking access or if not allowed (redirect happens via useEffect)
+  if (!user || (profile && !hasAccess)) {
+    return null;
+  }
 
   if (agencyLoading) {
     return (
