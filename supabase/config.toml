@@ -117,6 +117,9 @@ verify_jwt = false
 [functions.staff_logout]
 verify_jwt = false
 
+[functions.staff_refresh_session]
+verify_jwt = false
+
 [functions.admin_create_staff_user]
 verify_jwt = true
 

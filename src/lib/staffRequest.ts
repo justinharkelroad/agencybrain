@@ -3,6 +3,9 @@ import { supabase } from "@/lib/supabaseClient";
 const SUPABASE_URL = "https://wjqyccbytctqwceuhzhk.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw";
 
+// Auto-refresh cooldown: 30 minutes
+const REFRESH_COOLDOWN_MS = 30 * 60 * 1000;
+
 export interface StaffRequestContext {
   isStaff: boolean;
   staffToken?: string;
@@ -103,16 +106,24 @@ export async function fetchWithAuth(
   } = {}
 ): Promise<Response> {
   const { method = "POST", body, queryParams, prefer = 'staff' } = options;
-  
+
+  const context = await getAuthContext(prefer);
   const headers = await getAuthHeaders(prefer);
-  
+
+  // Fire-and-forget session refresh when using staff auth
+  if (context.isStaff && context.staffToken) {
+    maybeRefreshSession().catch(() => {
+      // Ignore errors - this is a background operation
+    });
+  }
+
   let url = `${SUPABASE_URL}/functions/v1/${functionName}`;
-  
+
   if (queryParams) {
     const params = new URLSearchParams(queryParams);
     url += `?${params.toString()}`;
   }
-  
+
   return fetch(url, {
     method,
     headers,
@@ -132,4 +143,50 @@ export function hasStaffToken(): boolean {
  */
 export function getStaffToken(): string | null {
   return localStorage.getItem("staff_session_token");
+}
+
+/**
+ * Attempt to refresh the staff session if cooldown has passed.
+ * This is a fire-and-forget operation that silently extends the session.
+ * Rate limited to once every 30 minutes.
+ */
+export async function maybeRefreshSession(): Promise<void> {
+  const staffToken = localStorage.getItem("staff_session_token");
+  if (!staffToken) return;
+
+  // Check cooldown
+  const lastRefresh = localStorage.getItem("staff_session_last_refresh");
+  const now = Date.now();
+
+  if (lastRefresh) {
+    const lastRefreshTime = parseInt(lastRefresh, 10);
+    if (now - lastRefreshTime < REFRESH_COOLDOWN_MS) {
+      // Still within cooldown period, skip refresh
+      return;
+    }
+  }
+
+  // Update last refresh time immediately to prevent concurrent calls
+  localStorage.setItem("staff_session_last_refresh", now.toString());
+
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/staff_refresh_session`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ session_token: staffToken }),
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.expires_at) {
+      // Update the stored expiry time
+      localStorage.setItem("staff_session_expiry", data.expires_at);
+    }
+  } catch (err) {
+    // Silently fail - this is a background operation
+    console.warn("Background session refresh failed:", err);
+  }
 }

@@ -45,7 +45,7 @@ export default function StaffLogin() {
         setImpersonationSession(impersonateToken, {
           ...data.user,
           is_impersonation: true,
-        });
+        }, data.expires_at);
         
         // Clear URL params and redirect to staff home
         window.history.replaceState({}, '', '/staff/login');
