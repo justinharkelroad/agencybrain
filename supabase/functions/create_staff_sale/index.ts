@@ -115,6 +115,14 @@ serve(async (req) => {
     const body: CreateSaleRequest = await req.json();
     console.log('[create_staff_sale] Creating sale for staff:', staffUser.id);
 
+    // Get team member name for activity logging
+    const { data: teamMember } = await supabase
+      .from('team_members')
+      .select('name')
+      .eq('id', staffUser.team_member_id)
+      .single();
+    const teamMemberName = teamMember?.name || 'Staff Member';
+
     // Validate required fields
     if (!body.customer_name?.trim()) {
       return new Response(
@@ -137,12 +145,36 @@ serve(async (req) => {
       );
     }
 
+    // Find or create contact for this customer
+    let contactId: string | null = null;
+    try {
+      // Parse customer name into first/last
+      const nameParts = body.customer_name.trim().split(/\s+/);
+      const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
+      const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+
+      const { data: contactResult } = await supabase.rpc('find_or_create_contact', {
+        p_agency_id: staffUser.agency_id,
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_zip_code: body.customer_zip || null,
+        p_phone: body.customer_phone || null,
+        p_email: body.customer_email || null,
+      });
+      contactId = contactResult;
+      console.log('[create_staff_sale] Contact linked:', contactId);
+    } catch (contactErr) {
+      console.warn('[create_staff_sale] Could not link contact:', contactErr);
+      // Continue without contact - not a fatal error
+    }
+
     // Insert the main sale record
     const { data: sale, error: saleError } = await supabase
       .from('sales')
       .insert({
         agency_id: staffUser.agency_id,
         team_member_id: staffUser.team_member_id,
+        contact_id: contactId,
         lead_source_id: body.lead_source_id,
         customer_name: body.customer_name,
         customer_email: body.customer_email || null,
@@ -229,6 +261,25 @@ serve(async (req) => {
     }
 
     console.log('[create_staff_sale] Sale creation complete');
+
+    // Log activity to contact_activities for unified tracking
+    if (contactId) {
+      try {
+        await supabase.rpc('insert_contact_activity', {
+          p_agency_id: staffUser.agency_id,
+          p_contact_id: contactId,
+          p_source_module: 'lqs',
+          p_activity_type: 'policy_sold',
+          p_source_record_id: sale.id,
+          p_notes: `Sale: ${body.total_policies} ${body.total_policies === 1 ? 'policy' : 'policies'}, $${body.total_premium.toLocaleString()} premium`,
+          p_created_by_display_name: teamMemberName,
+        });
+        console.log('[create_staff_sale] Activity logged to contact_activities');
+      } catch (activityErr) {
+        console.warn('[create_staff_sale] Failed to log activity:', activityErr);
+        // Don't fail the sale for activity logging errors
+      }
+    }
 
     // Trigger real-time sale notification (non-blocking)
     try {
