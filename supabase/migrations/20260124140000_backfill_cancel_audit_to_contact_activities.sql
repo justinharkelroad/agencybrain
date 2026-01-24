@@ -1,5 +1,6 @@
 -- Backfill cancel_audit_activities to contact_activities
 -- This fixes activities that were logged before the sync bug was fixed
+-- Note: created_by_staff_id is omitted because cancel_audit uses team_member_id (different FK)
 
 INSERT INTO contact_activities (
   agency_id,
@@ -9,7 +10,6 @@ INSERT INTO contact_activities (
   activity_type,
   notes,
   activity_date,
-  created_by_staff_id,
   created_by_display_name,
   created_at
 )
@@ -21,7 +21,6 @@ SELECT
   caa.activity_type,
   caa.notes,
   caa.created_at AS activity_date,
-  caa.staff_member_id AS created_by_staff_id,
   caa.user_display_name AS created_by_display_name,
   caa.created_at
 FROM cancel_audit_activities caa

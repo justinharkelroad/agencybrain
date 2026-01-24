@@ -92,10 +92,18 @@ serve(async (req) => {
       );
     }
 
+    // Get team member name for activity logging
+    const { data: teamMember } = await supabase
+      .from('team_members')
+      .select('name')
+      .eq('id', team_member_id)
+      .single();
+    const teamMemberName = teamMember?.name || 'Staff Member';
+
     // Verify the sale belongs to this staff member
     const { data: existingSale, error: saleError } = await supabase
       .from("sales")
-      .select("id, team_member_id")
+      .select("id, team_member_id, contact_id")
       .eq("id", sale_id)
       .single();
 
@@ -205,6 +213,24 @@ serve(async (req) => {
     }
 
     console.log(`[edit_staff_sale] Sale ${sale_id} updated by staff ${staffUser.username}. New totals: premium=${newTotals.total_premium}, items=${newTotals.total_items}, points=${newTotals.total_points}`);
+
+    // Log activity to contact_activities for unified tracking
+    if (existingSale.contact_id) {
+      try {
+        await supabase.rpc('insert_contact_activity', {
+          p_agency_id: staffUser.agency_id,
+          p_contact_id: existingSale.contact_id,
+          p_source_module: 'lqs',
+          p_activity_type: 'note',
+          p_source_record_id: sale_id,
+          p_notes: `Sale updated: $${newTotals.total_premium.toLocaleString()} premium`,
+          p_created_by_display_name: teamMemberName,
+        });
+      } catch (activityErr) {
+        console.warn('[edit_staff_sale] Failed to log activity:', activityErr);
+        // Don't fail the edit for activity logging errors
+      }
+    }
 
     return new Response(
       JSON.stringify({ success: true, sale: updatedSale }),
