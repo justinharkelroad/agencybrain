@@ -469,12 +469,14 @@ async function logActivity(supabase: any, agencyId: string, teamMemberId: string
   if (recordData?.contact_id) {
     try {
       await supabase.rpc("insert_contact_activity", {
-        p_contact_id: recordData.contact_id,
         p_agency_id: agencyId,
+        p_contact_id: recordData.contact_id,
+        p_source_module: "cancel_audit",
         p_activity_type: activityType,
-        p_activity_subtype: null,
-        p_description: `Cancel Audit: ${activityType}${notes ? ` - ${notes}` : ""}`,
-        p_created_by_name: displayName,
+        p_source_record_id: recordId,
+        p_notes: notes || null,
+        p_created_by_staff_id: teamMemberId,
+        p_created_by_display_name: displayName,
       });
     } catch (mirrorError) {
       console.error("[logActivity] contact_activities mirror error:", mirrorError);
