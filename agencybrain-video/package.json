@@ -1,0 +1,27 @@
+{
+  "name": "agencybrain-video",
+  "version": "1.0.0",
+  "description": "AgencyBrain Promotional Video",
+  "scripts": {
+    "studio": "remotion studio",
+    "build": "remotion render AgencyBrainPromo out/agencybrain-promo.mp4",
+    "render": "remotion render AgencyBrainPromo out/agencybrain-promo.mp4"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@remotion/bundler": "^4.0.409",
+    "@remotion/cli": "^4.0.409",
+    "@remotion/google-fonts": "^4.0.409",
+    "@remotion/media": "4.0.409",
+    "@remotion/renderer": "^4.0.409",
+    "@remotion/transitions": "^4.0.409",
+    "@types/react": "^19.2.9",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "remotion": "^4.0.409",
+    "typescript": "^5.9.3"
+  }
+}
