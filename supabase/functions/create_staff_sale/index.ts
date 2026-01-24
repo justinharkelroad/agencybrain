@@ -201,7 +201,8 @@ serve(async (req) => {
           if (phoneMatches) {
             for (const h of phoneMatches) {
               if (h.phone) {
-                const hPhoneLast10 = h.phone.replace(/\D/g, '').slice(-10);
+                // Convert to string in case it's stored as a number
+                const hPhoneLast10 = String(h.phone).replace(/\D/g, '').slice(-10);
                 if (hPhoneLast10 === phoneLast10) {
                   existingHousehold = { id: h.id };
                   console.log('[create_staff_sale] Found existing LQS household by phone:', h.id, 'key:', h.household_key);
