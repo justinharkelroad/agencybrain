@@ -62,6 +62,7 @@ import AgencyMember from "./pages/agency/AgencyMember";
 import NotFound from "./pages/NotFound";
 import Health from "./pages/Health";
 import Landing from "./pages/Landing";
+import LandingPagePreview from "./pages/LandingPage";
 import BonusGrid from "./pages/BonusGrid";
 import SnapshotPlanner from "./pages/SnapshotPlanner";
 import CancelAudit from "./pages/CancelAudit";
@@ -208,6 +209,7 @@ const App = () => {
             <SessionRecoveryHandler />
             <Routes>
             <Route path="/" element={<Landing />} />
+            <Route path="/landing-preview" element={<LandingPagePreview />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/accept-key-employee-invite" element={<AcceptKeyEmployeeInvite />} />
             <Route path="/dashboard" element={
