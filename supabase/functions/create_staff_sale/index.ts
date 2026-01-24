@@ -171,37 +171,85 @@ serve(async (req) => {
     // Create LQS pipeline records (household → quote → sale)
     let lqsHouseholdId: string | null = null;
     try {
-      // Generate household key
-      const { data: householdKey } = await supabase.rpc('generate_household_key', {
-        p_first_name: firstName,
-        p_last_name: lastName,
-        p_zip_code: body.customer_zip || '00000',
-      });
+      // Generate household key locally (format: LASTNAME_FIRSTNAME_ZIP)
+      // This is more reliable than the RPC call and matches the DB function format
+      const cleanLastName = lastName.toUpperCase().replace(/[^A-Z]/g, '') || 'UNKNOWN';
+      const cleanFirstName = firstName.toUpperCase().replace(/[^A-Z]/g, '') || 'UNKNOWN';
+      const cleanZip = (body.customer_zip || '00000').substring(0, 5);
+      const householdKey = `${cleanLastName}_${cleanFirstName}_${cleanZip}`;
+      console.log('[create_staff_sale] Generated household key:', householdKey);
 
-      // Find or create lqs_households record
-      const { data: existingHousehold } = await supabase
-        .from('lqs_households')
-        .select('id')
-        .eq('agency_id', staffUser.agency_id)
-        .eq('household_key', householdKey)
-        .maybeSingle();
+      // First, try to match by phone number (most reliable identifier)
+      let existingHousehold: { id: string } | null = null;
+
+      if (body.customer_phone) {
+        // Normalize phone: strip all non-digits
+        const normalizedPhone = body.customer_phone.replace(/\D/g, '');
+        // Try to find household by phone (last 10 digits)
+        const phoneLast10 = normalizedPhone.slice(-10);
+
+        const { data: phoneMatch } = await supabase
+          .from('lqs_households')
+          .select('id, phone, household_key')
+          .eq('agency_id', staffUser.agency_id)
+          .not('phone', 'is', null)
+          .maybeSingle();
+
+        // Check if any household has matching phone
+        if (!phoneMatch) {
+          // Query with phone pattern matching
+          const { data: phoneMatches } = await supabase
+            .from('lqs_households')
+            .select('id, phone, household_key')
+            .eq('agency_id', staffUser.agency_id)
+            .not('phone', 'is', null);
+
+          if (phoneMatches) {
+            for (const h of phoneMatches) {
+              if (h.phone) {
+                const hPhoneLast10 = h.phone.replace(/\D/g, '').slice(-10);
+                if (hPhoneLast10 === phoneLast10 && phoneLast10.length === 10) {
+                  existingHousehold = { id: h.id };
+                  console.log('[create_staff_sale] Found existing LQS household by phone:', h.id, 'key:', h.household_key);
+                  break;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // If no phone match, try household key match
+      if (!existingHousehold) {
+        const { data: keyMatch } = await supabase
+          .from('lqs_households')
+          .select('id')
+          .eq('agency_id', staffUser.agency_id)
+          .eq('household_key', householdKey)
+          .maybeSingle();
+
+        if (keyMatch) {
+          existingHousehold = keyMatch;
+          console.log('[create_staff_sale] Found existing LQS household by key:', keyMatch.id);
+        }
+      }
 
       if (existingHousehold) {
         lqsHouseholdId = existingHousehold.id;
-        console.log('[create_staff_sale] Found existing LQS household:', lqsHouseholdId);
       } else {
         // Create new household (starts as 'lead')
+        console.log('[create_staff_sale] Creating new LQS household with lead_source_id:', body.lead_source_id);
         const { data: newHousehold, error: householdErr } = await supabase
           .from('lqs_households')
           .insert({
             agency_id: staffUser.agency_id,
             household_key: householdKey,
-            first_name: firstName.toUpperCase(),
-            last_name: lastName.toUpperCase(),
-            zip_code: body.customer_zip || '00000',
+            first_name: cleanFirstName,
+            last_name: cleanLastName,
+            zip_code: cleanZip,
             phone: body.customer_phone || null,
             email: body.customer_email || null,
-            lead_source_id: body.lead_source_id,
+            lead_source_id: body.lead_source_id || null,
             status: 'lead',
             lead_received_date: body.sale_date,
             team_member_id: staffUser.team_member_id,
@@ -211,7 +259,7 @@ serve(async (req) => {
           .single();
 
         if (householdErr) {
-          console.warn('[create_staff_sale] Failed to create LQS household:', householdErr);
+          console.error('[create_staff_sale] Failed to create LQS household:', householdErr);
         } else {
           lqsHouseholdId = newHousehold.id;
           console.log('[create_staff_sale] Created LQS household:', lqsHouseholdId);
