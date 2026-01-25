@@ -20,8 +20,11 @@ export interface UserAccess {
 }
 
 export function useSidebarAccess() {
-  const { isAdmin, isAgencyOwner, isKeyEmployee, hasTierAccess } = useAuth();
-  const { effectiveRole, loading, agencyId } = useUserPermissions();
+  const { isAdmin, isAgencyOwner, isKeyEmployee, hasTierAccess, roleLoading } = useAuth();
+  const { effectiveRole, loading: permissionsLoading, agencyId } = useUserPermissions();
+
+  // Combine auth role loading with permissions loading
+  const combinedLoading = roleLoading || permissionsLoading;
 
   const userAccess = useMemo<UserAccess>(() => {
     const isOwner = isAdmin || isAgencyOwner;
@@ -135,6 +138,6 @@ export function useSidebarAccess() {
     canAccess,
     checkItemAccess,
     filterNavigation,
-    loading,
+    loading: combinedLoading,
   };
 }

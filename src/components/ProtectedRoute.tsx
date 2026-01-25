@@ -9,9 +9,9 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requireAdmin = false, requireAgencyOwner = false }: ProtectedRouteProps) {
-  const { user, loading, isAdmin, isAgencyOwner, isKeyEmployee, adminLoading, membershipTier } = useAuth();
+  const { user, loading, isAdmin, isAgencyOwner, isKeyEmployee, adminLoading, roleLoading, membershipTier } = useAuth();
 
-  if (loading || (requireAdmin && adminLoading) || (requireAgencyOwner && adminLoading)) {
+  if (loading || (requireAdmin && adminLoading) || (requireAgencyOwner && roleLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>

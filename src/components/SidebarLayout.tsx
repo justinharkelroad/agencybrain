@@ -19,7 +19,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   const [roiInitialTool, setRoiInitialTool] = useState<CalcKey | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const { membershipTier } = useAuth();
+  const { membershipTier, roleLoading } = useAuth();
 
   // Routes that Call Scoring tier users ARE allowed to access in Brain Portal
   const callScoringAllowedPaths = [
@@ -35,10 +35,13 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
 
   // Redirect Call Scoring tier users away from restricted pages
   useEffect(() => {
+    // Don't redirect until tier data is loaded
+    if (roleLoading) return;
+
     if (isCallScoringTier(membershipTier) && !isAllowedPath) {
       navigate('/call-scoring', { replace: true });
     }
-  }, [location.pathname, membershipTier, isAllowedPath, navigate]);
+  }, [location.pathname, membershipTier, isAllowedPath, navigate, roleLoading]);
 
   // Cleanup any stuck Radix locks on route change
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
@@ -8,6 +8,8 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   adminLoading: boolean;
+  tierLoading: boolean;
+  roleLoading: boolean;
   signUp: (email: string, password: string, agencyName: string, fullName: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -31,38 +33,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isKeyEmployee, setIsKeyEmployee] = useState(false);
   const [keyEmployeeAgencyId, setKeyEmployeeAgencyId] = useState<string | null>(null);
   const [membershipTier, setMembershipTier] = useState<string | null>(null);
+  const [tierLoading, setTierLoading] = useState(true);
   const queryClient = useQueryClient();
 
-  const checkUserRole = useCallback(async (userId: string) => {
+  // AbortController refs to cancel in-flight requests when auth state changes
+  const roleCheckAbortRef = useRef<AbortController | null>(null);
+  const tierCheckAbortRef = useRef<AbortController | null>(null);
+
+  const checkUserRole = useCallback(async (userId: string, signal?: AbortSignal) => {
     try {
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
         .eq('role', 'admin')
-        .maybeSingle();
-        
+        .maybeSingle()
+        .abortSignal(signal);
+
+      if (signal?.aborted) return;
+
       if (!error && data) {
         setIsAdmin(true);
       } else {
         setIsAdmin(false);
       }
     } catch (error) {
+      if ((error as Error).name === 'AbortError') return;
       console.error('Error checking user role:', error);
       setIsAdmin(false);
     } finally {
-      setAdminLoading(false);
+      if (!signal?.aborted) {
+        setAdminLoading(false);
+      }
     }
   }, []);
 
-  const checkMembershipTier = useCallback(async (userId: string) => {
+  const checkMembershipTier = useCallback(async (userId: string, signal?: AbortSignal) => {
+    setTierLoading(true);
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select('membership_tier, agency_id')
         .eq('id', userId)
-        .maybeSingle();
-        
+        .maybeSingle()
+        .abortSignal(signal);
+
+      if (signal?.aborted) return;
+
       if (!error && data) {
         // User is an agency owner if they have an agency_id
         setIsAgencyOwner(!!data.agency_id);
@@ -71,24 +88,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Check if user is a key employee and get inviter's tier
-      const { data: keyEmployeeData } = await supabase
+      const { data: keyEmployeeData, error: keyEmployeeError } = await supabase
         .from('key_employees')
         .select('agency_id, invited_by')
         .eq('user_id', userId)
-        .maybeSingle();
-      
+        .maybeSingle()
+        .abortSignal(signal);
+
+      if (signal?.aborted) return;
+
+      if (keyEmployeeError) {
+        console.error('[Auth] Key employee lookup failed:', keyEmployeeError);
+      }
+
       if (keyEmployeeData) {
         setIsKeyEmployee(true);
         setKeyEmployeeAgencyId(keyEmployeeData.agency_id);
-        
+
         // KEY FIX: Inherit membership tier from the inviting owner
         if (keyEmployeeData.invited_by) {
           const { data: inviterProfile } = await supabase
             .from('profiles')
             .select('membership_tier')
             .eq('id', keyEmployeeData.invited_by)
-            .maybeSingle();
-          
+            .maybeSingle()
+            .abortSignal(signal);
+
+          if (signal?.aborted) return;
+
           if (inviterProfile?.membership_tier) {
             console.log('[Auth] Key employee inheriting tier from inviter:', inviterProfile.membership_tier);
             setMembershipTier(inviterProfile.membership_tier);
@@ -106,11 +133,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setMembershipTier(data?.membership_tier ?? null);
       }
     } catch (error) {
+      if ((error as Error).name === 'AbortError') return;
       console.error('Error checking membership tier:', error);
-      setMembershipTier(null);
-      setIsAgencyOwner(false);
-      setIsKeyEmployee(false);
-      setKeyEmployeeAgencyId(null);
+      if (!signal?.aborted) {
+        setMembershipTier(null);
+        setIsAgencyOwner(false);
+        setIsKeyEmployee(false);
+        setKeyEmployeeAgencyId(null);
+      }
+    } finally {
+      if (!signal?.aborted) {
+        setTierLoading(false);
+      }
     }
   }, []);
 
@@ -151,14 +185,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
-        
+
         // Check roles immediately
         if (session?.user) {
-          checkUserRole(session.user.id);
-          checkMembershipTier(session.user.id);
+          // Abort any in-flight requests from previous auth state
+          roleCheckAbortRef.current?.abort();
+          tierCheckAbortRef.current?.abort();
+
+          // Create new abort controllers
+          roleCheckAbortRef.current = new AbortController();
+          tierCheckAbortRef.current = new AbortController();
+
+          checkUserRole(session.user.id, roleCheckAbortRef.current.signal);
+          checkMembershipTier(session.user.id, tierCheckAbortRef.current.signal);
         } else {
+          // Abort any in-flight requests
+          roleCheckAbortRef.current?.abort();
+          tierCheckAbortRef.current?.abort();
+
           setIsAdmin(false);
           setAdminLoading(false);
+          setTierLoading(false);
           setMembershipTier(null);
           setIsAgencyOwner(false);
           setIsKeyEmployee(false);
@@ -172,16 +219,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-      
+
       if (session?.user) {
-        checkUserRole(session.user.id);
-        checkMembershipTier(session.user.id);
+        // Abort any in-flight requests from previous auth state
+        roleCheckAbortRef.current?.abort();
+        tierCheckAbortRef.current?.abort();
+
+        // Create new abort controllers
+        roleCheckAbortRef.current = new AbortController();
+        tierCheckAbortRef.current = new AbortController();
+
+        checkUserRole(session.user.id, roleCheckAbortRef.current.signal);
+        checkMembershipTier(session.user.id, tierCheckAbortRef.current.signal);
+      } else {
+        // No session - ensure loading states are cleared
+        setAdminLoading(false);
+        setTierLoading(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      roleCheckAbortRef.current?.abort();
+      tierCheckAbortRef.current?.abort();
+    };
   }, [checkUserRole, checkMembershipTier, queryClient]);
 
+  // Safety timeout: force loading completion after 5 seconds to prevent infinite loading
+  useEffect(() => {
+    if (!adminLoading && !tierLoading) return;
+    const timeoutId = setTimeout(() => {
+      console.warn('[Auth] Role loading timeout - forcing completion');
+      setAdminLoading(false);
+      setTierLoading(false);
+    }, 5000);
+    return () => clearTimeout(timeoutId);
+  }, [adminLoading, tierLoading]);
 
   const signUp = async (email: string, password: string, agencyName: string, fullName: string) => {
     // Always use production URL to avoid localhost redirect issues
@@ -265,6 +338,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     loading,
     adminLoading,
+    tierLoading,
+    roleLoading: adminLoading || tierLoading,
     signUp,
     signIn,
     signOut,

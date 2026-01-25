@@ -8,10 +8,10 @@ interface PendingActivationGuardProps {
 }
 
 export function PendingActivationGuard({ children }: PendingActivationGuardProps) {
-  const { user, membershipTier, loading, signOut } = useAuth();
+  const { user, membershipTier, loading, roleLoading, signOut } = useAuth();
 
-  // Still loading auth state
-  if (loading) {
+  // Still loading auth state or role/tier data
+  if (loading || roleLoading) {
     return null;
   }
 

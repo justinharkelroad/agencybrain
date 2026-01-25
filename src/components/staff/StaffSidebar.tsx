@@ -93,18 +93,36 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
     const checkCallScoringAccess = async () => {
       setCallScoringEnabled(null);
 
-      const { data: isEnabled, error } = await supabase.rpc('is_call_scoring_enabled', {
-        p_agency_id: user.agency_id,
-      });
+      // 5 second timeout safety net
+      const timeoutId = setTimeout(() => {
+        if (!cancelled) {
+          console.warn('[StaffSidebar] Call scoring check timeout');
+          setCallScoringEnabled(false);
+        }
+      }, 5000);
 
-      if (cancelled) return;
+      try {
+        const { data: isEnabled, error } = await supabase.rpc('is_call_scoring_enabled', {
+          p_agency_id: user.agency_id,
+        });
 
-      if (error) {
-        setCallScoringEnabled(false);
-        return;
+        clearTimeout(timeoutId);
+        if (cancelled) return;
+
+        if (error) {
+          console.error('[StaffSidebar] Call scoring check error:', error);
+          setCallScoringEnabled(false);
+          return;
+        }
+
+        setCallScoringEnabled(isEnabled ?? false);
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (!cancelled) {
+          console.error('[StaffSidebar] Call scoring check failed:', err);
+          setCallScoringEnabled(false);
+        }
       }
-
-      setCallScoringEnabled(isEnabled ?? false);
     };
 
     checkCallScoringAccess();
