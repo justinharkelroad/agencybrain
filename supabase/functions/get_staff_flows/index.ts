@@ -80,11 +80,11 @@ serve(async (req) => {
       console.error('[get_staff_flows] Error fetching sessions:', sessionsError);
     }
 
-    // Fetch flow profile for this staff user
+    // Fetch staff flow profile for this staff user (separate table)
     const { data: profile, error: profileError } = await supabase
-      .from('flow_profiles')
+      .from('staff_flow_profiles')
       .select('*')
-      .eq('user_id', staffUserId)
+      .eq('staff_user_id', staffUserId)
       .maybeSingle();
 
     if (profileError) {

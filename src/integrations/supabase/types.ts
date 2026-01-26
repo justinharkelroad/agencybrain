@@ -7243,6 +7243,77 @@ export type Database = {
           },
         ]
       }
+      staff_flow_profiles: {
+        Row: {
+          accountability_style: string | null
+          background_notes: string | null
+          core_values: string[] | null
+          created_at: string | null
+          current_challenges: string | null
+          current_goals: string | null
+          faith_tradition: string | null
+          feedback_preference: string | null
+          full_name: string | null
+          growth_edge: string | null
+          id: string
+          life_roles: string[] | null
+          overwhelm_response: string | null
+          peak_state: string | null
+          preferred_name: string | null
+          spiritual_beliefs: string | null
+          staff_user_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          accountability_style?: string | null
+          background_notes?: string | null
+          core_values?: string[] | null
+          created_at?: string | null
+          current_challenges?: string | null
+          current_goals?: string | null
+          faith_tradition?: string | null
+          feedback_preference?: string | null
+          full_name?: string | null
+          growth_edge?: string | null
+          id?: string
+          life_roles?: string[] | null
+          overwhelm_response?: string | null
+          peak_state?: string | null
+          preferred_name?: string | null
+          spiritual_beliefs?: string | null
+          staff_user_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          accountability_style?: string | null
+          background_notes?: string | null
+          core_values?: string[] | null
+          created_at?: string | null
+          current_challenges?: string | null
+          current_goals?: string | null
+          faith_tradition?: string | null
+          feedback_preference?: string | null
+          full_name?: string | null
+          growth_edge?: string | null
+          id?: string
+          life_roles?: string[] | null
+          overwhelm_response?: string | null
+          peak_state?: string | null
+          preferred_name?: string | null
+          spiritual_beliefs?: string | null
+          staff_user_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_flow_profiles_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: true
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_invite_tokens: {
         Row: {
           accepted_at: string | null
