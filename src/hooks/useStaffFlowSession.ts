@@ -28,7 +28,7 @@ interface UseStaffFlowSessionProps {
 }
 
 export function useStaffFlowSession({ templateSlug, sessionId }: UseStaffFlowSessionProps) {
-  const { sessionToken } = useStaffAuth();
+  const { sessionToken, loading: authLoading } = useStaffAuth();
   
   const [template, setTemplate] = useState<FlowTemplate | null>(null);
   const [session, setSession] = useState<StaffFlowSession | null>(null);
@@ -40,6 +40,12 @@ export function useStaffFlowSession({ templateSlug, sessionId }: UseStaffFlowSes
   const [sessionLoadedFromDb, setSessionLoadedFromDb] = useState(false);
 
   useEffect(() => {
+    // Wait for auth to finish loading before doing anything
+    if (authLoading) {
+      return;
+    }
+    
+    // If auth finished but no session token, we can't proceed
     if (!sessionToken) {
       setLoading(false);
       return;
@@ -50,7 +56,7 @@ export function useStaffFlowSession({ templateSlug, sessionId }: UseStaffFlowSes
     } else if (templateSlug) {
       loadOrCreateSession(templateSlug);
     }
-  }, [sessionId, templateSlug, sessionToken]);
+  }, [sessionId, templateSlug, sessionToken, authLoading]);
 
   const loadOrCreateSession = async (slug: string) => {
     if (!sessionToken) return;
