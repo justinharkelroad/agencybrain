@@ -133,8 +133,13 @@ export default function StaffChallenge() {
   }, [sessionToken]);
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated) {
-      fetchChallengeData();
+    if (!authLoading) {
+      if (isAuthenticated) {
+        fetchChallengeData();
+      } else {
+        // Not authenticated - stop loading and let the component handle redirect
+        setLoading(false);
+      }
     }
   }, [authLoading, isAuthenticated, fetchChallengeData]);
 
@@ -155,7 +160,7 @@ export default function StaffChallenge() {
         body: {
           assignment_id: data.assignment.id,
           lesson_id: selectedLesson.id,
-          reflection_responses: reflectionAnswers,
+          reflection_response: reflectionAnswers,
         },
       });
 
@@ -247,6 +252,12 @@ export default function StaffChallenge() {
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    navigate('/staff/login');
+    return null;
   }
 
   if (!data?.has_assignment) {
