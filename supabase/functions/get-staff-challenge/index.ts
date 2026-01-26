@@ -186,22 +186,22 @@ Deno.serve(async (req) => {
       };
     });
 
-    // Get Core 4 log for today
+    // Get Core 4 from the unified staff_core4_entries table
     const todayStr = today.toISOString().split('T')[0];
-    const { data: core4Today, error: core4Error } = await supabase
-      .from('challenge_core4_logs')
+    const { data: core4Today } = await supabase
+      .from('staff_core4_entries')
       .select('*')
-      .eq('assignment_id', assignment.id)
-      .eq('log_date', todayStr)
+      .eq('staff_user_id', staffUserId)
+      .eq('entry_date', todayStr)
       .maybeSingle();
 
-    // Calculate Core 4 streak
+    // Calculate Core 4 streak from staff_core4_entries
     let core4Streak = 0;
     const { data: core4Logs } = await supabase
-      .from('challenge_core4_logs')
-      .select('log_date, body, being, balance, business')
-      .eq('assignment_id', assignment.id)
-      .order('log_date', { ascending: false })
+      .from('staff_core4_entries')
+      .select('entry_date, body, being, balance, business')
+      .eq('staff_user_id', staffUserId)
+      .order('entry_date', { ascending: false })
       .limit(30);
 
     if (core4Logs) {
