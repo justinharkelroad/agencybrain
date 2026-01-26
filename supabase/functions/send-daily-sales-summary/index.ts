@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { shouldSendDailySummary, getDayName } from '../_shared/business-days.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -76,6 +77,23 @@ serve(async (req) => {
     }
     
     console.log('[send-daily-sales-summary] Starting daily summary check');
+
+    // Check if today is a valid day to send summary
+    // Skip Sunday (would report on Saturday) and Monday (would report on Sunday)
+    const now = new Date();
+    if (!forceTest && !shouldSendDailySummary(now)) {
+      const dayName = getDayName(now);
+      console.log(`[send-daily-sales-summary] Skipping - today is ${dayName}, yesterday was not a business day`);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          skipped: true, 
+          reason: 'Yesterday was not a business day (weekend)',
+          today: dayName
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Get current UTC time
     const nowUtc = new Date();
