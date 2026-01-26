@@ -7314,6 +7314,66 @@ export type Database = {
           },
         ]
       }
+      staff_flow_sessions: {
+        Row: {
+          ai_analysis_json: Json | null
+          completed_at: string | null
+          created_at: string | null
+          domain: string | null
+          flow_template_id: string
+          id: string
+          pdf_url: string | null
+          responses_json: Json | null
+          staff_user_id: string
+          status: string
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_analysis_json?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          domain?: string | null
+          flow_template_id: string
+          id?: string
+          pdf_url?: string | null
+          responses_json?: Json | null
+          staff_user_id: string
+          status?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_analysis_json?: Json | null
+          completed_at?: string | null
+          created_at?: string | null
+          domain?: string | null
+          flow_template_id?: string
+          id?: string
+          pdf_url?: string | null
+          responses_json?: Json | null
+          staff_user_id?: string
+          status?: string
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_flow_sessions_flow_template_id_fkey"
+            columns: ["flow_template_id"]
+            isOneToOne: false
+            referencedRelation: "flow_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_flow_sessions_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_invite_tokens: {
         Row: {
           accepted_at: string | null

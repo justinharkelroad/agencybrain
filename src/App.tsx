@@ -133,6 +133,8 @@ import ExchangePostPage from "./pages/ExchangePost";
 import StaffFlows from "./pages/staff/StaffFlows";
 import StaffCore4 from "./pages/staff/StaffCore4";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
+import StaffFlowStart from "./pages/staff/StaffFlowStart";
+import StaffFlowSession from "./pages/staff/StaffFlowSession";
 import StaffSales from "./pages/staff/StaffSales";
 import StaffTeamRings from "./pages/staff/StaffTeamRings";
 import StaffMeetingFrameWrapper from "./pages/staff/StaffMeetingFrameWrapper";
@@ -1018,12 +1020,12 @@ const App = () => {
             {/* Staff Flows Routes - Full screen (no sidebar) */}
             <Route path="/staff/flows/start/:slug" element={
               <StaffProtectedRoute>
-                <FlowStart />
+                <StaffFlowStart />
               </StaffProtectedRoute>
             } />
             <Route path="/staff/flows/session/:slug" element={
               <StaffProtectedRoute>
-                <FlowSession />
+                <StaffFlowSession />
               </StaffProtectedRoute>
             } />
             <Route path="/staff/flows/complete/:sessionId" element={
