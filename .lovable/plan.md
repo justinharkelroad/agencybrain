@@ -1,58 +1,88 @@
 
-# Add Promo Code Support to 6-Week Challenge Checkout
+# Implement Fallback Payment Verification for Challenge Purchases
 
 ## Problem
-The current Stripe Checkout session for the 6-week challenge doesn't display a promo code input field. You have promo codes configured in Stripe, but customers can't apply them during checkout.
+With the Stripe webhook now configured, future payments should process correctly. However, if there's ever a webhook delay or failure, customers would still get stuck on "Processing Payment." This plan adds a fallback verification system as a safety net.
 
-## Solution
-Add `allow_promotion_codes: true` to the Stripe Checkout Session creation. This is a single-line change that enables Stripe's built-in promo code field on the checkout page.
-
-## What Customers Will See After Fix
-When customers click the purchase button, the Stripe checkout page will now display:
-- A "Add promotion code" link below the payment details
-- When clicked, an input field appears where customers can enter any promo code you've created in Stripe
-- Stripe automatically validates and applies the discount
+## Solution Overview
+Create a backup verification edge function that directly queries Stripe to confirm payment status. The success page will use this as a fallback if database polling times out.
 
 ## Implementation
 
-### File: `supabase/functions/challenge-create-checkout/index.ts`
+### Step 1: Create Verification Edge Function
 
-**Change:** Add `allow_promotion_codes: true` to the checkout session creation (line 128-154)
+**New File:** `supabase/functions/challenge-verify-session/index.ts`
+
+This function:
+1. Receives `session_id` from the frontend
+2. Authenticates the user
+3. Calls Stripe API to check if `payment_status === 'paid'`
+4. If paid, updates the database record to `completed`
+5. Returns the verified purchase details
 
 ```typescript
-const session = await stripe.checkout.sessions.create({
-  payment_method_types: ['card'],
-  mode: 'payment',
-  customer_email: profile.email || user.email,
-  allow_promotion_codes: true,  // ← ADD THIS LINE
-  line_items: [
-    // ... existing line items
-  ],
-  metadata: {
-    // ... existing metadata
-  },
-  success_url: success_url || `${req.headers.get('origin')}/training/challenge/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
-  cancel_url: cancel_url || `${req.headers.get('origin')}/training/challenge`,
-});
+// Key logic:
+const session = await stripe.checkout.sessions.retrieve(session_id);
+if (session.payment_status === 'paid') {
+  // Update purchase to 'completed' in database
+  // Return success with purchase details
+}
 ```
 
-## Technical Notes
+### Step 2: Add Config Entry
 
-1. **Stripe handles everything**: No database changes or frontend changes needed. Stripe's checkout page automatically shows the promo code field and applies discounts.
+**File:** `supabase/config.toml`
 
-2. **Works with existing Stripe promo codes**: Any promotion codes you've already created in Stripe Dashboard will work immediately.
+Add:
+```toml
+[functions.challenge-verify-session]
+verify_jwt = false
+```
 
-3. **Applies to all challenge purchases**: Every purchase of the 6-week challenge (regardless of seat quantity or membership tier) will have the promo code option.
+### Step 3: Update Success Page
 
-4. **Discount tracking**: Stripe records which promo code was used in the session, visible in your Stripe Dashboard for reporting.
+**File:** `src/pages/training/ChallengePurchaseSuccess.tsx`
 
-## Files Modified
-| File | Change |
-|------|--------|
-| `supabase/functions/challenge-create-checkout/index.ts` | Add `allow_promotion_codes: true` |
+Changes:
+1. After database polling times out (10 attempts), call `challenge-verify-session`
+2. If verification succeeds, show success state
+3. Add a manual "Verify Payment" button for retry
+4. Improve the error state with a verification button
+
+**Updated Flow:**
+```text
+Poll database (10 attempts, 1 sec each)
+       |
+  [If found] → Show success
+       |
+  [If timeout] → Call challenge-verify-session
+                      |
+                 [If paid] → Show success
+                      |
+                 [If not paid] → Show "still processing" with retry button
+```
+
+## Files Summary
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `supabase/functions/challenge-verify-session/index.ts` | Create | Fallback Stripe verification |
+| `supabase/config.toml` | Modify | Add function config |
+| `src/pages/training/ChallengePurchaseSuccess.tsx` | Modify | Add fallback verification call |
+
+## Security Notes
+
+- User must be authenticated to call verification
+- Session is verified directly with Stripe's API (source of truth)
+- Only the matching agency's purchase can be updated
 
 ## Testing
+
 After deployment:
-1. Go to `/training/challenge` and click purchase
-2. On the Stripe checkout page, look for "Add promotion code" link
-3. Enter a valid Stripe promo code and verify the discount applies
+1. Make a test purchase
+2. The page should show success (webhook should work now)
+3. If webhook ever fails, the fallback kicks in automatically
+
+## Bonus: Fix Your Stuck Purchase
+
+Once this is deployed, you can go back to the success page with your original session_id and it will verify and complete the purchase automatically.
