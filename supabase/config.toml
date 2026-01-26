@@ -368,6 +368,3 @@ verify_jwt = false
 
 [functions.challenge-verify-session]
 verify_jwt = false
-
-[functions.challenge-complete-lesson]
-verify_jwt = false
