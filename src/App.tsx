@@ -146,6 +146,7 @@ import ChallengePurchase from "./pages/training/ChallengePurchase";
 import ChallengeAssign from "./pages/training/ChallengeAssign";
 import ChallengePurchaseSuccess from "./pages/training/ChallengePurchaseSuccess";
 import ChallengeView from "./pages/training/ChallengeView";
+import ChallengeProgress from "./pages/training/ChallengeProgress";
 import ChallengeLanding from "./pages/ChallengeLanding";
 import ChallengeSuccess from "./pages/ChallengeSuccess";
 import StaffUnifiedTrainingHub from "./pages/staff/StaffUnifiedTrainingHub";
@@ -441,6 +442,13 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <ChallengeView />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/training/challenge/progress" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <ChallengeProgress />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

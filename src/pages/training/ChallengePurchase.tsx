@@ -19,6 +19,7 @@ import {
   Crown,
   ArrowLeft,
   Eye,
+  BarChart3,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -217,11 +218,17 @@ export default function ChallengePurchase() {
                 {product.total_lessons} lessons
               </span>
             </div>
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap gap-2">
               <Button variant="secondary" size="sm" asChild>
                 <Link to="/training/challenge/view">
                   <Eye className="h-4 w-4 mr-2" />
-                  View Challenge Content
+                  View Content
+                </Link>
+              </Button>
+              <Button variant="secondary" size="sm" asChild>
+                <Link to="/training/challenge/progress">
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Staff Progress
                 </Link>
               </Button>
             </div>
