@@ -67,15 +67,15 @@ serve(async (req) => {
     const staffUserId = session.staff_user_id;
     console.log('[save_staff_flow_profile] Staff user ID:', staffUserId);
 
-    // Upsert flow profile
+    // Upsert staff flow profile (separate table for staff users)
     const { data: profile, error: upsertError } = await supabase
-      .from('flow_profiles')
+      .from('staff_flow_profiles')
       .upsert({
-        user_id: staffUserId,
+        staff_user_id: staffUserId,
         ...profileData,
         updated_at: new Date().toISOString(),
       }, {
-        onConflict: 'user_id',
+        onConflict: 'staff_user_id',
       })
       .select()
       .single();
