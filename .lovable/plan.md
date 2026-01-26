@@ -1,62 +1,87 @@
 
-# Replace Challenge Core 4 with Original Core 4 UI
+# Remove Duplicate Streak Badge from Challenge Header
 
-## Root Causes Identified
+## Problem
+The challenge page header displays a streak badge showing "2" next to a fire icon. This is confusing because:
 
-### Backend Bug: Wrong Column Names
-The `get-staff-challenge` edge function queries `staff_core4_entries` using incorrect column names:
-- **Wrong**: `entry_date` → **Correct**: `date`
-- **Wrong**: `body`, `being`, `balance`, `business` → **Correct**: `body_completed`, `being_completed`, `balance_completed`, `business_completed`
+1. **The badge is duplicated** - The sidebar already shows the correct streaks via `StaffCore4Card`
+2. **The streak value may be incorrect** - The `get-staff-challenge` edge function's streak calculation doesn't verify consecutive days
 
-This causes Core 4 data to always return null, so the challenge page never shows correct completion status.
+## What You're Seeing
 
-### Frontend Issue: Wrong UI Component
-The challenge page (`StaffChallenge.tsx`) renders a custom checklist with checkboxes, while the existing `StaffCore4Card` component has the proper 2x2 gradient tile UI with THE SCORE and THE STREAKS that you expect.
+The header displays:
+```
+┌────────────────────────────────────────────┐
+│ The Challenge          🔥 2                │
+│ Day X of 30                                │
+└────────────────────────────────────────────┘
+```
 
----
+That "🔥 2" is meant to show your Core 4 streak. The fire icon IS rendering correctly (it's the Lucide `Flame` component), but the number "2" is showing even though your actual consecutive-day streak should be different.
+
+## Root Cause
+
+The edge function (`get-staff-challenge`) calculates streak incorrectly:
+
+```typescript
+// Current (buggy) - doesn't check if dates are consecutive
+for (const log of core4Logs) {
+  if (log.body_completed && log.being_completed && ...) {
+    core4Streak++;  // Just counts entries, not consecutive days!
+  } else {
+    break;
+  }
+}
+```
+
+Looking at your data:
+- Jan 26 (today): 4/4 complete
+- Jan 9: 4/4 complete (NOT consecutive with Jan 26!)
+
+The buggy code counts both as a "streak of 2" because it doesn't verify the dates are consecutive days.
 
 ## Solution
 
-### 1. Fix Edge Function Column Names
+Remove the duplicate streak badge from the header entirely. The `StaffCore4Card` component in the sidebar already displays the correct streak using `useStaffCore4Stats`, which has proper consecutive-day logic.
 
-Update `supabase/functions/get-staff-challenge/index.ts` to use correct column names:
+---
 
-**Lines 191-196 (today's entry):**
+## Code Changes
+
+### File: `src/pages/staff/StaffChallenge.tsx`
+
+**Remove lines 288-293** (the streak badge in the header):
+
 ```typescript
-// Before (broken):
-.eq('entry_date', todayStr)
-
-// After (fixed):
-.eq('date', todayStr)
+// DELETE THIS SECTION:
+{core4.streak > 0 && (
+  <div className="flex items-center gap-1 bg-orange-500/20 px-3 py-1.5 rounded-full">
+    <Flame className="h-5 w-5 text-orange-500" />
+    <span className="text-lg font-bold text-orange-500">{core4.streak}</span>
+  </div>
+)}
 ```
 
-**Lines 200-205 (streak calculation):**
-```typescript
-// Before (broken):
-.select('entry_date, body, being, balance, business')
-.order('entry_date', { ascending: false })
-// Check: log.body && log.being && log.balance && log.business
+The sidebar's `StaffCore4Card` already shows:
+- Current Core 4 streak (with proper consecutive-day calculation)
+- Flow streak
+- Combined weekly score
 
-// After (fixed):
-.select('date, body_completed, being_completed, balance_completed, business_completed')
-.order('date', { ascending: false })
-// Check: log.body_completed && log.being_completed && log.balance_completed && log.business_completed
+---
+
+## Visual Result
+
+**Before:**
+```
+Header:     🔥 2 (incorrect, duplicated)
+Sidebar:    🔥 1 (correct from StaffCore4Card)
 ```
 
-### 2. Replace Custom Checklist with StaffCore4Card
-
-Update `src/pages/staff/StaffChallenge.tsx`:
-
-- Remove the custom "Daily Core 4" checklist section (lines 567-610)
-- Remove related state (`core4Updating`), handler (`handleCore4Toggle`), and constants (`CORE4_ITEMS`)
-- Import and render the existing `StaffCore4Card` component in the sidebar instead
-
-The `StaffCore4Card` already:
-- Uses the proper 2x2 gradient tile UI
-- Shows THE SCORE (combined 35-point weekly)
-- Shows THE STREAKS (Flow + Core 4)
-- Calls `useStaffCore4Stats` which properly invokes `get_staff_core4_entries` with `action: 'toggle'`
-- Auto-updates when any domain is clicked
+**After:**
+```
+Header:     (no streak badge - cleaner design)
+Sidebar:    🔥 1 (single source of truth)
+```
 
 ---
 
@@ -64,57 +89,12 @@ The `StaffCore4Card` already:
 
 | File | Change |
 |------|--------|
-| `supabase/functions/get-staff-challenge/index.ts` | Fix column names: `date`, `body_completed`, etc. |
-| `src/pages/staff/StaffChallenge.tsx` | Remove custom Core 4 checklist, import `StaffCore4Card` |
+| `src/pages/staff/StaffChallenge.tsx` | Remove streak badge from header (lines 288-293) |
 
 ---
 
-## Visual Result
+## Technical Notes
 
-**Before (custom checklist):**
-```text
-┌─────────────────────────────┐
-│ Daily Core 4                │
-│ ○ Body - Did you move?      │
-│ ○ Being - Mindfulness?      │
-│ ○ Balance - Relationship?   │
-│ ○ Business - Action?        │
-│ 🔥 X day streak!            │
-└─────────────────────────────┘
-```
-
-**After (original Core 4 + Flow card):**
-```text
-┌─────────────────────────────┐
-│ Core 4 + Flow     🔥3       │
-│ Today: 2/4 • Week: 18/35    │
-├──────────────┬──────────────┤
-│ ▓▓ BODY ▓▓   │ ░░ BEING ░░  │
-├──────────────┼──────────────┤
-│ ▓▓ BALANCE ▓▓│ ░░ BUSINESS ░│
-├──────────────┴──────────────┤
-│ THE SCORE     THE STREAKS   │
-│  ◐ 18/35     ⚡2   🔥3      │
-└─────────────────────────────┘
-```
-
-Clicking any tile toggles it on/off, updates the score, and syncs with the database.
-
----
-
-## Technical Details
-
-### StaffCore4Card Component
-- Located at `src/components/staff/StaffCore4Card.tsx`
-- Uses `useStaffCore4Stats` hook for data fetching and toggling
-- Displays combined Core 4 + Flow weekly score (35-point system)
-- Shows current and longest streaks for both metrics
-
-### Data Flow
-1. User clicks a domain tile in StaffCore4Card
-2. `toggleDomain()` from `useStaffCore4Stats` is called
-3. Hook invokes `get_staff_core4_entries` edge function with `action: 'toggle'` and `domain: 'body'`
-4. Edge function updates `staff_core4_entries` table
-5. Hook receives updated entry and re-renders the UI
-
-This ensures the challenge page uses the exact same Core 4 tracking as the rest of the staff portal.
+- The `StaffCore4Card` uses `useStaffCore4Stats` hook which correctly calculates consecutive-day streaks
+- The edge function's streak calculation can remain as-is since we're no longer using it for display
+- This is a cleanup of redundant UI that was causing confusion
