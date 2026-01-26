@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface RequestBody {
-  action: 'check_draft' | 'create_session' | 'save_response' | 'delete_session' | 'complete_session';
+  action: 'check_draft' | 'create_session' | 'save_response' | 'delete_session' | 'complete_session' | 'get_session';
   templateSlug?: string;
   sessionId?: string;
   questionId?: string;
@@ -322,6 +322,51 @@ serve(async (req) => {
 
         return new Response(
           JSON.stringify({ success: true }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      case 'get_session': {
+        const { sessionId } = body;
+        if (!sessionId) {
+          return new Response(
+            JSON.stringify({ error: 'Session ID required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get the session with template data
+        const { data: flowSession, error: fetchError } = await supabase
+          .from('staff_flow_sessions')
+          .select('*')
+          .eq('id', sessionId)
+          .eq('staff_user_id', staffUserId)
+          .maybeSingle();
+
+        if (fetchError || !flowSession) {
+          console.log('[manage_staff_flow_session] Session not found:', sessionId);
+          return new Response(
+            JSON.stringify({ error: 'Session not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get the template
+        const { data: template, error: templateError } = await supabase
+          .from('flow_templates')
+          .select('*')
+          .eq('id', flowSession.flow_template_id)
+          .single();
+
+        if (templateError || !template) {
+          return new Response(
+            JSON.stringify({ error: 'Template not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ session: flowSession, template }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

@@ -135,6 +135,7 @@ import StaffCore4 from "./pages/staff/StaffCore4";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
 import StaffFlowStart from "./pages/staff/StaffFlowStart";
 import StaffFlowSession from "./pages/staff/StaffFlowSession";
+import StaffFlowComplete from "./pages/staff/StaffFlowComplete";
 import StaffSales from "./pages/staff/StaffSales";
 import StaffTeamRings from "./pages/staff/StaffTeamRings";
 import StaffMeetingFrameWrapper from "./pages/staff/StaffMeetingFrameWrapper";
@@ -1030,7 +1031,7 @@ const App = () => {
             } />
             <Route path="/staff/flows/complete/:sessionId" element={
               <StaffProtectedRoute>
-                <FlowComplete />
+                <StaffFlowComplete />
               </StaffProtectedRoute>
             } />
             <Route path="/staff/flows/view/:sessionId" element={
