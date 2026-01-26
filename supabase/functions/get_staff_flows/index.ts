@@ -68,11 +68,11 @@ serve(async (req) => {
       console.error('[get_staff_flows] Error fetching templates:', templatesError);
     }
 
-    // Fetch flow sessions for this staff user
+    // Fetch staff flow sessions for this staff user (using dedicated staff table)
     const { data: sessions, error: sessionsError } = await supabase
-      .from('flow_sessions')
+      .from('staff_flow_sessions')
       .select('*, flow_template:flow_templates(*)')
-      .eq('user_id', staffUserId)
+      .eq('staff_user_id', staffUserId)
       .order('created_at', { ascending: false })
       .limit(5);
 
