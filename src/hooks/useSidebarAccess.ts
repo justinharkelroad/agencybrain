@@ -62,6 +62,9 @@ export function useSidebarAccess() {
         return false;
       }
 
+      // NOTE: challengeAccess items are NOT filtered here - they're shown to everyone
+      // and gated at click-time with a "Coming Soon" modal for non-whitelisted agencies
+
       // First check base access
       if (!canAccess(item.access)) return false;
 
@@ -139,5 +142,6 @@ export function useSidebarAccess() {
     checkItemAccess,
     filterNavigation,
     loading: combinedLoading,
+    agencyId,
   };
 }

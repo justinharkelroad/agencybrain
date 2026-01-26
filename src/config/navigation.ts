@@ -54,6 +54,7 @@ export type NavItem = {
   requiresTier?: '1:1';  // Requires 1:1 Coaching tier - Boardroom users see gate modal
   adminOnly?: boolean;   // Only visible to system admins (not regular agency owners)
   emailRestriction?: string;  // Only visible to this specific email address
+  challengeAccess?: boolean;  // Requires agency to be in challenge beta list
 };
 
 // Sub-folder that can appear inside a NavFolder
@@ -266,6 +267,15 @@ export const navigationConfig: NavEntry[] = [
         type: 'modal',
         modalKey: 'video_training',
         access: { staff: false, manager: true, owner: true },
+      },
+      {
+        id: 'six-week-challenge',
+        title: '6-Week Challenge',
+        icon: Target,
+        type: 'link',
+        url: '/training/challenge',
+        access: { staff: false, manager: true, owner: true },
+        challengeAccess: true,
       },
     ],
   },
@@ -614,6 +624,15 @@ export const staffNavigationConfig: NavEntry[] = [
         type: 'modal',
         modalKey: 'video_training',
         access: { staff: false, manager: true, owner: true },
+      },
+      {
+        id: 'staff-six-week-challenge',
+        title: 'The Challenge',
+        icon: Target,
+        type: 'link',
+        url: '/staff/challenge',
+        access: { staff: true, manager: true, owner: true },
+        challengeAccess: true,
       },
     ],
   },

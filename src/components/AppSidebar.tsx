@@ -94,7 +94,7 @@ const adminOnlyItems = [
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { signOut, isAdmin, user, membershipTier } = useAuth();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
-  const { filterNavigation, loading: accessLoading } = useSidebarAccess();
+  const { filterNavigation, loading: accessLoading, agencyId } = useSidebarAccess();
   const location = useLocation();
   
   // Check if user is on a Call Scoring tier
@@ -469,6 +469,7 @@ useEffect(() => {
                                   membershipTier={membershipTier}
                                   isCallScoringTier={isCallScoringTier}
                                   callScoringAccessibleIds={callScoringAccessibleIds}
+                                  agencyId={agencyId}
                                 />
                               );
                             }
@@ -481,6 +482,7 @@ useEffect(() => {
                                 membershipTier={membershipTier}
                                 isCallScoringTier={isCallScoringTier}
                                 callScoringAccessibleIds={callScoringAccessibleIds}
+                                agencyId={agencyId}
                               />
                             );
                           })}
@@ -508,6 +510,7 @@ useEffect(() => {
                       membershipTier={membershipTier}
                       isCallScoringTier={isCallScoringTier}
                       callScoringAccessibleIds={callScoringAccessibleIds}
+                      agencyId={agencyId}
                     />
                   );
                 })}

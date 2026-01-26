@@ -190,7 +190,9 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
               return false;
             }
           }
-          
+
+          // NOTE: challengeAccess items are NOT filtered - shown to everyone, gated at click-time
+
           // Check sales beta access
           if (salesBetaRequiredIds.includes(item.id) && !salesEnabled) {
             return false;
@@ -219,6 +221,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                   return false;
                 }
               }
+              // NOTE: challengeAccess items are NOT filtered - shown to everyone, gated at click-time
               if (salesBetaRequiredIds.includes(subItem.id) && !salesEnabled) {
                 return false;
               }
@@ -257,7 +260,9 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
             return false;
           }
         }
-        
+
+        // NOTE: challengeAccess items are NOT filtered - shown to everyone, gated at click-time
+
         // Check settingCheck for root-level items
         if (entry.settingCheck === 'callScoringEnabled' && !callScoringEnabled) {
           return false;
@@ -445,6 +450,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                           onFolderToggle={handleFolderToggle}
                           isCallScoringTier={isCallScoringTier}
                           callScoringAccessibleIds={callScoringAccessibleIds}
+                          agencyId={user?.agency_id}
                         />
                       );
                     }

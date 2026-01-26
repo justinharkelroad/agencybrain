@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronRight, Lock } from "lucide-react";
+import { ChevronRight, Lock, Clock } from "lucide-react";
 import {
   SidebarMenuItem,
   SidebarMenuSub,
@@ -14,6 +14,7 @@ import { MembershipGateModal } from "@/components/MembershipGateModal";
 import { hasOneOnOneAccess } from "@/utils/tierAccess";
 import { getFeatureGateConfig } from "@/config/featureGates";
 import { SidebarSubFolder } from "@/components/sidebar/SidebarSubFolder";
+import { hasChallengeAccess } from "@/lib/challengeAccess";
 
 interface StaffSidebarFolderProps {
   folder: NavFolder;
@@ -28,6 +29,8 @@ interface StaffSidebarFolderProps {
   // Call Scoring tier gating props
   isCallScoringTier?: boolean;
   callScoringAccessibleIds?: string[];
+  // Agency ID for challenge access check
+  agencyId?: string | null;
 }
 
 export function StaffSidebarFolder({
@@ -41,6 +44,7 @@ export function StaffSidebarFolder({
   onFolderToggle,
   isCallScoringTier = false,
   callScoringAccessibleIds = ['call-scoring', 'call-scoring-top'],
+  agencyId,
 }: StaffSidebarFolderProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -49,6 +53,8 @@ export function StaffSidebarFolder({
   const [gatedFeatureName, setGatedFeatureName] = useState("");
   const [showCallScoringGate, setShowCallScoringGate] = useState(false);
   const [gatedItemId, setGatedItemId] = useState<string | null>(null);
+  const [showComingSoonGate, setShowComingSoonGate] = useState(false);
+  const [comingSoonFeatureName, setComingSoonFeatureName] = useState("");
 
   // Check if ANY hash-based item in this folder matches the current route
   const activeHashItem = visibleItems.find((item) => {
@@ -127,6 +133,13 @@ export function StaffSidebarFolder({
       return;
     }
 
+    // Check challenge access - show "Coming Soon" for non-whitelisted agencies
+    if (item.challengeAccess && !hasChallengeAccess(agencyId ?? null)) {
+      setComingSoonFeatureName(item.title);
+      setShowComingSoonGate(true);
+      return;
+    }
+
     // Check tier requirement - show gate modal for non-1:1 users
     if (item.requiresTier === "1:1" && !hasOneOnOneAccess(membershipTier)) {
       setGatedFeatureName(item.title);
@@ -195,24 +208,29 @@ export function StaffSidebarFolder({
                     membershipTier={membershipTier}
                     isCallScoringTier={isCallScoringTier}
                     callScoringAccessibleIds={callScoringAccessibleIds}
+                    agencyId={agencyId}
                   />
                 );
               }
-              
+
               const isActive = isItemActive(item);
               const isGatedForCallScoring = isCallScoringTier && !callScoringAccessibleIds.includes(item.id);
+              const isGatedForChallenge = item.challengeAccess && !hasChallengeAccess(agencyId ?? null);
 
               return (
                 <SidebarMenuSubItem key={item.id}>
                   <SidebarMenuSubButton
                     onClick={() => handleItemClick(item)}
                     isActive={isActive}
-                    className={cn("cursor-pointer", isGatedForCallScoring && "opacity-70")}
+                    className={cn("cursor-pointer", (isGatedForCallScoring || isGatedForChallenge) && "opacity-70")}
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
                     <span className="flex-1 line-clamp-2">{item.title}</span>
                     {isGatedForCallScoring && (
                       <Lock className="h-3 w-3 shrink-0 text-red-500" />
+                    )}
+                    {isGatedForChallenge && !isGatedForCallScoring && (
+                      <Clock className="h-3 w-3 shrink-0 text-blue-500" />
                     )}
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>
@@ -243,6 +261,14 @@ export function StaffSidebarFolder({
           returnPath="/staff/call-scoring"
         />
       )}
+
+      {/* Challenge Coming Soon Modal */}
+      <MembershipGateModal
+        open={showComingSoonGate}
+        onOpenChange={setShowComingSoonGate}
+        featureName={comingSoonFeatureName}
+        gateType="coming_soon"
+      />
     </>
   );
 }

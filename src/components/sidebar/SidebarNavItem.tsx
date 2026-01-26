@@ -8,11 +8,12 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { NavItem } from "@/config/navigation";
-import { ExternalLink, Lock } from "lucide-react";
+import { ExternalLink, Lock, Clock } from "lucide-react";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
 import { isStrictlyOneOnOne } from "@/utils/tierAccess";
 import { getFeatureGateConfig } from "@/config/featureGates";
 import { cn } from "@/lib/utils";
+import { hasChallengeAccess } from "@/lib/challengeAccess";
 
 interface SidebarNavItemProps {
   item: NavItem;
@@ -22,25 +23,31 @@ interface SidebarNavItemProps {
   membershipTier?: string | null;
   isCallScoringTier?: boolean;
   callScoringAccessibleIds?: string[];
+  agencyId?: string | null;
 }
 
-export function SidebarNavItem({ 
-  item, 
-  isNested = false, 
+export function SidebarNavItem({
+  item,
+  isNested = false,
   onOpenModal,
   badge,
   membershipTier,
   isCallScoringTier = false,
-  callScoringAccessibleIds = ['call-scoring', 'call-scoring-top', 'the-exchange']
+  callScoringAccessibleIds = ['call-scoring', 'call-scoring-top', 'the-exchange'],
+  agencyId
 }: SidebarNavItemProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { isMobile, setOpenMobile, setOpen } = useSidebar();
   const [showGateModal, setShowGateModal] = useState(false);
   const [showCallScoringGate, setShowCallScoringGate] = useState(false);
-  
+  const [showComingSoonGate, setShowComingSoonGate] = useState(false);
+
   // Check if this item should be gated for Call Scoring tier users
   const isGatedForCallScoring = isCallScoringTier && !callScoringAccessibleIds.includes(item.id);
+
+  // Check if this challenge item should show "Coming Soon" for non-whitelisted agencies
+  const isGatedForChallenge = item.challengeAccess && !hasChallengeAccess(agencyId ?? null);
   
   // Helper to close mobile sidebar and dispatch navigation event
   const dispatchNavigation = () => {
@@ -78,7 +85,13 @@ export function SidebarNavItem({
       setShowCallScoringGate(true);
       return;
     }
-    
+
+    // Check challenge access - show "Coming Soon" for non-whitelisted agencies
+    if (isGatedForChallenge) {
+      setShowComingSoonGate(true);
+      return;
+    }
+
     // Check tier requirement - show gate modal for Boardroom users
     if (item.requiresTier === '1:1' && !isStrictlyOneOnOne(membershipTier)) {
       setShowGateModal(true);
@@ -114,7 +127,10 @@ export function SidebarNavItem({
       {isGatedForCallScoring && (
         <Lock className="h-3 w-3 shrink-0 text-red-500" />
       )}
-      {!isGatedForCallScoring && badge}
+      {isGatedForChallenge && !isGatedForCallScoring && (
+        <Clock className="h-3 w-3 shrink-0 text-blue-500" />
+      )}
+      {!isGatedForCallScoring && !isGatedForChallenge && badge}
     </>
   );
 
@@ -124,11 +140,12 @@ export function SidebarNavItem({
       // Check tier requirement before rendering link
       const needsGate = item.requiresTier === '1:1' && !isStrictlyOneOnOne(membershipTier);
       const needsCallScoringGate = isGatedForCallScoring;
-      
+      const needsChallengeGate = isGatedForChallenge;
+
       return (
         <>
           <SidebarMenuSubItem>
-            {(needsGate || needsCallScoringGate) ? (
+            {(needsGate || needsCallScoringGate || needsChallengeGate) ? (
               <SidebarMenuSubButton
                 asChild
                 isActive={isActive}
@@ -138,13 +155,15 @@ export function SidebarNavItem({
                   onClick={() => {
                     if (needsCallScoringGate) {
                       setShowCallScoringGate(true);
+                    } else if (needsChallengeGate) {
+                      setShowComingSoonGate(true);
                     } else {
                       setShowGateModal(true);
                     }
                   }}
                   className={cn(
                     "cursor-pointer w-full flex items-center gap-2 text-left",
-                    isGatedForCallScoring && "opacity-70"
+                    (isGatedForCallScoring || isGatedForChallenge) && "opacity-70"
                   )}
                 >
                   {content}
@@ -155,8 +174,8 @@ export function SidebarNavItem({
                 asChild
                 isActive={isActive}
               >
-                <Link 
-                  to={item.url} 
+                <Link
+                  to={item.url}
                   className="w-full"
                   onClick={dispatchNavigation}
                 >
@@ -180,10 +199,17 @@ export function SidebarNavItem({
             gateType="call_scoring_upsell"
             returnPath="/call-scoring"
           />
+          {/* Challenge Coming Soon Modal */}
+          <MembershipGateModal
+            open={showComingSoonGate}
+            onOpenChange={setShowComingSoonGate}
+            featureName={item.title}
+            gateType="coming_soon"
+          />
         </>
       );
     }
-    
+
     // For modal/external items, keep using button
     return (
       <>
@@ -197,7 +223,7 @@ export function SidebarNavItem({
               onClick={handleClick}
               className={cn(
                 "cursor-pointer w-full flex items-center gap-2 text-left",
-                isGatedForCallScoring && "opacity-70"
+                (isGatedForCallScoring || isGatedForChallenge) && "opacity-70"
               )}
             >
               {content}
@@ -219,6 +245,13 @@ export function SidebarNavItem({
           gateType="call_scoring_upsell"
           returnPath="/call-scoring"
         />
+        {/* Challenge Coming Soon Modal */}
+        <MembershipGateModal
+          open={showComingSoonGate}
+          onOpenChange={setShowComingSoonGate}
+          featureName={item.title}
+          gateType="coming_soon"
+        />
       </>
     );
   }
@@ -230,7 +263,7 @@ export function SidebarNavItem({
           onClick={handleClick}
           isActive={isActive}
           tooltip={item.title}
-          className={cn("cursor-pointer", isGatedForCallScoring && "opacity-70")}
+          className={cn("cursor-pointer", (isGatedForCallScoring || isGatedForChallenge) && "opacity-70")}
         >
           {content}
         </SidebarMenuButton>
@@ -249,6 +282,13 @@ export function SidebarNavItem({
         videoKey={getFeatureGateConfig(item.id).videoKey}
         gateType="call_scoring_upsell"
         returnPath="/call-scoring"
+      />
+      {/* Challenge Coming Soon Modal */}
+      <MembershipGateModal
+        open={showComingSoonGate}
+        onOpenChange={setShowComingSoonGate}
+        featureName={item.title}
+        gateType="coming_soon"
       />
     </>
   );
