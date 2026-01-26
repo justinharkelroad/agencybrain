@@ -1,64 +1,62 @@
 
+# Replace Challenge Core 4 with Original Core 4 UI
 
-# Fix Core 4 Not Saving in Challenge Page
+## Root Causes Identified
 
-## Problem
-The Core 4 checkboxes in `/staff/challenge` don't save when clicked. The UI updates optimistically but nothing persists to the database.
+### Backend Bug: Wrong Column Names
+The `get-staff-challenge` edge function queries `staff_core4_entries` using incorrect column names:
+- **Wrong**: `entry_date` → **Correct**: `date`
+- **Wrong**: `body`, `being`, `balance`, `business` → **Correct**: `body_completed`, `being_completed`, `balance_completed`, `business_completed`
 
-**Root Cause:** The `handleCore4Toggle` function in `StaffChallenge.tsx` (line 182-192) is calling the edge function with `action: 'upsert'`, but this action **does not exist** in the `get_staff_core4_entries` edge function.
+This causes Core 4 data to always return null, so the challenge page never shows correct completion status.
 
-The edge function only supports these actions:
-- `toggle` - Toggle a single domain on/off
-- `fetch` - Fetch entries
-- `fetch_missions` - Fetch missions
-- `create_mission` / `update_mission_item` / `update_mission_status` - Manage missions
+### Frontend Issue: Wrong UI Component
+The challenge page (`StaffChallenge.tsx`) renders a custom checklist with checkboxes, while the existing `StaffCore4Card` component has the proper 2x2 gradient tile UI with THE SCORE and THE STREAKS that you expect.
+
+---
 
 ## Solution
 
-Update `StaffChallenge.tsx` to use the existing `toggle` action instead of the non-existent `upsert` action.
+### 1. Fix Edge Function Column Names
 
----
+Update `supabase/functions/get-staff-challenge/index.ts` to use correct column names:
 
-## Code Changes
-
-### File: `src/pages/staff/StaffChallenge.tsx`
-
-**Lines 182-192 (current broken code):**
+**Lines 191-196 (today's entry):**
 ```typescript
-const { error } = await supabase.functions.invoke('get_staff_core4_entries', {
-  headers: { 'x-staff-session': sessionToken },
-  body: {
-    action: 'upsert',           // ← DOES NOT EXIST
-    entry_date: todayStr,
-    body: updatedCore4.body,
-    being: updatedCore4.being,
-    balance: updatedCore4.balance,
-    business: updatedCore4.business,
-  },
-});
+// Before (broken):
+.eq('entry_date', todayStr)
+
+// After (fixed):
+.eq('date', todayStr)
 ```
 
-**Fix - use `toggle` action:**
+**Lines 200-205 (streak calculation):**
 ```typescript
-const { error } = await supabase.functions.invoke('get_staff_core4_entries', {
-  headers: { 'x-staff-session': sessionToken },
-  body: {
-    action: 'toggle',           // ← Use existing action
-    domain: key,                // ← Just pass which domain to toggle
-  },
-});
+// Before (broken):
+.select('entry_date, body, being, balance, business')
+.order('entry_date', { ascending: false })
+// Check: log.body && log.being && log.balance && log.business
+
+// After (fixed):
+.select('date, body_completed, being_completed, balance_completed, business_completed')
+.order('date', { ascending: false })
+// Check: log.body_completed && log.being_completed && log.balance_completed && log.business_completed
 ```
 
-The `toggle` action already:
-1. Gets or creates an entry for today
-2. Toggles the specific domain (body_completed, being_completed, etc.)
-3. Returns the updated entry
+### 2. Replace Custom Checklist with StaffCore4Card
 
----
+Update `src/pages/staff/StaffChallenge.tsx`:
 
-## Additional Cleanup
+- Remove the custom "Daily Core 4" checklist section (lines 567-610)
+- Remove related state (`core4Updating`), handler (`handleCore4Toggle`), and constants (`CORE4_ITEMS`)
+- Import and render the existing `StaffCore4Card` component in the sidebar instead
 
-After fixing the toggle, we still need to **remove the duplicate Core 4 UI from the dashboard widget** (`ChallengeDashboardWidget.tsx`) as discussed earlier. The challenge page Core 4 will work correctly, and the dashboard will only show the original "Core 4 + Flow" card.
+The `StaffCore4Card` already:
+- Uses the proper 2x2 gradient tile UI
+- Shows THE SCORE (combined 35-point weekly)
+- Shows THE STREAKS (Flow + Core 4)
+- Calls `useStaffCore4Stats` which properly invokes `get_staff_core4_entries` with `action: 'toggle'`
+- Auto-updates when any domain is clicked
 
 ---
 
@@ -66,16 +64,57 @@ After fixing the toggle, we still need to **remove the duplicate Core 4 UI from 
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/StaffChallenge.tsx` | Change `action: 'upsert'` to `action: 'toggle'` with `domain: key` |
-| `src/components/challenge/ChallengeDashboardWidget.tsx` | Remove duplicate Core 4 section (as previously discussed) |
+| `supabase/functions/get-staff-challenge/index.ts` | Fix column names: `date`, `body_completed`, etc. |
+| `src/pages/staff/StaffChallenge.tsx` | Remove custom Core 4 checklist, import `StaffCore4Card` |
 
 ---
 
-## Testing
+## Visual Result
 
-After fix:
-1. Go to `/staff/challenge`
-2. Click any Core 4 checkbox (Body, Being, Balance, Business)
-3. Checkbox should save and persist
-4. The original "Core 4 + Flow" card on the dashboard should reflect the same data
+**Before (custom checklist):**
+```text
+┌─────────────────────────────┐
+│ Daily Core 4                │
+│ ○ Body - Did you move?      │
+│ ○ Being - Mindfulness?      │
+│ ○ Balance - Relationship?   │
+│ ○ Business - Action?        │
+│ 🔥 X day streak!            │
+└─────────────────────────────┘
+```
 
+**After (original Core 4 + Flow card):**
+```text
+┌─────────────────────────────┐
+│ Core 4 + Flow     🔥3       │
+│ Today: 2/4 • Week: 18/35    │
+├──────────────┬──────────────┤
+│ ▓▓ BODY ▓▓   │ ░░ BEING ░░  │
+├──────────────┼──────────────┤
+│ ▓▓ BALANCE ▓▓│ ░░ BUSINESS ░│
+├──────────────┴──────────────┤
+│ THE SCORE     THE STREAKS   │
+│  ◐ 18/35     ⚡2   🔥3      │
+└─────────────────────────────┘
+```
+
+Clicking any tile toggles it on/off, updates the score, and syncs with the database.
+
+---
+
+## Technical Details
+
+### StaffCore4Card Component
+- Located at `src/components/staff/StaffCore4Card.tsx`
+- Uses `useStaffCore4Stats` hook for data fetching and toggling
+- Displays combined Core 4 + Flow weekly score (35-point system)
+- Shows current and longest streaks for both metrics
+
+### Data Flow
+1. User clicks a domain tile in StaffCore4Card
+2. `toggleDomain()` from `useStaffCore4Stats` is called
+3. Hook invokes `get_staff_core4_entries` edge function with `action: 'toggle'` and `domain: 'body'`
+4. Edge function updates `staff_core4_entries` table
+5. Hook receives updated entry and re-renders the UI
+
+This ensures the challenge page uses the exact same Core 4 tracking as the rest of the staff portal.
