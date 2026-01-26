@@ -354,6 +354,15 @@ verify_jwt = false
 [functions.challenge-send-daily-emails]
 verify_jwt = false
 
+[functions.challenge-complete-lesson]
+verify_jwt = false
+
+[functions.challenge-standalone-setup]
+verify_jwt = false
+
+[functions.challenge-send-credentials]
+verify_jwt = false
+
 [functions.submit-landing-lead]
 verify_jwt = false
 

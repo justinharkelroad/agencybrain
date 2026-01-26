@@ -50,9 +50,58 @@ Deno.serve(async (req) => {
       console.log('Processing checkout.session.completed:', session.id);
 
       const purchaseId = session.metadata?.purchase_id;
+      const source = session.metadata?.source;
 
+      // Handle standalone purchases (no existing account)
+      if (source === 'standalone' && !purchaseId) {
+        console.log('Standalone purchase detected, invoking setup function');
+
+        // Get tier from metadata or line items
+        const tier = session.metadata?.tier || 'Call Scoring';
+        const customerEmail = session.customer_details?.email || session.customer_email;
+        const quantity = session.metadata?.quantity ? parseInt(session.metadata.quantity, 10) : 1;
+
+        if (!customerEmail) {
+          console.error('No customer email for standalone purchase');
+          return new Response(
+            JSON.stringify({ error: 'Missing customer email' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Invoke the standalone setup function
+        const { data: setupResult, error: setupError } = await supabase.functions.invoke(
+          'challenge-standalone-setup',
+          {
+            body: {
+              email: customerEmail,
+              tier,
+              quantity,
+              stripe_session_id: session.id,
+              stripe_payment_intent_id: session.payment_intent,
+              amount_paid_cents: session.amount_total,
+            },
+          }
+        );
+
+        if (setupError) {
+          console.error('Standalone setup error:', setupError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to setup standalone purchase' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('Standalone setup completed:', setupResult);
+        return new Response(
+          JSON.stringify({ received: true, standalone: true }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Existing member purchase flow - requires purchase_id
       if (!purchaseId) {
-        console.error('No purchase_id in session metadata');
+        console.error('No purchase_id in session metadata for member purchase');
         return new Response(
           JSON.stringify({ error: 'Missing purchase_id in metadata' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

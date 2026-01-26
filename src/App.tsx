@@ -145,6 +145,9 @@ import TrainingLesson from "./pages/training/TrainingLesson";
 import ChallengePurchase from "./pages/training/ChallengePurchase";
 import ChallengeAssign from "./pages/training/ChallengeAssign";
 import ChallengePurchaseSuccess from "./pages/training/ChallengePurchaseSuccess";
+import ChallengeView from "./pages/training/ChallengeView";
+import ChallengeLanding from "./pages/ChallengeLanding";
+import ChallengeSuccess from "./pages/ChallengeSuccess";
 import StaffUnifiedTrainingHub from "./pages/staff/StaffUnifiedTrainingHub";
 import StaffChallenge from "./pages/staff/StaffChallenge";
 
@@ -211,6 +214,9 @@ const App = () => {
             <Route path="/" element={<Landing />} />
             <Route path="/landing-preview" element={<LandingPagePreview />} />
             <Route path="/auth" element={<Auth />} />
+            {/* Public Challenge Routes - Standalone Purchase Flow */}
+            <Route path="/six-week-challenge" element={<ChallengeLanding />} />
+            <Route path="/challenge-success" element={<ChallengeSuccess />} />
             <Route path="/accept-key-employee-invite" element={<AcceptKeyEmployeeInvite />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
@@ -428,6 +434,13 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <ChallengePurchaseSuccess />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/training/challenge/view" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <ChallengeView />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

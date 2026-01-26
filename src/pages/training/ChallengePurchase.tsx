@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Crown,
   ArrowLeft,
+  Eye,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -215,6 +216,14 @@ export default function ChallengePurchase() {
                 <CheckCircle2 className="h-4 w-4" />
                 {product.total_lessons} lessons
               </span>
+            </div>
+            <div className="mt-4">
+              <Button variant="secondary" size="sm" asChild>
+                <Link to="/training/challenge/view">
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Challenge Content
+                </Link>
+              </Button>
             </div>
           </div>
         </div>

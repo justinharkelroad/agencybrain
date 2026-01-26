@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { isCallScoringTier as checkIsCallScoringTier, getStaffHomePath, hasOneOnOneAccess } from "@/utils/tierAccess";
 import { hasSalesBetaAccess } from "@/lib/salesBetaAccess";
+import { useChallengeAccessGrant } from "@/hooks/useChallengeAccessGrant";
 import {
   LogOut,
   Sun,
@@ -157,8 +158,15 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   // Helper to check if agency is on Call Scoring tier
   const isCallScoringTier = checkIsCallScoringTier(user?.agency_membership_tier);
 
+  // Check if staff user has temporary access grants from challenge assignment
+  const { grantedIds: challengeGrantedIds } = useChallengeAccessGrant(user?.id);
+
   // Items that Call Scoring tier users can actually access (not just see)
-  const callScoringAccessibleIds = ['call-scoring', 'call-scoring-top'];
+  // Merge base IDs with any challenge-granted IDs (Core 4, Flows)
+  const callScoringAccessibleIds = useMemo(() => {
+    const baseIds = ['call-scoring', 'call-scoring-top'];
+    return [...baseIds, ...challengeGrantedIds];
+  }, [challengeGrantedIds]);
 
   // Check if agency has sales beta access
   const salesEnabled = hasSalesBetaAccess(user?.agency_id ?? null);

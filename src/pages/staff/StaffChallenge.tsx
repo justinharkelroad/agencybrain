@@ -244,10 +244,8 @@ export default function StaffChallenge() {
           ),
           progress: response.progress || {
             ...prev.progress,
-            completed_lessons: prev.progress.completed_lessons + 1,
-            progress_percent: Math.round(
-              ((prev.progress.completed_lessons + 1) / prev.progress.total_lessons) * 100
-            ),
+            completed_lessons: response.stats.completed_lessons,
+            progress_percent: response.stats.progress_percent,
           },
         };
       });
