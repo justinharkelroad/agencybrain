@@ -192,21 +192,21 @@ Deno.serve(async (req) => {
       .from('staff_core4_entries')
       .select('*')
       .eq('staff_user_id', staffUserId)
-      .eq('entry_date', todayStr)
+      .eq('date', todayStr)
       .maybeSingle();
 
     // Calculate Core 4 streak from staff_core4_entries
     let core4Streak = 0;
     const { data: core4Logs } = await supabase
       .from('staff_core4_entries')
-      .select('entry_date, body, being, balance, business')
+      .select('date, body_completed, being_completed, balance_completed, business_completed')
       .eq('staff_user_id', staffUserId)
-      .order('entry_date', { ascending: false })
+      .order('date', { ascending: false })
       .limit(30);
 
     if (core4Logs) {
       for (const log of core4Logs) {
-        if (log.body && log.being && log.balance && log.business) {
+        if (log.body_completed && log.being_completed && log.balance_completed && log.business_completed) {
           core4Streak++;
         } else {
           break;

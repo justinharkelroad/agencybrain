@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -16,14 +15,9 @@ import {
   Lock,
   Flame,
   ChevronRight,
-  Dumbbell,
-  Brain,
-  Heart,
-  Briefcase,
-  ArrowLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
-
+import { StaffCore4Card } from '@/components/staff/StaffCore4Card';
 interface ChallengeLesson {
   id: string;
   title: string;
@@ -91,13 +85,6 @@ interface ChallengeData {
   };
 }
 
-const CORE4_ITEMS = [
-  { key: 'body', label: 'Body', icon: Dumbbell, color: 'text-red-500', description: 'Did you move today?' },
-  { key: 'being', label: 'Being', icon: Brain, color: 'text-purple-500', description: 'Did you take time for mindfulness?' },
-  { key: 'balance', label: 'Balance', icon: Heart, color: 'text-pink-500', description: 'Did you nurture a relationship?' },
-  { key: 'business', label: 'Business', icon: Briefcase, color: 'text-blue-500', description: 'Did you take action on your goals?' },
-] as const;
-
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
 export default function StaffChallenge() {
@@ -108,7 +95,7 @@ export default function StaffChallenge() {
   const [loading, setLoading] = useState(true);
   const [selectedWeek, setSelectedWeek] = useState<string>('1');
   const [selectedLesson, setSelectedLesson] = useState<ChallengeLesson | null>(null);
-  const [core4Updating, setCore4Updating] = useState<string | null>(null);
+  
   const [completing, setCompleting] = useState(false);
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
 
@@ -150,49 +137,6 @@ export default function StaffChallenge() {
       fetchChallengeData();
     }
   }, [authLoading, isAuthenticated, fetchChallengeData]);
-
-  const handleCore4Toggle = async (key: string, checked: boolean) => {
-    if (!user?.id || core4Updating) return;
-
-    const previousData = data;
-    setData(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        core4: {
-          ...prev.core4,
-          today: {
-            ...prev.core4.today,
-            [key]: checked,
-          },
-        },
-      };
-    });
-
-    setCore4Updating(key);
-
-    try {
-      // Use the unified staff Core 4 system via get_staff_core4_entries edge function
-      const { error } = await supabase.functions.invoke('get_staff_core4_entries', {
-        headers: { 'x-staff-session': sessionToken },
-        body: {
-          action: 'toggle',
-          domain: key,
-        },
-      });
-
-      if (error) throw error;
-
-      // Refetch to get updated streak from server
-      await fetchChallengeData();
-    } catch (err) {
-      console.error('Core 4 update error:', err);
-      setData(previousData);
-      toast.error('Failed to update Core 4');
-    } finally {
-      setCore4Updating(null);
-    }
-  };
 
   const handleMarkComplete = async () => {
     if (!selectedLesson || !data?.assignment?.id) return;
@@ -323,7 +267,7 @@ export default function StaffChallenge() {
   const { assignment, current_business_day, modules, lessons, progress, core4 } = data;
   const weekLessons = lessons.filter(l => l.week_number === parseInt(selectedWeek));
   const currentModule = modules.find(m => m.week_number === parseInt(selectedWeek));
-  const allCore4Complete = core4.today.body && core4.today.being && core4.today.balance && core4.today.business;
+  
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -563,53 +507,8 @@ export default function StaffChallenge() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Core 4 Card */}
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">Daily Core 4</CardTitle>
-                {allCore4Complete && (
-                  <Badge variant="secondary" className="bg-green-100 text-green-800">Complete!</Badge>
-                )}
-              </div>
-              <CardDescription>Check in on your daily habits</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {CORE4_ITEMS.map(({ key, label, icon: Icon, color, description }) => (
-                <label
-                  key={key}
-                  className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    core4.today[key as keyof typeof core4.today]
-                      ? 'bg-muted border-primary/30'
-                      : 'hover:bg-muted/50'
-                  } ${core4Updating === key ? 'opacity-50' : ''}`}
-                >
-                  <Checkbox
-                    checked={core4.today[key as keyof typeof core4.today]}
-                    onCheckedChange={(checked) => handleCore4Toggle(key, !!checked)}
-                    disabled={core4Updating !== null}
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <Icon className={`h-4 w-4 ${color}`} />
-                      <span className="font-medium">{label}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{description}</p>
-                  </div>
-                </label>
-              ))}
-
-              {core4.streak > 0 && (
-                <div className="mt-4 p-3 rounded-lg bg-orange-500/10 flex items-center gap-2">
-                  <Flame className="h-5 w-5 text-orange-500" />
-                  <span className="text-sm">
-                    <span className="font-bold text-orange-600">{core4.streak} day</span> streak!
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Core 4 Card - Using the unified StaffCore4Card component */}
+          <StaffCore4Card />
 
           {/* Progress Stats */}
           <Card>
