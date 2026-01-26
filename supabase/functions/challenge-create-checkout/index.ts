@@ -129,6 +129,7 @@ Deno.serve(async (req) => {
       payment_method_types: ['card'],
       mode: 'payment',
       customer_email: profile.email || user.email,
+      allow_promotion_codes: true,
       line_items: [
         {
           price_data: {
