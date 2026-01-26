@@ -9685,6 +9685,10 @@ export type Database = {
         Args: { p_agency_id: string; p_call_id: string }
         Returns: Json
       }
+      get_staff_challenge_access_grant: {
+        Args: { p_staff_user_id: string }
+        Returns: Json
+      }
       get_sticky_fields_for_section: {
         Args: { p_section_type: string }
         Returns: {
