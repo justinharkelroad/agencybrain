@@ -173,38 +173,18 @@ export default function StaffChallenge() {
 
     try {
       // Use the unified staff Core 4 system via get_staff_core4_entries edge function
-      const todayStr = new Date().toISOString().split('T')[0];
-      const updatedCore4 = {
-        ...data?.core4.today,
-        [key]: checked,
-      };
-      
       const { error } = await supabase.functions.invoke('get_staff_core4_entries', {
         headers: { 'x-staff-session': sessionToken },
         body: {
-          action: 'upsert',
-          entry_date: todayStr,
-          body: updatedCore4.body,
-          being: updatedCore4.being,
-          balance: updatedCore4.balance,
-          business: updatedCore4.business,
+          action: 'toggle',
+          domain: key,
         },
       });
 
       if (error) throw error;
 
-      // Calculate streak locally (simplified - actual streak calculated on refetch)
-      const allComplete = updatedCore4.body && updatedCore4.being && updatedCore4.balance && updatedCore4.business;
-      setData(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          core4: {
-            ...prev.core4,
-            streak: allComplete ? prev.core4.streak + 1 : prev.core4.streak,
-          },
-        };
-      });
+      // Refetch to get updated streak from server
+      await fetchChallengeData();
     } catch (err) {
       console.error('Core 4 update error:', err);
       setData(previousData);

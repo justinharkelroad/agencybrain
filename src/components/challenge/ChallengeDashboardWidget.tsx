@@ -2,19 +2,13 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import {
   Play,
   CheckCircle2,
-  Flame,
   ChevronRight,
-  Dumbbell,
-  Brain,
-  Heart,
-  Briefcase,
 } from 'lucide-react';
 
 interface ChallengeData {
@@ -47,30 +41,12 @@ interface ChallengeData {
     completed_lessons: number;
     progress_percent: number;
   };
-  core4: {
-    today: {
-      body: boolean;
-      being: boolean;
-      balance: boolean;
-      business: boolean;
-    };
-    streak: number;
-  };
 }
-
-const CORE4_ITEMS = [
-  { key: 'body', label: 'Body', icon: Dumbbell, color: 'text-red-500' },
-  { key: 'being', label: 'Being', icon: Brain, color: 'text-purple-500' },
-  { key: 'balance', label: 'Balance', icon: Heart, color: 'text-pink-500' },
-  { key: 'business', label: 'Business', icon: Briefcase, color: 'text-blue-500' },
-] as const;
 
 export function ChallengeDashboardWidget() {
   const { sessionToken } = useStaffAuth();
   const [data, setData] = useState<ChallengeData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [core4Updating, setCore4Updating] = useState<string | null>(null);
-
   const fetchChallengeData = useCallback(async () => {
     if (!sessionToken) {
       setLoading(false);
@@ -96,59 +72,6 @@ export function ChallengeDashboardWidget() {
     fetchChallengeData();
   }, [fetchChallengeData]);
 
-  const handleCore4Toggle = async (key: string, checked: boolean) => {
-    if (!data?.assignment?.id || core4Updating) return;
-
-    // Optimistic update
-    const previousData = data;
-    setData(prev => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        core4: {
-          ...prev.core4,
-          today: {
-            ...prev.core4.today,
-            [key]: checked,
-          },
-        },
-      };
-    });
-
-    setCore4Updating(key);
-
-    try {
-      const { data: response, error } = await supabase.functions.invoke('challenge-update-core4', {
-        headers: { 'x-staff-session': sessionToken },
-        body: {
-          assignment_id: data.assignment.id,
-          ...data.core4.today,
-          [key]: checked,
-        },
-      });
-
-      if (error) throw error;
-
-      // Update streak from response
-      setData(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          core4: {
-            ...prev.core4,
-            streak: response.streak,
-          },
-        };
-      });
-    } catch (err) {
-      console.error('Core 4 update error:', err);
-      // Revert on error
-      setData(previousData);
-    } finally {
-      setCore4Updating(null);
-    }
-  };
-
   // Return null if loading or no assignment (fail silently)
   if (loading) {
     return null;
@@ -158,9 +81,8 @@ export function ChallengeDashboardWidget() {
     return null;
   }
 
-  const { assignment, current_business_day, todays_lesson, progress, core4 } = data;
+  const { assignment, current_business_day, todays_lesson, progress } = data;
   const isLessonCompleted = todays_lesson?.progress?.status === 'completed';
-  const allCore4Complete = core4.today.body && core4.today.being && core4.today.balance && core4.today.business;
 
   return (
     <Card className="overflow-hidden">
@@ -178,12 +100,6 @@ export function ChallengeDashboardWidget() {
               Day {current_business_day} of {assignment?.product?.total_lessons || 30}
             </p>
           </div>
-          {core4.streak > 0 && (
-            <div className="flex items-center gap-1 bg-orange-500/20 px-2 py-1 rounded-full">
-              <Flame className="h-4 w-4 text-orange-500" />
-              <span className="text-sm font-semibold text-orange-500">{core4.streak}</span>
-            </div>
-          )}
         </div>
 
         {/* Progress Bar */}
@@ -230,37 +146,6 @@ export function ChallengeDashboardWidget() {
             </Link>
           </div>
         )}
-
-        {/* Core 4 Checklist */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium text-muted-foreground">Daily Core 4</h3>
-            {allCore4Complete && (
-              <span className="text-xs text-green-600 font-medium">All complete!</span>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {CORE4_ITEMS.map(({ key, label, icon: Icon, color }) => (
-              <label
-                key={key}
-                className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                  core4.today[key as keyof typeof core4.today]
-                    ? 'bg-muted border-primary/30'
-                    : 'hover:bg-muted/50'
-                } ${core4Updating === key ? 'opacity-50' : ''}`}
-              >
-                <Checkbox
-                  checked={core4.today[key as keyof typeof core4.today]}
-                  onCheckedChange={(checked) => handleCore4Toggle(key, !!checked)}
-                  disabled={core4Updating !== null}
-                  className="data-[state=checked]:bg-primary"
-                />
-                <Icon className={`h-4 w-4 ${color}`} />
-                <span className="text-sm">{label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
 
         {/* View All Link */}
         <Button variant="outline" className="w-full" asChild>
