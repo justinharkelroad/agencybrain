@@ -28,7 +28,6 @@ import {
   Brain,
   Heart,
   Briefcase,
-  Clock,
   Trophy,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -72,14 +71,17 @@ interface LessonProgress {
   };
 }
 
-interface Core4Log {
+interface Core4Entry {
   id: string;
-  log_date: string;
-  body: boolean;
-  being: boolean;
-  balance: boolean;
-  business: boolean;
-  notes: string | null;
+  date: string;
+  body_completed: boolean;
+  being_completed: boolean;
+  balance_completed: boolean;
+  business_completed: boolean;
+  body_note: string | null;
+  being_note: string | null;
+  balance_note: string | null;
+  business_note: string | null;
 }
 
 export default function ChallengeProgress() {
@@ -88,7 +90,7 @@ export default function ChallengeProgress() {
   const [assignments, setAssignments] = useState<StaffAssignment[]>([]);
   const [selectedAssignment, setSelectedAssignment] = useState<StaffAssignment | null>(null);
   const [lessonProgress, setLessonProgress] = useState<LessonProgress[]>([]);
-  const [core4Logs, setCore4Logs] = useState<Core4Log[]>([]);
+  const [core4Entries, setCore4Entries] = useState<Core4Entry[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
 
@@ -152,25 +154,25 @@ export default function ChallengeProgress() {
             ?.filter(p => p.completed_at)
             .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime())[0];
 
-          // Fetch Core 4 stats
+          // Fetch Core 4 stats from staff_core4_entries
           const { data: core4Data } = await supabase
-            .from('challenge_core4_logs')
-            .select('body, being, balance, business, log_date')
-            .eq('assignment_id', assignment.id)
-            .order('log_date', { ascending: false });
+            .from('staff_core4_entries')
+            .select('body_completed, being_completed, balance_completed, business_completed, date')
+            .eq('staff_user_id', assignment.staff_user_id)
+            .order('date', { ascending: false });
 
           const perfectDays = core4Data?.filter(
-            log => log.body && log.being && log.balance && log.business
+            entry => entry.body_completed && entry.being_completed && entry.balance_completed && entry.business_completed
           ).length || 0;
 
           // Calculate current streak
           let currentStreak = 0;
           if (core4Data && core4Data.length > 0) {
-            const sortedLogs = [...core4Data].sort(
-              (a, b) => new Date(b.log_date).getTime() - new Date(a.log_date).getTime()
+            const sortedEntries = [...core4Data].sort(
+              (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
             );
-            for (const log of sortedLogs) {
-              if (log.body && log.being && log.balance && log.business) {
+            for (const entry of sortedEntries) {
+              if (entry.body_completed && entry.being_completed && entry.balance_completed && entry.business_completed) {
                 currentStreak++;
               } else {
                 break;
@@ -229,15 +231,15 @@ export default function ChallengeProgress() {
       if (progressError) throw progressError;
       setLessonProgress(progressData as LessonProgress[] || []);
 
-      // Fetch Core 4 logs
+      // Fetch Core 4 entries from staff_core4_entries
       const { data: core4Data, error: core4Error } = await supabase
-        .from('challenge_core4_logs')
+        .from('staff_core4_entries')
         .select('*')
-        .eq('assignment_id', assignment.id)
-        .order('log_date', { ascending: false });
+        .eq('staff_user_id', assignment.staff_user_id)
+        .order('date', { ascending: false });
 
       if (core4Error) throw core4Error;
-      setCore4Logs(core4Data || []);
+      setCore4Entries(core4Data || []);
     } catch (err) {
       console.error('Error fetching details:', err);
       toast.error('Failed to load staff details');
@@ -561,20 +563,20 @@ export default function ChallengeProgress() {
                   </div>
                 </div>
 
-                {core4Logs.length === 0 ? (
+                {core4Entries.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Calendar className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                    <p>No Core 4 logs yet</p>
+                    <p>No Core 4 entries yet</p>
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                    {core4Logs.map((log) => {
-                      const isPerfect = log.body && log.being && log.balance && log.business;
-                      const completedCount = [log.body, log.being, log.balance, log.business].filter(Boolean).length;
+                    {core4Entries.map((entry) => {
+                      const isPerfect = entry.body_completed && entry.being_completed && entry.balance_completed && entry.business_completed;
+                      const completedCount = [entry.body_completed, entry.being_completed, entry.balance_completed, entry.business_completed].filter(Boolean).length;
 
                       return (
                         <div
-                          key={log.id}
+                          key={entry.id}
                           className={`p-3 rounded-lg border ${
                             isPerfect ? 'bg-green-500/5 border-green-500/20' : ''
                           }`}
@@ -582,7 +584,7 @@ export default function ChallengeProgress() {
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <Calendar className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">{formatDateLocal(log.log_date)}</span>
+                              <span className="font-medium">{formatDateLocal(entry.date)}</span>
                               {isPerfect && (
                                 <Badge className="bg-green-600">
                                   <Trophy className="h-3 w-3 mr-1" />
@@ -593,29 +595,34 @@ export default function ChallengeProgress() {
                             <span className="text-sm text-muted-foreground">{completedCount}/4</span>
                           </div>
                           <div className="grid grid-cols-4 gap-2">
-                            <div className={`flex items-center gap-1 text-sm ${log.body ? 'text-green-600' : 'text-muted-foreground'}`}>
+                            <div className={`flex items-center gap-1 text-sm ${entry.body_completed ? 'text-green-600' : 'text-muted-foreground'}`}>
                               <Dumbbell className="h-4 w-4" />
                               <span>Body</span>
-                              {log.body && <CheckCircle2 className="h-3 w-3" />}
+                              {entry.body_completed && <CheckCircle2 className="h-3 w-3" />}
                             </div>
-                            <div className={`flex items-center gap-1 text-sm ${log.being ? 'text-green-600' : 'text-muted-foreground'}`}>
+                            <div className={`flex items-center gap-1 text-sm ${entry.being_completed ? 'text-green-600' : 'text-muted-foreground'}`}>
                               <Brain className="h-4 w-4" />
                               <span>Being</span>
-                              {log.being && <CheckCircle2 className="h-3 w-3" />}
+                              {entry.being_completed && <CheckCircle2 className="h-3 w-3" />}
                             </div>
-                            <div className={`flex items-center gap-1 text-sm ${log.balance ? 'text-green-600' : 'text-muted-foreground'}`}>
+                            <div className={`flex items-center gap-1 text-sm ${entry.balance_completed ? 'text-green-600' : 'text-muted-foreground'}`}>
                               <Heart className="h-4 w-4" />
                               <span>Balance</span>
-                              {log.balance && <CheckCircle2 className="h-3 w-3" />}
+                              {entry.balance_completed && <CheckCircle2 className="h-3 w-3" />}
                             </div>
-                            <div className={`flex items-center gap-1 text-sm ${log.business ? 'text-green-600' : 'text-muted-foreground'}`}>
+                            <div className={`flex items-center gap-1 text-sm ${entry.business_completed ? 'text-green-600' : 'text-muted-foreground'}`}>
                               <Briefcase className="h-4 w-4" />
                               <span>Business</span>
-                              {log.business && <CheckCircle2 className="h-3 w-3" />}
+                              {entry.business_completed && <CheckCircle2 className="h-3 w-3" />}
                             </div>
                           </div>
-                          {log.notes && (
-                            <p className="text-sm text-muted-foreground mt-2 italic">"{log.notes}"</p>
+                          {(entry.body_note || entry.being_note || entry.balance_note || entry.business_note) && (
+                            <div className="text-sm text-muted-foreground mt-2 space-y-1">
+                              {entry.body_note && <p className="italic">Body: {entry.body_note}</p>}
+                              {entry.being_note && <p className="italic">Being: {entry.being_note}</p>}
+                              {entry.balance_note && <p className="italic">Balance: {entry.balance_note}</p>}
+                              {entry.business_note && <p className="italic">Business: {entry.business_note}</p>}
+                            </div>
                           )}
                         </div>
                       );
