@@ -285,12 +285,6 @@ export default function StaffChallenge() {
               Day {current_business_day} of {assignment?.product?.total_lessons || 30}
             </p>
           </div>
-          {core4.streak > 0 && (
-            <div className="flex items-center gap-1 bg-orange-500/20 px-3 py-1.5 rounded-full">
-              <Flame className="h-5 w-5 text-orange-500" />
-              <span className="text-lg font-bold text-orange-500">{core4.streak}</span>
-            </div>
-          )}
         </div>
 
         {/* Progress */}
