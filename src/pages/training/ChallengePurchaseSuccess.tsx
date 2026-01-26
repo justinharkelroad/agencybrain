@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Loader2,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 
 interface PurchaseDetails {
@@ -24,19 +25,50 @@ export default function ChallengePurchaseSuccess() {
   const sessionId = searchParams.get('session_id');
 
   const [loading, setLoading] = useState(true);
+  const [verifying, setVerifying] = useState(false);
   const [purchase, setPurchase] = useState<PurchaseDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user?.id && sessionId) {
-      checkPurchase();
-    } else if (!sessionId) {
-      setError('No session ID provided');
-      setLoading(false);
-    }
-  }, [user?.id, sessionId]);
+  const verifyWithStripe = useCallback(async () => {
+    if (!sessionId) return false;
+    
+    setVerifying(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setError('Please log in to verify your purchase');
+        return false;
+      }
 
-  const checkPurchase = async () => {
+      const { data, error: fnError } = await supabase.functions.invoke('challenge-verify-session', {
+        body: { session_id: sessionId },
+      });
+
+      if (fnError) {
+        console.error('Verification error:', fnError);
+        return false;
+      }
+
+      if (data?.verified && data?.purchase) {
+        setPurchase({
+          quantity: data.purchase.quantity,
+          total_price_cents: data.purchase.total_price_cents,
+          purchased_at: data.purchase.purchased_at,
+        });
+        setError(null);
+        return true;
+      }
+
+      return false;
+    } catch (err) {
+      console.error('Error verifying with Stripe:', err);
+      return false;
+    } finally {
+      setVerifying(false);
+    }
+  }, [sessionId]);
+
+  const checkPurchase = useCallback(async () => {
     try {
       // Poll for purchase completion (webhook might take a moment)
       let attempts = 0;
@@ -62,21 +94,42 @@ export default function ChallengePurchaseSuccess() {
             total_price_cents: data.total_price_cents,
             purchased_at: data.purchased_at,
           });
-          break;
+          setLoading(false);
+          return;
         }
 
         attempts++;
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
-      if (!purchase && attempts >= maxAttempts) {
-        setError('Purchase is still processing. Please check back shortly.');
+      // Polling timed out - try fallback verification
+      console.log('Polling timed out, attempting Stripe verification...');
+      const verified = await verifyWithStripe();
+      
+      if (!verified) {
+        setError('Payment is being processed. Click "Verify Payment" to check status.');
       }
     } catch (err) {
       console.error('Error:', err);
-      setError('Failed to verify purchase');
+      setError('Failed to verify purchase. Click "Verify Payment" to retry.');
     } finally {
       setLoading(false);
+    }
+  }, [sessionId, verifyWithStripe]);
+
+  useEffect(() => {
+    if (user?.id && sessionId) {
+      checkPurchase();
+    } else if (!sessionId) {
+      setError('No session ID provided');
+      setLoading(false);
+    }
+  }, [user?.id, sessionId, checkPurchase]);
+
+  const handleManualVerify = async () => {
+    const verified = await verifyWithStripe();
+    if (!verified) {
+      setError('Payment still processing. Please try again in a moment.');
     }
   };
 
@@ -104,6 +157,23 @@ export default function ChallengePurchaseSuccess() {
             <h2 className="mt-4 text-lg font-semibold">Processing Payment</h2>
             <p className="mt-2 text-sm text-muted-foreground">{error}</p>
             <div className="mt-6 space-y-3">
+              <Button 
+                onClick={handleManualVerify} 
+                disabled={verifying}
+                className="w-full"
+              >
+                {verifying ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Verify Payment
+                  </>
+                )}
+              </Button>
               <Button variant="outline" className="w-full" asChild>
                 <Link to="/training/challenge">Return to Challenge</Link>
               </Button>
