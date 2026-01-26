@@ -152,7 +152,7 @@ export default function StaffChallenge() {
   }, [authLoading, isAuthenticated, fetchChallengeData]);
 
   const handleCore4Toggle = async (key: string, checked: boolean) => {
-    if (!data?.assignment?.id || core4Updating) return;
+    if (!user?.id || core4Updating) return;
 
     const previousData = data;
     setData(prev => {
@@ -172,24 +172,36 @@ export default function StaffChallenge() {
     setCore4Updating(key);
 
     try {
-      const { data: response, error } = await supabase.functions.invoke('challenge-update-core4', {
+      // Use the unified staff Core 4 system via get_staff_core4_entries edge function
+      const todayStr = new Date().toISOString().split('T')[0];
+      const updatedCore4 = {
+        ...data?.core4.today,
+        [key]: checked,
+      };
+      
+      const { error } = await supabase.functions.invoke('get_staff_core4_entries', {
         headers: { 'x-staff-session': sessionToken },
         body: {
-          assignment_id: data.assignment.id,
-          ...data.core4.today,
-          [key]: checked,
+          action: 'upsert',
+          entry_date: todayStr,
+          body: updatedCore4.body,
+          being: updatedCore4.being,
+          balance: updatedCore4.balance,
+          business: updatedCore4.business,
         },
       });
 
       if (error) throw error;
 
+      // Calculate streak locally (simplified - actual streak calculated on refetch)
+      const allComplete = updatedCore4.body && updatedCore4.being && updatedCore4.balance && updatedCore4.business;
       setData(prev => {
         if (!prev) return prev;
         return {
           ...prev,
           core4: {
             ...prev.core4,
-            streak: response.streak,
+            streak: allComplete ? prev.core4.streak + 1 : prev.core4.streak,
           },
         };
       });
@@ -205,12 +217,34 @@ export default function StaffChallenge() {
   const handleMarkComplete = async () => {
     if (!selectedLesson || !data?.assignment?.id) return;
 
+    // Prevent duplicate completions
+    if (selectedLesson.challenge_progress?.status === 'completed') {
+      toast.info('Lesson already completed');
+      return;
+    }
+
     setCompleting(true);
     try {
-      // TODO: Implement lesson completion edge function
-      // For now, just update local state
+      // Call edge function to save to database
+      const { data: response, error } = await supabase.functions.invoke('challenge-complete-lesson', {
+        headers: { 'x-staff-session': sessionToken },
+        body: {
+          assignment_id: data.assignment.id,
+          lesson_id: selectedLesson.id,
+          reflection_responses: reflectionAnswers,
+        },
+      });
+
+      if (error) throw error;
+
+      if (response?.already_completed) {
+        toast.info('Lesson already completed');
+        return;
+      }
+
       toast.success('Lesson marked as complete!');
 
+      // Update local state with response from server
       setData(prev => {
         if (!prev) return prev;
         return {
@@ -223,11 +257,12 @@ export default function StaffChallenge() {
                     ...l.challenge_progress,
                     status: 'completed',
                     completed_at: new Date().toISOString(),
+                    reflection_response: reflectionAnswers,
                   },
                 }
               : l
           ),
-          progress: {
+          progress: response.progress || {
             ...prev.progress,
             completed_lessons: prev.progress.completed_lessons + 1,
             progress_percent: Math.round(
