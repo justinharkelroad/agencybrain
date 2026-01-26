@@ -1,104 +1,58 @@
 
-# Fix: Disable Daily Sales Summary Emails on Sunday and Monday Mornings
+# Add Promo Code Support to 6-Week Challenge Checkout
 
-## Problem Statement
-You're receiving daily sales summary emails on **Sunday morning** (reporting Saturday) and **Monday morning** (reporting Sunday). These are non-business days and should not trigger emails.
+## Problem
+The current Stripe Checkout session for the 6-week challenge doesn't display a promo code input field. You have promo codes configured in Stripe, but customers can't apply them during checkout.
 
-## Root Cause
-The `send-daily-sales-summary` edge function is triggered every hour by a pg_cron job. It checks if it's 7 PM local time for each agency, but it does **not** check whether yesterday was a business day.
+## Solution
+Add `allow_promotion_codes: true` to the Stripe Checkout Session creation. This is a single-line change that enables Stripe's built-in promo code field on the checkout page.
 
-**Current trigger:**
-- **pg_cron job**: `0 * * * *` (every hour, all 7 days)
-- **Function logic**: Only checks `localHour === 19` (7 PM)
+## What Customers Will See After Fix
+When customers click the purchase button, the Stripe checkout page will now display:
+- A "Add promotion code" link below the payment details
+- When clicked, an input field appears where customers can enter any promo code you've created in Stripe
+- Stripe automatically validates and applies the discount
 
-Meanwhile, the other daily summary function (`send_daily_summary`) correctly uses `shouldSendDailySummary()` from `_shared/business-days.ts`.
+## Implementation
 
-## Solution Overview
-Add the same business day check that exists in `send_daily_summary` to the `send-daily-sales-summary` function.
+### File: `supabase/functions/challenge-create-checkout/index.ts`
 
-**Logic to add:**
-- Sunday morning (7 PM Saturday local) → Skip (Saturday is not a business day)
-- Monday morning (7 PM Sunday local) → Skip (Sunday is not a business day)
-- Tuesday-Saturday mornings → Send (Mon-Fri are business days)
-
-## Implementation Steps
-
-### Step 1: Import Business Day Utilities
-Add import at top of `send-daily-sales-summary/index.ts`:
-```typescript
-import { shouldSendDailySummary, getDayName } from '../_shared/business-days.ts';
-```
-
-### Step 2: Add Business Day Check
-After line 78 (the console log for starting), add a check that skips non-business day reports:
+**Change:** Add `allow_promotion_codes: true` to the checkout session creation (line 128-154)
 
 ```typescript
-// Check if today is a valid day to send summary
-// Skip Sunday (would report on Saturday) and Monday (would report on Sunday)
-const now = new Date();
-if (!shouldSendDailySummary(now)) {
-  const dayName = getDayName(now);
-  console.log(`[send-daily-sales-summary] Skipping - today is ${dayName}, yesterday was not a business day`);
-  return new Response(
-    JSON.stringify({ 
-      success: true, 
-      skipped: true, 
-      reason: 'Yesterday was not a business day (weekend)',
-      today: dayName
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
+const session = await stripe.checkout.sessions.create({
+  payment_method_types: ['card'],
+  mode: 'payment',
+  customer_email: profile.email || user.email,
+  allow_promotion_codes: true,  // ← ADD THIS LINE
+  line_items: [
+    // ... existing line items
+  ],
+  metadata: {
+    // ... existing metadata
+  },
+  success_url: success_url || `${req.headers.get('origin')}/training/challenge/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
+  cancel_url: cancel_url || `${req.headers.get('origin')}/training/challenge`,
+});
 ```
-
-### Step 3: Allow Force Test Override
-Modify the check to respect the `forceTest` flag for testing purposes:
-
-```typescript
-if (!forceTest && !shouldSendDailySummary(now)) {
-  // ... skip logic
-}
-```
-
-## Email Schedule After Fix
-
-| Day Email is Sent | Reports On | Action |
-|-------------------|------------|--------|
-| Sunday 7 PM | Saturday | **SKIP** (not a business day) |
-| Monday 7 PM | Sunday | **SKIP** (not a business day) |
-| Tuesday 7 PM | Monday | SEND ✅ |
-| Wednesday 7 PM | Tuesday | SEND ✅ |
-| Thursday 7 PM | Wednesday | SEND ✅ |
-| Friday 7 PM | Thursday | SEND ✅ |
-| Saturday 7 PM | Friday | SEND ✅ |
-
-## Files Modified
-1. `supabase/functions/send-daily-sales-summary/index.ts` - Add business day check
-
-## No Changes Needed
-- **pg_cron job**: Keep running every hour (the function itself will exit early on Sun/Mon)
-- **GitHub Actions workflow**: Already correctly configured for Tue-Sat
-- **`_shared/business-days.ts`**: Already has the correct logic
 
 ## Technical Notes
 
-### Why not change the cron schedule?
-The pg_cron job runs every hour because it handles multiple agencies in different timezones. Each agency needs the function to check if it's 7 PM in *their* timezone. Restricting the cron to only run Tue-Sat would still require the function-level check, and the current hourly approach is simpler.
+1. **Stripe handles everything**: No database changes or frontend changes needed. Stripe's checkout page automatically shows the promo code field and applies discounts.
 
-### How `shouldSendDailySummary` works
-```typescript
-export function shouldSendDailySummary(today: Date): boolean {
-  const dayOfWeek = today.getDay();
-  // Skip Sunday (0) - would report on Saturday
-  // Skip Monday (1) - would report on Sunday
-  return dayOfWeek !== 0 && dayOfWeek !== 1;
-}
-```
-- Returns `false` on Sunday (day 0)
-- Returns `false` on Monday (day 1)
-- Returns `true` on Tuesday through Saturday (days 2-6)
+2. **Works with existing Stripe promo codes**: Any promotion codes you've already created in Stripe Dashboard will work immediately.
+
+3. **Applies to all challenge purchases**: Every purchase of the 6-week challenge (regardless of seat quantity or membership tier) will have the promo code option.
+
+4. **Discount tracking**: Stripe records which promo code was used in the session, visible in your Stripe Dashboard for reporting.
+
+## Files Modified
+| File | Change |
+|------|--------|
+| `supabase/functions/challenge-create-checkout/index.ts` | Add `allow_promotion_codes: true` |
 
 ## Testing
-After deployment, you can verify by:
-1. Checking edge function logs on Sunday/Monday evenings - should show "Skipping" message
-2. Using `forceTest` mode with a specific email to manually test the skip logic
+After deployment:
+1. Go to `/training/challenge` and click purchase
+2. On the Stripe checkout page, look for "Add promotion code" link
+3. Enter a valid Stripe promo code and verify the discount applies
