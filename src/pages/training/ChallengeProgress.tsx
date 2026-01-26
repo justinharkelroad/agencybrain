@@ -154,11 +154,12 @@ export default function ChallengeProgress() {
             ?.filter(p => p.completed_at)
             .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime())[0];
 
-          // Fetch Core 4 stats from staff_core4_entries
+          // Fetch Core 4 stats from staff_core4_entries (only during challenge period)
           const { data: core4Data } = await supabase
             .from('staff_core4_entries')
             .select('body_completed, being_completed, balance_completed, business_completed, date')
             .eq('staff_user_id', assignment.staff_user_id)
+            .gte('date', assignment.start_date)
             .order('date', { ascending: false });
 
           const perfectDays = core4Data?.filter(
@@ -231,11 +232,12 @@ export default function ChallengeProgress() {
       if (progressError) throw progressError;
       setLessonProgress(progressData as LessonProgress[] || []);
 
-      // Fetch Core 4 entries from staff_core4_entries
+      // Fetch Core 4 entries from staff_core4_entries (only during challenge period)
       const { data: core4Data, error: core4Error } = await supabase
         .from('staff_core4_entries')
         .select('*')
         .eq('staff_user_id', assignment.staff_user_id)
+        .gte('date', assignment.start_date)
         .order('date', { ascending: false });
 
       if (core4Error) throw core4Error;
