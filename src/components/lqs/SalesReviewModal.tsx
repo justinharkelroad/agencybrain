@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChevronLeft, ChevronRight, Check, X, User, MapPin, Package, DollarSign, Calendar, HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PendingSaleReview, MatchCandidate } from '@/types/lqs';
@@ -80,7 +79,7 @@ export function SalesReviewModal({ open, onOpenChange, pendingReviews, onReviewC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-2xl max-h-[90svh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <span>Review Ambiguous Matches</span>
@@ -124,8 +123,11 @@ export function SalesReviewModal({ open, onOpenChange, pendingReviews, onReviewC
         </div>
 
         {/* Candidate list */}
-        <ScrollArea className="flex-1 min-h-0 max-h-[50vh]">
-          <div className="space-y-2 pr-4">
+        <div
+          className="flex-1 min-h-0 overflow-y-auto pr-4"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          <div className="space-y-2">
             {current.candidates.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <HelpCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -136,7 +138,7 @@ export function SalesReviewModal({ open, onOpenChange, pendingReviews, onReviewC
               current.candidates.map((candidate) => {
                 const currentDecision = decisions.get(currentIndex);
                 const isSelected = currentDecision?.matchedHouseholdId === candidate.householdId;
-                
+
                 return (
                   <button
                     key={candidate.householdId}
@@ -150,7 +152,7 @@ export function SalesReviewModal({ open, onOpenChange, pendingReviews, onReviewC
                       <div className="space-y-1">
                         <div className="font-medium flex items-center gap-2">
                           {candidate.householdName}
-                          <Badge 
+                          <Badge
                             variant={candidate.score >= 75 ? "default" : candidate.score >= 50 ? "secondary" : "outline"}
                             className="text-xs"
                           >
@@ -171,7 +173,7 @@ export function SalesReviewModal({ open, onOpenChange, pendingReviews, onReviewC
                       </div>
                       {isSelected && <Check className="h-5 w-5 text-primary flex-shrink-0" />}
                     </div>
-                    
+
                     {/* Match factors */}
                     <div className="flex gap-1 mt-2 flex-wrap">
                       {candidate.matchFactors.productMatch && (
@@ -200,7 +202,7 @@ export function SalesReviewModal({ open, onOpenChange, pendingReviews, onReviewC
               })
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Navigation and actions */}
         <div className="flex items-center justify-between pt-4 border-t">
