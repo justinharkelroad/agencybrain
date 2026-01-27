@@ -4650,6 +4650,8 @@ export type Database = {
       lqs_households: {
         Row: {
           agency_id: string
+          attention_reason: string | null
+          conflicting_lead_source_id: string | null
           contact_id: string | null
           created_at: string
           email: string | null
@@ -4672,6 +4674,8 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          attention_reason?: string | null
+          conflicting_lead_source_id?: string | null
           contact_id?: string | null
           created_at?: string
           email?: string | null
@@ -4694,6 +4698,8 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          attention_reason?: string | null
+          conflicting_lead_source_id?: string | null
           contact_id?: string | null
           created_at?: string
           email?: string | null
@@ -4720,6 +4726,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lqs_households_conflicting_lead_source_id_fkey"
+            columns: ["conflicting_lead_source_id"]
+            isOneToOne: false
+            referencedRelation: "lead_sources"
             referencedColumns: ["id"]
           },
           {

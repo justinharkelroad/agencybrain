@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Paperclip, X, Loader2, Bot, User, FileText, AlertCircle } from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -91,8 +92,14 @@ export function CompPlanAssistantChat({
       if (!allowedTypes.includes(file.type)) {
         return;
       }
-      // Validate file size (10MB max)
+      // Images have a 5MB limit (Anthropic API restriction)
+      if (file.type.startsWith("image/") && file.size > 5 * 1024 * 1024) {
+        toast.error("Image must be under 5MB. Try taking a smaller screenshot or compressing the image.");
+        return;
+      }
+      // PDFs and text files can be up to 10MB
       if (file.size > 10 * 1024 * 1024) {
+        toast.error("File must be under 10MB");
         return;
       }
       setSelectedFile(file);
@@ -303,7 +310,7 @@ export function CompPlanAssistantChat({
             </div>
 
             <p className="text-xs text-muted-foreground text-center">
-              Supports PDF, images, and text files up to 10MB • Shift+Enter to send
+              Supports PDF (up to 10MB), images (up to 5MB), and text files • Shift+Enter to send
             </p>
           </form>
         </div>
