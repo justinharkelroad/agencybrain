@@ -124,7 +124,7 @@ export function SalesReviewModal({ open, onOpenChange, pendingReviews, onReviewC
         </div>
 
         {/* Candidate list */}
-        <ScrollArea className="flex-1 min-h-0 max-h-[300px]">
+        <ScrollArea className="flex-1 min-h-0 max-h-[50vh]">
           <div className="space-y-2 pr-4">
             {current.candidates.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
