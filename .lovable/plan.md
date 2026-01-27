@@ -1,60 +1,74 @@
 
-# Fix Meeting Frame KPI Display for Role-Based Filtering
+
+# Fix Custom KPI Display Issues for Mayra Menchaca Agency
 
 ## Problem Summary
 
-When generating a Meeting Frame report for **Cristal Reyes (Service role)**:
-- **Date range 1/1/26 - 1/26/26**: Shows 6 KPI circles (Cross-sells, Mini Reviews, Outbound Calls, Talk Minutes, Talk Time, Total Calls)
-- **Date range 1/19/26 - 1/26/26**: Shows ~20 KPI circles, all with zeros
+The custom KPIs and standard metrics are displaying incorrectly in the Meeting Frame because:
 
-The issue is caused by two factors:
-1. Meeting Frame displays **all agency KPIs** instead of filtering by the team member's **role-specific metrics**
-2. The "show non-zero only" logic (`nonZeroTotals`) causes inconsistent display
+1. **No Role Filtering**: The system fetches ALL 20 agency KPIs instead of just the 5 metrics defined for Sales or Service
+2. **Inconsistent Display**: The "show non-zero only" logic shows different KPI counts based on data presence
+3. **Duplicate KPI Keys**: Same keys (`outbound_calls`, `talk_minutes`) exist with different labels per role, causing confusion
 
-| Date Range | Has Data? | Behavior |
-|------------|-----------|----------|
-| 1/1 - 1/26 | Yes (5 days) | Shows only 6 non-zero KPIs |
-| 1/19 - 1/26 | No (1 day with zeros) | Shows ALL 20 agency KPIs |
+### Current Agency KPI Configuration
+
+**Sales Role** (5 selected metrics):
+- `items_sold` - Items Sold
+- `custom_1769552938936` - NEW CONVOS 10MN+ (custom)
+- `outbound_calls` - Outbound Calls
+- `quoted_households` - Quoted Households  
+- `talk_minutes` - Talk Minutes
+
+**Service Role** (5 selected metrics):
+- `cross_sells_uncovered` - Cross-sells Uncovered
+- `mini_reviews` - Mini Reviews Completed
+- `custom_1769554851688` - Renewals (custom)
+- `talk_minutes` - Talk Time
+- `outbound_calls` - Total Calls
 
 ---
 
-## Root Cause Analysis
+## Solution Overview
 
-The Meeting Frame currently fetches **all active KPIs** for the agency:
+### Step 1: Add Role-Based KPI Filtering to Meeting Frame
 
-```typescript
-// Current code - fetches ALL agency KPIs regardless of role
-const { data, error } = await supabase
-  .from('kpis')
-  .select('id, key, label, type')
-  .eq('agency_id', agencyId)
-  .eq('is_active', true)
-  .order('label');
+When a team member is selected, fetch their role and filter KPIs to only those in their `selected_metrics` from `scorecard_rules`.
+
+**File: `src/components/agency/MeetingFrameTab.tsx`**
+
+Changes:
+1. Add state for role-specific metrics
+2. When member selected, lookup their role from teamMembers list
+3. Fetch `selected_metrics` from `scorecard_rules` for that role
+4. Filter the KPIs to only those whose `key` is in `selected_metrics`
+5. Use filtered KPIs for aggregation (remove the confusing non-zero filter)
+
+```text
+Flow Change:
+BEFORE: Fetch ALL KPIs → Aggregate ALL → Show non-zero
+AFTER:  Fetch ALL KPIs → Filter by role → Aggregate filtered → Show ALL role KPIs
 ```
 
-This ignores the role-specific `selected_metrics` in `scorecard_rules`:
-- **Sales**: items_sold, custom_1769552938936, outbound_calls, quoted_households, talk_minutes
-- **Service**: cross_sells_uncovered, mini_reviews, custom_1769554851688, talk_minutes, outbound_calls
+### Step 2: Update Edge Function for Staff Mode
 
----
+**File: `supabase/functions/scorecards_admin/index.ts`**
 
-## Solution
+Update `meeting_frame_list` action to include team member roles in response.
 
-### Step 1: Fetch Team Member's Role When Selected
+Update `meeting_frame_generate` action to:
+1. Accept optional `role` parameter
+2. Return `roleMetrics` array from `scorecard_rules.selected_metrics`
+3. Filter KPIs server-side for consistency
 
-When a team member is selected, determine their role and fetch the corresponding `selected_metrics` from `scorecard_rules`.
+### Step 3: Handle Hybrid/Manager Roles
 
-### Step 2: Filter KPIs by Role-Specific Metrics
+For Hybrid and Manager roles, combine metrics from both Sales and Service:
 
-Instead of showing all agency KPIs, filter to only show KPIs whose `key` is in the team member's role-specific `selected_metrics` array.
-
-### Step 3: Remove Confusing "Non-Zero Only" Logic
-
-The current behavior of hiding zeros is confusing because:
-- It shows different KPI counts for different date ranges
-- Users expect consistent metrics regardless of data presence
-
-The fix will show all role-relevant KPIs consistently, with zeros displayed when no data exists.
+```typescript
+const rolesToCheck = (role === 'Hybrid' || role === 'Manager') 
+  ? ['Sales', 'Service'] 
+  : [role];
+```
 
 ---
 
@@ -62,12 +76,12 @@ The fix will show all role-relevant KPIs consistently, with zeros displayed when
 
 | File | Change |
 |------|--------|
-| `src/components/agency/MeetingFrameTab.tsx` | Filter KPIs by role-specific selected_metrics |
-| `supabase/functions/scorecards_admin/index.ts` | Update `meeting_frame_generate` to include role filtering |
+| `src/components/agency/MeetingFrameTab.tsx` | Add role-based filtering when member selected |
+| `supabase/functions/scorecards_admin/index.ts` | Update `meeting_frame_generate` to return role-filtered metrics |
 
 ---
 
-## Technical Implementation
+## Technical Implementation Details
 
 ### Frontend Changes (MeetingFrameTab.tsx)
 
@@ -75,17 +89,20 @@ The fix will show all role-relevant KPIs consistently, with zeros displayed when
 // 1. Add state for role-specific metrics
 const [roleMetrics, setRoleMetrics] = useState<string[]>([]);
 
-// 2. When member is selected, fetch their role's selected_metrics
+// 2. Effect to fetch role metrics when member changes
 useEffect(() => {
   async function fetchRoleMetrics() {
-    if (!selectedMember) return;
+    if (!selectedMember) {
+      setRoleMetrics([]);
+      return;
+    }
     
     const member = teamMembers.find(m => m.id === selectedMember);
     if (!member) return;
     
-    // Handle Hybrid/Manager: show all metrics from Sales + Service
-    const rolesToCheck = member.role === 'Hybrid' || member.role === 'Manager' 
-      ? ['Sales', 'Service'] 
+    // Hybrid/Manager: merge Sales + Service metrics
+    const rolesToCheck = (member.role === 'Hybrid' || member.role === 'Manager')
+      ? ['Sales', 'Service']
       : [member.role];
     
     const { data: rules } = await supabase
@@ -94,32 +111,31 @@ useEffect(() => {
       .eq('agency_id', agencyId)
       .in('role', rolesToCheck);
     
-    // Combine all selected_metrics from matching roles
     const metrics = new Set<string>();
     rules?.forEach(rule => {
-      (rule.selected_metrics || []).forEach(m => metrics.add(m));
+      (rule.selected_metrics || []).forEach((m: string) => metrics.add(m));
     });
     
     setRoleMetrics(Array.from(metrics));
   }
+  
   fetchRoleMetrics();
 }, [selectedMember, teamMembers, agencyId]);
 
-// 3. Filter KPIs by role metrics when aggregating
+// 3. In generateReport(), filter KPIs before aggregation
 const filteredKpis = roleMetrics.length > 0
   ? kpis.filter(kpi => roleMetrics.includes(kpi.key))
   : kpis;
 
-// 4. Use filteredKpis in aggregation
-const totals: KPITotal[] = filteredKpis.map((kpi) => { ... });
+const totals: KPITotal[] = filteredKpis.map((kpi) => {
+  // ... aggregation logic
+});
 
-// 5. Always show all role-relevant KPIs (remove non-zero filtering)
-setKpiTotals(totals); // Remove the nonZeroTotals logic
+// 4. Remove non-zero filtering - show all role-relevant KPIs
+setKpiTotals(totals);
 ```
 
 ### Edge Function Changes (scorecards_admin/index.ts)
-
-Update `meeting_frame_generate` to return role-filtered metrics:
 
 ```typescript
 case 'meeting_frame_generate': {
@@ -133,7 +149,7 @@ case 'meeting_frame_generate': {
     .single();
   
   // Get role-specific selected_metrics
-  const rolesToCheck = member?.role === 'Hybrid' || member?.role === 'Manager'
+  const rolesToCheck = (member?.role === 'Hybrid' || member?.role === 'Manager')
     ? ['Sales', 'Service']
     : [member?.role];
     
@@ -143,11 +159,21 @@ case 'meeting_frame_generate': {
     .eq('agency_id', agencyId)
     .in('role', rolesToCheck);
   
-  // Fetch metrics as before...
+  const roleMetrics = new Set<string>();
+  rules?.forEach(r => (r.selected_metrics || []).forEach(m => roleMetrics.add(m)));
+  
+  // Fetch metrics data
+  const { data: metricsData } = await supabase
+    .from('metrics_daily')
+    .select('*')
+    .eq('team_member_id', team_member_id)
+    .gte('date', start_date)
+    .lte('date', end_date);
   
   result = { 
     metricsData, 
-    roleMetrics: combinedSelectedMetrics 
+    roleMetrics: Array.from(roleMetrics),
+    memberRole: member?.role
   };
   break;
 }
@@ -155,41 +181,29 @@ case 'meeting_frame_generate': {
 
 ---
 
-## Expected Outcome
+## Expected Results
 
-**Before (confusing)**:
-- Service member + data → Shows 6 circles
-- Service member + no data → Shows 20 circles
+**Before (confusing):**
+- Select Cristal Reyes (Service) → Date range with data shows 6 circles
+- Select Cristal Reyes (Service) → Date range without data shows 20+ circles
 
-**After (consistent)**:
-- Service member always shows 5 Service KPI circles (cross_sells_uncovered, mini_reviews, custom_1769554851688, talk_minutes, outbound_calls)
-- Sales member always shows 5 Sales KPI circles
-- Zeros displayed when no data (clear visual feedback)
-
----
-
-## Visualization
-
-```text
-Current Flow (Broken):
-┌─────────────────┐    ┌──────────────────┐    ┌──────────────────────┐
-│ Select Member   │───▶│ Show ALL KPIs    │───▶│ Filter to non-zero   │
-│ (any role)      │    │ (~20 circles)    │    │ (inconsistent count) │
-└─────────────────┘    └──────────────────┘    └──────────────────────┘
-
-Fixed Flow:
-┌─────────────────┐    ┌──────────────────┐    ┌──────────────────────┐
-│ Select Member   │───▶│ Get role metrics │───▶│ Show only role KPIs  │
-│ (Service role)  │    │ from scorecard   │    │ (always 5 circles)   │
-└─────────────────┘    └──────────────────┘    └──────────────────────┘
-```
+**After (consistent):**
+- Select Cristal Reyes (Service) → Always shows exactly 5 Service circles:
+  - Cross-sells Uncovered
+  - Mini Reviews Completed
+  - Renewals (custom_1769554851688)
+  - Talk Time (talk_minutes)
+  - Total Calls (outbound_calls)
+- Zeros displayed when no data exists (clear visual feedback)
 
 ---
 
-## Duplicate KPI Cleanup (Recommended)
+## Data Cleanup Note (Recommended but Optional)
 
-The agency has duplicate KPIs with the same key:
-- `talk_minutes`: "Talk Minutes" and "Talk Time"
-- `outbound_calls`: "Outbound Calls" and "Total Calls" (x3!)
+The agency has some duplicate custom KPIs that could be cleaned up:
+- `custom_1767895378128` = "Total Call"
+- `custom_1768416774137` = "Total Calls"
+- `outbound_calls` = "Total Calls" (Service version)
 
-This should be cleaned up to prevent double-counting, but the role filtering will mask this issue since only metrics in `selected_metrics` will display.
+These all represent the same metric. Only one should be in `selected_metrics`, which is already the case (`outbound_calls`). No immediate action needed, but the owner may want to deactivate the unused custom KPIs later.
+
