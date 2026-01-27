@@ -257,10 +257,29 @@ async function processInBackground(
               throw new Error(`Failed to upsert quote: ${quoteError.message}`);
             }
             
-            // Count as created (upsert succeeded)
+          // Count as created (upsert succeeded)
             if (quote) {
               quotesCreatedInGroup++;
             }
+          }
+
+          // EXPLICIT STATUS UPDATE: Don't rely solely on database trigger
+          // This ensures households are correctly marked as 'quoted' even when
+          // the trigger doesn't fire (e.g., during ignoreDuplicates upserts)
+          if (quotesCreatedInGroup > 0) {
+            const minQuoteDate = groupRecords.reduce((min, r) => 
+              r.quoteDate < min ? r.quoteDate : min, 
+              groupRecords[0].quoteDate
+            );
+            
+            await supabase
+              .from('lqs_households')
+              .update({
+                status: 'quoted',
+                first_quote_date: minQuoteDate,
+              })
+              .eq('id', householdId)
+              .eq('status', 'lead'); // Don't overwrite 'sold' status
           }
 
           return {
