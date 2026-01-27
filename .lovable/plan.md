@@ -1,91 +1,61 @@
 
-# Fix: Staff Login Edge Function 404 Errors (Production)
+# Delete LQS Quotes and Sales for Justin Harkelroad (Standard Playbook Inc)
 
-## Problem Identified
+## What You Are Asking For
 
-Josh and Jason are intermittently getting "Unable to sign in. Please try again." errors on production (`myagencybrain.com/staff/login`). 
-
-**Root Cause:** The Supabase edge function `staff_login` is returning **intermittent 404 errors** in production. When 404s occur, the `function_id` is `nil`, meaning Supabase's edge function router cannot locate the function.
-
-Evidence from production logs:
-- `POST | 404` with `function_id: nil` (function not found)
-- Interspersed with `POST | 200` (successful logins)
-
-This is causing the CORS/ERR_FAILED errors shown in your screenshot, because a 404 response from an edge function doesn't include proper CORS headers.
-
-## Contributing Factor
-
-There are TypeScript build errors in recently added edge functions that may be destabilizing the deployment:
-
-```
-TS18046: 'error' is of type 'unknown'
-  at supabase/functions/ringcentral-oauth-init/index.ts:87
-  at supabase/functions/ringcentral-sync-calls/index.ts:370
-```
-
-When edge functions fail to build, Supabase deployment can become unstable, causing intermittent 404s across all functions.
+You want to **permanently delete** all LQS (Lead → Quote → Sale) quotes and sales data for the account `justin@hfiagencies.com`.
 
 ---
 
-## Solution
+## Account Details
 
-### Step 1: Fix TypeScript Errors in RingCentral Functions
-
-Both files have the same issue: accessing `.message` on an `unknown` type in catch blocks.
-
-**File: `supabase/functions/ringcentral-oauth-init/index.ts`**
-```typescript
-// Line 85-91: Change from
-} catch (error) {
-  console.error("[ringcentral-oauth-init] Error:", error);
-  return new Response(JSON.stringify({ error: error.message }), { ... });
-}
-
-// To
-} catch (error) {
-  console.error("[ringcentral-oauth-init] Error:", error);
-  const message = error instanceof Error ? error.message : "Internal server error";
-  return new Response(JSON.stringify({ error: message }), { ... });
-}
-```
-
-**File: `supabase/functions/ringcentral-sync-calls/index.ts`**
-```typescript
-// Line 368-373: Change from
-} catch (error) {
-  console.error("[ringcentral-sync] Error:", error);
-  return new Response(JSON.stringify({ error: error.message }), { ... });
-}
-
-// To
-} catch (error) {
-  console.error("[ringcentral-sync] Error:", error);
-  const message = error instanceof Error ? error.message : "Internal server error";
-  return new Response(JSON.stringify({ error: message }), { ... });
-}
-```
-
-### Step 2: Redeploy Edge Functions
-
-After fixing the build errors, the edge functions will be automatically redeployed. This should stabilize the routing and eliminate the 404s.
+| Field | Value |
+|-------|-------|
+| **Email** | justin@hfiagencies.com |
+| **Name** | Justin E Harkelroad |
+| **Agency** | Standard Playbook Inc |
+| **Agency ID** | 979e8713-c266-4b23-96a9-fabd34f1fc9e |
 
 ---
 
-## Technical Details
+## Data That Will Be Permanently Deleted
 
-| File | Change |
-|------|--------|
-| `supabase/functions/ringcentral-oauth-init/index.ts` | Fix TypeScript TS18046 error on line 87 |
-| `supabase/functions/ringcentral-sync-calls/index.ts` | Fix TypeScript TS18046 error on line 370 |
-
-**No changes needed to `staff_login` itself** - the function code is correct. The issue is deployment stability caused by build errors in other functions.
+| Data Type | Count | Date Range | Total Premium |
+|-----------|-------|------------|---------------|
+| **LQS Quotes** | 856 records | Oct 1, 2025 → Jan 24, 2026 | $1,096,016.98 |
+| **LQS Sales** | 226 records | Sep 30, 2025 → Jan 24, 2026 | $212,046.41 |
 
 ---
 
-## Expected Outcome
+## What Will NOT Be Deleted
 
-After these fixes:
-- Build will succeed without errors
-- Edge functions will deploy cleanly
-- `staff_login` will no longer return intermittent 404s
-- Josh, Jason, and all staff users will be able to log in reliably
+- **LQS Households**: 2,124 household records will remain (they contain lead/contact info)
+- **Original Sales table data**: The main `sales` table is separate from `lqs_sales`
+- **Scorecards, meetings, compensation data**: All other Brain data stays intact
+- **Team members, lead sources, marketing buckets**: Configuration data stays
+
+---
+
+## Clarifying Question
+
+**Do you also want to delete the 2,124 LQS Households?**
+
+Deleting households would remove all lead/contact records from LQS, giving you a completely clean slate. If you keep households but delete quotes/sales, the households will show as "Leads" with no quote or sale history.
+
+---
+
+## The Deletion Process
+
+1. **Delete all `lqs_sales`** for agency `979e8713-c266-4b23-96a9-fabd34f1fc9e` (226 records)
+2. **Delete all `lqs_quotes`** for agency `979e8713-c266-4b23-96a9-fabd34f1fc9e` (856 records)
+3. (Optional) **Delete all `lqs_households`** if you want a full reset (2,124 records)
+
+This will be done via SQL DELETE statements run through Supabase.
+
+---
+
+## Confirm Your Intent
+
+Before I execute this, please confirm:
+- **Delete quotes and sales only** - Keep households as leads
+- **Delete everything (quotes, sales, AND households)** - Full LQS reset
