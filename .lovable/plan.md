@@ -1,84 +1,60 @@
 
 
-# Renewals Page Missing Pagination
+# LQS Quote Upload Status Bug Fix
+
+## Problem Summary
+
+After uploading 178 quotes, the LQS Roadmap shows **0 Quoted Households** instead of the expected count. The data exists in the database but households are stuck in `'lead'` status instead of being updated to `'quoted'`.
 
 ## Root Cause
 
-The Renewals page **does not have pagination implemented**. When Heather Ebersole (or any user) views their renewals, the page fetches and renders **all 428 records at once** in a single table with no page controls.
+**The database trigger `trg_lqs_quotes_update_status` doesn't fire reliably during bulk uploads.**
 
-This causes:
-- Slow page load times
-- Poor user experience scrolling through hundreds of records
-- Potential browser performance issues
+| Current Behavior | Expected Behavior |
+|------------------|-------------------|
+| Quote upsert with `ignoreDuplicates: true` | Trigger fires on INSERT |
+| Duplicate quotes are skipped (no INSERT) | Household status should update to 'quoted' |
+| Trigger doesn't fire | 120 households have quotes but stuck in 'lead' status |
 
-## Evidence
-
-| Component | Pagination Status |
-|-----------|-------------------|
-| Renewals | **None** - renders all records in one table |
-| Winback | Has server-side pagination with `WinbackPagination` component |
-| Contacts | Has infinite scroll pagination |
-| LQS Households | Has server-side pagination with page controls |
-| Sales Drilldown | Has server-side pagination using `.range()` |
-
-The Renewals page (`src/pages/Renewals.tsx` line 649) maps through `filteredAndSortedRecords` directly without any slicing or pagination logic.
+The trigger only fires on INSERT operations. When the same quote is uploaded again (duplicate), it's ignored, so no trigger fires. Even for new quotes, there may be timing/transaction isolation issues preventing the status update from persisting.
 
 ---
 
-## Solution: Add Server-Side Pagination to Renewals
+## Solution: Explicit Status Update After Quote Insertion
 
-### Step 1: Update `useRenewalRecords` Hook
+### Step 1: Add Post-Upload Status Correction
 
-Add pagination parameters to the hook (`src/hooks/useRenewalRecords.ts`):
+After inserting quotes for a household, explicitly update the household status instead of relying solely on the trigger:
 
 ```typescript
-export function useRenewalRecords(
-  agencyId: string | null, 
-  filters: RenewalFilters = {},
-  page: number = 1,
-  pageSize: number = 50
-) {
-  // For staff users: pass pagination to edge function
-  // For regular users: add .range() to query
-  
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-  
-  // Add to query: .range(from, to)
-  // Use { count: 'exact' } to get total count
+// After inserting quotes, explicitly update household status
+if (quotesCreatedInGroup > 0) {
+  await supabase
+    .from('lqs_households')
+    .update({
+      status: 'quoted',
+      first_quote_date: primaryRecord.quoteDate,
+    })
+    .eq('id', householdId)
+    .eq('status', 'lead'); // Only update if still in 'lead' status
 }
 ```
 
-### Step 2: Update Edge Function `get_staff_renewals`
+### Step 2: Create Data Repair Endpoint
 
-Modify to accept and apply pagination parameters:
-- Accept `page` and `pageSize` in request body
-- Apply `.range()` to the query
-- Return `{ records, totalCount }` instead of just records
+Create a one-time repair function to fix existing households that have quotes but are stuck in 'lead' status:
 
-### Step 3: Add Pagination State to Renewals Page
-
-Add state variables in `src/pages/Renewals.tsx`:
-
-```typescript
-const [currentPage, setCurrentPage] = useState(1);
-const [pageSize, setPageSize] = useState(50);
+```sql
+-- Repair existing data
+UPDATE lqs_households h
+SET 
+  status = 'quoted',
+  first_quote_date = (SELECT MIN(quote_date) FROM lqs_quotes WHERE household_id = h.id),
+  updated_at = now()
+WHERE h.status = 'lead'
+  AND EXISTS (SELECT 1 FROM lqs_quotes q WHERE q.household_id = h.id)
+  AND NOT EXISTS (SELECT 1 FROM lqs_sales s WHERE s.household_id = h.id);
 ```
-
-### Step 4: Create `RenewalsPagination` Component
-
-Create a reusable pagination component (similar to `WinbackPagination`):
-- Shows "Showing X-Y of Z records"
-- Page size selector (25, 50, 100)
-- Previous/Next navigation
-- First/Last page buttons
-
-### Step 5: Wire Up the Table
-
-- Pass pagination params to `useRenewalRecords`
-- Display total count from query
-- Render pagination controls below the table
-- Reset to page 1 when filters change
 
 ---
 
@@ -86,66 +62,81 @@ Create a reusable pagination component (similar to `WinbackPagination`):
 
 | File | Change |
 |------|--------|
-| `src/hooks/useRenewalRecords.ts` | Add `page`, `pageSize` params; return `{ records, totalCount }` |
-| `supabase/functions/get_staff_renewals/index.ts` | Accept pagination params; add `.range()` |
-| `src/pages/Renewals.tsx` | Add pagination state; pass to hook; render pagination UI |
-| `src/components/renewals/RenewalsPagination.tsx` | **New file** - pagination controls component |
+| `src/hooks/useQuoteBackgroundUpload.ts` | Add explicit status update after quote insertion |
 
 ---
 
 ## Technical Details
 
-### Query Changes (Regular Users)
+### Modified Upload Flow
 
-```typescript
-const { data, error, count } = await supabase
-  .from('renewal_records')
-  .select('*, assigned_team_member:team_members!...', { count: 'exact' })
-  .eq('agency_id', agencyId)
-  .range(from, to);
+```text
+Current Flow:
+┌─────────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
+│ Upsert Household    │───▶│ Upsert Quotes    │───▶│ Trigger (unreliable)│
+│ (status: 'lead')    │    │ (ignoreDuplicates)│    │ Status stays 'lead' │
+└─────────────────────┘    └──────────────────┘    └─────────────────────┘
 
-return { records: data, totalCount: count };
+Fixed Flow:
+┌─────────────────────┐    ┌──────────────────┐    ┌─────────────────────────┐
+│ Upsert Household    │───▶│ Upsert Quotes    │───▶│ Explicit Status Update  │
+│ (status: 'lead')    │    │                  │    │ (if quotesCreated > 0)  │
+└─────────────────────┘    └──────────────────┘    └─────────────────────────┘
 ```
 
-### Edge Function Changes (Staff Users)
+### Code Change in useQuoteBackgroundUpload.ts
+
+After line 264 (after the quote insertion loop), add:
 
 ```typescript
-// In get_staff_renewals edge function
-const { page = 1, pageSize = 50 } = body;
-const from = (page - 1) * pageSize;
-const to = from + pageSize - 1;
-
-query = query.range(from, to);
-
-return { records: data, totalCount: count };
+// Explicitly update household status to 'quoted' if we created any quotes
+// This ensures status is correct even if the trigger doesn't fire
+if (quotesCreatedInGroup > 0) {
+  const minQuoteDate = groupRecords.reduce((min, r) => 
+    r.quoteDate < min ? r.quoteDate : min, 
+    groupRecords[0].quoteDate
+  );
+  
+  await supabase
+    .from('lqs_households')
+    .update({
+      status: 'quoted',
+      first_quote_date: minQuoteDate,
+    })
+    .eq('id', householdId)
+    .eq('status', 'lead'); // Don't overwrite 'sold' status
+}
 ```
 
-### UI Changes
+---
 
-Add below the table in `Renewals.tsx`:
+## Data Repair for Existing Records
 
-```tsx
-<RenewalsPagination
-  currentPage={currentPage}
-  pageSize={pageSize}
-  totalCount={totalCount}
-  onPageChange={setCurrentPage}
-  onPageSizeChange={(size) => {
-    setPageSize(size);
-    setCurrentPage(1); // Reset on size change
-  }}
-/>
+After deploying the code fix, run this SQL to repair the 117 households currently affected:
+
+```sql
+UPDATE lqs_households h
+SET 
+  status = 'quoted',
+  first_quote_date = (
+    SELECT MIN(quote_date) 
+    FROM lqs_quotes 
+    WHERE household_id = h.id
+  ),
+  updated_at = now()
+WHERE h.agency_id = '979e8713-c266-4b23-96a9-fabd34f1fc9e'
+  AND h.status = 'lead'
+  AND EXISTS (SELECT 1 FROM lqs_quotes q WHERE q.household_id = h.id)
+  AND NOT EXISTS (SELECT 1 FROM lqs_sales s WHERE s.household_id = h.id);
 ```
 
 ---
 
 ## Expected Outcome
 
-After implementation:
-- Renewals page loads 50 records at a time by default
-- Users see "Showing 1-50 of 428 records"
-- Page navigation buttons (First, Prev, Next, Last)
-- Page size selector (25, 50, 100)
-- Filter changes reset to page 1
-- Significantly faster page loads for agencies with many renewals
+After implementing this fix:
+- New quote uploads will immediately show households as "Quoted"
+- The trigger becomes a backup rather than the primary mechanism
+- Your 117 stuck households will be repaired and visible in the Quoted tab
+- Future uploads won't have this synchronization issue
 
