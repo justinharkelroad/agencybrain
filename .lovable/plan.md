@@ -1,59 +1,83 @@
 
-
-# LQS Quote Upload Status Bug Fix
+# Comp Plan Assistant: Fix Image Size Limit
 
 ## Problem Summary
 
-After uploading 178 quotes, the LQS Roadmap shows **0 Quoted Households** instead of the expected count. The data exists in the database but households are stuck in `'lead'` status instead of being updated to `'quoted'`.
+When uploading images to the Comp Plan Assistant, users receive a generic "I'm having trouble" error because:
+1. **Client allows 10MB** but **Anthropic only accepts 5MB images**
+2. **No specific error handling** for the size limit rejection
+3. Users have no idea what went wrong
 
-## Root Cause
+## Solution
 
-**The database trigger `trg_lqs_quotes_update_status` doesn't fire reliably during bulk uploads.**
+### Step 1: Lower Frontend File Size Limit
 
-| Current Behavior | Expected Behavior |
-|------------------|-------------------|
-| Quote upsert with `ignoreDuplicates: true` | Trigger fires on INSERT |
-| Duplicate quotes are skipped (no INSERT) | Household status should update to 'quoted' |
-| Trigger doesn't fire | 120 households have quotes but stuck in 'lead' status |
+**File: `src/components/sales/CompPlanAssistantChat.tsx`**
 
-The trigger only fires on INSERT operations. When the same quote is uploaded again (duplicate), it's ignored, so no trigger fires. Even for new quotes, there may be timing/transaction isolation issues preventing the status update from persisting.
-
----
-
-## Solution: Explicit Status Update After Quote Insertion
-
-### Step 1: Add Post-Upload Status Correction
-
-After inserting quotes for a household, explicitly update the household status instead of relying solely on the trigger:
+Change the validation from 10MB to 5MB and add a user-friendly toast message:
 
 ```typescript
-// After inserting quotes, explicitly update household status
-if (quotesCreatedInGroup > 0) {
-  await supabase
-    .from('lqs_households')
-    .update({
-      status: 'quoted',
-      first_quote_date: primaryRecord.quoteDate,
-    })
-    .eq('id', householdId)
-    .eq('status', 'lead'); // Only update if still in 'lead' status
+// Line 95: Change from 10MB to 5MB for images
+if (file.type.startsWith("image/") && file.size > 5 * 1024 * 1024) {
+  toast.error("Image must be under 5MB. Try taking a smaller screenshot or compressing the image.");
+  return;
+}
+// Keep 10MB for PDFs and text files
+if (file.size > 10 * 1024 * 1024) {
+  toast.error("File must be under 10MB");
+  return;
 }
 ```
 
-### Step 2: Create Data Repair Endpoint
+### Step 2: Add Size Check in Edge Function (Defense in Depth)
 
-Create a one-time repair function to fix existing households that have quotes but are stuck in 'lead' status:
+**File: `supabase/functions/comp-plan-assistant/index.ts`**
 
-```sql
--- Repair existing data
-UPDATE lqs_households h
-SET 
-  status = 'quoted',
-  first_quote_date = (SELECT MIN(quote_date) FROM lqs_quotes WHERE household_id = h.id),
-  updated_at = now()
-WHERE h.status = 'lead'
-  AND EXISTS (SELECT 1 FROM lqs_quotes q WHERE q.household_id = h.id)
-  AND NOT EXISTS (SELECT 1 FROM lqs_sales s WHERE s.household_id = h.id);
+Check base64 size before calling Anthropic and return a specific error:
+
+```typescript
+// After line 282, before pushing to currentContent
+if (document_content && (document_type === 'image' || document_type === 'pdf')) {
+  // Base64 is ~1.33x the original size, so 5MB file ≈ 6.65MB base64
+  // Anthropic limit is 5MB for the decoded image
+  const estimatedBytes = (document_content.length * 3) / 4;
+  if (estimatedBytes > 5 * 1024 * 1024) {
+    return new Response(
+      JSON.stringify({
+        response: "The image you uploaded is too large (max 5MB). Please try a smaller image or screenshot.",
+        error: "IMAGE_TOO_LARGE"
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+    );
+  }
+}
+```
+
+### Step 3: Parse Anthropic Error for Better Messages
+
+**File: `supabase/functions/comp-plan-assistant/index.ts`**
+
+When Anthropic returns a 400 error, check if it's a size issue and return a helpful message:
+
+```typescript
+// Replace lines 333-337
+if (!anthropicResponse.ok) {
+  const errorText = await anthropicResponse.text();
+  console.error('Anthropic API error:', errorText);
+  
+  // Check for specific error types
+  if (errorText.includes('image exceeds') || errorText.includes('5 MB maximum')) {
+    return new Response(
+      JSON.stringify({
+        response: "The image you uploaded is too large. Please use an image under 5MB, or try compressing it.",
+        error: "IMAGE_TOO_LARGE"
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+    );
+  }
+  
+  throw new Error(`Anthropic API error: ${anthropicResponse.status}`);
+}
 ```
 
 ---
@@ -62,81 +86,24 @@ WHERE h.status = 'lead'
 
 | File | Change |
 |------|--------|
-| `src/hooks/useQuoteBackgroundUpload.ts` | Add explicit status update after quote insertion |
-
----
-
-## Technical Details
-
-### Modified Upload Flow
-
-```text
-Current Flow:
-┌─────────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
-│ Upsert Household    │───▶│ Upsert Quotes    │───▶│ Trigger (unreliable)│
-│ (status: 'lead')    │    │ (ignoreDuplicates)│    │ Status stays 'lead' │
-└─────────────────────┘    └──────────────────┘    └─────────────────────┘
-
-Fixed Flow:
-┌─────────────────────┐    ┌──────────────────┐    ┌─────────────────────────┐
-│ Upsert Household    │───▶│ Upsert Quotes    │───▶│ Explicit Status Update  │
-│ (status: 'lead')    │    │                  │    │ (if quotesCreated > 0)  │
-└─────────────────────┘    └──────────────────┘    └─────────────────────────┘
-```
-
-### Code Change in useQuoteBackgroundUpload.ts
-
-After line 264 (after the quote insertion loop), add:
-
-```typescript
-// Explicitly update household status to 'quoted' if we created any quotes
-// This ensures status is correct even if the trigger doesn't fire
-if (quotesCreatedInGroup > 0) {
-  const minQuoteDate = groupRecords.reduce((min, r) => 
-    r.quoteDate < min ? r.quoteDate : min, 
-    groupRecords[0].quoteDate
-  );
-  
-  await supabase
-    .from('lqs_households')
-    .update({
-      status: 'quoted',
-      first_quote_date: minQuoteDate,
-    })
-    .eq('id', householdId)
-    .eq('status', 'lead'); // Don't overwrite 'sold' status
-}
-```
-
----
-
-## Data Repair for Existing Records
-
-After deploying the code fix, run this SQL to repair the 117 households currently affected:
-
-```sql
-UPDATE lqs_households h
-SET 
-  status = 'quoted',
-  first_quote_date = (
-    SELECT MIN(quote_date) 
-    FROM lqs_quotes 
-    WHERE household_id = h.id
-  ),
-  updated_at = now()
-WHERE h.agency_id = '979e8713-c266-4b23-96a9-fabd34f1fc9e'
-  AND h.status = 'lead'
-  AND EXISTS (SELECT 1 FROM lqs_quotes q WHERE q.household_id = h.id)
-  AND NOT EXISTS (SELECT 1 FROM lqs_sales s WHERE s.household_id = h.id);
-```
+| `src/components/sales/CompPlanAssistantChat.tsx` | Add 5MB limit for images with clear toast message |
+| `supabase/functions/comp-plan-assistant/index.ts` | Add size validation + parse Anthropic errors for friendly messages |
 
 ---
 
 ## Expected Outcome
 
-After implementing this fix:
-- New quote uploads will immediately show households as "Quoted"
-- The trigger becomes a backup rather than the primary mechanism
-- Your 117 stuck households will be repaired and visible in the Quoted tab
-- Future uploads won't have this synchronization issue
+**Before:** User uploads a 6MB image → sees "I'm having trouble right now" → confused
 
+**After:** 
+- User tries to upload a 6MB image → **immediately sees toast:** "Image must be under 5MB. Try taking a smaller screenshot or compressing the image."
+- Even if frontend check is bypassed, edge function returns: "The image you uploaded is too large. Please use an image under 5MB."
+
+---
+
+## Technical Notes
+
+- Anthropic's Claude API has a hard 5MB limit per image
+- PDFs can be up to 10MB (Anthropic handles them differently)
+- Base64 encoding increases file size by ~33%, so a 5MB image becomes ~6.67MB in transit
+- The edge function size check uses `(base64.length * 3) / 4` to estimate original bytes
