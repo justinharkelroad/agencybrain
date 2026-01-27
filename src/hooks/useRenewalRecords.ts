@@ -17,19 +17,34 @@ export interface RenewalFilters {
   search?: string;
 }
 
-export function useRenewalRecords(agencyId: string | null, filters: RenewalFilters = {}) {
+export interface RenewalRecordsResult {
+  records: RenewalRecord[];
+  totalCount: number;
+}
+
+export function useRenewalRecords(
+  agencyId: string | null, 
+  filters: RenewalFilters = {},
+  page: number = 1,
+  pageSize: number = 50
+) {
   const staffSessionToken = getStaffSessionToken();
   
   return useQuery({
-    queryKey: ['renewal-records', agencyId, filters, !!staffSessionToken],
-    queryFn: async () => {
-      if (!agencyId) return [];
+    queryKey: ['renewal-records', agencyId, filters, page, pageSize, !!staffSessionToken],
+    queryFn: async (): Promise<RenewalRecordsResult> => {
+      if (!agencyId) return { records: [], totalCount: 0 };
+      
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
       
       // Staff users: call edge function to bypass RLS
       if (staffSessionToken) {
-        console.log('[useRenewalRecords] Staff user detected, calling edge function');
+        console.log('[useRenewalRecords] Staff user detected, calling edge function with pagination:', { page, pageSize });
         const { data, error } = await supabase.functions.invoke('get_staff_renewals', {
           body: { 
+            page,
+            pageSize,
             filters: {
               currentStatus: filters.currentStatus,
               renewalStatus: filters.renewalStatus,
@@ -52,18 +67,22 @@ export function useRenewalRecords(agencyId: string | null, filters: RenewalFilte
           throw error;
         }
         
-        console.log('[useRenewalRecords] Got records from edge function:', data?.records?.length);
-        return (data?.records || []) as RenewalRecord[];
+        console.log('[useRenewalRecords] Got records from edge function:', data?.records?.length, 'of', data?.totalCount);
+        return { 
+          records: (data?.records || []) as RenewalRecord[], 
+          totalCount: data?.totalCount || 0 
+        };
       }
       
       // Regular users: direct query (RLS handles access)
       let query = supabase
         .from('renewal_records')
-        .select(`*, assigned_team_member:team_members!renewal_records_assigned_team_member_id_fkey(id, name)`)
+        .select(`*, assigned_team_member:team_members!renewal_records_assigned_team_member_id_fkey(id, name)`, { count: 'exact' })
         .eq('agency_id', agencyId)
         .eq('is_active', true)
         .order('renewal_effective_date', { ascending: true })
-        .order('id', { ascending: true }); // Stable tie-breaker to prevent reorder on refetch
+        .order('id', { ascending: true }) // Stable tie-breaker to prevent reorder on refetch
+        .range(from, to);
       
       if (filters.currentStatus?.length) query = query.in('current_status', filters.currentStatus);
       if (filters.renewalStatus?.length) query = query.in('renewal_status', filters.renewalStatus);
@@ -81,9 +100,9 @@ export function useRenewalRecords(agencyId: string | null, filters: RenewalFilte
         query = query.or(`first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,policy_number.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`);
       }
       
-      const { data, error } = await query;
+      const { data, error, count } = await query;
       if (error) throw error;
-      return data as RenewalRecord[];
+      return { records: data as RenewalRecord[], totalCount: count || 0 };
     },
     enabled: !!agencyId,
   });
