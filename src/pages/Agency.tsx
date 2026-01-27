@@ -28,6 +28,7 @@ import { HelpVideoButton } from '@/components/HelpVideoButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
 import { MeetingFrameTab } from "@/components/agency/MeetingFrameTab";
+import { RingCentralConnect } from "@/components/RingCentralConnect";
 import { Core4Tab } from "@/components/agency/Core4Tab";
 import { EmailDeliveryNoticeButton, EmailDeliveryNoticeModal } from "@/components/EmailDeliveryNoticeModal";
 import { SalesEmailSettings } from "@/components/settings/SalesEmailSettings";
@@ -1428,7 +1429,16 @@ export default function Agency() {
                 <SalesEmailSettings agencyId={agencyId} />
               </div>
             )}
-            
+
+            {/* Phone System Integrations */}
+            <div className="border-t pt-6">
+              <h3 className="text-lg font-medium mb-2">Phone System Integrations</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Connect your phone system to automatically sync call logs and track team performance.
+              </p>
+              <RingCentralConnect />
+            </div>
+
           </CardContent>
         </Card>
       </TabsContent>
