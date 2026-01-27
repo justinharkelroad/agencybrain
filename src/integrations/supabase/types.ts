@@ -796,6 +796,164 @@ export type Database = {
         }
         Relationships: []
       }
+      call_events: {
+        Row: {
+          agency_id: string
+          call_ended_at: string | null
+          call_started_at: string | null
+          call_type: string | null
+          created_at: string | null
+          direction: string | null
+          duration_seconds: number | null
+          extension_id: string | null
+          extension_name: string | null
+          external_call_id: string
+          from_number: string | null
+          id: string
+          matched_prospect_id: string | null
+          matched_team_member_id: string | null
+          provider: string
+          raw_payload: Json | null
+          result: string | null
+          to_number: string | null
+          voip_integration_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          call_ended_at?: string | null
+          call_started_at?: string | null
+          call_type?: string | null
+          created_at?: string | null
+          direction?: string | null
+          duration_seconds?: number | null
+          extension_id?: string | null
+          extension_name?: string | null
+          external_call_id: string
+          from_number?: string | null
+          id?: string
+          matched_prospect_id?: string | null
+          matched_team_member_id?: string | null
+          provider: string
+          raw_payload?: Json | null
+          result?: string | null
+          to_number?: string | null
+          voip_integration_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          call_ended_at?: string | null
+          call_started_at?: string | null
+          call_type?: string | null
+          created_at?: string | null
+          direction?: string | null
+          duration_seconds?: number | null
+          extension_id?: string | null
+          extension_name?: string | null
+          external_call_id?: string
+          from_number?: string | null
+          id?: string
+          matched_prospect_id?: string | null
+          matched_team_member_id?: string | null
+          provider?: string
+          raw_payload?: Json | null
+          result?: string | null
+          to_number?: string | null
+          voip_integration_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_events_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_events_matched_prospect_id_fkey"
+            columns: ["matched_prospect_id"]
+            isOneToOne: false
+            referencedRelation: "quoted_household_details"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_events_matched_team_member_id_fkey"
+            columns: ["matched_team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_events_voip_integration_id_fkey"
+            columns: ["voip_integration_id"]
+            isOneToOne: false
+            referencedRelation: "voip_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_metrics_daily: {
+        Row: {
+          agency_id: string
+          answered_calls: number | null
+          created_at: string | null
+          date: string
+          id: string
+          inbound_calls: number | null
+          last_calculated_at: string | null
+          missed_calls: number | null
+          outbound_calls: number | null
+          team_member_id: string | null
+          total_calls: number | null
+          total_talk_seconds: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          answered_calls?: number | null
+          created_at?: string | null
+          date: string
+          id?: string
+          inbound_calls?: number | null
+          last_calculated_at?: string | null
+          missed_calls?: number | null
+          outbound_calls?: number | null
+          team_member_id?: string | null
+          total_calls?: number | null
+          total_talk_seconds?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          answered_calls?: number | null
+          created_at?: string | null
+          date?: string
+          id?: string
+          inbound_calls?: number | null
+          last_calculated_at?: string | null
+          missed_calls?: number | null
+          outbound_calls?: number | null
+          team_member_id?: string | null
+          total_calls?: number | null
+          total_talk_seconds?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_metrics_daily_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_metrics_daily_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_scoring_templates: {
         Row: {
           agency_id: string | null
@@ -2397,6 +2555,7 @@ export type Database = {
           agency_id: string
           call_direction: string | null
           call_duration_seconds: number | null
+          call_event_id: string | null
           call_recording_url: string | null
           contact_id: string
           created_at: string
@@ -2418,6 +2577,7 @@ export type Database = {
           agency_id: string
           call_direction?: string | null
           call_duration_seconds?: number | null
+          call_event_id?: string | null
           call_recording_url?: string | null
           contact_id: string
           created_at?: string
@@ -2439,6 +2599,7 @@ export type Database = {
           agency_id?: string
           call_direction?: string | null
           call_duration_seconds?: number | null
+          call_event_id?: string | null
           call_recording_url?: string | null
           contact_id?: string
           created_at?: string
@@ -2459,6 +2620,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_activities_call_event_id_fkey"
+            columns: ["call_event_id"]
+            isOneToOne: false
+            referencedRelation: "call_events"
             referencedColumns: ["id"]
           },
           {
@@ -8957,6 +9125,65 @@ export type Database = {
           },
         ]
       }
+      voip_integrations: {
+        Row: {
+          access_token: string | null
+          agency_id: string
+          created_at: string | null
+          external_account_id: string | null
+          id: string
+          is_active: boolean | null
+          last_sync_at: string | null
+          last_sync_error: string | null
+          provider: string
+          rc_account_id: string | null
+          refresh_token: string | null
+          token_expires_at: string | null
+          updated_at: string | null
+          webhook_secret: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          agency_id: string
+          created_at?: string | null
+          external_account_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          provider: string
+          rc_account_id?: string | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          agency_id?: string
+          created_at?: string | null
+          external_account_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          provider?: string
+          rc_account_id?: string | null
+          refresh_token?: string | null
+          token_expires_at?: string | null
+          updated_at?: string | null
+          webhook_secret?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voip_integrations_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       winback_activities: {
         Row: {
           activity_type: string
@@ -9673,6 +9900,23 @@ export type Database = {
         Args: { p_first_name: string; p_last_name: string; p_zip_code: string }
         Returns: string
       }
+      get_agency_call_metrics: {
+        Args: {
+          p_end_date?: string
+          p_start_date?: string
+          p_team_member_id: string
+        }
+        Returns: {
+          answered_calls: number
+          date: string
+          inbound_calls: number
+          missed_calls: number
+          outbound_calls: number
+          team_member_count: number
+          total_calls: number
+          total_talk_seconds: number
+        }[]
+      }
       get_agency_dates_now: { Args: { p_agency_id: string }; Returns: Json }
       get_agency_id_by_slug: { Args: { p_slug: string }; Returns: string }
       get_agency_safe: {
@@ -9697,6 +9941,46 @@ export type Database = {
         }[]
       }
       get_agency_settings: { Args: { p_agency_id: string }; Returns: Json }
+      get_agency_voip_status: {
+        Args: { p_team_member_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          is_active: boolean
+          last_sync_at: string
+          last_sync_error: string
+          provider: string
+          updated_at: string
+        }[]
+      }
+      get_call_events: {
+        Args: {
+          p_direction?: string
+          p_end_date?: string
+          p_limit?: number
+          p_offset?: number
+          p_start_date?: string
+          p_team_member_id: string
+        }
+        Returns: {
+          call_ended_at: string
+          call_started_at: string
+          call_type: string
+          created_at: string
+          direction: string
+          duration_seconds: number
+          extension_id: string
+          extension_name: string
+          external_call_id: string
+          from_number: string
+          id: string
+          matched_prospect_id: string
+          matched_team_member_id: string
+          provider: string
+          result: string
+          to_number: string
+        }[]
+      }
       get_challenge_business_day: {
         Args: { p_check_date: string; p_start_date: string }
         Returns: number
@@ -9704,6 +9988,30 @@ export type Database = {
       get_challenge_price_cents: {
         Args: { p_membership_tier: string; p_product_id: string }
         Returns: number
+      }
+      get_contact_activities: {
+        Args: {
+          p_contact_id?: string
+          p_limit?: number
+          p_offset?: number
+          p_team_member_id: string
+        }
+        Returns: {
+          activity_subtype: string
+          activity_type: string
+          call_direction: string
+          call_duration_seconds: number
+          call_event_id: string
+          contact_id: string
+          created_at: string
+          created_by_display_name: string
+          id: string
+          notes: string
+          outcome: string
+          phone_number: string
+          source_module: string
+          subject: string
+        }[]
       }
       get_contacts_by_stage: {
         Args: {
@@ -9802,6 +10110,22 @@ export type Database = {
           p_team_member_id?: string
         }
         Returns: Json
+      }
+      get_staff_call_metrics: {
+        Args: {
+          p_end_date?: string
+          p_start_date?: string
+          p_team_member_id: string
+        }
+        Returns: {
+          answered_calls: number
+          date: string
+          inbound_calls: number
+          missed_calls: number
+          outbound_calls: number
+          total_calls: number
+          total_talk_seconds: number
+        }[]
       }
       get_staff_call_scoring_data: {
         Args: {
