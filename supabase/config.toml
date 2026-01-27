@@ -377,3 +377,9 @@ verify_jwt = false
 
 [functions.ringcentral-sync-calls]
 verify_jwt = false
+
+[functions.analyze_staff_flow_session]
+verify_jwt = false
+
+[functions.manage_staff_flow_session]
+verify_jwt = false
