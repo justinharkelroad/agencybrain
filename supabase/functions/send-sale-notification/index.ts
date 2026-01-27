@@ -175,15 +175,28 @@ serve(async (req) => {
       };
     }
 
-    // Add today's sales data
+    // Add today's sales data - include ANYONE who sold, regardless of role
+    // This ensures agency owners and non-Sales team members are included in totals
     for (const s of todaysSales || []) {
-      if (scoreboard[s.team_member_id]) {
-        scoreboard[s.team_member_id].premium += s.total_premium || 0;
-        scoreboard[s.team_member_id].items += s.total_items || 0;
-        scoreboard[s.team_member_id].policies += s.total_policies || 0;
-        if (s.customer_name) {
-          scoreboard[s.team_member_id].households.add(s.customer_name.toLowerCase().trim());
-        }
+      // If this seller isn't in scoreboard yet, add them dynamically
+      if (!scoreboard[s.team_member_id]) {
+        const sellerName = (s.team_member as { name: string } | null)?.name || 'Unknown';
+        scoreboard[s.team_member_id] = {
+          name: sellerName,
+          premium: 0,
+          items: 0,
+          policies: 0,
+          households: new Set(),
+        };
+        console.log(`[send-sale-notification] Added non-Sales team member to scoreboard: ${sellerName}`);
+      }
+      
+      // Now add the sale data
+      scoreboard[s.team_member_id].premium += s.total_premium || 0;
+      scoreboard[s.team_member_id].items += s.total_items || 0;
+      scoreboard[s.team_member_id].policies += s.total_policies || 0;
+      if (s.customer_name) {
+        scoreboard[s.team_member_id].households.add(s.customer_name.toLowerCase().trim());
       }
     }
 
