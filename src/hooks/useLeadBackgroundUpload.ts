@@ -133,11 +133,22 @@ async function processInBackground(
               updates.products_interested = record.productsInterested;
             }
 
-            // If existing has no lead source, assign the new one and clear needs_attention
+            // Lead source handling with conflict detection
             if (!existing.lead_source_id) {
+              // No existing source - assign the new one and clear attention
               updates.lead_source_id = context.leadSourceId;
               updates.needs_attention = false;
+              updates.attention_reason = null;
+              updates.conflicting_lead_source_id = null;
+            } else if (existing.lead_source_id !== context.leadSourceId) {
+              // CONFLICT: Different source trying to claim this household
+              // Keep original source but flag for review
+              updates.needs_attention = true;
+              updates.attention_reason = 'source_conflict';
+              updates.conflicting_lead_source_id = context.leadSourceId;
+              console.log(`[Lead Upload] ⚠️ Source conflict detected: Household ${existing.id} already has source, new source ${context.leadSourceId} flagged`);
             }
+            // If same source, do nothing - no conflict
 
             // Link contact if not already linked
             if (contactId) {

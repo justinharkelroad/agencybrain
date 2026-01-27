@@ -39,6 +39,8 @@ export interface LeadSourceMonthlySpend {
   updated_at: string;
 }
 
+export type AttentionReason = 'missing_lead_source' | 'source_conflict' | 'manual_review' | 'ambiguous_match';
+
 export interface LqsHousehold {
   id: string;
   agency_id: string;
@@ -55,6 +57,8 @@ export interface LqsHousehold {
   sold_date: string | null;
   team_member_id: string | null;
   needs_attention: boolean;
+  attention_reason: AttentionReason | null;
+  conflicting_lead_source_id: string | null;
   products_interested: string[] | null;
   created_at: string;
   updated_at: string;

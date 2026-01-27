@@ -39,47 +39,15 @@ const AUTO_MATCH_MIN_SCORE = 75;
 const AUTO_MATCH_GAP_REQUIRED = 20;
 
 /**
- * Normalize name for fuzzy matching
+ * Normalize name for fuzzy matching (used for team member matching only)
  */
 function normalizeNameForMatch(name: string): string[] {
   return name.toUpperCase().replace(/[^A-Z\s]/g, '').split(/\s+/).filter(Boolean);
 }
 
 /**
- * Check if two names are similar enough for matching
- * Returns true if last names match AND first name starts with same letter
- */
-function namesMatch(
-  saleFirstName: string, 
-  saleLastName: string, 
-  householdFirstName: string, 
-  householdLastName: string
-): boolean {
-  const normSaleFirst = saleFirstName.toUpperCase().replace(/[^A-Z]/g, '');
-  const normSaleLast = saleLastName.toUpperCase().replace(/[^A-Z]/g, '');
-  const normHhFirst = householdFirstName.toUpperCase().replace(/[^A-Z]/g, '');
-  const normHhLast = householdLastName.toUpperCase().replace(/[^A-Z]/g, '');
-  
-  // Last names must match exactly
-  if (normSaleLast !== normHhLast) return false;
-  
-  // First name must start with the same letter, or one contains the other
-  if (normSaleFirst.length === 0 || normHhFirst.length === 0) return false;
-  
-  // Check if first letter matches
-  if (normSaleFirst[0] !== normHhFirst[0]) return false;
-  
-  // Additional check: at least one must contain the other (handles DAVID J vs DAVID)
-  if (normSaleFirst.includes(normHhFirst) || normHhFirst.includes(normSaleFirst)) {
-    return true;
-  }
-  
-  // Or just matching first letter is enough (DAVID J vs DJ would both start with D)
-  return true;
-}
-
-/**
- * Fuzzy match a name against team members
+ * Fuzzy match a name against team members (for sub-producer matching)
+ * NOTE: This is NOT used for household matching - only for team member lookup
  */
 function fuzzyMatchTeamMember(nameParts: string[], teamMembers: TeamMember[]): TeamMember | null {
   if (nameParts.length === 0) return null;
@@ -190,25 +158,51 @@ function scoreCandidate(
 }
 
 /**
- * Determine if auto-match should be applied
- * Auto-match if: top score >= 75 AND gap to second place >= 20
+ * Determine if auto-match should be applied and return detailed result for logging
+ * Auto-match rules:
+ * - 1 candidate only → Auto-match (regardless of score)
+ * - Score >= 75 AND 20+ point lead over 2nd place → Auto-match
+ * - Everything else → Manual review
  */
-function shouldAutoMatch(candidates: MatchCandidate[]): MatchCandidate | null {
-  if (candidates.length === 0) return null;
-  
+interface AutoMatchResult {
+  match: MatchCandidate | null;
+  reason: string;
+  scores: string; // For logging
+}
+
+function shouldAutoMatch(candidates: MatchCandidate[], saleName: string): AutoMatchResult {
+  if (candidates.length === 0) {
+    return { match: null, reason: 'no_candidates', scores: 'N/A' };
+  }
+
   const sorted = [...candidates].sort((a, b) => b.score - a.score);
   const top = sorted[0];
-  
-  if (top.score < AUTO_MATCH_MIN_SCORE) return null;
-  
-  if (sorted.length === 1) return top;
-  
-  const second = sorted[1];
-  if (top.score - second.score >= AUTO_MATCH_GAP_REQUIRED) {
-    return top;
+  const scoresStr = sorted.slice(0, 3).map(c => c.score).join('/');
+
+  // Single candidate - always auto-match
+  if (sorted.length === 1) {
+    console.log(`[Sales Match] → AUTO-MATCH (single candidate): '${saleName}' → ${top.householdName} (score: ${top.score})`);
+    return { match: top, reason: 'single_candidate', scores: scoresStr };
   }
-  
-  return null;
+
+  const second = sorted[1];
+  const gap = top.score - second.score;
+
+  // Check score threshold
+  if (top.score < AUTO_MATCH_MIN_SCORE) {
+    console.log(`[Sales Match] → MANUAL REVIEW: '${saleName}' has ${candidates.length} candidates, top score ${top.score} (below threshold ${AUTO_MATCH_MIN_SCORE})`);
+    return { match: null, reason: 'score_below_threshold', scores: scoresStr };
+  }
+
+  // Check gap requirement
+  if (gap >= AUTO_MATCH_GAP_REQUIRED) {
+    console.log(`[Sales Match] → AUTO-MATCH (clear leader): '${saleName}' → ${top.householdName} (scores: ${scoresStr}, gap: ${gap})`);
+    return { match: top, reason: 'clear_leader', scores: scoresStr };
+  }
+
+  // Multiple candidates without clear leader - manual review
+  console.log(`[Sales Match] → MANUAL REVIEW: '${saleName}' has ${candidates.length} candidates, scores ${scoresStr} (only ${gap}pt lead, need ${AUTO_MATCH_GAP_REQUIRED})`);
+  return { match: null, reason: 'no_clear_leader', scores: scoresStr };
 }
 
 export function useSalesBackgroundUpload() {
@@ -337,22 +331,67 @@ async function processInBackground(
             unmatchedProducerSet.add(primaryRecord.subProducerRaw);
           }
 
-          // Check if household exists by exact key match
-          const { data: existingHousehold } = await supabase
-            .from('lqs_households')
-            .select('id, status, lead_source_id')
-            .eq('agency_id', context.agencyId)
-            .eq('household_key', householdKey)
-            .maybeSingle();
-
           let householdId: string;
           let wasCreated = false;
           let needsAttentionFlag = false;
           let wasAutoMatched = false;
           let needsManualReview = false;
           let reviewCandidates: MatchCandidate[] = [];
+          let policyMatchFound = false;
 
-          if (existingHousehold) {
+          // ============================================
+          // PRIORITY 1: Policy Number Match (100% confidence)
+          // If sale has a policy number, check if any quote has that as issued_policy_number
+          // This is the most reliable match - skip all fuzzy matching if found
+          // ============================================
+          if (primaryRecord.policyNumber) {
+            const { data: matchingQuote } = await supabase
+              .from('lqs_quotes')
+              .select('household_id')
+              .eq('agency_id', context.agencyId)
+              .eq('issued_policy_number', primaryRecord.policyNumber)
+              .maybeSingle();
+
+            if (matchingQuote?.household_id) {
+              householdId = matchingQuote.household_id;
+              policyMatchFound = true;
+              wasAutoMatched = true;
+              console.log(`[Sales Match] ✓ POLICY NUMBER MATCH: Sale policy ${primaryRecord.policyNumber} → Household ${householdId}`);
+
+              // Update household to sold status
+              await supabase
+                .from('lqs_households')
+                .update({
+                  status: 'sold',
+                  sold_date: primaryRecord.saleDate,
+                  team_member_id: teamMemberId || undefined,
+                })
+                .eq('id', householdId);
+
+              // Get lead_source_id to check if needs attention
+              const { data: hhData } = await supabase
+                .from('lqs_households')
+                .select('lead_source_id')
+                .eq('id', householdId)
+                .single();
+              needsAttentionFlag = !hhData?.lead_source_id;
+            }
+          }
+
+          // ============================================
+          // PRIORITY 2: Exact Household Key Match
+          // Only run if no policy number match found
+          // ============================================
+          if (!policyMatchFound) {
+            // Check if household exists by exact key match
+            const { data: existingHousehold } = await supabase
+              .from('lqs_households')
+              .select('id, status, lead_source_id')
+              .eq('agency_id', context.agencyId)
+              .eq('household_key', householdKey)
+              .maybeSingle();
+
+            if (existingHousehold) {
             // Household exists - update status to 'sold' and set sold_date
             householdId = existingHousehold.id;
             needsAttentionFlag = !existingHousehold.lead_source_id;
@@ -392,16 +431,16 @@ async function processInBackground(
               console.error('[Sales Match] Query error:', candidateError.message);
             }
             
-            // Filter by first name match (first letter + contains check)
+            // Filter by EXACT first name match only - no fuzzy matching
+            // This prevents false positives like MELISSA SMITH matching MICHELLE SMITH
             const nameMatchedCandidates = (candidateHouseholds || []).filter(h => {
               const normSaleFirst = primaryRecord.firstName.toUpperCase().replace(/[^A-Z]/g, '');
               const normHhFirst = (h.first_name || '').toUpperCase().replace(/[^A-Z]/g, '');
-              
+
               if (normSaleFirst.length === 0 || normHhFirst.length === 0) return false;
-              if (normSaleFirst[0] !== normHhFirst[0]) return false;
-              
-              // Check if one contains the other (handles DAVID J vs DAVID)
-              return normSaleFirst.includes(normHhFirst) || normHhFirst.includes(normSaleFirst) || true;
+
+              // EXACT first name match required - no initials, no contains
+              return normSaleFirst === normHhFirst;
             }) as HouseholdWithQuotes[];
             
             console.log('[Sales Match] Query result:', nameMatchedCandidates.length, 'candidates found');
@@ -415,36 +454,26 @@ async function processInBackground(
               .sort((a, b) => b.score - a.score)
               .slice(0, 5); // Top 5 candidates
             
-            // DECISION LOGIC:
-            // 1 candidate → always match (ignore ZIP)
-            // Multiple candidates → score and auto-match or review
-            // 0 candidates → create new household
-            
-            if (nameMatchedCandidates.length === 1) {
-              // Single name match - ALWAYS match to this household (regardless of ZIP)
-              householdId = nameMatchedCandidates[0].id;
-              wasAutoMatched = true;
-              console.log(`[Sales Match] ✓ Matched to existing household: ${nameMatchedCandidates[0].first_name} ${nameMatchedCandidates[0].last_name} (${nameMatchedCandidates[0].zip_code || 'no zip'})`);
-              
-              // Update household to sold status
-              await supabase
-                .from('lqs_households')
-                .update({
-                  status: 'sold',
-                  sold_date: primaryRecord.saleDate,
-                  team_member_id: teamMemberId || undefined,
-                })
-                .eq('id', householdId);
-            } else if (nameMatchedCandidates.length > 1) {
-              // Multiple name matches - check if we can auto-match based on score
-              const autoMatchCandidate = shouldAutoMatch(scoredCandidates);
-              
-              if (autoMatchCandidate) {
-                // Auto-match to top scored candidate
-                householdId = autoMatchCandidate.householdId;
+            // ============================================
+            // PRIORITY 3: Name-Based Matching with Scoring
+            // Decision rules:
+            //   - 1 candidate only → Auto-match (regardless of score)
+            //   - Score >= 75 AND 20+ point lead → Auto-match
+            //   - Everything else → Manual review queue
+            //   - 0 candidates → Create new household (one-call close)
+            // ============================================
+
+            const saleName = `${primaryRecord.firstName} ${primaryRecord.lastName}`;
+
+            if (nameMatchedCandidates.length > 0) {
+              // We have candidates - run scoring and decide
+              const autoMatchResult = shouldAutoMatch(scoredCandidates, saleName);
+
+              if (autoMatchResult.match) {
+                // Auto-match to the winning candidate
+                householdId = autoMatchResult.match.householdId;
                 wasAutoMatched = true;
-                console.log(`[Sales Match] ✓ Auto-matched to: ${autoMatchCandidate.householdName} (score: ${autoMatchCandidate.score})`);
-                
+
                 // Update household to sold status
                 await supabase
                   .from('lqs_households')
@@ -455,12 +484,11 @@ async function processInBackground(
                   })
                   .eq('id', householdId);
               } else {
-                // Multiple candidates, none qualify for auto-match - queue for review
+                // No auto-match - queue for manual review
                 needsManualReview = true;
                 reviewCandidates = scoredCandidates;
-                console.log(`[Sales Match] ⚠ Multiple candidates, needs review:`, scoredCandidates.map(c => `${c.householdName} (${c.score})`));
-                
-                // Create temporary household for now (can be merged later)
+
+                // Create temporary household (will be merged if user picks existing candidate)
                 const { data: newHousehold, error: createError } = await supabase
                   .from('lqs_households')
                   .insert({
@@ -484,7 +512,7 @@ async function processInBackground(
                     .eq('agency_id', context.agencyId)
                     .eq('household_key', householdKey)
                     .maybeSingle();
-                    
+
                   if (retryHousehold) {
                     householdId = retryHousehold.id;
                   } else {
@@ -536,6 +564,7 @@ async function processInBackground(
               needsAttentionFlag = true;
             }
           }
+          } // End of if (!policyMatchFound)
 
           // Process all sales for this household
           let salesCreatedInGroup = 0;
@@ -654,13 +683,25 @@ async function processInBackground(
       pendingReviews,
     };
 
-    console.log(`[Sales Upload] Complete: ${salesCreated} sales created, ${householdsMatched} matched, ${householdsCreated} created, ${quotesLinked} quotes linked, ${errorCount} errors`);
+    console.log(`[Sales Upload] Complete:`, {
+      salesCreated,
+      householdsMatched,
+      householdsCreated,
+      quotesLinked,
+      autoMatched,
+      needsReview,
+      errors: errorCount,
+    });
+    if (needsReview > 0) {
+      console.log(`[Sales Upload] ⚠ ${needsReview} sales need manual review - check pendingReviews array`);
+    }
 
     // Show completion toast
     if (errorCount === 0) {
+      const reviewNote = needsReview > 0 ? ` (${needsReview} need review)` : '';
       toast({
         title: 'Sales Upload Complete!',
-        description: `${salesCreated} sales processed (${householdsMatched} matched, ${householdsCreated} new households)`,
+        description: `${salesCreated} sales processed (${householdsMatched} matched, ${householdsCreated} new households)${reviewNote}`,
       });
     } else {
       toast({

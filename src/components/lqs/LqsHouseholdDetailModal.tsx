@@ -28,7 +28,9 @@ import {
   Tag,
   Plus,
   Trash2,
+  AlertTriangle,
 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { HouseholdWithRelations } from '@/hooks/useLqsData';
 import { filterCountableQuotes } from '@/lib/lqs-constants';
 
@@ -51,13 +53,72 @@ export function LqsHouseholdDetailModal({
   const [editPhones, setEditPhones] = useState<string[]>([]);
   const [editEmail, setEditEmail] = useState('');
   const [editZipCode, setEditZipCode] = useState('');
+  const [conflictingSourceName, setConflictingSourceName] = useState<string | null>(null);
+  const [isResolvingConflict, setIsResolvingConflict] = useState(false);
+
+  // Fetch conflicting lead source name if there's a conflict
+  useEffect(() => {
+    async function fetchConflictingSource() {
+      if (household?.attention_reason === 'source_conflict' && household.conflicting_lead_source_id) {
+        const { data } = await supabase
+          .from('lead_sources')
+          .select('name')
+          .eq('id', household.conflicting_lead_source_id)
+          .single();
+        setConflictingSourceName(data?.name || 'Unknown Source');
+      } else {
+        setConflictingSourceName(null);
+      }
+    }
+    fetchConflictingSource();
+  }, [household?.attention_reason, household?.conflicting_lead_source_id]);
+
+  // Handle conflict resolution
+  const handleResolveConflict = async (action: 'keep_current' | 'use_new' | 'dismiss') => {
+    if (!household) return;
+    setIsResolvingConflict(true);
+
+    try {
+      const updates: Record<string, any> = {
+        needs_attention: false,
+        attention_reason: null,
+        conflicting_lead_source_id: null,
+      };
+
+      if (action === 'use_new' && household.conflicting_lead_source_id) {
+        // Switch to the conflicting source
+        updates.lead_source_id = household.conflicting_lead_source_id;
+      }
+      // 'keep_current' and 'dismiss' just clear the conflict flag
+
+      const { error } = await supabase
+        .from('lqs_households')
+        .update(updates)
+        .eq('id', household.id);
+
+      if (error) throw error;
+
+      toast.success(
+        action === 'use_new'
+          ? `Lead source changed to ${conflictingSourceName}`
+          : 'Conflict resolved'
+      );
+
+      queryClient.invalidateQueries({ queryKey: ['lqs-households'] });
+      queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+    } catch (err: any) {
+      toast.error('Failed to resolve conflict: ' + err.message);
+    } finally {
+      setIsResolvingConflict(false);
+    }
+  };
 
   // Reset edit state when household changes
   useEffect(() => {
     if (household) {
       // Handle both array and string formats for backwards compatibility
-      const phones = Array.isArray(household.phone) 
-        ? household.phone 
+      const phones = Array.isArray(household.phone)
+        ? household.phone
         : household.phone ? [household.phone] : [];
       setEditPhones(phones.length > 0 ? phones : ['']);
       setEditEmail(household.email || '');
@@ -306,38 +367,101 @@ export function LqsHouseholdDetailModal({
           <Separator />
 
           {/* Lead Source Section */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <h4 className="font-medium flex items-center gap-2">
               <Tag className="h-4 w-4" />
               Lead Source
             </h4>
-            {household.lead_source ? (
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">
-                  {household.lead_source.name}
-                </Badge>
-                {household.lead_source.bucket && (
-                  <span className="text-sm text-muted-foreground">
-                    ({household.lead_source.bucket.name})
-                  </span>
+
+            {/* Source Conflict Alert */}
+            {household.attention_reason === 'source_conflict' && conflictingSourceName && (
+              <Alert variant="destructive" className="border-orange-500 bg-orange-500/10">
+                <AlertTriangle className="h-4 w-4 text-orange-500" />
+                <AlertTitle className="text-orange-700 dark:text-orange-400">
+                  Lead Source Conflict
+                </AlertTitle>
+                <AlertDescription className="space-y-3">
+                  <div className="text-sm text-muted-foreground">
+                    <p className="mb-2">This household was claimed by two different lead sources:</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Currently:</span>{' '}
+                        <Badge variant="outline" className="ml-1">
+                          {household.lead_source?.name || 'Unknown'}
+                        </Badge>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Also claimed by:</span>{' '}
+                        <Badge variant="secondary" className="ml-1">
+                          {conflictingSourceName}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleResolveConflict('keep_current')}
+                      disabled={isResolvingConflict}
+                    >
+                      {isResolvingConflict && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                      Keep {household.lead_source?.name || 'Current'}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleResolveConflict('use_new')}
+                      disabled={isResolvingConflict}
+                    >
+                      {isResolvingConflict && <Loader2 className="h-3 w-3 mr-1 animate-spin" />}
+                      Change to {conflictingSourceName}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleResolveConflict('dismiss')}
+                      disabled={isResolvingConflict}
+                    >
+                      Dismiss
+                    </Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Normal Lead Source Display (when no conflict) */}
+            {household.attention_reason !== 'source_conflict' && (
+              <>
+                {household.lead_source ? (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">
+                      {household.lead_source.name}
+                    </Badge>
+                    {household.lead_source.bucket && (
+                      <span className="text-sm text-muted-foreground">
+                        ({household.lead_source.bucket.name})
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <span className="text-muted-foreground text-sm">Not assigned</span>
+                    {onAssignLeadSource && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          onAssignLeadSource(household.id);
+                          onOpenChange(false);
+                        }}
+                      >
+                        Assign Lead Source
+                      </Button>
+                    )}
+                  </div>
                 )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <span className="text-muted-foreground text-sm">Not assigned</span>
-                {onAssignLeadSource && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      onAssignLeadSource(household.id);
-                      onOpenChange(false);
-                    }}
-                  >
-                    Assign Lead Source
-                  </Button>
-                )}
-              </div>
+              </>
             )}
           </div>
 

@@ -150,14 +150,8 @@ export function SalesReviewModal({ open, onOpenChange, pendingReviews, onReviewC
                   >
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
-                        <div className="font-medium flex items-center gap-2">
+                        <div className="font-medium">
                           {candidate.householdName}
-                          <Badge
-                            variant={candidate.score >= 75 ? "default" : candidate.score >= 50 ? "secondary" : "outline"}
-                            className="text-xs"
-                          >
-                            {candidate.score} pts
-                          </Badge>
                         </div>
                         <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
                           <span>{candidate.zipCode || 'No ZIP'}</span>
@@ -172,30 +166,6 @@ export function SalesReviewModal({ open, onOpenChange, pendingReviews, onReviewC
                         )}
                       </div>
                       {isSelected && <Check className="h-5 w-5 text-primary flex-shrink-0" />}
-                    </div>
-
-                    {/* Match factors */}
-                    <div className="flex gap-1 mt-2 flex-wrap">
-                      {candidate.matchFactors.productMatch && (
-                        <Badge variant="outline" className="text-xs bg-green-500/10 text-green-700 border-green-500/30">
-                          +40 Product
-                        </Badge>
-                      )}
-                      {candidate.matchFactors.subProducerMatch && (
-                        <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-700 border-blue-500/30">
-                          +35 Producer
-                        </Badge>
-                      )}
-                      {candidate.matchFactors.premiumWithin10Percent && (
-                        <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-700 border-purple-500/30">
-                          +25 Premium
-                        </Badge>
-                      )}
-                      {candidate.matchFactors.quoteDateBeforeSale && (
-                        <Badge variant="outline" className="text-xs bg-orange-500/10 text-orange-700 border-orange-500/30">
-                          +10 Date
-                        </Badge>
-                      )}
                     </div>
                   </button>
                 );
