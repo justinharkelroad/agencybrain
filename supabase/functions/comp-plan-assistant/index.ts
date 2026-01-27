@@ -280,6 +280,20 @@ serve(async (req) => {
 
     // If document is provided, add it first
     if (document_content) {
+      // Check image size before sending to Anthropic (5MB limit)
+      if (document_type === 'image') {
+        const estimatedBytes = (document_content.length * 3) / 4;
+        if (estimatedBytes > 5 * 1024 * 1024) {
+          return new Response(
+            JSON.stringify({
+              response: "The image you uploaded is too large (max 5MB). Please try a smaller image or screenshot.",
+              error: "IMAGE_TOO_LARGE"
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+          );
+        }
+      }
+
       if (document_type === 'image' || document_type === 'pdf') {
         // For images/PDFs, Claude can process them directly via base64
         currentContent.push({
@@ -333,6 +347,18 @@ serve(async (req) => {
     if (!anthropicResponse.ok) {
       const errorText = await anthropicResponse.text();
       console.error('Anthropic API error:', errorText);
+      
+      // Check for specific error types and return friendly messages
+      if (errorText.includes('image exceeds') || errorText.includes('5 MB maximum') || errorText.includes('too large')) {
+        return new Response(
+          JSON.stringify({
+            response: "The image you uploaded is too large. Please use an image under 5MB, or try compressing it.",
+            error: "IMAGE_TOO_LARGE"
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+      
       throw new Error(`Anthropic API error: ${anthropicResponse.status}`);
     }
 
