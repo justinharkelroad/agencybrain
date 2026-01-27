@@ -15,12 +15,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { clearStaffTokenIfNotStaffRoute } from '@/lib/cancel-audit-api';
 import { useAuth } from '@/lib/auth';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
-import { useRenewalRecords, useRenewalStats, useRenewalProductNames, useBulkUpdateRenewals, useBulkDeleteRenewals, useUpdateRenewalRecord, type RenewalFilters } from '@/hooks/useRenewalRecords';
+import { useRenewalRecords, useRenewalStats, useRenewalProductNames, useBulkUpdateRenewals, useBulkDeleteRenewals, useUpdateRenewalRecord, type RenewalFilters, type RenewalRecordsResult } from '@/hooks/useRenewalRecords';
 import { useActiveCancelAuditPolicies } from '@/hooks/useActiveCancelAuditPolicies';
 import { RenewalUploadModal } from '@/components/renewals/RenewalUploadModal';
 import { RenewalDetailDrawer } from '@/components/renewals/RenewalDetailDrawer';
 import { ScheduleActivityModal } from '@/components/renewals/ScheduleActivityModal';
 import { RenewalsDashboard } from '@/components/renewals/RenewalsDashboard';
+import { RenewalsPagination } from '@/components/renewals/RenewalsPagination';
 import { ActivitySummaryBar } from '@/components/renewals/ActivitySummaryBar';
 import { ContactProfileModal } from '@/components/contacts';
 import type { RenewalRecord, RenewalUploadContext, WorkflowStatus } from '@/types/renewal';
@@ -83,6 +84,10 @@ export default function Renewals() {
   // Contact profile modal state
   const [profileContactId, setProfileContactId] = useState<string | null>(null);
   const [profileRenewalRecord, setProfileRenewalRecord] = useState<{ id: string; winback_household_id?: string | null } | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   const handleSort = (column: string, event?: React.MouseEvent) => {
     const isShiftClick = event?.shiftKey;
@@ -237,13 +242,20 @@ export default function Renewals() {
     return f;
   }, [filters, activeTab, searchQuery]);
 
-  const { data: records = [], isLoading: recordsLoading } = useRenewalRecords(context?.agencyId || null, effectiveFilters);
+  const { data: recordsData, isLoading: recordsLoading } = useRenewalRecords(context?.agencyId || null, effectiveFilters, currentPage, pageSize);
+  const records = recordsData?.records || [];
+  const totalCount = recordsData?.totalCount || 0;
   const { data: stats } = useRenewalStats(context?.agencyId || null);
   const { data: productNames = [] } = useRenewalProductNames(context?.agencyId || null);
   const { data: activeCancelPolicies } = useActiveCancelAuditPolicies(context?.agencyId || null);
   const bulkUpdate = useBulkUpdateRenewals();
   const bulkDelete = useBulkDeleteRenewals();
   const updateRecord = useUpdateRenewalRecord();
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [effectiveFilters, activeTab, searchQuery, hideRenewalTaken, hideInCancelAudit]);
 
   // Phase 3: Priority toggle handler with optimistic update
   const handleTogglePriority = async (recordId: string, isPriority: boolean) => {
@@ -774,6 +786,17 @@ export default function Renewals() {
             </TableBody>
           </Table>
         </div>
+        {/* Pagination */}
+        <RenewalsPagination
+          currentPage={currentPage}
+          pageSize={pageSize}
+          totalCount={totalCount}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setCurrentPage(1);
+          }}
+        />
       </Card>
       <RenewalUploadModal open={showUploadModal} onClose={() => setShowUploadModal(false)} context={context} />
       <RenewalDetailDrawer record={selectedRecord} open={!!selectedRecord} onClose={() => setSelectedRecord(null)} context={context} teamMembers={teamMembers} />

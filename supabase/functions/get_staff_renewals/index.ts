@@ -157,7 +157,7 @@ serve(async (req) => {
     console.log('[get_staff_renewals] Valid session for agency:', agencyId);
 
     const body = await req.json().catch(() => ({}));
-    const { operation, filters = {}, params = {} } = body;
+    const { operation, filters = {}, params = {}, page = 1, pageSize = 50 } = body;
 
     // Handle update_record operation
     if (operation === 'update_record') {
@@ -361,10 +361,14 @@ serve(async (req) => {
       });
     }
 
-    // Build query for fetching records
+    // Calculate pagination offsets
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    // Build query for fetching records with count
     let query = supabase
       .from('renewal_records')
-      .select('*, assigned_team_member:team_members!renewal_records_assigned_team_member_id_fkey(id, name)')
+      .select('*, assigned_team_member:team_members!renewal_records_assigned_team_member_id_fkey(id, name)', { count: 'exact' })
       .eq('agency_id', agencyId)
       .eq('is_active', true)
       .order('renewal_effective_date', { ascending: true })
@@ -405,7 +409,10 @@ serve(async (req) => {
       query = query.or(`first_name.ilike.%${filters.searchQuery}%,last_name.ilike.%${filters.searchQuery}%,policy_number.ilike.%${filters.searchQuery}%,email.ilike.%${filters.searchQuery}%,phone.ilike.%${filters.searchQuery}%`);
     }
 
-    const { data, error } = await query;
+    // Apply pagination
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
     
     if (error) {
       console.error('[get_staff_renewals] Query error:', error);
@@ -414,8 +421,8 @@ serve(async (req) => {
       });
     }
 
-    console.log('[get_staff_renewals] Returning', data?.length || 0, 'records');
-    return new Response(JSON.stringify({ records: data || [] }), {
+    console.log('[get_staff_renewals] Returning', data?.length || 0, 'of', count, 'records (page', page, ')');
+    return new Response(JSON.stringify({ records: data || [], totalCount: count || 0 }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
