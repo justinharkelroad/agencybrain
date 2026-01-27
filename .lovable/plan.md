@@ -1,100 +1,91 @@
 
-# Remove Duplicate Streak Badge from Challenge Header
+# Fix: Staff Login Edge Function 404 Errors (Production)
 
-## Problem
-The challenge page header displays a streak badge showing "2" next to a fire icon. This is confusing because:
+## Problem Identified
 
-1. **The badge is duplicated** - The sidebar already shows the correct streaks via `StaffCore4Card`
-2. **The streak value may be incorrect** - The `get-staff-challenge` edge function's streak calculation doesn't verify consecutive days
+Josh and Jason are intermittently getting "Unable to sign in. Please try again." errors on production (`myagencybrain.com/staff/login`). 
 
-## What You're Seeing
+**Root Cause:** The Supabase edge function `staff_login` is returning **intermittent 404 errors** in production. When 404s occur, the `function_id` is `nil`, meaning Supabase's edge function router cannot locate the function.
 
-The header displays:
+Evidence from production logs:
+- `POST | 404` with `function_id: nil` (function not found)
+- Interspersed with `POST | 200` (successful logins)
+
+This is causing the CORS/ERR_FAILED errors shown in your screenshot, because a 404 response from an edge function doesn't include proper CORS headers.
+
+## Contributing Factor
+
+There are TypeScript build errors in recently added edge functions that may be destabilizing the deployment:
+
 ```
-┌────────────────────────────────────────────┐
-│ The Challenge          🔥 2                │
-│ Day X of 30                                │
-└────────────────────────────────────────────┘
-```
-
-That "🔥 2" is meant to show your Core 4 streak. The fire icon IS rendering correctly (it's the Lucide `Flame` component), but the number "2" is showing even though your actual consecutive-day streak should be different.
-
-## Root Cause
-
-The edge function (`get-staff-challenge`) calculates streak incorrectly:
-
-```typescript
-// Current (buggy) - doesn't check if dates are consecutive
-for (const log of core4Logs) {
-  if (log.body_completed && log.being_completed && ...) {
-    core4Streak++;  // Just counts entries, not consecutive days!
-  } else {
-    break;
-  }
-}
+TS18046: 'error' is of type 'unknown'
+  at supabase/functions/ringcentral-oauth-init/index.ts:87
+  at supabase/functions/ringcentral-sync-calls/index.ts:370
 ```
 
-Looking at your data:
-- Jan 26 (today): 4/4 complete
-- Jan 9: 4/4 complete (NOT consecutive with Jan 26!)
+When edge functions fail to build, Supabase deployment can become unstable, causing intermittent 404s across all functions.
 
-The buggy code counts both as a "streak of 2" because it doesn't verify the dates are consecutive days.
+---
 
 ## Solution
 
-Remove the duplicate streak badge from the header entirely. The `StaffCore4Card` component in the sidebar already displays the correct streak using `useStaffCore4Stats`, which has proper consecutive-day logic.
+### Step 1: Fix TypeScript Errors in RingCentral Functions
 
----
+Both files have the same issue: accessing `.message` on an `unknown` type in catch blocks.
 
-## Code Changes
-
-### File: `src/pages/staff/StaffChallenge.tsx`
-
-**Remove lines 288-293** (the streak badge in the header):
-
+**File: `supabase/functions/ringcentral-oauth-init/index.ts`**
 ```typescript
-// DELETE THIS SECTION:
-{core4.streak > 0 && (
-  <div className="flex items-center gap-1 bg-orange-500/20 px-3 py-1.5 rounded-full">
-    <Flame className="h-5 w-5 text-orange-500" />
-    <span className="text-lg font-bold text-orange-500">{core4.streak}</span>
-  </div>
-)}
+// Line 85-91: Change from
+} catch (error) {
+  console.error("[ringcentral-oauth-init] Error:", error);
+  return new Response(JSON.stringify({ error: error.message }), { ... });
+}
+
+// To
+} catch (error) {
+  console.error("[ringcentral-oauth-init] Error:", error);
+  const message = error instanceof Error ? error.message : "Internal server error";
+  return new Response(JSON.stringify({ error: message }), { ... });
+}
 ```
 
-The sidebar's `StaffCore4Card` already shows:
-- Current Core 4 streak (with proper consecutive-day calculation)
-- Flow streak
-- Combined weekly score
+**File: `supabase/functions/ringcentral-sync-calls/index.ts`**
+```typescript
+// Line 368-373: Change from
+} catch (error) {
+  console.error("[ringcentral-sync] Error:", error);
+  return new Response(JSON.stringify({ error: error.message }), { ... });
+}
+
+// To
+} catch (error) {
+  console.error("[ringcentral-sync] Error:", error);
+  const message = error instanceof Error ? error.message : "Internal server error";
+  return new Response(JSON.stringify({ error: message }), { ... });
+}
+```
+
+### Step 2: Redeploy Edge Functions
+
+After fixing the build errors, the edge functions will be automatically redeployed. This should stabilize the routing and eliminate the 404s.
 
 ---
 
-## Visual Result
-
-**Before:**
-```
-Header:     🔥 2 (incorrect, duplicated)
-Sidebar:    🔥 1 (correct from StaffCore4Card)
-```
-
-**After:**
-```
-Header:     (no streak badge - cleaner design)
-Sidebar:    🔥 1 (single source of truth)
-```
-
----
-
-## Files to Modify
+## Technical Details
 
 | File | Change |
 |------|--------|
-| `src/pages/staff/StaffChallenge.tsx` | Remove streak badge from header (lines 288-293) |
+| `supabase/functions/ringcentral-oauth-init/index.ts` | Fix TypeScript TS18046 error on line 87 |
+| `supabase/functions/ringcentral-sync-calls/index.ts` | Fix TypeScript TS18046 error on line 370 |
+
+**No changes needed to `staff_login` itself** - the function code is correct. The issue is deployment stability caused by build errors in other functions.
 
 ---
 
-## Technical Notes
+## Expected Outcome
 
-- The `StaffCore4Card` uses `useStaffCore4Stats` hook which correctly calculates consecutive-day streaks
-- The edge function's streak calculation can remain as-is since we're no longer using it for display
-- This is a cleanup of redundant UI that was causing confusion
+After these fixes:
+- Build will succeed without errors
+- Edge functions will deploy cleanly
+- `staff_login` will no longer return intermittent 404s
+- Josh, Jason, and all staff users will be able to log in reliably
