@@ -1,115 +1,175 @@
 
-# Fix: Complete "Discovery Stack" to "Discovery Flow" Rename
 
-## What Went Wrong
+# Fix: Manual Override "Apply to All" Should Support Row Selection
 
-The previous implementation had a **critical data mismatch**:
+## Problem Summary
 
-1. **Frontend was updated** - `StaffChallenge.tsx` looks for `is_discovery_flow` (line 35, 486)
-2. **Backend was NOT updated** - The `get-staff-challenge` edge function still returns `is_discovery_stack` (line 123)
-3. **Result**: The button condition `selectedLesson.is_discovery_flow` is always `undefined` because the API returns `is_discovery_stack`
+The **"Apply to All" button** in the Manual Override (Test Mode) panel applies override values to **every single row** in the table. This makes it impossible to test a specific team member's tier calculation without affecting everyone else.
 
-Additionally, the image you shared shows `ChallengeView.tsx` line 372 which the code I just read shows IS correctly updated to "Discovery Flow" - but this may be displaying cached/old content. The database migration to rename the column also needs verification.
+For example:
+- You want to test "What if Katie Cavera had 100 items instead of 89?"
+- You enter `100` in Items Written and click "Apply to All"
+- **All 22 producers** now show 100 items - not just Katie
 
-## Files Still Containing "Discovery Stack"
+## Current Design
 
-| File | Location | Issue |
-|------|----------|-------|
-| `supabase/functions/get-staff-challenge/index.ts` | Line 123 | **CRITICAL**: Returns `is_discovery_stack` instead of `is_discovery_flow` |
-| `supabase/functions/challenge-send-daily-emails/index.ts` | Lines 83-86 | Email template says "Friday Discovery Stack" |
-| `src/components/challenge/admin/ChallengeLessonEditor.tsx` | Lines 28, 165-169 | Admin editor uses old property name and label |
-| `src/pages/admin/challenge-tabs/ChallengeContentTab.tsx` | Lines 146-150 | Admin content tab shows "Discovery Stack" badge |
-| `src/hooks/useChallengeAdmin.ts` | Line 41 | Interface uses `is_discovery_stack` |
-| `supabase/migrations/20251209135424_*.sql` | Lines 12, 68, 89 | Historical migration (can be ignored) |
-| `src/hooks/useFlowSession.ts` | Line 187 | Uses `stack_title` interpolation key |
-| `src/hooks/useStaffFlowSession.ts` | Line 192 | Uses `stack_title` interpolation key |
+| Feature | Current Behavior |
+|---------|-----------------|
+| Quick Apply to All | Applies bulk items/premium to **ALL** rows unconditionally |
+| Per-row inputs | Each row has individual override inputs (works fine) |
+| Row selection | **Does not exist** |
 
----
+## Solution: Add Row Selection with "Apply to Selected"
 
-## Fix Plan
+Add checkboxes to select which team members should receive the bulk override values.
 
-### Part 1: Fix the Critical Backend Mismatch
+### New UI Components
 
-**File: `supabase/functions/get-staff-challenge/index.ts`**
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│ Quick Apply to Selected                                                 │
+│                                                                         │
+│ Items Written  │  Premium Written  │  [Apply to Selected]  [Clear All] │
+│ [_______100__] │  [________5000__] │                                    │
+│                                                                         │
+│ Leave blank to use statement data. Enter values to override for testing │
+│ Select rows below, then click "Apply to Selected"                       │
+└─────────────────────────────────────────────────────────────────────────┘
 
-Line 123: Change `is_discovery_stack` to `is_discovery_flow`
+┌──────────────────────────────────────────────────────────────────────────┐
+│ [☐] │ Team Member      │ Code   │ Statement │ Statement  │ Override │   │
+│     │                  │        │ Items     │ Premium    │ Items    │...│
+├─────┼──────────────────┼────────┼───────────┼────────────┼──────────┼───│
+│ [☐] │ Unmatched        │ 993    │ 1         │ $166       │ —        │   │
+│ [☑] │ Katie Cavera     │ 428    │ 89        │ $66,313.78 │ —        │   │  ← Selected!
+│ [☐] │ John Smith       │ 523    │ 45        │ $32,000.00 │ —        │   │
+└─────┴──────────────────┴────────┴───────────┴────────────┴──────────┴───┘
 
-```typescript
-// Before (line 123)
-is_discovery_stack,
-
-// After
-is_discovery_flow,
+Clicking "Apply to Selected" → Only Katie Cavera gets the override
 ```
 
-This will make the API return `is_discovery_flow` which the frontend is expecting, and the button will appear for Friday lessons.
+### Changes Required
+
+**File: `src/components/sales/ManualOverridePanel.tsx`**
+
+1. **Add selection state** - Track which rows are selected via checkbox
+2. **Add "Select All" checkbox** in header - Toggle all matched producers
+3. **Rename "Apply to All"** → "Apply to Selected" with selection count badge
+4. **Update `handleApplyBulk`** - Only apply to selected rows, not all rows
+5. **Add checkbox column** to the table
 
 ---
 
-### Part 2: Fix Admin Interface
+## Technical Implementation
 
-**File: `src/components/challenge/admin/ChallengeLessonEditor.tsx`**
+### Step 1: Add Selection State
 
-| Line | Current | New |
-|------|---------|-----|
-| 28 | `is_discovery_stack: lesson.is_discovery_stack` | `is_discovery_flow: lesson.is_discovery_flow` |
-| 165 | `id="discovery_stack"` | `id="discovery_flow"` |
-| 166 | `checked={form.is_discovery_stack}` | `checked={form.is_discovery_flow}` |
-| 167 | `setForm({ ...form, is_discovery_stack: checked })` | `setForm({ ...form, is_discovery_flow: checked })` |
-| 169 | `"Discovery Stack Day (Friday)"` | `"Discovery Flow Day (Friday)"` |
-
-**File: `src/pages/admin/challenge-tabs/ChallengeContentTab.tsx`**
-
-| Line | Current | New |
-|------|---------|-----|
-| 146 | `lesson.is_discovery_stack` | `lesson.is_discovery_flow` |
-| 149 | `Discovery Stack` | `Discovery Flow` |
-
-**File: `src/hooks/useChallengeAdmin.ts`**
-
-| Line | Current | New |
-|------|---------|-----|
-| 41 | `is_discovery_stack: boolean` | `is_discovery_flow: boolean` |
-
----
-
-### Part 3: Fix Email Template
-
-**File: `supabase/functions/challenge-send-daily-emails/index.ts`**
-
-| Line | Current | New |
-|------|---------|-----|
-| 83 | `lesson.is_discovery_stack` | `lesson.is_discovery_flow` |
-| 85 | `Friday Discovery Stack` | `Friday Discovery Flow` |
-| 86 | `weekly Discovery Stack reflection` | `weekly Discovery Flow reflection` |
-
----
-
-### Part 4: Update Flow Session Hooks (Optional - Lower Priority)
-
-The `stack_title` interpolation key in the flow template questions is a database value that would require updating the `flow_templates` table. Since these hooks check for BOTH `stack_title` and `title`, this is backwards compatible and can be addressed separately.
-
----
-
-## Summary of Required Changes
-
-| Priority | File | Type | Description |
-|----------|------|------|-------------|
-| CRITICAL | `get-staff-challenge/index.ts` | Edge Function | Change field name to `is_discovery_flow` |
-| HIGH | `ChallengeLessonEditor.tsx` | Admin UI | Update property names and label |
-| HIGH | `ChallengeContentTab.tsx` | Admin UI | Update badge text |
-| HIGH | `useChallengeAdmin.ts` | Hook | Update interface property |
-| HIGH | `challenge-send-daily-emails/index.ts` | Edge Function | Update email template text |
-| LOW | Flow session hooks | Hooks | `stack_title` key (backwards compatible) |
-
----
-
-## Why the Button Didn't Appear
-
-The "Start Discovery Flow" button code EXISTS in `StaffChallenge.tsx` (lines 486-501), but it never renders because:
+Add a `Set<string>` to track selected sub-producer codes:
 
 ```typescript
-{selectedLesson.is_discovery_flow && ...}  // Always false!
+const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
+
+// Helper functions
+const toggleSelection = (code: string) => {
+  setSelectedCodes(prev => {
+    const next = new Set(prev);
+    if (next.has(code)) {
+      next.delete(code);
+    } else {
+      next.add(code);
+    }
+    return next;
+  });
+};
+
+const toggleSelectAll = () => {
+  const matchedCodes = producerData
+    .filter(p => p.teamMember)
+    .map(p => p.code);
+  
+  if (selectedCodes.size === matchedCodes.length) {
+    setSelectedCodes(new Set()); // Deselect all
+  } else {
+    setSelectedCodes(new Set(matchedCodes)); // Select all matched
+  }
+};
 ```
 
-The data from the API returns `{ is_discovery_stack: true }` but the frontend checks `is_discovery_flow`. Once the edge function is updated to return `is_discovery_flow`, the button will appear on Friday lessons.
+### Step 2: Update Bulk Apply Logic
+
+Change `handleApplyBulk` to only apply to selected rows:
+
+```typescript
+const handleApplyBulk = () => {
+  if (selectedCodes.size === 0) {
+    // Show warning toast
+    return;
+  }
+  
+  const itemsValue = bulkItems === "" ? null : parseInt(bulkItems, 10);
+  const premiumValue = bulkPremium === "" ? null : parseFloat(bulkPremium);
+
+  const updated = overrides.map((o) => {
+    // Only update if this code is selected
+    if (selectedCodes.has(o.subProdCode)) {
+      return {
+        ...o,
+        writtenItems: itemsValue,
+        writtenPremium: premiumValue,
+      };
+    }
+    return o;
+  });
+  
+  onChange(updated);
+  setSelectedCodes(new Set()); // Clear selection after apply
+};
+```
+
+### Step 3: Update UI
+
+**Bulk Apply Section:**
+- Change label from "Quick Apply to All" → "Quick Apply to Selected"
+- Change button text: "Apply to All" → "Apply to Selected (X)"
+- Add helper text about selecting rows
+- Disable button when no rows selected
+
+**Table:**
+- Add checkbox column as first column
+- Add "Select All" checkbox in header (only selects matched producers)
+- Disable checkbox for unmatched rows (can't override unmatched producers)
+
+### Step 4: Clear Selection When Needed
+
+Clear selection when:
+- User clicks "Clear All"
+- Underlying sub-producer data changes
+- User successfully applies overrides
+
+---
+
+## Summary of Changes
+
+| Location | Change |
+|----------|--------|
+| Lines 53-55 | Add `selectedCodes` state |
+| Lines 144-154 | Update `handleApplyBulk` to filter by selection |
+| Lines 156-168 | Update `handleClearAll` to also clear selection |
+| Lines 227-266 | Update "Quick Apply" section labels and button |
+| Lines 271-287 | Add checkbox column header with Select All |
+| Lines 290-350 | Add checkbox input to each row |
+
+---
+
+## User Experience After Fix
+
+1. User expands "Manual Override (Test Mode)"
+2. User sees all producers in the table with checkboxes
+3. User checks the box next to "Katie Cavera"
+4. User enters "100" in Items Written
+5. User clicks "Apply to Selected (1)"
+6. **Only Katie Cavera** gets the override value of 100
+7. All other producers remain unchanged
+
+This allows proper "what-if" testing for individual team members or any subset of the team.
+
