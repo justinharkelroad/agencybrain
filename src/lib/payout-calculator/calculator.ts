@@ -388,12 +388,20 @@ export function findMatchingTier(
   metricValue: number
 ): TierMatch | null {
   if (!tiers || tiers.length === 0) return null;
-  
+
   // Sort tiers by threshold descending to find highest qualifying tier
   const sortedTiers = [...tiers].sort((a, b) => b.min_threshold - a.min_threshold);
-  
+
+  // DEBUG: Log tier comparison process
+  console.log('[findMatchingTier] Searching for tier:', {
+    metricValue,
+    tiersDescending: sortedTiers.map(t => ({ threshold: t.min_threshold, rate: t.commission_value })),
+  });
+
   for (const tier of sortedTiers) {
-    if (metricValue >= tier.min_threshold) {
+    const qualifies = metricValue >= tier.min_threshold;
+    console.log(`[findMatchingTier] Check: ${metricValue} >= ${tier.min_threshold}? ${qualifies} (rate: ${tier.commission_value}%)`);
+    if (qualifies) {
       return {
         tierId: tier.id,
         minThreshold: tier.min_threshold,
@@ -402,7 +410,7 @@ export function findMatchingTier(
       };
     }
   }
-  
+
   return null;
 }
 
@@ -1069,6 +1077,22 @@ export function calculateMemberPayout(
     metricValue = customPointsCalculated;
   }
 
+  // DEBUG: Log tier calculation inputs
+  console.log('[calculateMemberPayout] Tier calculation inputs:', {
+    teamMemberName: performance.teamMemberName,
+    teamMemberId: performance.teamMemberId,
+    tierMetric: plan.tier_metric,
+    tierMetricSource,
+    metricValue,
+    writtenItems: performance.writtenItems,
+    issuedItems: performance.issuedItems,
+    writtenPremium: performance.writtenPremium,
+    issuedPremium: performance.issuedPremium,
+    writtenPolicies: performance.writtenPolicies,
+    writtenHouseholds: performance.writtenHouseholds,
+    planTiers: plan.tiers.map(t => ({ id: t.id, min_threshold: t.min_threshold, commission_value: t.commission_value })),
+  });
+
   // Determine self-gen percentage (prefer new metrics if available)
   const selfGenPercent = selfGenMetrics?.selfGenPercent ??
     (selfGenItems > 0 && performance.writtenItems > 0
@@ -1085,6 +1109,17 @@ export function calculateMemberPayout(
   let tierMatch = findMatchingTier(plan.tiers, metricValue);
   // Use sorted array for currentTierIndex to ensure tier demotion/promotion works correctly
   let currentTierIndex = tierMatch ? sortedTiers.findIndex(t => t.id === tierMatch!.tierId) : -1;
+
+  // DEBUG: Log tier matching result
+  console.log('[findMatchingTier result]', {
+    teamMemberName: performance.teamMemberName,
+    tierId: tierMatch?.tierId,
+    minThreshold: tierMatch?.minThreshold,
+    commissionValue: tierMatch?.commissionValue,
+    metricValueUsed: metricValue,
+    currentTierIndex,
+    sortedTiersOrder: sortedTiers.map(t => ({ threshold: t.min_threshold, rate: t.commission_value })),
+  });
 
   // Calculate bundling percentage and get multiplier
   const bundlingPercent = calculateBundlingPercent(performance);
