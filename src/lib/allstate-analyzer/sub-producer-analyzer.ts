@@ -474,21 +474,46 @@ export function analyzeSubProducers(
   let firstTermSkipped = 0;
   let firstTermKept = 0;
   let code850FirstTermSkipped: any[] = [];
+  let code850FirstTermKept: any[] = [];
+
+  // Debug: Check code 850 transactions BEFORE first-term filter
+  const code850InNbTransactions = nbTransactions.filter(tx => String(tx.subProdCode || '').trim() === '850');
+  const code850Negatives = code850InNbTransactions.filter(tx => tx.writtenPremium < 0);
+  console.log(`[SubProducer] Code 850 in nbTransactions: ${code850InNbTransactions.length} total, ${code850Negatives.length} negative`);
+  if (code850Negatives.length > 0) {
+    console.log(`[SubProducer] Code 850 negative transactions BEFORE first-term filter:`, code850Negatives.slice(0, 5).map(tx => ({
+      insured: tx.namedInsured?.substring(0, 20),
+      premium: tx.writtenPremium,
+      origDate: tx.origPolicyEffDate,
+      businessType: tx.businessType,
+    })));
+  }
 
   for (const tx of nbTransactions) {
     // Skip if not first-term
     if (!isFirstTerm(tx)) {
       firstTermSkipped++;
-      if (String(tx.subProdCode || '').trim() === '850' && tx.writtenPremium < 0) {
-        code850FirstTermSkipped.push({
-          insured: tx.namedInsured?.substring(0, 20),
-          premium: tx.writtenPremium,
-          origDate: tx.origPolicyEffDate,
-        });
+      if (String(tx.subProdCode || '').trim() === '850') {
+        if (tx.writtenPremium < 0) {
+          code850FirstTermSkipped.push({
+            insured: tx.namedInsured?.substring(0, 20),
+            premium: tx.writtenPremium,
+            origDate: tx.origPolicyEffDate,
+          });
+        }
       }
       continue;
     }
     firstTermKept++;
+
+    // Track code 850 transactions that pass first-term filter
+    if (String(tx.subProdCode || '').trim() === '850' && tx.writtenPremium < 0) {
+      code850FirstTermKept.push({
+        insured: tx.namedInsured?.substring(0, 20),
+        premium: tx.writtenPremium,
+        origDate: tx.origPolicyEffDate,
+      });
+    }
 
     const code = String(tx.subProdCode || '').trim();
     const normalizedCode = (!code || code === 'NaN' || code === 'undefined') ? '' : code;
@@ -541,6 +566,10 @@ export function analyzeSubProducers(
   
   // Debug: Log first-term filter results
   console.log(`[SubProducer] First-term filter: kept ${firstTermKept}, skipped ${firstTermSkipped}`);
+  console.log(`[SubProducer] Code 850 chargebacks: ${code850FirstTermKept.length} KEPT, ${code850FirstTermSkipped.length} SKIPPED by first-term filter`);
+  if (code850FirstTermKept.length > 0) {
+    console.log(`[SubProducer] Code 850 chargebacks KEPT (passed first-term):`, code850FirstTermKept);
+  }
   if (code850FirstTermSkipped.length > 0) {
     console.log(`[SubProducer] Code 850 chargebacks SKIPPED by first-term filter:`, code850FirstTermSkipped);
   }
@@ -555,12 +584,25 @@ export function analyzeSubProducers(
     let commissionChargebacks = 0;
     let policiesIssued = 0;
     let itemsIssued = 0;
-    
+
     const creditInsureds: InsuredAggregate[] = [];
     const chargebackInsureds: InsuredAggregate[] = [];
     const creditTransactions: SubProducerTransaction[] = [];
     const chargebackTransactions: SubProducerTransaction[] = [];
-    
+
+    // Debug: Log code 850's insured map
+    if (code === '850') {
+      console.log(`[SubProducer] Code 850 insured map has ${insuredMap.size} insureds`);
+      let negativeNetCount = 0;
+      for (const [name, d] of insuredMap) {
+        if (d.netPremium < 0) {
+          negativeNetCount++;
+          console.log(`[SubProducer] Code 850 NEGATIVE net insured: "${name}" = $${d.netPremium.toFixed(2)}`);
+        }
+      }
+      console.log(`[SubProducer] Code 850 insureds with negative net: ${negativeNetCount}`);
+    }
+
     for (const [insuredName, data] of insuredMap) {
       // Accumulate legacy counts
       policiesIssued += data.policiesIssued;
