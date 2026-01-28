@@ -1,81 +1,56 @@
 
-# Plan: Add Lead Source to Sale Notification Email
+# Fix: Cancel Audit Race Condition
 
-## Overview
-Add the lead source name to the "Sale Details" section of the new sale notification email. This will show where the lead came from directly in the email's top section.
+## Problem
+After uploading a cancel audit file, records don't appear until you manually refresh the page.
 
-## What You'll See
-When a new sale is submitted, the email will now include a **Lead Source** row in the green details box showing something like:
-- "Lead Source: Self-Gen Door Knock"
-- "Lead Source: Facebook Ads" 
-- "Lead Source: —" (if not specified)
+## Root Cause
+In `src/pages/CancelAudit.tsx`, the `handleUploadComplete` callback fires **immediately** when the upload modal closes, before the background processing actually finishes. This causes:
 
----
+1. User uploads file → Modal closes
+2. `handleUploadComplete` fires immediately
+3. It shows "Upload Complete" toast and invalidates queries
+4. UI refetches data **while background upload is still running**
+5. At this moment, old records are deactivated but new records aren't inserted yet
+6. Result: Empty table!
 
-## Technical Changes
+The `useCancelAuditBackgroundUpload` hook **already handles** showing a success toast and invalidating queries when processing is truly complete (see lines 66 and 185 in the hook).
 
-### File: `supabase/functions/send-sale-notification/index.ts`
+## Fix
 
-**1. Update the sale query to include lead source (lines 77-93)**
+**File:** `src/pages/CancelAudit.tsx` (lines 462-472)
 
-Add the `lead_source_id` and join to `lead_sources` table:
-
+Change from:
 ```typescript
-const { data: sale, error: saleError } = await supabase
-  .from('sales')
-  .select(`
-    id,
-    customer_name,
-    total_premium,
-    total_items,
-    total_policies,
-    is_bundle,
-    bundle_type,
-    effective_date,
-    source,
-    created_at,
-    lead_source_id,
-    lead_source:lead_sources(name, is_self_generated),
-    team_member:team_members!sales_team_member_id_fkey(id, name)
-  `)
-  .eq('id', body.sale_id)
-  .single();
+const handleUploadComplete = useCallback(() => {
+  showToast({
+    title: "Upload Complete",
+    description: "Records have been processed successfully",
+  });
+  // Invalidate and refetch records + stats + counts
+  queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
+  queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
+  queryClient.invalidateQueries({ queryKey: ['cancel-audit-uploads'] });
+  queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
+}, [showToast, queryClient]);
 ```
 
-**2. Extract the lead source name (after line 257)**
-
-Add logic to safely get the lead source name:
-
+Change to:
 ```typescript
-// Handle lead_source join (may be object or array)
-const leadSourceData = sale.lead_source as { name: string; is_self_generated: boolean }[] | { name: string; is_self_generated: boolean } | null;
-const leadSourceName = Array.isArray(leadSourceData) 
-  ? leadSourceData[0]?.name 
-  : leadSourceData?.name || null;
+const handleUploadComplete = useCallback(() => {
+  // Toast and query invalidation removed to fix race condition.
+  // The useCancelAuditBackgroundUpload hook already shows a toast and 
+  // invalidates queries when background processing is actually complete.
+  // Previously, this callback fired immediately before data was saved,
+  // causing the UI to refetch while the table was still empty.
+}, []);
 ```
 
-**3. Add lead source row to email HTML (after the Producer row, ~line 299)**
+## After This Fix
 
-Insert a new table row in the Sale Details section:
+1. User uploads file → Modal closes with "Processing..." toast
+2. Background upload runs → Records are inserted into database
+3. When background upload **finishes** → Hook shows "Upload Complete!" toast AND invalidates queries
+4. Query invalidation triggers refetch → Table shows the new records immediately
 
-```html
-<tr>
-  <td style="padding: 6px 0; color: #6b7280;">Lead Source:</td>
-  <td style="padding: 6px 0;">${leadSourceName || '—'}</td>
-</tr>
-```
-
-This will appear right after "Producer" in the email details box.
-
----
-
-## Summary of Changes
-
-| Location | Change |
-|----------|--------|
-| Line 77-93 | Add `lead_source_id` and `lead_source:lead_sources(name, is_self_generated)` to query |
-| After line 257 | Add variable extraction for `leadSourceName` |
-| Line ~300 | Add new `<tr>` row for Lead Source in email template |
-
-## No Database Changes Required
-The `sales.lead_source_id` and `lead_sources` table already exist with the correct foreign key relationship.
+No manual refresh needed.
