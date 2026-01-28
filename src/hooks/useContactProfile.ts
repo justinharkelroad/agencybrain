@@ -256,7 +256,7 @@ export function useContactProfile(
             created_at,
             team_member_id,
             team_members:team_member_id (id, name),
-            lead_source:lead_sources (name),
+            lead_source:lead_sources!lqs_households_lead_source_id_fkey (name),
             quotes:lqs_quotes (id, quote_date, product_type, items_quoted, premium_cents, issued_policy_number),
             sales:lqs_sales (id, sale_date, product_type, items_sold, policies_sold, premium_cents, policy_number)
           `)

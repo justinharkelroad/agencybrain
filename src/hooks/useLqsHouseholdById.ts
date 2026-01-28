@@ -31,7 +31,7 @@ export function useLqsHouseholdById(householdId: string | null) {
             source_reference_id,
             linked_quote_id
           ),
-          lead_source:lead_sources(
+          lead_source:lead_sources!lqs_households_lead_source_id_fkey(
             id,
             name,
             is_self_generated,

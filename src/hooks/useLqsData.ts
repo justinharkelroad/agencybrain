@@ -83,7 +83,7 @@ export function useLqsData({ agencyId, dateRange, statusFilter, searchTerm }: Us
             *,
             quotes:lqs_quotes(*),
             sales:lqs_sales(*),
-            lead_source:lead_sources(id, name, is_self_generated, bucket:marketing_buckets(id, name)),
+            lead_source:lead_sources!lqs_households_lead_source_id_fkey(id, name, is_self_generated, bucket:marketing_buckets(id, name)),
             team_member:team_members(id, name)
           `)
           .eq('agency_id', agencyId!)

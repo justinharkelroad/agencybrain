@@ -422,7 +422,7 @@ async function processInBackground(
               .select(`
                 id, first_name, last_name, zip_code, lead_source_id, team_member_id,
                 quotes:lqs_quotes(id, product_type, premium_cents, quote_date),
-                lead_source:lead_sources(name)
+                lead_source:lead_sources!lqs_households_lead_source_id_fkey(name)
               `)
               .eq('agency_id', context.agencyId)
               .ilike('last_name', primaryRecord.lastName);
