@@ -141,49 +141,65 @@ export function PayoutPreview({
     []
   );
 
-  // Build chargeback data by producer from Agent Transaction Detail
-  const chargebacksByProducer = useMemo(() => {
+  // Build data by producer from Agent Transaction Detail (chargebacks AND bundle type breakdown)
+  const transactionDetailByProducer = useMemo(() => {
     if (!transactionDetailMetrics || transactionDetailMetrics.length === 0) {
-      return new Map<string, { premium: number; count: number; chargebackInsureds: typeof transactionDetailMetrics[0]['chargebackInsureds']; chargebackTransactions: typeof transactionDetailMetrics[0]['chargebackTransactions'] }>();
+      return new Map<string, {
+        premium: number;
+        count: number;
+        chargebackInsureds: typeof transactionDetailMetrics[0]['chargebackInsureds'];
+        chargebackTransactions: typeof transactionDetailMetrics[0]['chargebackTransactions'];
+        byBundleType: typeof transactionDetailMetrics[0]['byBundleType'];
+        byProduct: typeof transactionDetailMetrics[0]['byProduct'];
+      }>();
     }
 
-    console.log(`[PayoutPreview] Building chargebacksByProducer map from ${transactionDetailMetrics.length} producers`);
+    console.log(`[PayoutPreview] Building transactionDetailByProducer map from ${transactionDetailMetrics.length} producers`);
     console.log(`[PayoutPreview] All producer codes:`, transactionDetailMetrics.map(m => ({
       code: m.code,
       displayCode: m.code ? `"${m.code}"` : '(empty)',
       credits: m.creditCount,
       chargebacks: m.chargebackCount,
       chargebackPremium: m.premiumChargebacks,
+      bundleTypes: m.byBundleType?.map(b => `${b.bundleType}: $${b.premiumWritten?.toFixed(0) || 0}`),
     })));
 
-    const summary = new Map<string, { premium: number; count: number; chargebackInsureds: typeof transactionDetailMetrics[0]['chargebackInsureds']; chargebackTransactions: typeof transactionDetailMetrics[0]['chargebackTransactions'] }>();
+    const summary = new Map<string, {
+      premium: number;
+      count: number;
+      chargebackInsureds: typeof transactionDetailMetrics[0]['chargebackInsureds'];
+      chargebackTransactions: typeof transactionDetailMetrics[0]['chargebackTransactions'];
+      byBundleType: typeof transactionDetailMetrics[0]['byBundleType'];
+      byProduct: typeof transactionDetailMetrics[0]['byProduct'];
+    }>();
 
     for (const metrics of transactionDetailMetrics) {
-      if (metrics.chargebackCount > 0 || metrics.premiumChargebacks > 0) {
-        const code = metrics.code;
-        summary.set(code, {
-          premium: metrics.premiumChargebacks,
-          count: metrics.chargebackCount,
-          chargebackInsureds: metrics.chargebackInsureds,
-          chargebackTransactions: metrics.chargebackTransactions,
-        });
-        console.log(`[PayoutPreview] Chargeback producer code="${code}" (len=${code.length}): ${metrics.chargebackCount} chargebacks ($${metrics.premiumChargebacks.toFixed(2)})`);
+      const code = metrics.code;
+      // Store ALL data from Agent Transaction Detail, not just chargebacks
+      summary.set(code, {
+        premium: metrics.premiumChargebacks,
+        count: metrics.chargebackCount,
+        chargebackInsureds: metrics.chargebackInsureds,
+        chargebackTransactions: metrics.chargebackTransactions,
+        byBundleType: metrics.byBundleType,
+        byProduct: metrics.byProduct,
+      });
 
-        // Debug: Log first few chargeback transactions to see details
-        if (metrics.chargebackTransactions.length > 0) {
-          console.log(`[PayoutPreview]   Sample chargebacks:`, metrics.chargebackTransactions.slice(0, 2).map(t => ({
-            insured: t.insuredName,
-            premium: t.premium,
-            product: t.product,
-          })));
-        }
+      if (metrics.chargebackCount > 0 || metrics.premiumChargebacks > 0) {
+        console.log(`[PayoutPreview] Producer code="${code}": ${metrics.chargebackCount} chargebacks ($${metrics.premiumChargebacks.toFixed(2)})`);
+      }
+      if (metrics.byBundleType && metrics.byBundleType.length > 0) {
+        console.log(`[PayoutPreview] Producer code="${code}" bundle breakdown:`, metrics.byBundleType.map(b => `${b.bundleType}: $${b.premiumWritten?.toFixed(0) || 0}`));
       }
     }
 
-    console.log(`[PayoutPreview] chargebacksByProducer map has ${summary.size} entries with keys:`, Array.from(summary.keys()).map(k => k ? `"${k}"` : '(empty)'));
+    console.log(`[PayoutPreview] transactionDetailByProducer map has ${summary.size} entries with keys:`, Array.from(summary.keys()).map(k => k ? `"${k}"` : '(empty)'));
 
     return summary;
   }, [transactionDetailMetrics]);
+
+  // Backwards compatibility alias
+  const chargebacksByProducer = transactionDetailByProducer;
 
   // Convert sales report metrics to the format expected by the calculator
   // Also merges chargeback data from Agent Transaction Detail
@@ -202,16 +218,31 @@ export function PayoutPreview({
       console.log('[PayoutPreview] Sales report producer codes:', converted.map(m => m.code ? `"${m.code}"` : '(empty)'));
       console.log('[PayoutPreview] Available chargeback keys:', Array.from(chargebacksByProducer.keys()).map(k => k ? `"${k}"` : '(empty)'));
 
-      // Merge chargeback data from Agent Transaction Detail
+      // Merge data from Agent Transaction Detail (chargebacks AND bundle type breakdown)
       return converted.map((m) => {
-        // Look up chargebacks for this sub-producer from transaction detail
-        const producerChargebacks = chargebacksByProducer.get(m.code);
+        // Look up data for this sub-producer from transaction detail
+        const producerData = transactionDetailByProducer.get(m.code);
 
-        const chargebackPremium = producerChargebacks?.premium || 0;
-        const chargebackCount = producerChargebacks?.count || 0;
+        const chargebackPremium = producerData?.premium || 0;
+        const chargebackCount = producerData?.count || 0;
+
+        // Use bundle type breakdown from Agent Transaction Detail if available (it has the real data)
+        // Fall back to inferred data from sales report if no Agent Transaction Detail
+        const byBundleType = producerData?.byBundleType && producerData.byBundleType.length > 0
+          ? producerData.byBundleType
+          : m.byBundleType;
+        const byProduct = producerData?.byProduct && producerData.byProduct.length > 0
+          ? producerData.byProduct
+          : m.byProduct;
 
         // Always log the lookup attempt for debugging
-        console.log(`[PayoutPreview] Lookup code="${m.code}": found=${!!producerChargebacks}, chargebacks=${chargebackCount}`);
+        console.log(`[PayoutPreview] Lookup code="${m.code}": found=${!!producerData}, chargebacks=${chargebackCount}, bundleTypes=${byBundleType?.length || 0}`);
+
+        if (producerData?.byBundleType && producerData.byBundleType.length > 0) {
+          console.log(`[PayoutPreview] ${m.code}: Using REAL bundle breakdown from Agent Transaction Detail:`, byBundleType?.map(b => `${b.bundleType}: $${b.premiumWritten?.toFixed(0) || b.netPremium?.toFixed(0) || 0}`));
+        } else {
+          console.log(`[PayoutPreview] ${m.code}: Using INFERRED bundle breakdown (no Agent Transaction Detail data)`);
+        }
 
         if (chargebackCount > 0) {
           console.log(`[PayoutPreview] ${m.code}: Merged ${chargebackCount} chargebacks from Agent Transaction Detail ($${chargebackPremium.toFixed(2)})`);
@@ -233,11 +264,12 @@ export function PayoutPreview({
           effectiveRate: m.effectiveRate,
           // Pass through credit/chargeback detail data for PayoutDetailSheet
           creditTransactions: m.creditTransactions,
-          chargebackTransactions: producerChargebacks?.chargebackTransactions || [],
+          chargebackTransactions: producerData?.chargebackTransactions || [],
           creditInsureds: m.creditInsureds,
-          chargebackInsureds: producerChargebacks?.chargebackInsureds || [],
-          byBundleType: m.byBundleType,
-          byProduct: m.byProduct,
+          chargebackInsureds: producerData?.chargebackInsureds || [],
+          // Use Agent Transaction Detail's bundle breakdown (real data) if available
+          byBundleType,
+          byProduct,
         };
       }) as SubProducerMetrics[];
     } else if (dataSource === "commission_statement" && subProducerData?.producers) {
