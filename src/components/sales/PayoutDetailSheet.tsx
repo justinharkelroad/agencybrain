@@ -106,9 +106,87 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
               </div>
             </div>
 
+            {/* Tier Achieved Section */}
+            {payout.tierMatch && (
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tier Achieved</h4>
+                <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Trophy className="h-5 w-5 text-emerald-500" />
+                      <div>
+                        <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                          {payout.tierMatch.minThreshold}+ items ({payout.tierMatch.commissionValue}%)
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Written: {payout.writtenItems} items
+                        </div>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                      Tier Rate: {payout.tierMatch.commissionValue}%
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Commission Breakdown by Bundle Type */}
+            {payout.commissionByBundleType && payout.commissionByBundleType.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Commission Breakdown</h4>
+                <div className="border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Category</TableHead>
+                        <TableHead className="text-right">Premium</TableHead>
+                        <TableHead className="text-right">Items</TableHead>
+                        <TableHead className="text-right">Rate</TableHead>
+                        <TableHead className="text-right">Commission</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {payout.commissionByBundleType.map((bt, idx) => {
+                        const rate = bt.premium > 0 ? (bt.commission / bt.premium) * 100 : 0;
+                        return (
+                          <TableRow key={idx}>
+                            <TableCell className="font-medium capitalize">
+                              {bt.bundleType === 'monoline' ? '🔹 Monoline' : bt.bundleType === 'standard' ? '📦 Bundled (Standard)' : bt.bundleType === 'preferred' ? '⭐ Bundled (Preferred)' : bt.bundleType}
+                            </TableCell>
+                            <TableCell className="text-right">{formatCurrency(bt.premium)}</TableCell>
+                            <TableCell className="text-right">{bt.items}</TableCell>
+                            <TableCell className="text-right">{rate.toFixed(1)}%</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(bt.commission)}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {/* Total row */}
+                      <TableRow className="bg-muted/50 font-semibold">
+                        <TableCell>Total</TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(payout.commissionByBundleType.reduce((sum, bt) => sum + bt.premium, 0))}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {payout.commissionByBundleType.reduce((sum, bt) => sum + bt.items, 0)}
+                        </TableCell>
+                        <TableCell className="text-right">-</TableCell>
+                        <TableCell className="text-right text-primary">
+                          {formatCurrency(payout.commissionByBundleType.reduce((sum, bt) => sum + bt.commission, 0))}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Monoline items pay flat rate. Bundled items pay tier rate ({payout.tierMatch?.commissionValue || 0}%).
+                </p>
+              </div>
+            )}
+
             {/* Commission Section */}
             <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Commission</h4>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Commission Total</h4>
               <div className="grid grid-cols-3 gap-4">
                 <div className="p-3 rounded-lg bg-muted">
                   <div className="text-xs text-muted-foreground">Base</div>
