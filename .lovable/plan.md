@@ -1,175 +1,204 @@
 
 
-# Fix: Manual Override "Apply to All" Should Support Row Selection
+# Add Bundled vs Monoline Override Fields to Manual Override Panel
 
 ## Problem Summary
 
-The **"Apply to All" button** in the Manual Override (Test Mode) panel applies override values to **every single row** in the table. This makes it impossible to test a specific team member's tier calculation without affecting everyone else.
+Currently, the Manual Override panel only allows overriding **total** items and premium. This prevents proper testing when the compensation plan uses `bundle_configs` with different rates for:
+- **Monoline** (single product)
+- **Standard** (2 products bundled)  
+- **Preferred** (3+ products bundled)
 
-For example:
-- You want to test "What if Katie Cavera had 100 items instead of 89?"
-- You enter `100` in Items Written and click "Apply to All"
-- **All 22 producers** now show 100 items - not just Katie
+You need to test specific scenarios like: **"54 bundled items @ $40K premium + 6 monoline items @ $5K premium"** to verify tiers and commission rates are calculating correctly.
 
-## Current Design
+## Current Limitation
 
-| Feature | Current Behavior |
-|---------|-----------------|
-| Quick Apply to All | Applies bulk items/premium to **ALL** rows unconditionally |
-| Per-row inputs | Each row has individual override inputs (works fine) |
-| Row selection | **Does not exist** |
+| Field | Current State | Needed |
+|-------|---------------|--------|
+| Total Items | Exists | Keep |
+| Total Premium | Exists | Keep |
+| Bundled Items | Missing | Add |
+| Bundled Premium | Missing | Add |
+| Monoline Items | Missing | Add |
+| Monoline Premium | Missing | Add |
 
-## Solution: Add Row Selection with "Apply to Selected"
+## Solution Overview
 
-Add checkboxes to select which team members should receive the bulk override values.
+Extend the `ManualOverride` interface and UI to support bundle-type-specific overrides. When these are provided, the calculator will use them to build a synthetic `byBundleType` array for commission calculations.
 
-### New UI Components
+---
+
+## UI Design
+
+### Quick Apply Section (Updated)
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│ Quick Apply to Selected                                                 │
-│                                                                         │
-│ Items Written  │  Premium Written  │  [Apply to Selected]  [Clear All] │
-│ [_______100__] │  [________5000__] │                                    │
-│                                                                         │
-│ Leave blank to use statement data. Enter values to override for testing │
-│ Select rows below, then click "Apply to Selected"                       │
-└─────────────────────────────────────────────────────────────────────────┘
-
-┌──────────────────────────────────────────────────────────────────────────┐
-│ [☐] │ Team Member      │ Code   │ Statement │ Statement  │ Override │   │
-│     │                  │        │ Items     │ Premium    │ Items    │...│
-├─────┼──────────────────┼────────┼───────────┼────────────┼──────────┼───│
-│ [☐] │ Unmatched        │ 993    │ 1         │ $166       │ —        │   │
-│ [☑] │ Katie Cavera     │ 428    │ 89        │ $66,313.78 │ —        │   │  ← Selected!
-│ [☐] │ John Smith       │ 523    │ 45        │ $32,000.00 │ —        │   │
-└─────┴──────────────────┴────────┴───────────┴────────────┴──────────┴───┘
-
-Clicking "Apply to Selected" → Only Katie Cavera gets the override
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│ Quick Apply to Selected                                                         │
+│                                                                                 │
+│ TOTAL (for tier qualification)                                                  │
+│ Items Written  [____60____]   Premium Written  [____45000____]                 │
+│                                                                                 │
+│ BUNDLE BREAKDOWN (for commission calculation)                                   │
+│ Bundled Items [____54____]  Bundled Premium [____40000____]                    │
+│ Monoline Items [____6____]  Monoline Premium [____5000____]                    │
+│                                                                                 │
+│ [Apply to Selected (1)]  [Clear All]                                           │
+│                                                                                 │
+│ Leave bundle breakdown blank to distribute based on original statement ratios  │
+└─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Changes Required
+### Per-Row Table (Expanded)
 
-**File: `src/components/sales/ManualOverridePanel.tsx`**
+Add new columns for bundle breakdown per producer:
 
-1. **Add selection state** - Track which rows are selected via checkbox
-2. **Add "Select All" checkbox** in header - Toggle all matched producers
-3. **Rename "Apply to All"** → "Apply to Selected" with selection count badge
-4. **Update `handleApplyBulk`** - Only apply to selected rows, not all rows
-5. **Add checkbox column** to the table
+| Select | Team Member | Code | Stmt Items | Stmt Premium | Override Items | Override Premium | Bundled Items | Bundled Premium | Monoline Items | Monoline Premium |
+|--------|------------|------|------------|--------------|----------------|------------------|---------------|-----------------|----------------|------------------|
+| ☑ | Katie Cavera | 428 | 89 | $66,313 | 60 | $45,000 | 54 | $40,000 | 6 | $5,000 |
 
 ---
 
-## Technical Implementation
+## Technical Changes
 
-### Step 1: Add Selection State
+### 1. Extend ManualOverride Interface
 
-Add a `Set<string>` to track selected sub-producer codes:
+Update in 3 locations:
+- `src/components/sales/ManualOverridePanel.tsx`
+- `src/lib/payout-calculator/calculator.ts`
+- `src/hooks/usePayoutCalculator.ts`
 
 ```typescript
-const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
-
-// Helper functions
-const toggleSelection = (code: string) => {
-  setSelectedCodes(prev => {
-    const next = new Set(prev);
-    if (next.has(code)) {
-      next.delete(code);
-    } else {
-      next.add(code);
-    }
-    return next;
-  });
-};
-
-const toggleSelectAll = () => {
-  const matchedCodes = producerData
-    .filter(p => p.teamMember)
-    .map(p => p.code);
+export interface ManualOverride {
+  subProdCode: string;
+  teamMemberId: string | null;
+  teamMemberName: string | null;
   
-  if (selectedCodes.size === matchedCodes.length) {
-    setSelectedCodes(new Set()); // Deselect all
-  } else {
-    setSelectedCodes(new Set(matchedCodes)); // Select all matched
-  }
-};
+  // Total metrics (for tier qualification)
+  writtenItems: number | null;
+  writtenPremium: number | null;
+  writtenPolicies: number | null;
+  writtenHouseholds: number | null;
+  writtenPoints: number | null;
+  
+  // NEW: Bundle breakdown (for commission calculation)
+  bundledItems: number | null;
+  bundledPremium: number | null;
+  monolineItems: number | null;
+  monolinePremium: number | null;
+}
 ```
 
-### Step 2: Update Bulk Apply Logic
+### 2. Update ManualOverridePanel.tsx
 
-Change `handleApplyBulk` to only apply to selected rows:
+**New state variables:**
+```typescript
+const [bulkBundledItems, setBulkBundledItems] = useState<string>("");
+const [bulkBundledPremium, setBulkBundledPremium] = useState<string>("");
+const [bulkMonolineItems, setBulkMonolineItems] = useState<string>("");
+const [bulkMonolinePremium, setBulkMonolinePremium] = useState<string>("");
+```
+
+**Update handleApplyBulk:**
+- Include bundle breakdown fields when applying to selected rows
+
+**Update handleClearAll:**
+- Reset all new fields to null
+
+**Update UI:**
+- Add "Bundle Breakdown" section in Quick Apply
+- Add 4 new columns to the per-producer table
+- Add clear helper text explaining the difference between "Total" (tier) and "Bundle" (commission)
+
+### 3. Update Calculator Logic
+
+In `src/lib/payout-calculator/calculator.ts`, modify the override application section (around line 1455-1473):
 
 ```typescript
-const handleApplyBulk = () => {
-  if (selectedCodes.size === 0) {
-    // Show warning toast
-    return;
+// Apply manual overrides if present
+const override = overrideByCode.get(code);
+if (override) {
+  // Existing: Total metrics for tier qualification
+  if (override.writtenItems !== null) {
+    performance.writtenItems = override.writtenItems;
   }
+  if (override.writtenPremium !== null) {
+    performance.writtenPremium = override.writtenPremium;
+  }
+  // ... other existing fields
   
-  const itemsValue = bulkItems === "" ? null : parseInt(bulkItems, 10);
-  const premiumValue = bulkPremium === "" ? null : parseFloat(bulkPremium);
-
-  const updated = overrides.map((o) => {
-    // Only update if this code is selected
-    if (selectedCodes.has(o.subProdCode)) {
-      return {
-        ...o,
-        writtenItems: itemsValue,
-        writtenPremium: premiumValue,
-      };
+  // NEW: Bundle breakdown for commission calculation
+  if (override.bundledItems !== null || override.monolineItems !== null ||
+      override.bundledPremium !== null || override.monolinePremium !== null) {
+    
+    // Build synthetic byBundleType array from overrides
+    performance.byBundleType = [];
+    
+    const bundledItems = override.bundledItems ?? 0;
+    const bundledPremium = override.bundledPremium ?? 0;
+    const monolineItems = override.monolineItems ?? 0;
+    const monolinePremium = override.monolinePremium ?? 0;
+    
+    if (bundledItems > 0 || bundledPremium > 0) {
+      performance.byBundleType.push({
+        bundleType: 'standard', // "bundled" maps to standard in most plans
+        premiumWritten: bundledPremium,
+        premiumChargebacks: 0,
+        netPremium: bundledPremium,
+        itemsIssued: bundledItems,
+        creditCount: bundledItems,
+        chargebackCount: 0,
+      });
     }
-    return o;
-  });
-  
-  onChange(updated);
-  setSelectedCodes(new Set()); // Clear selection after apply
-};
+    
+    if (monolineItems > 0 || monolinePremium > 0) {
+      performance.byBundleType.push({
+        bundleType: 'monoline',
+        premiumWritten: monolinePremium,
+        premiumChargebacks: 0,
+        netPremium: monolinePremium,
+        itemsIssued: monolineItems,
+        creditCount: monolineItems,
+        chargebackCount: 0,
+      });
+    }
+    
+    // Update issued metrics to match the bundle sum
+    performance.issuedItems = bundledItems + monolineItems;
+    performance.issuedPremium = bundledPremium + monolinePremium;
+  }
+}
 ```
 
-### Step 3: Update UI
+---
 
-**Bulk Apply Section:**
-- Change label from "Quick Apply to All" → "Quick Apply to Selected"
-- Change button text: "Apply to All" → "Apply to Selected (X)"
-- Add helper text about selecting rows
-- Disable button when no rows selected
+## Summary of File Changes
 
-**Table:**
-- Add checkbox column as first column
-- Add "Select All" checkbox in header (only selects matched producers)
-- Disable checkbox for unmatched rows (can't override unmatched producers)
-
-### Step 4: Clear Selection When Needed
-
-Clear selection when:
-- User clicks "Clear All"
-- Underlying sub-producer data changes
-- User successfully applies overrides
+| File | Changes |
+|------|---------|
+| `src/components/sales/ManualOverridePanel.tsx` | Add bundle breakdown fields to interface, state, UI inputs, and handlers |
+| `src/lib/payout-calculator/calculator.ts` | Extend ManualOverride interface, apply bundle overrides to performance.byBundleType |
+| `src/hooks/usePayoutCalculator.ts` | Update ManualOverride interface to match |
 
 ---
 
-## Summary of Changes
+## User Experience After Implementation
 
-| Location | Change |
-|----------|--------|
-| Lines 53-55 | Add `selectedCodes` state |
-| Lines 144-154 | Update `handleApplyBulk` to filter by selection |
-| Lines 156-168 | Update `handleClearAll` to also clear selection |
-| Lines 227-266 | Update "Quick Apply" section labels and button |
-| Lines 271-287 | Add checkbox column header with Select All |
-| Lines 290-350 | Add checkbox input to each row |
+1. User opens Manual Override panel
+2. User selects "Katie Cavera" checkbox
+3. User enters:
+   - Items Written: `60` (for tier qualification)
+   - Premium Written: `$45,000` (for tier qualification)
+   - Bundled Items: `54`
+   - Bundled Premium: `$40,000`
+   - Monoline Items: `6`
+   - Monoline Premium: `$5,000`
+4. User clicks "Apply to Selected"
+5. Calculator:
+   - Uses 60 items to determine the tier (e.g., Tier 3)
+   - Applies Tier 3's **bundled rate** to the $40K bundled premium
+   - Applies Tier 3's **monoline rate** to the $5K monoline premium
+   - Shows accurate projected commission
 
----
-
-## User Experience After Fix
-
-1. User expands "Manual Override (Test Mode)"
-2. User sees all producers in the table with checkboxes
-3. User checks the box next to "Katie Cavera"
-4. User enters "100" in Items Written
-5. User clicks "Apply to Selected (1)"
-6. **Only Katie Cavera** gets the override value of 100
-7. All other producers remain unchanged
-
-This allows proper "what-if" testing for individual team members or any subset of the team.
+This allows precise testing of "what-if" scenarios with specific bundle mixes.
 
