@@ -2,7 +2,20 @@
 
 import { CompPlan, CompPlanTier, BundleConfigs, BundleTypeConfig, ProductRates, PointValues, BundlingMultipliers, CommissionModifiers } from "@/hooks/useCompPlans";
 import { SubProducerMetrics, SubProducerTransaction, BundleTypeBreakdown, ProductBreakdown } from "@/lib/allstate-analyzer/sub-producer-analyzer";
-import { PayoutCalculation, TierMatch, SubProducerPerformance, AchievedPromo } from "./types";
+import {
+  PayoutCalculation,
+  TierMatch,
+  SubProducerPerformance,
+  AchievedPromo,
+  SelfGenRequirement,
+  SelfGenBonus,
+  SelfGenPenaltyResult,
+  SelfGenBonusResult,
+  ChargebackDetail,
+  ChargebackFilterResult,
+  CalculationSnapshot
+} from "./types";
+import { SelfGenMetrics } from "./self-gen";
 import { supabase } from "@/integrations/supabase/client";
 import { calculatePromoProgress, PromoGoal } from "@/hooks/usePromoGoals";
 
@@ -112,6 +125,256 @@ export function filterChargebacksByThreeMonthRule(
 }
 
 /**
+ * Filter chargebacks based on configurable rule (none, three_month, full)
+ * Full-term uses product-specific term months (Auto=6mo, Home/Other=12mo)
+ */
+export function filterChargebacksByRule(
+  chargebackTransactions: SubProducerTransaction[],
+  chargebackRule: 'none' | 'three_month' | 'full',
+  statementMonth: number,
+  statementYear: number,
+  productTermMonths: Map<string, number> // product type name -> term months
+): ChargebackFilterResult {
+  const statementDate = new Date(statementYear, statementMonth - 1, 28);
+
+  const result: ChargebackFilterResult = {
+    eligibleChargebacks: [],
+    excludedChargebacks: [],
+    eligiblePremium: 0,
+    excludedPremium: 0,
+    details: [],
+  };
+
+  if (chargebackRule === 'none') {
+    result.excludedChargebacks = chargebackTransactions;
+    for (const cb of chargebackTransactions) {
+      const premium = Math.abs(cb.writtenPremium || cb.premium || 0);
+      result.excludedPremium += premium;
+      result.details.push({
+        policyNumber: cb.policyNumber || 'Unknown',
+        productType: cb.productType || 'Unknown',
+        premium,
+        daysInForce: 0,
+        termMonths: 0,
+        included: false,
+        reason: 'Chargeback rule: none',
+      });
+    }
+    return result;
+  }
+
+  for (const cb of chargebackTransactions) {
+    const effectiveDate = parseTransactionDate(cb.origPolicyEffDate);
+    const premium = Math.abs(cb.writtenPremium || cb.premium || 0);
+    const productType = (cb.productType || '').toLowerCase();
+
+    if (!effectiveDate) {
+      // Conservative: include if can't parse
+      result.eligibleChargebacks.push(cb);
+      result.eligiblePremium += premium;
+      result.details.push({
+        policyNumber: cb.policyNumber || 'Unknown',
+        productType: cb.productType || 'Unknown',
+        premium,
+        daysInForce: -1,
+        termMonths: -1,
+        included: true,
+        reason: 'Could not parse effective date',
+      });
+      continue;
+    }
+
+    const daysInForce = Math.floor(
+      (statementDate.getTime() - effectiveDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    let termMonths: number;
+    let maxDays: number;
+
+    if (chargebackRule === 'three_month') {
+      termMonths = 3;
+      maxDays = 90;
+    } else {
+      // Full term - lookup by product type
+      termMonths = productTermMonths.get(productType) ||
+        (productType.includes('auto') && !productType.includes('specialty') ? 6 : 12);
+      maxDays = termMonths * 30;
+    }
+
+    const included = daysInForce < maxDays;
+
+    if (included) {
+      result.eligibleChargebacks.push(cb);
+      result.eligiblePremium += premium;
+    } else {
+      result.excludedChargebacks.push(cb);
+      result.excludedPremium += premium;
+    }
+
+    result.details.push({
+      policyNumber: cb.policyNumber || 'Unknown',
+      productType: cb.productType || 'Unknown',
+      premium,
+      daysInForce,
+      termMonths,
+      included,
+      reason: included
+        ? `Within ${termMonths}-month term (${daysInForce} days)`
+        : `Exceeded ${termMonths}-month term (${daysInForce} days)`,
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Apply self-gen penalty when below threshold
+ * Supports: percent_reduction, flat_reduction, tier_demotion
+ */
+export function applySelfGenPenalty(
+  selfGenPercent: number,
+  requirement: SelfGenRequirement | undefined,
+  currentTierIndex: number,
+  baseCommission: number
+): SelfGenPenaltyResult {
+  const result: SelfGenPenaltyResult = {
+    applied: false,
+    penaltyType: null,
+    penaltyValue: 0,
+    originalTierIndex: currentTierIndex,
+    adjustedTierIndex: currentTierIndex,
+    commissionReduction: 0,
+  };
+
+  if (!requirement?.enabled) return result;
+  if (selfGenPercent >= requirement.min_percent) return result;
+
+  result.applied = true;
+  result.penaltyType = requirement.penalty_type;
+  result.penaltyValue = requirement.penalty_value;
+
+  switch (requirement.penalty_type) {
+    case 'percent_reduction':
+      result.commissionReduction = baseCommission * (requirement.penalty_value / 100);
+      break;
+    case 'flat_reduction':
+      result.commissionReduction = Math.min(requirement.penalty_value, baseCommission);
+      break;
+    case 'tier_demotion':
+      const tiersToDrop = Math.floor(requirement.penalty_value);
+      result.adjustedTierIndex = Math.max(0, currentTierIndex - tiersToDrop);
+      break;
+  }
+
+  return result;
+}
+
+/**
+ * Apply self-gen bonus when above threshold
+ * Supports: percent_boost, flat_bonus, per_item, per_policy, per_household, tier_promotion
+ */
+export function applySelfGenBonus(
+  selfGenPercent: number,
+  bonus: SelfGenBonus | undefined,
+  selfGenMetrics: { selfGenItems: number; selfGenPolicies: number; selfGenHouseholds: number },
+  currentTierIndex: number,
+  totalTiers: number,
+  baseCommission: number
+): SelfGenBonusResult {
+  const result: SelfGenBonusResult = {
+    applied: false,
+    bonusType: null,
+    bonusValue: 0,
+    bonusAmount: 0,
+    tierPromotion: 0,
+  };
+
+  if (!bonus?.enabled) return result;
+  if (selfGenPercent < bonus.min_percent) return result;
+
+  result.applied = true;
+  result.bonusType = bonus.bonus_type;
+  result.bonusValue = bonus.bonus_value;
+
+  switch (bonus.bonus_type) {
+    case 'percent_boost':
+      result.bonusAmount = baseCommission * (bonus.bonus_value / 100);
+      break;
+    case 'flat_bonus':
+      result.bonusAmount = bonus.bonus_value;
+      break;
+    case 'per_item':
+      result.bonusAmount = selfGenMetrics.selfGenItems * bonus.bonus_value;
+      break;
+    case 'per_policy':
+      result.bonusAmount = selfGenMetrics.selfGenPolicies * bonus.bonus_value;
+      break;
+    case 'per_household':
+      result.bonusAmount = selfGenMetrics.selfGenHouseholds * bonus.bonus_value;
+      break;
+    case 'tier_promotion':
+      result.tierPromotion = Math.min(
+        Math.floor(bonus.bonus_value),
+        totalTiers - 1 - currentTierIndex
+      );
+      break;
+  }
+
+  return result;
+}
+
+/**
+ * Brokered business metrics (from sales table)
+ */
+export interface BrokeredMetrics {
+  items: number;
+  premium: number;
+  policies: number;
+  households: number;
+}
+
+/**
+ * Calculate commission for brokered business
+ * Uses brokered_payout_type and brokered_flat_rate or brokered_tiers
+ */
+export function calculateBrokeredCommission(
+  brokeredMetrics: BrokeredMetrics | undefined,
+  plan: CompPlan
+): number {
+  if (!brokeredMetrics || (brokeredMetrics.items === 0 && brokeredMetrics.premium === 0)) {
+    return 0;
+  }
+
+  const payoutType = plan.brokered_payout_type || 'flat_per_item';
+  const flatRate = plan.brokered_flat_rate || 0;
+  const brokeredTiers = plan.brokered_tiers || [];
+
+  switch (payoutType) {
+    case 'flat_per_item':
+      return brokeredMetrics.items * flatRate;
+
+    case 'percent_of_premium':
+      return brokeredMetrics.premium * (flatRate / 100);
+
+    case 'tiered':
+      // Find matching brokered tier based on items
+      const tierMatch = findMatchingTier(brokeredTiers, brokeredMetrics.items);
+      if (!tierMatch) return 0;
+
+      // Determine if tiered rate is % or flat based on value range
+      // Rates > 1 are typically flat per item, <= 1 are percentages
+      if (tierMatch.commissionValue > 1) {
+        return brokeredMetrics.items * tierMatch.commissionValue;
+      } else {
+        return brokeredMetrics.premium * tierMatch.commissionValue;
+      }
+
+    default:
+      return 0;
+  }
+}
+
+/**
  * Find the tier that matches the given metric value
  */
 export function findMatchingTier(
@@ -138,25 +401,30 @@ export function findMatchingTier(
 }
 
 /**
- * Get the metric value based on the tier metric type
+ * Get the metric value based on the tier metric type and source (written vs issued)
+ * @param source - 'written' (default) or 'issued' - configurable per comp plan
  */
 export function getMetricValue(
   performance: SubProducerPerformance,
-  tierMetric: string
+  tierMetric: string,
+  source: 'written' | 'issued' = 'written'
 ): number {
+  const isIssued = source === 'issued';
+
   switch (tierMetric) {
     case 'premium':
-      return performance.writtenPremium;
+      return isIssued ? performance.issuedPremium : performance.writtenPremium;
     case 'items':
-      return performance.writtenItems;
+      return isIssued ? performance.issuedItems : performance.writtenItems;
     case 'policies':
-      return performance.writtenPolicies;
+      return isIssued ? performance.issuedPolicies : performance.writtenPolicies;
     case 'households':
+      // Note: issuedHouseholds not tracked separately, use written
       return performance.writtenHouseholds;
     case 'points':
-      return performance.writtenPoints;
+      return isIssued ? performance.issuedPoints : performance.writtenPoints;
     default:
-      return performance.writtenPremium;
+      return isIssued ? performance.issuedPremium : performance.writtenPremium;
   }
 }
 
@@ -769,6 +1037,9 @@ function hasProductRates(productRates: ProductRates | null | undefined): boolean
  * Calculate payout for a single team member
  * Supports bundle-type-specific and product-specific rate configurations
  * Also supports custom point values, bundling multipliers, and self-gen modifiers
+ *
+ * @param selfGenMetrics - Self-gen metrics from calculateSelfGenMetrics (Phase 2+)
+ * @param brokeredMetrics - Brokered business metrics from sales table (Phase 5)
  */
 export function calculateMemberPayout(
   performance: SubProducerPerformance,
@@ -776,28 +1047,38 @@ export function calculateMemberPayout(
   periodMonth: number,
   periodYear: number,
   promoBonus: { bonusAmount: number; achievedPromos: AchievedPromo[] } = { bonusAmount: 0, achievedPromos: [] },
-  selfGenItems: number = 0 // From sales data - items marked as self-generated
+  selfGenItems: number = 0, // Legacy: items marked as self-generated
+  selfGenMetrics?: SelfGenMetrics, // New: full self-gen metrics from sales table
+  brokeredMetrics?: BrokeredMetrics // Phase 5: brokered business metrics
 ): PayoutCalculation {
+  // Get tier metric source from plan (written or issued)
+  const tierMetricSource = (plan as any).tier_metric_source || 'written';
+
   // Calculate custom points if point_values is configured and tier_metric is 'points'
   let customPointsCalculated: number | undefined;
-  let metricValue = getMetricValue(performance, plan.tier_metric);
+  let metricValue = getMetricValue(performance, plan.tier_metric, tierMetricSource);
 
   if (plan.tier_metric === 'points' && plan.point_values && Object.keys(plan.point_values).length > 0) {
     customPointsCalculated = calculateCustomPoints(performance, plan.point_values);
     metricValue = customPointsCalculated;
   }
 
-  // Check self-gen requirement (may affect tier qualification)
+  // Determine self-gen percentage (prefer new metrics if available)
+  const selfGenPercent = selfGenMetrics?.selfGenPercent ??
+    (selfGenItems > 0 && performance.writtenItems > 0
+      ? (selfGenItems / performance.writtenItems) * 100
+      : 0);
+
+  // Check legacy self-gen requirement
   const selfGenCheck = checkSelfGenRequirement(performance, plan.commission_modifiers, selfGenItems);
-  const selfGenPercent = selfGenCheck.selfGenPercent;
+  const selfGenMetRequirement = selfGenCheck.met;
 
-  // If self-gen requirement affects qualification and not met, track it (full implementation in Phase 5)
-  if (plan.commission_modifiers?.self_gen_requirement?.affects_qualification && !selfGenCheck.met) {
-    console.log(`[calculateMemberPayout] Self-gen requirement not met (${selfGenPercent.toFixed(1)}% < ${plan.commission_modifiers.self_gen_requirement.min_percent}%)`);
-  }
-
-  // Find matching tier (used for default calculation and display)
-  const tierMatch = findMatchingTier(plan.tiers, metricValue);
+  // Find initial matching tier
+  // Sort tiers once for consistent index calculations
+  const sortedTiers = [...plan.tiers].sort((a, b) => a.min_threshold - b.min_threshold);
+  let tierMatch = findMatchingTier(plan.tiers, metricValue);
+  // Use sorted array for currentTierIndex to ensure tier demotion/promotion works correctly
+  let currentTierIndex = tierMatch ? sortedTiers.findIndex(t => t.id === tierMatch!.tierId) : -1;
 
   // Calculate bundling percentage and get multiplier
   const bundlingPercent = calculateBundlingPercent(performance);
@@ -810,7 +1091,6 @@ export function calculateMemberPayout(
   let commissionByProduct: Array<{ product: string; premium: number; items: number; commission: number }> | undefined;
 
   if (hasProductRates(plan.product_rates)) {
-    // Use product-specific rates
     const result = calculateCommissionWithProductRates(
       performance,
       plan.product_rates!,
@@ -819,7 +1099,6 @@ export function calculateMemberPayout(
     baseCommission = result.totalCommission;
     commissionByProduct = result.breakdown;
   } else if (hasBundleConfigs(plan.bundle_configs)) {
-    // Use bundle-type-specific rates
     const result = calculateCommissionWithBundleConfigs(
       performance,
       plan.bundle_configs!,
@@ -829,22 +1108,155 @@ export function calculateMemberPayout(
     baseCommission = result.totalCommission;
     commissionByBundleType = result.breakdown;
   } else {
-    // Use default calculation (existing behavior)
     const result = calculateCommission(performance, plan, tierMatch);
     baseCommission = result.baseCommission;
   }
 
+  // Store base commission before modifiers for audit trail
+  const baseBeforeModifiers = baseCommission;
+
   // Apply bundling multiplier to base commission
+  let bundlingBoost = 0;
   if (bundlingMultiplier > 1.0) {
-    console.log(`[calculateMemberPayout] Applying bundling multiplier: ${bundlingMultiplier}x (bundling ${bundlingPercent.toFixed(1)}%)`);
+    bundlingBoost = baseCommission * (bundlingMultiplier - 1);
     baseCommission = baseCommission * bundlingMultiplier;
   }
 
-  // Calculate self-gen kicker bonus
+  // Apply self-gen penalty if below requirement threshold (Phase 3)
+  let selfGenPenaltyAmount = 0;
+  const selfGenRequirement = plan.commission_modifiers?.self_gen_requirement as SelfGenRequirement | undefined;
+  if (selfGenRequirement?.enabled) {
+    const penaltyResult = applySelfGenPenalty(
+      selfGenPercent,
+      selfGenRequirement,
+      currentTierIndex,
+      baseCommission
+    );
+
+    if (penaltyResult.applied) {
+      if (penaltyResult.penaltyType === 'tier_demotion' && penaltyResult.adjustedTierIndex !== currentTierIndex) {
+        // Re-find tier at adjusted index and recalculate (using pre-sorted tiers)
+        const adjustedTier = sortedTiers[penaltyResult.adjustedTierIndex!];
+        if (adjustedTier) {
+          tierMatch = {
+            tierId: adjustedTier.id,
+            minThreshold: adjustedTier.min_threshold,
+            commissionValue: adjustedTier.commission_value,
+            metricValue,
+          };
+          // Recalculate base commission at demoted tier
+          const result = calculateCommission(performance, plan, tierMatch);
+          selfGenPenaltyAmount = baseCommission - result.baseCommission;
+          baseCommission = result.baseCommission;
+        }
+      } else {
+        selfGenPenaltyAmount = penaltyResult.commissionReduction;
+        baseCommission = Math.max(0, baseCommission - selfGenPenaltyAmount);
+      }
+      console.log(`[calculateMemberPayout] Self-gen penalty applied: ${penaltyResult.penaltyType} = -$${selfGenPenaltyAmount.toFixed(2)}`);
+    }
+  }
+
+  // Apply self-gen bonus if above threshold (Phase 3)
+  let selfGenBonusAmount = 0;
+  const selfGenBonusConfig = plan.commission_modifiers?.self_gen_bonus as SelfGenBonus | undefined;
+  if (selfGenBonusConfig?.enabled && selfGenMetrics) {
+    const bonusResult = applySelfGenBonus(
+      selfGenPercent,
+      selfGenBonusConfig,
+      {
+        selfGenItems: selfGenMetrics.selfGenItems,
+        selfGenPolicies: selfGenMetrics.selfGenPolicies,
+        selfGenHouseholds: selfGenMetrics.selfGenHouseholds,
+      },
+      currentTierIndex,
+      plan.tiers.length,
+      baseCommission
+    );
+
+    if (bonusResult.applied) {
+      if (bonusResult.tierPromotion > 0) {
+        // Apply tier promotion (using pre-sorted tiers)
+        const promotedIndex = Math.min(currentTierIndex + bonusResult.tierPromotion, sortedTiers.length - 1);
+        const promotedTier = sortedTiers[promotedIndex];
+        if (promotedTier) {
+          tierMatch = {
+            tierId: promotedTier.id,
+            minThreshold: promotedTier.min_threshold,
+            commissionValue: promotedTier.commission_value,
+            metricValue,
+          };
+          // Recalculate at promoted tier
+          const result = calculateCommission(performance, plan, tierMatch);
+          selfGenBonusAmount = result.baseCommission - baseCommission;
+          baseCommission = result.baseCommission;
+        }
+      } else {
+        selfGenBonusAmount = bonusResult.bonusAmount;
+      }
+      console.log(`[calculateMemberPayout] Self-gen bonus applied: ${bonusResult.bonusType} = +$${selfGenBonusAmount.toFixed(2)}`);
+    }
+  }
+
+  // Calculate legacy self-gen kicker bonus (backward compatibility)
   const selfGenKickerAmount = calculateSelfGenKicker(performance, plan.commission_modifiers, selfGenItems);
 
-  // Add promo bonus and self-gen kicker to total
-  const totalPayout = baseCommission + promoBonus.bonusAmount + selfGenKickerAmount;
+  // Calculate brokered commission (Phase 5)
+  const brokeredCommission = calculateBrokeredCommission(brokeredMetrics, plan);
+  if (brokeredCommission > 0) {
+    console.log(`[calculateMemberPayout] Brokered commission: +$${brokeredCommission.toFixed(2)}`);
+  }
+
+  // Add brokered items/premium to tier metric if configured
+  if (plan.brokered_counts_toward_tier && brokeredMetrics) {
+    // Note: This would need to be applied before tier matching for full implementation
+    // For now, we just include brokered commission in the total
+  }
+
+  // Calculate total payout
+  const totalPayout = baseCommission + promoBonus.bonusAmount + selfGenKickerAmount + selfGenBonusAmount + brokeredCommission;
+
+  // Build calculation snapshot for audit trail (Phase 8)
+  const calculationSnapshot: CalculationSnapshot = {
+    inputs: {
+      writtenItems: performance.writtenItems,
+      writtenPremium: performance.writtenPremium,
+      issuedItems: performance.issuedItems,
+      issuedPremium: performance.issuedPremium,
+      chargebackCount: performance.chargebackCount,
+      chargebackPremium: performance.chargebackPremium,
+      tierMetric: plan.tier_metric,
+      tierMetricSource,
+      chargebackRule: plan.chargeback_rule,
+    },
+    tierMatched: tierMatch ? {
+      tierId: tierMatch.tierId,
+      threshold: tierMatch.minThreshold,
+      rate: tierMatch.commissionValue,
+    } : null,
+    selfGen: {
+      percent: selfGenPercent,
+      metRequirement: selfGenMetRequirement,
+      penaltyApplied: selfGenPenaltyAmount > 0,
+      penaltyAmount: selfGenPenaltyAmount,
+      bonusApplied: selfGenBonusAmount > 0,
+      bonusAmount: selfGenBonusAmount,
+    },
+    bundling: {
+      percent: bundlingPercent,
+      multiplier: bundlingMultiplier,
+    },
+    calculations: {
+      baseBeforeModifiers,
+      selfGenPenalty: selfGenPenaltyAmount,
+      selfGenBonus: selfGenBonusAmount,
+      bundlingBoost,
+      brokeredCommission,
+      promoBonus: promoBonus.bonusAmount,
+      finalTotal: totalPayout,
+    },
+    calculatedAt: new Date().toISOString(),
+  };
 
   console.log(`[calculateMemberPayout] ${performance.teamMemberName}: creditInsureds=${performance.creditInsureds?.length || 0}, chargebackInsureds=${performance.chargebackInsureds?.length || 0}`);
 
@@ -904,6 +1316,17 @@ export function calculateMemberPayout(
     selfGenPercent: selfGenPercent > 0 ? selfGenPercent : undefined,
     selfGenKickerAmount: selfGenKickerAmount > 0 ? selfGenKickerAmount : undefined,
 
+    // Self-gen penalty/bonus tracking (Phase 3)
+    selfGenMetRequirement,
+    selfGenPenaltyAmount: selfGenPenaltyAmount > 0 ? selfGenPenaltyAmount : undefined,
+    selfGenBonusAmount: selfGenBonusAmount > 0 ? selfGenBonusAmount : undefined,
+
+    // Brokered commission (Phase 5)
+    brokeredCommission: brokeredCommission > 0 ? brokeredCommission : undefined,
+
+    // Calculation snapshot for audit (Phase 8)
+    calculationSnapshot,
+
     // Promo bonuses
     achievedPromos: promoBonus.achievedPromos,
 
@@ -922,7 +1345,9 @@ export function calculateMemberPayout(
 /**
  * Calculate payouts for all assigned team members (async for promo bonus calculation)
  * @param manualOverrides - Optional manual overrides for written metrics (for testing)
- * @param selfGenByMember - Map of team_member_id -> self-gen item count from sales data
+ * @param selfGenByMember - Map of team_member_id -> self-gen item count from sales data (legacy)
+ * @param selfGenMetricsByMember - Map of team_member_id -> full SelfGenMetrics (Phase 3)
+ * @param brokeredMetricsByMember - Map of team_member_id -> BrokeredMetrics (Phase 5)
  */
 export async function calculateAllPayouts(
   subProducerData: SubProducerMetrics[] | undefined | null,
@@ -933,7 +1358,9 @@ export async function calculateAllPayouts(
   periodYear: number,
   agencyId: string,
   manualOverrides?: ManualOverride[],
-  selfGenByMember?: Map<string, number>
+  selfGenByMember?: Map<string, number>,
+  selfGenMetricsByMember?: Map<string, SelfGenMetrics>,
+  brokeredMetricsByMember?: Map<string, BrokeredMetrics>
 ): Promise<{ payouts: PayoutCalculation[]; warnings: string[] }> {
   // Guard against missing data
   if (!subProducerData || !Array.isArray(subProducerData)) {
@@ -1045,10 +1472,21 @@ export async function calculateAllPayouts(
         }
       }
 
-      // Get self-gen item count for this team member
+      // Get self-gen data for this team member
       const selfGenItems = selfGenByMember?.get(teamMember.id) || 0;
+      const selfGenMetrics = selfGenMetricsByMember?.get(teamMember.id);
+      const brokeredMetrics = brokeredMetricsByMember?.get(teamMember.id);
 
-      const payout = calculateMemberPayout(performance, plan, periodMonth, periodYear, promoBonus, selfGenItems);
+      const payout = calculateMemberPayout(
+        performance,
+        plan,
+        periodMonth,
+        periodYear,
+        promoBonus,
+        selfGenItems,
+        selfGenMetrics,
+        brokeredMetrics
+      );
       payouts.push(payout);
     }
   }

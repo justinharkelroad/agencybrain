@@ -9,6 +9,7 @@ export interface CompPlanFormData {
   description: string | null;
   payout_type: string;
   tier_metric: string;
+  tier_metric_source?: 'written' | 'issued'; // Phase 6: Written vs Issued for tier qualification
   chargeback_rule: string;
   policy_type_filter: string[] | null;
   brokered_payout_type: string;
@@ -50,6 +51,7 @@ export function useCompPlanMutations(agencyId: string | null) {
           description: data.description,
           payout_type: data.payout_type,
           tier_metric: data.tier_metric,
+          tier_metric_source: data.tier_metric_source || 'written',
           chargeback_rule: data.chargeback_rule,
           policy_type_filter: data.policy_type_filter,
           brokered_payout_type: data.brokered_payout_type,
@@ -142,6 +144,7 @@ export function useCompPlanMutations(agencyId: string | null) {
           description: data.description,
           payout_type: data.payout_type,
           tier_metric: data.tier_metric,
+          tier_metric_source: data.tier_metric_source || 'written',
           chargeback_rule: data.chargeback_rule,
           policy_type_filter: data.policy_type_filter,
           brokered_payout_type: data.brokered_payout_type,

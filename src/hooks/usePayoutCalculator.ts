@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompPlans } from "./useCompPlans";
-import { calculateAllPayouts, convertToPerformance, calculateMemberPayout } from "@/lib/payout-calculator/calculator";
+import { calculateAllPayouts, convertToPerformance, calculateMemberPayout, BrokeredMetrics } from "@/lib/payout-calculator/calculator";
 import { PayoutCalculation } from "@/lib/payout-calculator/types";
+import { calculateSelfGenMetricsBatch, SelfGenMetrics } from "@/lib/payout-calculator/self-gen";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { toast } from "sonner";
 
@@ -88,58 +89,85 @@ export interface CompPayout {
   paid_at: string | null;
   created_at: string | null;
   updated_at: string | null;
+  // Phase 3/8: Audit trail fields
+  self_gen_percent: number | null;
+  self_gen_met_requirement: boolean | null;
+  self_gen_penalty_amount: number | null;
+  self_gen_bonus_amount: number | null;
+  bundling_percent: number | null;
+  bundling_multiplier: number | null;
+  brokered_commission: number | null;
+  chargeback_details_json: unknown | null;
+  calculation_snapshot_json: unknown | null;
 }
 
-// Fetch self-gen item counts from sales data for a given period
-async function fetchSelfGenCounts(
+// Fetch brokered business metrics from sales data for a given period
+async function fetchBrokeredMetrics(
   agencyId: string,
   month: number,
   year: number
-): Promise<Map<string, number>> {
-  // Get first and last day of the period
+): Promise<Map<string, BrokeredMetrics>> {
   const startDate = new Date(year, month - 1, 1);
-  const endDate = new Date(year, month, 0); // Last day of month
-
+  const endDate = new Date(year, month, 0);
   const startStr = startDate.toISOString().split('T')[0];
   const endStr = endDate.toISOString().split('T')[0];
 
-  // Fetch sales with lead_source self-gen flag
   const { data: sales, error } = await supabase
     .from("sales")
     .select(`
       team_member_id,
-      lead_source_id,
-      lead_sources!inner(is_self_generated),
-      sale_policies(total_items)
+      brokered_carrier_id,
+      total_items,
+      total_premium,
+      total_policies
     `)
     .eq("agency_id", agencyId)
+    .not("brokered_carrier_id", "is", null)
     .gte("sale_date", startStr)
     .lte("sale_date", endStr);
 
   if (error) {
-    console.error("Error fetching self-gen counts:", error);
+    console.error("Error fetching brokered metrics:", error);
     return new Map();
   }
 
-  // Aggregate self-gen items by team_member_id
-  const selfGenByMember = new Map<string, number>();
+  const brokeredByMember = new Map<string, BrokeredMetrics>();
+  const householdsByMember = new Map<string, Set<string>>();
 
   for (const sale of sales || []) {
     if (!sale.team_member_id) continue;
 
-    // Check if this sale's lead source is marked as self-generated
-    const leadSource = sale.lead_sources as { is_self_generated: boolean } | null;
-    if (!leadSource?.is_self_generated) continue;
+    const current = brokeredByMember.get(sale.team_member_id) || {
+      items: 0,
+      premium: 0,
+      policies: 0,
+      households: 0,
+    };
 
-    // Sum up items from sale_policies
-    const policies = sale.sale_policies as { total_items: number | null }[] | null;
-    const itemCount = (policies || []).reduce((sum, p) => sum + (p.total_items || 0), 0);
+    current.items += sale.total_items || 0;
+    current.premium += sale.total_premium || 0;
+    current.policies += sale.total_policies || 0;
 
-    const current = selfGenByMember.get(sale.team_member_id) || 0;
-    selfGenByMember.set(sale.team_member_id, current + itemCount);
+    // Track unique households (sales)
+    let householdSet = householdsByMember.get(sale.team_member_id);
+    if (!householdSet) {
+      householdSet = new Set();
+      householdsByMember.set(sale.team_member_id, householdSet);
+    }
+    householdSet.add(sale.team_member_id); // Each sale = 1 household
+
+    brokeredByMember.set(sale.team_member_id, current);
   }
 
-  return selfGenByMember;
+  // Update household counts
+  for (const [memberId, householdSet] of householdsByMember) {
+    const metrics = brokeredByMember.get(memberId);
+    if (metrics) {
+      metrics.households = householdSet.size;
+    }
+  }
+
+  return brokeredByMember;
 }
 
 export function usePayoutCalculator(agencyId: string | null) {
@@ -206,8 +234,29 @@ export function usePayoutCalculator(agencyId: string | null) {
       return { payouts: [], warnings: ['No agency ID available'] };
     }
 
-    // Fetch self-gen counts from sales data for this period
-    const selfGenByMember = await fetchSelfGenCounts(agencyId, month, year);
+    // Get period dates for batch queries
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0); // Last day of month
+
+    // Get team member IDs for batch queries
+    const teamMemberIds = teamMembers.map(tm => tm.id);
+
+    // Fetch full self-gen metrics using batch function (Phase 3)
+    const selfGenMetricsByMember = await calculateSelfGenMetricsBatch(
+      agencyId,
+      teamMemberIds,
+      startDate,
+      endDate
+    );
+
+    // Build legacy selfGenByMember map from the metrics (for backward compatibility)
+    const selfGenByMember = new Map<string, number>();
+    for (const [memberId, metrics] of selfGenMetricsByMember) {
+      selfGenByMember.set(memberId, metrics.selfGenItems);
+    }
+
+    // Fetch brokered business metrics (Phase 5)
+    const brokeredMetricsByMember = await fetchBrokeredMetrics(agencyId, month, year);
 
     return await calculateAllPayouts(
       subProducerData,
@@ -218,7 +267,9 @@ export function usePayoutCalculator(agencyId: string | null) {
       year,
       agencyId,
       manualOverrides,
-      selfGenByMember
+      selfGenByMember,
+      selfGenMetricsByMember,
+      brokeredMetricsByMember
     );
   };
 
@@ -253,6 +304,16 @@ export function usePayoutCalculator(agencyId: string | null) {
         total_payout: p.totalPayout,
         rollover_premium: p.rolloverPremium,
         status: p.status,
+        // Phase 3/8: Audit trail fields
+        self_gen_percent: p.selfGenPercent ?? null,
+        self_gen_met_requirement: p.selfGenMetRequirement ?? null,
+        self_gen_penalty_amount: p.selfGenPenaltyAmount ?? 0,
+        self_gen_bonus_amount: p.selfGenBonusAmount ?? 0,
+        bundling_percent: p.bundlingPercent ?? null,
+        bundling_multiplier: p.bundlingMultiplier ?? 1,
+        brokered_commission: p.brokeredCommission ?? 0,
+        chargeback_details_json: p.chargebackDetails ?? null,
+        calculation_snapshot_json: p.calculationSnapshot ?? null,
       }));
 
       // Upsert payouts (update if exists for same member/period)
