@@ -322,6 +322,9 @@ export function usePayoutCalculator(agencyId: string | null) {
     year: number,
     manualOverrides?: ManualOverride[]
   ): Promise<{ payouts: PayoutCalculation[]; warnings: string[] }> => {
+    // TEST LOG - If you see this, the new code IS running
+    console.log('🔥🔥🔥 NEW CODE IS RUNNING - FB84E946 🔥🔥🔥', { month, year, teamMembersCount: teamMembers.length });
+
     // Guard against missing data
     if (!subProducerData || !Array.isArray(subProducerData) || subProducerData.length === 0) {
       return { payouts: [], warnings: ['No sub-producer data available for this statement'] };
