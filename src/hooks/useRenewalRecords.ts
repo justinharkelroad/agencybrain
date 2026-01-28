@@ -452,3 +452,54 @@ export function useRenewalProductNames(agencyId: string | null) {
     enabled: !!agencyId,
   });
 }
+
+/**
+ * Dedicated hook for chart data - fetches renewal counts for last 7 days
+ * independently of table pagination
+ */
+export function useRenewalChartData(agencyId: string | null) {
+  const staffSessionToken = getStaffSessionToken();
+  
+  // Calculate date range: 6 days ago through today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const sixDaysAgo = new Date(today);
+  sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
+  
+  const startDate = sixDaysAgo.toISOString().slice(0, 10);
+  const endDate = today.toISOString().slice(0, 10);
+  
+  return useQuery({
+    queryKey: ['renewal-chart-data', agencyId, startDate, endDate, !!staffSessionToken],
+    queryFn: async (): Promise<{ renewal_effective_date: string }[]> => {
+      if (!agencyId) return [];
+      
+      // Staff users: call edge function with chart mode
+      if (staffSessionToken) {
+        const { data, error } = await supabase.functions.invoke('get_staff_renewals', {
+          body: { 
+            operation: 'chart_data',
+            params: { startDate, endDate }
+          },
+          headers: { 'x-staff-session': staffSessionToken }
+        });
+        
+        if (error) throw error;
+        return (data?.records || []) as { renewal_effective_date: string }[];
+      }
+      
+      // Regular users: direct query (lightweight - only dates)
+      const { data, error } = await supabase
+        .from('renewal_records')
+        .select('renewal_effective_date')
+        .eq('agency_id', agencyId)
+        .eq('is_active', true)
+        .gte('renewal_effective_date', startDate)
+        .lte('renewal_effective_date', endDate);
+      
+      if (error) throw error;
+      return data as { renewal_effective_date: string }[];
+    },
+    enabled: !!agencyId,
+  });
+}

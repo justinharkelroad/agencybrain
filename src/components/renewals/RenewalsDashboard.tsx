@@ -4,10 +4,9 @@ import { Button } from '@/components/ui/button';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine } from 'recharts';
 import { CalendarDays, BarChart3, RotateCcw } from 'lucide-react';
 import { format, addDays, startOfDay, parseISO, getDay } from 'date-fns';
-import type { RenewalRecord } from '@/types/renewal';
 
 interface RenewalsDashboardProps {
-  records: RenewalRecord[];
+  chartRecords: { renewal_effective_date: string | null }[];
   onDateFilter: (date: string | null) => void;
   onDayOfWeekFilter: (dayIndex: number | null) => void;
   activeDateFilter: string | null;
@@ -17,7 +16,7 @@ interface RenewalsDashboardProps {
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, activeDateFilter, activeDayFilter }: RenewalsDashboardProps) {
+export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilter, activeDateFilter, activeDayFilter }: RenewalsDashboardProps) {
   // Calculate data for the past 6 days + today (7 days total)
   const upcomingData = useMemo(() => {
     const today = startOfDay(new Date());
@@ -29,7 +28,7 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
       const dateStr = format(date, 'yyyy-MM-dd');
       const dayOfWeek = getDay(date);
       
-      const count = records.filter(r => {
+      const count = chartRecords.filter(r => {
         if (!r.renewal_effective_date) return false;
         const recordDate = format(parseISO(r.renewal_effective_date), 'yyyy-MM-dd');
         return recordDate === dateStr;
@@ -45,7 +44,7 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
     }
     
     return days;
-  }, [records]);
+  }, [chartRecords]);
 
   // Calculate average
   const averageCount = useMemo(() => {
@@ -65,7 +64,7 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
       const dateStr = format(date, 'yyyy-MM-dd');
       const dayOfWeek = getDay(date);
       
-      const count = records.filter(r => {
+      const count = chartRecords.filter(r => {
         if (!r.renewal_effective_date) return false;
         const recordDate = format(parseISO(r.renewal_effective_date), 'yyyy-MM-dd');
         return recordDate === dateStr;
@@ -81,7 +80,7 @@ export function RenewalsDashboard({ records, onDateFilter, onDayOfWeekFilter, ac
     // Sort by day of week starting with Monday
     const dayOrder = [1, 2, 3, 4, 5, 6, 0]; // Mon-Sun
     return dayData.sort((a, b) => dayOrder.indexOf(a.dayIndex) - dayOrder.indexOf(b.dayIndex));
-  }, [records]);
+  }, [chartRecords]);
 
   const maxDayCount = Math.max(...dayOfWeekData.map(d => d.count), 1);
 

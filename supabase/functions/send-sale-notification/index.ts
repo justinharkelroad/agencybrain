@@ -145,7 +145,8 @@ serve(async (req) => {
         customer_name,
         total_premium,
         total_items,
-        total_policies
+        total_policies,
+        team_member:team_members!sales_team_member_id_fkey(name)
       `)
       .eq('agency_id', body.agency_id)
       .gte('sale_date', todayStr)
@@ -180,7 +181,9 @@ serve(async (req) => {
     for (const s of todaysSales || []) {
       // If this seller isn't in scoreboard yet, add them dynamically
       if (!scoreboard[s.team_member_id]) {
-        const sellerName = (s.team_member as { name: string } | null)?.name || 'Unknown';
+        // team_member is an array from the join, get first element
+        const teamMemberArr = s.team_member as { name: string }[] | null;
+        const sellerName = teamMemberArr?.[0]?.name || 'Unknown';
         scoreboard[s.team_member_id] = {
           name: sellerName,
           premium: 0,
