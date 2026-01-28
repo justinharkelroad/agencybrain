@@ -30,7 +30,7 @@ interface ChallengeLesson {
   content_html: string | null;
   questions: any[];
   action_items: any[];
-  is_discovery_stack: boolean;
+  is_discovery_flow: boolean;
 }
 
 interface ChallengeModule {
@@ -230,8 +230,8 @@ export default function ChallengeView() {
                           <span className="text-xs text-muted-foreground">
                             {DAY_NAMES[lesson.day_of_week - 1]} - Day {lesson.day_number}
                           </span>
-                          {lesson.is_discovery_stack && (
-                            <Badge variant="outline" className="text-xs">Discovery Stack</Badge>
+                          {lesson.is_discovery_flow && (
+                            <Badge variant="outline" className="text-xs">Discovery Flow</Badge>
                           )}
                         </div>
                         <p className="font-medium truncate">{lesson.title}</p>
@@ -252,10 +252,10 @@ export default function ChallengeView() {
                   <span>Day {selectedLesson.day_number}</span>
                   <span>·</span>
                   <span>Week {selectedLesson.week_number}</span>
-                  {selectedLesson.is_discovery_stack && (
+                  {selectedLesson.is_discovery_flow && (
                     <>
                       <span>·</span>
-                      <Badge variant="outline">Discovery Stack</Badge>
+                      <Badge variant="outline">Discovery Flow</Badge>
                     </>
                   )}
                 </div>
@@ -369,7 +369,7 @@ export default function ChallengeView() {
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-green-500">✓</span>
-                <span>Weekly Discovery Stack reflections</span>
+                <span>Weekly Discovery Flow reflections</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-green-500">✓</span>

@@ -400,8 +400,8 @@ export default function ChallengePurchase() {
                 description: 'Daily habit tracking for Body, Being, Balance, and Business',
               },
               {
-                title: 'Discovery Stack',
-                description: 'Weekly Friday reflections to cement learning',
+                title: 'Discovery Flow',
+                description: 'Weekly Friday guided reflections to cement learning',
               },
               {
                 title: 'Email Reminders',

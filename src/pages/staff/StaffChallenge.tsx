@@ -15,7 +15,9 @@ import {
   Lock,
   Flame,
   ChevronRight,
+  Sparkles,
 } from 'lucide-react';
+import { useStaffFlowProfile } from '@/hooks/useStaffFlowProfile';
 import { toast } from 'sonner';
 import { StaffCore4Card } from '@/components/staff/StaffCore4Card';
 interface ChallengeLesson {
@@ -30,7 +32,7 @@ interface ChallengeLesson {
   content_html: string | null;
   questions: any[];
   action_items: any[];
-  is_discovery_stack: boolean;
+  is_discovery_flow: boolean;
   challenge_progress: {
     id: string;
     status: string;
@@ -98,6 +100,8 @@ export default function StaffChallenge() {
   
   const [completing, setCompleting] = useState(false);
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
+  
+  const { hasProfile } = useStaffFlowProfile();
 
   const fetchChallengeData = useCallback(async () => {
     if (!sessionToken) return;
@@ -389,8 +393,8 @@ export default function StaffChallenge() {
                             {DAY_NAMES[lesson.day_of_week - 1]}
                           </span>
                           {isToday && <Badge variant="secondary" className="text-xs">Today</Badge>}
-                          {lesson.is_discovery_stack && (
-                            <Badge variant="outline" className="text-xs">Discovery Stack</Badge>
+                          {lesson.is_discovery_flow && (
+                            <Badge variant="outline" className="text-xs">Discovery Flow</Badge>
                           )}
                         </div>
                         <p className="font-medium truncate">{lesson.title}</p>
@@ -411,10 +415,10 @@ export default function StaffChallenge() {
                   <span>Day {selectedLesson.day_number}</span>
                   <span>·</span>
                   <span>Week {selectedLesson.week_number}</span>
-                  {selectedLesson.is_discovery_stack && (
+                  {selectedLesson.is_discovery_flow && (
                     <>
                       <span>·</span>
-                      <Badge variant="outline">Discovery Stack</Badge>
+                      <Badge variant="outline">Discovery Flow</Badge>
                     </>
                   )}
                 </div>
@@ -478,9 +482,29 @@ export default function StaffChallenge() {
                   </div>
                 )}
 
+                {/* Discovery Flow Button - for Friday lessons that are not completed */}
+                {selectedLesson.is_discovery_flow && selectedLesson.challenge_progress?.status !== 'completed' && (
+                  <Button
+                    className="w-full mb-2"
+                    onClick={() => {
+                      if (!hasProfile) {
+                        navigate('/staff/flows/profile', { 
+                          state: { redirectTo: '/staff/flows/start/discovery' } 
+                        });
+                      } else {
+                        navigate('/staff/flows/start/discovery');
+                      }
+                    }}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Start Discovery Flow
+                  </Button>
+                )}
+
                 {/* Mark Complete Button */}
                 {selectedLesson.challenge_progress?.status !== 'completed' && (
                   <Button
+                    variant={selectedLesson.is_discovery_flow ? "outline" : "default"}
                     className="w-full"
                     onClick={handleMarkComplete}
                     disabled={completing}
