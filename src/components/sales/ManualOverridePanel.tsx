@@ -26,11 +26,17 @@ export interface ManualOverride {
   subProdCode: string;
   teamMemberId: string | null;
   teamMemberName: string | null;
+  // Total metrics (for tier qualification)
   writtenItems: number | null;
   writtenPremium: number | null;
   writtenPolicies: number | null;
   writtenHouseholds: number | null;
   writtenPoints: number | null;
+  // Bundle breakdown (for commission calculation)
+  bundledItems: number | null;
+  bundledPremium: number | null;
+  monolineItems: number | null;
+  monolinePremium: number | null;
 }
 
 interface TeamMember {
@@ -56,6 +62,10 @@ export function ManualOverridePanel({
   const [isOpen, setIsOpen] = useState(false);
   const [bulkItems, setBulkItems] = useState<string>("");
   const [bulkPremium, setBulkPremium] = useState<string>("");
+  const [bulkBundledItems, setBulkBundledItems] = useState<string>("");
+  const [bulkBundledPremium, setBulkBundledPremium] = useState<string>("");
+  const [bulkMonolineItems, setBulkMonolineItems] = useState<string>("");
+  const [bulkMonolinePremium, setBulkMonolinePremium] = useState<string>("");
   const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
 
   // Build a map of sub-producer codes to team members
@@ -97,6 +107,10 @@ export function ManualOverridePanel({
           writtenPolicies: null,
           writtenHouseholds: null,
           writtenPoints: null,
+          bundledItems: null,
+          bundledPremium: null,
+          monolineItems: null,
+          monolinePremium: null,
         };
       });
       onChange(initialOverrides);
@@ -132,7 +146,11 @@ export function ManualOverridePanel({
     (o) =>
       o.writtenItems !== null ||
       o.writtenPremium !== null ||
-      o.writtenPolicies !== null
+      o.writtenPolicies !== null ||
+      o.bundledItems !== null ||
+      o.bundledPremium !== null ||
+      o.monolineItems !== null ||
+      o.monolinePremium !== null
   );
 
   // Selection helpers
@@ -186,6 +204,10 @@ export function ManualOverridePanel({
 
     const itemsValue = bulkItems === "" ? null : parseInt(bulkItems, 10);
     const premiumValue = bulkPremium === "" ? null : parseFloat(bulkPremium);
+    const bundledItemsValue = bulkBundledItems === "" ? null : parseInt(bulkBundledItems, 10);
+    const bundledPremiumValue = bulkBundledPremium === "" ? null : parseFloat(bulkBundledPremium);
+    const monolineItemsValue = bulkMonolineItems === "" ? null : parseInt(bulkMonolineItems, 10);
+    const monolinePremiumValue = bulkMonolinePremium === "" ? null : parseFloat(bulkMonolinePremium);
 
     const updated = overrides.map((o) => {
       if (selectedCodes.has(o.subProdCode)) {
@@ -193,6 +215,10 @@ export function ManualOverridePanel({
           ...o,
           writtenItems: itemsValue,
           writtenPremium: premiumValue,
+          bundledItems: bundledItemsValue,
+          bundledPremium: bundledPremiumValue,
+          monolineItems: monolineItemsValue,
+          monolinePremium: monolinePremiumValue,
         };
       }
       return o;
@@ -209,10 +235,18 @@ export function ManualOverridePanel({
       writtenPolicies: null,
       writtenHouseholds: null,
       writtenPoints: null,
+      bundledItems: null,
+      bundledPremium: null,
+      monolineItems: null,
+      monolinePremium: null,
     }));
     onChange(updated);
     setBulkItems("");
     setBulkPremium("");
+    setBulkBundledItems("");
+    setBulkBundledPremium("");
+    setBulkMonolineItems("");
+    setBulkMonolinePremium("");
     setSelectedCodes(new Set());
   };
 
@@ -274,33 +308,101 @@ export function ManualOverridePanel({
         <CollapsibleContent>
           <CardContent className="space-y-4">
             {/* Bulk Apply Section */}
-            <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+            <div className="p-4 rounded-lg bg-muted/50 space-y-4">
               <Label className="text-sm font-medium">Quick Apply to Selected</Label>
-              <div className="flex flex-wrap gap-4 items-end">
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    Items Written
-                  </Label>
-                  <Input
-                    type="number"
-                    placeholder="e.g. 10"
-                    value={bulkItems}
-                    onChange={(e) => setBulkItems(e.target.value)}
-                    className="w-28"
-                  />
+              
+              {/* Total metrics for tier qualification */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Total (for tier qualification)
+                </Label>
+                <div className="flex flex-wrap gap-4 items-end">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Items Written
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 60"
+                      value={bulkItems}
+                      onChange={(e) => setBulkItems(e.target.value)}
+                      className="w-28"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Premium Written
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 45000"
+                      value={bulkPremium}
+                      onChange={(e) => setBulkPremium(e.target.value)}
+                      className="w-32"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    Premium Written
-                  </Label>
-                  <Input
-                    type="number"
-                    placeholder="e.g. 5000"
-                    value={bulkPremium}
-                    onChange={(e) => setBulkPremium(e.target.value)}
-                    className="w-32"
-                  />
+              </div>
+
+              {/* Bundle breakdown for commission calculation */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Bundle Breakdown (for commission calculation)
+                </Label>
+                <div className="flex flex-wrap gap-4 items-end">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Bundled Items
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 54"
+                      value={bulkBundledItems}
+                      onChange={(e) => setBulkBundledItems(e.target.value)}
+                      className="w-28"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Bundled Premium
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 40000"
+                      value={bulkBundledPremium}
+                      onChange={(e) => setBulkBundledPremium(e.target.value)}
+                      className="w-32"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Monoline Items
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 6"
+                      value={bulkMonolineItems}
+                      onChange={(e) => setBulkMonolineItems(e.target.value)}
+                      className="w-28"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Monoline Premium
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 5000"
+                      value={bulkMonolinePremium}
+                      onChange={(e) => setBulkMonolinePremium(e.target.value)}
+                      className="w-32"
+                    />
+                  </div>
                 </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex flex-wrap gap-2 items-center pt-2">
                 <Button 
                   size="sm" 
                   onClick={handleApplyBulk}
@@ -312,13 +414,14 @@ export function ManualOverridePanel({
                   Clear All
                 </Button>
               </div>
+              
               <p className="text-xs text-muted-foreground">
-                Select rows below, then click "Apply to Selected" to override values for testing tier calculations.
+                <strong>Total</strong> values determine which tier you qualify for. <strong>Bundle breakdown</strong> values are used to calculate commission at different rates for bundled vs monoline business. Leave bundle breakdown blank to use original statement ratios.
               </p>
             </div>
 
             {/* Per-Producer Overrides Table */}
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -330,19 +433,31 @@ export function ManualOverridePanel({
                         className={isSomeSelected && !isAllSelected ? "opacity-50" : ""}
                       />
                     </TableHead>
-                    <TableHead className="w-[180px]">Team Member</TableHead>
-                    <TableHead className="w-[100px]">Code</TableHead>
-                    <TableHead className="text-right">
-                      Statement Items
+                    <TableHead className="w-[150px]">Team Member</TableHead>
+                    <TableHead className="w-[80px]">Code</TableHead>
+                    <TableHead className="text-right w-[80px]">
+                      Stmt Items
                     </TableHead>
-                    <TableHead className="text-right">
-                      Statement Premium
+                    <TableHead className="text-right w-[100px]">
+                      Stmt Premium
                     </TableHead>
-                    <TableHead className="w-[120px]">
+                    <TableHead className="w-[100px]">
                       Override Items
                     </TableHead>
-                    <TableHead className="w-[140px]">
+                    <TableHead className="w-[110px]">
                       Override Premium
+                    </TableHead>
+                    <TableHead className="w-[90px] bg-blue-50/50">
+                      Bundled Items
+                    </TableHead>
+                    <TableHead className="w-[100px] bg-blue-50/50">
+                      Bundled Prem
+                    </TableHead>
+                    <TableHead className="w-[90px] bg-amber-50/50">
+                      Mono Items
+                    </TableHead>
+                    <TableHead className="w-[100px] bg-amber-50/50">
+                      Mono Prem
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -362,11 +477,11 @@ export function ManualOverridePanel({
                       </TableCell>
                       <TableCell>
                         {producer.teamMember ? (
-                          <span className="font-medium">
+                          <span className="font-medium text-sm">
                             {producer.teamMember.name}
                           </span>
                         ) : (
-                          <span className="text-muted-foreground italic">
+                          <span className="text-muted-foreground italic text-sm">
                             Unmatched
                           </span>
                         )}
@@ -376,10 +491,10 @@ export function ManualOverridePanel({
                           {producer.code}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
+                      <TableCell className="text-right text-muted-foreground text-sm">
                         {producer.statementData.itemsIssued}
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
+                      <TableCell className="text-right text-muted-foreground text-sm">
                         {formatCurrency(producer.statementData.premiumWritten)}
                       </TableCell>
                       <TableCell>
@@ -394,7 +509,7 @@ export function ManualOverridePanel({
                               e.target.value
                             )
                           }
-                          className="h-8 text-sm"
+                          className="h-7 text-xs w-20"
                           disabled={!producer.teamMember}
                         />
                       </TableCell>
@@ -410,7 +525,71 @@ export function ManualOverridePanel({
                               e.target.value
                             )
                           }
-                          className="h-8 text-sm"
+                          className="h-7 text-xs w-24"
+                          disabled={!producer.teamMember}
+                        />
+                      </TableCell>
+                      <TableCell className="bg-blue-50/30">
+                        <Input
+                          type="number"
+                          placeholder="—"
+                          value={producer.override?.bundledItems ?? ""}
+                          onChange={(e) =>
+                            handleOverrideChange(
+                              producer.code,
+                              "bundledItems",
+                              e.target.value
+                            )
+                          }
+                          className="h-7 text-xs w-16"
+                          disabled={!producer.teamMember}
+                        />
+                      </TableCell>
+                      <TableCell className="bg-blue-50/30">
+                        <Input
+                          type="number"
+                          placeholder="—"
+                          value={producer.override?.bundledPremium ?? ""}
+                          onChange={(e) =>
+                            handleOverrideChange(
+                              producer.code,
+                              "bundledPremium",
+                              e.target.value
+                            )
+                          }
+                          className="h-7 text-xs w-20"
+                          disabled={!producer.teamMember}
+                        />
+                      </TableCell>
+                      <TableCell className="bg-amber-50/30">
+                        <Input
+                          type="number"
+                          placeholder="—"
+                          value={producer.override?.monolineItems ?? ""}
+                          onChange={(e) =>
+                            handleOverrideChange(
+                              producer.code,
+                              "monolineItems",
+                              e.target.value
+                            )
+                          }
+                          className="h-7 text-xs w-16"
+                          disabled={!producer.teamMember}
+                        />
+                      </TableCell>
+                      <TableCell className="bg-amber-50/30">
+                        <Input
+                          type="number"
+                          placeholder="—"
+                          value={producer.override?.monolinePremium ?? ""}
+                          onChange={(e) =>
+                            handleOverrideChange(
+                              producer.code,
+                              "monolinePremium",
+                              e.target.value
+                            )
+                          }
+                          className="h-7 text-xs w-20"
                           disabled={!producer.teamMember}
                         />
                       </TableCell>
@@ -421,10 +600,10 @@ export function ManualOverridePanel({
             </div>
 
             <p className="text-xs text-muted-foreground">
-              <strong>Note:</strong> Overrides affect tier matching only. The
-              issued premium and chargebacks from your statement will still be
-              used for the final payout calculation. This is useful for testing
-              "what if" scenarios before your sales data is fully loaded.
+              <strong>Note:</strong> <strong>Override Items/Premium</strong> affect tier qualification. 
+              <strong>Bundle breakdown</strong> (Bundled/Monoline) values determine commission rates 
+              when your plan has different rates per bundle type. If bundle fields are specified, 
+              they replace the statement's byBundleType data for commission calculation.
             </p>
           </CardContent>
         </CollapsibleContent>

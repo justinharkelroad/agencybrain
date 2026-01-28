@@ -12,11 +12,17 @@ export interface ManualOverride {
   subProdCode: string;
   teamMemberId: string | null;
   teamMemberName: string | null;
+  // Total metrics (for tier qualification)
   writtenItems: number | null;
   writtenPremium: number | null;
   writtenPolicies: number | null;
   writtenHouseholds: number | null;
   writtenPoints: number | null;
+  // Bundle breakdown (for commission calculation)
+  bundledItems: number | null;
+  bundledPremium: number | null;
+  monolineItems: number | null;
+  monolinePremium: number | null;
 }
 
 // Helper function to send payout notifications
