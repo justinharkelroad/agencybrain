@@ -456,28 +456,28 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
         {/* Premium Lost - Emerald */}
         <div className="flex flex-col items-center justify-center aspect-square rounded-full border-2 p-4 bg-transparent border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
           <DollarSign className="h-5 w-5 text-emerald-400 mb-1" />
-          <span className="text-2xl font-bold text-white">-{formatCurrency(stats.totalPremiumLostCents)}</span>
+          <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-100">-{formatCurrency(stats.totalPremiumLostCents)}</span>
           <span className="text-xs text-muted-foreground">Premium Lost</span>
         </div>
 
         {/* Items Lost - Amber */}
         <div className="flex flex-col items-center justify-center aspect-square rounded-full border-2 p-4 bg-transparent border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.15)]">
           <Package className="h-5 w-5 text-amber-400 mb-1" />
-          <span className="text-2xl font-bold text-white">-{stats.totalItemsLost}</span>
+          <span className="text-2xl font-bold text-amber-600 dark:text-amber-100">-{stats.totalItemsLost}</span>
           <span className="text-xs text-muted-foreground">Items Lost</span>
         </div>
 
         {/* Policies Lost - Violet */}
         <div className="flex flex-col items-center justify-center aspect-square rounded-full border-2 p-4 bg-transparent border-violet-500/50 shadow-[0_0_20px_rgba(139,92,246,0.15)]">
           <FileText className="h-5 w-5 text-violet-400 mb-1" />
-          <span className="text-2xl font-bold text-white">-{stats.totalPoliciesLost}</span>
+          <span className="text-2xl font-bold text-violet-600 dark:text-violet-100">-{stats.totalPoliciesLost}</span>
           <span className="text-xs text-muted-foreground">Policies Lost</span>
         </div>
 
         {/* Points Lost - Red */}
         <div className="flex flex-col items-center justify-center aspect-square rounded-full border-2 p-4 bg-transparent border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.15)]">
           <TrendingDown className="h-5 w-5 text-red-400 mb-1" />
-          <span className="text-2xl font-bold text-white">-{formatCompactNumber(stats.totalPointsLost)}</span>
+          <span className="text-2xl font-bold text-red-600 dark:text-red-100">-{formatCompactNumber(stats.totalPointsLost)}</span>
           <span className="text-xs text-muted-foreground">Points Lost</span>
         </div>
       </div>
@@ -807,7 +807,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                           </TableCell>
                           <TableCell className="max-w-[200px] truncate">
                             {isCancelRewrite ? (
-                              <Badge variant="outline" className="bg-cyan-100 dark:bg-cyan-900">
+                              <Badge variant="outline" className="bg-cyan-100 dark:bg-cyan-900 text-cyan-800 dark:text-cyan-100">
                                 Cancel/Rewrite
                               </Badge>
                             ) : (

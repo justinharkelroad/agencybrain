@@ -23,8 +23,8 @@ export default function ChallengeSuccess() {
 
           {/* Title */}
           <div>
-            <h1 className="text-2xl font-bold text-white">Purchase Complete!</h1>
-            <p className="text-slate-400 mt-2">
+            <h1 className="text-2xl font-bold text-foreground dark:text-white">Purchase Complete!</h1>
+            <p className="text-muted-foreground mt-2">
               Thank you for purchasing The 6-Week Challenge
             </p>
           </div>

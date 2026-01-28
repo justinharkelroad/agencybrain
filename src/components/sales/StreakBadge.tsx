@@ -36,7 +36,7 @@ function getStreakColor(streak: number): {
     return {
       bg: "bg-gradient-to-r from-violet-500/20 to-purple-500/20",
       border: "border-violet-500/50",
-      text: "text-violet-400",
+      text: "text-violet-600 dark:text-violet-400",
       glow: "shadow-violet-500/30",
     };
   }
@@ -45,7 +45,7 @@ function getStreakColor(streak: number): {
     return {
       bg: "bg-gradient-to-r from-red-500/20 to-orange-500/20",
       border: "border-red-500/50",
-      text: "text-red-400",
+      text: "text-red-600 dark:text-red-400",
       glow: "shadow-red-500/30",
     };
   }
@@ -54,7 +54,7 @@ function getStreakColor(streak: number): {
     return {
       bg: "bg-gradient-to-r from-orange-500/20 to-amber-500/20",
       border: "border-orange-500/50",
-      text: "text-orange-400",
+      text: "text-orange-600 dark:text-orange-400",
       glow: "shadow-orange-500/20",
     };
   }
@@ -63,7 +63,7 @@ function getStreakColor(streak: number): {
     return {
       bg: "bg-gradient-to-r from-yellow-500/20 to-amber-500/20",
       border: "border-yellow-500/50",
-      text: "text-yellow-400",
+      text: "text-yellow-600 dark:text-yellow-400",
       glow: "shadow-yellow-500/20",
     };
   }

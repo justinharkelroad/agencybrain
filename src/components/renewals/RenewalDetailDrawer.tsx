@@ -132,20 +132,20 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
           </SheetHeader>
           
           {/* Sticky header with explicit close button */}
-          <div className="sticky top-0 z-20 bg-[#1a1f2e] border-b border-gray-700 p-4 shrink-0">
+          <div className="sticky top-0 z-20 bg-card dark:bg-[#1a1f2e] border-b border-border p-4 shrink-0">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-xl font-bold text-white truncate">
+                <h2 className="text-xl font-bold text-foreground truncate">
                   {record.first_name} {record.last_name}
                 </h2>
-                <p className="text-gray-400 font-mono truncate">{record.policy_number}</p>
+                <p className="text-muted-foreground font-mono truncate">{record.policy_number}</p>
               </div>
 
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onClose}
-                className="h-10 w-10 shrink-0 text-white hover:bg-white/10"
+                className="h-10 w-10 shrink-0 text-foreground hover:bg-muted"
                 aria-label="Close"
               >
                 <X className="h-5 w-5" />
@@ -153,7 +153,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
             </div>
 
             <div className="mt-3 flex items-center justify-between gap-3">
-              <span className="text-lg font-semibold text-white">
+              <span className="text-lg font-semibold text-foreground">
                 ${record.premium_new?.toLocaleString() || '—'}
               </span>
               <div className="flex items-center gap-3">
@@ -171,7 +171,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto">
             {/* Info Stack - Vertical layout for better readability */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border-b border-gray-700 text-white">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border-b border-border text-foreground">
               {/* Contact */}
               <div className="flex items-start gap-3">
                 <Phone className="h-4 w-4 text-gray-400 mt-1" />

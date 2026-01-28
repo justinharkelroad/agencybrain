@@ -88,15 +88,12 @@ export function ChallengeDashboardWidget() {
     <Card className="overflow-hidden">
       {/* Gradient Header */}
       <div
-        className="p-4 sm:p-6"
-        style={{
-          background: 'linear-gradient(135deg, #1e283a 0%, #020817 100%)',
-        }}
+        className="p-4 sm:p-6 bg-gradient-to-br from-primary/10 to-secondary/20 dark:from-[#1e283a] dark:to-[#020817]"
       >
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-bold text-white">The Challenge</h2>
-            <p className="text-sm text-slate-400">
+            <h2 className="text-lg font-bold text-foreground">The Challenge</h2>
+            <p className="text-sm text-muted-foreground">
               Day {current_business_day} of {assignment?.product?.total_lessons || 30}
             </p>
           </div>
@@ -105,11 +102,11 @@ export function ChallengeDashboardWidget() {
         {/* Progress Bar */}
         <div className="mt-4 space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-slate-400">Progress</span>
-            <span className="text-white font-medium">{progress.progress_percent}%</span>
+            <span className="text-muted-foreground">Progress</span>
+            <span className="text-foreground font-medium">{progress.progress_percent}%</span>
           </div>
-          <Progress value={progress.progress_percent} className="h-2 bg-slate-700" />
-          <p className="text-xs text-slate-500">
+          <Progress value={progress.progress_percent} className="h-2 bg-muted dark:bg-slate-700" />
+          <p className="text-xs text-muted-foreground">
             {progress.completed_lessons} of {progress.total_lessons} lessons completed
           </p>
         </div>

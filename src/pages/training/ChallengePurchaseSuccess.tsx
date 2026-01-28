@@ -197,8 +197,8 @@ export default function ChallengePurchaseSuccess() {
           <div className="w-16 h-16 mx-auto rounded-full bg-green-500/20 flex items-center justify-center">
             <CheckCircle2 className="h-8 w-8 text-green-500" />
           </div>
-          <h1 className="mt-4 text-2xl font-bold text-white">Purchase Complete!</h1>
-          <p className="mt-2 text-slate-400">
+          <h1 className="mt-4 text-2xl font-bold text-foreground dark:text-white">Purchase Complete!</h1>
+          <p className="mt-2 text-muted-foreground">
             Your challenge seats are ready to assign
           </p>
         </div>
