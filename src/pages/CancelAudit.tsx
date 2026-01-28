@@ -460,16 +460,12 @@ const CancelAuditPage = () => {
   }, [user, membershipTier, authLoading, staffUser, staffLoading, isStaffAuthenticated, location.pathname, navigate, showToast]);
 
   const handleUploadComplete = useCallback(() => {
-    showToast({
-      title: "Upload Complete",
-      description: "Records have been processed successfully",
-    });
-    // Invalidate and refetch records + stats + counts
-    queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
-    queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
-    queryClient.invalidateQueries({ queryKey: ['cancel-audit-uploads'] });
-    queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
-  }, [showToast, queryClient]);
+    // Toast and query invalidation removed to fix race condition.
+    // The useCancelAuditBackgroundUpload hook already shows a toast and 
+    // invalidates queries when background processing is actually complete.
+    // Previously, this callback fired immediately before data was saved,
+    // causing the UI to refetch while the table was still empty.
+  }, []);
 
   const handleToggleExpand = useCallback((recordId: string) => {
     setExpandedRecordId(prev => prev === recordId ? null : recordId);
