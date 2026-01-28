@@ -111,6 +111,7 @@ export function CreateCompPlanModal({
   const [description, setDescription] = useState("");
   const [payoutType, setPayoutType] = useState("flat_per_item");
   const [tierMetric, setTierMetric] = useState("items");
+  const [tierMetricSource, setTierMetricSource] = useState<'written' | 'issued'>('written');
   const [chargebackRule, setChargebackRule] = useState("none");
   const [isActive, setIsActive] = useState(true);
   const [brokeredPayoutType, setBrokeredPayoutType] = useState("flat_per_item");
@@ -191,6 +192,7 @@ export function CreateCompPlanModal({
       setDescription(editPlan.description || "");
       setPayoutType(editPlan.payout_type);
       setTierMetric(editPlan.tier_metric);
+      setTierMetricSource((editPlan as any).tier_metric_source || 'written');
       setChargebackRule(editPlan.chargeback_rule);
       setIsActive(editPlan.is_active);
       setBrokeredPayoutType(editPlan.brokered_payout_type || "flat_per_item");
@@ -261,8 +263,12 @@ export function CreateCompPlanModal({
         setBundlingMultipliers({ thresholds: [] });
       }
 
-      // Initialize commission modifiers if present (Phase 2)
-      if (editPlan.commission_modifiers && (editPlan.commission_modifiers.self_gen_requirement || editPlan.commission_modifiers.self_gen_kicker)) {
+      // Initialize commission modifiers if present (Phase 2+3)
+      if (editPlan.commission_modifiers && (
+        editPlan.commission_modifiers.self_gen_requirement ||
+        editPlan.commission_modifiers.self_gen_kicker ||
+        editPlan.commission_modifiers.self_gen_bonus
+      )) {
         setUseCommissionModifiers(true);
         setCommissionModifiers(editPlan.commission_modifiers);
       } else {
@@ -432,9 +438,11 @@ export function CreateCompPlanModal({
       ? bundlingMultipliers
       : null;
 
-    // Prepare commission modifiers only if enabled and has config (Phase 2)
+    // Prepare commission modifiers only if enabled and has config (Phase 2+3)
     const effectiveCommissionModifiers = useCommissionModifiers && (
-      commissionModifiers.self_gen_requirement || commissionModifiers.self_gen_kicker
+      commissionModifiers.self_gen_requirement?.enabled ||
+      commissionModifiers.self_gen_kicker?.enabled ||
+      commissionModifiers.self_gen_bonus?.enabled
     ) ? commissionModifiers : null;
 
     const formData = {
@@ -443,6 +451,7 @@ export function CreateCompPlanModal({
       description: description.trim() || null,
       payout_type: payoutType,
       tier_metric: tierMetric,
+      tier_metric_source: tierMetricSource,
       chargeback_rule: chargebackRule,
       policy_type_filter: null,
       brokered_payout_type: brokeredPayoutType,
@@ -599,6 +608,22 @@ export function CreateCompPlanModal({
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Tier Qualification Source</Label>
+                <Select value={tierMetricSource} onValueChange={(v) => setTierMetricSource(v as 'written' | 'issued')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="written">Written Business</SelectItem>
+                    <SelectItem value="issued">Issued Business</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Tier qualification uses this source. Payout always uses issued premium.
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -1209,21 +1234,22 @@ export function CreateCompPlanModal({
 
               {useCommissionModifiers && (
                 <div className="space-y-4 pt-2">
-                  {/* Self-Gen Requirement */}
+                  {/* Self-Gen Requirement with Penalty */}
                   <div className="space-y-3 p-3 rounded-md border bg-background">
                     <div className="flex items-center justify-between">
-                      <Label className="font-medium">Self-Gen Requirement</Label>
+                      <Label className="font-medium">Self-Gen Requirement (with Penalty)</Label>
                       <Switch
-                        checked={!!commissionModifiers.self_gen_requirement}
+                        checked={!!commissionModifiers.self_gen_requirement?.enabled}
                         onCheckedChange={(checked) => {
                           if (checked) {
                             setCommissionModifiers((prev) => ({
                               ...prev,
                               self_gen_requirement: {
+                                enabled: true,
                                 min_percent: 25,
                                 source: 'written',
-                                affects_qualification: true,
-                                affects_payout: false,
+                                penalty_type: 'percent_reduction',
+                                penalty_value: 10,
                               },
                             }));
                           } else {
@@ -1235,49 +1261,107 @@ export function CreateCompPlanModal({
                         }}
                       />
                     </div>
-                    {commissionModifiers.self_gen_requirement && (
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Min Self-Gen %</Label>
-                          <Input
-                            type="number"
-                            value={commissionModifiers.self_gen_requirement.min_percent}
-                            onChange={(e) => {
-                              setCommissionModifiers((prev) => ({
-                                ...prev,
-                                self_gen_requirement: {
-                                  ...prev.self_gen_requirement!,
-                                  min_percent: parseFloat(e.target.value) || 0,
-                                },
-                              }));
-                            }}
-                            className="h-9"
-                            min="0"
-                            max="100"
-                          />
+                    {commissionModifiers.self_gen_requirement?.enabled && (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Min Self-Gen %</Label>
+                            <Input
+                              type="number"
+                              value={commissionModifiers.self_gen_requirement.min_percent}
+                              onChange={(e) => {
+                                setCommissionModifiers((prev) => ({
+                                  ...prev,
+                                  self_gen_requirement: {
+                                    ...prev.self_gen_requirement!,
+                                    min_percent: parseFloat(e.target.value) || 0,
+                                  },
+                                }));
+                              }}
+                              className="h-9"
+                              min="0"
+                              max="100"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Based On</Label>
+                            <Select
+                              value={commissionModifiers.self_gen_requirement.source}
+                              onValueChange={(value: 'written' | 'issued') => {
+                                setCommissionModifiers((prev) => ({
+                                  ...prev,
+                                  self_gen_requirement: {
+                                    ...prev.self_gen_requirement!,
+                                    source: value,
+                                  },
+                                }));
+                              }}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="written">Written Business</SelectItem>
+                                <SelectItem value="issued">Issued Business</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Based On</Label>
-                          <Select
-                            value={commissionModifiers.self_gen_requirement.source}
-                            onValueChange={(value: 'written' | 'issued') => {
-                              setCommissionModifiers((prev) => ({
-                                ...prev,
-                                self_gen_requirement: {
-                                  ...prev.self_gen_requirement!,
-                                  source: value,
-                                },
-                              }));
-                            }}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="written">Written Business</SelectItem>
-                              <SelectItem value="issued">Issued Business</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        <div className="pt-2 border-t">
+                          <Label className="text-xs text-muted-foreground mb-2 block">
+                            Penalty when below threshold:
+                          </Label>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Penalty Type</Label>
+                              <Select
+                                value={commissionModifiers.self_gen_requirement.penalty_type || 'percent_reduction'}
+                                onValueChange={(value: 'percent_reduction' | 'flat_reduction' | 'tier_demotion') => {
+                                  setCommissionModifiers((prev) => ({
+                                    ...prev,
+                                    self_gen_requirement: {
+                                      ...prev.self_gen_requirement!,
+                                      penalty_type: value,
+                                    },
+                                  }));
+                                }}
+                              >
+                                <SelectTrigger className="h-9">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="percent_reduction">% Commission Reduction</SelectItem>
+                                  <SelectItem value="flat_reduction">Flat $ Reduction</SelectItem>
+                                  <SelectItem value="tier_demotion">Tier Demotion</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">
+                                {commissionModifiers.self_gen_requirement.penalty_type === 'percent_reduction'
+                                  ? 'Reduction %'
+                                  : commissionModifiers.self_gen_requirement.penalty_type === 'flat_reduction'
+                                  ? 'Reduction $'
+                                  : 'Tiers to Drop'}
+                              </Label>
+                              <Input
+                                type="number"
+                                value={commissionModifiers.self_gen_requirement.penalty_value || 0}
+                                onChange={(e) => {
+                                  setCommissionModifiers((prev) => ({
+                                    ...prev,
+                                    self_gen_requirement: {
+                                      ...prev.self_gen_requirement!,
+                                      penalty_value: parseFloat(e.target.value) || 0,
+                                    },
+                                  }));
+                                }}
+                                className="h-9"
+                                min="0"
+                                step={commissionModifiers.self_gen_requirement.penalty_type === 'tier_demotion' ? '1' : '0.5'}
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1371,6 +1455,111 @@ export function CreateCompPlanModal({
                             className="h-9"
                             min="0"
                             max="100"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Self-Gen Bonus (Phase 3) */}
+                  <div className="space-y-3 p-3 rounded-md border bg-background">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-medium">Self-Gen Bonus (Above Threshold)</Label>
+                      <Switch
+                        checked={!!commissionModifiers.self_gen_bonus?.enabled}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setCommissionModifiers((prev) => ({
+                              ...prev,
+                              self_gen_bonus: {
+                                enabled: true,
+                                min_percent: 50,
+                                bonus_type: 'percent_boost',
+                                bonus_value: 5,
+                              },
+                            }));
+                          } else {
+                            setCommissionModifiers((prev) => {
+                              const { self_gen_bonus, ...rest } = prev;
+                              return rest;
+                            });
+                          }
+                        }}
+                      />
+                    </div>
+                    {commissionModifiers.self_gen_bonus?.enabled && (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Min Self-Gen % to Qualify</Label>
+                            <Input
+                              type="number"
+                              value={commissionModifiers.self_gen_bonus.min_percent}
+                              onChange={(e) => {
+                                setCommissionModifiers((prev) => ({
+                                  ...prev,
+                                  self_gen_bonus: {
+                                    ...prev.self_gen_bonus!,
+                                    min_percent: parseFloat(e.target.value) || 0,
+                                  },
+                                }));
+                              }}
+                              className="h-9"
+                              min="0"
+                              max="100"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Bonus Type</Label>
+                            <Select
+                              value={commissionModifiers.self_gen_bonus.bonus_type}
+                              onValueChange={(value: 'percent_boost' | 'flat_bonus' | 'per_item' | 'per_policy' | 'per_household' | 'tier_promotion') => {
+                                setCommissionModifiers((prev) => ({
+                                  ...prev,
+                                  self_gen_bonus: {
+                                    ...prev.self_gen_bonus!,
+                                    bonus_type: value,
+                                  },
+                                }));
+                              }}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="percent_boost">% Commission Boost</SelectItem>
+                                <SelectItem value="flat_bonus">Flat $ Bonus</SelectItem>
+                                <SelectItem value="per_item">$ Per Self-Gen Item</SelectItem>
+                                <SelectItem value="per_policy">$ Per Self-Gen Policy</SelectItem>
+                                <SelectItem value="per_household">$ Per Self-Gen Household</SelectItem>
+                                <SelectItem value="tier_promotion">Tier Promotion</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">
+                            {commissionModifiers.self_gen_bonus.bonus_type === 'percent_boost'
+                              ? 'Bonus %'
+                              : commissionModifiers.self_gen_bonus.bonus_type === 'tier_promotion'
+                              ? 'Tiers to Promote'
+                              : 'Bonus Amount ($)'}
+                          </Label>
+                          <Input
+                            type="number"
+                            value={commissionModifiers.self_gen_bonus.bonus_value}
+                            onChange={(e) => {
+                              setCommissionModifiers((prev) => ({
+                                ...prev,
+                                self_gen_bonus: {
+                                  ...prev.self_gen_bonus!,
+                                  bonus_value: parseFloat(e.target.value) || 0,
+                                },
+                              }));
+                            }}
+                            className="h-9"
+                            min="0"
+                            step={commissionModifiers.self_gen_bonus.bonus_type === 'tier_promotion' ? '1' : '0.5'}
                           />
                         </div>
                       </div>

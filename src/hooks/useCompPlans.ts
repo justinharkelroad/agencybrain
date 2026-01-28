@@ -50,15 +50,19 @@ export interface BundlingMultipliers {
   thresholds: BundlingThreshold[];
 }
 
-// Self-gen requirement configuration
+// Self-gen requirement configuration (with penalty support)
 export interface SelfGenRequirement {
+  enabled?: boolean; // New: explicit enable flag
   min_percent: number;
   source: 'written' | 'issued';
-  affects_qualification: boolean;
-  affects_payout: boolean;
+  affects_qualification?: boolean; // Legacy
+  affects_payout?: boolean; // Legacy
+  // Phase 3: Penalty configuration
+  penalty_type?: 'percent_reduction' | 'flat_reduction' | 'tier_demotion';
+  penalty_value?: number;
 }
 
-// Self-gen kicker bonus configuration
+// Self-gen kicker bonus configuration (legacy)
 export interface SelfGenKicker {
   enabled: boolean;
   type: 'per_item' | 'per_policy' | 'per_household';
@@ -66,10 +70,19 @@ export interface SelfGenKicker {
   min_self_gen_percent: number;
 }
 
-// Commission modifiers (self-gen requirements and kickers)
+// Self-gen bonus configuration (Phase 3)
+export interface SelfGenBonusConfig {
+  enabled: boolean;
+  min_percent: number;
+  bonus_type: 'percent_boost' | 'flat_bonus' | 'per_item' | 'per_policy' | 'per_household' | 'tier_promotion';
+  bonus_value: number;
+}
+
+// Commission modifiers (self-gen requirements, penalties, and bonuses)
 export interface CommissionModifiers {
   self_gen_requirement?: SelfGenRequirement;
   self_gen_kicker?: SelfGenKicker;
+  self_gen_bonus?: SelfGenBonusConfig; // Phase 3: New bonus configuration
 }
 
 export interface CompPlan {
@@ -79,6 +92,7 @@ export interface CompPlan {
   description: string | null;
   payout_type: string;
   tier_metric: string;
+  tier_metric_source: 'written' | 'issued'; // Phase 6: Written vs Issued for tier qualification
   chargeback_rule: string;
   brokered_flat_rate: number | null;
   brokered_payout_type: string | null;

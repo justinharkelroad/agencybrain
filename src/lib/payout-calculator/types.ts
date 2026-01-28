@@ -127,6 +127,20 @@ export interface PayoutCalculation {
   selfGenPercent?: number; // Percentage of self-generated leads
   selfGenKickerAmount?: number; // Bonus from self-gen kicker
 
+  // Self-gen penalty/bonus tracking (Phase 3)
+  selfGenMetRequirement?: boolean;
+  selfGenPenaltyAmount?: number;
+  selfGenBonusAmount?: number;
+
+  // Brokered commission (Phase 5)
+  brokeredCommission?: number;
+
+  // Chargeback details (Phase 4)
+  chargebackDetails?: ChargebackDetail[];
+
+  // Full calculation snapshot for audit (Phase 8)
+  calculationSnapshot?: CalculationSnapshot;
+
   // Promo bonuses
   achievedPromos: AchievedPromo[];
   
@@ -151,4 +165,107 @@ export interface CalculationResult {
   payouts: PayoutCalculation[];
   errors: string[];
   warnings: string[];
+}
+
+// ============================================
+// Self-Gen Penalty/Bonus Types (Phase 3)
+// ============================================
+
+export interface SelfGenRequirement {
+  enabled: boolean;
+  min_percent: number;
+  source: 'written' | 'issued';
+  penalty_type: 'percent_reduction' | 'flat_reduction' | 'tier_demotion';
+  penalty_value: number;
+}
+
+export interface SelfGenBonus {
+  enabled: boolean;
+  min_percent: number;
+  bonus_type: 'percent_boost' | 'flat_bonus' | 'per_item' | 'per_policy' | 'per_household' | 'tier_promotion';
+  bonus_value: number;
+}
+
+export interface SelfGenPenaltyResult {
+  applied: boolean;
+  penaltyType: 'percent_reduction' | 'flat_reduction' | 'tier_demotion' | null;
+  penaltyValue: number;
+  originalTierIndex: number | null;
+  adjustedTierIndex: number | null;
+  commissionReduction: number;
+}
+
+export interface SelfGenBonusResult {
+  applied: boolean;
+  bonusType: string | null;
+  bonusValue: number;
+  bonusAmount: number;
+  tierPromotion: number;
+}
+
+// ============================================
+// Chargeback Detail Types (Phase 4)
+// ============================================
+
+export interface ChargebackDetail {
+  policyNumber: string;
+  productType: string;
+  premium: number;
+  daysInForce: number;
+  termMonths: number;
+  included: boolean;
+  reason: string;
+}
+
+export interface ChargebackFilterResult {
+  eligibleChargebacks: SubProducerTransaction[];
+  excludedChargebacks: SubProducerTransaction[];
+  eligiblePremium: number;
+  excludedPremium: number;
+  details: ChargebackDetail[];
+}
+
+// ============================================
+// Calculation Snapshot (Phase 8 - Audit Trail)
+// ============================================
+
+export interface CalculationSnapshot {
+  inputs: {
+    writtenItems: number;
+    writtenPremium: number;
+    issuedItems: number;
+    issuedPremium: number;
+    chargebackCount: number;
+    chargebackPremium: number;
+    tierMetric: string;
+    tierMetricSource: string;
+    chargebackRule: string;
+  };
+  tierMatched: {
+    tierId: string;
+    threshold: number;
+    rate: number;
+  } | null;
+  selfGen: {
+    percent: number;
+    metRequirement: boolean;
+    penaltyApplied: boolean;
+    penaltyAmount: number;
+    bonusApplied: boolean;
+    bonusAmount: number;
+  };
+  bundling: {
+    percent: number;
+    multiplier: number;
+  };
+  calculations: {
+    baseBeforeModifiers: number;
+    selfGenPenalty: number;
+    selfGenBonus: number;
+    bundlingBoost: number;
+    brokeredCommission: number;
+    promoBonus: number;
+    finalTotal: number;
+  };
+  calculatedAt: string;
 }

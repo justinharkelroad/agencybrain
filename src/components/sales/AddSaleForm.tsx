@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useLeadSources } from "@/hooks/useLeadSources";
+import { useBrokeredCarriers } from "@/hooks/useBrokeredCarriers";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,6 +70,8 @@ type SaleForEdit = {
   customer_zip: string | null;
   lead_source_id: string | null;
   lead_source?: { name: string } | null;
+  brokered_carrier_id: string | null;
+  brokered_carrier?: { name: string } | null;
   team_member_id: string | null;
   sale_date: string | null;
   is_bundle: boolean | null;
@@ -157,6 +160,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerZip, setCustomerZip] = useState("");
   const [leadSourceId, setLeadSourceId] = useState("");
+  const [brokeredCarrierId, setBrokeredCarrierId] = useState<string | null>(null);
   const [producerId, setProducerId] = useState("");
   const [saleDate, setSaleDate] = useState<Date | undefined>(todayLocal());
   const [policies, setPolicies] = useState<Policy[]>([]);
@@ -171,6 +175,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       setCustomerPhone(editSale.customer_phone || "");
       setCustomerZip(editSale.customer_zip || "");
       setLeadSourceId(editSale.lead_source_id || "");
+      setBrokeredCarrierId(editSale.brokered_carrier_id || null);
       setProducerId(editSale.team_member_id || "");
       setSaleDate(editSale.sale_date ? toLocalDate(new Date(editSale.sale_date + 'T12:00:00')) : todayLocal());
       // Bundle type is now auto-calculated, no need to restore
@@ -249,6 +254,9 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
 
   // Fetch lead sources
   const { leadSources, loading: leadSourcesLoading } = useLeadSources();
+
+  // Fetch brokered carriers
+  const { activeCarriers: brokeredCarriers } = useBrokeredCarriers(profile?.agency_id || null);
 
   // Calculate policy totals
   const calculatePolicyTotals = (policy: Policy) => {
@@ -523,6 +531,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         agency_id: profile.agency_id,
         team_member_id: finalTeamMemberId,
         lead_source_id: leadSourceId || null,
+        brokered_carrier_id: brokeredCarrierId || null,
         customer_name: customerName.trim(),
         customer_email: customerEmail.trim() || null,
         customer_phone: customerPhone.trim() || null,
@@ -657,6 +666,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     setCustomerPhone("");
     setCustomerZip("");
     setLeadSourceId("");
+    setBrokeredCarrierId(null);
     setProducerId("");
     setSaleDate(todayLocal());
     setPolicies([]);
@@ -749,6 +759,32 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                 </Select>
               )}
             </div>
+
+            {/* Brokered Carrier (optional) */}
+            {brokeredCarriers.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="brokeredCarrier">
+                  Brokered Carrier
+                  <span className="text-xs text-muted-foreground ml-2">(optional)</span>
+                </Label>
+                <Select
+                  value={brokeredCarrierId || "none"}
+                  onValueChange={(value) => setBrokeredCarrierId(value === "none" ? null : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Not brokered" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Not brokered</SelectItem>
+                    {brokeredCarriers.map((carrier) => (
+                      <SelectItem key={carrier.id} value={carrier.id}>
+                        {carrier.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </CardContent>
         </Card>
 

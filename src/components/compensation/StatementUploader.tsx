@@ -294,7 +294,21 @@ export function StatementUploader({ onReportGenerated }: StatementUploaderProps)
           uploadedBy: user.id,
         }),
       ]);
-      
+
+      // Check for duplicate uploads and warn user
+      const duplicates: string[] = [];
+      if (priorUpload.isDuplicate) {
+        duplicates.push(`Prior period statement (${priorMonth}/${priorYear})`);
+      }
+      if (currentUpload.isDuplicate) {
+        duplicates.push(`Current period statement (${currentMonth}/${currentYear})`);
+      }
+      if (duplicates.length > 0) {
+        toast.warning(`Duplicate file detected: ${duplicates.join(', ')}. The file content matches a previously uploaded statement.`, {
+          duration: 6000,
+        });
+      }
+
       // Run comparison
       toast.info("Comparing statements...");
       const comparison = compareStatements(priorParsed, currentParsed);

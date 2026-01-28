@@ -5,6 +5,7 @@ import { SidebarLayout } from "@/components/SidebarLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CompSettingsForm } from "@/components/compensation/CompSettingsForm";
+import { BrokeredCarriersManager } from "@/components/settings/BrokeredCarriersManager";
 import { StatementUploader } from "@/components/compensation/StatementUploader";
 import { ReportHistory } from "@/components/compensation/ReportHistory";
 import { DiscrepancyResults } from "@/components/allstate-analyzer/DiscrepancyResults";
@@ -186,6 +187,7 @@ export default function CompensationAnalyzer() {
           {/* Settings Tab */}
           <TabsContent value="settings" className="space-y-6">
             <CompSettingsForm onSettingsSaved={() => setSettingsVersion(v => v + 1)} />
+            <BrokeredCarriersManager />
           </TabsContent>
         </Tabs>
       </div>
