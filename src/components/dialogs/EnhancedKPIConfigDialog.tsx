@@ -310,14 +310,30 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
   const addCustomKPI = async () => {
     if (!agencyId) return;
 
+    const defaultLabel = "New Custom KPI";
+
+    // Client-side duplicate check (case-insensitive)
+    const existingLabelsLower = kpis.map(k => k.label.toLowerCase());
+    if (existingLabelsLower.includes(defaultLabel.toLowerCase())) {
+      toast.error(`A KPI with the label "${defaultLabel}" already exists. Please rename existing custom KPIs first.`);
+      return;
+    }
+
     try {
       setLoading(true);
       const newKpiKey = `custom_${Date.now()}`;
-      
+
       if (isStaffMode) {
         // Staff mode - use edge function
-        const result = await scorecardsApi.kpisCreateCustom(normalizedRole, "New Custom KPI", "number");
-        if (result.error) throw new Error(result.error);
+        const result = await scorecardsApi.kpisCreateCustom(normalizedRole, defaultLabel, "number");
+        if (result.error) {
+          // Handle duplicate_label error from server
+          if (result.error.includes('duplicate_label') || result.error.includes('already exists')) {
+            toast.error(result.error);
+            return;
+          }
+          throw new Error(result.error);
+        }
       } else {
         // Owner mode - direct Supabase
         const { error: kpiError } = await supabase
@@ -325,7 +341,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
           .insert({
             agency_id: agencyId,
             key: newKpiKey,
-            label: "New Custom KPI",
+            label: defaultLabel,
             type: "number",
             is_active: true,
             role: normalizedRole
@@ -341,7 +357,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
           .single();
 
         const currentMetrics = currentRules?.selected_metrics || [];
-        
+
         const { error: updateError } = await supabase
           .from('scorecard_rules')
           .update({ selected_metrics: [...currentMetrics, newKpiKey] })
@@ -353,8 +369,13 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
 
       await loadKPIsAndTargets();
       toast.success("Custom KPI added and enabled");
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding custom KPI:', error);
+      // Handle duplicate_label error from server
+      if (error?.message?.includes('duplicate_label') || error?.message?.includes('already exists')) {
+        toast.error(error.message);
+        return;
+      }
       toast.error("Failed to add custom KPI");
     } finally {
       setLoading(false);
@@ -368,10 +389,30 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
   };
 
   const saveKPILabelToDatabase = async (kpiId: string, label: string) => {
+    // Client-side duplicate check (case-insensitive)
+    const existingLabelsLower = kpis
+      .filter(k => k.id !== kpiId)
+      .map(k => k.label.toLowerCase());
+
+    if (existingLabelsLower.includes(label.toLowerCase())) {
+      toast.error(`A KPI with the label "${label}" already exists for this role.`);
+      // Reload KPIs to revert UI state
+      await loadKPIsAndTargets();
+      return;
+    }
+
     try {
       if (isStaffMode) {
         const result = await scorecardsApi.kpisUpdateLabel(kpiId, label);
-        if (result.error) throw new Error(result.error);
+        if (result.error) {
+          // Handle duplicate_label error from server
+          if (result.error.includes('duplicate_label') || result.error.includes('already exists')) {
+            toast.error(result.error);
+            await loadKPIsAndTargets();
+            return;
+          }
+          throw new Error(result.error);
+        }
       } else {
         const { error } = await supabase
           .from('kpis')
@@ -380,9 +421,16 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
 
         if (error) throw error;
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating KPI label:', error);
+      // Handle duplicate_label error from server
+      if (error?.message?.includes('duplicate_label') || error?.message?.includes('already exists')) {
+        toast.error(error.message);
+        await loadKPIsAndTargets();
+        return;
+      }
       toast.error("Failed to save KPI label");
+      await loadKPIsAndTargets();
     }
   };
 

@@ -26,14 +26,6 @@ serve(async (req) => {
 
     const { mode, agencyId, agencySlug, isManager, userId, staffUserId } = authResult;
 
-    // Authorization: staff must be manager/owner, Supabase users are assumed authorized
-    if (mode === 'staff' && !isManager) {
-      return new Response(
-        JSON.stringify({ error: 'Manager access required' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     // Parse request body
     const { action, ...params } = await req.json();
 
@@ -41,6 +33,22 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'action is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Read-only actions that key employees (non-managers) can access
+    const readOnlyActions = [
+      'meeting_frame_list', 'meeting_frame_generate',
+      'kpis_with_config_get', 'kpis_list',
+      'scorecard_rules_get', 'targets_get'
+    ];
+
+    // Authorization: staff must be manager/owner for write actions
+    const requiresManager = !readOnlyActions.includes(action);
+    if (mode === 'staff' && !isManager && requiresManager) {
+      return new Response(
+        JSON.stringify({ error: 'Manager access required' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -416,8 +424,121 @@ serve(async (req) => {
         break;
       }
 
+      case 'kpis_with_config_get': {
+        // New combined endpoint that returns KPIs + scorecard_rules + targets in one call
+        // with role filtering and deduplication
+        const { role } = params;
+
+        if (!role) {
+          return new Response(
+            JSON.stringify({ error: 'role is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Fetch KPIs filtered by role
+        // Hybrid and Manager roles see ALL KPIs (Sales + Service + Hybrid + NULL)
+        let kpisQuery = supabase
+          .from('kpis')
+          .select('*')
+          .eq('agency_id', agencyId)
+          .eq('is_active', true);
+
+        if (role === 'Hybrid' || role === 'Manager') {
+          // Hybrid/Manager see all KPIs - no role filter needed
+        } else {
+          kpisQuery = kpisQuery.or(`role.eq.${role},role.is.null`);
+        }
+
+        const { data: kpisData, error: kpisError } = await kpisQuery.order('label');
+
+        if (kpisError) throw kpisError;
+
+        // Dedupe: prefer role-specific KPI over NULL-role for the same key
+        const uniqueKpis = new Map<string, any>();
+        (kpisData || []).forEach((kpi: any) => {
+          const existing = uniqueKpis.get(kpi.key);
+          // Keep role-specific over NULL role
+          if (!existing || (kpi.role !== null && existing.role === null)) {
+            uniqueKpis.set(kpi.key, kpi);
+          }
+        });
+        const kpis = Array.from(uniqueKpis.values());
+
+        // Fetch scorecard rules for the role
+        const { data: scorecardRules, error: rulesError } = await supabase
+          .from('scorecard_rules')
+          .select('*')
+          .eq('agency_id', agencyId)
+          .eq('role', role)
+          .maybeSingle();
+
+        if (rulesError) throw rulesError;
+
+        // Fetch targets for the KPI keys
+        const kpiKeys = kpis.map((k: any) => k.key);
+        const { data: targets, error: targetsError } = await supabase
+          .from('targets')
+          .select('*')
+          .eq('agency_id', agencyId)
+          .is('team_member_id', null)
+          .in('metric_key', kpiKeys.length > 0 ? kpiKeys : ['__none__']);
+
+        if (targetsError) throw targetsError;
+
+        // Build kpiLabels map
+        const kpiLabels: Record<string, string> = {};
+        kpis.forEach((kpi: any) => {
+          kpiLabels[kpi.key] = kpi.label;
+        });
+
+        // Filter to enabled KPIs based on scorecard_rules.selected_metrics
+        const selectedMetrics = new Set(scorecardRules?.selected_metrics || []);
+        const enabledKpis = selectedMetrics.size > 0
+          ? kpis.filter((kpi: any) => selectedMetrics.has(kpi.key))
+          : []; // Empty if no rules configured (caller should use fallback)
+
+        result = {
+          kpis,
+          enabledKpis,
+          kpiLabels,
+          scorecardRules,
+          targets: targets || [],
+        };
+        break;
+      }
+
       case 'kpi_create': {
         const { role, label, type = 'number' } = params;
+        const newLabel = label || 'New Custom KPI';
+
+        // Check for duplicate labels (case-insensitive) for this agency+role
+        // If role is null (shared KPI), check ALL active KPIs since they're visible everywhere
+        // If role is specific, check that role + null-role KPIs
+        let duplicateQuery = supabase
+          .from('kpis')
+          .select('label')
+          .eq('agency_id', agencyId)
+          .eq('is_active', true);
+
+        if (role) {
+          duplicateQuery = duplicateQuery.or(`role.eq.${role},role.is.null`);
+        }
+        // If role is null/undefined, don't add .or() filter - check ALL KPIs
+
+        const { data: existingKpis } = await duplicateQuery;
+
+        const existingLabelsLower = (existingKpis || []).map((k: any) => k.label.toLowerCase());
+        if (existingLabelsLower.includes(newLabel.toLowerCase())) {
+          return new Response(
+            JSON.stringify({
+              error: 'duplicate_label',
+              message: `A KPI with the label "${newLabel}" already exists for this role.`
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
         const key = `custom_${Date.now()}`;
 
         const { data, error } = await supabase
@@ -425,7 +546,7 @@ serve(async (req) => {
           .insert({
             agency_id: agencyId,
             key,
-            label: label || 'New Custom KPI',
+            label: newLabel,
             type,
             is_active: true,
             role,
@@ -440,6 +561,50 @@ serve(async (req) => {
 
       case 'kpi_update_label': {
         const { kpiId, label } = params;
+
+        // Get the KPI's role first
+        const { data: currentKpi, error: fetchError } = await supabase
+          .from('kpis')
+          .select('role')
+          .eq('id', kpiId)
+          .eq('agency_id', agencyId)
+          .single();
+
+        if (fetchError || !currentKpi) {
+          return new Response(
+            JSON.stringify({ error: 'KPI not found' }),
+            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Check for duplicate labels (case-insensitive) for this agency+role, excluding current KPI
+        // If KPI has null role (shared), check ALL active KPIs since they're visible everywhere
+        // If KPI has specific role, check that role + null-role KPIs
+        const kpiRole = currentKpi.role;
+        let duplicateQuery = supabase
+          .from('kpis')
+          .select('id, label')
+          .eq('agency_id', agencyId)
+          .eq('is_active', true)
+          .neq('id', kpiId);
+
+        if (kpiRole) {
+          duplicateQuery = duplicateQuery.or(`role.eq.${kpiRole},role.is.null`);
+        }
+        // If kpiRole is null, don't add .or() filter - check ALL KPIs
+
+        const { data: existingKpis } = await duplicateQuery;
+
+        const existingLabelsLower = (existingKpis || []).map((k: any) => k.label.toLowerCase());
+        if (existingLabelsLower.includes(label.toLowerCase())) {
+          return new Response(
+            JSON.stringify({
+              error: 'duplicate_label',
+              message: `A KPI with the label "${label}" already exists for this role.`
+            }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
         const { data, error } = await supabase
           .from('kpis')

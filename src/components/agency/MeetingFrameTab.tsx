@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Json } from '@/integrations/supabase/types';
 import { fetchWithAuth } from '@/lib/staffRequest';
+import { useAgencyKpisWithConfig } from '@/hooks/useAgencyKpisWithConfig';
 
 interface MeetingFrameTabProps {
   agencyId: string;
@@ -87,8 +88,41 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const [selectedMember, setSelectedMember] = useState('');
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
-  const [kpis, setKpis] = useState<KPI[]>([]);
   const [kpiTotals, setKpiTotals] = useState<KPITotal[]>([]);
+
+  // Derive selected member's role for role-aware KPI filtering
+  const selectedMemberRole = useMemo(() => {
+    const member = teamMembers.find(m => m.id === selectedMember);
+    return member?.role || undefined;
+  }, [teamMembers, selectedMember]);
+
+  // Use the unified hook to get role-filtered KPIs with config
+  const {
+    data: kpiConfig,
+    isLoading: kpiConfigLoading,
+  } = useAgencyKpisWithConfig(agencyId, selectedMemberRole, {
+    enabled: !!selectedMember && !!selectedMemberRole,
+  });
+
+  // Get the KPIs to display - use enabledKpis if configured, fallback to all role KPIs
+  const displayKpis: KPI[] = useMemo(() => {
+    if (!kpiConfig) return [];
+    // If scorecard_rules configured with selected_metrics: use filtered KPIs
+    // If NO scorecard_rules or empty selected_metrics: fall back to ALL role-appropriate KPIs
+    return (kpiConfig.enabledKpis?.length > 0)
+      ? kpiConfig.enabledKpis.map(k => ({
+          id: k.id,
+          key: k.key,
+          label: k.label,
+          type: k.type,
+        }))
+      : kpiConfig.kpis.map(k => ({
+          id: k.id,
+          key: k.key,
+          label: k.label,
+          type: k.type,
+        }));
+  }, [kpiConfig]);
   const [loading, setLoading] = useState(false);
   const [reportGenerated, setReportGenerated] = useState(false);
   const [callLogData, setCallLogData] = useState<CallLogData | null>(null);
@@ -103,25 +137,18 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const [meetingFrameHistory, setMeetingFrameHistory] = useState<MeetingFrame[]>([]);
   const [viewingHistoricalFrame, setViewingHistoricalFrame] = useState<string | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
-  const [scorecardRules, setScorecardRules] = useState<Record<string, string[]>>({});
 
-  // Fetch team members and KPIs on mount
+  // Fetch team members and meeting frame history on mount
+  // KPIs are now fetched reactively via useAgencyKpisWithConfig when member is selected
   useEffect(() => {
     const fetchInitialData = async () => {
       if (isStaffMode) {
-        // Staff mode: use edge function to get all data at once
+        // Staff mode: use edge function to get team members and history
         try {
           const result = await invokeWithStaff('meeting_frame_list');
           setTeamMembers(result.teamMembers || []);
-          setKpis(result.kpis || []);
+          // KPIs will be fetched via useAgencyKpisWithConfig when member is selected
           setMeetingFrameHistory((result.history || []) as MeetingFrame[]);
-          
-          // Build role -> selected_metrics map for role-based KPI filtering
-          const rulesMap: Record<string, string[]> = {};
-          (result.scorecardRules || []).forEach((r: any) => {
-            rulesMap[r.role] = r.selected_metrics || [];
-          });
-          setScorecardRules(rulesMap);
         } catch (err) {
           console.error('Error fetching initial data via edge function:', err);
         }
@@ -140,36 +167,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
           }
         };
 
-        const fetchKPIs = async () => {
-          const { data, error } = await supabase
-            .from('kpis')
-            .select('id, key, label, type')
-            .eq('agency_id', agencyId)
-            .eq('is_active', true)
-            .order('label');
-
-          if (!error && data) {
-            setKpis(data);
-          }
-        };
-
-        // Fetch scorecard rules for role-based KPI filtering
-        const fetchScorecardRules = async () => {
-          const { data } = await supabase
-            .from('scorecard_rules')
-            .select('role, selected_metrics')
-            .eq('agency_id', agencyId);
-          
-          const rulesMap: Record<string, string[]> = {};
-          (data || []).forEach((r: any) => {
-            rulesMap[r.role] = r.selected_metrics || [];
-          });
-          setScorecardRules(rulesMap);
-        };
-
         fetchTeamMembers();
-        fetchKPIs();
-        fetchScorecardRules();
         fetchMeetingFrameHistory();
       }
     };
@@ -264,31 +262,9 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
         metricsData = data || [];
       }
 
-      // Get selected member's role for role-based KPI filtering
-      const member = teamMembers.find(m => m.id === selectedMember);
-      const memberRole = member?.role || 'Sales';
-
-      // Get role-specific metrics (Hybrid/Manager get both Sales + Service)
-      let roleMetrics: string[] = [];
-      if (memberRole === 'Hybrid' || memberRole === 'Manager') {
-        roleMetrics = [
-          ...(scorecardRules['Sales'] || []),
-          ...(scorecardRules['Service'] || [])
-        ];
-      } else {
-        roleMetrics = scorecardRules[memberRole] || [];
-      }
-
-      // Deduplicate
-      roleMetrics = [...new Set(roleMetrics)];
-
-      // Filter KPIs to only those in the role's selected_metrics
-      const filteredKpis = roleMetrics.length > 0
-        ? kpis.filter(kpi => roleMetrics.includes(kpi.key))
-        : kpis;
-
-      // Aggregate KPI totals using getMetricValue for each filtered KPI
-      const totals: KPITotal[] = filteredKpis.map((kpi) => {
+      // Aggregate KPI totals using getMetricValue for each KPI
+      // Use displayKpis which is role-filtered and respects scorecard_rules
+      const totals: KPITotal[] = displayKpis.map((kpi) => {
         let total = 0;
         metricsData.forEach((row) => {
           total += getMetricValue(row, kpi.key);
@@ -679,8 +655,12 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
               {/* Generate Button */}
               <div className="space-y-2 md:col-span-2">
                 <Label className="invisible">Action</Label>
-                <Button onClick={generateReport} disabled={loading} className="w-full">
-                  {loading ? 'Generating...' : 'Generate Report'}
+                <Button
+                  onClick={generateReport}
+                  disabled={loading || (!!selectedMember && kpiConfigLoading)}
+                  className="w-full"
+                >
+                  {loading ? 'Generating...' : kpiConfigLoading ? 'Loading KPIs...' : 'Generate Report'}
                 </Button>
               </div>
             </div>
