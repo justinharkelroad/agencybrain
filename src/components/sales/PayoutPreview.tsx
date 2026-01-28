@@ -218,7 +218,7 @@ export function PayoutPreview({
       console.log('[PayoutPreview] Sales report producer codes:', converted.map(m => m.code ? `"${m.code}"` : '(empty)'));
       console.log('[PayoutPreview] Available chargeback keys:', Array.from(chargebacksByProducer.keys()).map(k => k ? `"${k}"` : '(empty)'));
 
-      // Merge data from Agent Transaction Detail (chargebacks AND bundle type breakdown)
+      // Merge data from Agent Transaction Detail (chargebacks AND bundle type proportions)
       return converted.map((m) => {
         // Look up data for this sub-producer from transaction detail
         const producerData = transactionDetailByProducer.get(m.code);
@@ -226,23 +226,42 @@ export function PayoutPreview({
         const chargebackPremium = producerData?.premium || 0;
         const chargebackCount = producerData?.count || 0;
 
-        // Use bundle type breakdown from Agent Transaction Detail if available (it has the real data)
-        // Fall back to inferred data from sales report if no Agent Transaction Detail
-        const byBundleType = producerData?.byBundleType && producerData.byBundleType.length > 0
-          ? producerData.byBundleType
-          : m.byBundleType;
-        const byProduct = producerData?.byProduct && producerData.byProduct.length > 0
-          ? producerData.byProduct
-          : m.byProduct;
-
-        // Always log the lookup attempt for debugging
-        console.log(`[PayoutPreview] Lookup code="${m.code}": found=${!!producerData}, chargebacks=${chargebackCount}, bundleTypes=${byBundleType?.length || 0}`);
+        // Use bundle type PROPORTIONS from Agent Transaction Detail, but scale to sales report premium
+        // This gives us accurate bundle classification but correct premium amounts
+        let byBundleType = m.byBundleType;
+        let byProduct = m.byProduct;
 
         if (producerData?.byBundleType && producerData.byBundleType.length > 0) {
-          console.log(`[PayoutPreview] ${m.code}: Using REAL bundle breakdown from Agent Transaction Detail:`, byBundleType?.map(b => `${b.bundleType}: $${b.premiumWritten?.toFixed(0) || b.netPremium?.toFixed(0) || 0}`));
+          // Calculate total premium in Agent Transaction Detail
+          const atdTotalPremium = producerData.byBundleType.reduce((sum, b) => sum + (b.premiumWritten || b.netPremium || 0), 0);
+          const atdTotalItems = producerData.byBundleType.reduce((sum, b) => sum + (b.itemsIssued || 0), 0);
+
+          if (atdTotalPremium > 0) {
+            // Scale the bundle breakdown to match the sales report premium
+            const salesPremium = m.premiumWritten || m.netPremium || 0;
+            const salesItems = m.itemsIssued || 0;
+            const premiumScale = salesPremium / atdTotalPremium;
+            const itemsScale = atdTotalItems > 0 ? salesItems / atdTotalItems : 1;
+
+            byBundleType = producerData.byBundleType.map(b => ({
+              bundleType: b.bundleType,
+              premiumWritten: (b.premiumWritten || b.netPremium || 0) * premiumScale,
+              premiumChargebacks: (b.premiumChargebacks || 0) * premiumScale,
+              netPremium: (b.netPremium || b.premiumWritten || 0) * premiumScale,
+              itemsIssued: Math.round((b.itemsIssued || 0) * itemsScale),
+              creditCount: Math.round((b.creditCount || 0) * itemsScale),
+              chargebackCount: b.chargebackCount || 0,
+            }));
+
+            console.log(`[PayoutPreview] ${m.code}: Scaled bundle breakdown from Agent Transaction Detail (ATD total: $${atdTotalPremium.toFixed(0)}, Sales: $${salesPremium.toFixed(0)}, scale: ${premiumScale.toFixed(2)}x)`);
+            console.log(`[PayoutPreview] ${m.code}: Scaled breakdown:`, byBundleType.map(b => `${b.bundleType}: $${b.premiumWritten?.toFixed(0) || 0}`));
+          }
         } else {
           console.log(`[PayoutPreview] ${m.code}: Using INFERRED bundle breakdown (no Agent Transaction Detail data)`);
         }
+
+        // Always log the lookup attempt for debugging
+        console.log(`[PayoutPreview] Lookup code="${m.code}": found=${!!producerData}, chargebacks=${chargebackCount}, bundleTypes=${byBundleType?.length || 0}`);
 
         if (chargebackCount > 0) {
           console.log(`[PayoutPreview] ${m.code}: Merged ${chargebackCount} chargebacks from Agent Transaction Detail ($${chargebackPremium.toFixed(2)})`);
@@ -267,7 +286,7 @@ export function PayoutPreview({
           chargebackTransactions: producerData?.chargebackTransactions || [],
           creditInsureds: m.creditInsureds,
           chargebackInsureds: producerData?.chargebackInsureds || [],
-          // Use Agent Transaction Detail's bundle breakdown (real data) if available
+          // Use scaled bundle breakdown (Agent Transaction Detail proportions applied to sales report premium)
           byBundleType,
           byProduct,
         };
