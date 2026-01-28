@@ -103,6 +103,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const [meetingFrameHistory, setMeetingFrameHistory] = useState<MeetingFrame[]>([]);
   const [viewingHistoricalFrame, setViewingHistoricalFrame] = useState<string | null>(null);
   const reportRef = useRef<HTMLDivElement>(null);
+  const [scorecardRules, setScorecardRules] = useState<Record<string, string[]>>({});
 
   // Fetch team members and KPIs on mount
   useEffect(() => {
@@ -114,6 +115,13 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
           setTeamMembers(result.teamMembers || []);
           setKpis(result.kpis || []);
           setMeetingFrameHistory((result.history || []) as MeetingFrame[]);
+          
+          // Build role -> selected_metrics map for role-based KPI filtering
+          const rulesMap: Record<string, string[]> = {};
+          (result.scorecardRules || []).forEach((r: any) => {
+            rulesMap[r.role] = r.selected_metrics || [];
+          });
+          setScorecardRules(rulesMap);
         } catch (err) {
           console.error('Error fetching initial data via edge function:', err);
         }
@@ -145,8 +153,23 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
           }
         };
 
+        // Fetch scorecard rules for role-based KPI filtering
+        const fetchScorecardRules = async () => {
+          const { data } = await supabase
+            .from('scorecard_rules')
+            .select('role, selected_metrics')
+            .eq('agency_id', agencyId);
+          
+          const rulesMap: Record<string, string[]> = {};
+          (data || []).forEach((r: any) => {
+            rulesMap[r.role] = r.selected_metrics || [];
+          });
+          setScorecardRules(rulesMap);
+        };
+
         fetchTeamMembers();
         fetchKPIs();
+        fetchScorecardRules();
         fetchMeetingFrameHistory();
       }
     };
@@ -241,8 +264,31 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
         metricsData = data || [];
       }
 
-      // Aggregate KPI totals using getMetricValue for each KPI
-      const totals: KPITotal[] = kpis.map((kpi) => {
+      // Get selected member's role for role-based KPI filtering
+      const member = teamMembers.find(m => m.id === selectedMember);
+      const memberRole = member?.role || 'Sales';
+
+      // Get role-specific metrics (Hybrid/Manager get both Sales + Service)
+      let roleMetrics: string[] = [];
+      if (memberRole === 'Hybrid' || memberRole === 'Manager') {
+        roleMetrics = [
+          ...(scorecardRules['Sales'] || []),
+          ...(scorecardRules['Service'] || [])
+        ];
+      } else {
+        roleMetrics = scorecardRules[memberRole] || [];
+      }
+
+      // Deduplicate
+      roleMetrics = [...new Set(roleMetrics)];
+
+      // Filter KPIs to only those in the role's selected_metrics
+      const filteredKpis = roleMetrics.length > 0
+        ? kpis.filter(kpi => roleMetrics.includes(kpi.key))
+        : kpis;
+
+      // Aggregate KPI totals using getMetricValue for each filtered KPI
+      const totals: KPITotal[] = filteredKpis.map((kpi) => {
         let total = 0;
         metricsData.forEach((row) => {
           total += getMetricValue(row, kpi.key);
@@ -257,10 +303,8 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
         };
       });
 
-      // Filter out KPIs with zero totals for cleaner display
-      const nonZeroTotals = totals.filter(t => t.total > 0);
-      
-      setKpiTotals(nonZeroTotals.length > 0 ? nonZeroTotals : totals);
+      // Show ALL role-relevant KPIs (no non-zero filtering - consistent display)
+      setKpiTotals(totals);
       setReportGenerated(true);
       // Reset upload data for new report
       setCallLogData(null);

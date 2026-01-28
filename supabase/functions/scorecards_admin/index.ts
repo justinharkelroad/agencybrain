@@ -714,6 +714,12 @@ serve(async (req) => {
           .eq('is_active', true)
           .order('label');
 
+        // Get scorecard rules for all roles (for role-based KPI filtering)
+        const { data: scorecardRules } = await supabase
+          .from('scorecard_rules')
+          .select('role, selected_metrics')
+          .eq('agency_id', agencyId);
+
         // Get meeting frame history
         const { data: history } = await supabase
           .from('meeting_frames')
@@ -722,7 +728,7 @@ serve(async (req) => {
           .order('created_at', { ascending: false })
           .limit(50);
 
-        result = { teamMembers, kpis, history };
+        result = { teamMembers, kpis, history, scorecardRules };
         break;
       }
 
@@ -736,6 +742,34 @@ serve(async (req) => {
           );
         }
 
+        // Get team member's role for role-based KPI filtering
+        const { data: member } = await supabase
+          .from('team_members')
+          .select('role')
+          .eq('id', team_member_id)
+          .single();
+
+        const memberRole = member?.role || 'Sales';
+
+        // Get role-specific selected_metrics (Hybrid/Manager get both Sales + Service)
+        const rolesToCheck = (memberRole === 'Hybrid' || memberRole === 'Manager')
+          ? ['Sales', 'Service']
+          : [memberRole];
+
+        const { data: rules } = await supabase
+          .from('scorecard_rules')
+          .select('selected_metrics')
+          .eq('agency_id', agencyId)
+          .in('role', rolesToCheck);
+
+        // Combine selected_metrics from all matching roles
+        const roleMetrics: string[] = [];
+        (rules || []).forEach((r: any) => {
+          (r.selected_metrics || []).forEach((m: string) => {
+            if (!roleMetrics.includes(m)) roleMetrics.push(m);
+          });
+        });
+
         const { data: metricsData, error: metricsError } = await supabase
           .from('metrics_daily')
           .select('*')
@@ -744,7 +778,7 @@ serve(async (req) => {
           .lte('date', end_date);
 
         if (metricsError) throw metricsError;
-        result = { metricsData };
+        result = { metricsData, roleMetrics, memberRole };
         break;
       }
 
