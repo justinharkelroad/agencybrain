@@ -147,19 +147,40 @@ export function PayoutPreview({
       return new Map<string, { premium: number; count: number; chargebackInsureds: typeof transactionDetailMetrics[0]['chargebackInsureds']; chargebackTransactions: typeof transactionDetailMetrics[0]['chargebackTransactions'] }>();
     }
 
+    console.log(`[PayoutPreview] Building chargebacksByProducer map from ${transactionDetailMetrics.length} producers`);
+    console.log(`[PayoutPreview] All producer codes:`, transactionDetailMetrics.map(m => ({
+      code: m.code,
+      displayCode: m.code ? `"${m.code}"` : '(empty)',
+      credits: m.creditCount,
+      chargebacks: m.chargebackCount,
+      chargebackPremium: m.premiumChargebacks,
+    })));
+
     const summary = new Map<string, { premium: number; count: number; chargebackInsureds: typeof transactionDetailMetrics[0]['chargebackInsureds']; chargebackTransactions: typeof transactionDetailMetrics[0]['chargebackTransactions'] }>();
 
     for (const metrics of transactionDetailMetrics) {
       if (metrics.chargebackCount > 0 || metrics.premiumChargebacks > 0) {
-        summary.set(metrics.code, {
+        const code = metrics.code;
+        summary.set(code, {
           premium: metrics.premiumChargebacks,
           count: metrics.chargebackCount,
           chargebackInsureds: metrics.chargebackInsureds,
           chargebackTransactions: metrics.chargebackTransactions,
         });
-        console.log(`[PayoutPreview] ${metrics.code}: ${metrics.chargebackCount} chargebacks ($${metrics.premiumChargebacks.toFixed(2)})`);
+        console.log(`[PayoutPreview] Chargeback producer code="${code}" (len=${code.length}): ${metrics.chargebackCount} chargebacks ($${metrics.premiumChargebacks.toFixed(2)})`);
+
+        // Debug: Log first few chargeback transactions to see details
+        if (metrics.chargebackTransactions.length > 0) {
+          console.log(`[PayoutPreview]   Sample chargebacks:`, metrics.chargebackTransactions.slice(0, 2).map(t => ({
+            insured: t.insuredName,
+            premium: t.premium,
+            product: t.product,
+          })));
+        }
       }
     }
+
+    console.log(`[PayoutPreview] chargebacksByProducer map has ${summary.size} entries with keys:`, Array.from(summary.keys()).map(k => k ? `"${k}"` : '(empty)'));
 
     return summary;
   }, [transactionDetailMetrics]);
@@ -172,9 +193,14 @@ export function PayoutPreview({
       const converted = convertToCompensationMetrics(salesReportMetrics);
       console.log('[PayoutPreview] Converted metrics:', converted.map(m => ({
         code: m.code,
+        codeLen: m.code?.length,
         creditInsuredsCount: m.creditInsureds?.length || 0,
         creditTransactionsCount: m.creditTransactions?.length || 0,
       })));
+
+      // Debug: Show all sales report codes
+      console.log('[PayoutPreview] Sales report producer codes:', converted.map(m => m.code ? `"${m.code}"` : '(empty)'));
+      console.log('[PayoutPreview] Available chargeback keys:', Array.from(chargebacksByProducer.keys()).map(k => k ? `"${k}"` : '(empty)'));
 
       // Merge chargeback data from Agent Transaction Detail
       return converted.map((m) => {
@@ -183,6 +209,9 @@ export function PayoutPreview({
 
         const chargebackPremium = producerChargebacks?.premium || 0;
         const chargebackCount = producerChargebacks?.count || 0;
+
+        // Always log the lookup attempt for debugging
+        console.log(`[PayoutPreview] Lookup code="${m.code}": found=${!!producerChargebacks}, chargebacks=${chargebackCount}`);
 
         if (chargebackCount > 0) {
           console.log(`[PayoutPreview] ${m.code}: Merged ${chargebackCount} chargebacks from Agent Transaction Detail ($${chargebackPremium.toFixed(2)})`);

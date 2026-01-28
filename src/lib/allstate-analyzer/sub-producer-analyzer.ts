@@ -417,10 +417,31 @@ export function analyzeSubProducers(
     itemsIssued: number;
   }>>();
   
+  // Debug: Log a sample of transactions to see subProdCode values
+  console.log(`[SubProducer] Sample transactions subProdCode values:`, nbTransactions.slice(0, 5).map(tx => ({
+    subProdCode: tx.subProdCode,
+    subProdCodeLen: tx.subProdCode?.length,
+    insured: tx.namedInsured?.substring(0, 20),
+    premium: tx.writtenPremium,
+  })));
+
+  // Check specifically for transactions with negative premium (chargebacks)
+  const negativeTransactions = nbTransactions.filter(tx => tx.writtenPremium < 0);
+  console.log(`[SubProducer] Found ${negativeTransactions.length} transactions with negative premium`);
+  if (negativeTransactions.length > 0) {
+    console.log(`[SubProducer] Sample CHARGEBACK transactions:`, negativeTransactions.slice(0, 5).map(tx => ({
+      subProdCode: tx.subProdCode,
+      subProdCodeLen: tx.subProdCode?.length,
+      insured: tx.namedInsured?.substring(0, 20),
+      premium: tx.writtenPremium,
+      transType: tx.transType,
+    })));
+  }
+
   for (const tx of nbTransactions) {
     // Skip if not first-term
     if (!isFirstTerm(tx)) continue;
-    
+
     const code = String(tx.subProdCode || '').trim();
     const normalizedCode = (!code || code === 'NaN' || code === 'undefined') ? '' : code;
     const insuredName = (tx.namedInsured || '').trim();

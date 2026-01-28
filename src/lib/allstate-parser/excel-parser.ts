@@ -264,8 +264,18 @@ export async function parseCompensationStatement(file: File): Promise<ParsedStat
   console.log('Agent Number extracted:', agentNumber);
   console.log('Headers found:', headers);
   console.log('Column mapping:', cols);
+  console.log('Sub Prod Code column index:', cols.subProdCode);
+  if (cols.subProdCode >= 0) {
+    console.log('Sub Prod Code header:', headers[cols.subProdCode]);
+  } else {
+    console.log('⚠️ Sub Prod Code column NOT FOUND! Looking for pattern /sub[-\\s]?prod\\s*code/i');
+    console.log('Available headers:', headers.map((h, i) => `${i}: "${h}"`));
+  }
   console.log('Total transactions parsed:', transactions.length);
   console.log('First 3 transactions:', JSON.stringify(transactions.slice(0, 3), null, 2));
+  // Check sub-prod codes in transactions
+  const uniqueSubProdCodes = [...new Set(transactions.map(t => t.subProdCode))];
+  console.log('Unique Sub Prod Codes found:', uniqueSubProdCodes);
   console.log('Totals:', totals);
   console.log('Parse errors:', errors);
 
