@@ -571,7 +571,11 @@ export function analyzeSubProducers(
     console.log(`[SubProducer] Code 850 chargebacks KEPT (passed first-term):`, code850FirstTermKept);
   }
   if (code850FirstTermSkipped.length > 0) {
-    console.log(`[SubProducer] Code 850 chargebacks SKIPPED by first-term filter:`, code850FirstTermSkipped);
+    console.log(`[SubProducer] Code 850 chargebacks SKIPPED by first-term filter (first 5):`);
+    console.log(`[SubProducer] Cutoff dates - Auto: ${autoCutoffDate.toLocaleDateString()}, Home: ${homeCutoffDate.toLocaleDateString()}`);
+    code850FirstTermSkipped.slice(0, 5).forEach((item, i) => {
+      console.log(`  ${i + 1}. insured="${item.insured}", premium=$${item.premium}, origDate="${item.origDate}"`);
+    });
   }
 
   // Step 2: Convert to producer metrics with net-per-insured aggregation
