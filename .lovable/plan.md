@@ -1,238 +1,115 @@
 
-# Plan: Rename "Stack" to "Flow" and Add Discovery Flow Integration
+# Fix: Complete "Discovery Stack" to "Discovery Flow" Rename
 
-## Overview
-This plan ensures **all users** (Staff, Managers, Agency Owners, and Key Employees) have the **exact same experience** when interacting with the 6-Week Challenge. The changes will:
+## What Went Wrong
 
-1. Rename all "Discovery Stack" references to "Discovery Flow"
-2. Add a "Start Discovery Flow" button for Friday lessons
-3. Ensure users without a profile are prompted to complete it first
+The previous implementation had a **critical data mismatch**:
 
-## Current Architecture Analysis
+1. **Frontend was updated** - `StaffChallenge.tsx` looks for `is_discovery_flow` (line 35, 486)
+2. **Backend was NOT updated** - The `get-staff-challenge` edge function still returns `is_discovery_stack` (line 123)
+3. **Result**: The button condition `selectedLesson.is_discovery_flow` is always `undefined` because the API returns `is_discovery_stack`
 
-### Who Uses What
-| User Type | Challenge Route | Component | Flow Profile Hook |
-|-----------|-----------------|-----------|-------------------|
-| Staff | `/staff/challenge` | `StaffChallenge.tsx` | `useStaffFlowProfile` |
-| Manager | `/staff/challenge` | `StaffChallenge.tsx` | `useStaffFlowProfile` |
-| Owner | `/staff/challenge` | `StaffChallenge.tsx` | `useStaffFlowProfile` |
-| Key Employee | `/staff/challenge` | `StaffChallenge.tsx` | `useStaffFlowProfile` |
+Additionally, the image you shared shows `ChallengeView.tsx` line 372 which the code I just read shows IS correctly updated to "Discovery Flow" - but this may be displaying cached/old content. The database migration to rename the column also needs verification.
 
-All challenge participants use the **same component and hook**, ensuring equal experience.
+## Files Still Containing "Discovery Stack"
 
-### Files Containing "Discovery Stack" Terminology
-
-| File | Occurrences | Context |
-|------|-------------|---------|
-| `src/pages/staff/StaffChallenge.tsx` | 3 | Interface + 2 UI badges |
-| `src/pages/training/ChallengeView.tsx` | 4 | Interface + 2 badges + 1 sidebar text |
-| `src/pages/training/ChallengePurchase.tsx` | 1 | Feature list item |
-| `src/pages/ChallengeLanding.tsx` | 3 | 3 pricing tier feature lists |
-| Database column `challenge_lessons.is_discovery_stack` | 1 | Schema |
+| File | Location | Issue |
+|------|----------|-------|
+| `supabase/functions/get-staff-challenge/index.ts` | Line 123 | **CRITICAL**: Returns `is_discovery_stack` instead of `is_discovery_flow` |
+| `supabase/functions/challenge-send-daily-emails/index.ts` | Lines 83-86 | Email template says "Friday Discovery Stack" |
+| `src/components/challenge/admin/ChallengeLessonEditor.tsx` | Lines 28, 165-169 | Admin editor uses old property name and label |
+| `src/pages/admin/challenge-tabs/ChallengeContentTab.tsx` | Lines 146-150 | Admin content tab shows "Discovery Stack" badge |
+| `src/hooks/useChallengeAdmin.ts` | Line 41 | Interface uses `is_discovery_stack` |
+| `supabase/migrations/20251209135424_*.sql` | Lines 12, 68, 89 | Historical migration (can be ignored) |
+| `src/hooks/useFlowSession.ts` | Line 187 | Uses `stack_title` interpolation key |
+| `src/hooks/useStaffFlowSession.ts` | Line 192 | Uses `stack_title` interpolation key |
 
 ---
 
-## Technical Changes
+## Fix Plan
 
-### Part 1: Terminology Updates
+### Part 1: Fix the Critical Backend Mismatch
 
-#### 1.1 StaffChallenge.tsx (Main Participant View)
+**File: `supabase/functions/get-staff-challenge/index.ts`**
 
-**Location:** `src/pages/staff/StaffChallenge.tsx`
+Line 123: Change `is_discovery_stack` to `is_discovery_flow`
+
+```typescript
+// Before (line 123)
+is_discovery_stack,
+
+// After
+is_discovery_flow,
+```
+
+This will make the API return `is_discovery_flow` which the frontend is expecting, and the button will appear for Friday lessons.
+
+---
+
+### Part 2: Fix Admin Interface
+
+**File: `src/components/challenge/admin/ChallengeLessonEditor.tsx`**
 
 | Line | Current | New |
 |------|---------|-----|
-| 33 | `is_discovery_stack: boolean;` | `is_discovery_flow: boolean;` |
-| 392-393 | `lesson.is_discovery_stack` / `"Discovery Stack"` | `lesson.is_discovery_flow` / `"Discovery Flow"` |
-| 414-417 | `selectedLesson.is_discovery_stack` / `"Discovery Stack"` | `selectedLesson.is_discovery_flow` / `"Discovery Flow"` |
+| 28 | `is_discovery_stack: lesson.is_discovery_stack` | `is_discovery_flow: lesson.is_discovery_flow` |
+| 165 | `id="discovery_stack"` | `id="discovery_flow"` |
+| 166 | `checked={form.is_discovery_stack}` | `checked={form.is_discovery_flow}` |
+| 167 | `setForm({ ...form, is_discovery_stack: checked })` | `setForm({ ...form, is_discovery_flow: checked })` |
+| 169 | `"Discovery Stack Day (Friday)"` | `"Discovery Flow Day (Friday)"` |
 
-#### 1.2 ChallengeView.tsx (Owner Preview)
-
-**Location:** `src/pages/training/ChallengeView.tsx`
-
-| Line | Current | New |
-|------|---------|-----|
-| 33 | `is_discovery_stack: boolean;` | `is_discovery_flow: boolean;` |
-| 233-234 | `lesson.is_discovery_stack` / `"Discovery Stack"` | `lesson.is_discovery_flow` / `"Discovery Flow"` |
-| 255-258 | `selectedLesson.is_discovery_stack` / `"Discovery Stack"` | `selectedLesson.is_discovery_flow` / `"Discovery Flow"` |
-| 372 | `"Weekly Discovery Stack reflections"` | `"Weekly Discovery Flow reflections"` |
-
-#### 1.3 ChallengePurchase.tsx (Purchase Page)
-
-**Location:** `src/pages/training/ChallengePurchase.tsx`
+**File: `src/pages/admin/challenge-tabs/ChallengeContentTab.tsx`**
 
 | Line | Current | New |
 |------|---------|-----|
-| 403 | `title: 'Discovery Stack'` | `title: 'Discovery Flow'` |
-| 404 | `description: 'Weekly Friday reflections...'` | `description: 'Weekly Friday guided reflections to cement learning'` |
+| 146 | `lesson.is_discovery_stack` | `lesson.is_discovery_flow` |
+| 149 | `Discovery Stack` | `Discovery Flow` |
 
-#### 1.4 ChallengeLanding.tsx (Public Landing Page)
+**File: `src/hooks/useChallengeAdmin.ts`**
 
-**Location:** `src/pages/ChallengeLanding.tsx`
-
-| Lines | Current | New |
-|-------|---------|-----|
-| 37 | `'Discovery Stack weekly reviews'` | `'Discovery Flow weekly reviews'` |
-| 54 | `'Discovery Stack weekly reviews'` | `'Discovery Flow weekly reviews'` |
-| 71 | `'Discovery Stack weekly reviews'` | `'Discovery Flow weekly reviews'` |
+| Line | Current | New |
+|------|---------|-----|
+| 41 | `is_discovery_stack: boolean` | `is_discovery_flow: boolean` |
 
 ---
 
-### Part 2: Add "Start Discovery Flow" Button (Friday Lessons)
+### Part 3: Fix Email Template
 
-#### 2.1 StaffChallenge.tsx - New Imports
+**File: `supabase/functions/challenge-send-daily-emails/index.ts`**
 
-Add at the top of the file:
+| Line | Current | New |
+|------|---------|-----|
+| 83 | `lesson.is_discovery_stack` | `lesson.is_discovery_flow` |
+| 85 | `Friday Discovery Stack` | `Friday Discovery Flow` |
+| 86 | `weekly Discovery Stack reflection` | `weekly Discovery Flow reflection` |
+
+---
+
+### Part 4: Update Flow Session Hooks (Optional - Lower Priority)
+
+The `stack_title` interpolation key in the flow template questions is a database value that would require updating the `flow_templates` table. Since these hooks check for BOTH `stack_title` and `title`, this is backwards compatible and can be addressed separately.
+
+---
+
+## Summary of Required Changes
+
+| Priority | File | Type | Description |
+|----------|------|------|-------------|
+| CRITICAL | `get-staff-challenge/index.ts` | Edge Function | Change field name to `is_discovery_flow` |
+| HIGH | `ChallengeLessonEditor.tsx` | Admin UI | Update property names and label |
+| HIGH | `ChallengeContentTab.tsx` | Admin UI | Update badge text |
+| HIGH | `useChallengeAdmin.ts` | Hook | Update interface property |
+| HIGH | `challenge-send-daily-emails/index.ts` | Edge Function | Update email template text |
+| LOW | Flow session hooks | Hooks | `stack_title` key (backwards compatible) |
+
+---
+
+## Why the Button Didn't Appear
+
+The "Start Discovery Flow" button code EXISTS in `StaffChallenge.tsx` (lines 486-501), but it never renders because:
+
 ```typescript
-import { useStaffFlowProfile } from '@/hooks/useStaffFlowProfile';
-import { Sparkles } from 'lucide-react';
+{selectedLesson.is_discovery_flow && ...}  // Always false!
 ```
 
-#### 2.2 StaffChallenge.tsx - Hook Usage
-
-Add after existing hooks (around line 100):
-```typescript
-const { hasProfile, loading: profileLoading } = useStaffFlowProfile();
-```
-
-#### 2.3 StaffChallenge.tsx - Button Logic
-
-Replace the current "Mark as Complete" button section (lines 481-500) with conditional logic:
-
-```typescript
-{/* Discovery Flow Button - for Friday lessons that are not completed */}
-{selectedLesson.is_discovery_flow && selectedLesson.challenge_progress?.status !== 'completed' && (
-  <Button
-    className="w-full mb-2"
-    onClick={() => {
-      if (!hasProfile) {
-        navigate('/staff/flows/profile', { 
-          state: { redirectTo: '/staff/flows/start/discovery' } 
-        });
-      } else {
-        navigate('/staff/flows/start/discovery');
-      }
-    }}
-  >
-    <Sparkles className="h-4 w-4 mr-2" />
-    Start Discovery Flow
-  </Button>
-)}
-
-{/* Regular Mark Complete Button - for all lessons */}
-{selectedLesson.challenge_progress?.status !== 'completed' && (
-  <Button
-    variant={selectedLesson.is_discovery_flow ? "outline" : "default"}
-    className="w-full"
-    onClick={handleMarkComplete}
-    disabled={completing}
-  >
-    {completing ? (
-      <>
-        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-        Completing...
-      </>
-    ) : (
-      <>
-        <CheckCircle2 className="h-4 w-4 mr-2" />
-        Mark as Complete
-      </>
-    )}
-  </Button>
-)}
-```
-
----
-
-### Part 3: Database Schema Update
-
-#### 3.1 Rename Column
-
-SQL Migration:
-```sql
--- Rename column from is_discovery_stack to is_discovery_flow
-ALTER TABLE public.challenge_lessons 
-  RENAME COLUMN is_discovery_stack TO is_discovery_flow;
-
--- Add a comment for documentation
-COMMENT ON COLUMN public.challenge_lessons.is_discovery_flow IS 
-  'Indicates Friday lessons that should link to the Discovery Flow';
-```
-
----
-
-### Part 4: Edge Function Update
-
-#### 4.1 get-staff-challenge
-
-**Location:** `supabase/functions/get-staff-challenge/index.ts`
-
-The edge function queries `challenge_lessons` and returns the data. After the database column is renamed, the returned field will automatically be `is_discovery_flow` instead of `is_discovery_stack`.
-
-No code changes needed if the function uses `SELECT *` or includes the column dynamically. If it explicitly maps fields, update the field name.
-
----
-
-## User Flow After Changes
-
-```text
-User opens Friday lesson in Challenge
-         │
-         ▼
-┌────────────────────────┐
-│ is_discovery_flow?     │
-└────────┬───────────────┘
-    Yes  │       No
-         ▼        ▼
-┌───────────────┐  ┌───────────────┐
-│ Show "Start   │  │ Show only     │
-│ Discovery     │  │ "Mark as      │
-│ Flow" button  │  │ Complete"     │
-│ + "Mark as    │  │ button        │
-│ Complete"     │  └───────────────┘
-└───────┬───────┘
-        │ Click "Start Discovery Flow"
-        ▼
-┌────────────────────────┐
-│ hasProfile?            │
-└────────┬───────────────┘
-    No   │       Yes
-         ▼        ▼
-┌───────────────┐  ┌───────────────┐
-│ Navigate to   │  │ Navigate to   │
-│ /staff/flows/ │  │ /staff/flows/ │
-│ profile       │  │ start/        │
-│ (with         │  │ discovery     │
-│ redirectTo)   │  └───────────────┘
-└───────────────┘
-```
-
----
-
-## Summary of Changes
-
-| File | Type | Description |
-|------|------|-------------|
-| `src/pages/staff/StaffChallenge.tsx` | UI + Logic | Rename terminology + add Discovery Flow button with profile check |
-| `src/pages/training/ChallengeView.tsx` | UI | Rename "Discovery Stack" to "Discovery Flow" |
-| `src/pages/training/ChallengePurchase.tsx` | UI | Rename in feature list |
-| `src/pages/ChallengeLanding.tsx` | UI | Rename in 3 pricing tier descriptions |
-| Database migration | Schema | Rename column `is_discovery_stack` to `is_discovery_flow` |
-| Edge function | Backend | Automatic if using wildcard select; verify field mapping |
-
----
-
-## Why This Ensures Equal Experience
-
-1. **Single Component:** All user types (Staff, Manager, Owner, Key Employee) use `StaffChallenge.tsx`
-2. **Single Hook:** All user types use `useStaffFlowProfile` for profile checking
-3. **Same Flow Routes:** Everyone navigates to `/staff/flows/profile` or `/staff/flows/start/discovery`
-4. **Consistent Terminology:** "Discovery Flow" appears everywhere for all users
-
----
-
-## Files NOT Requiring Changes
-
-- `useFlowProfile.ts` - Only used by non-staff flows routes (regular owner Flows)
-- `StaffFlows.tsx` - Already has correct profile redirect logic (reused pattern)
-- `flow_templates` table - Already has "Discovery" template with slug `discovery`
+The data from the API returns `{ is_discovery_stack: true }` but the frontend checks `is_discovery_flow`. Once the edge function is updated to return `is_discovery_flow`, the button will appear on Friday lessons.
