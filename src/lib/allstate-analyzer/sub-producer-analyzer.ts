@@ -419,13 +419,16 @@ export function analyzeSubProducers(
     }
   }
 
-  // Filter to New Business only
+  // Filter to New Business OR negative premium (chargebacks)
+  // Chargebacks might not be marked as "New Business" but we still need them
   const nbTransactions = transactions.filter(tx => {
     const businessType = (tx.businessType || '').trim().toLowerCase();
-    return businessType === 'new business' || businessType === 'new';
+    const isNewBusiness = businessType === 'new business' || businessType === 'new';
+    const isChargeback = (tx.writtenPremium || 0) < 0;
+    return isNewBusiness || isChargeback;
   });
 
-  console.log(`[SubProducer] After New Business filter: ${nbTransactions.length} of ${transactions.length} transactions`);
+  console.log(`[SubProducer] After New Business filter: ${nbTransactions.length} of ${transactions.length} transactions (includes chargebacks regardless of business type)`);
   
   // Helper: Check if transaction is within first term
   function isFirstTerm(tx: StatementTransaction): boolean {
