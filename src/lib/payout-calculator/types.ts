@@ -269,3 +269,19 @@ export interface CalculationSnapshot {
   };
   calculatedAt: string;
 }
+
+// ============================================
+// Written Metrics (from sales table for tier qualification)
+// ============================================
+
+/**
+ * Written metrics from the sales table.
+ * Used for tier qualification when tier_metric_source = 'written'.
+ * This represents manually entered sales data, not Allstate statement data.
+ */
+export interface WrittenMetrics {
+  writtenItems: number;
+  writtenPremium: number;
+  writtenPolicies: number;
+  writtenHouseholds: number;
+}

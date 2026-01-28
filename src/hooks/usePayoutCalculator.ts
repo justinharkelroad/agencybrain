@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompPlans } from "./useCompPlans";
 import { calculateAllPayouts, convertToPerformance, calculateMemberPayout, BrokeredMetrics } from "@/lib/payout-calculator/calculator";
-import { PayoutCalculation } from "@/lib/payout-calculator/types";
+import { PayoutCalculation, WrittenMetrics } from "@/lib/payout-calculator/types";
 import { calculateSelfGenMetricsBatch, SelfGenMetrics } from "@/lib/payout-calculator/self-gen";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { toast } from "sonner";
@@ -176,6 +176,97 @@ async function fetchBrokeredMetrics(
   return brokeredByMember;
 }
 
+// Fetch written metrics from sales table for tier qualification
+// This is used when tier_metric_source = 'written' to use manual sales entries
+// instead of Allstate statement data for determining which tier a producer qualifies for
+async function fetchWrittenMetrics(
+  agencyId: string,
+  teamMemberIds: string[],
+  month: number,
+  year: number
+): Promise<Map<string, WrittenMetrics>> {
+  if (teamMemberIds.length === 0) {
+    return new Map();
+  }
+
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0);
+  const startStr = startDate.toISOString().split('T')[0];
+  const endStr = endDate.toISOString().split('T')[0];
+
+  console.log('[fetchWrittenMetrics] Fetching from sales table:', {
+    agencyId,
+    teamMemberIds,
+    dateRange: `${startStr} to ${endStr}`,
+  });
+
+  const { data: sales, error } = await supabase
+    .from("sales")
+    .select(`
+      team_member_id,
+      total_items,
+      total_premium,
+      total_policies,
+      customer_id
+    `)
+    .eq("agency_id", agencyId)
+    .in("team_member_id", teamMemberIds)
+    .gte("sale_date", startStr)
+    .lte("sale_date", endStr);
+
+  if (error) {
+    console.error("[fetchWrittenMetrics] Error fetching written metrics:", error);
+    return new Map();
+  }
+
+  console.log(`[fetchWrittenMetrics] Found ${sales?.length || 0} sales records`);
+
+  const writtenByMember = new Map<string, WrittenMetrics>();
+  const householdsByMember = new Map<string, Set<string>>();
+
+  for (const sale of sales || []) {
+    if (!sale.team_member_id) continue;
+
+    const current = writtenByMember.get(sale.team_member_id) || {
+      writtenItems: 0,
+      writtenPremium: 0,
+      writtenPolicies: 0,
+      writtenHouseholds: 0,
+    };
+
+    current.writtenItems += sale.total_items || 0;
+    current.writtenPremium += sale.total_premium || 0;
+    current.writtenPolicies += sale.total_policies || 0;
+
+    // Track unique households by customer_id
+    if (sale.customer_id) {
+      let householdSet = householdsByMember.get(sale.team_member_id);
+      if (!householdSet) {
+        householdSet = new Set();
+        householdsByMember.set(sale.team_member_id, householdSet);
+      }
+      householdSet.add(sale.customer_id);
+    }
+
+    writtenByMember.set(sale.team_member_id, current);
+  }
+
+  // Update household counts
+  for (const [memberId, householdSet] of householdsByMember) {
+    const metrics = writtenByMember.get(memberId);
+    if (metrics) {
+      metrics.writtenHouseholds = householdSet.size;
+    }
+  }
+
+  // Log results for debugging
+  for (const [memberId, metrics] of writtenByMember) {
+    console.log(`[fetchWrittenMetrics] ${memberId}:`, metrics);
+  }
+
+  return writtenByMember;
+}
+
 export function usePayoutCalculator(agencyId: string | null) {
   const queryClient = useQueryClient();
   const { data: plans = [] } = useCompPlans(agencyId);
@@ -264,6 +355,9 @@ export function usePayoutCalculator(agencyId: string | null) {
     // Fetch brokered business metrics (Phase 5)
     const brokeredMetricsByMember = await fetchBrokeredMetrics(agencyId, month, year);
 
+    // Fetch written metrics from sales table (for tier qualification when source = 'written')
+    const writtenMetricsByMember = await fetchWrittenMetrics(agencyId, teamMemberIds, month, year);
+
     return await calculateAllPayouts(
       subProducerData,
       plans,
@@ -275,7 +369,8 @@ export function usePayoutCalculator(agencyId: string | null) {
       manualOverrides,
       selfGenByMember,
       selfGenMetricsByMember,
-      brokeredMetricsByMember
+      brokeredMetricsByMember,
+      writtenMetricsByMember
     );
   };
 

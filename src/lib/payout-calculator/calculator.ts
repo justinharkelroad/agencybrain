@@ -13,7 +13,8 @@ import {
   SelfGenBonusResult,
   ChargebackDetail,
   ChargebackFilterResult,
-  CalculationSnapshot
+  CalculationSnapshot,
+  WrittenMetrics
 } from "./types";
 import { SelfGenMetrics } from "./self-gen";
 import { supabase } from "@/integrations/supabase/client";
@@ -1054,6 +1055,7 @@ function hasProductRates(productRates: ProductRates | null | undefined): boolean
  *
  * @param selfGenMetrics - Self-gen metrics from calculateSelfGenMetrics (Phase 2+)
  * @param brokeredMetrics - Brokered business metrics from sales table (Phase 5)
+ * @param writtenMetrics - Written metrics from sales table (for tier qualification when source = 'written')
  */
 export function calculateMemberPayout(
   performance: SubProducerPerformance,
@@ -1063,35 +1065,57 @@ export function calculateMemberPayout(
   promoBonus: { bonusAmount: number; achievedPromos: AchievedPromo[] } = { bonusAmount: 0, achievedPromos: [] },
   selfGenItems: number = 0, // Legacy: items marked as self-generated
   selfGenMetrics?: SelfGenMetrics, // New: full self-gen metrics from sales table
-  brokeredMetrics?: BrokeredMetrics // Phase 5: brokered business metrics
+  brokeredMetrics?: BrokeredMetrics, // Phase 5: brokered business metrics
+  writtenMetrics?: WrittenMetrics // Written metrics from sales table for tier qualification
 ): PayoutCalculation {
   // Get tier metric source from plan (written or issued)
   const tierMetricSource = (plan as any).tier_metric_source || 'written';
 
   // Calculate custom points if point_values is configured and tier_metric is 'points'
   let customPointsCalculated: number | undefined;
-  let metricValue = getMetricValue(performance, plan.tier_metric, tierMetricSource);
+  let metricValue: number;
+
+  // Determine metric value based on tier_metric_source
+  if (tierMetricSource === 'written' && writtenMetrics) {
+    // Use sales table data for tier qualification (manual entries)
+    switch (plan.tier_metric) {
+      case 'items':
+        metricValue = writtenMetrics.writtenItems;
+        break;
+      case 'premium':
+        metricValue = writtenMetrics.writtenPremium;
+        break;
+      case 'policies':
+        metricValue = writtenMetrics.writtenPolicies;
+        break;
+      case 'households':
+        metricValue = writtenMetrics.writtenHouseholds;
+        break;
+      default:
+        metricValue = writtenMetrics.writtenItems;
+    }
+    console.log('[calculateMemberPayout] Using SALES TABLE data for tier qualification:', {
+      teamMemberName: performance.teamMemberName,
+      source: 'written (sales table)',
+      tierMetric: plan.tier_metric,
+      metricValue,
+      writtenMetrics,
+    });
+  } else {
+    // Use Allstate statement data (issued) - fallback or when source = 'issued'
+    metricValue = getMetricValue(performance, plan.tier_metric, tierMetricSource);
+    console.log('[calculateMemberPayout] Using STATEMENT data for tier qualification:', {
+      teamMemberName: performance.teamMemberName,
+      source: tierMetricSource === 'written' ? 'written (no sales data, using statement)' : 'issued (statement)',
+      tierMetric: plan.tier_metric,
+      metricValue,
+    });
+  }
 
   if (plan.tier_metric === 'points' && plan.point_values && Object.keys(plan.point_values).length > 0) {
     customPointsCalculated = calculateCustomPoints(performance, plan.point_values);
     metricValue = customPointsCalculated;
   }
-
-  // DEBUG: Log tier calculation inputs
-  console.log('[calculateMemberPayout] Tier calculation inputs:', {
-    teamMemberName: performance.teamMemberName,
-    teamMemberId: performance.teamMemberId,
-    tierMetric: plan.tier_metric,
-    tierMetricSource,
-    metricValue,
-    writtenItems: performance.writtenItems,
-    issuedItems: performance.issuedItems,
-    writtenPremium: performance.writtenPremium,
-    issuedPremium: performance.issuedPremium,
-    writtenPolicies: performance.writtenPolicies,
-    writtenHouseholds: performance.writtenHouseholds,
-    planTiers: plan.tiers.map(t => ({ id: t.id, min_threshold: t.min_threshold, commission_value: t.commission_value })),
-  });
 
   // Determine self-gen percentage (prefer new metrics if available)
   const selfGenPercent = selfGenMetrics?.selfGenPercent ??
@@ -1389,6 +1413,7 @@ export function calculateMemberPayout(
  * @param selfGenByMember - Map of team_member_id -> self-gen item count from sales data (legacy)
  * @param selfGenMetricsByMember - Map of team_member_id -> full SelfGenMetrics (Phase 3)
  * @param brokeredMetricsByMember - Map of team_member_id -> BrokeredMetrics (Phase 5)
+ * @param writtenMetricsByMember - Map of team_member_id -> WrittenMetrics from sales table (for tier qualification when source = 'written')
  */
 export async function calculateAllPayouts(
   subProducerData: SubProducerMetrics[] | undefined | null,
@@ -1401,7 +1426,8 @@ export async function calculateAllPayouts(
   manualOverrides?: ManualOverride[],
   selfGenByMember?: Map<string, number>,
   selfGenMetricsByMember?: Map<string, SelfGenMetrics>,
-  brokeredMetricsByMember?: Map<string, BrokeredMetrics>
+  brokeredMetricsByMember?: Map<string, BrokeredMetrics>,
+  writtenMetricsByMember?: Map<string, WrittenMetrics>
 ): Promise<{ payouts: PayoutCalculation[]; warnings: string[] }> {
   // Guard against missing data
   if (!subProducerData || !Array.isArray(subProducerData)) {
@@ -1560,6 +1586,7 @@ export async function calculateAllPayouts(
       const selfGenItems = selfGenByMember?.get(teamMember.id) || 0;
       const selfGenMetrics = selfGenMetricsByMember?.get(teamMember.id);
       const brokeredMetrics = brokeredMetricsByMember?.get(teamMember.id);
+      const writtenMetrics = writtenMetricsByMember?.get(teamMember.id);
 
       const payout = calculateMemberPayout(
         performance,
@@ -1569,7 +1596,8 @@ export async function calculateAllPayouts(
         promoBonus,
         selfGenItems,
         selfGenMetrics,
-        brokeredMetrics
+        brokeredMetrics,
+        writtenMetrics
       );
       payouts.push(payout);
     }
