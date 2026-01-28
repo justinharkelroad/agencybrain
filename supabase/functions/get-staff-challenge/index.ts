@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
         content_html,
         questions,
         action_items,
-        is_discovery_stack,
+        is_discovery_flow,
         challenge_progress!inner (
           id,
           status,

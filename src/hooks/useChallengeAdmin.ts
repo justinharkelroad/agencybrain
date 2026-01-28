@@ -38,7 +38,7 @@ export interface ChallengeLesson {
   content_html: string | null;
   questions: any[] | null;
   action_items: any[] | null;
-  is_discovery_stack: boolean;
+  is_discovery_flow: boolean;
   email_subject: string | null;
   email_preview: string | null;
 }

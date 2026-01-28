@@ -25,7 +25,7 @@ export function ChallengeLessonEditor({ lesson, weekNumber, onClose }: Challenge
     video_thumbnail_url: lesson.video_thumbnail_url || "",
     preview_text: lesson.preview_text || "",
     content_html: lesson.content_html || "",
-    is_discovery_stack: lesson.is_discovery_stack,
+    is_discovery_flow: lesson.is_discovery_flow,
     email_subject: lesson.email_subject || "",
     email_preview: lesson.email_preview || "",
   });
@@ -162,11 +162,11 @@ export function ChallengeLessonEditor({ lesson, weekNumber, onClose }: Challenge
 
             <div className="flex items-center space-x-2">
               <Switch
-                id="discovery_stack"
-                checked={form.is_discovery_stack}
-                onCheckedChange={(checked) => setForm({ ...form, is_discovery_stack: checked })}
+                id="discovery_flow"
+                checked={form.is_discovery_flow}
+                onCheckedChange={(checked) => setForm({ ...form, is_discovery_flow: checked })}
               />
-              <Label htmlFor="discovery_stack">Discovery Stack Day (Friday)</Label>
+              <Label htmlFor="discovery_flow">Discovery Flow Day (Friday)</Label>
             </div>
           </TabsContent>
 
