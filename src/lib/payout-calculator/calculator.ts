@@ -35,11 +35,17 @@ export interface ManualOverride {
   subProdCode: string;
   teamMemberId: string | null;
   teamMemberName: string | null;
+  // Total metrics (for tier qualification)
   writtenItems: number | null;
   writtenPremium: number | null;
   writtenPolicies: number | null;
   writtenHouseholds: number | null;
   writtenPoints: number | null;
+  // Bundle breakdown (for commission calculation)
+  bundledItems: number | null;
+  bundledPremium: number | null;
+  monolineItems: number | null;
+  monolinePremium: number | null;
 }
 
 /**
@@ -1455,6 +1461,7 @@ export async function calculateAllPayouts(
       // Apply manual overrides if present (for testing compensation calculations)
       const override = overrideByCode.get(code);
       if (override) {
+        // Total metrics for tier qualification
         if (override.writtenItems !== null) {
           performance.writtenItems = override.writtenItems;
         }
@@ -1469,6 +1476,48 @@ export async function calculateAllPayouts(
         }
         if (override.writtenPoints !== null) {
           performance.writtenPoints = override.writtenPoints;
+        }
+        
+        // Bundle breakdown for commission calculation
+        // If any bundle field is specified, build a synthetic byBundleType array
+        if (override.bundledItems !== null || override.monolineItems !== null ||
+            override.bundledPremium !== null || override.monolinePremium !== null) {
+          
+          // Build synthetic byBundleType array from overrides
+          performance.byBundleType = [];
+          
+          const bundledItems = override.bundledItems ?? 0;
+          const bundledPremium = override.bundledPremium ?? 0;
+          const monolineItems = override.monolineItems ?? 0;
+          const monolinePremium = override.monolinePremium ?? 0;
+          
+          if (bundledItems > 0 || bundledPremium > 0) {
+            performance.byBundleType.push({
+              bundleType: 'standard', // "bundled" maps to standard in most plans
+              premiumWritten: bundledPremium,
+              premiumChargebacks: 0,
+              netPremium: bundledPremium,
+              itemsIssued: bundledItems,
+              creditCount: bundledItems,
+              chargebackCount: 0,
+            });
+          }
+          
+          if (monolineItems > 0 || monolinePremium > 0) {
+            performance.byBundleType.push({
+              bundleType: 'monoline',
+              premiumWritten: monolinePremium,
+              premiumChargebacks: 0,
+              netPremium: monolinePremium,
+              itemsIssued: monolineItems,
+              creditCount: monolineItems,
+              chargebackCount: 0,
+            });
+          }
+          
+          // Update issued metrics to match the bundle sum
+          performance.issuedItems = bundledItems + monolineItems;
+          performance.issuedPremium = bundledPremium + monolinePremium;
         }
       }
 
