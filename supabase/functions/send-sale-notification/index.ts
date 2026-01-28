@@ -87,6 +87,8 @@ serve(async (req) => {
         effective_date,
         source,
         created_at,
+        lead_source_id,
+        lead_source:lead_sources(name, is_self_generated),
         team_member:team_members!sales_team_member_id_fkey(id, name)
       `)
       .eq('id', body.sale_id)
@@ -255,6 +257,12 @@ serve(async (req) => {
     const teamMember = sale.team_member as { id: string; name: string }[] | { id: string; name: string } | null;
     const producerName = Array.isArray(teamMember) ? teamMember[0]?.name : teamMember?.name || 'Unknown';
     const customerName = sale.customer_name || 'Unknown';
+    
+    // Handle lead_source join (may be object or array)
+    const leadSourceData = sale.lead_source as { name: string; is_self_generated: boolean }[] | { name: string; is_self_generated: boolean } | null;
+    const leadSourceName = Array.isArray(leadSourceData) 
+      ? leadSourceData[0]?.name 
+      : leadSourceData?.name || null;
     const formatCurrency = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
     const submittedTime = new Date(sale.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone });
@@ -297,6 +305,10 @@ serve(async (req) => {
           <tr>
             <td style="padding: 6px 0; color: #6b7280; width: 140px;">Producer:</td>
             <td style="padding: 6px 0; font-weight: 600;">${producerName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 6px 0; color: #6b7280;">Lead Source:</td>
+            <td style="padding: 6px 0;">${leadSourceName || '—'}</td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #6b7280;">Customer:</td>
