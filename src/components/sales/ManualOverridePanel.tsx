@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Edit3, ChevronDown, ChevronRight, AlertCircle, Users } from "lucide-react";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
+import { useToast } from "@/hooks/use-toast";
 
 export interface ManualOverride {
   subProdCode: string;
@@ -50,9 +52,11 @@ export function ManualOverridePanel({
   overrides,
   onChange,
 }: ManualOverridePanelProps) {
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [bulkItems, setBulkItems] = useState<string>("");
   const [bulkPremium, setBulkPremium] = useState<string>("");
+  const [selectedCodes, setSelectedCodes] = useState<Set<string>>(new Set());
 
   // Build a map of sub-producer codes to team members
   const memberByCode = useMemo(() => {
@@ -117,7 +121,12 @@ export function ManualOverridePanel({
     });
   }, [subProducerData, memberByCode, overrides]);
 
-  const matchedCount = producerData.filter((p) => p.teamMember).length;
+  // Get matched producer codes for selection logic
+  const matchedCodes = useMemo(() => {
+    return producerData.filter((p) => p.teamMember).map((p) => p.code);
+  }, [producerData]);
+
+  const matchedCount = matchedCodes.length;
   const unmatchedCount = producerData.filter((p) => !p.teamMember).length;
   const hasOverrides = overrides.some(
     (o) =>
@@ -125,6 +134,30 @@ export function ManualOverridePanel({
       o.writtenPremium !== null ||
       o.writtenPolicies !== null
   );
+
+  // Selection helpers
+  const toggleSelection = (code: string) => {
+    setSelectedCodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) {
+        next.delete(code);
+      } else {
+        next.add(code);
+      }
+      return next;
+    });
+  };
+
+  const isAllSelected = matchedCodes.length > 0 && matchedCodes.every((code) => selectedCodes.has(code));
+  const isSomeSelected = matchedCodes.some((code) => selectedCodes.has(code));
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedCodes(new Set()); // Deselect all
+    } else {
+      setSelectedCodes(new Set(matchedCodes)); // Select all matched
+    }
+  };
 
   const handleOverrideChange = (
     subProdCode: string,
@@ -142,15 +175,30 @@ export function ManualOverridePanel({
   };
 
   const handleApplyBulk = () => {
+    if (selectedCodes.size === 0) {
+      toast({
+        title: "No rows selected",
+        description: "Select one or more team members to apply the override values.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const itemsValue = bulkItems === "" ? null : parseInt(bulkItems, 10);
     const premiumValue = bulkPremium === "" ? null : parseFloat(bulkPremium);
 
-    const updated = overrides.map((o) => ({
-      ...o,
-      writtenItems: itemsValue,
-      writtenPremium: premiumValue,
-    }));
+    const updated = overrides.map((o) => {
+      if (selectedCodes.has(o.subProdCode)) {
+        return {
+          ...o,
+          writtenItems: itemsValue,
+          writtenPremium: premiumValue,
+        };
+      }
+      return o;
+    });
     onChange(updated);
+    setSelectedCodes(new Set()); // Clear selection after apply
   };
 
   const handleClearAll = () => {
@@ -165,6 +213,7 @@ export function ManualOverridePanel({
     onChange(updated);
     setBulkItems("");
     setBulkPremium("");
+    setSelectedCodes(new Set());
   };
 
   const formatCurrency = (value: number) => {
@@ -226,7 +275,7 @@ export function ManualOverridePanel({
           <CardContent className="space-y-4">
             {/* Bulk Apply Section */}
             <div className="p-4 rounded-lg bg-muted/50 space-y-3">
-              <Label className="text-sm font-medium">Quick Apply to All</Label>
+              <Label className="text-sm font-medium">Quick Apply to Selected</Label>
               <div className="flex flex-wrap gap-4 items-end">
                 <div className="space-y-1">
                   <Label className="text-xs text-muted-foreground">
@@ -252,16 +301,19 @@ export function ManualOverridePanel({
                     className="w-32"
                   />
                 </div>
-                <Button size="sm" onClick={handleApplyBulk}>
-                  Apply to All
+                <Button 
+                  size="sm" 
+                  onClick={handleApplyBulk}
+                  disabled={selectedCodes.size === 0}
+                >
+                  Apply to Selected{selectedCodes.size > 0 && ` (${selectedCodes.size})`}
                 </Button>
                 <Button size="sm" variant="outline" onClick={handleClearAll}>
                   Clear All
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Leave blank to use statement data. Enter values to override for
-                testing tier calculations.
+                Select rows below, then click "Apply to Selected" to override values for testing tier calculations.
               </p>
             </div>
 
@@ -270,6 +322,14 @@ export function ManualOverridePanel({
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[50px]">
+                      <Checkbox
+                        checked={isAllSelected}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all matched producers"
+                        className={isSomeSelected && !isAllSelected ? "opacity-50" : ""}
+                      />
+                    </TableHead>
                     <TableHead className="w-[180px]">Team Member</TableHead>
                     <TableHead className="w-[100px]">Code</TableHead>
                     <TableHead className="text-right">
@@ -290,8 +350,16 @@ export function ManualOverridePanel({
                   {producerData.map((producer) => (
                     <TableRow
                       key={producer.code}
-                      className={!producer.teamMember ? "bg-red-50/50" : ""}
+                      className={!producer.teamMember ? "bg-red-50/50" : selectedCodes.has(producer.code) ? "bg-primary/5" : ""}
                     >
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedCodes.has(producer.code)}
+                          onCheckedChange={() => toggleSelection(producer.code)}
+                          disabled={!producer.teamMember}
+                          aria-label={`Select ${producer.teamMember?.name || producer.code}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         {producer.teamMember ? (
                           <span className="font-medium">
