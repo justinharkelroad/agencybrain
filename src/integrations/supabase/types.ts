@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       agencies: {
@@ -820,6 +795,41 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      brokered_carriers: {
+        Row: {
+          agency_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brokered_carriers_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       call_events: {
         Row: {
@@ -2216,7 +2226,12 @@ export type Database = {
           agency_id: string
           base_commission: number | null
           bonus_amount: number | null
+          brokered_commission: number | null
+          bundling_multiplier: number | null
+          bundling_percent: number | null
+          calculation_snapshot_json: Json | null
           chargeback_count: number | null
+          chargeback_details_json: Json | null
           chargeback_premium: number | null
           comp_plan_id: string | null
           created_at: string | null
@@ -2232,6 +2247,10 @@ export type Database = {
           period_month: number
           period_year: number
           rollover_premium: number | null
+          self_gen_bonus_amount: number | null
+          self_gen_met_requirement: boolean | null
+          self_gen_penalty_amount: number | null
+          self_gen_percent: number | null
           status: string | null
           team_member_id: string
           tier_commission_value: number | null
@@ -2248,7 +2267,12 @@ export type Database = {
           agency_id: string
           base_commission?: number | null
           bonus_amount?: number | null
+          brokered_commission?: number | null
+          bundling_multiplier?: number | null
+          bundling_percent?: number | null
+          calculation_snapshot_json?: Json | null
           chargeback_count?: number | null
+          chargeback_details_json?: Json | null
           chargeback_premium?: number | null
           comp_plan_id?: string | null
           created_at?: string | null
@@ -2264,6 +2288,10 @@ export type Database = {
           period_month: number
           period_year: number
           rollover_premium?: number | null
+          self_gen_bonus_amount?: number | null
+          self_gen_met_requirement?: boolean | null
+          self_gen_penalty_amount?: number | null
+          self_gen_percent?: number | null
           status?: string | null
           team_member_id: string
           tier_commission_value?: number | null
@@ -2280,7 +2308,12 @@ export type Database = {
           agency_id?: string
           base_commission?: number | null
           bonus_amount?: number | null
+          brokered_commission?: number | null
+          bundling_multiplier?: number | null
+          bundling_percent?: number | null
+          calculation_snapshot_json?: Json | null
           chargeback_count?: number | null
+          chargeback_details_json?: Json | null
           chargeback_premium?: number | null
           comp_plan_id?: string | null
           created_at?: string | null
@@ -2296,6 +2329,10 @@ export type Database = {
           period_month?: number
           period_year?: number
           rollover_premium?: number | null
+          self_gen_bonus_amount?: number | null
+          self_gen_met_requirement?: boolean | null
+          self_gen_penalty_amount?: number | null
+          self_gen_percent?: number | null
           status?: string | null
           team_member_id?: string
           tier_commission_value?: number | null
@@ -2464,6 +2501,7 @@ export type Database = {
           policy_type_filter: string[] | null
           product_rates: Json | null
           tier_metric: string
+          tier_metric_source: string
           updated_at: string | null
         }
         Insert: {
@@ -2485,6 +2523,7 @@ export type Database = {
           policy_type_filter?: string[] | null
           product_rates?: Json | null
           tier_metric?: string
+          tier_metric_source?: string
           updated_at?: string | null
         }
         Update: {
@@ -2506,6 +2545,7 @@ export type Database = {
           policy_type_filter?: string[] | null
           product_rates?: Json | null
           tier_metric?: string
+          tier_metric_source?: string
           updated_at?: string | null
         }
         Relationships: [
@@ -2521,6 +2561,7 @@ export type Database = {
       comp_statement_uploads: {
         Row: {
           agency_id: string
+          content_hash: string | null
           file_size_bytes: number | null
           filename: string
           id: string
@@ -2533,6 +2574,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          content_hash?: string | null
           file_size_bytes?: number | null
           filename: string
           id?: string
@@ -2545,6 +2587,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          content_hash?: string | null
           file_size_bytes?: number | null
           filename?: string
           id?: string
@@ -5509,8 +5552,10 @@ export type Database = {
           exclude_from_policy_count: boolean | null
           id: string
           is_active: boolean | null
+          is_brokered: boolean
           is_vc_item: boolean | null
           name: string
+          term_months: number
           updated_at: string | null
         }
         Insert: {
@@ -5523,8 +5568,10 @@ export type Database = {
           exclude_from_policy_count?: boolean | null
           id?: string
           is_active?: boolean | null
+          is_brokered?: boolean
           is_vc_item?: boolean | null
           name: string
+          term_months?: number
           updated_at?: string | null
         }
         Update: {
@@ -5537,8 +5584,10 @@ export type Database = {
           exclude_from_policy_count?: boolean | null
           id?: string
           is_active?: boolean | null
+          is_brokered?: boolean
           is_vc_item?: boolean | null
           name?: string
+          term_months?: number
           updated_at?: string | null
         }
         Relationships: [
@@ -6542,6 +6591,7 @@ export type Database = {
       sales: {
         Row: {
           agency_id: string
+          brokered_carrier_id: string | null
           bundle_type: string | null
           contact_id: string | null
           created_at: string | null
@@ -6573,6 +6623,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          brokered_carrier_id?: string | null
           bundle_type?: string | null
           contact_id?: string | null
           created_at?: string | null
@@ -6604,6 +6655,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          brokered_carrier_id?: string | null
           bundle_type?: string | null
           contact_id?: string | null
           created_at?: string | null
@@ -6639,6 +6691,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_brokered_carrier_id_fkey"
+            columns: ["brokered_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "brokered_carriers"
             referencedColumns: ["id"]
           },
           {
@@ -10671,9 +10730,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_employment_type: ["Full-time", "Part-time"],
