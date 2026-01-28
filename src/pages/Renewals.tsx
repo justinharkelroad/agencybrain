@@ -15,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { clearStaffTokenIfNotStaffRoute } from '@/lib/cancel-audit-api';
 import { useAuth } from '@/lib/auth';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
-import { useRenewalRecords, useRenewalStats, useRenewalProductNames, useBulkUpdateRenewals, useBulkDeleteRenewals, useUpdateRenewalRecord, type RenewalFilters, type RenewalRecordsResult } from '@/hooks/useRenewalRecords';
+import { useRenewalRecords, useRenewalStats, useRenewalProductNames, useBulkUpdateRenewals, useBulkDeleteRenewals, useUpdateRenewalRecord, useRenewalChartData, type RenewalFilters, type RenewalRecordsResult } from '@/hooks/useRenewalRecords';
 import { useActiveCancelAuditPolicies } from '@/hooks/useActiveCancelAuditPolicies';
 import { RenewalUploadModal } from '@/components/renewals/RenewalUploadModal';
 import { RenewalDetailDrawer } from '@/components/renewals/RenewalDetailDrawer';
@@ -248,6 +248,7 @@ export default function Renewals() {
   const { data: stats } = useRenewalStats(context?.agencyId || null);
   const { data: productNames = [] } = useRenewalProductNames(context?.agencyId || null);
   const { data: activeCancelPolicies } = useActiveCancelAuditPolicies(context?.agencyId || null);
+  const { data: chartData = [] } = useRenewalChartData(context?.agencyId || null);
   const bulkUpdate = useBulkUpdateRenewals();
   const bulkDelete = useBulkDeleteRenewals();
   const updateRecord = useUpdateRenewalRecord();
@@ -435,7 +436,7 @@ export default function Renewals() {
       
       {/* Dashboard Charts */}
       <RenewalsDashboard
-        records={records}
+        chartRecords={chartData}
         onDateFilter={setChartDateFilter}
         onDayOfWeekFilter={setChartDayFilter}
         activeDateFilter={chartDateFilter}

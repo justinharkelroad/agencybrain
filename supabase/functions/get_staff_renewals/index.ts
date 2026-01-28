@@ -159,6 +159,32 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { operation, filters = {}, params = {}, page = 1, pageSize = 50 } = body;
 
+    // Handle chart_data operation - lightweight query for chart display
+    if (operation === 'chart_data') {
+      const { startDate, endDate } = params;
+      console.log('[get_staff_renewals] Fetching chart data for dates:', startDate, 'to', endDate);
+      
+      const { data, error } = await supabase
+        .from('renewal_records')
+        .select('renewal_effective_date')
+        .eq('agency_id', agencyId)
+        .eq('is_active', true)
+        .gte('renewal_effective_date', startDate)
+        .lte('renewal_effective_date', endDate);
+      
+      if (error) {
+        console.error('[get_staff_renewals] Chart data query error:', error);
+        return new Response(JSON.stringify({ error: error.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      console.log('[get_staff_renewals] Chart data returned', data?.length, 'records');
+      return new Response(JSON.stringify({ records: data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Handle update_record operation
     if (operation === 'update_record') {
       const { id, updates, displayName, userId, sendToWinback: shouldSendToWinback } = params;
