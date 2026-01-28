@@ -206,8 +206,7 @@ async function fetchWrittenMetrics(
       team_member_id,
       total_items,
       total_premium,
-      total_policies,
-      customer_id
+      total_policies
     `)
     .eq("agency_id", agencyId)
     .in("team_member_id", teamMemberIds)
@@ -222,7 +221,6 @@ async function fetchWrittenMetrics(
   console.log(`[fetchWrittenMetrics] Found ${sales?.length || 0} sales records`);
 
   const writtenByMember = new Map<string, WrittenMetrics>();
-  const householdsByMember = new Map<string, Set<string>>();
 
   for (const sale of sales || []) {
     if (!sale.team_member_id) continue;
@@ -237,26 +235,10 @@ async function fetchWrittenMetrics(
     current.writtenItems += sale.total_items || 0;
     current.writtenPremium += sale.total_premium || 0;
     current.writtenPolicies += sale.total_policies || 0;
-
-    // Track unique households by customer_id
-    if (sale.customer_id) {
-      let householdSet = householdsByMember.get(sale.team_member_id);
-      if (!householdSet) {
-        householdSet = new Set();
-        householdsByMember.set(sale.team_member_id, householdSet);
-      }
-      householdSet.add(sale.customer_id);
-    }
+    // Count each sale as a household (approximation)
+    current.writtenHouseholds += 1;
 
     writtenByMember.set(sale.team_member_id, current);
-  }
-
-  // Update household counts
-  for (const [memberId, householdSet] of householdsByMember) {
-    const metrics = writtenByMember.get(memberId);
-    if (metrics) {
-      metrics.writtenHouseholds = householdSet.size;
-    }
   }
 
   // Log results for debugging
