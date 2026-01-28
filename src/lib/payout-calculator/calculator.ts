@@ -719,7 +719,8 @@ export function calculateCommissionWithBundleConfigs(
   performance: SubProducerPerformance,
   bundleConfigs: BundleConfigs,
   tierMetric: string,
-  chargebackRule: string
+  chargebackRule: string,
+  tierMatch?: TierMatch | null  // Added: fallback tier rate for unconfigured bundle types
 ): {
   totalCommission: number;
   breakdown: Array<{ bundleType: string; premium: number; items: number; commission: number }>;
@@ -729,6 +730,9 @@ export function calculateCommissionWithBundleConfigs(
 
   // Get the overall metric value for tier matching
   const metricValue = getMetricValue(performance, tierMetric);
+
+  // Fallback tier rate for bundle types without explicit config
+  const fallbackTierRate = tierMatch?.commissionValue || 0;
 
   // Calculate effective chargeback count based on rule
   let effectiveChargebackCount = 0;
@@ -744,12 +748,18 @@ export function calculateCommissionWithBundleConfigs(
     const bundleType = bundleData.bundleType.toLowerCase();
     const config = bundleConfigs[bundleType as keyof BundleConfigs];
 
-    if (!config || !config.enabled) {
-      // No config for this bundle type, skip it (or could use default)
-      continue;
-    }
+    // Determine effective rate: use config if exists, otherwise fall back to tier rate
+    let effectiveRate: number;
+    let payoutType = 'percent_of_premium'; // Default payout type
 
-    const effectiveRate = getBundleTypeEffectiveRate(config, metricValue);
+    if (config && config.enabled) {
+      effectiveRate = getBundleTypeEffectiveRate(config, metricValue);
+      payoutType = config.payout_type || 'percent_of_premium';
+    } else {
+      // No config for this bundle type - use the plan's tier rate
+      effectiveRate = fallbackTierRate;
+      console.log(`[calculateCommissionWithBundleConfigs] No config for ${bundleType}, using tier rate: ${effectiveRate}%`);
+    }
 
     if (effectiveRate <= 0) {
       breakdown.push({
@@ -770,10 +780,12 @@ export function calculateCommissionWithBundleConfigs(
     const commission = calculateSegmentCommission(
       bundleData.netPremium,
       bundleData.itemsIssued,
-      config.payout_type,
+      payoutType,
       effectiveRate,
       bundleChargebacks
     );
+
+    console.log(`[calculateCommissionWithBundleConfigs] ${bundleType}: premium=${bundleData.netPremium}, rate=${effectiveRate}%, commission=${commission}`);
 
     breakdown.push({
       bundleType: bundleData.bundleType,
@@ -1168,7 +1180,8 @@ export function calculateMemberPayout(
       performance,
       plan.bundle_configs!,
       plan.tier_metric,
-      plan.chargeback_rule
+      plan.chargeback_rule,
+      tierMatch  // Pass tier rate for fallback
     );
     baseCommission = result.totalCommission;
     commissionByBundleType = result.breakdown;
