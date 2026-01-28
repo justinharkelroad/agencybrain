@@ -444,7 +444,7 @@ export default function ScorecardFormBuilder() {
 
   const addKPIField = () => {
     const newKPI: KPIField = {
-      key: `custom_kpi_${formSchema.kpis.length}`,
+      key: `custom_kpi_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       label: 'New KPI',
       required: false,
       type: 'number'

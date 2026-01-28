@@ -148,11 +148,11 @@ export function filterChargebacksByRule(
   if (chargebackRule === 'none') {
     result.excludedChargebacks = chargebackTransactions;
     for (const cb of chargebackTransactions) {
-      const premium = Math.abs(cb.writtenPremium || cb.premium || 0);
+      const premium = Math.abs(cb.premium || 0);
       result.excludedPremium += premium;
       result.details.push({
         policyNumber: cb.policyNumber || 'Unknown',
-        productType: cb.productType || 'Unknown',
+        productType: cb.product || 'Unknown',
         premium,
         daysInForce: 0,
         termMonths: 0,
@@ -165,8 +165,8 @@ export function filterChargebacksByRule(
 
   for (const cb of chargebackTransactions) {
     const effectiveDate = parseTransactionDate(cb.origPolicyEffDate);
-    const premium = Math.abs(cb.writtenPremium || cb.premium || 0);
-    const productType = (cb.productType || '').toLowerCase();
+    const premium = Math.abs(cb.premium || 0);
+    const productType = (cb.product || '').toLowerCase();
 
     if (!effectiveDate) {
       // Conservative: include if can't parse
@@ -174,7 +174,7 @@ export function filterChargebacksByRule(
       result.eligiblePremium += premium;
       result.details.push({
         policyNumber: cb.policyNumber || 'Unknown',
-        productType: cb.productType || 'Unknown',
+        productType: cb.product || 'Unknown',
         premium,
         daysInForce: -1,
         termMonths: -1,
@@ -213,7 +213,7 @@ export function filterChargebacksByRule(
 
     result.details.push({
       policyNumber: cb.policyNumber || 'Unknown',
-      productType: cb.productType || 'Unknown',
+      productType: cb.product || 'Unknown',
       premium,
       daysInForce,
       termMonths,
