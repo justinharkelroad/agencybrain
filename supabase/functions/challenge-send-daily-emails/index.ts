@@ -80,10 +80,10 @@ async function generateEmailHtml(
 
   <p style="font-size: 16px; color: #374151;">${lesson.preview_text || 'Your daily challenge is ready. Take a few minutes to watch today\'s video and complete your action items.'}</p>
 
-  ${lesson.is_discovery_stack ? `
+  ${lesson.is_discovery_flow ? `
   <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 24px 0; border-radius: 0 8px 8px 0;">
-    <p style="margin: 0; color: #92400e; font-weight: 600;">Friday Discovery Stack</p>
-    <p style="margin: 8px 0 0 0; color: #92400e; font-size: 14px;">Today's lesson includes your weekly Discovery Stack reflection. Don't skip this one!</p>
+    <p style="margin: 0; color: #92400e; font-weight: 600;">Friday Discovery Flow</p>
+    <p style="margin: 8px 0 0 0; color: #92400e; font-size: 14px;">Today's lesson includes your weekly Discovery Flow reflection. Don't skip this one!</p>
   </div>
   ` : ''}
 

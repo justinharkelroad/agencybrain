@@ -143,10 +143,10 @@ export function ChallengeContentTab() {
                             <div>
                               <div className="flex items-center gap-2">
                                 <h3 className="font-medium">{lesson.title}</h3>
-                                {lesson.is_discovery_stack && (
+                                {lesson.is_discovery_flow && (
                                   <Badge variant="secondary" className="text-xs">
                                     <Zap className="h-3 w-3 mr-1" />
-                                    Discovery Stack
+                                    Discovery Flow
                                   </Badge>
                                 )}
                               </div>
