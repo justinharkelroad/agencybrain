@@ -1567,7 +1567,7 @@ export type Database = {
           email_preview: string | null
           email_subject: string | null
           id: string
-          is_discovery_stack: boolean
+          is_discovery_flow: boolean
           module_id: string
           preview_text: string | null
           questions: Json | null
@@ -1588,7 +1588,7 @@ export type Database = {
           email_preview?: string | null
           email_subject?: string | null
           id?: string
-          is_discovery_stack?: boolean
+          is_discovery_flow?: boolean
           module_id: string
           preview_text?: string | null
           questions?: Json | null
@@ -1609,7 +1609,7 @@ export type Database = {
           email_preview?: string | null
           email_subject?: string | null
           id?: string
-          is_discovery_stack?: boolean
+          is_discovery_flow?: boolean
           module_id?: string
           preview_text?: string | null
           questions?: Json | null
