@@ -24,7 +24,8 @@ import { RenewalsDashboard } from '@/components/renewals/RenewalsDashboard';
 import { RenewalsPagination } from '@/components/renewals/RenewalsPagination';
 import { ActivitySummaryBar } from '@/components/renewals/ActivitySummaryBar';
 import { ContactProfileModal } from '@/components/contacts';
-import type { RenewalRecord, RenewalUploadContext, WorkflowStatus } from '@/types/renewal';
+import type { RenewalRecord, RenewalUploadContext, WorkflowStatus, BundledStatus } from '@/types/renewal';
+import { isFirstTermRenewal } from '@/lib/renewalParser';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { format, parseISO, getDay } from 'date-fns';
@@ -75,6 +76,15 @@ export default function Renewals() {
   useEffect(() => {
     sessionStorage.setItem('renewals_hide_in_cancel', String(hideInCancelAudit));
   }, [hideInCancelAudit]);
+
+  // First Term Only toggle with session persistence
+  const [showFirstTermOnly, setShowFirstTermOnly] = useState(() => {
+    return sessionStorage.getItem('renewals_first_term_only') === 'true';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('renewals_first_term_only', String(showFirstTermOnly));
+  }, [showFirstTermOnly]);
 
   // Chart filter state
   const [chartDateFilter, setChartDateFilter] = useState<string | null>(null);
@@ -256,7 +266,7 @@ export default function Renewals() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [effectiveFilters, activeTab, searchQuery, hideRenewalTaken, hideInCancelAudit]);
+  }, [effectiveFilters, activeTab, searchQuery, hideRenewalTaken, hideInCancelAudit, showFirstTermOnly]);
 
   // Phase 3: Priority toggle handler with optimistic update
   const handleTogglePriority = async (recordId: string, isPriority: boolean) => {
@@ -341,6 +351,11 @@ export default function Renewals() {
       result = result.filter(r => !activeCancelPolicies.has(r.policy_number));
     }
 
+    // First Term Only filter (if toggle is on)
+    if (showFirstTermOnly) {
+      result = result.filter(r => isFirstTermRenewal(r.product_code, r.original_year, r.renewal_effective_date));
+    }
+
     // Comparator used for both default and column sorting
     const compare = (a: RenewalRecord, b: RenewalRecord) => {
       // When Priority Only is active, always group starred items first
@@ -388,10 +403,13 @@ export default function Renewals() {
             aVal = a.amount_due ?? 0;
             bVal = b.amount_due ?? 0;
             break;
-          case 'multi_line_indicator':
-            aVal = a.multi_line_indicator ? 1 : 0;
-            bVal = b.multi_line_indicator ? 1 : 0;
+          case 'multi_line_indicator': {
+            // Sort order: yes > no > n/a
+            const bundledOrder: Record<BundledStatus, number> = { 'yes': 2, 'no': 1, 'n/a': 0 };
+            aVal = bundledOrder[a.multi_line_indicator] ?? 0;
+            bVal = bundledOrder[b.multi_line_indicator] ?? 0;
             break;
+          }
           default:
             aVal = 0;
             bVal = 0;
@@ -417,7 +435,7 @@ export default function Renewals() {
     if (sortCriteria.length === 0) return result;
 
     return [...result].sort(compare);
-  }, [records, sortCriteria, showPriorityOnly, hideRenewalTaken, hideInCancelAudit, activeCancelPolicies, chartDateFilter, chartDayFilter]);
+  }, [records, sortCriteria, showPriorityOnly, hideRenewalTaken, hideInCancelAudit, showFirstTermOnly, activeCancelPolicies, chartDateFilter, chartDayFilter]);
 
   const toggleSelectAll = () => { selectedIds.size === records.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(records.map(r => r.id))); };
   const toggleSelect = (id: string) => { const s = new Set(selectedIds); s.has(id) ? s.delete(id) : s.add(id); setSelectedIds(s); };
@@ -503,6 +521,25 @@ export default function Renewals() {
           </Button>
         </div>
       )}
+
+      {/* First Term Only Indicator */}
+      {showFirstTermOnly && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+          <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-blue-100 text-blue-700 border-blue-200">1st</Badge>
+          <span className="text-sm text-blue-400">
+            Showing first-term renewals only ({filteredAndSortedRecords.length} records)
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-blue-400 hover:text-white hover:bg-blue-500/20"
+            onClick={() => setShowFirstTermOnly(false)}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Show All
+          </Button>
+        </div>
+      )}
       
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
@@ -537,7 +574,7 @@ export default function Renewals() {
         </div>
         <Select value={filters.bundledStatus || 'all'} onValueChange={(v) => setFilters(f => ({ ...f, bundledStatus: v as any }))}>
           <SelectTrigger className="w-[140px]"><SelectValue placeholder="Bundled" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="bundled">Bundled</SelectItem><SelectItem value="monoline">Monoline</SelectItem></SelectContent>
+          <SelectContent><SelectItem value="all">All</SelectItem><SelectItem value="bundled">Bundled</SelectItem><SelectItem value="monoline">Monoline</SelectItem><SelectItem value="unknown">N/A</SelectItem></SelectContent>
         </Select>
         <Select value={filters.productName?.[0] || 'all'} onValueChange={(v) => setFilters(f => ({ ...f, productName: v === 'all' ? undefined : [v] }))}>
           <SelectTrigger className="w-[160px]"><SelectValue placeholder="Product" /></SelectTrigger>
@@ -581,6 +618,18 @@ export default function Renewals() {
         >
           <EyeOff className="h-4 w-4" />
           Hide In Cancel
+        </Button>
+
+        {/* First Term Only button */}
+        <Button
+          variant={showFirstTermOnly ? "default" : "outline"}
+          onClick={() => setShowFirstTermOnly(!showFirstTermOnly)}
+          className={cn(
+            "gap-2",
+            showFirstTermOnly && "bg-blue-600 hover:bg-blue-700 text-white"
+          )}
+        >
+          1st Term Only
         </Button>
       </div>
       
@@ -674,20 +723,25 @@ export default function Renewals() {
                   <TableCell onClick={(e) => e.stopPropagation()}><Checkbox checked={selectedIds.has(r.id)} onCheckedChange={() => toggleSelect(r.id)} /></TableCell>
                   <TableCell>{r.renewal_effective_date}</TableCell>
                   <TableCell className="font-medium">
-                    {r.contact_id ? (
-                      <button
-                        className="text-left hover:text-primary hover:underline focus:outline-none"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setProfileContactId(r.contact_id!);
-                          setProfileRenewalRecord({ id: r.id, winback_household_id: r.winback_household_id });
-                        }}
-                      >
-                        {r.first_name} {r.last_name}
-                      </button>
-                    ) : (
-                      <span>{r.first_name} {r.last_name}</span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {isFirstTermRenewal(r.product_code, r.original_year, r.renewal_effective_date) && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-blue-100 text-blue-700 border-blue-200 shrink-0">1st</Badge>
+                      )}
+                      {r.contact_id ? (
+                        <button
+                          className="text-left hover:text-primary hover:underline focus:outline-none truncate"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProfileContactId(r.contact_id!);
+                            setProfileRenewalRecord({ id: r.id, winback_household_id: r.winback_household_id });
+                          }}
+                        >
+                          {r.first_name} {r.last_name}
+                        </button>
+                      ) : (
+                        <span className="truncate">{r.first_name} {r.last_name}</span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="font-mono text-sm">{r.policy_number}</TableCell>
                   <TableCell>{r.product_name}</TableCell>
@@ -718,7 +772,7 @@ export default function Renewals() {
                   <TableCell className="text-right">
                     {r.amount_due != null ? `$${r.amount_due.toLocaleString()}` : '-'}
                   </TableCell>
-                  <TableCell><Badge variant={r.multi_line_indicator ? 'default' : 'secondary'}>{r.multi_line_indicator ? 'Yes' : 'No'}</Badge></TableCell>
+                  <TableCell><Badge variant={r.multi_line_indicator === 'yes' ? 'default' : 'secondary'} className={r.multi_line_indicator === 'n/a' ? 'opacity-50' : ''}>{r.multi_line_indicator === 'yes' ? 'Yes' : r.multi_line_indicator === 'no' ? 'No' : 'N/A'}</Badge></TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
                       <Badge className={STATUS_COLORS[r.current_status]}>{r.current_status}</Badge>

@@ -5,6 +5,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session',
 };
 
+type BundledStatus = 'yes' | 'no' | 'n/a';
+
 interface ParsedRenewalRecord {
   policyNumber: string;
   renewalEffectiveDate: string;
@@ -14,6 +16,8 @@ interface ParsedRenewalRecord {
   phone: string | null;
   phoneAlt: string | null;
   productName: string | null;
+  productCode: string | null;
+  originalYear: number | null;
   agentNumber: string | null;
   renewalStatus: string | null;
   accountType: string | null;
@@ -23,7 +27,7 @@ interface ParsedRenewalRecord {
   premiumChangePercent: number | null;
   amountDue: number | null;
   easyPay: boolean;
-  multiLineIndicator: boolean;
+  multiLineIndicator: BundledStatus;
   itemCount: number | null;
   yearsPriorInsurance: number | null;
   householdKey: string | null;
@@ -182,6 +186,8 @@ Deno.serve(async (req) => {
           phone: r.phone,
           phone_alt: r.phoneAlt,
           product_name: r.productName,
+          product_code: r.productCode,
+          original_year: r.originalYear,
           agent_number: r.agentNumber,
           renewal_status: r.renewalStatus,
           account_type: r.accountType,

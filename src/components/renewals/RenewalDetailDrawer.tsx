@@ -198,7 +198,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                 <div>
                   <span className="text-sm font-medium text-gray-400">Dates</span>
                   <p className="text-sm">Effective: {record.renewal_effective_date || '—'}</p>
-                  <p className="text-sm">Bundled: {record.multi_line_indicator ? 'Yes' : 'No'}</p>
+                  <p className="text-sm">Bundled: <span className="capitalize">{record.multi_line_indicator}</span></p>
                 </div>
               </div>
 

@@ -141,7 +141,7 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
                           <TableCell className="text-right">${r.premiumOld?.toLocaleString() ?? '-'}</TableCell>
                           <TableCell className="text-right">${r.premiumNew?.toLocaleString() ?? '-'}</TableCell>
                           <TableCell className={`text-right ${(r.premiumChangePercent || 0) > 0 ? 'text-red-600' : (r.premiumChangePercent || 0) < 0 ? 'text-green-600' : ''}`}>{r.premiumChangePercent != null ? `${r.premiumChangePercent > 0 ? '+' : ''}${r.premiumChangePercent.toFixed(1)}%` : '-'}</TableCell>
-                          <TableCell>{r.multiLineIndicator ? 'Yes' : 'No'}</TableCell>
+                          <TableCell className="capitalize">{r.multiLineIndicator}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

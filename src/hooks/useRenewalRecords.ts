@@ -9,7 +9,7 @@ export interface RenewalFilters {
   currentStatus?: WorkflowStatus[];
   renewalStatus?: string[];
   productName?: string[];
-  bundledStatus?: 'all' | 'bundled' | 'monoline';
+  bundledStatus?: 'all' | 'bundled' | 'monoline' | 'unknown';
   accountType?: string[];
   assignedTeamMemberId?: string | 'unassigned';
   dateRangeStart?: string;
@@ -87,8 +87,9 @@ export function useRenewalRecords(
       if (filters.currentStatus?.length) query = query.in('current_status', filters.currentStatus);
       if (filters.renewalStatus?.length) query = query.in('renewal_status', filters.renewalStatus);
       if (filters.productName?.length) query = query.in('product_name', filters.productName);
-      if (filters.bundledStatus === 'bundled') query = query.eq('multi_line_indicator', true);
-      else if (filters.bundledStatus === 'monoline') query = query.eq('multi_line_indicator', false);
+      if (filters.bundledStatus === 'bundled') query = query.eq('multi_line_indicator', 'yes');
+      else if (filters.bundledStatus === 'monoline') query = query.eq('multi_line_indicator', 'no');
+      else if (filters.bundledStatus === 'unknown') query = query.eq('multi_line_indicator', 'n/a');
       if (filters.accountType?.length) query = query.in('account_type', filters.accountType);
       if (filters.assignedTeamMemberId) {
         if (filters.assignedTeamMemberId === 'unassigned') query = query.is('assigned_team_member_id', null);
@@ -151,8 +152,9 @@ export function useRenewalStats(agencyId: string | null, dateRange?: { start: st
         pending: data.filter(r => r.current_status === 'pending').length,
         success: data.filter(r => r.current_status === 'success').length,
         unsuccessful: data.filter(r => r.current_status === 'unsuccessful').length,
-        bundled: data.filter(r => r.multi_line_indicator).length,
-        monoline: data.filter(r => !r.multi_line_indicator).length,
+        bundled: data.filter(r => r.multi_line_indicator === 'yes').length,
+        monoline: data.filter(r => r.multi_line_indicator === 'no').length,
+        unknown: data.filter(r => r.multi_line_indicator === 'n/a').length,
       };
     },
     enabled: !!agencyId,

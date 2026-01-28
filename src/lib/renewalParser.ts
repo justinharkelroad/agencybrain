@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import type { ParsedRenewalRecord } from '@/types/renewal';
+import type { ParsedRenewalRecord, BundledStatus } from '@/types/renewal';
 
 // Exact column names from Allstate BOB Renewal Audit Report
 const COLUMN_MAP: Record<string, keyof ParsedRenewalRecord> = {
@@ -8,28 +8,30 @@ const COLUMN_MAP: Record<string, keyof ParsedRenewalRecord> = {
   'Insured Last Name': 'lastName',
   'Insured Email': 'email',
   'Insured Phone': 'phone',
-  
+
   // Policy info
   'Policy Number': 'policyNumber',
   'Agent#': 'agentNumber',
+  'Product Code': 'productCode',
   'Product Name': 'productName',
+  'Original Year': 'originalYear',
   'Account Type': 'accountType',
   'Renewal Status': 'renewalStatus',
   'Renewal Effective Date': 'renewalEffectiveDate',
-  
+
   // Premium fields - note the ($) and (%) suffixes
   'Premium Old($)': 'premiumOld',
   'Premium New($)': 'premiumNew',
   'Premium Change($)': 'premiumChangeDollars',
   'Premium Change(%)': 'premiumChangePercent',
   'Amount Due($)': 'amountDue',
-  
+
   // Policy attributes
   'Easy Pay': 'easyPay',
   'Multi-line Indicator': 'multiLineIndicator',
   'Item Count': 'itemCount',
   'Years Prior Insurance': 'yearsPriorInsurance',
-  
+
   // Fallback mappings for other report formats
   'First Name': 'firstName',
   'Last Name': 'lastName',
@@ -97,6 +99,31 @@ function parseBoolean(value: any): boolean {
     return lower === 'yes' || lower === 'y' || lower === 'true' || lower === '1' || lower === 'x';
   }
   return value === 1;
+}
+
+function parseBundledStatus(value: any): BundledStatus {
+  // Return 'n/a' for empty/null/undefined values
+  if (value === null || value === undefined || value === '') return 'n/a';
+  if (typeof value === 'boolean') return value ? 'yes' : 'no';
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase().trim();
+    if (lower === '') return 'n/a';
+    if (lower === 'yes' || lower === 'y' || lower === 'true' || lower === '1' || lower === 'x') return 'yes';
+    if (lower === 'no' || lower === 'n' || lower === 'false' || lower === '0') return 'no';
+  }
+  if (value === 1) return 'yes';
+  if (value === 0) return 'no';
+  return 'n/a'; // Unknown values default to n/a
+}
+
+function parseYear(value: any): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number') return Math.round(value);
+  if (typeof value === 'string') {
+    const num = parseInt(value.trim(), 10);
+    return isNaN(num) ? null : num;
+  }
+  return null;
 }
 
 function findHeaderRow(data: any[][]): number {
@@ -168,11 +195,15 @@ export function parseRenewalExcel(workbook: XLSX.WorkBook): ParsedRenewalRecord[
         case 'phone':
         case 'phoneAlt':
         case 'productName':
+        case 'productCode':
         case 'agentNumber':
         case 'renewalStatus':
         case 'accountType':
         case 'householdKey':
           record[fieldName] = value ? String(value).trim() : null;
+          break;
+        case 'originalYear':
+          record[fieldName] = parseYear(value);
           break;
         case 'renewalEffectiveDate':
           record[fieldName] = parseDate(value) || '';
@@ -185,13 +216,16 @@ export function parseRenewalExcel(workbook: XLSX.WorkBook): ParsedRenewalRecord[
           record[fieldName] = parseNumber(value);
           break;
         case 'itemCount':
-        case 'yearsPriorInsurance':
+        case 'yearsPriorInsurance': {
           const num = parseNumber(value);
           record[fieldName] = num !== null ? Math.round(num) : null;
           break;
+        }
         case 'easyPay':
-        case 'multiLineIndicator':
           record[fieldName] = parseBoolean(value);
+          break;
+        case 'multiLineIndicator':
+          record[fieldName] = parseBundledStatus(value);
           break;
       }
     }
@@ -207,7 +241,15 @@ export function parseRenewalExcel(workbook: XLSX.WorkBook): ParsedRenewalRecord[
           record.premiumChangePercent = ((record.premiumNew - record.premiumOld) / record.premiumOld) * 100;
         }
       }
-      
+
+      // Set defaults for required boolean/enum fields if columns weren't present
+      if (record.multiLineIndicator === undefined) {
+        record.multiLineIndicator = 'n/a';
+      }
+      if (record.easyPay === undefined) {
+        record.easyPay = false;
+      }
+
       records.push(record as ParsedRenewalRecord);
     }
   }
@@ -224,11 +266,41 @@ export function getRenewalDateRange(records: ParsedRenewalRecord[]): { start: st
     .map(r => r.renewalEffectiveDate)
     .filter(d => d && d.length > 0)
     .sort();
-  
+
   if (dates.length === 0) return null;
-  
+
   return {
     start: dates[0],
     end: dates[dates.length - 1],
   };
+}
+
+/**
+ * Determines if a renewal is a first-term renewal based on product code and original year.
+ *
+ * This matches the manual process from the Allstate BOB report where users filter
+ * "Original Year = last year" to find first-term renewals.
+ *
+ * Limitation: Without the original MONTH (only year is available), we cannot
+ * perfectly distinguish first vs second renewals for 6-month auto policies.
+ * This logic errs on the side of inclusion - some displayed records may be
+ * second renewals for auto policies written early in the previous year.
+ *
+ * - Auto (Product Code "010"): 6-month terms
+ * - Other products: 12-month terms
+ */
+export function isFirstTermRenewal(
+  productCode: string | null,
+  originalYear: number | null,
+  renewalEffectiveDate: string
+): boolean {
+  if (originalYear === null) return false;
+
+  // Get the year from the renewal effective date
+  const renewalYear = renewalEffectiveDate ? parseInt(renewalEffectiveDate.substring(0, 4), 10) : new Date().getFullYear();
+  if (isNaN(renewalYear)) return false;
+
+  // Match the manual process: original year = last year (renewal year - 1)
+  // This works for both 6-month auto and 12-month other products as a reasonable heuristic
+  return originalYear === renewalYear - 1;
 }

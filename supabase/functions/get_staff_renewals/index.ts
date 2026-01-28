@@ -411,9 +411,11 @@ serve(async (req) => {
       query = query.in('product_name', filters.productName);
     }
     if (filters.bundledStatus === 'bundled') {
-      query = query.eq('multi_line_indicator', true);
+      query = query.eq('multi_line_indicator', 'yes');
     } else if (filters.bundledStatus === 'monoline') {
-      query = query.eq('multi_line_indicator', false);
+      query = query.eq('multi_line_indicator', 'no');
+    } else if (filters.bundledStatus === 'unknown') {
+      query = query.eq('multi_line_indicator', 'n/a');
     }
     if (filters.accountType?.length) {
       query = query.in('account_type', filters.accountType);

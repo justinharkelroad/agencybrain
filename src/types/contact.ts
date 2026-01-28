@@ -1,3 +1,5 @@
+import type { BundledStatus } from './renewal';
+
 // Source modules for activity attribution
 export type SourceModule = 'lqs' | 'renewal' | 'cancel_audit' | 'winback' | 'phone_system' | 'manual' | 'call_scoring';
 
@@ -146,7 +148,7 @@ export interface LinkedRenewalRecord {
   product_name: string | null;
   amount_due: number | null;
   easy_pay: boolean | null;
-  multi_line_indicator: boolean | null;
+  multi_line_indicator: BundledStatus | null;
 }
 
 export interface LinkedCancelAuditRecord {

@@ -310,7 +310,7 @@ function RenewalRecordCard({
             {record.easy_pay && (
               <Badge variant="outline" className="text-xs py-0">Easy Pay</Badge>
             )}
-            {record.multi_line_indicator && (
+            {record.multi_line_indicator === 'yes' && (
               <Badge variant="outline" className="text-xs py-0">Multi-Line</Badge>
             )}
           </div>

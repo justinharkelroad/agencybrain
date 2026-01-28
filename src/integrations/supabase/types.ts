@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -11,6 +12,31 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -6061,8 +6087,9 @@ export type Database = {
           last_activity_by_display_name: string | null
           last_name: string | null
           last_upload_id: string | null
-          multi_line_indicator: boolean | null
+          multi_line_indicator: string | null
           notes: string | null
+          original_year: number | null
           phone: string | null
           phone_alt: string | null
           policy_number: string
@@ -6071,6 +6098,7 @@ export type Database = {
           premium_change_percent: number | null
           premium_new: number | null
           premium_old: number | null
+          product_code: string | null
           product_name: string | null
           renewal_effective_date: string | null
           renewal_status: string
@@ -6105,8 +6133,9 @@ export type Database = {
           last_activity_by_display_name?: string | null
           last_name?: string | null
           last_upload_id?: string | null
-          multi_line_indicator?: boolean | null
+          multi_line_indicator?: string | null
           notes?: string | null
+          original_year?: number | null
           phone?: string | null
           phone_alt?: string | null
           policy_number: string
@@ -6115,6 +6144,7 @@ export type Database = {
           premium_change_percent?: number | null
           premium_new?: number | null
           premium_old?: number | null
+          product_code?: string | null
           product_name?: string | null
           renewal_effective_date?: string | null
           renewal_status?: string
@@ -6149,8 +6179,9 @@ export type Database = {
           last_activity_by_display_name?: string | null
           last_name?: string | null
           last_upload_id?: string | null
-          multi_line_indicator?: boolean | null
+          multi_line_indicator?: string | null
           notes?: string | null
+          original_year?: number | null
           phone?: string | null
           phone_alt?: string | null
           policy_number?: string
@@ -6159,6 +6190,7 @@ export type Database = {
           premium_change_percent?: number | null
           premium_new?: number | null
           premium_old?: number | null
+          product_code?: string | null
           product_name?: string | null
           renewal_effective_date?: string | null
           renewal_status?: string
@@ -10424,36 +10456,69 @@ export type Database = {
         }
         Returns: undefined
       }
-      upsert_renewal_record: {
-        Args: {
-          p_account_type?: string
-          p_agency_id: string
-          p_agent_number?: string
-          p_amount_due?: number
-          p_easy_pay?: boolean
-          p_email?: string
-          p_first_name?: string
-          p_household_key?: string
-          p_item_count?: number
-          p_last_name?: string
-          p_multi_line_indicator?: boolean
-          p_phone?: string
-          p_phone_alt?: string
-          p_policy_number: string
-          p_premium_change_dollars?: number
-          p_premium_change_percent?: number
-          p_premium_new?: number
-          p_premium_old?: number
-          p_product_name?: string
-          p_renewal_effective_date: string
-          p_renewal_status?: string
-          p_upload_id: string
-          p_uploaded_by?: string
-          p_uploaded_by_display_name?: string
-          p_years_prior_insurance?: number
-        }
-        Returns: Json
-      }
+      upsert_renewal_record:
+        | {
+            Args: {
+              p_account_type?: string
+              p_agency_id: string
+              p_agent_number?: string
+              p_amount_due?: number
+              p_easy_pay?: boolean
+              p_email?: string
+              p_first_name?: string
+              p_household_key?: string
+              p_item_count?: number
+              p_last_name?: string
+              p_multi_line_indicator?: boolean
+              p_phone?: string
+              p_phone_alt?: string
+              p_policy_number: string
+              p_premium_change_dollars?: number
+              p_premium_change_percent?: number
+              p_premium_new?: number
+              p_premium_old?: number
+              p_product_name?: string
+              p_renewal_effective_date: string
+              p_renewal_status?: string
+              p_upload_id: string
+              p_uploaded_by?: string
+              p_uploaded_by_display_name?: string
+              p_years_prior_insurance?: number
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_account_type?: string
+              p_agency_id: string
+              p_agent_number?: string
+              p_amount_due?: number
+              p_easy_pay?: boolean
+              p_email?: string
+              p_first_name?: string
+              p_household_key?: string
+              p_item_count?: number
+              p_last_name?: string
+              p_multi_line_indicator?: string
+              p_original_year?: number
+              p_phone?: string
+              p_phone_alt?: string
+              p_policy_number: string
+              p_premium_change_dollars?: number
+              p_premium_change_percent?: number
+              p_premium_new?: number
+              p_premium_old?: number
+              p_product_code?: string
+              p_product_name?: string
+              p_renewal_effective_date: string
+              p_renewal_status?: string
+              p_upload_id: string
+              p_uploaded_by?: string
+              p_uploaded_by_display_name?: string
+              p_years_prior_insurance?: number
+            }
+            Returns: Json
+          }
     }
     Enums: {
       app_employment_type: "Full-time" | "Part-time"
@@ -10607,6 +10672,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_employment_type: ["Full-time", "Part-time"],

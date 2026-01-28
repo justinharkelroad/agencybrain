@@ -3,6 +3,7 @@ export type WorkflowStatus = 'uncontacted' | 'pending' | 'success' | 'unsuccessf
 export type AccountType = 'PL' | 'CL' | string;
 export type ActivityType = 'phone_call' | 'appointment' | 'email' | 'note' | 'status_change' | 'call' | 'voicemail' | 'text' | 'review_done';
 export type ActivityStatus = 'called_no_answer' | 'called_left_message' | 'appointment_scheduled' | 'appointment_scheduled_not_discussed' | 'activity_complete_success' | 'activity_complete_unsuccessful';
+export type BundledStatus = 'yes' | 'no' | 'n/a';
 
 export interface RenewalUpload {
   id: string; agency_id: string; filename: string; uploaded_by: string | null;
@@ -15,10 +16,11 @@ export interface RenewalRecord {
   policy_number: string; renewal_effective_date: string;
   first_name: string | null; last_name: string | null; email: string | null;
   phone: string | null; phone_alt: string | null; product_name: string | null;
+  product_code: string | null; original_year: number | null;
   agent_number: string | null; renewal_status: RenewalStatus | null;
   account_type: AccountType | null; premium_old: number | null; premium_new: number | null;
   premium_change_dollars: number | null; premium_change_percent: number | null;
-  amount_due: number | null; easy_pay: boolean; multi_line_indicator: boolean;
+  amount_due: number | null; easy_pay: boolean; multi_line_indicator: BundledStatus;
   item_count: number | null; years_prior_insurance: number | null;
   household_key: string | null; current_status: WorkflowStatus;
   assigned_team_member_id: string | null; notes: string | null;
@@ -45,11 +47,12 @@ export interface RenewalActivity {
 export interface ParsedRenewalRecord {
   policyNumber: string; renewalEffectiveDate: string; firstName: string | null;
   lastName: string | null; email: string | null; phone: string | null;
-  phoneAlt: string | null; productName: string | null; agentNumber: string | null;
+  phoneAlt: string | null; productName: string | null; productCode: string | null;
+  originalYear: number | null; agentNumber: string | null;
   renewalStatus: string | null; accountType: string | null; premiumOld: number | null;
   premiumNew: number | null; premiumChangeDollars: number | null;
   premiumChangePercent: number | null; amountDue: number | null; easyPay: boolean;
-  multiLineIndicator: boolean; itemCount: number | null; yearsPriorInsurance: number | null;
+  multiLineIndicator: BundledStatus; itemCount: number | null; yearsPriorInsurance: number | null;
   householdKey: string | null;
 }
 
