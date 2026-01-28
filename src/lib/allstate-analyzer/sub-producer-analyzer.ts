@@ -392,11 +392,40 @@ export function analyzeSubProducers(
   console.log(`[SubProducer] Auto cutoff (6-mo): ${autoCutoffDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
   console.log(`[SubProducer] Home cutoff (12-mo): ${homeCutoffDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
   
+  // Debug: Check all business types and negative premium transactions
+  const allBusinessTypes = [...new Set(transactions.map(tx => tx.businessType))];
+  console.log(`[SubProducer] All business types in file:`, allBusinessTypes);
+
+  const allNegativePremium = transactions.filter(tx => tx.writtenPremium < 0);
+  console.log(`[SubProducer] Total negative premium transactions (ALL): ${allNegativePremium.length}`);
+  if (allNegativePremium.length > 0) {
+    console.log(`[SubProducer] Sample ALL negative transactions:`, allNegativePremium.slice(0, 5).map(tx => ({
+      subProdCode: tx.subProdCode,
+      businessType: tx.businessType,
+      premium: tx.writtenPremium,
+      insured: tx.namedInsured?.substring(0, 20),
+    })));
+
+    // Check specifically for code 850
+    const code850Negative = allNegativePremium.filter(tx => String(tx.subProdCode || '').trim() === '850');
+    console.log(`[SubProducer] Code 850 negative premium transactions: ${code850Negative.length}`);
+    if (code850Negative.length > 0) {
+      console.log(`[SubProducer] Code 850 chargebacks:`, code850Negative.map(tx => ({
+        businessType: tx.businessType,
+        premium: tx.writtenPremium,
+        insured: tx.namedInsured?.substring(0, 20),
+        origDate: tx.origPolicyEffDate,
+      })));
+    }
+  }
+
   // Filter to New Business only
   const nbTransactions = transactions.filter(tx => {
     const businessType = (tx.businessType || '').trim().toLowerCase();
     return businessType === 'new business' || businessType === 'new';
   });
+
+  console.log(`[SubProducer] After New Business filter: ${nbTransactions.length} of ${transactions.length} transactions`);
   
   // Helper: Check if transaction is within first term
   function isFirstTerm(tx: StatementTransaction): boolean {
@@ -438,9 +467,25 @@ export function analyzeSubProducers(
     })));
   }
 
+  // Debug: Check how many transactions are filtered by first-term rule
+  let firstTermSkipped = 0;
+  let firstTermKept = 0;
+  let code850FirstTermSkipped: any[] = [];
+
   for (const tx of nbTransactions) {
     // Skip if not first-term
-    if (!isFirstTerm(tx)) continue;
+    if (!isFirstTerm(tx)) {
+      firstTermSkipped++;
+      if (String(tx.subProdCode || '').trim() === '850' && tx.writtenPremium < 0) {
+        code850FirstTermSkipped.push({
+          insured: tx.namedInsured?.substring(0, 20),
+          premium: tx.writtenPremium,
+          origDate: tx.origPolicyEffDate,
+        });
+      }
+      continue;
+    }
+    firstTermKept++;
 
     const code = String(tx.subProdCode || '').trim();
     const normalizedCode = (!code || code === 'NaN' || code === 'undefined') ? '' : code;
@@ -491,6 +536,12 @@ export function analyzeSubProducers(
     });
   }
   
+  // Debug: Log first-term filter results
+  console.log(`[SubProducer] First-term filter: kept ${firstTermKept}, skipped ${firstTermSkipped}`);
+  if (code850FirstTermSkipped.length > 0) {
+    console.log(`[SubProducer] Code 850 chargebacks SKIPPED by first-term filter:`, code850FirstTermSkipped);
+  }
+
   // Step 2: Convert to producer metrics with net-per-insured aggregation
   const producers: SubProducerMetrics[] = [];
   
