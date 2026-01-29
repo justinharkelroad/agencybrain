@@ -46,6 +46,7 @@ export function useAgencyRosterWithStaffLogins(agencyId: string | null) {
           .from('team_members')
           .select('id, name, email, role, status')
           .eq('agency_id', agencyId)
+          .eq('status', 'active')
           .order('name'),
         supabase
           .from('staff_users')
