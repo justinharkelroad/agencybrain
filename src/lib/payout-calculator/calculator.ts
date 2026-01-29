@@ -764,33 +764,28 @@ export function calculateCommissionWithBundleConfigs(
     if (effectiveRate <= 0) {
       breakdown.push({
         bundleType: bundleData.bundleType,
-        premium: bundleData.netPremium,
-        items: bundleData.itemsIssued,
+        premium: bundleData.premiumWritten,
+        items: bundleData.creditCount,
         commission: 0
       });
       continue;
     }
 
-    // Proportional chargebacks for this bundle type
-    const totalItems = performance.issuedItems || 1;
-    const bundleChargebacks = Math.round(
-      (bundleData.itemsIssued / totalItems) * effectiveChargebackCount
-    );
-
+    // Calculate commission on credits (premiumWritten), not net
     const commission = calculateSegmentCommission(
-      bundleData.netPremium,
-      bundleData.itemsIssued,
+      bundleData.premiumWritten,
+      bundleData.creditCount,
       payoutType,
       effectiveRate,
-      bundleChargebacks
+      0 // Chargebacks handled separately at the total level
     );
 
-    console.log(`[calculateCommissionWithBundleConfigs] ${bundleType}: premium=${bundleData.netPremium}, rate=${effectiveRate}%, commission=${commission}`);
+    console.log(`[calculateCommissionWithBundleConfigs] ${bundleType}: creditPremium=${bundleData.premiumWritten}, rate=${effectiveRate}%, commission=${commission}`);
 
     breakdown.push({
       bundleType: bundleData.bundleType,
-      premium: bundleData.netPremium,
-      items: bundleData.itemsIssued,
+      premium: bundleData.premiumWritten,
+      items: bundleData.creditCount,
       commission
     });
 
