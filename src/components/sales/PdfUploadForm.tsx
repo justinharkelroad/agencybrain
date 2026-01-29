@@ -53,7 +53,6 @@ interface ExtractedSaleData {
   customerZip: string;
   policyNumber: string;
   effectiveDate: string;
-  expirationDate: string;
   premium: number;
   productType: string;
   itemCount: number;
@@ -67,7 +66,6 @@ interface StagedPolicy {
   productTypeName: string;
   policyNumber: string;
   effectiveDate: Date | undefined;
-  expirationDate: Date | undefined;
   premium: number;
   itemCount: number;
   vehicles?: string[];
@@ -201,7 +199,6 @@ export function PdfUploadForm({
   const [editProductTypeId, setEditProductTypeId] = useState('');
   const [editPolicyNumber, setEditPolicyNumber] = useState('');
   const [editEffectiveDate, setEditEffectiveDate] = useState<Date | undefined>();
-  const [editExpirationDate, setEditExpirationDate] = useState<Date | undefined>();
   const [editPremium, setEditPremium] = useState('');
   const [editItemCount, setEditItemCount] = useState(1);
 
@@ -254,7 +251,6 @@ export function PdfUploadForm({
       productTypeName: matched?.name || data.productType,
       policyNumber: data.policyNumber || '',
       effectiveDate: data.effectiveDate ? new Date(data.effectiveDate) : undefined,
-      expirationDate: data.expirationDate ? new Date(data.expirationDate) : undefined,
       premium: data.premium || 0,
       itemCount: data.itemCount || 1,
       vehicles: data.vehicles,
@@ -577,7 +573,6 @@ export function PdfUploadForm({
     setEditProductTypeId(policy.productTypeId);
     setEditPolicyNumber(policy.policyNumber);
     setEditEffectiveDate(policy.effectiveDate);
-    setEditExpirationDate(policy.expirationDate);
     setEditPremium(policy.premium.toString());
     setEditItemCount(policy.itemCount);
     setEditModalOpen(true);
@@ -591,7 +586,6 @@ export function PdfUploadForm({
       productTypeName: '',
       policyNumber: '',
       effectiveDate: undefined,
-      expirationDate: undefined,
       premium: 0,
       itemCount: 1,
       confidence: 'high', // Manual entry is assumed accurate
@@ -602,7 +596,6 @@ export function PdfUploadForm({
     setEditProductTypeId('');
     setEditPolicyNumber('');
     setEditEffectiveDate(undefined);
-    setEditExpirationDate(undefined);
     setEditPremium('');
     setEditItemCount(1);
     setEditModalOpen(true);
@@ -626,7 +619,6 @@ export function PdfUploadForm({
       productTypeName: pt?.name || '',
       policyNumber: editPolicyNumber,
       effectiveDate: editEffectiveDate,
-      expirationDate: editExpirationDate,
       premium: parseFloat(editPremium) || 0,
       itemCount: editItemCount,
     };
@@ -1147,30 +1139,6 @@ export function PdfUploadForm({
                     mode="single"
                     selected={editEffectiveDate}
                     onSelect={setEditEffectiveDate}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-2">
-              <Label>Expiration Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left font-normal",
-                      !editExpirationDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {editExpirationDate ? format(editExpirationDate, "MMM d, yyyy") : "Select date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={editExpirationDate}
-                    onSelect={setEditExpirationDate}
                   />
                 </PopoverContent>
               </Popover>
