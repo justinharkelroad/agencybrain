@@ -18,6 +18,7 @@ import { CancelAuditHeroStats } from "@/components/cancel-audit/CancelAuditHeroS
 import { CancelAuditActivitySummary } from "@/components/cancel-audit/CancelAuditActivitySummary";
 import { UrgencyTimeline } from "@/components/cancel-audit/UrgencyTimeline";
 import { ExportButton } from "@/components/cancel-audit/ExportButton";
+import { HelpVideoButton } from "@/components/HelpVideoButton";
 import { BulkActions, RecordStatus } from "@/components/cancel-audit/BulkActions";
 import { useCancelAuditRecords, ViewMode } from "@/hooks/useCancelAuditRecords";
 import { useCancelAuditStats } from "@/hooks/useCancelAuditStats";
@@ -540,7 +541,10 @@ const CancelAuditPage = () => {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Cancel Audit</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-bold text-foreground">Cancel Audit</h1>
+                <HelpVideoButton videoKey="cancel_audit" size="sm" />
+              </div>
               <p className="text-muted-foreground mt-1">
                 Track and manage cancellation and pending cancel reports
               </p>
