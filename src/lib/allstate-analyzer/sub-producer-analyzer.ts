@@ -470,16 +470,19 @@ export function analyzeSubProducers(
     })));
   }
 
-  // Filter credits by first-term rule; chargebacks pass through to payout calculator
+  // Filter by first-term rule using businessType field
+  // - "New Business" / "New" = first-term (include)
+  // - "Renewal" / "First Renewal" = not first-term (exclude)
   let firstTermSkipped = 0;
   let firstTermKept = 0;
 
   for (const tx of nbTransactions) {
-    const isChargeback = (tx.writtenPremium || 0) < 0;
+    const businessType = (tx.businessType || '').trim().toLowerCase();
+    const isFirstTermByType = businessType === 'new business' || businessType === 'new';
+    const isRenewal = businessType.includes('renewal');
 
-    // First-term filter applies to CREDITS only
-    // Chargebacks pass through - payout calculator's filterChargebacksByRule handles them
-    if (!isChargeback && !isFirstTerm(tx)) {
+    // Skip if it's a renewal (not first-term) - applies to both credits and chargebacks
+    if (isRenewal || (!isFirstTermByType && !isFirstTerm(tx))) {
       firstTermSkipped++;
       continue;
     }
