@@ -12,6 +12,7 @@ import { PacingIndicator } from "./PacingIndicator";
 import { AdminPromoGoalsWidget } from "./AdminPromoGoalsWidget";
 import { SalesBreakdownTabs } from "./SalesBreakdownTabs";
 import { StreakBadge } from "./StreakBadge";
+import { HelpVideoButton } from "@/components/HelpVideoButton";
 import { MiniLeaderboard } from "./MiniLeaderboard";
 import { HeroStat } from "./HeroStat";
 import { Button } from "@/components/ui/button";
@@ -250,9 +251,12 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
             <Trophy className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-foreground">
-              {isStaff ? "Your Sales Performance" : "Agency Sales Performance"}
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-foreground">
+                {isStaff ? "Your Sales Performance" : "Agency Sales Performance"}
+              </h2>
+              <HelpVideoButton videoKey="sales_dashboard" size="sm" />
+            </div>
             <p className="text-sm text-muted-foreground">{monthLabel}</p>
           </div>
         </div>
