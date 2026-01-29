@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { formatPhoneNumber } from "@/lib/utils";
 import { Loader2, Trash2 } from "lucide-react";
 
 interface SalePolicy {
@@ -296,9 +297,10 @@ export function StaffEditSaleModal({
                 id="customer_phone"
                 value={formData.customer_phone}
                 onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, customer_phone: e.target.value }))
+                  setFormData((prev) => ({ ...prev, customer_phone: formatPhoneNumber(e.target.value) }))
                 }
                 placeholder="(555) 555-5555"
+                maxLength={14}
                 disabled={isLoadingDetails}
                 required
               />

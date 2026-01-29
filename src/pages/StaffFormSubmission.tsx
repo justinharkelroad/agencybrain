@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import { Send, CheckCircle, AlertCircle, ArrowLeft, User, XCircle, Target } from 'lucide-react';
 import { mergeStickyFieldsIntoSchema } from '@/utils/mergeStickyFields';
 import { SubmissionError } from '@/components/scorecard/SubmissionError';
+import { formatPhoneNumber } from '@/lib/utils';
 
 interface FormField {
   key: string;

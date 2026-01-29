@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
-import { cn, toLocalDate, todayLocal } from "@/lib/utils";
+import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type ProductType = {
@@ -101,16 +101,6 @@ interface AddSaleFormProps {
   onCancelEdit?: () => void;
 }
 
-// Format phone number as (XXX) XXX-XXXX
-const formatPhoneNumber = (value: string): string => {
-  const digits = value.replace(/\D/g, '');
-  const limited = digits.slice(0, 10);
-  
-  if (limited.length === 0) return '';
-  if (limited.length <= 3) return `(${limited}`;
-  if (limited.length <= 6) return `(${limited.slice(0, 3)}) ${limited.slice(3)}`;
-  return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`;
-};
 
 // Auto products for Preferred Bundle detection
 const AUTO_PRODUCTS = ['Standard Auto', 'Non-Standard Auto', 'Specialty Auto'];

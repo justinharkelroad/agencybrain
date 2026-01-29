@@ -46,7 +46,7 @@ import {
   Home,
   AlertTriangle
 } from "lucide-react";
-import { cn, todayLocal } from "@/lib/utils";
+import { cn, todayLocal, formatPhoneNumber } from "@/lib/utils";
 
 interface ExtractedSaleData {
   customerName: string;
@@ -819,7 +819,7 @@ export function PdfUploadForm({
             <Input
               id="customerPhone"
               value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
+              onChange={(e) => setCustomerPhone(formatPhoneNumber(e.target.value))}
               placeholder="(555) 123-4567"
               maxLength={14}
               required

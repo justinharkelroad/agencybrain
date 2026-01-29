@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Download, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { SidebarLayout } from "@/components/SidebarLayout";
+import { formatPhoneNumber } from "@/lib/utils";
 
 export default function ThetaTalkTrackDownload() {
+  const [phone, setPhone] = useState('');
   return (
     <SidebarLayout>
       <div className="flex-1 bg-background">
@@ -75,7 +78,10 @@ export default function ThetaTalkTrackDownload() {
                   <Input
                     id="phone"
                     type="tel"
-                    placeholder="+1 (555) 000-0000"
+                    placeholder="(555) 123-4567"
+                    value={phone}
+                    onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
+                    maxLength={14}
                   />
                 </div>
 

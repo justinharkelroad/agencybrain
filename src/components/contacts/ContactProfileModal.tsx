@@ -24,7 +24,7 @@ import { SystemRecords } from './SystemRecords';
 import type { SourceModule, LifecycleStage } from '@/types/contact';
 import { SOURCE_MODULE_CONFIGS } from '@/types/contact';
 import type { RenewalRecord, ActivityType as RenewalActivityType, WorkflowStatus } from '@/types/renewal';
-import { cn } from '@/lib/utils';
+import { cn, formatPhoneNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import * as winbackApi from '@/lib/winbackApi';
 import { supabase } from '@/integrations/supabase/client';
@@ -569,11 +569,9 @@ export function ContactProfileModal({
 
   // Format phone for display
   const formatPhone = (phone: string) => {
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length === 10) {
-      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
-    }
-    return phone;
+    const formatted = formatPhoneNumber(phone);
+    // For display, return the formatted version or the original if it wasn't a valid phone
+    return formatted || phone;
   };
 
   // Format address

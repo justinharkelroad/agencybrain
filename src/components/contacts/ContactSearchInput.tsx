@@ -3,7 +3,7 @@ import { Search, User, Phone, Mail, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useContactSearch } from '@/hooks/useContacts';
 import type { Contact } from '@/types/contact';
-import { cn } from '@/lib/utils';
+import { cn, formatPhoneNumber } from '@/lib/utils';
 
 interface ContactSearchInputProps {
   agencyId: string | null;
@@ -83,11 +83,9 @@ export function ContactSearchInput({
   };
 
   const formatPhone = (phone: string) => {
-    const cleaned = phone.replace(/\D/g, '');
-    if (cleaned.length === 10) {
-      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
-    }
-    return phone;
+    const formatted = formatPhoneNumber(phone);
+    // For display, return the formatted version or the original if it wasn't a valid phone
+    return formatted || phone;
   };
 
   return (

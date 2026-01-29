@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Loader2, CheckCircle, Send } from 'lucide-react';
 import { z } from 'zod';
+import { formatPhoneNumber } from '@/lib/utils';
 
 const leadSchema = z.object({
   fullName: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long'),
@@ -162,8 +163,9 @@ export function LeadCaptureModal({ open, onOpenChange }: LeadCaptureModalProps) 
                   type="tel"
                   placeholder="(555) 123-4567"
                   value={formData.phone}
-                  onChange={(e) => handleChange('phone', e.target.value)}
+                  onChange={(e) => handleChange('phone', formatPhoneNumber(e.target.value))}
                   className={errors.phone ? 'border-destructive' : ''}
+                  maxLength={14}
                   disabled={isSubmitting}
                 />
                 {errors.phone && (
