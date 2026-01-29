@@ -394,6 +394,7 @@ export function StaffDashboard() {
           teamMembers={teamMembers}
           currentTeamMemberId={user.team_member_id}
           onSuccess={() => {}}
+          staffSessionToken={sessionToken}
         />
       )}
     </div>

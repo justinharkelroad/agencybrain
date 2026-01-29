@@ -31,6 +31,7 @@ interface AddQuoteModalProps {
   teamMembers: { id: string; name: string }[];
   currentTeamMemberId?: string | null;
   onSuccess: () => void;
+  staffSessionToken?: string | null;
 }
 
 const PRODUCT_OPTIONS = [
@@ -61,6 +62,7 @@ export function AddQuoteModal({
   teamMembers,
   currentTeamMemberId,
   onSuccess,
+  staffSessionToken,
 }: AddQuoteModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -141,6 +143,43 @@ export function AddQuoteModal({
     setIsSubmitting(true);
 
     try {
+      // Detect staff context: if staffSessionToken prop is passed, we're in staff context
+      // StaffDashboard passes this prop; Dashboard.tsx does not
+      const isStaffContext = !!staffSessionToken;
+
+      if (isStaffContext) {
+        // STAFF PATH: Use edge function (bypasses RLS)
+        const { data, error } = await supabase.functions.invoke('staff_add_quote', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: {
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            zip_code: zipCode.trim(),
+            phone: phone || undefined,
+            email: email || undefined,
+            lead_source_id: leadSourceId || undefined,
+            quote_date: quoteDate,
+            notes: notes || undefined,
+            products: products,
+          },
+        });
+
+        if (error) {
+          throw new Error(error.message || 'Failed to add quote');
+        }
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+
+        const productCount = products.length;
+        toast.success(`${productCount} quote${productCount > 1 ? 's' : ''} added successfully`);
+        resetForm();
+        onSuccess();
+        onOpenChange(false);
+        return;
+      }
+
+      // AUTHENTICATED USER PATH: Direct Supabase insert
       // Generate household key
       const householdKey = `${lastName.trim().toUpperCase()}_${firstName.trim().toUpperCase()}_${zipCode.trim()}`;
 
@@ -156,7 +195,7 @@ export function AddQuoteModal({
 
       if (existingHousehold) {
         householdId = existingHousehold.id;
-        
+
         // Update household - change status to quoted if was lead
         const updates: Record<string, unknown> = {};
         if (existingHousehold.status === 'lead') {
@@ -177,7 +216,7 @@ export function AddQuoteModal({
             .from('lqs_households')
             .update(updates)
             .eq('id', householdId);
-          
+
           if (updateError) throw updateError;
         }
       } else {
@@ -231,7 +270,7 @@ export function AddQuoteModal({
       onOpenChange(false);
     } catch (error) {
       console.error('Error adding quote:', error);
-      toast.error('Failed to add quote');
+      toast.error(error instanceof Error ? error.message : 'Failed to add quote');
     } finally {
       setIsSubmitting(false);
     }
