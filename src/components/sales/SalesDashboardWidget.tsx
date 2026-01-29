@@ -276,7 +276,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
             className="gap-2"
           >
             <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Analytics</span>
+            <span className="hidden sm:inline">Leaderboard</span>
           </Button>
         </div>
       </div>
@@ -296,6 +296,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
               showLeaderboard={true}
               canEditAllSales={isAgencyOwner || isAdmin}
               currentTeamMemberId={teamMemberId || undefined}
+              defaultTab="leaderboard"
             />
           </div>
         </SheetContent>
