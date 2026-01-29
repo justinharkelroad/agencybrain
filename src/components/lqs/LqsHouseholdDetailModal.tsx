@@ -33,6 +33,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { HouseholdWithRelations } from '@/hooks/useLqsData';
 import { filterCountableQuotes } from '@/lib/lqs-constants';
+import { formatPhoneNumber } from '@/lib/utils';
 
 interface LqsHouseholdDetailModalProps {
   household: HouseholdWithRelations | null;
@@ -138,8 +139,9 @@ export function LqsHouseholdDetailModal({
   };
 
   const handlePhoneChange = (index: number, value: string) => {
+    const formatted = formatPhoneNumber(value);
     const newPhones = [...editPhones];
-    newPhones[index] = value;
+    newPhones[index] = formatted;
     setEditPhones(newPhones);
   };
 

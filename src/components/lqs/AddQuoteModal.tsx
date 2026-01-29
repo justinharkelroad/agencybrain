@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { formatPhoneNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LqsLeadSource } from '@/hooks/useLqsData';
@@ -490,8 +491,9 @@ export function AddQuoteModal({
               <Input
                 id="phone"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
                 placeholder="(555) 123-4567"
+                maxLength={14}
               />
             </div>
             <div className="space-y-2">

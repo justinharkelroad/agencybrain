@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { formatPhoneNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LqsLeadSource } from '@/hooks/useLqsData';
@@ -96,8 +97,9 @@ export function AddLeadModal({
   };
 
   const handlePhoneChange = (index: number, value: string) => {
+    const formatted = formatPhoneNumber(value);
     const newPhones = [...phones];
-    newPhones[index] = value;
+    newPhones[index] = formatted;
     setPhones(newPhones);
   };
 
