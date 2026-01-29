@@ -524,8 +524,7 @@ export function analyzeSubProducers(
     const baseComm = tx.baseCommissionAmount || 0;
     const vcComm = tx.vcAmount || 0;
     const commission = tx.totalCommission || (baseComm + vcComm);
-    const transType = (tx.transType || '').toLowerCase();
-    
+
     // Accumulate net values (positive + negative)
     data.netPremium += premium;
     data.netCommission += commission;
