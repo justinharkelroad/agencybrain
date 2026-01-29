@@ -421,13 +421,14 @@ export function analyzeSubProducers(
 
   // Filter to first-term transactions:
   // 1. businessType = "New Business" (explicit first-term)
-  // 2. transType contains "First Term" (first-term add-items/endorsements)
+  // 2. transType contains "First Term" but NOT "First Renewal Term"
   // 3. Chargebacks (negative premium) - filtered later by businessType
   const nbTransactions = transactions.filter(tx => {
     const businessType = (tx.businessType || '').trim().toLowerCase();
     const transType = (tx.transType || '').trim().toLowerCase();
     const isNewBusiness = businessType === 'new business' || businessType === 'new';
-    const isFirstTermTrans = transType.includes('first term');
+    // "First Term" but not "First Renewal Term"
+    const isFirstTermTrans = transType.includes('first term') && !transType.includes('first renewal');
     const isChargeback = (tx.writtenPremium || 0) < 0;
     return isNewBusiness || isFirstTermTrans || isChargeback;
   });
@@ -475,8 +476,8 @@ export function analyzeSubProducers(
   }
 
   // Filter by first-term rule:
-  // Include if: businessType = "New Business" OR transType contains "First Term"
-  // Exclude if: businessType contains "Renewal" AND transType does NOT contain "First Term"
+  // Include if: businessType = "New Business" OR transType contains "First Term" (not "First Renewal")
+  // Exclude if: businessType contains "Renewal"
   let firstTermSkipped = 0;
   let firstTermKept = 0;
 
@@ -484,11 +485,11 @@ export function analyzeSubProducers(
     const businessType = (tx.businessType || '').trim().toLowerCase();
     const transType = (tx.transType || '').trim().toLowerCase();
     const isFirstTermByType = businessType === 'new business' || businessType === 'new';
-    const isFirstTermByTrans = transType.includes('first term');
+    // "First Term" but NOT "First Renewal Term"
+    const isFirstTermByTrans = transType.includes('first term') && !transType.includes('first renewal');
     const isRenewal = businessType.includes('renewal');
 
-    // Include if explicitly first-term by either field
-    // Skip only if it's a renewal AND not marked as first-term in transType
+    // Skip if it's a renewal (unless explicitly marked as first-term, which "First Renewal" is not)
     if (isRenewal && !isFirstTermByTrans) {
       firstTermSkipped++;
       continue;
