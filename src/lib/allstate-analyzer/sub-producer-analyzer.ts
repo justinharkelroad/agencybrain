@@ -470,50 +470,20 @@ export function analyzeSubProducers(
     })));
   }
 
-  // Debug: Check how many transactions are filtered by first-term rule
+  // Filter credits by first-term rule; chargebacks pass through to payout calculator
   let firstTermSkipped = 0;
   let firstTermKept = 0;
-  let code850FirstTermSkipped: any[] = [];
-  let code850FirstTermKept: any[] = [];
-
-  // Debug: Check code 850 transactions BEFORE first-term filter
-  const code850InNbTransactions = nbTransactions.filter(tx => String(tx.subProdCode || '').trim() === '850');
-  const code850Negatives = code850InNbTransactions.filter(tx => tx.writtenPremium < 0);
-  console.log(`[SubProducer] Code 850 in nbTransactions: ${code850InNbTransactions.length} total, ${code850Negatives.length} negative`);
-  if (code850Negatives.length > 0) {
-    console.log(`[SubProducer] Code 850 negative transactions BEFORE first-term filter:`, code850Negatives.slice(0, 5).map(tx => ({
-      insured: tx.namedInsured?.substring(0, 20),
-      premium: tx.writtenPremium,
-      origDate: tx.origPolicyEffDate,
-      businessType: tx.businessType,
-    })));
-  }
 
   for (const tx of nbTransactions) {
-    // Skip if not first-term
-    if (!isFirstTerm(tx)) {
+    const isChargeback = (tx.writtenPremium || 0) < 0;
+
+    // First-term filter applies to CREDITS only
+    // Chargebacks pass through - payout calculator's filterChargebacksByRule handles them
+    if (!isChargeback && !isFirstTerm(tx)) {
       firstTermSkipped++;
-      if (String(tx.subProdCode || '').trim() === '850') {
-        if (tx.writtenPremium < 0) {
-          code850FirstTermSkipped.push({
-            insured: tx.namedInsured?.substring(0, 20),
-            premium: tx.writtenPremium,
-            origDate: tx.origPolicyEffDate,
-          });
-        }
-      }
       continue;
     }
     firstTermKept++;
-
-    // Track code 850 transactions that pass first-term filter
-    if (String(tx.subProdCode || '').trim() === '850' && tx.writtenPremium < 0) {
-      code850FirstTermKept.push({
-        insured: tx.namedInsured?.substring(0, 20),
-        premium: tx.writtenPremium,
-        origDate: tx.origPolicyEffDate,
-      });
-    }
 
     const code = String(tx.subProdCode || '').trim();
     const normalizedCode = (!code || code === 'NaN' || code === 'undefined') ? '' : code;
@@ -564,19 +534,8 @@ export function analyzeSubProducers(
     });
   }
   
-  // Debug: Log first-term filter results
-  console.log(`[SubProducer] First-term filter: kept ${firstTermKept}, skipped ${firstTermSkipped}`);
-  console.log(`[SubProducer] Code 850 chargebacks: ${code850FirstTermKept.length} KEPT, ${code850FirstTermSkipped.length} SKIPPED by first-term filter`);
-  if (code850FirstTermKept.length > 0) {
-    console.log(`[SubProducer] Code 850 chargebacks KEPT (passed first-term):`, code850FirstTermKept);
-  }
-  if (code850FirstTermSkipped.length > 0) {
-    console.log(`[SubProducer] Code 850 chargebacks SKIPPED by first-term filter (first 5):`);
-    console.log(`[SubProducer] Cutoff dates - Auto: ${autoCutoffDate.toLocaleDateString()}, Home: ${homeCutoffDate.toLocaleDateString()}`);
-    code850FirstTermSkipped.slice(0, 5).forEach((item, i) => {
-      console.log(`  ${i + 1}. insured="${item.insured}", premium=$${item.premium}, origDate="${item.origDate}"`);
-    });
-  }
+  // Debug: Log first-term filter results (credits only; chargebacks pass through)
+  console.log(`[SubProducer] First-term filter: kept ${firstTermKept}, skipped ${firstTermSkipped} (credits only, chargebacks pass through to payout calculator)`);
 
   // Step 2: Convert to producer metrics with net-per-insured aggregation
   const producers: SubProducerMetrics[] = [];
