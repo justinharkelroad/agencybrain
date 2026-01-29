@@ -24,6 +24,7 @@ interface SalesBreakdownTabsProps {
   canEditAllSales?: boolean;
   currentTeamMemberId?: string;
   leadSources?: { id: string; name: string }[];
+  defaultTab?: string;
 }
 
 type Period = "this_month" | "last_month" | "this_year" | "last_90_days" | "custom";
@@ -80,8 +81,8 @@ function getPeriodDates(period: Period, customStart?: Date, customEnd?: Date): {
   }
 }
 
-export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSessionToken, canEditAllSales = false, currentTeamMemberId, leadSources = [] }: SalesBreakdownTabsProps) {
-  const [activeTab, setActiveTab] = useState("by-date");
+export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSessionToken, canEditAllSales = false, currentTeamMemberId, leadSources = [], defaultTab = "by-date" }: SalesBreakdownTabsProps) {
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [period, setPeriod] = useState<Period>("this_month");
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
