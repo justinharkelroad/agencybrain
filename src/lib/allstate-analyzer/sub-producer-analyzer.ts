@@ -419,16 +419,20 @@ export function analyzeSubProducers(
     }
   }
 
-  // Filter to New Business OR negative premium (chargebacks)
-  // Chargebacks might not be marked as "New Business" but we still need them
+  // Filter to first-term transactions:
+  // 1. businessType = "New Business" (explicit first-term)
+  // 2. transType contains "First Term" (first-term add-items/endorsements)
+  // 3. Chargebacks (negative premium) - filtered later by businessType
   const nbTransactions = transactions.filter(tx => {
     const businessType = (tx.businessType || '').trim().toLowerCase();
+    const transType = (tx.transType || '').trim().toLowerCase();
     const isNewBusiness = businessType === 'new business' || businessType === 'new';
+    const isFirstTermTrans = transType.includes('first term');
     const isChargeback = (tx.writtenPremium || 0) < 0;
-    return isNewBusiness || isChargeback;
+    return isNewBusiness || isFirstTermTrans || isChargeback;
   });
 
-  console.log(`[SubProducer] After New Business filter: ${nbTransactions.length} of ${transactions.length} transactions (includes chargebacks regardless of business type)`);
+  console.log(`[SubProducer] After first-term filter: ${nbTransactions.length} of ${transactions.length} transactions`);
   
   // Helper: Check if transaction is within first term
   function isFirstTerm(tx: StatementTransaction): boolean {
@@ -470,19 +474,26 @@ export function analyzeSubProducers(
     })));
   }
 
-  // Filter by first-term rule using businessType field
-  // - "New Business" / "New" = first-term (include)
-  // - "Renewal" / "First Renewal" = not first-term (exclude)
+  // Filter by first-term rule:
+  // Include if: businessType = "New Business" OR transType contains "First Term"
+  // Exclude if: businessType contains "Renewal" AND transType does NOT contain "First Term"
   let firstTermSkipped = 0;
   let firstTermKept = 0;
 
   for (const tx of nbTransactions) {
     const businessType = (tx.businessType || '').trim().toLowerCase();
+    const transType = (tx.transType || '').trim().toLowerCase();
     const isFirstTermByType = businessType === 'new business' || businessType === 'new';
+    const isFirstTermByTrans = transType.includes('first term');
     const isRenewal = businessType.includes('renewal');
 
-    // Skip if it's a renewal (not first-term) - applies to both credits and chargebacks
-    if (isRenewal || (!isFirstTermByType && !isFirstTerm(tx))) {
+    // Include if explicitly first-term by either field
+    // Skip only if it's a renewal AND not marked as first-term in transType
+    if (isRenewal && !isFirstTermByTrans) {
+      firstTermSkipped++;
+      continue;
+    }
+    if (!isFirstTermByType && !isFirstTermByTrans && !isFirstTerm(tx)) {
       firstTermSkipped++;
       continue;
     }
