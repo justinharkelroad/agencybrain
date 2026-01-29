@@ -4734,6 +4734,7 @@ export type Database = {
           notes: string | null
           phone: string[] | null
           products_interested: string[] | null
+          skip_metrics_increment: boolean
           sold_date: string | null
           status: string
           team_member_id: string | null
@@ -4758,6 +4759,7 @@ export type Database = {
           notes?: string | null
           phone?: string[] | null
           products_interested?: string[] | null
+          skip_metrics_increment?: boolean
           sold_date?: string | null
           status?: string
           team_member_id?: string | null
@@ -4782,6 +4784,7 @@ export type Database = {
           notes?: string | null
           phone?: string[] | null
           products_interested?: string[] | null
+          skip_metrics_increment?: boolean
           sold_date?: string | null
           status?: string
           team_member_id?: string | null
@@ -10331,6 +10334,10 @@ export type Database = {
       }
       increment_call_usage: {
         Args: { p_agency_id: string; p_month?: string }
+        Returns: undefined
+      }
+      increment_metrics_quoted_count: {
+        Args: { p_agency_id: string; p_date: string; p_team_member_id: string }
         Returns: undefined
       }
       insert_contact_activity: {

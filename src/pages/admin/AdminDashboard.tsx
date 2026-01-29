@@ -330,7 +330,7 @@ setCoachingRevenue(totalMRR);
                 agency_id: editingClient.agency.id,
                 enabled: true,
                 calls_limit: callLimit,
-                reset_day: new Date().getDate(),
+                reset_day: Math.min(new Date().getDate(), 28),
                 updated_at: new Date().toISOString(),
               }, {
                 onConflict: 'agency_id'
