@@ -222,46 +222,68 @@ export default function CallScoring() {
   }, [staffDataLoaded, isStaffUser, staffAgencyId, navigate]);
 
   // Staff data fetching function - extracted for reuse in polling
+  // Uses edge function with server-side session validation and role-based access control
   const fetchStaffData = useCallback(async () => {
     console.log('=== fetchStaffData ===');
     console.log('hasAccess:', hasAccess);
     console.log('staffAgencyId:', staffAgencyId);
     console.log('staffTeamMemberId:', staffTeamMemberId);
-    
+
     if (!hasAccess) {
       console.log('No access yet, aborting fetch');
       return;
     }
-    
+
     if (!staffAgencyId) {
       console.log('No agency ID, aborting fetch');
       return;
     }
-    
-    // Staff need their team member ID; managers can see all calls (pass null)
-    const isManager = userRole === 'manager';
-    if (!isManager && !staffTeamMemberId) {
-      console.log('No team member ID for staff, aborting fetch');
+
+    // Get session token for authenticated edge function call
+    const sessionToken = localStorage.getItem('staff_session_token');
+    if (!sessionToken) {
+      console.log('No session token, aborting fetch');
       return;
     }
-    
+
     setLoading(true);
-    
-    // Managers pass null to see all agency calls; staff pass their team_member_id
-    const { data, error } = await supabase.rpc('get_staff_call_scoring_data', {
-      p_agency_id: staffAgencyId,
-      p_team_member_id: isManager ? null : staffTeamMemberId,
-      p_page: currentPage,
-      p_page_size: CALLS_PER_PAGE
+
+    // Call edge function with server-side session validation
+    // The edge function enforces role-based access: staff sees own calls, managers see all
+    const { data, error } = await supabase.functions.invoke('get-staff-call-scoring-data', {
+      body: { page: currentPage, pageSize: CALLS_PER_PAGE },
+      headers: { 'x-staff-session': sessionToken }
     });
 
-    console.log('RPC response data:', data);
-    console.log('RPC error:', error);
+    console.log('Edge function response data:', data);
+    console.log('Edge function error:', error);
     console.log('Recent calls returned:', data?.recent_calls);
     console.log('Team members returned:', data?.team_members);
     console.log('Templates returned:', data?.templates);
     console.log('Usage returned:', data?.usage);
     console.log('Total calls returned:', data?.total_calls);
+    console.log('Is manager (server-determined):', data?.is_manager);
+
+    if (error) {
+      console.error('Failed to fetch call scoring data:', error);
+      toast.error('Failed to load call scoring data');
+      setLoading(false);
+      return;
+    }
+
+    // Check for error in response body (edge function returns errors in body)
+    if (data?.error) {
+      console.error('Call scoring data error:', data.error);
+      if (data.error === 'User account is not active') {
+        toast.error('Your account is not active. Please contact your administrator.');
+      } else if (data.error === 'Invalid or expired session') {
+        toast.error('Your session has expired. Please log in again.');
+      } else {
+        toast.error(data.error);
+      }
+      setLoading(false);
+      return;
+    }
 
     if (data) {
       setTemplates(data.templates || []);
@@ -269,20 +291,20 @@ export default function CallScoring() {
       setRecentCalls(data.recent_calls || []);
       setUsage(data.usage || { calls_used: 0, calls_limit: 20 });
       setTotalCalls(data.total_calls || 0);
-      
-      // Set analytics calls for managers
-      if (isManager) {
+
+      // Set analytics calls for managers (server determines manager status)
+      if (data.is_manager) {
         setAnalyticsCalls(data.analytics_calls || []);
       }
-      
+
       // Auto-select team member for staff
       if (data.team_members?.length === 1) {
         setSelectedTeamMember(data.team_members[0].id);
       }
     }
-    
+
     setLoading(false);
-  }, [hasAccess, staffAgencyId, staffTeamMemberId, currentPage, userRole]);
+  }, [hasAccess, staffAgencyId, staffTeamMemberId, currentPage]);
 
   // Fetch data for staff users via RPC
   useEffect(() => {

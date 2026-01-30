@@ -12,6 +12,12 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { duplicateForm } from "@/lib/scorecardsApi";
 
+// DEPRECATION: Public links deprecated 2025-01-29 in favor of Staff Portal
+// Staff now submit via /staff/submit with authentication
+// Set to true only if you need to re-enable for specific agencies
+// Rollback: Set to true, uncomment code in ScorecardFormBuilder.tsx
+const ENABLE_PUBLIC_LINKS = false;
+
 interface FormTemplate {
   id: string;
   name: string;
@@ -173,30 +179,41 @@ export default function FormTemplateCard({ form, onDelete, onToggleActive, onDup
                 <CopyPlus className="h-4 w-4 mr-2" />
                 Duplicate Form
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleGenerateLink} disabled={loading} className="text-foreground">
-                <Link2 className="h-4 w-4 mr-2" />
-                {loading ? "Generating..." : "Generate Link"}
-              </DropdownMenuItem>
-              {formLink && (
+
+              {/* DEPRECATED: Public link menu items - hidden but code preserved for rollback */}
+              {ENABLE_PUBLIC_LINKS && (
                 <>
-                  <DropdownMenuItem onClick={handleCopyLink} className="text-foreground">
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy Link
+                  <DropdownMenuItem onClick={handleGenerateLink} disabled={loading} className="text-foreground">
+                    <Link2 className="h-4 w-4 mr-2" />
+                    {loading ? "Generating..." : "Generate Link"}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => window.open(formLink, '_blank')} className="text-foreground">
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open Form
-                  </DropdownMenuItem>
+                  {formLink && (
+                    <>
+                      <DropdownMenuItem onClick={handleCopyLink} className="text-foreground">
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Link
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => window.open(formLink, '_blank')} className="text-foreground">
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Open Form
+                      </DropdownMenuItem>
+                    </>
+                  )}
                 </>
               )}
+
               <DropdownMenuItem className="text-foreground">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 View Analytics
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-foreground">
-                <Clock className="h-4 w-4 mr-2" />
-                Set Expiration
-              </DropdownMenuItem>
+
+              {/* DEPRECATED: Set Expiration - hidden but code preserved for rollback */}
+              {ENABLE_PUBLIC_LINKS && (
+                <DropdownMenuItem className="text-foreground">
+                  <Clock className="h-4 w-4 mr-2" />
+                  Set Expiration
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onSelect={handleToggleActive} className="text-foreground">
                 {form.is_active ? (
                   <>
@@ -240,7 +257,8 @@ export default function FormTemplateCard({ form, onDelete, onToggleActive, onDup
           Created {new Date(form.created_at).toLocaleDateString()}
         </div>
         
-        {formLink && (
+        {/* DEPRECATED: Public link display section - hidden but code preserved for rollback */}
+        {ENABLE_PUBLIC_LINKS && formLink && (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">Public Link</span>
@@ -270,15 +288,18 @@ export default function FormTemplateCard({ form, onDelete, onToggleActive, onDup
             <Edit3 className="h-4 w-4 mr-1" />
             Edit
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleGenerateLink}
-            disabled={loading}
-          >
-            <Link2 className="h-4 w-4 mr-1" />
-            {loading ? "..." : "Link"}
-          </Button>
+          {/* DEPRECATED: Link button - hidden but code preserved for rollback */}
+          {ENABLE_PUBLIC_LINKS && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateLink}
+              disabled={loading}
+            >
+              <Link2 className="h-4 w-4 mr-1" />
+              {loading ? "..." : "Link"}
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

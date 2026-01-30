@@ -50,10 +50,10 @@ serve(async (req) => {
       );
     }
 
-    // Step 2: Get staff user details (agency_id, team_member_id)
+    // Step 2: Get staff user details (agency_id, team_member_id, is_active)
     const { data: staffUser, error: staffError } = await supabase
       .from("staff_users")
-      .select("id, agency_id, team_member_id")
+      .select("id, agency_id, team_member_id, is_active")
       .eq("id", session.staff_user_id)
       .single();
 
@@ -62,6 +62,15 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Staff user not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify staff user is active
+    if (!staffUser.is_active) {
+      console.error("[get-cancel-audit-data] Staff user is not active");
+      return new Response(
+        JSON.stringify({ error: "User account is not active" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 

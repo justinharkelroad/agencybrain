@@ -364,6 +364,11 @@ export default function ScorecardFormBuilder() {
 
       if (templateError) throw templateError;
 
+      // DEPRECATED 2025-01-29: Public links no longer auto-created
+      // Staff now submit through authenticated Staff Portal at /staff/submit
+      // This code is preserved for potential rollback - uncomment if needed
+      // Also set ENABLE_PUBLIC_LINKS = true in FormTemplateCard.tsx
+      /*
       // Create form link
       const token = crypto.randomUUID();
       const { error: linkError } = await supabase
@@ -378,6 +383,7 @@ export default function ScorecardFormBuilder() {
       if (linkError) {
         console.error('Form link error:', linkError);
       }
+      */
 
       // Bind KPI fields to their versions
       const { error: bindError } = await supabase.rpc('bind_form_kpis', {

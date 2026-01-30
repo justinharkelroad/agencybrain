@@ -154,7 +154,7 @@ Deno.serve(async (req) => {
     // Get staff user and team member
     const { data: staffUser, error: staffError } = await supabase
       .from("staff_users")
-      .select("id, agency_id, team_member_id")
+      .select("id, agency_id, team_member_id, is_active")
       .eq("id", session.staff_user_id)
       .single();
 
@@ -163,6 +163,15 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Staff user not found" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify staff user is active
+    if (!staffUser.is_active) {
+      console.log("[get-staff-commission] Staff user is not active");
+      return new Response(
+        JSON.stringify({ error: "User account is not active" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
