@@ -9,6 +9,7 @@ export interface VerifiedRequest {
   staffMemberId?: string; // Linked team_member_id
   role?: string;
   isManager?: boolean;
+  isKeyEmployee?: boolean; // True if user is a key employee (agency_id from key_employees table)
 }
 
 export interface VerifyError {
@@ -135,7 +136,25 @@ export async function verifyRequest(
       .eq("id", user.id)
       .single();
 
-    if (profileError || !profile?.agency_id) {
+    let agencyId = profile?.agency_id;
+    let isKeyEmployee = false;
+
+    // If no agency in profile, check key_employees table
+    if (!agencyId) {
+      const { data: keyEmployee } = await adminClient
+        .from("key_employees")
+        .select("agency_id")
+        .eq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (keyEmployee?.agency_id) {
+        agencyId = keyEmployee.agency_id;
+        isKeyEmployee = true;
+      }
+    }
+
+    if (!agencyId) {
       return { error: "User has no agency assigned", status: 403 };
     }
 
@@ -143,14 +162,15 @@ export async function verifyRequest(
     const { data: agency } = await adminClient
       .from("agencies")
       .select("slug")
-      .eq("id", profile.agency_id)
+      .eq("id", agencyId)
       .single();
 
     return {
       mode: "supabase",
-      agencyId: profile.agency_id,
+      agencyId,
       agencySlug: agency?.slug,
       userId: user.id,
+      isKeyEmployee,
     };
   }
 
