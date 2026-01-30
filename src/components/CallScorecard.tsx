@@ -132,8 +132,51 @@ export function CallScorecard({
     toast.success(`Timestamp ${formatted} copied`);
   };
 
-  const sectionScores = call.section_scores || {};
+  const sectionScoresRaw = call.section_scores || {};
   const executionChecklist = call.discovery_wins || {};
+
+  // Normalize key: "Process Discipline" -> "process_discipline"
+  const normalizeKey = (str: string): string => {
+    return str
+      .toLowerCase()
+      .replace(/&/g, '')
+      .replace(/[^a-z0-9\s]/g, '')
+      .replace(/\s+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '');
+  };
+
+  // Build a normalized lookup map from section_scores (handles both object and array formats)
+  const sectionScoresMap: Record<string, any> = (() => {
+    // If it's already an object with normalized keys
+    if (sectionScoresRaw && typeof sectionScoresRaw === 'object' && !Array.isArray(sectionScoresRaw)) {
+      const map: Record<string, any> = {};
+      for (const [key, value] of Object.entries(sectionScoresRaw)) {
+        const normalizedKey = normalizeKey(key);
+        map[normalizedKey] = value;
+        // Also store with original key for backward compatibility
+        if (key !== normalizedKey) {
+          map[key] = value;
+        }
+      }
+      return map;
+    }
+    // If it's an array (service calls), convert to object using section_name
+    if (Array.isArray(sectionScoresRaw)) {
+      const map: Record<string, any> = {};
+      for (const section of sectionScoresRaw) {
+        if (section.section_name) {
+          const normalizedKey = normalizeKey(section.section_name);
+          map[normalizedKey] = section;
+        }
+      }
+      return map;
+    }
+    return {};
+  })();
+
+  // Backward compatible alias
+  const sectionScores = sectionScoresMap;
   const crmNotes = call.closing_attempts || {};
   const extractedData = call.client_profile || {};
 
@@ -554,19 +597,34 @@ export function CallScorecard({
             const hasLegacySections = rapportData || coverageData || closingData;
             
             // Handle both array and object formats for skill_scores
+            // CRITICAL: Always enrich with feedback/tip from section_scores using normalized keys
             const skillScoresArray = (() => {
+              // If skill_scores is an array, enrich each entry with section_scores data
               if (Array.isArray(call.skill_scores)) {
-                return call.skill_scores;
+                return call.skill_scores.map((row: any) => {
+                  const key = normalizeKey(row.skill_name || '');
+                  const sectionData = sectionScoresMap[key];
+                  return {
+                    ...row,
+                    // Use existing feedback/tip if present, otherwise pull from section_scores
+                    feedback: row.feedback ?? sectionData?.feedback ?? sectionData?.coaching ?? null,
+                    tip: row.tip ?? sectionData?.tip ?? null
+                  };
+                });
               }
               // Convert object format {closing: 50, rapport: 60} to array format
               if (call.skill_scores && typeof call.skill_scores === 'object') {
-                return Object.entries(call.skill_scores as Record<string, number>).map(([key, value]) => ({
-                  skill_name: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                  score: typeof value === 'number' ? (value <= 10 ? value : Math.round(value / 10)) : 0,
-                  max_score: 10,
-                  feedback: (sectionScores as any)?.[key]?.feedback || null,
-                  tip: (sectionScores as any)?.[key]?.tip || null
-                }));
+                return Object.entries(call.skill_scores as Record<string, number>).map(([key, value]) => {
+                  const normalizedKey = normalizeKey(key);
+                  const sectionData = sectionScoresMap[normalizedKey];
+                  return {
+                    skill_name: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                    score: typeof value === 'number' ? (value <= 10 ? value : Math.round(value / 10)) : 0,
+                    max_score: 10,
+                    feedback: sectionData?.feedback ?? sectionData?.coaching ?? null,
+                    tip: sectionData?.tip ?? null
+                  };
+                });
               }
               return [];
             })();
