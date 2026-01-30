@@ -60,18 +60,18 @@ function buildServiceUserPrompt(
   const summaryInstructions = skillCategories?.summaryInstructions || "2-3 sentences: why call occurred, how it was handled, outcome";
   const suggestionsCount = Number(skillCategories?.numSuggestions ?? skillCategories?.suggestionsCount ?? 3);
 
-  // Build scoring framework dynamically
+  // Build scoring framework dynamically with detailed feedback requirements
   const scoringFramework = scoredSections.map((section: any, idx: number) => 
     `**${idx + 1}. ${section.name.toUpperCase()}**\n${section.criteria}`
   ).join('\n\n');
 
-  // Build section_scores JSON example dynamically
+  // Build section_scores JSON example dynamically with STRENGTHS/GAPS/ACTION structure
   const sectionScoresExample = scoredSections.map((section: any) => ({
     section_name: section.name,
     score: 8,
     max_score: 10,
-    feedback: "<2-3 sentences of specific feedback>",
-    tip: "<1 sentence improvement tip>"
+    feedback: "STRENGTHS: [specific example of what CSR did well, with quote if available]. GAPS: [specific behavior or statement that was missed or incomplete]. ACTION: [one concrete thing to practice on the next call].",
+    tip: "<one memorable coaching takeaway for quick reference>"
   }));
 
   // Build checklist JSON example dynamically
@@ -96,6 +96,17 @@ function buildServiceUserPrompt(
 ## SCORING FRAMEWORK
 
 ${scoringFramework}
+
+## SECTION FEEDBACK REQUIREMENTS
+For EACH scored section, provide detailed coaching feedback with this structure:
+
+1. STRENGTHS: What the CSR did well in this area. Include specific quotes or moments from the transcript when possible. (1-2 sentences minimum)
+
+2. GAPS: What was missed, incomplete, or could be improved. Be specific about behaviors or statements that should have happened but didn't. (1-2 sentences minimum)
+
+3. ACTION: One concrete, specific behavior to practice on the very next call. Make it actionable, not generic advice. (1 sentence)
+
+IMPORTANT: Avoid generic feedback like "improve communication skills" or "be more thorough." Every piece of feedback must reference something specific from THIS call.
 
 ## CHECKLIST CRITERIA
 
@@ -139,7 +150,9 @@ Focus on quotes that demonstrate:
 IMPORTANT RULES:
 - Score each section 0-10
 - Overall score is the average of all section scores (one decimal place)
-- Be specific with feedback - cite quotes when possible
+- CRITICAL: Each section's feedback MUST follow the "STRENGTHS: ... GAPS: ... ACTION: ..." format exactly
+- Be specific with feedback - cite quotes from the transcript when possible
+- Avoid generic coaching like "improve communication" - reference specific moments from THIS call
 - CRM notes should be formatted with markdown headers
 - Checklist evidence should quote the transcript when checked=true
 - First names only - no last names or PII
@@ -197,28 +210,18 @@ function buildSalesUserPrompt(
     { label: "Set Follow Up", criteria: "Did they set a specific follow-up date/time?" }
   ];
 
-  // Build scoring framework dynamically
+  // Build scoring framework dynamically with detailed feedback requirements
   const scoringFramework = scoredSections.map((section: any, idx: number) => 
     `**${idx + 1}. ${section.name.toUpperCase()}**\n${section.criteria}`
   ).join('\n\n');
 
-  // Generate section score fields dynamically
-  const sectionScoreFields = scoredSections.map((section: any) => {
-    const key = section.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-    return `  "${key}_score": <0-100>,
-  "${key}_wins": ["<specific thing done well>"],
-  "${key}_failures": ["<specific failure 1>", "<specific failure 2 if applicable>"],
-  "${key}_coaching": "<2-3 sentences of specific, actionable coaching>"`;
-  }).join(',\n');
-
-  // Generate section_scores object structure
+  // Generate section_scores object structure with STRENGTHS/GAPS/ACTION format
   const sectionScoresStructure = scoredSections.map((section: any) => {
     const key = section.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     return `    "${key}": {
       "score": <0-100>,
-      "wins": ["<specific thing done well>"],
-      "failures": ["<specific failure>"],
-      "coaching": "<coaching advice>"
+      "feedback": "STRENGTHS: [specific example of what rep did well, with quote if available]. GAPS: [specific behavior or statement that was missed or incomplete]. ACTION: [one concrete thing to practice on the next call].",
+      "tip": "<one memorable coaching takeaway for quick reference>"
     }`;
   }).join(',\n');
 
@@ -233,7 +236,7 @@ function buildSalesUserPrompt(
     return `    "${key}": <true/false>`;
   }).join(',\n');
 
-  // Generate skill_scores keys
+  // Generate skill_scores keys (for backward compatibility)
   const skillScoresKeys = scoredSections.map((section: any) => {
     const key = section.name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     return `    "${key}": <0-100>`;
@@ -244,6 +247,17 @@ function buildSalesUserPrompt(
 ## SCORING FRAMEWORK
 
 ${scoringFramework}
+
+## SECTION FEEDBACK REQUIREMENTS
+For EACH scored section, provide detailed coaching feedback with this structure:
+
+1. STRENGTHS: What the rep did well in this area. Include specific quotes or moments from the transcript when possible. (1-2 sentences minimum)
+
+2. GAPS: What was missed, incomplete, or could be improved. Be specific about behaviors or statements that should have happened but didn't. (1-2 sentences minimum)
+
+3. ACTION: One concrete, specific behavior to practice on the very next call. Make it actionable, not generic advice. (1 sentence)
+
+IMPORTANT: Avoid generic feedback like "improve closing skills" or "be more assertive." Every piece of feedback must reference something specific from THIS call.
 
 ## EXECUTION CHECKLIST CRITERIA
 
@@ -321,9 +335,8 @@ ${checklistJsonStructure}
 }
 
 IMPORTANT RULES:
-- Each section MUST have at least 1 win (something done well) and 1-2 failures
-- If they did something well, acknowledge it as a win even if the overall score is low
-- Coaching must be 2-3 full sentences with specific examples and phrases to use
+- CRITICAL: Each section's feedback MUST follow the "STRENGTHS: ... GAPS: ... ACTION: ..." format exactly
+- Avoid generic coaching like "improve closing skills" - reference specific moments from THIS call
 - Critical assessment must be 3-4 sentences minimum
 - Be specific - cite quotes from the transcript when possible
 - Format prices consistently as $X/month or $X/year
