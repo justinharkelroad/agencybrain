@@ -446,7 +446,7 @@ export function useOnboardingSequences() {
       const newStepIds = new Set(steps.filter(s => s.id).map(s => s.id));
 
       // Delete removed steps
-      const stepsToDelete = [...existingStepIds].filter(id => !newStepIds.has(id));
+      const stepsToDelete = ([...existingStepIds] as string[]).filter(id => !newStepIds.has(id));
       if (stepsToDelete.length > 0) {
         const { error: deleteError } = await supabase
           .from('onboarding_sequence_steps')
