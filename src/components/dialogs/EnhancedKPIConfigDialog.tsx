@@ -322,6 +322,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
     try {
       setLoading(true);
       const newKpiKey = `custom_${Date.now()}`;
+      let newKpiId: string | undefined;
 
       if (isStaffMode) {
         // Staff mode - use edge function
@@ -334,9 +335,10 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
           }
           throw new Error(result.error);
         }
+        newKpiId = result.data?.id;
       } else {
         // Owner mode - direct Supabase
-        const { error: kpiError } = await supabase
+        const { data: newKpi, error: kpiError } = await supabase
           .from('kpis')
           .insert({
             agency_id: agencyId,
@@ -345,29 +347,32 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
             type: "number",
             is_active: true,
             role: normalizedRole
-          });
-
-        if (kpiError) throw kpiError;
-
-        const { data: currentRules } = await supabase
-          .from('scorecard_rules')
-          .select('selected_metrics')
-          .eq('agency_id', agencyId)
-          .eq('role', normalizedRole)
+          })
+          .select('id')
           .single();
 
-        const currentMetrics = currentRules?.selected_metrics || [];
+        if (kpiError) throw kpiError;
+        newKpiId = newKpi?.id;
 
-        const { error: updateError } = await supabase
-          .from('scorecard_rules')
-          .update({ selected_metrics: [...currentMetrics, newKpiKey] })
-          .eq('agency_id', agencyId)
-          .eq('role', normalizedRole);
-
-        if (updateError) throw updateError;
+        // Note: We don't update scorecard_rules here anymore.
+        // The new KPI will be added to selected_metrics when the user clicks "Save Configuration"
       }
 
-      await loadKPIsAndTargets();
+      // Add the new KPI to local state instead of reloading everything
+      // This preserves the user's unsaved changes (enabled/disabled toggles)
+      const newKpiData: KPIData = {
+        id: newKpiId || newKpiKey,
+        agency_id: agencyId,
+        key: newKpiKey,
+        label: defaultLabel,
+        type: 'number',
+        is_active: true,
+        enabled: true,
+        value: 0,
+        role: normalizedRole
+      };
+
+      setKpis(prev => [...prev, newKpiData]);
       toast.success("Custom KPI added and enabled");
     } catch (error: any) {
       console.error('Error adding custom KPI:', error);
