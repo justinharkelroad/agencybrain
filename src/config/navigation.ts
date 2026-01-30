@@ -108,6 +108,16 @@ export const navigationConfig: NavEntry[] = [
     access: { staff: true, manager: true, owner: true },
   },
 
+  // My Tasks - onboarding/follow-up tasks (visible to everyone who may have tasks)
+  {
+    id: 'onboarding-tasks',
+    title: 'My Tasks',
+    icon: Workflow,
+    type: 'link',
+    url: '/onboarding-tasks',
+    access: { staff: true, manager: true, owner: true },
+  },
+
   // Call Scoring - TOP LEVEL for prominent visibility
   {
     id: 'call-scoring-top',
@@ -295,14 +305,6 @@ export const navigationConfig: NavEntry[] = [
         icon: Workflow,
         type: 'link',
         url: '/sequence-builder',
-        access: { staff: false, manager: true, owner: true },
-      },
-      {
-        id: 'onboarding-tasks',
-        title: 'Onboarding Tasks',
-        icon: Workflow,
-        type: 'link',
-        url: '/onboarding-tasks',
         access: { staff: false, manager: true, owner: true },
       },
       {
