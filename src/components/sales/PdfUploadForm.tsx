@@ -742,7 +742,7 @@ export function PdfUploadForm({
               or click to select a file
             </p>
             <p className="text-xs text-muted-foreground">
-              Supports Allstate Purchase Confirmation PDFs (max 10MB)
+              Drop your New Business Application PDF here
             </p>
           </div>
           
