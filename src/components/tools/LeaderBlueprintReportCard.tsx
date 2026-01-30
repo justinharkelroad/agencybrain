@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Copy, X, FileImage, Target, Lightbulb, AlertTriangle, Quote, Eye, Rocket, BarChart3, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
+import { ExportBrandingHeader } from "./ExportBrandingHeader";
 
 interface LeaderBlueprintReportCardProps {
   module: {
@@ -262,6 +263,8 @@ export function LeaderBlueprintReportCard({ module, open, onClose }: LeaderBluep
 
         {/* Report Content */}
         <div ref={reportRef} style={{ background: COLORS.background, padding: '24px', minHeight: '100%' }}>
+          {/* Export Branding Header */}
+          <ExportBrandingHeader />
           
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>

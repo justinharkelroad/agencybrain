@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Copy, X, FileImage } from "lucide-react";
 import { toast } from "sonner";
+import { ExportBrandingHeader } from "./ExportBrandingHeader";
 
 interface LearningCycleReportCardProps {
   module: {
@@ -202,6 +203,9 @@ export function LearningCycleReportCard({ module, open, onClose }: LearningCycle
 
         {/* Report Card Content */}
         <div ref={reportRef} style={{ padding: '32px', backgroundColor: COLORS.background }}>
+          {/* Export Branding Header */}
+          <ExportBrandingHeader />
+          
           {/* Title Header */}
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>
             <p style={{ 
