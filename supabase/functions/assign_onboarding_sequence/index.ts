@@ -193,17 +193,21 @@ serve(async (req) => {
       );
     }
 
-    // Check if an active sequence is already assigned to this contact or sale
-    // Build query based on what identifiers we have
-    let duplicateQuery = supabase
-      .from('onboarding_instances')
-      .select('id, status')
-      .in('status', ['active', 'paused']);
+    if (!staffUser.is_active) {
+      return new Response(
+        JSON.stringify({ error: 'Cannot assign to an inactive staff user' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
+    // Check if an active sequence is already assigned to this contact or sale
     if (contact_id) {
       // Check for active sequence on this contact
-      const { data: existingContactInstance } = await duplicateQuery
+      const { data: existingContactInstance } = await supabase
+        .from('onboarding_instances')
+        .select('id, status')
         .eq('contact_id', contact_id)
+        .eq('status', 'active')
         .maybeSingle();
 
       if (existingContactInstance) {
@@ -220,7 +224,7 @@ serve(async (req) => {
         .from('onboarding_instances')
         .select('id, status')
         .eq('sale_id', sale_id)
-        .in('status', ['active', 'paused'])
+        .eq('status', 'active')
         .maybeSingle();
 
       if (existingSaleInstance) {
