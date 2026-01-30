@@ -54,6 +54,8 @@ export function LqsHouseholdDetailModal({
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editPhones, setEditPhones] = useState<string[]>([]);
   const [editEmail, setEditEmail] = useState('');
   const [editZipCode, setEditZipCode] = useState('');
@@ -202,8 +204,9 @@ export function LqsHouseholdDetailModal({
       toast.success('Saved');
       setIsEditing(false);
       setDeletedQuoteIds([]);
-      // Invalidate to refresh the data
+      // Invalidate and close modal so fresh data shows on next open
       queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      onOpenChange(false);
     } catch (error) {
       console.error('Failed to save:', error);
       toast.error('Failed to save');
@@ -214,8 +217,8 @@ export function LqsHouseholdDetailModal({
 
   const handleCancel = () => {
     if (household) {
-      const phones = Array.isArray(household.phone) 
-        ? household.phone 
+      const phones = Array.isArray(household.phone)
+        ? household.phone
         : household.phone ? [household.phone] : [];
       setEditPhones(phones.length > 0 ? phones : ['']);
       setEditEmail(household.email || '');
@@ -224,6 +227,32 @@ export function LqsHouseholdDetailModal({
       setDeletedQuoteIds([]);
     }
     setIsEditing(false);
+    setShowDeleteConfirm(false);
+  };
+
+  const handleDeleteHousehold = async () => {
+    if (!household) return;
+
+    setIsDeleting(true);
+    try {
+      // Delete household (cascade will delete quotes and sales)
+      const { error } = await supabase
+        .from('lqs_households')
+        .delete()
+        .eq('id', household.id);
+
+      if (error) throw error;
+
+      toast.success('Household deleted');
+      queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Failed to delete household:', error);
+      toast.error('Failed to delete household');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   if (!household) return null;
@@ -245,10 +274,20 @@ export function LqsHouseholdDetailModal({
           <DialogTitle className="flex items-center justify-between">
             <span>Household Details</span>
             {!isEditing ? (
-              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             ) : (
               <div className="flex items-center gap-2">
                 <Button
@@ -276,6 +315,42 @@ export function LqsHouseholdDetailModal({
             )}
           </DialogTitle>
         </DialogHeader>
+
+        {/* Delete Confirmation */}
+        {showDeleteConfirm && (
+          <Alert variant="destructive" className="mt-2">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Delete this household?</AlertTitle>
+            <AlertDescription className="space-y-3">
+              <p className="text-sm">
+                This will permanently delete {household.first_name} {household.last_name} and all associated quotes and sales records.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={handleDeleteHousehold}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Delete
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={isDeleting}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="space-y-6">
           {/* Customer Info Header */}
