@@ -13,6 +13,40 @@ export const RING_COLORS: Record<string, string> = {
   mini_reviews: "#10b981"        // emerald
 };
 
+// Colors for custom KPIs (cycled through for variety)
+const CUSTOM_KPI_COLORS = [
+  "#8b5cf6", // violet
+  "#06b6d4", // cyan
+  "#f97316", // orange
+  "#ec4899", // pink
+  "#14b8a6", // teal
+  "#eab308", // yellow
+  "#6366f1", // indigo
+  "#84cc16", // lime
+];
+
+/**
+ * Get ring color for a metric key
+ * For custom KPIs, generates a consistent color based on the key
+ */
+export function getRingColor(metricKey: string): string {
+  // Check static mapping first
+  if (RING_COLORS[metricKey]) {
+    return RING_COLORS[metricKey];
+  }
+
+  // For custom KPIs, generate a consistent color based on the key hash
+  if (metricKey.startsWith('custom_')) {
+    // Use the numeric part of the key to pick a color consistently
+    const numPart = metricKey.replace(/\D/g, '');
+    const index = numPart ? parseInt(numPart.slice(-2)) % CUSTOM_KPI_COLORS.length : 0;
+    return CUSTOM_KPI_COLORS[index];
+  }
+
+  // Default grey
+  return "#9ca3af";
+}
+
 export const RING_LABELS: Record<string, string> = {
   outbound_calls: "Calls",
   talk_minutes: "Minutes", 

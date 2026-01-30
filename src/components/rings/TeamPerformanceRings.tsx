@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { RING_COLORS, RING_LABELS } from "./colors";
+import { RING_COLORS, RING_LABELS, getRingColor } from "./colors";
 import { Check, X } from "lucide-react";
 import PersonSnapshotModal from "@/components/PersonSnapshotModal";
 import { useKpiLabels } from "@/hooks/useKpiLabels";
@@ -271,7 +271,7 @@ export default function TeamPerformanceRings({
               // Use database labels first, fallback to RING_LABELS, then slug
               label: kpiLabels?.[metricKey] || RING_LABELS[metricKey] || metricKey,
               progress: target > 0 ? Math.min(actual / target, 1) : 0,
-              color: RING_COLORS[metricKey] || "#9ca3af",
+              color: getRingColor(metricKey),
               actual,
               target: target > 0 ? target : 0
             };
