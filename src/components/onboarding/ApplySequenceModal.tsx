@@ -41,7 +41,8 @@ interface StaffUser {
 interface ApplySequenceModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  saleId: string;
+  contactId?: string;       // For contact-based sequences
+  saleId?: string;          // For sale-based sequences (now optional)
   customerName: string;
   customerPhone?: string;
   customerEmail?: string;
@@ -52,6 +53,7 @@ interface ApplySequenceModalProps {
 export function ApplySequenceModal({
   open,
   onOpenChange,
+  contactId,
   saleId,
   customerName,
   customerPhone,
@@ -133,7 +135,8 @@ export function ApplySequenceModal({
     try {
       const { data, error } = await supabase.functions.invoke('assign_onboarding_sequence', {
         body: {
-          sale_id: saleId,
+          contact_id: contactId || null,
+          sale_id: saleId || null,
           sequence_id: selectedSequenceId,
           assigned_to_staff_user_id: assigneeId,
           start_date: format(startDate, 'yyyy-MM-dd'),

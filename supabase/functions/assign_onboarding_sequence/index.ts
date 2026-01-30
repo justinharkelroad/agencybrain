@@ -7,13 +7,15 @@ const corsHeaders = {
 };
 
 interface AssignSequenceRequest {
-  sale_id: string;
   sequence_id: string;
   assigned_to_staff_user_id: string;
   start_date: string; // YYYY-MM-DD
   customer_name: string;
   customer_phone?: string | null;
   customer_email?: string | null;
+  // Either contact_id or sale_id must be provided
+  contact_id?: string;  // For contact-based sequences
+  sale_id?: string;     // For sale-based sequences (backward compatible)
 }
 
 serve(async (req) => {
@@ -63,6 +65,7 @@ serve(async (req) => {
 
     const body: AssignSequenceRequest = await req.json();
     const {
+      contact_id,
       sale_id,
       sequence_id,
       assigned_to_staff_user_id,
@@ -73,9 +76,17 @@ serve(async (req) => {
     } = body;
 
     // Validate required fields
-    if (!sale_id || !sequence_id || !assigned_to_staff_user_id || !start_date || !customer_name) {
+    if (!sequence_id || !assigned_to_staff_user_id || !start_date || !customer_name) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Require either contact_id or sale_id
+    if (!contact_id && !sale_id) {
+      return new Response(
+        JSON.stringify({ error: 'Either contact_id or sale_id must be provided' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -112,26 +123,52 @@ serve(async (req) => {
       );
     }
 
-    // Verify the sale exists and belongs to this agency
-    const { data: sale, error: saleError } = await supabase
-      .from('sales')
-      .select('id, agency_id')
-      .eq('id', sale_id)
-      .single();
+    // Verify the contact exists and belongs to this agency (if provided)
+    if (contact_id) {
+      const { data: contact, error: contactError } = await supabase
+        .from('agency_contacts')
+        .select('id, agency_id')
+        .eq('id', contact_id)
+        .single();
 
-    if (saleError || !sale) {
-      console.error('[assign_onboarding_sequence] Sale not found:', saleError);
-      return new Response(
-        JSON.stringify({ error: 'Sale not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (contactError || !contact) {
+        console.error('[assign_onboarding_sequence] Contact not found:', contactError);
+        return new Response(
+          JSON.stringify({ error: 'Contact not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (contact.agency_id !== profile.agency_id) {
+        return new Response(
+          JSON.stringify({ error: 'Contact does not belong to your agency' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
-    if (sale.agency_id !== profile.agency_id) {
-      return new Response(
-        JSON.stringify({ error: 'Sale does not belong to your agency' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Verify the sale exists and belongs to this agency (if provided)
+    if (sale_id) {
+      const { data: sale, error: saleError } = await supabase
+        .from('sales')
+        .select('id, agency_id')
+        .eq('id', sale_id)
+        .single();
+
+      if (saleError || !sale) {
+        console.error('[assign_onboarding_sequence] Sale not found:', saleError);
+        return new Response(
+          JSON.stringify({ error: 'Sale not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (sale.agency_id !== profile.agency_id) {
+        return new Response(
+          JSON.stringify({ error: 'Sale does not belong to your agency' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Verify the assignee exists and belongs to this agency
@@ -156,19 +193,42 @@ serve(async (req) => {
       );
     }
 
-    // Check if a sequence is already assigned to this sale
-    const { data: existingInstance } = await supabase
+    // Check if an active sequence is already assigned to this contact or sale
+    // Build query based on what identifiers we have
+    let duplicateQuery = supabase
       .from('onboarding_instances')
       .select('id, status')
-      .eq('sale_id', sale_id)
-      .in('status', ['active', 'paused'])
-      .maybeSingle();
+      .in('status', ['active', 'paused']);
 
-    if (existingInstance) {
-      return new Response(
-        JSON.stringify({ error: 'A sequence is already assigned to this sale' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (contact_id) {
+      // Check for active sequence on this contact
+      const { data: existingContactInstance } = await duplicateQuery
+        .eq('contact_id', contact_id)
+        .maybeSingle();
+
+      if (existingContactInstance) {
+        return new Response(
+          JSON.stringify({ error: 'A sequence is already assigned to this contact' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    if (sale_id) {
+      // Also check for active sequence on this sale
+      const { data: existingSaleInstance } = await supabase
+        .from('onboarding_instances')
+        .select('id, status')
+        .eq('sale_id', sale_id)
+        .in('status', ['active', 'paused'])
+        .maybeSingle();
+
+      if (existingSaleInstance) {
+        return new Response(
+          JSON.stringify({ error: 'A sequence is already assigned to this sale' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Create the onboarding instance
@@ -178,7 +238,8 @@ serve(async (req) => {
       .insert({
         agency_id: profile.agency_id,
         sequence_id: sequence_id,
-        sale_id: sale_id,
+        contact_id: contact_id || null,
+        sale_id: sale_id || null,
         customer_name: customer_name,
         customer_phone: customer_phone || null,
         customer_email: customer_email || null,
@@ -206,7 +267,8 @@ serve(async (req) => {
 
     const taskCount = tasks?.length || 0;
 
-    console.log(`[assign_onboarding_sequence] Instance ${instance.id} created with ${taskCount} tasks for sale ${sale_id}`);
+    const targetLabel = contact_id ? `contact ${contact_id}` : `sale ${sale_id}`;
+    console.log(`[assign_onboarding_sequence] Instance ${instance.id} created with ${taskCount} tasks for ${targetLabel}`);
 
     return new Response(
       JSON.stringify({

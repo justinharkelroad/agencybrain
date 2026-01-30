@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Phone, Mail, MapPin, FileText, X, MessageSquare, Loader2, Voicemail, MessageCircle, DollarSign, Handshake, StickyNote, Calendar, CheckCircle2, ArrowRightLeft } from 'lucide-react';
+import { Phone, Mail, MapPin, FileText, X, MessageSquare, Loader2, Voicemail, MessageCircle, DollarSign, Handshake, StickyNote, Calendar, CheckCircle2, ArrowRightLeft, Workflow } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 import * as winbackApi from '@/lib/winbackApi';
 import { supabase } from '@/integrations/supabase/client';
 import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
+import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';
 
 interface ContactProfileModalProps {
   contactId: string | null;
@@ -85,6 +86,8 @@ export function ContactProfileModal({
   const [moduleActionLoading, setModuleActionLoading] = useState<string | null>(null);
   // Track if a mutation has occurred - used to prefer fresh profile stage over stale passedStage
   const [hasMutated, setHasMutated] = useState(false);
+  // State for Apply Sequence modal
+  const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
 
   // Query client for cache invalidation
   const queryClient = useQueryClient();
@@ -710,6 +713,16 @@ export function ContactProfileModal({
                       )}
                       Log Text
                     </Button>
+                    {agencyId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setApplySequenceModalOpen(true)}
+                      >
+                        <Workflow className="h-4 w-4 mr-1" />
+                        Start Sequence
+                      </Button>
+                    )}
                   </div>
                 )}
               </SheetHeader>
@@ -820,6 +833,23 @@ export function ContactProfileModal({
         isLoading={logActivity.isPending}
         activityType={activityFormType}
       />
+
+      {/* Apply Sequence Modal */}
+      {agencyId && profile && (
+        <ApplySequenceModal
+          open={applySequenceModalOpen}
+          onOpenChange={setApplySequenceModalOpen}
+          contactId={contactId || undefined}
+          customerName={`${profile.first_name} ${profile.last_name}`}
+          customerPhone={profile.phones?.[0]}
+          customerEmail={profile.emails?.[0]}
+          agencyId={agencyId}
+          onSuccess={() => {
+            setApplySequenceModalOpen(false);
+            onActivityLogged?.();
+          }}
+        />
+      )}
     </>
   );
 }
