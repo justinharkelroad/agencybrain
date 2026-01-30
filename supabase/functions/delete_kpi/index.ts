@@ -62,13 +62,12 @@ serve(async (req) => {
     );
 
     // LAYER 1: Block deletion if KPI is used in any active forms
-    // Check schema_json for selectedKpiSlug or key references
+    // Check schema_json for selectedKpiSlug or key references using raw SQL to avoid PostgREST parsing issues
     const { data: affectedForms, error: formsError } = await supabase
-      .from('form_templates')
-      .select('id, name')
-      .eq('agency_id', agency_id)
-      .eq('is_active', true)
-      .or(`schema_json::text.ilike.%"selectedKpiSlug":"${kpi_key}"%,schema_json::text.ilike.%"${kpi_key}"%`);
+      .rpc('check_kpi_in_active_forms', {
+        p_agency_id: agency_id,
+        p_kpi_key: kpi_key
+      });
 
     if (formsError) {
       console.error('Error checking affected forms:', formsError);
