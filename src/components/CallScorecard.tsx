@@ -641,7 +641,7 @@ export function CallScorecard({
                         <User className="h-4 w-4 text-muted-foreground" />
                       </div>
                       
-                      {/* Wins */}
+                      {/* Legacy: Wins */}
                       {rapportData?.wins?.map((win: string, i: number) => (
                         <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
                           <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -649,7 +649,7 @@ export function CallScorecard({
                         </p>
                       ))}
                       
-                      {/* Failures */}
+                      {/* Legacy: Failures */}
                       {rapportData?.failures?.map((failure: string, i: number) => (
                         <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
                           <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -663,6 +663,45 @@ export function CallScorecard({
                           <p className="text-sm">{rapportData.coaching}</p>
                         </div>
                       )}
+                      
+                      {/* NEW: Handle feedback string format (STRENGTHS/GAPS/ACTION) */}
+                      {rapportData?.feedback && !rapportData?.wins && (() => {
+                        const parsed = parseFeedback(rapportData.feedback);
+                        if (parsed.strengths || parsed.gaps || parsed.action) {
+                          return (
+                            <div className="space-y-2">
+                              {parsed.strengths && (
+                                <div className="flex items-start gap-2">
+                                  <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-green-500 flex-shrink-0" />
+                                  <p className="text-sm text-green-400">
+                                    <span className="font-semibold">STRENGTHS:</span> {parsed.strengths}
+                                  </p>
+                                </div>
+                              )}
+                              {parsed.gaps && (
+                                <div className="flex items-start gap-2">
+                                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-amber-500 flex-shrink-0" />
+                                  <p className="text-sm text-amber-400">
+                                    <span className="font-semibold">GAPS:</span> {parsed.gaps}
+                                  </p>
+                                </div>
+                              )}
+                              {parsed.action && (
+                                <div className="flex items-start gap-2">
+                                  <Target className="h-3.5 w-3.5 mt-0.5 text-blue-500 flex-shrink-0" />
+                                  <p className="text-sm text-blue-400">
+                                    <span className="font-semibold">ACTION:</span> {parsed.action}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return <p className="text-sm text-muted-foreground">{rapportData.feedback}</p>;
+                      })()}
+                      {rapportData?.tip && (
+                        <p className="text-xs text-green-400 mt-3">💡 {rapportData.tip}</p>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -674,6 +713,7 @@ export function CallScorecard({
                         <Target className="h-4 w-4 text-muted-foreground" />
                       </div>
                       
+                      {/* Legacy: Wins */}
                       {coverageData?.wins?.map((win: string, i: number) => (
                         <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
                           <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -681,6 +721,7 @@ export function CallScorecard({
                         </p>
                       ))}
                       
+                      {/* Legacy: Failures */}
                       {coverageData?.failures?.map((failure: string, i: number) => (
                         <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
                           <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -694,6 +735,45 @@ export function CallScorecard({
                           <p className="text-sm">{coverageData.coaching}</p>
                         </div>
                       )}
+                      
+                      {/* NEW: Handle feedback string format */}
+                      {coverageData?.feedback && !coverageData?.wins && (() => {
+                        const parsed = parseFeedback(coverageData.feedback);
+                        if (parsed.strengths || parsed.gaps || parsed.action) {
+                          return (
+                            <div className="space-y-2">
+                              {parsed.strengths && (
+                                <div className="flex items-start gap-2">
+                                  <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-green-500 flex-shrink-0" />
+                                  <p className="text-sm text-green-400">
+                                    <span className="font-semibold">STRENGTHS:</span> {parsed.strengths}
+                                  </p>
+                                </div>
+                              )}
+                              {parsed.gaps && (
+                                <div className="flex items-start gap-2">
+                                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-amber-500 flex-shrink-0" />
+                                  <p className="text-sm text-amber-400">
+                                    <span className="font-semibold">GAPS:</span> {parsed.gaps}
+                                  </p>
+                                </div>
+                              )}
+                              {parsed.action && (
+                                <div className="flex items-start gap-2">
+                                  <Target className="h-3.5 w-3.5 mt-0.5 text-blue-500 flex-shrink-0" />
+                                  <p className="text-sm text-blue-400">
+                                    <span className="font-semibold">ACTION:</span> {parsed.action}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return <p className="text-sm text-muted-foreground">{coverageData.feedback}</p>;
+                      })()}
+                      {coverageData?.tip && (
+                        <p className="text-xs text-green-400 mt-3">💡 {coverageData.tip}</p>
+                      )}
                     </CardContent>
                   </Card>
 
@@ -705,6 +785,7 @@ export function CallScorecard({
                         <Target className="h-4 w-4 text-muted-foreground" />
                       </div>
                       
+                      {/* Legacy: Wins */}
                       {closingData?.wins?.map((win: string, i: number) => (
                         <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
                           <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -712,6 +793,7 @@ export function CallScorecard({
                         </p>
                       ))}
                       
+                      {/* Legacy: Failures */}
                       {closingData?.failures?.map((failure: string, i: number) => (
                         <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
                           <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -724,6 +806,45 @@ export function CallScorecard({
                           <p className="text-xs text-muted-foreground mb-1">COACHING</p>
                           <p className="text-sm">{closingData.coaching}</p>
                         </div>
+                      )}
+                      
+                      {/* NEW: Handle feedback string format */}
+                      {closingData?.feedback && !closingData?.wins && (() => {
+                        const parsed = parseFeedback(closingData.feedback);
+                        if (parsed.strengths || parsed.gaps || parsed.action) {
+                          return (
+                            <div className="space-y-2">
+                              {parsed.strengths && (
+                                <div className="flex items-start gap-2">
+                                  <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-green-500 flex-shrink-0" />
+                                  <p className="text-sm text-green-400">
+                                    <span className="font-semibold">STRENGTHS:</span> {parsed.strengths}
+                                  </p>
+                                </div>
+                              )}
+                              {parsed.gaps && (
+                                <div className="flex items-start gap-2">
+                                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-amber-500 flex-shrink-0" />
+                                  <p className="text-sm text-amber-400">
+                                    <span className="font-semibold">GAPS:</span> {parsed.gaps}
+                                  </p>
+                                </div>
+                              )}
+                              {parsed.action && (
+                                <div className="flex items-start gap-2">
+                                  <Target className="h-3.5 w-3.5 mt-0.5 text-blue-500 flex-shrink-0" />
+                                  <p className="text-sm text-blue-400">
+                                    <span className="font-semibold">ACTION:</span> {parsed.action}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        return <p className="text-sm text-muted-foreground">{closingData.feedback}</p>;
+                      })()}
+                      {closingData?.tip && (
+                        <p className="text-xs text-green-400 mt-3">💡 {closingData.tip}</p>
                       )}
                     </CardContent>
                   </Card>
