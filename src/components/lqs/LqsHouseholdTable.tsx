@@ -28,6 +28,7 @@ interface LqsHouseholdTableProps {
   showBulkSelect?: boolean;
   onViewHouseholdDetail?: (household: HouseholdWithRelations) => void;
   onViewSaleDetail?: (saleId: string) => void;
+  onViewProfile?: (household: HouseholdWithRelations) => void;
   // Pagination props
   totalRecords?: number;
   currentPage?: number;
@@ -47,6 +48,7 @@ export function LqsHouseholdTable({
   showBulkSelect = false,
   onViewHouseholdDetail,
   onViewSaleDetail,
+  onViewProfile,
   totalRecords,
   currentPage,
   totalPages,
@@ -169,6 +171,7 @@ export function LqsHouseholdTable({
                 showCheckbox={showBulkSelect && household.needs_attention}
                 onViewDetail={onViewHouseholdDetail}
                 onViewSaleDetail={onViewSaleDetail}
+                onViewProfile={onViewProfile}
               />
             ))}
           </TableBody>

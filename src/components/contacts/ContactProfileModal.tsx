@@ -56,6 +56,9 @@ interface ContactProfileModalProps {
     id: string;
     winback_household_id?: string | null;
   };
+  lqsHousehold?: {
+    id: string;
+  };
   teamMembers?: Array<{ id: string; name: string }>;
   currentUserTeamMemberId?: string | null;
   onActivityLogged?: () => void;
@@ -75,6 +78,7 @@ export function ContactProfileModal({
   cancelAuditRecord,
   winbackHousehold,
   renewalRecord,
+  lqsHousehold,
   teamMembers = [],
   currentUserTeamMemberId,
   onActivityLogged,
@@ -570,6 +574,38 @@ export function ContactProfileModal({
     }
   };
 
+  // Module-specific activity handlers for LQS
+  const handleLqsActivity = async (activityType: string) => {
+    if (!contactId || !agencyId || !displayName) return;
+
+    setModuleActionLoading(activityType);
+    try {
+      await logActivity.mutateAsync({
+        contactId,
+        agencyId,
+        activityType: activityType as any,
+        sourceModule: 'lqs',
+        sourceRecordId: lqsHousehold?.id,
+        createdByUserId: userId,
+        createdByStaffId: staffMemberId,
+        createdByDisplayName: displayName,
+      });
+
+      toast.success('Activity logged');
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
+      queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      setHasMutated(true);
+      onActivityLogged?.();
+    } catch (error: any) {
+      toast.error('Failed to log activity', { description: error.message });
+    } finally {
+      setModuleActionLoading(null);
+    }
+  };
+
   // Format phone for display
   const formatPhone = (phone: string) => {
     const formatted = formatPhoneNumber(phone);
@@ -677,6 +713,12 @@ export function ContactProfileModal({
                 ) : defaultSourceModule === 'renewal' && renewalRecord ? (
                   <RenewalQuickActions
                     onAction={handleRenewalActivity}
+                    loadingAction={moduleActionLoading}
+                    onStartSequence={agencyId ? () => setApplySequenceModalOpen(true) : undefined}
+                  />
+                ) : defaultSourceModule === 'lqs' && lqsHousehold ? (
+                  <LqsQuickActions
+                    onAction={handleLqsActivity}
                     loadingAction={moduleActionLoading}
                     onStartSequence={agencyId ? () => setApplySequenceModalOpen(true) : undefined}
                   />
@@ -1135,6 +1177,61 @@ function RenewalQuickActions({
           </Button>
         )}
       </div>
+    </div>
+  );
+}
+
+// LQS Quick Actions - for LQS Roadmap sidebar
+function LqsQuickActions({
+  onAction,
+  loadingAction,
+  onStartSequence,
+}: {
+  onAction: (type: string) => void;
+  loadingAction: string | null;
+  onStartSequence?: () => void;
+}) {
+  const actions = [
+    { type: 'call', label: 'Call', icon: Phone, color: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
+    { type: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
+    { type: 'text', label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+    { type: 'email', label: 'Email', icon: Mail, color: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
+    { type: 'appointment', label: 'Appt', icon: Calendar, color: 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
+  ];
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {actions.map(({ type, label, icon: Icon, color }) => (
+          <Button
+            key={type}
+            variant="outline"
+            size="sm"
+            className={cn('border transition-colors', color, loadingAction && 'opacity-50')}
+            onClick={() => onAction(type)}
+            disabled={loadingAction !== null}
+          >
+            {loadingAction === type ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Icon className="h-3.5 w-3.5 mr-1.5" />
+            )}
+            {label}
+          </Button>
+        ))}
+      </div>
+      {onStartSequence && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onStartSequence}
+          >
+            <Workflow className="h-3.5 w-3.5 mr-1.5" />
+            Start Sequence
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

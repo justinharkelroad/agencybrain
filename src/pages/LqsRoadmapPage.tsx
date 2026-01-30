@@ -40,6 +40,9 @@ import { LqsActionDropdowns } from '@/components/lqs/LqsActionDropdowns';
 import { AddLeadModal } from '@/components/lqs/AddLeadModal';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { LqsGroupedSection } from '@/components/lqs/LqsGroupedSection';
+import { ContactProfileModal } from '@/components/contacts/ContactProfileModal';
+import { findOrCreateContact } from '@/hooks/useContacts';
+import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 import type { QuoteUploadResult, SalesUploadResult, PendingSaleReview } from '@/types/lqs';
@@ -110,6 +113,11 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   // Detail modals
   const [detailHousehold, setDetailHousehold] = useState<HouseholdWithRelations | null>(null);
   const [detailSaleId, setDetailSaleId] = useState<string | null>(null);
+
+  // Contact Profile modal state
+  const [profileContactId, setProfileContactId] = useState<string | null>(null);
+  const [profileHousehold, setProfileHousehold] = useState<HouseholdWithRelations | null>(null);
+  const [isCreatingContact, setIsCreatingContact] = useState(false);
   
   // Quote upload results modal
   const [quoteUploadResults, setQuoteUploadResults] = useState<QuoteUploadResult | null>(null);
@@ -336,6 +344,52 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const handleViewSaleDetail = useCallback((saleId: string) => {
     setDetailSaleId(saleId);
   }, []);
+
+  // Handle opening contact profile sidebar
+  const handleViewProfile = useCallback(async (household: HouseholdWithRelations) => {
+    if (!agencyProfile?.agencyId) return;
+
+    // If household already has a contact_id, open immediately
+    if (household.contact_id) {
+      setProfileContactId(household.contact_id);
+      setProfileHousehold(household);
+      return;
+    }
+
+    // Otherwise, find or create a contact first (don't open modal until we have a contactId)
+    setIsCreatingContact(true);
+    try {
+      const householdKey = generateHouseholdKey(
+        household.first_name,
+        household.last_name,
+        household.zip_code
+      );
+
+      const contactId = await findOrCreateContact(agencyProfile.agencyId, {
+        firstName: household.first_name,
+        lastName: household.last_name,
+        phone: household.phone?.[0],
+        email: household.email || undefined,
+        zipCode: household.zip_code,
+        householdKey,
+      });
+
+      // Update the LQS household with the new contact_id
+      await supabase
+        .from('lqs_households')
+        .update({ contact_id: contactId })
+        .eq('id', household.id);
+
+      // Now open the modal with the contact
+      setProfileContactId(contactId);
+      setProfileHousehold(household);
+    } catch (error) {
+      console.error('Failed to find or create contact:', error);
+      toast.error('Failed to open contact profile');
+    } finally {
+      setIsCreatingContact(false);
+    }
+  }, [agencyProfile?.agencyId]);
 
   const handleAssign = async (householdId: string, leadSourceId: string) => {
     try {
@@ -610,6 +664,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
                 onAssignLeadSource={handleAssignLeadSource}
                 onViewHouseholdDetail={handleViewHouseholdDetail}
                 onViewSaleDetail={handleViewSaleDetail}
+                onViewProfile={handleViewProfile}
                 totalRecords={totalRecords}
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -629,6 +684,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
                 onAssignLeadSource={handleAssignLeadSource}
                 onViewHouseholdDetail={handleViewHouseholdDetail}
                 onViewSaleDetail={handleViewSaleDetail}
+                onViewProfile={handleViewProfile}
                 totalRecords={totalRecords}
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -650,6 +706,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
                 showBulkSelect={true}
                 onViewHouseholdDetail={handleViewHouseholdDetail}
                 onViewSaleDetail={handleViewSaleDetail}
+                onViewProfile={handleViewProfile}
                 totalRecords={totalRecords}
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -669,6 +726,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
                 onAssignLeadSource={handleAssignLeadSource}
                 onViewHouseholdDetail={handleViewHouseholdDetail}
                 onViewSaleDetail={handleViewSaleDetail}
+                onViewProfile={handleViewProfile}
                 totalRecords={totalRecords}
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -692,6 +750,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
                     onAssignLeadSource={handleAssignLeadSource}
                     onViewHouseholdDetail={handleViewHouseholdDetail}
                     onViewSaleDetail={handleViewSaleDetail}
+                    onViewProfile={handleViewProfile}
                     isLoading={isLoading}
                   />
                 ))}
@@ -780,6 +839,25 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         onOpenChange={(open) => !open && setDetailSaleId(null)}
         canEditAllSales={true}
         onEdit={(saleId) => navigate(`/sales?tab=add&edit=${saleId}`)}
+      />
+
+      {/* Contact Profile Modal (sidebar) */}
+      <ContactProfileModal
+        contactId={profileContactId}
+        open={!!profileHousehold}
+        onClose={() => {
+          setProfileHousehold(null);
+          setProfileContactId(null);
+        }}
+        agencyId={agencyProfile?.agencyId}
+        defaultSourceModule="lqs"
+        sourceRecordId={profileHousehold?.id}
+        userId={user?.id}
+        displayName={user?.email || 'User'}
+        lqsHousehold={profileHousehold ? { id: profileHousehold.id } : undefined}
+        teamMembers={teamMembers}
+        currentUserTeamMemberId={currentTeamMemberId}
+        onActivityLogged={() => refetch()}
       />
 
       {/* Sales Upload Results Modal */}

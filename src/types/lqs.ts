@@ -60,6 +60,7 @@ export interface LqsHousehold {
   attention_reason: AttentionReason | null;
   conflicting_lead_source_id: string | null;
   products_interested: string[] | null;
+  contact_id: string | null;
   created_at: string;
   updated_at: string;
 }

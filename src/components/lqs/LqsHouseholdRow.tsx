@@ -17,6 +17,7 @@ interface LqsHouseholdRowProps {
   showCheckbox?: boolean;
   onViewDetail?: (household: HouseholdWithRelations) => void;
   onViewSaleDetail?: (saleId: string) => void;
+  onViewProfile?: (household: HouseholdWithRelations) => void;
 }
 
 function formatProductType(type: string): string {
@@ -54,6 +55,7 @@ export function LqsHouseholdRow({
   showCheckbox = false,
   onViewDetail,
   onViewSaleDetail,
+  onViewProfile,
 }: LqsHouseholdRowProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -103,8 +105,15 @@ export function LqsHouseholdRow({
         </TableCell>
 
         {/* Name */}
-        <TableCell className="font-medium">
-          <div>{household.last_name.toUpperCase()}, {household.first_name}</div>
+        <TableCell className="font-medium" onClick={(e) => e.stopPropagation()}>
+          <div
+            className={cn(
+              onViewProfile && 'cursor-pointer hover:text-primary hover:underline'
+            )}
+            onClick={() => onViewProfile?.(household)}
+          >
+            {household.last_name.toUpperCase()}, {household.first_name}
+          </div>
           {/* Show phone count indicator */}
           {Array.isArray(household.phone) && household.phone.length > 0 && (
             <div className="text-xs text-muted-foreground">

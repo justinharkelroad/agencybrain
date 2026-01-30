@@ -11,6 +11,7 @@ interface LqsGroupedSectionProps {
   onAssignLeadSource: (id: string) => void;
   onViewHouseholdDetail: (household: HouseholdWithRelations) => void;
   onViewSaleDetail: (saleId: string) => void;
+  onViewProfile?: (household: HouseholdWithRelations) => void;
   isLoading: boolean;
 }
 
@@ -21,6 +22,7 @@ export function LqsGroupedSection({
   onAssignLeadSource,
   onViewHouseholdDetail,
   onViewSaleDetail,
+  onViewProfile,
   isLoading,
 }: LqsGroupedSectionProps) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -62,6 +64,7 @@ export function LqsGroupedSection({
         onAssignLeadSource={onAssignLeadSource}
         onViewHouseholdDetail={onViewHouseholdDetail}
         onViewSaleDetail={onViewSaleDetail}
+        onViewProfile={onViewProfile}
         totalRecords={households.length}
         currentPage={currentPage}
         totalPages={totalPages}
