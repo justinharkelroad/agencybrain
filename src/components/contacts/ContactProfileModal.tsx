@@ -665,17 +665,20 @@ export function ContactProfileModal({
                   <CancelAuditQuickActions
                     onAction={handleCancelAuditActivity}
                     loadingAction={moduleActionLoading}
+                    onStartSequence={agencyId ? () => setApplySequenceModalOpen(true) : undefined}
                   />
                 ) : defaultSourceModule === 'winback' && winbackHousehold ? (
                   <WinbackQuickActions
                     onAction={handleWinbackActivity}
                     onOutcome={handleWinbackOutcome}
                     loadingAction={moduleActionLoading}
+                    onStartSequence={agencyId ? () => setApplySequenceModalOpen(true) : undefined}
                   />
                 ) : defaultSourceModule === 'renewal' && renewalRecord ? (
                   <RenewalQuickActions
                     onAction={handleRenewalActivity}
                     loadingAction={moduleActionLoading}
+                    onStartSequence={agencyId ? () => setApplySequenceModalOpen(true) : undefined}
                   />
                 ) : (
                   <div className="flex flex-wrap gap-2">
@@ -907,9 +910,11 @@ function EmptyState({ onClose }: { onClose: () => void }) {
 function CancelAuditQuickActions({
   onAction,
   loadingAction,
+  onStartSequence,
 }: {
   onAction: (type: string) => void;
   loadingAction: string | null;
+  onStartSequence?: () => void;
 }) {
   const actions = [
     { type: 'attempted_call', label: 'Call', icon: Phone, color: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
@@ -922,24 +927,38 @@ function CancelAuditQuickActions({
   ];
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {actions.map(({ type, label, icon: Icon, color }) => (
-        <Button
-          key={type}
-          variant="outline"
-          size="sm"
-          className={cn('border transition-colors', color, loadingAction && 'opacity-50')}
-          onClick={() => onAction(type)}
-          disabled={loadingAction !== null}
-        >
-          {loadingAction === type ? (
-            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-          ) : (
-            <Icon className="h-3.5 w-3.5 mr-1.5" />
-          )}
-          {label}
-        </Button>
-      ))}
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {actions.map(({ type, label, icon: Icon, color }) => (
+          <Button
+            key={type}
+            variant="outline"
+            size="sm"
+            className={cn('border transition-colors', color, loadingAction && 'opacity-50')}
+            onClick={() => onAction(type)}
+            disabled={loadingAction !== null}
+          >
+            {loadingAction === type ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Icon className="h-3.5 w-3.5 mr-1.5" />
+            )}
+            {label}
+          </Button>
+        ))}
+      </div>
+      {onStartSequence && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onStartSequence}
+          >
+            <Workflow className="h-3.5 w-3.5 mr-1.5" />
+            Start Sequence
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -949,10 +968,12 @@ function WinbackQuickActions({
   onAction,
   onOutcome,
   loadingAction,
+  onStartSequence,
 }: {
   onAction: (type: string) => void;
   onOutcome: (outcome: 'won_back' | 'quoted') => void;
   loadingAction: string | null;
+  onStartSequence?: () => void;
 }) {
   const contactActions = [
     { type: 'called', label: 'Call', icon: Phone, color: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
@@ -1007,6 +1028,16 @@ function WinbackQuickActions({
             {label}
           </Button>
         ))}
+        {onStartSequence && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onStartSequence}
+          >
+            <Workflow className="h-3.5 w-3.5 mr-1.5" />
+            Start Sequence
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -1016,9 +1047,11 @@ function WinbackQuickActions({
 function RenewalQuickActions({
   onAction,
   loadingAction,
+  onStartSequence,
 }: {
   onAction: (activityType: RenewalActivityType, activityStatus?: string, updateRecordStatus?: WorkflowStatus) => void;
   loadingAction: string | null;
+  onStartSequence?: () => void;
 }) {
   const contactActions = [
     { type: 'call' as RenewalActivityType, label: 'Call', icon: Phone, color: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
@@ -1091,6 +1124,16 @@ function RenewalQuickActions({
             </Button>
           );
         })}
+        {onStartSequence && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onStartSequence}
+          >
+            <Workflow className="h-3.5 w-3.5 mr-1.5" />
+            Start Sequence
+          </Button>
+        )}
       </div>
     </div>
   );
