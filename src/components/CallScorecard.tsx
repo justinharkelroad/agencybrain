@@ -20,6 +20,26 @@ import { useState, useRef } from "react";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
 import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecard';
+// Helper to parse STRENGTHS/GAPS/ACTION from feedback string
+function parseFeedback(feedback: string | null): { 
+  strengths: string | null; 
+  gaps: string | null; 
+  action: string | null;
+  raw: string | null;
+} {
+  if (!feedback) return { strengths: null, gaps: null, action: null, raw: null };
+  
+  const strengthsMatch = feedback.match(/STRENGTHS?:\s*([^]*?)(?=\s*GAPS?:|$)/i);
+  const gapsMatch = feedback.match(/GAPS?:\s*([^]*?)(?=\s*ACTIONS?:|$)/i);
+  const actionMatch = feedback.match(/ACTIONS?:\s*([^]*?)$/i);
+  
+  return {
+    strengths: strengthsMatch?.[1]?.trim() || null,
+    gaps: gapsMatch?.[1]?.trim() || null,
+    action: actionMatch?.[1]?.trim() || null,
+    raw: feedback
+  };
+}
 
 interface CallScorecardProps {
   call: any;
@@ -742,11 +762,42 @@ export function CallScorecard({
                               {skill.score}/{skill.max_score || 10}
                             </Badge>
                           </div>
-                          {skill.feedback && (
-                            <p className="text-xs text-muted-foreground mb-2">{skill.feedback}</p>
-                          )}
+                          {skill.feedback && (() => {
+                            const parsed = parseFeedback(skill.feedback);
+                            if (parsed.strengths || parsed.gaps || parsed.action) {
+                              return (
+                                <div className="space-y-2 mt-2">
+                                  {parsed.strengths && (
+                                    <div className="flex items-start gap-2">
+                                      <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-green-500 flex-shrink-0" />
+                                      <p className="text-xs text-green-400">
+                                        <span className="font-semibold">STRENGTHS:</span> {parsed.strengths}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {parsed.gaps && (
+                                    <div className="flex items-start gap-2">
+                                      <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-amber-500 flex-shrink-0" />
+                                      <p className="text-xs text-amber-400">
+                                        <span className="font-semibold">GAPS:</span> {parsed.gaps}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {parsed.action && (
+                                    <div className="flex items-start gap-2">
+                                      <Target className="h-3.5 w-3.5 mt-0.5 text-blue-500 flex-shrink-0" />
+                                      <p className="text-xs text-blue-400">
+                                        <span className="font-semibold">ACTION:</span> {parsed.action}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return <p className="text-xs text-muted-foreground mb-2">{skill.feedback}</p>;
+                          })()}
                           {skill.tip && (
-                            <p className="text-xs text-green-400">💡 {skill.tip}</p>
+                            <p className="text-xs text-green-400 mt-2">💡 {skill.tip}</p>
                           )}
                         </div>
                       ))}
