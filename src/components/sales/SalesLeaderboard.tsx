@@ -98,6 +98,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
   const { user } = useAuth();
   const [rankBy, setRankBy] = useState<RankMetric>("items");
   const [period, setPeriod] = useState<Period>("this_month");
+  const [businessFilter, setBusinessFilter] = useState<string>("all");
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   const { start, end } = getPeriodDates(period);
@@ -148,15 +149,16 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
 
   // Fetch leaderboard data
   const { data: leaderboardData, isLoading } = useQuery({
-    queryKey: ["sales-leaderboard", agencyId, start, end, staffSessionToken],
+    queryKey: ["sales-leaderboard", agencyId, start, end, staffSessionToken, businessFilter],
     queryFn: async (): Promise<LeaderboardEntry[]> => {
       if (staffSessionToken) {
         const { data, error } = await supabase.functions.invoke('get_staff_sales', {
           headers: { 'x-staff-session': staffSessionToken },
-          body: { 
-            date_start: start, 
+          body: {
+            date_start: start,
             date_end: end,
-            include_leaderboard: true 
+            include_leaderboard: true,
+            business_filter: businessFilter
           }
         });
 
@@ -176,7 +178,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
 
       if (tmError) throw tmError;
 
-      const { data: sales, error: salesError } = await supabase
+      let salesQuery = supabase
         .from("sales")
         .select(`
           team_member_id,
@@ -186,6 +188,15 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         .eq("agency_id", agencyId)
         .gte("sale_date", start)
         .lte("sale_date", end);
+
+      // Filter by business type (regular vs brokered)
+      if (businessFilter === "regular") {
+        salesQuery = salesQuery.is("brokered_carrier_id", null);
+      } else if (businessFilter === "brokered") {
+        salesQuery = salesQuery.not("brokered_carrier_id", "is", null);
+      }
+
+      const { data: sales, error: salesError } = await salesQuery;
 
       if (salesError) throw salesError;
 
@@ -316,18 +327,32 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
               <p className="text-sm text-muted-foreground mt-0.5">{periodLabel}</p>
             </div>
             
-            {/* Period Selector */}
-            <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="this_month">This Month</SelectItem>
-                <SelectItem value="last_month">Last Month</SelectItem>
-                <SelectItem value="this_quarter">This Quarter</SelectItem>
-                <SelectItem value="ytd">YTD</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              {/* Period Selector */}
+              <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="this_month">This Month</SelectItem>
+                  <SelectItem value="last_month">Last Month</SelectItem>
+                  <SelectItem value="this_quarter">This Quarter</SelectItem>
+                  <SelectItem value="ytd">YTD</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Business Type Filter */}
+              <Select value={businessFilter} onValueChange={setBusinessFilter}>
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue placeholder="All Business" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Business</SelectItem>
+                  <SelectItem value="regular">Regular Only</SelectItem>
+                  <SelectItem value="brokered">Brokered Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
           {/* Metric Toggle */}

@@ -27,6 +27,7 @@ interface SalesByZipcodeChartProps {
   canEditAllSales?: boolean;
   currentTeamMemberId?: string;
   leadSources?: { id: string; name: string }[];
+  businessFilter?: string;
 }
 
 const CHART_COLORS = [
@@ -85,13 +86,13 @@ const RankBadge = (props: any) => {
 
 const PAGE_SIZE = 10;
 
-export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId, leadSources = [] }: SalesByZipcodeChartProps) {
+export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId, leadSources = [], businessFilter = "all" }: SalesByZipcodeChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
   const [selectedZipcode, setSelectedZipcode] = useState<string | null>(null);
   const [drillPage, setDrillPage] = useState(1);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["sales-by-zipcode", agencyId, startDate, endDate, staffSessionToken],
+    queryKey: ["sales-by-zipcode", agencyId, startDate, endDate, staffSessionToken, businessFilter],
     queryFn: async () => {
       if (!agencyId) return [];
 
@@ -99,7 +100,7 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
       if (staffSessionToken) {
         const { data: result, error } = await supabase.functions.invoke('get_staff_sales_analytics', {
           headers: { 'x-staff-session': staffSessionToken },
-          body: { type: 'by-zipcode', start_date: startDate, end_date: endDate }
+          body: { type: 'by-zipcode', start_date: startDate, end_date: endDate, business_filter: businessFilter }
         });
         if (error) throw error;
         if (result?.error) throw new Error(result.error);
@@ -107,13 +108,22 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
       }
 
       // Admin path - direct query with sale_policies for Motor Club filtering
-      const { data: sales, error } = await supabase
+      let query = supabase
         .from("sales")
-        .select("customer_zip, customer_name, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+        .select("customer_zip, customer_name, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
         .eq("agency_id", agencyId)
         .gte("sale_date", startDate)
         .lte("sale_date", endDate)
         .not("customer_zip", "is", null);
+
+      // Apply business filter
+      if (businessFilter === "regular") {
+        query = query.is("brokered_carrier_id", null);
+      } else if (businessFilter === "brokered") {
+        query = query.not("brokered_carrier_id", "is", null);
+      }
+
+      const { data: sales, error } = await query;
 
       if (error) throw error;
 

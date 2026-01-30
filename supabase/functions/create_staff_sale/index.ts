@@ -26,6 +26,7 @@ interface Policy {
 
 interface CreateSaleRequest {
   lead_source_id?: string;
+  brokered_carrier_id?: string;
   customer_name: string;
   customer_email?: string;
   customer_phone?: string;
@@ -313,6 +314,7 @@ serve(async (req) => {
         team_member_id: staffUser.team_member_id,
         contact_id: contactId,
         lead_source_id: body.lead_source_id,
+        brokered_carrier_id: body.brokered_carrier_id || null,
         customer_name: body.customer_name,
         customer_email: body.customer_email || null,
         customer_phone: body.customer_phone || null,

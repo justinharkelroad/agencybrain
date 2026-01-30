@@ -52,6 +52,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [businessFilter, setBusinessFilter] = useState<string>("all");
   const { user, isAgencyOwner, isAdmin } = useAuth();
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
@@ -85,7 +86,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
 
   // Fetch sales data for current month
   const { data: salesData, isLoading } = useQuery({
-    queryKey: ["sales-dashboard-widget", agencyId, monthStart, monthEnd, isStaff, teamMemberId],
+    queryKey: ["sales-dashboard-widget", agencyId, monthStart, monthEnd, isStaff, teamMemberId, businessFilter],
     queryFn: async () => {
       if (!agencyId) return null;
 
@@ -107,6 +108,13 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
       // Staff only sees their own sales
       if (isStaff && teamMemberId) {
         query = query.eq("team_member_id", teamMemberId);
+      }
+
+      // Filter by business type (regular vs brokered)
+      if (businessFilter === "regular") {
+        query = query.is("brokered_carrier_id", null);
+      } else if (businessFilter === "brokered") {
+        query = query.not("brokered_carrier_id", "is", null);
       }
 
       const { data, error } = await query;
@@ -264,6 +272,17 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
           {streak.current > 0 && (
             <StreakBadge streak={streak.current} size="sm" />
           )}
+          {/* Business Type Filter */}
+          <Select value={businessFilter} onValueChange={setBusinessFilter}>
+            <SelectTrigger className="w-[130px] h-9">
+              <SelectValue placeholder="All Business" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Business</SelectItem>
+              <SelectItem value="regular">Regular Only</SelectItem>
+              <SelectItem value="brokered">Brokered Only</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             variant="outline"
             size="sm"

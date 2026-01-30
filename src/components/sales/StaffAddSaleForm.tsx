@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useBrokeredCarriers } from "@/hooks/useBrokeredCarriers";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, ExternalLink } from "lucide-react";
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -107,8 +109,13 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerZip, setCustomerZip] = useState("");
   const [leadSourceId, setLeadSourceId] = useState("");
+  const [isBrokeredBusiness, setIsBrokeredBusiness] = useState(false);
+  const [brokeredCarrierId, setBrokeredCarrierId] = useState<string | null>(null);
   const [saleDate, setSaleDate] = useState<Date | undefined>(todayLocal());
   const [policies, setPolicies] = useState<Policy[]>([]);
+
+  // Fetch brokered carriers
+  const { activeCarriers: brokeredCarriers } = useBrokeredCarriers(agencyId || null);
 
   // Fetch product types
   const { data: productTypes = [] } = useQuery<ProductType[]>({
@@ -182,41 +189,64 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       policies.map((p) => {
         if (p.id !== policyId) return p;
 
+        const updated = { ...p, [field]: value };
+
         if (field === "product_type_id") {
-          const selectedProduct = productTypes.find((pt) => pt.id === value);
-          if (!selectedProduct) return p;
+          // Handle brokered business (product_type_id = "brokered")
+          if (value === "brokered") {
+            updated.is_vc_qualifying = false;
+            // Auto-create a line item for brokered business if none exists
+            if (p.lineItems.length === 0) {
+              updated.lineItems = [
+                {
+                  id: crypto.randomUUID(),
+                  product_type_id: "",
+                  product_type_name: updated.policy_type_name || "",
+                  item_count: 1,
+                  premium: 0,
+                  points: 0,
+                  is_vc_qualifying: false,
+                },
+              ];
+            }
+          } else {
+            const selectedProduct = productTypes.find((pt) => pt.id === value);
+            if (!selectedProduct) return p;
 
-          const isVc = selectedProduct.is_vc_item || false;
-          const defaultPoints = selectedProduct.default_points || 0;
+            const isVc = selectedProduct.is_vc_item || false;
+            const defaultPoints = selectedProduct.default_points || 0;
 
-          // For non-multi-item products, auto-create a single line item
-          let lineItems = p.lineItems;
-          if (!isMultiItemProduct(selectedProduct.name)) {
-            // Create or update single line item
-            lineItems = [{
-              id: p.lineItems[0]?.id || crypto.randomUUID(),
-              product_type_id: selectedProduct.id,
-              product_type_name: selectedProduct.name,
-              item_count: 1,
-              premium: p.lineItems[0]?.premium || 0,
-              points: defaultPoints,
-              is_vc_qualifying: isVc,
-            }];
-          } else if (p.lineItems.length === 0) {
-            // For multi-item, start with empty line items
-            lineItems = [];
+            updated.policy_type_name = selectedProduct.name;
+            updated.is_vc_qualifying = isVc;
+
+            // For non-multi-item products, auto-create a single line item
+            if (!isMultiItemProduct(selectedProduct.name)) {
+              // Create or update single line item
+              updated.lineItems = [{
+                id: p.lineItems[0]?.id || crypto.randomUUID(),
+                product_type_id: selectedProduct.id,
+                product_type_name: selectedProduct.name,
+                item_count: 1,
+                premium: p.lineItems[0]?.premium || 0,
+                points: defaultPoints,
+                is_vc_qualifying: isVc,
+              }];
+            } else if (p.lineItems.length === 0) {
+              // For multi-item, start with empty line items
+              updated.lineItems = [];
+            }
           }
-
-          return {
-            ...p,
-            product_type_id: value,
-            policy_type_name: selectedProduct.name,
-            is_vc_qualifying: isVc,
-            lineItems,
-          };
         }
 
-        return { ...p, [field]: value };
+        // For brokered business: also update line item's product_type_name when policy_type_name changes
+        if (field === "policy_type_name" && isBrokeredBusiness && updated.lineItems.length > 0) {
+          updated.lineItems = updated.lineItems.map((item) => ({
+            ...item,
+            product_type_name: value,
+          }));
+        }
+
+        return updated;
       })
     );
   };
@@ -326,17 +356,28 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       if (!leadSourceId) throw new Error("Lead source is required");
       if (policies.length === 0) throw new Error("At least one policy is required");
       if (!staffSessionToken) throw new Error("Staff session required");
+      if (isBrokeredBusiness && !brokeredCarrierId) {
+        throw new Error("Please select a brokered carrier");
+      }
 
       // Validate each policy
       for (const policy of policies) {
         if (!policy.effective_date) {
           throw new Error("Each policy must have an effective date");
         }
-        if (!policy.product_type_id) {
-          throw new Error("Each policy must have a policy type selected");
+        // For brokered business, require policy_type_name (free text)
+        // For regular business, require product_type_id (from dropdown)
+        if (isBrokeredBusiness) {
+          if (!policy.policy_type_name?.trim()) {
+            throw new Error("Each policy must have a policy type entered");
+          }
+        } else {
+          if (!policy.product_type_id) {
+            throw new Error("Each policy must have a policy type selected");
+          }
         }
         if (policy.lineItems.length === 0) {
-          throw new Error(`Policy "${policy.policy_type_name}" must have at least one line item`);
+          throw new Error(`Policy "${policy.policy_type_name || 'Unnamed'}" must have at least one line item`);
         }
       }
 
@@ -356,6 +397,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
 
       const salePayload = {
         lead_source_id: leadSourceId,
+        brokered_carrier_id: brokeredCarrierId || undefined,
         customer_name: customerName.trim(),
         customer_email: customerEmail || undefined,
         customer_phone: customerPhone || undefined,
@@ -373,21 +415,25 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         vc_points: vcTotals.points,
         is_bundle: bundleInfo.isBundle,
         bundle_type: bundleInfo.bundleType,
-        policies: policies.map((policy) => ({
-          product_type_id: policy.product_type_id || null,
-          policy_type_name: policy.policy_type_name,
-          policy_number: policy.policy_number || undefined,
-          effective_date: format(policy.effective_date!, "yyyy-MM-dd"),
-          is_vc_qualifying: policy.is_vc_qualifying,
-          items: policy.lineItems.map((item) => ({
-            product_type_id: item.product_type_id || null,
-            product_type_name: item.product_type_name,
-            item_count: item.item_count,
-            premium: typeof item.premium === "number" ? item.premium : parseFloat(item.premium) || 0,
-            points: item.points,
-            is_vc_qualifying: item.is_vc_qualifying,
-          })),
-        })),
+        policies: policies.map((policy) => {
+          // For brokered business, product_type_id is "brokered" - convert to null for DB
+          const productTypeId = policy.product_type_id === "brokered" ? null : (policy.product_type_id || null);
+          return {
+            product_type_id: productTypeId,
+            policy_type_name: policy.policy_type_name,
+            policy_number: policy.policy_number || undefined,
+            effective_date: format(policy.effective_date!, "yyyy-MM-dd"),
+            is_vc_qualifying: policy.is_vc_qualifying,
+            items: policy.lineItems.map((item) => ({
+              product_type_id: item.product_type_id && item.product_type_id !== "brokered" ? item.product_type_id : null,
+              product_type_name: item.product_type_name,
+              item_count: item.item_count,
+              premium: typeof item.premium === "number" ? item.premium : parseFloat(item.premium) || 0,
+              points: item.points,
+              is_vc_qualifying: item.is_vc_qualifying,
+            })),
+          };
+        }),
       };
 
       const { data, error } = await supabase.functions.invoke("create_staff_sale", {
@@ -422,6 +468,8 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
     setCustomerPhone("");
     setCustomerZip("");
     setLeadSourceId("");
+    setIsBrokeredBusiness(false);
+    setBrokeredCarrierId(null);
     setSaleDate(new Date());
     setPolicies([]);
   };
@@ -517,6 +565,77 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Brokered Business Toggle */}
+            <div className="sm:col-span-2 pt-2">
+              <div className={cn(
+                "flex items-center justify-between p-4 rounded-lg border-2 transition-colors",
+                isBrokeredBusiness
+                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/20"
+                  : "border-muted bg-muted/30"
+              )}>
+                <div className="flex items-center gap-3">
+                  <Building2 className={cn(
+                    "h-5 w-5",
+                    isBrokeredBusiness ? "text-amber-600" : "text-muted-foreground"
+                  )} />
+                  <div>
+                    <Label htmlFor="brokeredToggle" className="text-base font-medium cursor-pointer">
+                      Brokered Business
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      This sale is through a non-captive carrier
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  id="brokeredToggle"
+                  checked={isBrokeredBusiness}
+                  onCheckedChange={(checked) => {
+                    setIsBrokeredBusiness(checked);
+                    if (!checked) {
+                      setBrokeredCarrierId(null);
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Brokered Carrier Selection - shown when toggle is on */}
+              {isBrokeredBusiness && (
+                <div className="mt-3 pl-8 space-y-2">
+                  {brokeredCarriers.length > 0 ? (
+                    <>
+                      <Label htmlFor="brokeredCarrier">
+                        Select Carrier <span className="text-destructive">*</span>
+                      </Label>
+                      <Select
+                        value={brokeredCarrierId || ""}
+                        onValueChange={(value) => setBrokeredCarrierId(value || null)}
+                      >
+                        <SelectTrigger className={cn(
+                          !brokeredCarrierId && "border-amber-500"
+                        )}>
+                          <SelectValue placeholder="Choose a brokered carrier..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {brokeredCarriers.map((carrier) => (
+                            <SelectItem key={carrier.id} value={carrier.id}>
+                              {carrier.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-2 p-3 rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800">
+                      <span className="text-sm text-amber-800 dark:text-amber-200">
+                        No brokered carriers configured. Please ask your administrator to set up carriers.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -623,23 +742,55 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                                 <Label>
                                   Policy Type <span className="text-destructive">*</span>
                                 </Label>
-                                <Select
-                                  value={policy.product_type_id}
-                                  onValueChange={(value) =>
-                                    updatePolicy(policy.id, "product_type_id", value)
-                                  }
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select policy type" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {productTypes.map((product) => (
-                                      <SelectItem key={product.id} value={product.id}>
-                                        {product.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                {isBrokeredBusiness ? (
+                                  <Input
+                                    value={policy.policy_type_name}
+                                    onChange={(e) => {
+                                      const newName = e.target.value;
+                                      // Update policies with both policy_type_name and auto-create line item
+                                      setPolicies(policies.map((pol) => {
+                                        if (pol.id !== policy.id) return pol;
+                                        const lineItem = pol.lineItems.length > 0
+                                          ? { ...pol.lineItems[0], product_type_name: newName }
+                                          : {
+                                              id: crypto.randomUUID(),
+                                              product_type_id: "",
+                                              product_type_name: newName,
+                                              item_count: 1,
+                                              premium: 0,
+                                              points: 0,
+                                              is_vc_qualifying: false,
+                                            };
+                                        return {
+                                          ...pol,
+                                          policy_type_name: newName,
+                                          product_type_id: "brokered",
+                                          is_vc_qualifying: false,
+                                          lineItems: [lineItem],
+                                        };
+                                      }));
+                                    }}
+                                    placeholder="e.g., Wind Only, Flood, etc."
+                                  />
+                                ) : (
+                                  <Select
+                                    value={policy.product_type_id}
+                                    onValueChange={(value) =>
+                                      updatePolicy(policy.id, "product_type_id", value)
+                                    }
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select policy type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {productTypes.map((product) => (
+                                        <SelectItem key={product.id} value={product.id}>
+                                          {product.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
                               </div>
                               <div className="space-y-2">
                                 <Label>Policy Number</Label>
@@ -794,6 +945,101 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                                   </div>
                                 )}
                               </>
+                            ) : isBrokeredBusiness && policy.policy_type_name ? (
+                              /* Brokered business: Simplified interface with editable items */
+                              <div className="grid gap-4 mt-4 sm:grid-cols-4 items-end">
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Items</Label>
+                                  <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    className="h-9"
+                                    value={policy.lineItems[0]?.item_count === 0 ? "" : policy.lineItems[0]?.item_count}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === "" || /^\d+$/.test(val)) {
+                                        if (policy.lineItems[0]) {
+                                          updateLineItem(
+                                            policy.id,
+                                            policy.lineItems[0].id,
+                                            "item_count",
+                                            val === "" ? 0 : parseInt(val)
+                                          );
+                                        }
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      if (policy.lineItems[0] && (e.target.value === "" || parseInt(e.target.value) < 1)) {
+                                        updateLineItem(policy.id, policy.lineItems[0].id, "item_count", 1);
+                                      }
+                                    }}
+                                    placeholder="1"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Premium ($)</Label>
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    className="h-9"
+                                    value={
+                                      policy.lineItems[0]?.premium === 0
+                                        ? ""
+                                        : (policy.lineItems[0]?.premium ?? "")
+                                    }
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === "" || /^[0-9]*\.?[0-9]*$/.test(val)) {
+                                        if (policy.lineItems[0]) {
+                                          updateLineItem(
+                                            policy.id,
+                                            policy.lineItems[0].id,
+                                            "premium",
+                                            val === "" ? 0 : (val as any)
+                                          );
+                                        }
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      if (policy.lineItems[0]) {
+                                        const parsed = parseFloat(e.target.value) || 0;
+                                        updateLineItem(
+                                          policy.id,
+                                          policy.lineItems[0].id,
+                                          "premium",
+                                          parsed
+                                        );
+                                      }
+                                    }}
+                                    placeholder="0.00"
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-xs">Points</Label>
+                                  <Input
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    className="h-9"
+                                    value={policy.lineItems[0]?.points === 0 ? "" : policy.lineItems[0]?.points}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (val === "" || /^\d+$/.test(val)) {
+                                        if (policy.lineItems[0]) {
+                                          updateLineItem(
+                                            policy.id,
+                                            policy.lineItems[0].id,
+                                            "points",
+                                            val === "" ? 0 : parseInt(val)
+                                          );
+                                        }
+                                      }
+                                    }}
+                                    placeholder="0"
+                                  />
+                                </div>
+                              </div>
                             ) : policy.policy_type_name ? (
                               /* Single-item products: Simplified interface */
                               <div className="grid gap-4 mt-4 sm:grid-cols-3 items-end">
@@ -850,8 +1096,9 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                                 </div>
                               </div>
                             ) : (
+                              /* No product type selected yet */
                               <div className="text-center py-4 text-sm text-muted-foreground border rounded-lg mt-4">
-                                Select a policy type to add details.
+                                {isBrokeredBusiness ? "Enter a policy type to add details." : "Select a policy type to add details."}
                               </div>
                             )}
 

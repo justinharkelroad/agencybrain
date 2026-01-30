@@ -6,7 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Loader2, Target, TrendingUp, AlertCircle, Pencil, Trash2 } from "lucide-react";
+import { Plus, Loader2, Target, TrendingUp, AlertCircle, Pencil, Trash2, Building2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, startOfWeek, endOfWeek, startOfQuarter, endOfQuarter, startOfYear } from "date-fns";
 import { cn } from "@/lib/utils";
 import { AddGoalDialog } from "./AddGoalDialog";
@@ -109,6 +116,7 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<SalesGoal | null>(null);
   const [deletingGoalId, setDeletingGoalId] = useState<string | null>(null);
+  const [businessFilter, setBusinessFilter] = useState<string>("all");
 
   const canManageGoals = isAgencyOwner || isAdmin;
   const today = new Date();
@@ -157,7 +165,7 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
 
   // Fetch current values for each measurement type
   const { data: salesTotals, isLoading: totalsLoading } = useQuery({
-    queryKey: ["sales-totals-for-goals", agencyId, teamMemberId, isStaff],
+    queryKey: ["sales-totals-for-goals", agencyId, teamMemberId, isStaff, businessFilter],
     queryFn: async () => {
       if (!agencyId) return null;
 
@@ -180,6 +188,13 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
       // Staff only sees their own
       if (isStaff && teamMemberId) {
         query = query.eq("team_member_id", teamMemberId);
+      }
+
+      // Filter by business type (regular vs brokered)
+      if (businessFilter === "regular") {
+        query = query.is("brokered_carrier_id", null);
+      } else if (businessFilter === "brokered") {
+        query = query.not("brokered_carrier_id", "is", null);
       }
 
       const { data, error } = await query;
@@ -318,17 +333,30 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="flex items-center gap-2">
               <Target className="h-5 w-5" />
               {isStaff ? "Goals" : "Agency Goals"} - {monthLabel}
             </CardTitle>
-            {canManageGoals && (
-              <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
-                <Plus className="h-4 w-4 mr-1" />
-                Add Goal
-              </Button>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Business Type Filter */}
+              <Select value={businessFilter} onValueChange={setBusinessFilter}>
+                <SelectTrigger className="w-[140px] h-9">
+                  <SelectValue placeholder="All Business" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Business</SelectItem>
+                  <SelectItem value="regular">Regular Only</SelectItem>
+                  <SelectItem value="brokered">Brokered Only</SelectItem>
+                </SelectContent>
+              </Select>
+              {canManageGoals && (
+                <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Goal
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>

@@ -67,6 +67,10 @@ type Sale = {
   is_bundle: boolean | null;
   bundle_type: string | null;
   lead_source_id: string | null;
+  brokered_carrier_id: string | null;
+  brokered_carrier?: {
+    name: string;
+  } | null;
   lead_source?: {
     name: string;
   } | null;
@@ -99,6 +103,7 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
     to: endOfMonth(new Date()),
   });
   const [selectedProducer, setSelectedProducer] = useState<string>("all");
+  const [businessFilter, setBusinessFilter] = useState<string>("all");
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
@@ -143,6 +148,7 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
       dateRange.from.toISOString(),
       dateRange.to.toISOString(),
       selectedProducer,
+      businessFilter,
     ],
     queryFn: async () => {
       if (!profile?.agency_id) return [];
@@ -166,6 +172,8 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
           is_bundle,
           bundle_type,
           lead_source_id,
+          brokered_carrier_id,
+          brokered_carrier:brokered_carriers(name),
           lead_source:lead_sources(name),
           team_member:team_members!sales_team_member_id_fkey(name),
           sale_policies(id, policy_type_name, total_premium, total_items, total_points)
@@ -178,6 +186,13 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
 
       if (selectedProducer !== "all") {
         query = query.eq("team_member_id", selectedProducer);
+      }
+
+      // Filter by business type (regular vs brokered)
+      if (businessFilter === "regular") {
+        query = query.is("brokered_carrier_id", null);
+      } else if (businessFilter === "brokered") {
+        query = query.not("brokered_carrier_id", "is", null);
       }
 
       const { data, error } = await query;
@@ -343,6 +358,18 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
                   ))}
                 </SelectContent>
               </Select>
+
+              {/* Business Type Filter */}
+              <Select value={businessFilter} onValueChange={setBusinessFilter}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="All Business" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Business</SelectItem>
+                  <SelectItem value="regular">Regular Only</SelectItem>
+                  <SelectItem value="brokered">Brokered Only</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardTitle>
         </CardHeader>
@@ -409,11 +436,18 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
                         </TableCell>
                         <TableCell className="font-medium">
                           <div>{sale.customer_name}</div>
-                          {sale.is_bundle && (
-                            <Badge variant="outline" className="mt-1 text-xs">
-                              {sale.bundle_type || "Bundle"}
-                            </Badge>
-                          )}
+                          <div className="flex gap-1 mt-1 flex-wrap">
+                            {sale.brokered_carrier_id && (
+                              <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                                {sale.brokered_carrier?.name || "Brokered"}
+                              </Badge>
+                            )}
+                            {sale.is_bundle && (
+                              <Badge variant="outline" className="text-xs">
+                                {sale.bundle_type || "Bundle"}
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {sale.lead_source?.name || "—"}

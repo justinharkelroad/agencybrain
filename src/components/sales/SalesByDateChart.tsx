@@ -27,6 +27,7 @@ interface SalesByDateChartProps {
   canEditAllSales?: boolean;
   currentTeamMemberId?: string;
   leadSources?: { id: string; name: string }[];
+  businessFilter?: string;
 }
 
 interface SalesByDateRow {
@@ -59,13 +60,13 @@ const CHART_COLORS = [
 
 const PAGE_SIZE = 10;
 
-export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId, leadSources = [] }: SalesByDateChartProps) {
+export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId, leadSources = [], businessFilter = "all" }: SalesByDateChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [drillPage, setDrillPage] = useState(1);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["sales-by-date", agencyId, startDate, endDate, staffSessionToken],
+    queryKey: ["sales-by-date", agencyId, startDate, endDate, staffSessionToken, businessFilter],
     queryFn: async () => {
       if (!agencyId) return [];
 
@@ -73,7 +74,7 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
       if (staffSessionToken) {
         const { data: result, error } = await supabase.functions.invoke('get_staff_sales_analytics', {
           headers: { 'x-staff-session': staffSessionToken },
-          body: { type: 'by-date', start_date: startDate, end_date: endDate }
+          body: { type: 'by-date', start_date: startDate, end_date: endDate, business_filter: businessFilter }
         });
         if (error) throw error;
         if (result?.error) throw new Error(result.error);
@@ -81,13 +82,21 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
       }
 
       // Admin path - direct query with sale_policies for Motor Club filtering
-      const { data, error } = await supabase
+      let query = supabase
         .from("sales")
-        .select("sale_date, customer_name, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+        .select("sale_date, customer_name, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
         .eq("agency_id", agencyId)
         .gte("sale_date", startDate)
-        .lte("sale_date", endDate)
-        .order("sale_date");
+        .lte("sale_date", endDate);
+
+      // Apply business filter
+      if (businessFilter === "regular") {
+        query = query.is("brokered_carrier_id", null);
+      } else if (businessFilter === "brokered") {
+        query = query.not("brokered_carrier_id", "is", null);
+      }
+
+      const { data, error } = await query.order("sale_date");
 
       if (error) throw error;
 

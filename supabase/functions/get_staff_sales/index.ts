@@ -277,10 +277,20 @@ serve(async (req) => {
 
     // Parse request body
     const body = await req.json().catch(() => ({}));
-    const { date_start, date_end, include_leaderboard = true, scope = "personal" } = body;
+    const { date_start, date_end, include_leaderboard = true, scope = "personal", business_filter = "all" } = body;
 
-    console.log('Fetching sales for agency:', agencyId, 'team_member:', teamMemberId, 'scope:', scope);
+    console.log('Fetching sales for agency:', agencyId, 'team_member:', teamMemberId, 'scope:', scope, 'business_filter:', business_filter);
     console.log('Date range:', date_start, 'to', date_end);
+
+    // Helper to apply business filter to a query
+    const applyBusinessFilter = (query: any) => {
+      if (business_filter === "regular") {
+        return query.is("brokered_carrier_id", null);
+      } else if (business_filter === "brokered") {
+        return query.not("brokered_carrier_id", "is", null);
+      }
+      return query; // "all" - no filter
+    };
 
     // Fetch lead sources for the agency
     const { data: leadSources, error: leadSourcesError } = await supabase
@@ -304,7 +314,7 @@ serve(async (req) => {
     
     if (isTeamScope) {
       // For team scope, fetch all agency sales for totals (no team_member filter)
-      const teamQuery = supabase
+      let teamQuery = supabase
         .from('sales')
         .select(`
           id,
@@ -318,13 +328,15 @@ serve(async (req) => {
           total_points,
           team_member_id,
           lead_source_id,
+          brokered_carrier_id,
           sale_policies(id, policy_type_name, policy_number, total_premium, total_items, total_points)
         `)
         .eq('agency_id', agencyId);
 
-      if (date_start) teamQuery.gte('sale_date', date_start);
-      if (date_end) teamQuery.lte('sale_date', date_end);
-      teamQuery.order('sale_date', { ascending: false });
+      if (date_start) teamQuery = teamQuery.gte('sale_date', date_start);
+      if (date_end) teamQuery = teamQuery.lte('sale_date', date_end);
+      teamQuery = applyBusinessFilter(teamQuery);
+      teamQuery = teamQuery.order('sale_date', { ascending: false });
 
       const { data, error } = await teamQuery;
       if (error) {
@@ -336,7 +348,7 @@ serve(async (req) => {
     } else {
       // For personal scope, fetch only the staff member's sales
       if (teamMemberId) {
-        const personalQuery = supabase
+        let personalQuery = supabase
           .from('sales')
           .select(`
             id,
@@ -350,14 +362,16 @@ serve(async (req) => {
             total_points,
             team_member_id,
             lead_source_id,
+            brokered_carrier_id,
             sale_policies(id, policy_type_name, policy_number, total_premium, total_items, total_points)
           `)
           .eq('agency_id', agencyId)
           .eq('team_member_id', teamMemberId);
 
-        if (date_start) personalQuery.gte('sale_date', date_start);
-        if (date_end) personalQuery.lte('sale_date', date_end);
-        personalQuery.order('sale_date', { ascending: false });
+        if (date_start) personalQuery = personalQuery.gte('sale_date', date_start);
+        if (date_end) personalQuery = personalQuery.lte('sale_date', date_end);
+        personalQuery = applyBusinessFilter(personalQuery);
+        personalQuery = personalQuery.order('sale_date', { ascending: false });
 
         const { data, error } = await personalQuery;
         if (error) {
@@ -408,7 +422,7 @@ serve(async (req) => {
       console.log('Found team members:', teamMembers?.length || 0);
 
       // Get all sales for the agency in date range
-      const allSalesQuery = supabase
+      let allSalesQuery = supabase
         .from('sales')
         .select(`
           team_member_id,
@@ -416,12 +430,14 @@ serve(async (req) => {
           total_premium,
           total_items,
           total_points,
+          brokered_carrier_id,
           sale_policies(id)
         `)
         .eq('agency_id', agencyId);
 
-      if (date_start) allSalesQuery.gte('sale_date', date_start);
-      if (date_end) allSalesQuery.lte('sale_date', date_end);
+      if (date_start) allSalesQuery = allSalesQuery.gte('sale_date', date_start);
+      if (date_end) allSalesQuery = allSalesQuery.lte('sale_date', date_end);
+      allSalesQuery = applyBusinessFilter(allSalesQuery);
 
       const { data: allSales, error: salesError } = await allSalesQuery;
       
@@ -489,19 +505,24 @@ serve(async (req) => {
       const { prevStart, prevEnd } = getPreviousMonthRange(date_start, date_end);
       console.log('Fetching previous month data:', prevStart, 'to', prevEnd);
 
-      const { data: prevSales, error: prevError } = await supabase
+      let prevQuery = supabase
         .from('sales')
         .select(`
           total_premium,
           total_items,
           total_points,
           customer_name,
+          brokered_carrier_id,
           sale_policies(id)
         `)
         .eq('agency_id', agencyId)
         .eq('team_member_id', teamMemberId)
         .gte('sale_date', prevStart)
         .lte('sale_date', prevEnd);
+
+      prevQuery = applyBusinessFilter(prevQuery);
+
+      const { data: prevSales, error: prevError } = await prevQuery;
 
       if (!prevError && prevSales) {
         const prevUniqueCustomers = new Set(
@@ -541,13 +562,17 @@ serve(async (req) => {
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
       const streakStartDate = ninetyDaysAgo.toISOString().split('T')[0];
 
-      const { data: streakSales, error: streakError } = await supabase
+      let streakQuery = supabase
         .from('sales')
-        .select('sale_date')
+        .select('sale_date, brokered_carrier_id')
         .eq('agency_id', agencyId)
         .eq('team_member_id', teamMemberId)
-        .gte('sale_date', streakStartDate)
-        .order('sale_date', { ascending: false });
+        .gte('sale_date', streakStartDate);
+
+      streakQuery = applyBusinessFilter(streakQuery);
+      streakQuery = streakQuery.order('sale_date', { ascending: false });
+
+      const { data: streakSales, error: streakError } = await streakQuery;
 
       if (!streakError && streakSales) {
         const saleDates = streakSales.map(s => s.sale_date);

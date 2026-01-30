@@ -27,6 +27,7 @@ interface SalesByPolicyTypeChartProps {
   canEditAllSales?: boolean;
   currentTeamMemberId?: string;
   leadSources?: { id: string; name: string }[];
+  businessFilter?: string;
 }
 
 const CHART_COLORS = [
@@ -77,13 +78,13 @@ const RankBadge = (props: any) => {
 
 const PAGE_SIZE = 10;
 
-export function SalesByPolicyTypeChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId, leadSources = [] }: SalesByPolicyTypeChartProps) {
+export function SalesByPolicyTypeChart({ agencyId, startDate, endDate, staffSessionToken, canEditAllSales, currentTeamMemberId, leadSources = [], businessFilter = "all" }: SalesByPolicyTypeChartProps) {
   const [metric, setMetric] = useState<MetricType>("items");
   const [selectedPolicyType, setSelectedPolicyType] = useState<string | null>(null);
   const [drillPage, setDrillPage] = useState(1);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["sales-by-policy-type", agencyId, startDate, endDate, staffSessionToken],
+    queryKey: ["sales-by-policy-type", agencyId, startDate, endDate, staffSessionToken, businessFilter],
     queryFn: async () => {
       if (!agencyId) return [];
 
@@ -91,7 +92,7 @@ export function SalesByPolicyTypeChart({ agencyId, startDate, endDate, staffSess
       if (staffSessionToken) {
         const { data: result, error } = await supabase.functions.invoke('get_staff_sales_analytics', {
           headers: { 'x-staff-session': staffSessionToken },
-          body: { type: 'by-policy-type', start_date: startDate, end_date: endDate }
+          body: { type: 'by-policy-type', start_date: startDate, end_date: endDate, business_filter: businessFilter }
         });
         if (error) throw error;
         if (result?.error) throw new Error(result.error);
@@ -99,12 +100,21 @@ export function SalesByPolicyTypeChart({ agencyId, startDate, endDate, staffSess
       }
 
       // Admin path - direct query
-      const { data: salesData, error: salesError } = await supabase
+      let salesQuery = supabase
         .from("sales")
         .select("id")
         .eq("agency_id", agencyId)
         .gte("sale_date", startDate)
         .lte("sale_date", endDate);
+
+      // Apply business filter
+      if (businessFilter === "regular") {
+        salesQuery = salesQuery.is("brokered_carrier_id", null);
+      } else if (businessFilter === "brokered") {
+        salesQuery = salesQuery.not("brokered_carrier_id", "is", null);
+      }
+
+      const { data: salesData, error: salesError } = await salesQuery;
 
       if (salesError) throw salesError;
       const saleIds = (salesData || []).map((s) => s.id);

@@ -102,9 +102,19 @@ serve(async (req) => {
 
     const agencyId = staffUser.agency_id;
     const body = await req.json();
-    const { type, start_date, end_date } = body;
+    const { type, start_date, end_date, business_filter = "all" } = body;
 
-    console.log(`[get_staff_sales_analytics] Type: ${type}, Agency: ${agencyId}, Dates: ${start_date} - ${end_date}`);
+    console.log(`[get_staff_sales_analytics] Type: ${type}, Agency: ${agencyId}, Dates: ${start_date} - ${end_date}, Filter: ${business_filter}`);
+
+    // Helper to apply business filter to a query
+    const applyBusinessFilter = (query: any) => {
+      if (business_filter === "regular") {
+        return query.is("brokered_carrier_id", null);
+      } else if (business_filter === "brokered") {
+        return query.not("brokered_carrier_id", "is", null);
+      }
+      return query; // "all" - no filter
+    };
 
     let result: unknown;
 
@@ -145,11 +155,14 @@ serve(async (req) => {
         // Build query - now includes sale_policies for Motor Club filtering
         let query = supabaseAdmin
           .from("sales")
-          .select("id, sale_date, customer_name, team_member_id, lead_source_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)", { count: 'exact' })
+          .select("id, sale_date, customer_name, team_member_id, lead_source_id, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)", { count: 'exact' })
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
-          .lte("sale_date", end_date)
-          .order("sale_date", { ascending: false });
+          .lte("sale_date", end_date);
+
+        // Apply business filter
+        query = applyBusinessFilter(query);
+        query = query.order("sale_date", { ascending: false });
 
         // Apply filter
         if (filter_type === 'date') {
@@ -238,13 +251,14 @@ serve(async (req) => {
 
       case "by-date": {
         // Fetch with sale_policies for Motor Club filtering
-        const { data: sales, error } = await supabaseAdmin
+        let byDateQuery = supabaseAdmin
           .from("sales")
-          .select("sale_date, customer_name, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+          .select("sale_date, customer_name, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
-          .lte("sale_date", end_date)
-          .order("sale_date");
+          .lte("sale_date", end_date);
+        byDateQuery = applyBusinessFilter(byDateQuery);
+        const { data: sales, error } = await byDateQuery.order("sale_date");
 
         if (error) throw error;
 
@@ -280,12 +294,14 @@ serve(async (req) => {
 
       case "by-policy-type": {
         // Get sales IDs
-        const { data: salesData, error: salesError } = await supabaseAdmin
+        let policyTypeQuery = supabaseAdmin
           .from("sales")
-          .select("id")
+          .select("id, brokered_carrier_id")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date);
+        policyTypeQuery = applyBusinessFilter(policyTypeQuery);
+        const { data: salesData, error: salesError } = await policyTypeQuery;
 
         if (salesError) throw salesError;
         const saleIds = (salesData || []).map((s) => s.id);
@@ -350,12 +366,14 @@ serve(async (req) => {
 
       case "by-source": {
         // Fetch with sale_policies for Motor Club filtering
-        const { data: sales, error } = await supabaseAdmin
+        let bySourceQuery = supabaseAdmin
           .from("sales")
-          .select("id, customer_name, lead_source_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+          .select("id, customer_name, lead_source_id, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date);
+        bySourceQuery = applyBusinessFilter(bySourceQuery);
+        const { data: sales, error } = await bySourceQuery;
 
         if (error) throw error;
 
@@ -400,12 +418,14 @@ serve(async (req) => {
 
       case "by-bundle": {
         // Fetch with sale_policies for Motor Club filtering
-        const { data: sales, error } = await supabaseAdmin
+        let byBundleQuery = supabaseAdmin
           .from("sales")
-          .select("bundle_type, customer_name, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+          .select("bundle_type, customer_name, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date);
+        byBundleQuery = applyBusinessFilter(byBundleQuery);
+        const { data: sales, error } = await byBundleQuery;
 
         if (error) throw error;
 
@@ -440,13 +460,15 @@ serve(async (req) => {
 
       case "by-zipcode": {
         // Fetch with sale_policies for Motor Club filtering
-        const { data: sales, error } = await supabaseAdmin
+        let byZipQuery = supabaseAdmin
           .from("sales")
-          .select("customer_zip, customer_name, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+          .select("customer_zip, customer_name, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date)
           .not("customer_zip", "is", null);
+        byZipQuery = applyBusinessFilter(byZipQuery);
+        const { data: sales, error } = await byZipQuery;
 
         if (error) throw error;
 

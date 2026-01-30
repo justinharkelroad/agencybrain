@@ -86,6 +86,7 @@ export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSess
   const [period, setPeriod] = useState<Period>("this_month");
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
+  const [businessFilter, setBusinessFilter] = useState<string>("all");
   
   const { start, end, label } = getPeriodDates(period, customStartDate, customEndDate);
 
@@ -95,6 +96,7 @@ export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSess
     startDate: start,
     endDate: end,
     staffSessionToken,
+    businessFilter,
   });
 
   // Only show projections for "This Month" since other periods are complete
@@ -123,6 +125,18 @@ export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSess
               <SelectItem value="last_90_days">Last 90 Days</SelectItem>
               <SelectItem value="this_year">This Year</SelectItem>
               <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Business Type Filter */}
+          <Select value={businessFilter} onValueChange={setBusinessFilter}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="All Business" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Business</SelectItem>
+              <SelectItem value="regular">Regular Only</SelectItem>
+              <SelectItem value="brokered">Brokered Only</SelectItem>
             </SelectContent>
           </Select>
 
@@ -204,23 +218,23 @@ export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSess
         </TabsList>
 
         <TabsContent value="by-date" className="mt-4">
-          <SalesByDateChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} leadSources={leadSources} />
+          <SalesByDateChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} leadSources={leadSources} businessFilter={businessFilter} />
         </TabsContent>
 
         <TabsContent value="by-policy" className="mt-4">
-          <SalesByPolicyTypeChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} leadSources={leadSources} />
+          <SalesByPolicyTypeChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} leadSources={leadSources} businessFilter={businessFilter} />
         </TabsContent>
 
         <TabsContent value="by-source" className="mt-4">
-          <SalesBySourceChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} leadSources={leadSources} />
+          <SalesBySourceChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} leadSources={leadSources} businessFilter={businessFilter} />
         </TabsContent>
 
         <TabsContent value="by-bundle" className="mt-4">
-          <SalesByBundleChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} leadSources={leadSources} />
+          <SalesByBundleChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} leadSources={leadSources} businessFilter={businessFilter} />
         </TabsContent>
 
         <TabsContent value="by-zipcode" className="mt-4">
-          <SalesByZipcodeChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} leadSources={leadSources} />
+          <SalesByZipcodeChart agencyId={agencyId} startDate={start} endDate={end} staffSessionToken={staffSessionToken} canEditAllSales={canEditAllSales} currentTeamMemberId={currentTeamMemberId} leadSources={leadSources} businessFilter={businessFilter} />
         </TabsContent>
 
         {showLeaderboard && (
@@ -236,6 +250,7 @@ export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSess
         startDate={start}
         endDate={end}
         staffSessionToken={staffSessionToken}
+        businessFilter={businessFilter}
       />
     </div>
   );

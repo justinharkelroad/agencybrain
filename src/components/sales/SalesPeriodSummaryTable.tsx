@@ -19,6 +19,7 @@ interface SalesPeriodSummaryTableProps {
   startDate: string;
   endDate: string;
   staffSessionToken?: string;
+  businessFilter?: string;
 }
 
 interface SalePolicy {
@@ -46,9 +47,10 @@ export function SalesPeriodSummaryTable({
   startDate,
   endDate,
   staffSessionToken,
+  businessFilter = "all",
 }: SalesPeriodSummaryTableProps) {
   const { data: sales, isLoading } = useQuery({
-    queryKey: ["sales-period-summary-table", agencyId, startDate, endDate, staffSessionToken],
+    queryKey: ["sales-period-summary-table", agencyId, startDate, endDate, staffSessionToken, businessFilter],
     queryFn: async (): Promise<SaleSummaryRow[]> => {
       if (!agencyId) return [];
 
@@ -60,7 +62,8 @@ export function SalesPeriodSummaryTable({
             date_start: startDate,
             date_end: endDate,
             include_leaderboard: false,
-            scope: "team"
+            scope: "team",
+            business_filter: businessFilter
           }
         });
 
@@ -87,10 +90,10 @@ export function SalesPeriodSummaryTable({
       }
 
       // Direct Supabase query for admin users
-      const { data, error } = await supabase
+      let query = supabase
         .from("sales")
         .select(
-          `id, sale_date, customer_name, 
+          `id, sale_date, customer_name,
            lead_source:lead_sources(name),
            team_member:team_members(name),
            sale_policies(id, policy_type_name, total_premium, total_items, total_points)`
@@ -99,6 +102,15 @@ export function SalesPeriodSummaryTable({
         .gte("sale_date", startDate)
         .lte("sale_date", endDate)
         .order("sale_date", { ascending: false });
+
+      // Apply business filter
+      if (businessFilter === "regular") {
+        query = query.is("brokered_carrier_id", null);
+      } else if (businessFilter === "brokered") {
+        query = query.not("brokered_carrier_id", "is", null);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 

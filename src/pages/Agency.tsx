@@ -22,6 +22,7 @@ import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import { PolicyTypeManager } from "@/components/PolicyTypeManager";
+import { BrokeredCarriersManager } from "@/components/settings/BrokeredCarriersManager";
 import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
 import { UploadsContent } from "@/components/UploadsContent";
 import { HelpVideoButton } from '@/components/HelpVideoButton';
@@ -1388,7 +1389,14 @@ export default function Agency() {
                 {agencyId && <PolicyTypeManager agencyId={agencyId} />}
               </div>
             )}
-            
+
+            {/* Brokered Carriers Section - Hide for Call Scoring tier */}
+            {!isCallScoringTier && (
+              <div className="border-t pt-6">
+                {agencyId && <BrokeredCarriersManager agencyId={agencyId} />}
+              </div>
+            )}
+
             {/* Staff Call Recording Access Section - Always show */}
             <div className={isCallScoringTier ? '' : 'border-t pt-6'}>
               <h3 className="text-lg font-medium mb-2">Staff Call Recording Access</h3>

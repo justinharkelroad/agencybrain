@@ -19,6 +19,13 @@ import { HeroStat } from "./HeroStat";
 import { ViewToggle, ViewMode } from "./ViewToggle";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { SalesBreakdownTabs } from "./SalesBreakdownTabs";
 import {
   getBusinessDaysInMonth,
@@ -49,6 +56,7 @@ export function StaffSalesDashboardWidget({
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("personal");
+  const [businessFilter, setBusinessFilter] = useState<string>("all");
 
   const today = new Date();
   const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
@@ -66,7 +74,7 @@ export function StaffSalesDashboardWidget({
 
   // Fetch sales data from edge function
   const { data: salesData, isLoading: salesLoading } = useQuery({
-    queryKey: ["staff-sales-dashboard", staffSessionToken, monthStart, monthEnd, viewMode],
+    queryKey: ["staff-sales-dashboard", staffSessionToken, monthStart, monthEnd, viewMode, businessFilter],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("get_staff_sales", {
         headers: { "x-staff-session": staffSessionToken },
@@ -75,6 +83,7 @@ export function StaffSalesDashboardWidget({
           date_end: monthEnd,
           include_leaderboard: true,
           scope: viewMode === "personal" ? "personal" : "team",
+          business_filter: businessFilter,
         },
       });
 
@@ -224,9 +233,20 @@ export function StaffSalesDashboardWidget({
       </div>
 
       {/* Action buttons */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <ViewToggle value={viewMode} onChange={setViewMode} />
         <div className="flex items-center gap-2">
+          {/* Business Type Filter */}
+          <Select value={businessFilter} onValueChange={setBusinessFilter}>
+            <SelectTrigger className="w-[130px] h-9">
+              <SelectValue placeholder="All Business" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Business</SelectItem>
+              <SelectItem value="regular">Regular Only</SelectItem>
+              <SelectItem value="brokered">Brokered Only</SelectItem>
+            </SelectContent>
+          </Select>
           <Button
             variant="outline"
             size="sm"

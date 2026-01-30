@@ -23,6 +23,7 @@ interface UseSalesMonthSummaryOptions {
   startDate: string;
   endDate: string;
   staffSessionToken?: string;
+  businessFilter?: string;
 }
 
 export function useSalesMonthSummary({
@@ -30,9 +31,10 @@ export function useSalesMonthSummary({
   startDate,
   endDate,
   staffSessionToken,
+  businessFilter = "all",
 }: UseSalesMonthSummaryOptions) {
   return useQuery({
-    queryKey: ["sales-month-summary", agencyId, startDate, endDate, staffSessionToken],
+    queryKey: ["sales-month-summary", agencyId, startDate, endDate, staffSessionToken, businessFilter],
     queryFn: async (): Promise<SalesMonthSummary> => {
       if (!agencyId) {
         return { premium: 0, items: 0, policies: 0, points: 0, salesCount: 0 };
@@ -46,7 +48,8 @@ export function useSalesMonthSummary({
             date_start: startDate,
             date_end: endDate,
             include_leaderboard: false,
-            scope: "team"  // Use team scope to get agency-wide totals
+            scope: "team",  // Use team scope to get agency-wide totals
+            business_filter: businessFilter
           }
         });
 
@@ -65,7 +68,7 @@ export function useSalesMonthSummary({
       }
 
       // Direct Supabase query for admin users
-      const { data: sales, error } = await supabase
+      let query = supabase
         .from("sales")
         .select(
           "id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)"
@@ -73,6 +76,15 @@ export function useSalesMonthSummary({
         .eq("agency_id", agencyId)
         .gte("sale_date", startDate)
         .lte("sale_date", endDate);
+
+      // Filter by business type (regular vs brokered)
+      if (businessFilter === "regular") {
+        query = query.is("brokered_carrier_id", null);
+      } else if (businessFilter === "brokered") {
+        query = query.not("brokered_carrier_id", "is", null);
+      }
+
+      const { data: sales, error } = await query;
 
       if (error) {
         throw error;
