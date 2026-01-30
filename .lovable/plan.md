@@ -1,186 +1,67 @@
 
+# Fix Call Scoring Empty Feedback Bug
 
-# Add Premium Branding Header to Video Training Architect Exports
+## Problem Summary
+The Skill Breakdown section shows scores but no feedback text. Investigation revealed two misalignments between the edge function output and the UI rendering logic.
 
-## Overview
+## Root Cause
 
-Add an elegant, professional branding header to the top of all Video Training Architect PDF and PNG exports. This header will clearly identify Agency Brain as the producer while promoting The Standard Playbook as the exclusive source.
+### Issue 1: Field Name Mismatch
+The UI component looks for `.coaching` but the edge function returns `.feedback`:
+- Edge function: `section_scores[key].feedback`
+- UI expects: `sectionScores[key]?.coaching`
+
+### Issue 2: Structural Disconnect
+The edge function requests two separate objects:
+- `skill_scores`: Simple key-value pairs (`{closing: 50}`)
+- `section_scores`: Detailed objects with feedback
+
+The UI renders `skill_scores` and attempts to pull feedback from `section_scores[key]?.coaching`, which fails because:
+1. The field is called `feedback`, not `coaching`
+2. The keys might not match exactly (e.g., "Process Discipline" vs "process_discipline")
 
 ---
 
-## Visual Design Specification
+## Solution
 
-### Header Layout (Top of Export)
+Update the UI component to correctly read the feedback from `section_scores[key].feedback`:
 
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                                                                     │
-│         ╭──────────────────────────────────────────────╮           │
-│         │                                              │           │
-│         │            Produced By                       │           │
-│         │        (elegant cursive font)                │           │
-│         │                                              │           │
-│         │       [AGENCY BRAIN LOGO IMAGE]              │           │
-│         │                                              │           │
-│         │   ─────────── ✦ ───────────                  │           │
-│         │                                              │           │
-│         │   Exclusively through The Standard Playbook  │           │
-│         │          (small muted text)                  │           │
-│         │                                              │           │
-│         ╰──────────────────────────────────────────────╯           │
-│                                                                     │
-│  ═══════════════════════════════════════════════════════════════   │
-│              (subtle gradient divider line)                        │
-│                                                                     │
-│                    [ EXISTING CONTENT BELOW ]                       │
-└─────────────────────────────────────────────────────────────────────┘
+### File: `src/components/CallScorecard.tsx`
+
+**Change line 567:**
+```typescript
+// Before
+feedback: (sectionScores as any)?.[key]?.coaching || null,
+
+// After  
+feedback: (sectionScores as any)?.[key]?.feedback || null,
 ```
 
-### Design Elements
+**Also add the tip field (line 568):**
+```typescript
+// Before
+tip: null
 
-| Element | Style Details |
-|---------|---------------|
-| **"Produced By"** | Dancing Script (Google Font), 22px, italic feel, soft purple/violet gradient or muted white with subtle glow |
-| **Agency Brain Logo** | Official logo from storage (48-60px height), centered below the cursive text |
-| **Decorative Divider** | Small star/diamond (✦) with thin lines extending left and right |
-| **Exclusivity Tagline** | "Exclusively through The Standard Playbook", 10px, uppercase, letter-spacing: 0.15em, very muted color |
-| **Bottom Separator** | Subtle gradient line (fades from transparent → accent color → transparent) to divide from content |
-
-### Color Palette (matching existing dark theme)
-
-| Element | Color |
-|---------|-------|
-| "Produced By" text | `#a78bfa` (violet-400) or subtle gradient |
-| Logo | Original colors (neutral) |
-| Divider star | `#6366f1` (indigo-500) |
-| Divider lines | `#334155` (slate-700) |
-| Tagline | `#475569` (slate-600) |
-| Background | Same as card (`#0f172a`) |
-
----
-
-## Technical Implementation
-
-### Step 1: Add Google Font Import
-
-**File:** `src/index.css`
-
-Add Dancing Script font for the elegant cursive "Produced By" text:
-
-```css
-@import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@500;600&display=swap');
-```
-
-### Step 2: Create Reusable Branding Header Component
-
-**New File:** `src/components/tools/ExportBrandingHeader.tsx`
-
-A pure inline-styled component (for html-to-image compatibility) that renders the branding header:
-
-- "Produced By" in Dancing Script cursive
-- Agency Brain logo image (fetched and embedded)
-- Decorative star divider
-- "Exclusively through The Standard Playbook" tagline
-- Bottom gradient separator
-
-### Step 3: Update LearningCycleReportCard.tsx
-
-**File:** `src/components/tools/LearningCycleReportCard.tsx`
-
-Insert the `ExportBrandingHeader` component at the top of the `reportRef` div (before the existing title header).
-
-**Location:** Inside `<div ref={reportRef}>`, at line ~204, before the "Title Header" section.
-
-### Step 4: Update LeaderBlueprintReportCard.tsx
-
-**File:** `src/components/tools/LeaderBlueprintReportCard.tsx`
-
-Insert the same `ExportBrandingHeader` component at the top of the `reportRef` div (before the existing header).
-
-**Location:** Inside `<div ref={reportRef}>`, at line ~264, before the "Header" section.
-
----
-
-## Component Implementation Details
-
-### ExportBrandingHeader.tsx Structure
-
-```tsx
-const LOGO_URL = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
-
-const COLORS = {
-  cursive: '#c4b5fd',        // violet-300 for elegance
-  star: '#818cf8',           // indigo-400
-  dividerLine: '#334155',    // slate-700
-  tagline: '#64748b',        // slate-500
-};
-
-export function ExportBrandingHeader() {
-  return (
-    <div style={{ textAlign: 'center', paddingBottom: '24px', marginBottom: '24px' }}>
-      {/* "Produced By" in cursive */}
-      <p style={{ 
-        fontFamily: "'Dancing Script', cursive",
-        fontSize: '24px',
-        fontWeight: 500,
-        color: COLORS.cursive,
-        margin: 0,
-        marginBottom: '12px'
-      }}>
-        Produced By
-      </p>
-      
-      {/* Agency Brain Logo */}
-      <img 
-        src={LOGO_URL}
-        alt="Agency Brain"
-        style={{ height: '48px', margin: '0 auto 16px' }}
-      />
-      
-      {/* Decorative divider with star */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', marginBottom: '12px' }}>
-        <div style={{ width: '60px', height: '1px', background: `linear-gradient(to right, transparent, ${COLORS.dividerLine})` }} />
-        <span style={{ color: COLORS.star, fontSize: '10px' }}>✦</span>
-        <div style={{ width: '60px', height: '1px', background: `linear-gradient(to left, transparent, ${COLORS.dividerLine})` }} />
-      </div>
-      
-      {/* Exclusivity tagline */}
-      <p style={{
-        fontSize: '10px',
-        letterSpacing: '0.15em',
-        textTransform: 'uppercase',
-        color: COLORS.tagline,
-        margin: 0
-      }}>
-        Exclusively through The Standard Playbook
-      </p>
-    </div>
-  );
-}
+// After
+tip: (sectionScores as any)?.[key]?.tip || null
 ```
 
 ---
 
-## Files to Create/Modify
+## Technical Details
 
-| File | Action |
-|------|--------|
-| `src/index.css` | Add Dancing Script font import |
-| `src/components/tools/ExportBrandingHeader.tsx` | **Create** new component |
-| `src/components/tools/LearningCycleReportCard.tsx` | Import and add header to export area |
-| `src/components/tools/LeaderBlueprintReportCard.tsx` | Import and add header to export area |
+**Why this fixes it:**
+1. The edge function already returns the correct STRENGTHS/GAPS/ACTION format in `section_scores[key].feedback`
+2. The UI already has rendering logic for feedback (lines 687-688) and tips (lines 690-691)
+3. We just need to correctly map the data during the object-to-array conversion
+
+**No edge function changes needed** - the GPT prompt is already correct. This is purely a frontend field mapping issue.
 
 ---
 
-## Expected Result
+## Testing Recommendation
 
-When users export a Learning Cycle or Leader Blueprint as PNG/PDF:
-
-1. The top of the image will feature an elegant "Produced By" in flowing cursive script
-2. The Agency Brain logo will be prominently displayed below
-3. A decorative star divider adds visual polish
-4. "Exclusively through The Standard Playbook" appears in small, professional uppercase text
-5. A subtle separator line transitions into the existing content
-
-This creates a professional, shareable asset that clearly attributes the tool to Agency Brain while promoting The Standard Playbook brand.
-
+After this fix:
+1. Process a new call through the system (or re-score an existing one)
+2. Verify the SKILL BREAKDOWN cards show the full STRENGTHS/GAPS/ACTION text
+3. Verify the green tip icon appears with coaching takeaways
