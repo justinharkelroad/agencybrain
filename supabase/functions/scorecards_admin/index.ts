@@ -943,7 +943,41 @@ serve(async (req) => {
           .lte('date', end_date);
 
         if (metricsError) throw metricsError;
-        result = { metricsData, roleMetrics, memberRole };
+
+        // For Hybrid users, get KPI keys from forms they actually submitted
+        let submittedKpiKeys: string[] | null = null;
+        if (memberRole === 'Hybrid') {
+          const { data: submissions } = await supabase
+            .from('submissions')
+            .select('form_template_id')
+            .eq('team_member_id', team_member_id)
+            .eq('final', true)
+            .gte('work_date', start_date)
+            .lte('work_date', end_date);
+
+          if (submissions && submissions.length > 0) {
+            const templateIds = [...new Set(submissions.map((s: any) => s.form_template_id))];
+            const { data: templates } = await supabase
+              .from('form_templates')
+              .select('schema_json')
+              .in('id', templateIds);
+
+            if (templates) {
+              const kpiKeysSet = new Set<string>();
+              templates.forEach((t: any) => {
+                const schema = t.schema_json as { kpis?: Array<{ key?: string }> };
+                if (schema?.kpis) {
+                  schema.kpis.forEach((kpi: any) => {
+                    if (kpi.key) kpiKeysSet.add(kpi.key);
+                  });
+                }
+              });
+              submittedKpiKeys = Array.from(kpiKeysSet);
+            }
+          }
+        }
+
+        result = { metricsData, roleMetrics, memberRole, submittedKpiKeys };
         break;
       }
 

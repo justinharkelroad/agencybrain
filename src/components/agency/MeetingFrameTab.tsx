@@ -227,7 +227,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
       toast.error('Please select a team member');
       return;
     }
-    
+
     if (!validateDateRange()) return;
 
     setLoading(true);
@@ -237,7 +237,8 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
       const endStr = format(endDate!, 'yyyy-MM-dd');
 
       let metricsData: Record<string, unknown>[];
-      
+      let submittedFormKpiKeys: Set<string> | null = null;
+
       if (isStaffMode) {
         // Staff mode: use edge function
         const result = await invokeWithStaff('meeting_frame_generate', {
@@ -246,6 +247,10 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
           end_date: endStr,
         });
         metricsData = result.metricsData || [];
+        // Edge function returns submittedKpiKeys for Hybrid users
+        if (result.submittedKpiKeys) {
+          submittedFormKpiKeys = new Set(result.submittedKpiKeys);
+        }
       } else {
         // Owner mode: direct Supabase query
         const { data, error: metricsError } = await supabase
@@ -260,11 +265,46 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
           throw metricsError;
         }
         metricsData = data || [];
+
+        // For Hybrid users, get KPI keys from forms they actually submitted
+        if (selectedMemberRole === 'Hybrid') {
+          const { data: submissions } = await supabase
+            .from('submissions')
+            .select('form_template_id')
+            .eq('team_member_id', selectedMember)
+            .eq('final', true)
+            .gte('work_date', startStr)
+            .lte('work_date', endStr);
+
+          if (submissions && submissions.length > 0) {
+            const templateIds = [...new Set(submissions.map(s => s.form_template_id))];
+            const { data: templates } = await supabase
+              .from('form_templates')
+              .select('schema_json')
+              .in('id', templateIds);
+
+            if (templates) {
+              submittedFormKpiKeys = new Set<string>();
+              templates.forEach(t => {
+                const schema = t.schema_json as { kpis?: Array<{ key?: string; selectedKpiId?: string }> };
+                if (schema?.kpis) {
+                  schema.kpis.forEach(kpi => {
+                    if (kpi.key) submittedFormKpiKeys!.add(kpi.key);
+                  });
+                }
+              });
+            }
+          }
+        }
       }
 
+      // Filter displayKpis for Hybrid users to only show KPIs from submitted forms
+      const kpisToShow = submittedFormKpiKeys && submittedFormKpiKeys.size > 0
+        ? displayKpis.filter(kpi => submittedFormKpiKeys!.has(kpi.key))
+        : displayKpis;
+
       // Aggregate KPI totals using getMetricValue for each KPI
-      // Use displayKpis which is role-filtered and respects scorecard_rules
-      const totals: KPITotal[] = displayKpis.map((kpi) => {
+      const totals: KPITotal[] = kpisToShow.map((kpi) => {
         let total = 0;
         metricsData.forEach((row) => {
           total += getMetricValue(row, kpi.key);
@@ -279,7 +319,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
         };
       });
 
-      // Show ALL role-relevant KPIs (no non-zero filtering - consistent display)
+      // Show KPIs from submitted forms (filtered for Hybrid, all for other roles)
       setKpiTotals(totals);
       setReportGenerated(true);
       // Reset upload data for new report
