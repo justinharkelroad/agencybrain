@@ -121,9 +121,18 @@ export function normalizeMetricKeys(keys: string[]): string[] {
  * handling cases where scorecard_rules uses legacy keys but data uses standard keys
  */
 export function getMetricValue(data: Record<string, any>, kpiKey: string): number {
+  // For custom KPIs, check custom_kpis JSONB first
+  if (kpiKey.startsWith('custom_') && data.custom_kpis) {
+    const customValue = data.custom_kpis[kpiKey];
+    if (customValue !== undefined && customValue !== null) {
+      return Number(customValue) || 0;
+    }
+    // If not found in custom_kpis, continue to standard fallback checks
+  }
+
   // Get the list of aliases to try for this key
   const aliases = KEY_ALIASES[kpiKey];
-  
+
   if (aliases) {
     // Try each alias in order until we find a value
     for (const alias of aliases) {
@@ -132,17 +141,17 @@ export function getMetricValue(data: Record<string, any>, kpiKey: string): numbe
       }
     }
   }
-  
+
   // No aliases defined, try direct access
   if (data[kpiKey] !== undefined && data[kpiKey] !== null) {
     return Number(data[kpiKey]) || 0;
   }
-  
+
   // Fallback to database column name (legacy data)
   const column = toColumn(kpiKey);
   if (column !== kpiKey && data[column] !== undefined && data[column] !== null) {
     return Number(data[column]) || 0;
   }
-  
+
   return 0;
 }
