@@ -73,7 +73,7 @@ export function useOnboardingTasks({ agencyId, filters = {}, enabled = true }: U
             sale_id,
             sequence:onboarding_sequences(id, name)
           ),
-          assignee:staff_users(id, display_name, username)
+          assignee:staff_users!assigned_to_staff_user_id(id, display_name, username)
         `)
         .eq('agency_id', agencyId)
         .order('due_date', { ascending: true })
@@ -135,7 +135,7 @@ export function useOnboardingTasksToday({ agencyId, assigneeId }: { agencyId: st
             sale_id,
             sequence:onboarding_sequences(id, name)
           ),
-          assignee:staff_users(id, display_name, username)
+          assignee:staff_users!assigned_to_staff_user_id(id, display_name, username)
         `)
         .eq('agency_id', agencyId)
         .in('status', ['pending', 'due', 'overdue'])
@@ -159,7 +159,7 @@ export function useOnboardingTasksToday({ agencyId, assigneeId }: { agencyId: st
             sale_id,
             sequence:onboarding_sequences(id, name)
           ),
-          assignee:staff_users(id, display_name, username)
+          assignee:staff_users!assigned_to_staff_user_id(id, display_name, username)
         `)
         .eq('agency_id', agencyId)
         .eq('status', 'completed')
