@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Loader2,
   Pencil,
@@ -40,6 +41,7 @@ interface LqsHouseholdDetailModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAssignLeadSource?: (householdId: string) => void;
+  teamMembers?: { id: string; name: string }[];
 }
 
 export function LqsHouseholdDetailModal({
@@ -47,6 +49,7 @@ export function LqsHouseholdDetailModal({
   open,
   onOpenChange,
   onAssignLeadSource,
+  teamMembers,
 }: LqsHouseholdDetailModalProps) {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -54,6 +57,8 @@ export function LqsHouseholdDetailModal({
   const [editPhones, setEditPhones] = useState<string[]>([]);
   const [editEmail, setEditEmail] = useState('');
   const [editZipCode, setEditZipCode] = useState('');
+  const [editTeamMemberId, setEditTeamMemberId] = useState('');
+  const [deletedQuoteIds, setDeletedQuoteIds] = useState<string[]>([]);
   const [conflictingSourceName, setConflictingSourceName] = useState<string | null>(null);
   const [isResolvingConflict, setIsResolvingConflict] = useState(false);
 
@@ -124,6 +129,8 @@ export function LqsHouseholdDetailModal({
       setEditPhones(phones.length > 0 ? phones : ['']);
       setEditEmail(household.email || '');
       setEditZipCode(household.zip_code || '');
+      setEditTeamMemberId(household.team_member_id || '');
+      setDeletedQuoteIds([]);
       setIsEditing(false);
     }
   }, [household]);
@@ -162,15 +169,30 @@ export function LqsHouseholdDetailModal({
 
     setIsSaving(true);
     try {
+      // Delete marked quotes first
+      if (deletedQuoteIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('lqs_quotes')
+          .delete()
+          .in('id', deletedQuoteIds);
+        if (deleteError) throw deleteError;
+      }
+
       // Filter out empty phone values
       const cleanedPhones = editPhones.filter(p => p.trim() !== '');
-      
+
+      // Determine if we need to update status (when all quotes are deleted)
+      const remainingQuotes = (household.quotes || []).filter(q => !deletedQuoteIds.includes(q.id));
+      const shouldRevertToLead = household.status === 'quoted' && remainingQuotes.length === 0;
+
       const { error } = await supabase
         .from('lqs_households')
         .update({
           phone: cleanedPhones.length > 0 ? cleanedPhones : null,
           email: editEmail || null,
           zip_code: editZipCode || null,
+          team_member_id: editTeamMemberId || null,
+          ...(shouldRevertToLead && { status: 'lead', first_quote_date: null }),
           updated_at: new Date().toISOString(),
         })
         .eq('id', household.id);
@@ -179,6 +201,7 @@ export function LqsHouseholdDetailModal({
 
       toast.success('Saved');
       setIsEditing(false);
+      setDeletedQuoteIds([]);
       // Invalidate to refresh the data
       queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
     } catch (error) {
@@ -197,6 +220,8 @@ export function LqsHouseholdDetailModal({
       setEditPhones(phones.length > 0 ? phones : ['']);
       setEditEmail(household.email || '');
       setEditZipCode(household.zip_code || '');
+      setEditTeamMemberId(household.team_member_id || '');
+      setDeletedQuoteIds([]);
     }
     setIsEditing(false);
   };
@@ -360,7 +385,26 @@ export function LqsHouseholdDetailModal({
 
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <User className="h-4 w-4 flex-shrink-0" />
-                  <span>{household.team_member?.name || '—'}</span>
+                  {isEditing ? (
+                    <Select
+                      value={editTeamMemberId || '__unassigned__'}
+                      onValueChange={(val) => setEditTeamMemberId(val === '__unassigned__' ? '' : val)}
+                    >
+                      <SelectTrigger className="h-8 w-full">
+                        <SelectValue placeholder="Select producer..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                        {teamMembers?.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            {member.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span>{household.team_member?.name || '—'}</span>
+                  )}
                 </div>
               </div>
             </div>
@@ -479,14 +523,35 @@ export function LqsHouseholdDetailModal({
             {household.quotes?.length ? (
               <div className="space-y-3">
                 {household.quotes.map((quote) => (
-                  <Card key={quote.id}>
+                  <Card
+                    key={quote.id}
+                    className={deletedQuoteIds.includes(quote.id) ? "opacity-50 bg-destructive/10" : ""}
+                  >
                     <CardHeader className="py-3">
                       <CardTitle className="text-base flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">{quote.product_type}</Badge>
                         </div>
-                        <div className="text-base font-semibold">
-                          ${((quote.premium_cents || 0) / 100).toLocaleString()}
+                        <div className="flex items-center gap-2">
+                          <div className="text-base font-semibold">
+                            ${((quote.premium_cents || 0) / 100).toLocaleString()}
+                          </div>
+                          {isEditing && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={deletedQuoteIds.includes(quote.id) ? "text-muted-foreground" : "text-destructive hover:text-destructive"}
+                              onClick={() => {
+                                if (deletedQuoteIds.includes(quote.id)) {
+                                  setDeletedQuoteIds(deletedQuoteIds.filter(id => id !== quote.id));
+                                } else {
+                                  setDeletedQuoteIds([...deletedQuoteIds, quote.id]);
+                                }
+                              }}
+                            >
+                              {deletedQuoteIds.includes(quote.id) ? 'Undo' : <Trash2 className="h-4 w-4" />}
+                            </Button>
+                          )}
                         </div>
                       </CardTitle>
                     </CardHeader>

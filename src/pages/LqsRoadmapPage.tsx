@@ -770,6 +770,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
           setDetailHousehold(null);
           handleAssignLeadSource(id);
         }}
+        teamMembers={teamMembers}
       />
 
       {/* Sale Detail Modal (for sold households) */}
