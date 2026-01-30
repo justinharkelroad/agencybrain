@@ -113,10 +113,23 @@ export function normalizeMetricKeys(keys: string[]): string[] {
   return keys.map(normalizeMetricKey);
 }
 
+// Standard metrics that custom KPIs might map to
+// When a custom KPI value isn't found, try these columns as fallbacks
+const STANDARD_METRIC_COLUMNS = [
+  'outbound_calls',
+  'talk_minutes',
+  'quoted_count',
+  'sold_items',
+  'cross_sells_uncovered',
+  'mini_reviews',
+  'sold_policies',
+  'sold_premium_cents',
+];
+
 /**
  * Get a value from a data object using either the kpi key or any of its aliases
  * Provides graceful fallback for data that might use different key formats
- * 
+ *
  * IMPORTANT: This tries multiple possible field names to find the value,
  * handling cases where scorecard_rules uses legacy keys but data uses standard keys
  */
@@ -127,7 +140,10 @@ export function getMetricValue(data: Record<string, any>, kpiKey: string): numbe
     if (customValue !== undefined && customValue !== null) {
       return Number(customValue) || 0;
     }
-    // If not found in custom_kpis, continue to standard fallback checks
+    // Custom KPI not found in custom_kpis - this happens when form field keys
+    // use standard column names (e.g., preselected_kpi_2_cross_sells_uncovered)
+    // but the KPI itself is custom. Check standard columns as fallback.
+    // This is a broad fallback but handles misconfigured forms gracefully.
   }
 
   // Get the list of aliases to try for this key
