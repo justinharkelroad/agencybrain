@@ -88,7 +88,7 @@ export default function SequenceBuilder() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Sequence Builder</h1>
         <p className="text-muted-foreground">
-          Create and manage follow-up sequence templates for onboarding, lead nurturing, and more.
+          Create and manage onboarding sequence templates for new customer follow-ups.
         </p>
       </div>
 

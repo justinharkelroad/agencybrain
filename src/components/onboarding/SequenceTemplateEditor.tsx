@@ -49,12 +49,10 @@ interface SequenceTemplateEditorProps {
   saving?: boolean;
 }
 
+// Currently only onboarding is supported - other types will be added in future releases
 const targetTypeOptions = [
   { value: 'onboarding', label: 'New Customer Onboarding', description: 'For newly sold policies' },
-  { value: 'lead_nurturing', label: 'Lead Nurturing', description: 'For unconverted leads' },
-  { value: 'requote', label: 'Re-quote Follow-up', description: 'For expiring quotes' },
-  { value: 'retention', label: 'Retention', description: 'For at-risk customers' },
-  { value: 'other', label: 'Other', description: 'Custom sequence type' },
+  // Future: lead_nurturing, requote, retention, other
 ];
 
 const actionIcons: Record<ActionType, React.ElementType> = {

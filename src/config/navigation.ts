@@ -108,10 +108,10 @@ export const navigationConfig: NavEntry[] = [
     access: { staff: true, manager: true, owner: true },
   },
 
-  // My Tasks - onboarding/follow-up tasks (visible to everyone who may have tasks)
+  // Sequence Queue - tasks from assigned onboarding sequences
   {
     id: 'onboarding-tasks',
-    title: 'My Tasks',
+    title: 'Sequence Queue',
     icon: Workflow,
     type: 'link',
     url: '/onboarding-tasks',
@@ -493,10 +493,10 @@ export const staffNavigationConfig: NavEntry[] = [
     access: { staff: true, manager: true, owner: true },
   },
 
-  // Onboarding Tasks - follow-up tasks for customers
+  // Sequence Queue - tasks from assigned onboarding sequences
   {
     id: 'onboarding-tasks',
-    title: 'My Tasks',
+    title: 'Sequence Queue',
     icon: Workflow,
     type: 'link',
     url: '/staff/onboarding-tasks',
