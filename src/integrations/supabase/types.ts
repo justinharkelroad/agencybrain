@@ -5130,6 +5130,7 @@ export type Database = {
           agency_id: string
           created_at: string
           cross_sells_uncovered: number | null
+          custom_kpis: Json | null
           daily_score: number | null
           date: string
           final_submission_id: string | null
@@ -5159,6 +5160,7 @@ export type Database = {
           agency_id: string
           created_at?: string
           cross_sells_uncovered?: number | null
+          custom_kpis?: Json | null
           daily_score?: number | null
           date: string
           final_submission_id?: string | null
@@ -5188,6 +5190,7 @@ export type Database = {
           agency_id?: string
           created_at?: string
           cross_sells_uncovered?: number | null
+          custom_kpis?: Json | null
           daily_score?: number | null
           date?: string
           final_submission_id?: string | null
