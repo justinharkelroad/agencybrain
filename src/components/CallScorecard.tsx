@@ -564,8 +564,8 @@ export function CallScorecard({
                   skill_name: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
                   score: typeof value === 'number' ? (value <= 10 ? value : Math.round(value / 10)) : 0,
                   max_score: 10,
-                  feedback: (sectionScores as any)?.[key]?.coaching || null,
-                  tip: null
+                  feedback: (sectionScores as any)?.[key]?.feedback || null,
+                  tip: (sectionScores as any)?.[key]?.tip || null
                 }));
               }
               return [];
