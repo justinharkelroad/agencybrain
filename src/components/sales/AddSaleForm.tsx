@@ -27,6 +27,7 @@ import { Badge } from "@/components/ui/badge";
 import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { cn, toLocalDate, todayLocal } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
 
 type ProductType = {
   id: string;
@@ -164,6 +165,15 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
   const [producerId, setProducerId] = useState("");
   const [saleDate, setSaleDate] = useState<Date | undefined>(todayLocal());
   const [policies, setPolicies] = useState<Policy[]>([]);
+
+  // Apply sequence modal state
+  const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
+  const [newSaleData, setNewSaleData] = useState<{
+    saleId: string;
+    customerName: string;
+    customerPhone?: string;
+    customerEmail?: string;
+  } | null>(null);
 
   const isEditMode = !!editSale;
 
@@ -634,16 +644,16 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         .select("id, lead_source_id, lead_source:lead_sources(name)")
         .eq("id", saleId)
         .single();
-      
+
       const savedLeadSourceName = savedSale?.lead_source?.name;
       console.log(`[SaleSaveProof] saleId=${saleId} lead_source_id=${savedSale?.lead_source_id} lead_source_name=${savedLeadSourceName}`);
-      
+
       if (isEditMode && savedLeadSourceName) {
         toast.success(`Sale updated! Lead Source: ${savedLeadSourceName}`);
       } else {
         toast.success(isEditMode ? "Sale updated successfully!" : "Sale created successfully!");
       }
-      
+
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       // Invalidate sale-for-edit so next edit fetch is fresh
       queryClient.invalidateQueries({ queryKey: ["sale-for-edit"] });
@@ -651,8 +661,22 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       queryClient.invalidateQueries({ queryKey: ["admin-promo-goals-widget"] });
       queryClient.invalidateQueries({ queryKey: ["promo-goals"] });
       queryClient.invalidateQueries({ queryKey: ["staff-promo-goals"] });
-      resetForm();
-      onSuccess?.();
+
+      // For new sales, show the ApplySequenceModal
+      if (!isEditMode && profile?.agency_id) {
+        // Save the data needed for the modal before resetting the form
+        setNewSaleData({
+          saleId,
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim() || undefined,
+          customerEmail: customerEmail.trim() || undefined,
+        });
+        setApplySequenceModalOpen(true);
+        // Don't call onSuccess yet - will be called when modal closes
+      } else {
+        resetForm();
+        onSuccess?.();
+      }
     },
     onError: (error) => {
       console.error("Error saving sale:", error);
@@ -1244,6 +1268,34 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
           </Button>
         </div>
       </div>
+
+      {/* Apply Sequence Modal - shown after new sale creation */}
+      {newSaleData && profile?.agency_id && (
+        <ApplySequenceModal
+          open={applySequenceModalOpen}
+          onOpenChange={(open) => {
+            setApplySequenceModalOpen(open);
+            if (!open) {
+              // Modal closed - clean up and call onSuccess
+              setNewSaleData(null);
+              resetForm();
+              onSuccess?.();
+            }
+          }}
+          saleId={newSaleData.saleId}
+          customerName={newSaleData.customerName}
+          customerPhone={newSaleData.customerPhone}
+          customerEmail={newSaleData.customerEmail}
+          agencyId={profile.agency_id}
+          onSuccess={() => {
+            // Sequence was applied or skipped
+            setNewSaleData(null);
+            setApplySequenceModalOpen(false);
+            resetForm();
+            onSuccess?.();
+          }}
+        />
+      )}
     </form>
   );
 }

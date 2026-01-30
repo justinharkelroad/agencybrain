@@ -61,6 +61,8 @@ import AdminSPLessonEditor from "./pages/admin/AdminSPLessonEditor";
 import TestTrainingComponents from "./pages/TestTrainingComponents";
 import Agency from "./pages/Agency";
 import AgencyMember from "./pages/agency/AgencyMember";
+import SequenceBuilder from "./pages/agency/SequenceBuilder";
+import OnboardingTasks from "./pages/agency/OnboardingTasks";
 import NotFound from "./pages/NotFound";
 import Health from "./pages/Health";
 import Landing from "./pages/Landing";
@@ -139,6 +141,7 @@ import StaffFlowStart from "./pages/staff/StaffFlowStart";
 import StaffFlowSession from "./pages/staff/StaffFlowSession";
 import StaffFlowComplete from "./pages/staff/StaffFlowComplete";
 import StaffSales from "./pages/staff/StaffSales";
+import StaffOnboardingTasks from "./pages/staff/StaffOnboardingTasks";
 import StaffTeamRings from "./pages/staff/StaffTeamRings";
 import StaffMeetingFrameWrapper from "./pages/staff/StaffMeetingFrameWrapper";
 
@@ -858,6 +861,22 @@ const App = () => {
                 </SidebarLayout>
               </ProtectedRoute>
             } />
+            {/* Sequence Builder - Onboarding/Follow-up Sequences */}
+            <Route path="/sequence-builder" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SequenceBuilder />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Onboarding Tasks - Task Management for Sequences */}
+            <Route path="/onboarding-tasks" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <OnboardingTasks />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
             <Route path="/health" element={
               <ProtectedRoute requireAdmin>
                 <SidebarLayout>
@@ -1014,6 +1033,8 @@ const App = () => {
               <Route path="roleplaybot" element={<StaffRoleplayBot />} />
               {/* Staff Sales */}
               <Route path="sales" element={<StaffSales />} />
+              {/* Onboarding Tasks */}
+              <Route path="onboarding-tasks" element={<StaffOnboardingTasks />} />
               {/* Team Rings - Full Team Performance */}
               <Route path="team-rings" element={<StaffTeamRings />} />
               {/* Meeting Frame - 1-on-1 Performance Snapshots (Full Feature Parity) */}

@@ -51,6 +51,7 @@ import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { MyAccountDialogContent } from "@/components/MyAccountDialogContent";
 import { useExchangeNotifications } from "@/hooks/useExchangeNotifications";
 import { useUnreadMessageCount } from "@/hooks/useExchangeUnread";
+import { useOverdueTaskCount } from "@/hooks/useOverdueTaskCount";
 import { Badge } from "@/components/ui/badge";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
 import { getFeatureGateConfig } from "@/config/featureGates";
@@ -121,6 +122,9 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   
   // Combine post/comment notifications with unread messages
   const totalExchangeNotifications = exchangeNotifications.total + unreadMessageCount;
+
+  // Get overdue task count for badge
+  const { data: overdueTaskCount = 0 } = useOverdueTaskCount();
   
   // State - which folder(s) are open (kept as an array for compatibility, but enforced as single-open)
   const [openFolders, setOpenFolders] = useState<string[]>(() => {
@@ -473,12 +477,24 @@ useEffect(() => {
                                 />
                               );
                             }
+
+                            // Badge for onboarding tasks
+                            const itemBadge = item.id === 'onboarding-tasks' && overdueTaskCount > 0 ? (
+                              <Badge
+                                variant="destructive"
+                                className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
+                              >
+                                {overdueTaskCount > 99 ? '99+' : overdueTaskCount}
+                              </Badge>
+                            ) : undefined;
+
                             return (
                               <SidebarNavItem
                                 key={item.id}
                                 item={item}
                                 isNested
                                 onOpenModal={handleOpenModal}
+                                badge={itemBadge}
                                 membershipTier={membershipTier}
                                 isCallScoringTier={isCallScoringTier}
                                 callScoringAccessibleIds={callScoringAccessibleIds}

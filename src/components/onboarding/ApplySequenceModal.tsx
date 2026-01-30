@@ -1,0 +1,321 @@
+import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { CalendarIcon, Workflow, Loader2, CheckCircle2 } from "lucide-react";
+import { format } from "date-fns";
+import { cn, todayLocal, toLocalDate } from "@/lib/utils";
+import { toast } from "sonner";
+import type { OnboardingSequence } from "@/hooks/useOnboardingSequences";
+
+interface StaffUser {
+  id: string;
+  display_name: string | null;
+  username: string;
+  is_active: boolean;
+}
+
+interface ApplySequenceModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  saleId: string;
+  customerName: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  agencyId: string;
+  onSuccess?: () => void;
+}
+
+export function ApplySequenceModal({
+  open,
+  onOpenChange,
+  saleId,
+  customerName,
+  customerPhone,
+  customerEmail,
+  agencyId,
+  onSuccess,
+}: ApplySequenceModalProps) {
+  const [selectedSequenceId, setSelectedSequenceId] = useState<string>('');
+  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [startDate, setStartDate] = useState<Date>(todayLocal());
+  const [applying, setApplying] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  // Reset state when modal opens
+  useEffect(() => {
+    if (open) {
+      setSelectedSequenceId('');
+      setAssigneeId('');
+      setStartDate(todayLocal());
+      setApplying(false);
+      setSuccess(false);
+    }
+  }, [open]);
+
+  // Fetch active sequences for this agency
+  const { data: sequences = [], isLoading: sequencesLoading } = useQuery({
+    queryKey: ['onboarding-sequences-active', agencyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('onboarding_sequences')
+        .select(`
+          id,
+          name,
+          description,
+          target_type,
+          is_active,
+          steps:onboarding_sequence_steps(id, day_number, action_type, title)
+        `)
+        .eq('agency_id', agencyId)
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+      return data as OnboardingSequence[];
+    },
+    enabled: open && !!agencyId,
+  });
+
+  // Fetch staff users for this agency
+  const { data: staffUsers = [], isLoading: staffLoading } = useQuery<StaffUser[]>({
+    queryKey: ['staff-users-active', agencyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('staff_users')
+        .select('id, display_name, username, is_active')
+        .eq('agency_id', agencyId)
+        .eq('is_active', true)
+        .order('display_name');
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && !!agencyId,
+  });
+
+  const selectedSequence = sequences.find(s => s.id === selectedSequenceId);
+  const totalSteps = selectedSequence?.steps?.length || 0;
+  const totalDays = selectedSequence?.steps?.length
+    ? Math.max(...selectedSequence.steps.map(s => s.day_number))
+    : 0;
+
+  const handleApply = async () => {
+    if (!selectedSequenceId || !assigneeId || !startDate) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setApplying(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('assign_onboarding_sequence', {
+        body: {
+          sale_id: saleId,
+          sequence_id: selectedSequenceId,
+          assigned_to_staff_user_id: assigneeId,
+          start_date: format(startDate, 'yyyy-MM-dd'),
+          customer_name: customerName,
+          customer_phone: customerPhone || null,
+          customer_email: customerEmail || null,
+        },
+      });
+
+      // Check for network/auth errors
+      if (error) throw error;
+      // Check for application-level errors returned by the edge function
+      if (data?.error) throw new Error(data.error);
+
+      setSuccess(true);
+      toast.success('Sequence applied successfully!');
+
+      // Delay closing to show success state
+      // Only call onSuccess (not onOpenChange) to avoid double callback execution
+      // onSuccess will handle closing the modal via setApplySequenceModalOpen(false)
+      setTimeout(() => {
+        onSuccess?.();
+      }, 1500);
+    } catch (error: any) {
+      console.error('Error applying sequence:', error);
+      toast.error(error.message || 'Failed to apply sequence');
+      setApplying(false);
+    }
+  };
+
+  const handleSkip = () => {
+    // Only call onSuccess (not onOpenChange) to avoid double callback execution
+    onSuccess?.();
+  };
+
+  const isLoading = sequencesLoading || staffLoading;
+  const canApply = selectedSequenceId && assigneeId && startDate && !applying;
+
+  if (success) {
+    return (
+      // Prevent closing during success animation to avoid race conditions
+      <Dialog open={open} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-[400px]" hideCloseButton>
+          <div className="flex flex-col items-center justify-center py-8">
+            <CheckCircle2 className="w-16 h-16 text-green-500 mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Sequence Applied!</h3>
+            <p className="text-sm text-muted-foreground text-center">
+              {totalSteps} tasks have been created for {customerName}
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Workflow className="w-5 h-5 text-primary" />
+            Apply Onboarding Sequence
+          </DialogTitle>
+          <DialogDescription>
+            Optionally assign a follow-up sequence for <strong>{customerName}</strong>.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : sequences.length === 0 ? (
+          <div className="py-6 text-center">
+            <Workflow className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
+            <p className="text-muted-foreground mb-4">
+              No active sequences available.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Create sequences in the Sequence Builder first.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4 py-4">
+            {/* Sequence Selection */}
+            <div className="space-y-2">
+              <Label>
+                Select Sequence <span className="text-red-500">*</span>
+              </Label>
+              <Select value={selectedSequenceId} onValueChange={setSelectedSequenceId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a sequence..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {sequences.map((seq) => (
+                    <SelectItem key={seq.id} value={seq.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{seq.name}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {seq.steps?.length || 0} steps
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedSequence?.description && (
+                <p className="text-xs text-muted-foreground">
+                  {selectedSequence.description}
+                </p>
+              )}
+              {selectedSequence && (
+                <p className="text-xs text-muted-foreground">
+                  {totalSteps} step{totalSteps !== 1 ? 's' : ''} over {totalDays} day{totalDays !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+
+            {/* Assignee Selection */}
+            <div className="space-y-2">
+              <Label>
+                Assign To <span className="text-red-500">*</span>
+              </Label>
+              <Select value={assigneeId} onValueChange={setAssigneeId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team member..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffUsers.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.display_name || user.username}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Start Date */}
+            <div className="space-y-2">
+              <Label>
+                Start Date <span className="text-red-500">*</span>
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !startDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {startDate ? format(startDate, "MMMM d, yyyy") : "Pick a date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={(d) => d && setStartDate(toLocalDate(d))}
+                  />
+                </PopoverContent>
+              </Popover>
+              <p className="text-xs text-muted-foreground">
+                Day 0 tasks will be due on this date.
+              </p>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="ghost" onClick={handleSkip} disabled={applying}>
+            Skip
+          </Button>
+          {sequences.length > 0 && (
+            <Button onClick={handleApply} disabled={!canApply}>
+              {applying && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Apply Sequence
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
