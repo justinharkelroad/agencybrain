@@ -27,10 +27,16 @@ SUMMARY: ${config.summaryInstructions}
 SCORED SECTIONS (score each 0-10):
 ${sectionsText}
 
-For EACH section, provide:
-- 3-4 sentences of specific feedback
-- A concrete improvement tip if score < 8
-- Score: X/10
+SECTION FEEDBACK REQUIREMENTS:
+For EACH scored section, provide detailed coaching feedback with this structure:
+
+1. STRENGTHS: What the rep did well in this area. Include specific quotes or moments from the transcript when possible. (1-2 sentences minimum)
+
+2. GAPS: What was missed, incomplete, or could be improved. Be specific about behaviors or statements that should have happened but didn't. (1-2 sentences minimum)
+
+3. ACTION: One concrete, specific behavior to practice on the very next call. Make it actionable, not generic advice. (1 sentence)
+
+IMPORTANT: Avoid generic feedback like "improve communication skills" or "be more thorough." Every piece of feedback must reference something specific from THIS call.
 
 DISCOVERY WINS: ${config.discoveryWinsCriteria}
 
@@ -55,8 +61,8 @@ Return valid JSON with this exact structure:
       "skill_name": "<section name>",
       "score": <0-10>,
       "max_score": 10,
-      "feedback": "<feedback>",
-      "tip": "<tip or null>"
+      "feedback": "STRENGTHS: [specific example of what rep did well, with quote if available]. GAPS: [specific behavior or statement that was missed or incomplete]. ACTION: [one concrete thing to practice on the next call].",
+      "tip": "<one memorable coaching takeaway for quick reference>"
     }
   ],
   "discovery_wins": ["<win1>", "<win2>"],
@@ -97,10 +103,16 @@ SUMMARY: ${config.summaryInstructions}
 SCORED SECTIONS (score each 0-10):
 ${sectionsText}
 
-For EACH section, provide:
-- 3-4 sentences of specific feedback
-- A concrete improvement tip
-- Score: X/10
+SECTION FEEDBACK REQUIREMENTS:
+For EACH scored section, provide detailed coaching feedback with this structure:
+
+1. STRENGTHS: What the CSR did well in this area. Include specific quotes or moments from the transcript when possible. (1-2 sentences minimum)
+
+2. GAPS: What was missed, incomplete, or could be improved. Be specific about behaviors or statements that should have happened but didn't. (1-2 sentences minimum)
+
+3. ACTION: One concrete, specific behavior to practice on the very next call. Make it actionable, not generic advice. (1 sentence)
+
+IMPORTANT: Avoid generic feedback like "improve communication skills" or "be more thorough." Every piece of feedback must reference something specific from THIS call.
 
 FINAL CHECKLIST (mark Yes/No with evidence):
 ${checklistText}
@@ -121,8 +133,8 @@ Return valid JSON with this exact structure:
       "section_name": "<name>",
       "score": <0-10>,
       "max_score": 10,
-      "feedback": "<feedback>",
-      "tip": "<tip>"
+      "feedback": "STRENGTHS: [specific example of what CSR did well, with quote if available]. GAPS: [specific behavior or statement that was missed or incomplete]. ACTION: [one concrete thing to practice on the next call].",
+      "tip": "<one memorable coaching takeaway for quick reference>"
     }
   ],
   "crm_notes": "<formatted notes with subheadings>",
