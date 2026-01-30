@@ -91,9 +91,27 @@ Deno.serve(async (req) => {
       .single();
 
     const isSuperAdmin = profile?.role === 'admin';
-    const isAgencyOwner = !!profile?.agency_id;
+    let userAgencyId = profile?.agency_id;
+    let isKeyEmployee = false;
 
-    if (!profile || (!isSuperAdmin && !isAgencyOwner)) {
+    // If no agency in profile, check if user is a key employee
+    if (!userAgencyId) {
+      const { data: keyEmployee } = await supabase
+        .from('key_employees')
+        .select('agency_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (keyEmployee?.agency_id) {
+        userAgencyId = keyEmployee.agency_id;
+        isKeyEmployee = true;
+      }
+    }
+
+    const hasAgencyAccess = !!userAgencyId;
+
+    if (!isSuperAdmin && !hasAgencyAccess) {
       return new Response(
         JSON.stringify({ error: 'Admin or Agency Owner access required' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -106,8 +124,8 @@ Deno.serve(async (req) => {
 
     console.log('[ADMIN_CREATE_STAFF] Request body:', { agency_id, username, display_name, email, team_member_id, create_team_member });
 
-    // Agency owners can only create staff for their own agency
-    if (!isSuperAdmin && agency_id !== profile.agency_id) {
+    // Agency owners/key employees can only create staff for their own agency
+    if (!isSuperAdmin && agency_id !== userAgencyId) {
       return new Response(
         JSON.stringify({ error: 'Access denied to this agency' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
