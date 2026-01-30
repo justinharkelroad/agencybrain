@@ -17,6 +17,13 @@ interface Submission {
   form_templates?: {
     name: string;
     slug: string;
+    schema_json?: {
+      kpis?: Array<{
+        key: string;
+        label: string;
+        type?: string;
+      }>;
+    };
   };
   team_members?: {
     name: string;
@@ -122,7 +129,8 @@ export function useSubmissions(staffAgencyId?: string) {
           form_templates!inner(
             name,
             slug,
-            agency_id
+            agency_id,
+            schema_json
           ),
           team_members(
             name,
@@ -181,10 +189,33 @@ export function useSubmissions(staffAgencyId?: string) {
     };
   };
 
+  // Get dynamic KPI metrics based on form template schema
+  const getDynamicKpiMetrics = (submission: Submission): Array<{ label: string; value: number | string }> => {
+    const kpis = submission.form_templates?.schema_json?.kpis;
+    const payload = submission.payload_json || {};
+
+    // If form has KPIs defined in schema, use those
+    if (kpis && kpis.length > 0) {
+      return kpis.slice(0, 4).map(kpi => ({
+        label: kpi.label,
+        value: payload[kpi.key] ?? 0,
+      }));
+    }
+
+    // Fallback to default sales metrics for legacy forms without schema
+    return [
+      { label: 'Calls', value: payload.outbound_calls ?? 0 },
+      { label: 'Minutes', value: payload.talk_minutes ?? 0 },
+      { label: 'Quoted', value: payload.quoted_households ?? payload.quoted_count ?? 0 },
+      { label: 'Sold', value: payload.items_sold ?? payload.sold_items ?? 0 },
+    ];
+  };
+
   return {
     submissions,
     loading,
     refetch: fetchSubmissions,
     getSubmissionMetrics,
+    getDynamicKpiMetrics,
   };
 }

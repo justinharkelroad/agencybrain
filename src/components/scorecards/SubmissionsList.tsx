@@ -12,7 +12,7 @@ interface SubmissionsListProps {
 }
 
 export function SubmissionsList({ staffAgencyId }: SubmissionsListProps) {
-  const { submissions, loading, getSubmissionMetrics } = useSubmissions(staffAgencyId || undefined);
+  const { submissions, loading, getDynamicKpiMetrics } = useSubmissions(staffAgencyId || undefined);
   const navigate = useNavigate();
 
   if (loading) {
@@ -110,25 +110,17 @@ export function SubmissionsList({ staffAgencyId }: SubmissionsListProps) {
                 </TableCell>
                 <TableCell>
                   {(() => {
-                    const metrics = getSubmissionMetrics(submission);
+                    const metrics = getDynamicKpiMetrics(submission);
                     return (
                       <div className="text-sm space-y-1">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Calls:</span>
-                          <span className="font-mono text-xs">{metrics.outbound_calls}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Minutes:</span>
-                          <span className="font-mono text-xs">{metrics.talk_minutes}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Quoted:</span>
-                          <span className="font-mono text-xs">{metrics.quoted_count}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Sold:</span>
-                          <span className="font-mono text-xs">{metrics.sold_items}</span>
-                        </div>
+                        {metrics.map((metric, index) => (
+                          <div key={index} className="flex justify-between gap-2">
+                            <span className="text-muted-foreground truncate max-w-[80px]" title={metric.label}>
+                              {metric.label}:
+                            </span>
+                            <span className="font-mono text-xs">{metric.value}</span>
+                          </div>
+                        ))}
                       </div>
                     );
                   })()}

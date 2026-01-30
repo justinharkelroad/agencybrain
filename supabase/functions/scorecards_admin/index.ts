@@ -734,7 +734,7 @@ serve(async (req) => {
             final,
             late,
             payload_json,
-            form_templates!inner(id, name, slug, role, agency_id),
+            form_templates!inner(id, name, slug, role, agency_id, schema_json),
             team_members!inner(id, name, email)
           `)
           .eq('form_templates.agency_id', agencyId)
