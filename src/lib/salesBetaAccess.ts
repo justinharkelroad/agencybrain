@@ -8,6 +8,6 @@ export const SALES_BETA_AGENCY_IDS = [
 ];
 
 export function hasSalesBetaAccess(agencyId: string | null): boolean {
-  if (!agencyId) return false;
-  return SALES_BETA_AGENCY_IDS.includes(agencyId);
+  // Sales dashboard is now enabled for all agencies (RLS properly configured)
+  return agencyId !== null && agencyId.length > 0;
 }
