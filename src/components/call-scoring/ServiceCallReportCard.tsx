@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import {
   User, CheckCircle2, XCircle, Clock, Download,
   Loader2, Headphones, FileText, Lightbulb, ClipboardList,
-  MessageSquareQuote, CheckCircle
+  MessageSquareQuote, CheckCircle, AlertTriangle, Target
 } from "lucide-react";
+import { parseFeedback } from '@/lib/utils/feedback-parser';
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useState, useRef } from "react";
@@ -350,9 +351,45 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
                           {section.score}/{section.max_score}
                         </Badge>
                       </div>
-                      <p className="text-sm mb-2" style={{ color: COLORS.textMuted }}>
-                        {section.feedback}
-                      </p>
+                      {section.feedback && (() => {
+                        const parsed = parseFeedback(section.feedback);
+                        if (parsed.strengths || parsed.gaps || parsed.action) {
+                          return (
+                            <div className="space-y-2 mb-2">
+                              {parsed.strengths && (
+                                <div className="flex items-start gap-2">
+                                  <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: '#22c55e' }} />
+                                  <p className="text-sm" style={{ color: '#4ade80' }}>
+                                    <span className="font-semibold">STRENGTHS:</span> {parsed.strengths}
+                                  </p>
+                                </div>
+                              )}
+                              {parsed.gaps && (
+                                <div className="flex items-start gap-2">
+                                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: '#f59e0b' }} />
+                                  <p className="text-sm" style={{ color: '#fbbf24' }}>
+                                    <span className="font-semibold">GAPS:</span> {parsed.gaps}
+                                  </p>
+                                </div>
+                              )}
+                              {parsed.action && (
+                                <div className="flex items-start gap-2">
+                                  <Target className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" style={{ color: '#3b82f6' }} />
+                                  <p className="text-sm" style={{ color: '#60a5fa' }}>
+                                    <span className="font-semibold">ACTION:</span> {parsed.action}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+                        // Fallback for legacy feedback without markers
+                        return (
+                          <p className="text-sm mb-2" style={{ color: COLORS.textMuted }}>
+                            {section.feedback}
+                          </p>
+                        );
+                      })()}
                       {section.tip && (
                         <p className="text-sm italic" style={{ color: COLORS.blue }}>
                           <span className="font-medium">Tip:</span> {section.tip}
