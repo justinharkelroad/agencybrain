@@ -525,6 +525,18 @@ export function PdfUploadForm({
           if (itemError) throw itemError;
         }
 
+        // Trigger sale notification email (fire and forget)
+        if (profile?.agency_id) {
+          supabase.functions.invoke('send-sale-notification', {
+            body: { 
+              sale_id: sale.id, 
+              agency_id: profile.agency_id 
+            }
+          }).catch(err => {
+            console.error('[PdfUploadForm] Failed to trigger sale notification:', err);
+          });
+        }
+
         return { sale_id: sale.id };
       }
     },
