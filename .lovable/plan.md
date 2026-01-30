@@ -1,67 +1,33 @@
 
-# Fix Call Scoring Empty Feedback Bug
+# Fix Call Scoring Empty Feedback Bug - COMPLETED
 
 ## Problem Summary
-The Skill Breakdown section shows scores but no feedback text. Investigation revealed two misalignments between the edge function output and the UI rendering logic.
+The Skill Breakdown section showed scores but no feedback text due to:
+1. **Array bypass**: UI returned array-format `skill_scores` as-is without enrichment
+2. **Field name mismatch**: Backend looked for `.coaching` but GPT returns `.feedback`
+3. **Missing enrichment**: Array-format skill_scores weren't enriched with section_scores data
 
-## Root Cause
+## Solution Implemented
 
-### Issue 1: Field Name Mismatch
-The UI component looks for `.coaching` but the edge function returns `.feedback`:
-- Edge function: `section_scores[key].feedback`
-- UI expects: `sectionScores[key]?.coaching`
+### Phase 1: Frontend Fix (CallScorecard.tsx) ✅
+- Added `normalizeKey()` helper to convert display names to snake_case keys
+- Built `sectionScoresMap` that handles both object and array formats
+- Updated `skillScoresArray` builder to ALWAYS enrich entries with feedback/tip from section_scores
+- Works for both array and object formats of skill_scores
 
-### Issue 2: Structural Disconnect
-The edge function requests two separate objects:
-- `skill_scores`: Simple key-value pairs (`{closing: 50}`)
-- `section_scores`: Detailed objects with feedback
+### Phase 2: Backend Fix (analyze-call/index.ts) ✅
+- Added `normalizeKey()` helper for consistent key matching
+- Built `sectionScoresMap` for reliable lookup
+- Fixed object→array conversion to use `.feedback` (with `.coaching` fallback)
+- Added enrichment for when skill_scores is already an array
+- Added `skill_scores` generation for service calls (UI consistency)
 
-The UI renders `skill_scores` and attempts to pull feedback from `section_scores[key]?.coaching`, which fails because:
-1. The field is called `feedback`, not `coaching`
-2. The keys might not match exactly (e.g., "Process Discipline" vs "process_discipline")
+## Files Changed
+- `src/components/CallScorecard.tsx` - Frontend enrichment
+- `supabase/functions/analyze-call/index.ts` - Backend storage fix
 
----
+## Testing
+1. Existing calls: Frontend will now pull feedback from section_scores at render time
+2. New calls: Backend will store feedback/tip directly in skill_scores array
 
-## Solution
-
-Update the UI component to correctly read the feedback from `section_scores[key].feedback`:
-
-### File: `src/components/CallScorecard.tsx`
-
-**Change line 567:**
-```typescript
-// Before
-feedback: (sectionScores as any)?.[key]?.coaching || null,
-
-// After  
-feedback: (sectionScores as any)?.[key]?.feedback || null,
-```
-
-**Also add the tip field (line 568):**
-```typescript
-// Before
-tip: null
-
-// After
-tip: (sectionScores as any)?.[key]?.tip || null
-```
-
----
-
-## Technical Details
-
-**Why this fixes it:**
-1. The edge function already returns the correct STRENGTHS/GAPS/ACTION format in `section_scores[key].feedback`
-2. The UI already has rendering logic for feedback (lines 687-688) and tips (lines 690-691)
-3. We just need to correctly map the data during the object-to-array conversion
-
-**No edge function changes needed** - the GPT prompt is already correct. This is purely a frontend field mapping issue.
-
----
-
-## Testing Recommendation
-
-After this fix:
-1. Process a new call through the system (or re-score an existing one)
-2. Verify the SKILL BREAKDOWN cards show the full STRENGTHS/GAPS/ACTION text
-3. Verify the green tip icon appears with coaching takeaways
+No database migration needed. No re-analysis required for existing calls.

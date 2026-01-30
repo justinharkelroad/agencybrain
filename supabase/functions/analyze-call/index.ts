@@ -688,8 +688,19 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
 
     if (callType === 'service') {
       // Service call specific fields
+      // Convert section_scores array to skill_scores array for UI consistency
+      const sectionScoresArray = analysis.section_scores || [];
+      const skillScoresFromSections = sectionScoresArray.map((section: any) => ({
+        skill_name: section.section_name || 'Unknown',
+        score: section.score || 0,
+        max_score: section.max_score || 10,
+        feedback: section.feedback || null,
+        tip: section.tip || null
+      }));
+      
       updatePayload = {
         ...updatePayload,
+        skill_scores: skillScoresFromSections, // Add for UI consistency
         section_scores: analysis.section_scores,
         closing_attempts: analysis.crm_notes,
         coaching_recommendations: analysis.suggestions,
@@ -705,21 +716,57 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
       // Convert skill_scores to array format for consistent UI display
       let skillScoresForStorage = analysis.skill_scores;
       
+      // Helper to normalize keys for section_scores lookup
+      const normalizeKey = (str: string): string => {
+        return str
+          .toLowerCase()
+          .replace(/&/g, '')
+          .replace(/[^a-z0-9\s]/g, '')
+          .replace(/\s+/g, '_')
+          .replace(/_+/g, '_')
+          .replace(/^_|_$/g, '');
+      };
+      
+      // Build normalized section_scores map for lookup
+      const sectionScoresMap: Record<string, any> = {};
+      const rawSectionScores = analysis.section_scores || {};
+      if (typeof rawSectionScores === 'object' && !Array.isArray(rawSectionScores)) {
+        for (const [key, value] of Object.entries(rawSectionScores)) {
+          const normalizedKey = normalizeKey(key);
+          sectionScoresMap[normalizedKey] = value;
+          sectionScoresMap[key] = value; // Also keep original
+        }
+      }
+      
       // If skill_scores is an object (not array), convert to array format using section_scores data
       if (skillScoresForStorage && !Array.isArray(skillScoresForStorage)) {
         console.log('[analyze-call] skill_scores returned as object, converting to array format');
         const skillScoresObj = skillScoresForStorage as Record<string, number>;
         skillScoresForStorage = Object.entries(skillScoresObj).map(([key, score]) => {
-          const sectionData = (analysis.section_scores as any)?.[key];
+          const normalizedKey = normalizeKey(key);
+          const sectionData = sectionScoresMap[normalizedKey] || sectionScoresMap[key];
           return {
             skill_name: key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
             score: typeof score === 'number' ? (score <= 10 ? score : Math.round(score / 10)) : 0,
             max_score: 10,
-            feedback: sectionData?.coaching || null,
-            tip: null
+            feedback: sectionData?.feedback ?? sectionData?.coaching ?? null,
+            tip: sectionData?.tip ?? null
           };
         });
         console.log('[analyze-call] Converted skill_scores to array:', JSON.stringify(skillScoresForStorage));
+      } else if (Array.isArray(skillScoresForStorage)) {
+        // skill_scores is already an array - enrich it with section_scores data
+        console.log('[analyze-call] skill_scores is array, enriching with section_scores data');
+        skillScoresForStorage = skillScoresForStorage.map((row: any) => {
+          const normalizedKey = normalizeKey(row.skill_name || '');
+          const sectionData = sectionScoresMap[normalizedKey];
+          return {
+            ...row,
+            feedback: row.feedback ?? sectionData?.feedback ?? sectionData?.coaching ?? null,
+            tip: row.tip ?? sectionData?.tip ?? null
+          };
+        });
+        console.log('[analyze-call] Enriched skill_scores array:', JSON.stringify(skillScoresForStorage));
       }
       
       // Normalize execution_checklist to array format with evidence
