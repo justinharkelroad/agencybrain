@@ -614,37 +614,50 @@ export default function SubmissionDetail() {
                       return null;
                     }
 
-                    // Skip UUID-like keys (collection IDs from repeaters)
-                    // UUID pattern: 8-4-4-4-12 hex characters (with or without dashes)
+                    // UUID-like keys (collection IDs from repeaters) should be rendered if they contain arrays
                     const uuidPattern = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
-                    if (uuidPattern.test(key)) {
+                    const isUuidKey = uuidPattern.test(key);
+
+                    // Skip UUID keys that are NOT arrays (just IDs)
+                    if (isUuidKey && !Array.isArray(value)) {
                       return null;
                     }
 
-                    // Skip keys that look like collection/repeater IDs
-                    if (key.startsWith('collection_') || key.startsWith('repeater_')) {
+                    // Skip keys that look like collection/repeater IDs (but not if they contain array data)
+                    if ((key.startsWith('collection_') || key.startsWith('repeater_')) && !Array.isArray(value)) {
                       return null;
                     }
 
-                    // For arrays, render as a formatted list instead of raw JSON
+                    // For arrays (including UUID-keyed collections), render as a formatted list
                     if (Array.isArray(value) && value.length > 0) {
+                      // Try to find a label from the schema for this collection
+                      const schemaCollections = submission.form_templates?.schema_json?.collections || [];
+                      const collection = schemaCollections.find((c: any) => c.id === key || c.key === key);
+                      const collectionLabel = collection?.label ||
+                        (isUuidKey ? 'Details' : key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim());
                       return (
                         <div key={key} className="border-b pb-2 last:border-b-0">
-                          <span className="text-sm text-muted-foreground capitalize">
-                            {key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}
+                          <span className="text-sm font-medium text-primary capitalize block mb-2">
+                            {collectionLabel}
                           </span>
-                          <div className="mt-1 space-y-2">
+                          <div className="rounded-md bg-muted/50 p-3 border border-border space-y-3">
                             {value.map((item, idx) => (
-                              <div key={idx} className="pl-3 border-l-2 border-muted text-sm">
+                              <div key={idx} className="pl-3 border-l-2 border-primary/50 text-sm">
                                 {typeof item === 'object' && item !== null
-                                  ? Object.entries(item).map(([k, v]) => (
-                                      <div key={k}>
-                                        <span className="text-muted-foreground capitalize">
-                                          {k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}:
-                                        </span>{' '}
-                                        <span className="font-medium">{String(v)}</span>
-                                      </div>
-                                    ))
+                                  ? Object.entries(item).map(([k, v]) => {
+                                      // Skip null/empty values
+                                      if (v == null || v === '') return null;
+                                      // Format key nicely
+                                      const displayKey = k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim();
+                                      return (
+                                        <div key={k}>
+                                          <span className="text-muted-foreground capitalize">
+                                            {displayKey}:
+                                          </span>{' '}
+                                          <span className="font-medium">{String(v)}</span>
+                                        </div>
+                                      );
+                                    }).filter(Boolean)
                                   : <span className="font-medium">{String(item)}</span>
                                 }
                               </div>

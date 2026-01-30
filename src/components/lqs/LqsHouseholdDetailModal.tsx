@@ -395,11 +395,17 @@ export function LqsHouseholdDetailModal({
                       </SelectTrigger>
                       <SelectContent className="bg-background z-50">
                         <SelectItem value="__unassigned__">Unassigned</SelectItem>
-                        {teamMembers?.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.name}
-                          </SelectItem>
-                        ))}
+                        {(!teamMembers || teamMembers.length === 0) ? (
+                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                            No team members found
+                          </div>
+                        ) : (
+                          teamMembers.map((member) => (
+                            <SelectItem key={member.id} value={member.id}>
+                              {member.name}
+                            </SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   ) : (

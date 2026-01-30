@@ -196,20 +196,33 @@ export function useSubmissions(staffAgencyId?: string) {
 
     // Helper to find value by checking multiple possible keys
     const getKpiValue = (kpi: any): number | string => {
-      // Check the custom key first (e.g., "custom_1234567")
+      // Check the full key first (e.g., "custom_kpi_0")
       if (kpi.key && payload[kpi.key] !== undefined) {
         return payload[kpi.key];
       }
+
       // Check the selectedKpiSlug (e.g., "outbound_calls")
       if (kpi.selectedKpiSlug && payload[kpi.selectedKpiSlug] !== undefined) {
         return payload[kpi.selectedKpiSlug];
       }
+
+      // IMPORTANT: Check stripped key suffix for preselected_kpi_N_<suffix> format
+      // The submit function strips the prefix, so "preselected_kpi_2_cross_sells_uncovered"
+      // becomes "cross_sells_uncovered" in the payload
+      if (kpi.key && /^preselected_kpi_\d+_/.test(kpi.key)) {
+        const strippedKey = kpi.key.replace(/^preselected_kpi_\d+_/, '');
+        if (payload[strippedKey] !== undefined) {
+          return payload[strippedKey];
+        }
+      }
+
       // Check common variations of the slug with underscores/dashes
       const slug = kpi.selectedKpiSlug || kpi.key || '';
       const snakeCase = slug.replace(/-/g, '_').toLowerCase();
       if (payload[snakeCase] !== undefined) {
         return payload[snakeCase];
       }
+
       return 0;
     };
 
