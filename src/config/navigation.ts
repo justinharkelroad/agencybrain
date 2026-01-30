@@ -28,6 +28,7 @@ import {
   Settings,
   RotateCcw,
   Contact,
+  Workflow,
   type LucideIcon
 } from "lucide-react";
 import { TrendingUp } from "lucide-react";
@@ -289,6 +290,22 @@ export const navigationConfig: NavEntry[] = [
     access: { staff: false, manager: true, owner: true },
     items: [
       {
+        id: 'sequence-builder',
+        title: 'Sequence Builder',
+        icon: Workflow,
+        type: 'link',
+        url: '/sequence-builder',
+        access: { staff: false, manager: true, owner: true },
+      },
+      {
+        id: 'onboarding-tasks',
+        title: 'Onboarding Tasks',
+        icon: Workflow,
+        type: 'link',
+        url: '/onboarding-tasks',
+        access: { staff: false, manager: true, owner: true },
+      },
+      {
         id: 'annual-bonus-tool',
         title: 'Annual Bonus Tool',
         icon: Calculator,
@@ -471,6 +488,16 @@ export const staffNavigationConfig: NavEntry[] = [
     icon: ClipboardEdit,
     type: 'link',
     url: '/staff/submit',
+    access: { staff: true, manager: true, owner: true },
+  },
+
+  // Onboarding Tasks - follow-up tasks for customers
+  {
+    id: 'onboarding-tasks',
+    title: 'My Tasks',
+    icon: Workflow,
+    type: 'link',
+    url: '/staff/onboarding-tasks',
     access: { staff: true, manager: true, owner: true },
   },
 

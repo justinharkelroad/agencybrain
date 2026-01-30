@@ -3,12 +3,14 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { isCallScoringTier as checkIsCallScoringTier, getStaffHomePath, hasOneOnOneAccess } from "@/utils/tierAccess";
 import { hasSalesBetaAccess } from "@/lib/salesBetaAccess";
 import { useChallengeAccessGrant } from "@/hooks/useChallengeAccessGrant";
+import { useStaffOverdueTaskCount } from "@/hooks/useStaffOverdueTaskCount";
 import {
   LogOut,
   Sun,
   Settings,
   Lock,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
@@ -160,6 +162,9 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
 
   // Check if staff user has temporary access grants from challenge assignment
   const { grantedIds: challengeGrantedIds } = useChallengeAccessGrant(user?.id);
+
+  // Get overdue task count for badge
+  const { data: overdueTaskCount = 0 } = useStaffOverdueTaskCount();
 
   // Items that Call Scoring tier users can actually access (not just see)
   // Merge base IDs with any challenge-granted IDs (Core 4, Flows)
@@ -467,9 +472,12 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                     const active = entry.url ? isActive(entry.url) : false;
                     const isGatedForCallScoring = isCallScoringTier && !callScoringAccessibleIds.includes(entry.id);
 
+                    // Badge for onboarding tasks
+                    const showTaskBadge = entry.id === 'onboarding-tasks' && overdueTaskCount > 0;
+
                     return (
                       <SidebarMenuItem key={entry.id}>
-                        <SidebarMenuButton 
+                        <SidebarMenuButton
                           isActive={active}
                           onClick={() => {
                             if (isGatedForCallScoring) {
@@ -488,6 +496,14 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                               <span className="flex-1 line-clamp-2">{entry.title}</span>
                               {isGatedForCallScoring && (
                                 <Lock className="h-3 w-3 shrink-0 text-red-500" />
+                              )}
+                              {showTaskBadge && !isGatedForCallScoring && (
+                                <Badge
+                                  variant="destructive"
+                                  className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
+                                >
+                                  {overdueTaskCount > 99 ? '99+' : overdueTaskCount}
+                                </Badge>
                               )}
                             </>
                           )}
