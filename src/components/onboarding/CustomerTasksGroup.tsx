@@ -55,7 +55,7 @@ export function CustomerTasksGroup({
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
       <div className={cn(
-        'border rounded-lg relative',
+        'border rounded-lg',
         hasOverdue ? 'border-red-500/50 bg-red-500/10' : 'border-border'
       )}>
         {/* Group Header */}
@@ -105,36 +105,33 @@ export function CustomerTasksGroup({
                   {completedCount} done
                 </Badge>
               )}
+              {/* Reassign Button - inline with badges */}
+              {canReassign && onReassign && instanceId && activeCount > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 ml-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onReassign(instanceId, customerName, activeCount);
+                        }}
+                      >
+                        <UserCog className="h-4 w-4" />
+                        <span className="sr-only">Reassign</span>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Reassign to another team member</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           </Button>
         </CollapsibleTrigger>
-
-        {/* Reassign Button */}
-        {canReassign && onReassign && instanceId && activeCount > 0 && (
-          <div className="absolute right-4 top-4">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onReassign(instanceId, customerName, activeCount);
-                    }}
-                  >
-                    <UserCog className="h-4 w-4" />
-                    <span className="sr-only">Reassign</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Reassign to another team member</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        )}
 
         {/* Tasks */}
         <CollapsibleContent>
