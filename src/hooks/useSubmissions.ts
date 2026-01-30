@@ -194,11 +194,30 @@ export function useSubmissions(staffAgencyId?: string) {
     const kpis = submission.form_templates?.schema_json?.kpis;
     const payload = submission.payload_json || {};
 
+    // Helper to find value by checking multiple possible keys
+    const getKpiValue = (kpi: any): number | string => {
+      // Check the custom key first (e.g., "custom_1234567")
+      if (kpi.key && payload[kpi.key] !== undefined) {
+        return payload[kpi.key];
+      }
+      // Check the selectedKpiSlug (e.g., "outbound_calls")
+      if (kpi.selectedKpiSlug && payload[kpi.selectedKpiSlug] !== undefined) {
+        return payload[kpi.selectedKpiSlug];
+      }
+      // Check common variations of the slug with underscores/dashes
+      const slug = kpi.selectedKpiSlug || kpi.key || '';
+      const snakeCase = slug.replace(/-/g, '_').toLowerCase();
+      if (payload[snakeCase] !== undefined) {
+        return payload[snakeCase];
+      }
+      return 0;
+    };
+
     // If form has KPIs defined in schema, use those
     if (kpis && kpis.length > 0) {
       return kpis.slice(0, 4).map(kpi => ({
         label: kpi.label,
-        value: payload[kpi.key] ?? 0,
+        value: getKpiValue(kpi),
       }));
     }
 

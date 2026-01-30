@@ -605,15 +605,55 @@ export default function SubmissionDetail() {
                     if (key === 'quoted_details' || key === 'soldDetails' || key === 'repeaterData') {
                       return null;
                     }
-                    
+
                     // Skip internal fields and field_ prefixed keys
-                    if (key.includes('team_member_id') || 
-                        key.includes('submission_date') || 
+                    if (key.includes('team_member_id') ||
+                        key.includes('submission_date') ||
                         key.includes('work_date') ||
                         key.startsWith('field_')) {
                       return null;
                     }
-                    
+
+                    // Skip UUID-like keys (collection IDs from repeaters)
+                    // UUID pattern: 8-4-4-4-12 hex characters (with or without dashes)
+                    const uuidPattern = /^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
+                    if (uuidPattern.test(key)) {
+                      return null;
+                    }
+
+                    // Skip keys that look like collection/repeater IDs
+                    if (key.startsWith('collection_') || key.startsWith('repeater_')) {
+                      return null;
+                    }
+
+                    // For arrays, render as a formatted list instead of raw JSON
+                    if (Array.isArray(value) && value.length > 0) {
+                      return (
+                        <div key={key} className="border-b pb-2 last:border-b-0">
+                          <span className="text-sm text-muted-foreground capitalize">
+                            {key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}
+                          </span>
+                          <div className="mt-1 space-y-2">
+                            {value.map((item, idx) => (
+                              <div key={idx} className="pl-3 border-l-2 border-muted text-sm">
+                                {typeof item === 'object' && item !== null
+                                  ? Object.entries(item).map(([k, v]) => (
+                                      <div key={k}>
+                                        <span className="text-muted-foreground capitalize">
+                                          {k.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}:
+                                        </span>{' '}
+                                        <span className="font-medium">{String(v)}</span>
+                                      </div>
+                                    ))
+                                  : <span className="font-medium">{String(item)}</span>
+                                }
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div key={key} className="border-b pb-2 last:border-b-0">
                         <span className="text-sm text-muted-foreground capitalize">
@@ -621,7 +661,7 @@ export default function SubmissionDetail() {
                         </span>
                         <p className="font-medium">
                           {typeof value === 'object' && value !== null
-                            ? JSON.stringify(value, null, 2) 
+                            ? null  // Skip non-array objects (likely repeater data with bad keys)
                             : String(value || '—')}
                         </p>
                       </div>
