@@ -5254,6 +5254,336 @@ export type Database = {
           },
         ]
       }
+      onboarding_instances: {
+        Row: {
+          agency_id: string
+          assigned_by: string | null
+          assigned_to_staff_user_id: string | null
+          assigned_to_user_id: string | null
+          cancellation_reason: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          contact_id: string | null
+          created_at: string
+          customer_email: string | null
+          customer_name: string
+          customer_phone: string | null
+          id: string
+          sale_id: string | null
+          sequence_id: string
+          start_date: string
+          status: Database["public"]["Enums"]["onboarding_instance_status"]
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          assigned_by?: string | null
+          assigned_to_staff_user_id?: string | null
+          assigned_to_user_id?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name: string
+          customer_phone?: string | null
+          id?: string
+          sale_id?: string | null
+          sequence_id: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["onboarding_instance_status"]
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          assigned_by?: string | null
+          assigned_to_staff_user_id?: string | null
+          assigned_to_user_id?: string | null
+          cancellation_reason?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          contact_id?: string | null
+          created_at?: string
+          customer_email?: string | null
+          customer_name?: string
+          customer_phone?: string | null
+          id?: string
+          sale_id?: string | null
+          sequence_id?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["onboarding_instance_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_instances_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_instances_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_instances_assigned_to_staff_user_id_fkey"
+            columns: ["assigned_to_staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_instances_assigned_to_user_id_fkey"
+            columns: ["assigned_to_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_instances_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "agency_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_instances_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_sequence_steps: {
+        Row: {
+          action_type: Database["public"]["Enums"]["onboarding_action_type"]
+          created_at: string
+          day_number: number
+          description: string | null
+          id: string
+          script_template: string | null
+          sequence_id: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_type?: Database["public"]["Enums"]["onboarding_action_type"]
+          created_at?: string
+          day_number?: number
+          description?: string | null
+          id?: string
+          script_template?: string | null
+          sequence_id: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: Database["public"]["Enums"]["onboarding_action_type"]
+          created_at?: string
+          day_number?: number
+          description?: string | null
+          id?: string
+          script_template?: string | null
+          sequence_id?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_sequence_steps_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_sequences"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_sequences: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          target_type: Database["public"]["Enums"]["onboarding_sequence_target_type"]
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          target_type?: Database["public"]["Enums"]["onboarding_sequence_target_type"]
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          target_type?: Database["public"]["Enums"]["onboarding_sequence_target_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_sequences_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_sequences_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_tasks: {
+        Row: {
+          action_type: Database["public"]["Enums"]["onboarding_action_type"]
+          agency_id: string
+          assigned_to_staff_user_id: string | null
+          assigned_to_user_id: string | null
+          completed_at: string | null
+          completed_by_staff_user_id: string | null
+          completed_by_user_id: string | null
+          completion_notes: string | null
+          contact_id: string | null
+          created_at: string
+          day_number: number
+          description: string | null
+          due_date: string
+          id: string
+          instance_id: string
+          script_template: string | null
+          status: Database["public"]["Enums"]["onboarding_task_status"]
+          step_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: Database["public"]["Enums"]["onboarding_action_type"]
+          agency_id: string
+          assigned_to_staff_user_id?: string | null
+          assigned_to_user_id?: string | null
+          completed_at?: string | null
+          completed_by_staff_user_id?: string | null
+          completed_by_user_id?: string | null
+          completion_notes?: string | null
+          contact_id?: string | null
+          created_at?: string
+          day_number: number
+          description?: string | null
+          due_date: string
+          id?: string
+          instance_id: string
+          script_template?: string | null
+          status?: Database["public"]["Enums"]["onboarding_task_status"]
+          step_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: Database["public"]["Enums"]["onboarding_action_type"]
+          agency_id?: string
+          assigned_to_staff_user_id?: string | null
+          assigned_to_user_id?: string | null
+          completed_at?: string | null
+          completed_by_staff_user_id?: string | null
+          completed_by_user_id?: string | null
+          completion_notes?: string | null
+          contact_id?: string | null
+          created_at?: string
+          day_number?: number
+          description?: string | null
+          due_date?: string
+          id?: string
+          instance_id?: string
+          script_template?: string | null
+          status?: Database["public"]["Enums"]["onboarding_task_status"]
+          step_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_tasks_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_tasks_assigned_to_staff_user_id_fkey"
+            columns: ["assigned_to_staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_tasks_assigned_to_user_id_fkey"
+            columns: ["assigned_to_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_tasks_completed_by_staff_user_id_fkey"
+            columns: ["completed_by_staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_tasks_completed_by_user_id_fkey"
+            columns: ["completed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_tasks_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "agency_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_tasks_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_tasks_step_id_fkey"
+            columns: ["step_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       period_backups: {
         Row: {
           backup_type: string
@@ -9922,6 +10252,10 @@ export type Database = {
         Returns: Json
       }
       bind_form_kpis: { Args: { p_form: string }; Returns: undefined }
+      calculate_business_day_due_date: {
+        Args: { p_day_offset: number; p_start_date: string }
+        Returns: string
+      }
       calculate_data_completeness: { Args: { data: Json }; Returns: number }
       check_and_reset_call_usage: {
         Args: { p_agency_id: string }
@@ -9972,7 +10306,7 @@ export type Database = {
         Returns: undefined
       }
       delete_kpi_transaction: {
-        Args: { p_actor_id?: string; p_agency_id: string; p_kpi_key: string }
+        Args: { p_actor_id: string; p_agency_id: string; p_kpi_key: string }
         Returns: Json
       }
       find_or_create_contact: {
@@ -10615,6 +10949,15 @@ export type Database = {
         | "Call Scoring 50"
         | "Call Scoring 100"
         | "Inactive"
+      onboarding_action_type: "call" | "text" | "email" | "other"
+      onboarding_instance_status: "active" | "completed" | "cancelled"
+      onboarding_sequence_target_type:
+        | "onboarding"
+        | "lead_nurturing"
+        | "requote"
+        | "retention"
+        | "other"
+      onboarding_task_status: "pending" | "due" | "overdue" | "completed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -10771,6 +11114,16 @@ export const Constants = {
         "Call Scoring 100",
         "Inactive",
       ],
+      onboarding_action_type: ["call", "text", "email", "other"],
+      onboarding_instance_status: ["active", "completed", "cancelled"],
+      onboarding_sequence_target_type: [
+        "onboarding",
+        "lead_nurturing",
+        "requote",
+        "retention",
+        "other",
+      ],
+      onboarding_task_status: ["pending", "due", "overdue", "completed"],
     },
   },
 } as const
