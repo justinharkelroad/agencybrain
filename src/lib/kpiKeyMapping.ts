@@ -153,5 +153,11 @@ export function getMetricValue(data: Record<string, any>, kpiKey: string): numbe
     return Number(data[column]) || 0;
   }
 
+  // Final fallback: check custom_kpis for ANY key
+  // (handles forms that store standard metrics as custom KPIs)
+  if (data.custom_kpis && data.custom_kpis[kpiKey] !== undefined && data.custom_kpis[kpiKey] !== null) {
+    return Number(data.custom_kpis[kpiKey]) || 0;
+  }
+
   return 0;
 }
