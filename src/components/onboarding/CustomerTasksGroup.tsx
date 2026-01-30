@@ -56,7 +56,7 @@ export function CustomerTasksGroup({
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
       <div className={cn(
         'border rounded-lg relative',
-        hasOverdue ? 'border-red-200 bg-red-50/30' : 'border-gray-200'
+        hasOverdue ? 'border-red-500/50 bg-red-500/10' : 'border-border'
       )}>
         {/* Group Header */}
         <CollapsibleTrigger asChild>
@@ -64,7 +64,7 @@ export function CustomerTasksGroup({
             variant="ghost"
             className={cn(
               'w-full justify-between p-4 h-auto hover:bg-transparent',
-              hasOverdue && 'hover:bg-red-50/50'
+              hasOverdue && 'hover:bg-red-500/10'
             )}
           >
             <div className="flex items-center gap-3">

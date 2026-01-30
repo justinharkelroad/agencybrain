@@ -62,8 +62,8 @@ const ACTION_LABELS: Record<ActionType, string> = {
 function getStatusStyles(task: OnboardingTask): { border: string; bg: string; badge: string; badgeVariant: 'default' | 'secondary' | 'destructive' | 'outline' } {
   if (task.status === 'completed') {
     return {
-      border: 'border-gray-200',
-      bg: 'bg-gray-50',
+      border: 'border-border',
+      bg: 'bg-muted/50',
       badge: 'Completed',
       badgeVariant: 'secondary',
     };
@@ -73,8 +73,8 @@ function getStatusStyles(task: OnboardingTask): { border: string; bg: string; ba
 
   if (task.status === 'overdue' || (isPast(dueDate) && !isToday(dueDate))) {
     return {
-      border: 'border-red-300 border-2',
-      bg: 'bg-red-50',
+      border: 'border-red-500/50 border-2',
+      bg: 'bg-red-500/10',
       badge: 'Overdue',
       badgeVariant: 'destructive',
     };
@@ -82,8 +82,8 @@ function getStatusStyles(task: OnboardingTask): { border: string; bg: string; ba
 
   if (isToday(dueDate) || task.status === 'due') {
     return {
-      border: 'border-blue-300 border-2',
-      bg: 'bg-blue-50',
+      border: 'border-blue-500/50 border-2',
+      bg: 'bg-blue-500/10',
       badge: 'Due Today',
       badgeVariant: 'default',
     };
@@ -91,8 +91,8 @@ function getStatusStyles(task: OnboardingTask): { border: string; bg: string; ba
 
   // Upcoming
   return {
-    border: 'border-gray-200',
-    bg: 'bg-white',
+    border: 'border-border',
+    bg: 'bg-card',
     badge: 'Upcoming',
     badgeVariant: 'outline',
   };
