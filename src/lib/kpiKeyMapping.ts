@@ -142,15 +142,17 @@ export function getMetricValue(data: Record<string, any>, kpiKey: string): numbe
     }
   }
 
-  // No aliases defined, try direct access
-  if (data[kpiKey] !== undefined && data[kpiKey] !== null) {
-    return Number(data[kpiKey]) || 0;
+  // No aliases defined, try direct access (but don't return 0 yet - check custom_kpis first)
+  const directValue = data[kpiKey];
+  if (directValue !== undefined && directValue !== null && Number(directValue) !== 0) {
+    return Number(directValue);
   }
 
   // Fallback to database column name (legacy data)
   const column = toColumn(kpiKey);
-  if (column !== kpiKey && data[column] !== undefined && data[column] !== null) {
-    return Number(data[column]) || 0;
+  const columnValue = data[column];
+  if (column !== kpiKey && columnValue !== undefined && columnValue !== null && Number(columnValue) !== 0) {
+    return Number(columnValue);
   }
 
   // Final fallback: check custom_kpis for ANY key
