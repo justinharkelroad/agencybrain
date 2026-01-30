@@ -161,38 +161,94 @@ async function convertWithConvertio(
   throw new Error('Unable to process this file due to size. Please contact AgencyBrain with questions.');
 }
 
-// Calculate talk metrics from Whisper segments
+// Calculate talk metrics from Whisper segments with improved heuristics
+// Uses confidence scoring, smoothing window, and hysteresis to reduce variance
 function calculateTalkMetrics(segments: any[], totalDuration: number) {
   let agentSeconds = 0;
   let customerSeconds = 0;
-  let lastEndTime = 0;
   let deadAirSeconds = 0;
+  let lastEndTime = 0;
+  
+  // Expanded keyword patterns for better speaker detection
+  const agentPatterns = [
+    /\b(your policy|your account|your coverage|your premium|your deductible)\b/i,
+    /\b(let me|i can|i'll|i will|we offer|we have|we can)\b/i,
+    /\b(looking at your|pulling up|checking your|i see here)\b/i,
+    /\b(effective date|renewal|claims?|endorsement)\b/i,
+    /\b(is there anything else|have a great day|thank you for calling)\b/i,
+    /\b(what i can do|how can i help|may i help)\b/i,
+  ];
+  
+  const customerPatterns = [
+    /\b(i need|i want|i'm looking|i am looking|i was wondering)\b/i,
+    /\b(how much|what about|can you|could you|do you)\b/i,
+    /\b(my policy|my account|my car|my house|my payment|my coverage)\b/i,
+    /\b(i have a question|i'm calling|i am calling|calling about)\b/i,
+    /\b(the reason i'm calling|i received|i got a)\b/i,
+  ];
+  
+  // Score each segment's agent probability (0-100)
+  const segmentScores: number[] = segments.map((segment, index) => {
+    const text = segment.text?.toLowerCase() || '';
+    let agentScore = 50; // neutral baseline
+    
+    // Keyword scoring (+/- 25 points per match)
+    agentPatterns.forEach(pattern => {
+      if (pattern.test(text)) agentScore += 25;
+    });
+    customerPatterns.forEach(pattern => {
+      if (pattern.test(text)) agentScore -= 25;
+    });
+    
+    // First segment greeting bonus for agent
+    if (index === 0 && /^(hi|hello|thank you for calling|good morning|good afternoon)/i.test(text.trim())) {
+      agentScore += 30;
+    }
+    
+    // Clamp to 0-100
+    return Math.max(0, Math.min(100, agentScore));
+  });
+  
+  // Apply 3-segment smoothing window to reduce single-segment noise
+  const smoothedScores: number[] = segmentScores.map((score, index) => {
+    const window = [
+      segmentScores[index - 2] ?? score,
+      segmentScores[index - 1] ?? score,
+      score
+    ];
+    // Weighted average: current segment counts more (20/30/50 weights)
+    return (window[0] * 0.2 + window[1] * 0.3 + window[2] * 0.5);
+  });
+  
+  // Determine speaker per segment with hysteresis to prevent flapping
   let currentSpeaker = 'agent';
+  const SWITCH_THRESHOLD = 15; // Must differ by 15+ points from neutral (50) to switch
   
   segments.forEach((segment, index) => {
     const segmentDuration = segment.end - segment.start;
-    const text = segment.text?.toLowerCase() || '';
+    const smoothedScore = smoothedScores[index];
     
+    // Dead air calculation (gaps > 0.5s)
     if (segment.start > lastEndTime) {
       const gap = segment.start - lastEndTime;
-      if (gap > 0.5) {
-        deadAirSeconds += gap;
-      }
+      if (gap > 0.5) deadAirSeconds += gap;
     }
     lastEndTime = segment.end;
     
-    const isGreeting = /^(hi|hello|hey|thank you for calling|thanks for calling|good morning|good afternoon)/i.test(text.trim());
-    const isAgentPhrase = /(let me|i can|we offer|your policy|your coverage|your premium|i'll send|i'll email|what i can do|i'm going to|looking at your)/i.test(text);
-    const isCustomerPhrase = /(i need|i want|i'm looking|how much|what about|can you|do you|i have a question|my current|i was wondering)/i.test(text);
-    
-    if (index === 0 && isGreeting) {
+    // Speaker assignment with hysteresis
+    if (smoothedScore > 50 + SWITCH_THRESHOLD) {
       currentSpeaker = 'agent';
-    } else if (isAgentPhrase) {
-      currentSpeaker = 'agent';
-    } else if (isCustomerPhrase) {
+    } else if (smoothedScore < 50 - SWITCH_THRESHOLD) {
       currentSpeaker = 'customer';
-    } else if (index > 0 && segment.start - segments[index - 1].end > 1.0) {
-      currentSpeaker = currentSpeaker === 'agent' ? 'customer' : 'agent';
+    }
+    // If between 35-65, keep current speaker (hysteresis prevents flapping)
+    
+    // Long gap (>2.5s) as tiebreaker only when score is neutral
+    if (smoothedScore >= 35 && smoothedScore <= 65 && index > 0) {
+      const gapFromPrevious = segment.start - segments[index - 1].end;
+      if (gapFromPrevious > 2.5) {
+        currentSpeaker = currentSpeaker === 'agent' ? 'customer' : 'agent';
+      }
     }
     
     if (currentSpeaker === 'agent') {
@@ -201,14 +257,15 @@ function calculateTalkMetrics(segments: any[], totalDuration: number) {
       customerSeconds += segmentDuration;
     }
   });
-
+  
+  // Round and calculate percentages
   agentSeconds = Math.round(agentSeconds);
   customerSeconds = Math.round(customerSeconds);
   deadAirSeconds = Math.round(deadAirSeconds);
-
+  
   const total = agentSeconds + customerSeconds + deadAirSeconds;
   const effectiveTotal = total > 0 ? total : totalDuration;
-
+  
   return {
     agentSeconds,
     customerSeconds,
