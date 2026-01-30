@@ -97,7 +97,7 @@ serve(async (req) => {
     if (error) {
       console.error('Delete KPI error:', error);
       return new Response(
-        JSON.stringify({ error: error instanceof Error ? error.message : 'Delete failed' }),
+        JSON.stringify({ error: error.message || 'Delete failed' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
