@@ -11,7 +11,7 @@ import { VendorVerifierFormInputs, VendorVerifierDerived, computeVendorVerifierD
 import { clampPercent, formatCurrency, formatInteger } from "@/utils/marketingCalculator"
 import SaveVendorReportButton from "@/components/SaveVendorReportButton"
 import VendorReportCard from "@/components/VendorReportCard"
-import { HelpVideoButton } from "@/components/HelpVideoButton"
+import { HelpButton } from "@/components/HelpButton"
 import { cn } from "@/lib/utils"
 import { Calendar as CalendarIcon, Sparkles } from "lucide-react"
 import { format } from "date-fns"
@@ -149,7 +149,7 @@ const values = watch()
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" onClick={onBack} aria-label="Back to calculators">←</Button>
           <h3 className="text-base font-medium text-muted-foreground">Vendor Verifier</h3>
-          <HelpVideoButton videoKey="Vendor_Verifier" />
+          <HelpButton videoKey="Vendor_Verifier" />
         </div>
       </div>
 

@@ -38,7 +38,7 @@ import { LiveTransferReportCard } from "@/components/tools/LiveTransferReportCar
 import { useNavigate } from "react-router-dom";
 import { CallEfficiencyTool } from "@/components/tools/CallEfficiencyTool";
 import { VideoTrainingDialog } from "@/components/tools/VideoTrainingDialog";
-import { HelpVideoButton } from "@/components/HelpVideoButton";
+import { HelpButton } from "@/components/HelpButton";
 import { useAuth } from '@/lib/auth';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -435,7 +435,7 @@ function BackHeader({ title, onBack, videoKey }: { title: string; onBack: () => 
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <h3 className="text-base font-medium text-muted-foreground">{title}</h3>
-        {videoKey && <HelpVideoButton videoKey={videoKey} />}
+        {videoKey && <HelpButton videoKey={videoKey} />}
       </div>
     </div>
   );
