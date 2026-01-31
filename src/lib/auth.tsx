@@ -40,6 +40,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const roleCheckAbortRef = useRef<AbortController | null>(null);
   const tierCheckAbortRef = useRef<AbortController | null>(null);
 
+  // Track the last user ID we checked roles/tiers for to avoid redundant checks
+  // This prevents the tierLoading flash when tab regains focus
+  const lastCheckedUserIdRef = useRef<string | null>(null);
+
   const checkUserRole = useCallback(async (userId: string, signal?: AbortSignal) => {
     try {
       const { data, error } = await supabase
@@ -68,8 +72,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const checkMembershipTier = useCallback(async (userId: string, signal?: AbortSignal) => {
-    setTierLoading(true);
+  const checkMembershipTier = useCallback(async (userId: string, signal?: AbortSignal, skipLoadingState?: boolean) => {
+    // Only set loading state if this is a fresh check, not a redundant re-check
+    // This prevents ProtectedRoute from unmounting children when tab regains focus
+    if (!skipLoadingState) {
+      setTierLoading(true);
+    }
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -186,15 +194,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Skip role/tier re-checks on token refresh - the user hasn't changed,
-        // and re-running these checks causes tierLoading to briefly become true,
-        // which makes ProtectedRoute unmount children and lose their state.
+        // Skip role/tier re-checks on token refresh - the user hasn't changed
         if (event === 'TOKEN_REFRESHED') {
           return;
         }
 
         // Check roles on actual auth changes (SIGNED_IN, INITIAL_SESSION, etc.)
         if (session?.user) {
+          // Skip redundant checks for the same user to prevent loading flash
+          const isSameUser = lastCheckedUserIdRef.current === session.user.id;
+
           // Abort any in-flight requests from previous auth state
           roleCheckAbortRef.current?.abort();
           tierCheckAbortRef.current?.abort();
@@ -203,8 +212,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           roleCheckAbortRef.current = new AbortController();
           tierCheckAbortRef.current = new AbortController();
 
+          // If same user, skip the loading state to prevent ProtectedRoute from
+          // unmounting children and losing their state
           checkUserRole(session.user.id, roleCheckAbortRef.current.signal);
-          checkMembershipTier(session.user.id, tierCheckAbortRef.current.signal);
+          checkMembershipTier(session.user.id, tierCheckAbortRef.current.signal, isSameUser);
+
+          lastCheckedUserIdRef.current = session.user.id;
         } else {
           // Abort any in-flight requests
           roleCheckAbortRef.current?.abort();
@@ -217,6 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setIsAgencyOwner(false);
           setIsKeyEmployee(false);
           setKeyEmployeeAgencyId(null);
+          lastCheckedUserIdRef.current = null;
         }
       }
     );
@@ -228,6 +242,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
 
       if (session?.user) {
+        // Skip redundant checks for the same user
+        const isSameUser = lastCheckedUserIdRef.current === session.user.id;
+
         // Abort any in-flight requests from previous auth state
         roleCheckAbortRef.current?.abort();
         tierCheckAbortRef.current?.abort();
@@ -237,11 +254,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         tierCheckAbortRef.current = new AbortController();
 
         checkUserRole(session.user.id, roleCheckAbortRef.current.signal);
-        checkMembershipTier(session.user.id, tierCheckAbortRef.current.signal);
+        checkMembershipTier(session.user.id, tierCheckAbortRef.current.signal, isSameUser);
+
+        lastCheckedUserIdRef.current = session.user.id;
       } else {
         // No session - ensure loading states are cleared
         setAdminLoading(false);
         setTierLoading(false);
+        lastCheckedUserIdRef.current = null;
       }
     });
 
