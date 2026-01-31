@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,9 +28,54 @@ interface TrainingContentTabProps {
 }
 
 export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
-  // Navigation state
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
-  const [selectedModuleId, setSelectedModuleId] = useState<string>("");
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Navigation state persisted to URL to survive tab switches and remounts
+  const selectedCategoryId = searchParams.get('categoryId') || '';
+  const selectedModuleId = searchParams.get('moduleId') || '';
+  const editLessonId = searchParams.get('editLessonId') || '';
+
+  // Update URL params while preserving other params
+  const setSelectedCategoryId = useCallback((id: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (id) {
+        next.set('categoryId', id);
+      } else {
+        next.delete('categoryId');
+      }
+      // Clear child selections when category changes
+      next.delete('moduleId');
+      next.delete('editLessonId');
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const setSelectedModuleId = useCallback((id: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (id) {
+        next.set('moduleId', id);
+      } else {
+        next.delete('moduleId');
+      }
+      // Clear lesson edit when module changes
+      next.delete('editLessonId');
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const setEditLessonId = useCallback((id: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (id) {
+        next.set('editLessonId', id);
+      } else {
+        next.delete('editLessonId');
+      }
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
   
   // Category state
   const [categoryDialog, setCategoryDialog] = useState(false);
@@ -51,9 +97,9 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
     is_active: true,
   });
 
-  // Lesson state
-  const [lessonDialog, setLessonDialog] = useState(false);
-  const [editingLesson, setEditingLesson] = useState<any>(null);
+  // Lesson state - dialog open state derived from URL param
+  // 'new' means creating new lesson, a UUID means editing that lesson
+  const lessonDialog = editLessonId !== '';
   const [lessonTab, setLessonTab] = useState('basic');
   const [lessonForm, setLessonForm] = useState({
     name: '',
@@ -66,6 +112,9 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
     thumbnail_url: '',
   });
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
+
+  // Track the actual editing lesson object (derived from lessons list)
+  const [editingLesson, setEditingLesson] = useState<any>(null);
 
   // Delete confirmation
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -93,6 +142,45 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
   
   // Ref to prevent duplicate lesson creation race condition
   const isSavingLessonRef = useRef(false);
+
+  // Sync editingLesson from URL param when lessons data is available
+  useEffect(() => {
+    if (editLessonId === 'new') {
+      // Creating new lesson - clear editingLesson
+      setEditingLesson(null);
+      setLessonForm({
+        name: '',
+        video_platform: 'youtube',
+        video_url: '',
+        content_html: '',
+        description: '',
+        sort_order: lessons?.length || 0,
+        is_active: true,
+        thumbnail_url: '',
+      });
+      setLessonTab('basic');
+    } else if (editLessonId && lessons) {
+      // Editing existing lesson - find it in the list
+      const lesson = lessons.find((l: any) => l.id === editLessonId);
+      if (lesson) {
+        setEditingLesson(lesson);
+        setLessonForm({
+          name: lesson.name || '',
+          video_platform: lesson.video_platform || 'youtube',
+          video_url: lesson.video_url || '',
+          content_html: lesson.content_html || '',
+          description: lesson.description || '',
+          sort_order: lesson.sort_order || 0,
+          is_active: lesson.is_active !== false,
+          thumbnail_url: lesson.thumbnail_url || '',
+        });
+        setLessonTab('basic');
+      }
+    } else {
+      // No lesson being edited
+      setEditingLesson(null);
+    }
+  }, [editLessonId, lessons]);
 
   // Attachment handlers
   const handleDownloadAttachment = async (attachment: any) => {
@@ -265,7 +353,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
   // Lesson handlers
   const handleSaveLesson = () => {
     if (!agencyId || !selectedModuleId) return;
-    
+
     // Prevent duplicate creation if auto-save is in progress
     if (isSavingLessonRef.current) return;
 
@@ -274,7 +362,16 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
     } else {
       createLesson({ ...lessonForm, agency_id: agencyId, module_id: selectedModuleId });
     }
-    setLessonDialog(false);
+    closeLessonDialog();
+  };
+
+  const openLessonDialog = (lesson?: any) => {
+    // Set URL param - this triggers the useEffect to sync state
+    setEditLessonId(lesson?.id || 'new');
+  };
+
+  const closeLessonDialog = () => {
+    setEditLessonId('');
     setEditingLesson(null);
     setLessonForm({
       name: '',
@@ -288,36 +385,6 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
     });
   };
 
-  const openLessonDialog = (lesson?: any) => {
-    if (lesson) {
-      setEditingLesson(lesson);
-      setLessonForm({
-        name: lesson.name || '',
-        video_platform: lesson.video_platform || 'youtube',
-        video_url: lesson.video_url || '',
-        content_html: lesson.content_html || '',
-        description: lesson.description || '',
-        sort_order: lesson.sort_order || 0,
-        is_active: lesson.is_active !== false,
-        thumbnail_url: lesson.thumbnail_url || '',
-      });
-    } else {
-      setEditingLesson(null);
-      setLessonForm({
-        name: '',
-        video_platform: 'youtube',
-        video_url: '',
-        content_html: '',
-        description: '',
-        sort_order: lessons?.length || 0,
-        is_active: true,
-        thumbnail_url: '',
-      });
-    }
-    setLessonTab('basic');
-    setLessonDialog(true);
-  };
-
   // Tab change handler for lesson dialog - auto-saves when switching to attachments/quiz
   const handleLessonTabChange = async (tab: string) => {
     if ((tab === 'attachments' || tab === 'quiz') && !editingLesson) {
@@ -325,11 +392,11 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         toast.error('Please enter a lesson name first');
         return;
       }
-      
+
       // Prevent race condition with manual save button
       if (isSavingLessonRef.current) return;
       isSavingLessonRef.current = true;
-      
+
       try {
         const savedLesson = await createLessonAsync({
           name: lessonForm.name,
@@ -343,6 +410,8 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
           module_id: selectedModuleId!,
         });
         setEditingLesson(savedLesson);
+        // Update URL to the new lesson's ID so state persists
+        setEditLessonId(savedLesson.id);
         toast.success('Lesson saved! You can now add attachments and quizzes.');
       } catch (error) {
         toast.error('Failed to save lesson');
@@ -837,7 +906,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
       </Dialog>
 
       {/* Lesson Dialog - with Tabs */}
-      <Dialog open={lessonDialog} onOpenChange={setLessonDialog}>
+      <Dialog open={lessonDialog} onOpenChange={(open) => !open && closeLessonDialog()}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingLesson ? `Edit Lesson: ${editingLesson.name}` : 'New Lesson'}</DialogTitle>
