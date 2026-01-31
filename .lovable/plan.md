@@ -1,151 +1,129 @@
 
-# Fix Empty Sales Call Skill Sections (RAPPORT / COVERAGE / CLOSING)
+# Fix: Email Reports Showing 0s for Custom KPIs
 
-## Problem
+## Problem Summary
 
-The Sales Call Report Card is showing empty RAPPORT, COVERAGE, and CLOSING sections because:
+The Daily Performance Report emails for Kyle MACVICAR's agency (and likely others using custom KPIs) show **0 values** for "Life Lead Uncovered" and "P&C Lead Uncovered" even though the actual submissions have data.
 
-1. The code detects `section_scores.rapport`, `section_scores.coverage`, `section_scores.closing` exist in the database
-2. This triggers `hasLegacySections = true`, which renders the **legacy format**
-3. The legacy format expects `wins[]`, `failures[]`, and `coaching` properties
-4. But the **new global sales template** outputs `feedback` (with STRENGTHS/GAPS/ACTION markers), `score`, and `tip`
-5. Since `wins`, `failures`, `coaching` are undefined, the sections render empty
+## Root Cause
 
-**Database data structure (new format):**
-```json
-{
-  "rapport": {
-    "feedback": "STRENGTHS: Lori confirmed... GAPS: She did not ask... ACTION: Start calls by...",
-    "score": 60,
-    "tip": "Ask open-ended questions..."
+There's a **key naming mismatch** between how form submissions store data and how email functions look it up:
+
+| Layer | Key Used |
+|-------|----------|
+| **Form Schema** `kpi.key` | `preselected_kpi_2_cross_sells_uncovered` |
+| **Form Schema** `selectedKpiSlug` | `custom_1769804996319` |
+| **Submission Payload** | `cross_sells_uncovered` (after stripping prefix) |
+| **Email Lookup** | Tries `custom_...` then `preselected_...` → **Neither found!** |
+
+The submission edge functions (`submit_public_form`, `staff_submit_form`) intentionally strip the `preselected_kpi_N_` prefix from keys:
+
+```typescript
+// Lines 191-198 in submit_public_form/index.ts
+for (const key of Object.keys(v)) {
+  if (/^preselected_kpi_\d+_/.test(key)) {
+    const nk = key.replace(/^preselected_kpi_\d+_/, '');  // "cross_sells_uncovered"
+    v[nk] = v[key];
+    delete v[key];
   }
 }
 ```
 
-**Legacy format expected by code:**
+But the email functions don't apply the same stripping logic when looking up values - they try the raw `kpi.key` which still has the prefix.
+
+## Proof from Database
+
+**Actual submission payload for Liz Flack:**
 ```json
 {
-  "rapport": {
-    "wins": ["Win 1", "Win 2"],
-    "failures": ["Gap 1"],
-    "coaching": "Some coaching text"
-  }
+  "cross_sells_uncovered": 1,   // ← Data IS here!
+  "mini_reviews": 1,            // ← Data IS here!
+  "outbound_calls": 30,
+  "talk_minutes": 150
 }
 ```
+
+**Form schema lookup keys:**
+- `selectedKpiSlug`: `custom_1769804996319`
+- `kpi.key`: `preselected_kpi_2_cross_sells_uncovered`
+
+Neither of these matches `cross_sells_uncovered` in the payload.
 
 ---
 
 ## Solution
 
-Update the legacy section rendering (lines 633-731) to handle BOTH formats:
-1. If the section has `wins[]`/`failures[]` arrays → render the old way
-2. If the section has `feedback` string → parse it with `parseFeedback()` and render with STRENGTHS/GAPS/ACTION icons
+Update the `getMetricValueFromPayload` function in both email edge functions to also try the **stripped version** of `kpi.key`:
 
-### File: `src/components/CallScorecard.tsx`
-
-#### Changes to the legacy section rendering (~lines 633-731)
-
-For each of the three section cards (RAPPORT, COVERAGE, CLOSING):
-
-**Before (lines 644-666 for RAPPORT):**
-```tsx
-{rapportData?.wins?.map((win: string, i: number) => (
-  <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
-    <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
-    <span>{win}</span>
-  </p>
-))}
-{rapportData?.failures?.map((failure: string, i: number) => (
-  <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
-    <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-    <span>{failure}</span>
-  </p>
-))}
-{rapportData?.coaching && (
-  <div className="mt-4 pt-3 border-t">
-    <p className="text-xs text-muted-foreground mb-1">COACHING</p>
-    <p className="text-sm">{rapportData.coaching}</p>
-  </div>
-)}
-```
-
-**After:**
-```tsx
-{/* Handle both legacy (wins/failures) and new (feedback) formats */}
-{rapportData?.wins?.map((win: string, i: number) => (
-  <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
-    <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
-    <span>{win}</span>
-  </p>
-))}
-{rapportData?.failures?.map((failure: string, i: number) => (
-  <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
-    <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-    <span>{failure}</span>
-  </p>
-))}
-{rapportData?.coaching && (
-  <div className="mt-4 pt-3 border-t">
-    <p className="text-xs text-muted-foreground mb-1">COACHING</p>
-    <p className="text-sm">{rapportData.coaching}</p>
-  </div>
-)}
-{/* NEW: Handle feedback string format (STRENGTHS/GAPS/ACTION) */}
-{rapportData?.feedback && !rapportData?.wins && (() => {
-  const parsed = parseFeedback(rapportData.feedback);
-  if (parsed.strengths || parsed.gaps || parsed.action) {
-    return (
-      <div className="space-y-2">
-        {parsed.strengths && (
-          <div className="flex items-start gap-2">
-            <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-green-500 flex-shrink-0" />
-            <p className="text-sm text-green-400">
-              <span className="font-semibold">STRENGTHS:</span> {parsed.strengths}
-            </p>
-          </div>
-        )}
-        {parsed.gaps && (
-          <div className="flex items-start gap-2">
-            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 text-amber-500 flex-shrink-0" />
-            <p className="text-sm text-amber-400">
-              <span className="font-semibold">GAPS:</span> {parsed.gaps}
-            </p>
-          </div>
-        )}
-        {parsed.action && (
-          <div className="flex items-start gap-2">
-            <Target className="h-3.5 w-3.5 mt-0.5 text-blue-500 flex-shrink-0" />
-            <p className="text-sm text-blue-400">
-              <span className="font-semibold">ACTION:</span> {parsed.action}
-            </p>
-          </div>
-        )}
-      </div>
-    );
-  }
-  return <p className="text-sm text-muted-foreground">{rapportData.feedback}</p>;
-})()}
-{rapportData?.tip && (
-  <p className="text-xs text-green-400 mt-3">💡 {rapportData.tip}</p>
-)}
-```
-
-Apply the same pattern to:
-- COVERAGE section (lines 669-698)
-- CLOSING section (lines 700-729)
-
----
-
-## Files to Modify
+### Files to Update
 
 | File | Change |
 |------|--------|
-| `src/components/CallScorecard.tsx` | Update legacy section rendering (~lines 633-731) to handle `feedback` string format alongside `wins`/`failures` arrays |
+| `supabase/functions/send_submission_feedback/index.ts` | Add stripped key fallback |
+| `supabase/functions/send_daily_summary/index.ts` | Add stripped key fallback |
+
+### Code Change
+
+In both files, update `getMetricValueFromPayload` to add a step that strips the `preselected_kpi_N_` prefix:
+
+```typescript
+function getMetricValueFromPayload(
+  payload: Record<string, any>, 
+  kpiSlug: string, 
+  kpiKey: string
+): { value: number; resolvedFrom: string } {
+  // 1. Try selectedKpiSlug directly
+  if (payload[kpiSlug] !== undefined && payload[kpiSlug] !== null) {
+    return { value: Number(payload[kpiSlug]) || 0, resolvedFrom: kpiSlug };
+  }
+  
+  // 2. Try kpi.key directly
+  if (kpiKey && payload[kpiKey] !== undefined && payload[kpiKey] !== null) {
+    return { value: Number(payload[kpiKey]) || 0, resolvedFrom: kpiKey };
+  }
+  
+  // 3. NEW: Try stripped version of kpi.key (removes preselected_kpi_N_ prefix)
+  const strippedKey = kpiKey?.replace(/^preselected_kpi_\d+_/, '') || '';
+  if (strippedKey && strippedKey !== kpiKey && payload[strippedKey] !== undefined && payload[strippedKey] !== null) {
+    return { value: Number(payload[strippedKey]) || 0, resolvedFrom: strippedKey };
+  }
+  
+  // 4. Determine aliases based on normalized key
+  const normalized = normalizeMetricKey(kpiSlug || kpiKey || strippedKey);
+  let aliases: string[] = [];
+  if (normalized === 'quoted_households') aliases = QUOTED_ALIASES;
+  else if (normalized === 'items_sold') aliases = SOLD_ALIASES;
+  else aliases = [kpiSlug, kpiKey, strippedKey].filter(Boolean);
+  
+  for (const alias of aliases) {
+    if (payload[alias] !== undefined && payload[alias] !== null) {
+      return { value: Number(payload[alias]) || 0, resolvedFrom: alias };
+    }
+  }
+  
+  return { value: 0, resolvedFrom: 'none' };
+}
+```
 
 ---
 
-## Result
+## Expected Result
 
-- **New calls** using the global sales template with `feedback` strings will display properly with STRENGTHS/GAPS/ACTION formatting
-- **Old calls** with `wins[]`/`failures[]` arrays will continue working as before
-- Existing calls will display correctly immediately on refresh (frontend-only change)
+After this fix:
+
+- Email looks for `custom_1769804996319` → not found
+- Email looks for `preselected_kpi_2_cross_sells_uncovered` → not found
+- **NEW**: Email looks for `cross_sells_uncovered` (stripped) → **FOUND! Returns 1**
+
+The emails will correctly show the actual values (1, not 0) for custom KPIs like "Life Lead Uncovered" and "P&C Lead Uncovered".
+
+---
+
+## Technical Note
+
+This fix mirrors the stripping logic already used in the submission handlers. The alternative would be to NOT strip the prefix during submission, but that would:
+1. Break the existing frontend performance summary display
+2. Require changes to multiple form components
+3. Potentially break existing data lookups
+
+Adding the fallback in the email functions is the safer, more contained fix.
