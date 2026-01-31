@@ -76,12 +76,18 @@ function getMetricValueFromPayload(payload: Record<string, any>, kpiSlug: string
   if (kpiKey && payload[kpiKey] !== undefined && payload[kpiKey] !== null) {
     return { value: Number(payload[kpiKey]) || 0, resolvedFrom: kpiKey };
   }
-  // 3. Determine aliases based on normalized key
-  const normalized = normalizeMetricKey(kpiSlug || kpiKey);
+  // 3. Try stripped version of kpi.key (removes preselected_kpi_N_ prefix)
+  // This handles the mismatch where form submissions strip this prefix before saving
+  const strippedKey = kpiKey?.replace(/^preselected_kpi_\d+_/, '') || '';
+  if (strippedKey && strippedKey !== kpiKey && payload[strippedKey] !== undefined && payload[strippedKey] !== null) {
+    return { value: Number(payload[strippedKey]) || 0, resolvedFrom: strippedKey };
+  }
+  // 4. Determine aliases based on normalized key
+  const normalized = normalizeMetricKey(kpiSlug || kpiKey || strippedKey);
   let aliases: string[] = [];
   if (normalized === 'quoted_households') aliases = QUOTED_ALIASES;
   else if (normalized === 'items_sold') aliases = SOLD_ALIASES;
-  else aliases = [kpiSlug, kpiKey].filter(Boolean);
+  else aliases = [kpiSlug, kpiKey, strippedKey].filter(Boolean);
   
   for (const alias of aliases) {
     if (payload[alias] !== undefined && payload[alias] !== null) {
