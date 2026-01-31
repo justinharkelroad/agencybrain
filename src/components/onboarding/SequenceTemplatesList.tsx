@@ -266,7 +266,7 @@ export function SequenceTemplatesList({
                             return (
                               <span key={type} className="flex items-center gap-1">
                                 <Icon className="w-3 h-3" />
-                                {count as React.ReactNode}
+                                {String(count)}
                               </span>
                             );
                           })}
