@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
 import {
   Select,
   SelectContent,
@@ -28,6 +29,7 @@ import {
   useOnboardingTasksToday,
   useCompleteOnboardingTask,
   useStaffUsersForFilter,
+  useProfileUsersForFilter,
 } from '@/hooks/useOnboardingTasks';
 import {
   CustomerTasksGroup,
@@ -40,6 +42,15 @@ interface ReassignState {
   instanceId: string;
   customerName: string;
   pendingCount: number;
+}
+
+// Composite filter option for assignee dropdown
+interface AssigneeFilterOption {
+  value: string; // "all", "staff:<uuid>", or "user:<uuid>"
+  type: 'all' | 'staff' | 'user';
+  id?: string;
+  label: string;
+  badge?: string;
 }
 
 export default function OnboardingTasksPage() {
@@ -65,35 +76,66 @@ export default function OnboardingTasksPage() {
     enabled: !!user?.id,
   });
 
-  // Get the user's linked staff_user_id (if any)
-  // NOTE: linked_profile_id column doesn't exist on staff_users table yet
-  // This feature is disabled until the column is created
-  const { data: linkedStaffUser } = useQuery({
-    queryKey: ['linked-staff-user', user?.id, profile?.agency_id],
-    queryFn: async () => {
-      // DISABLED: linked_profile_id column doesn't exist on staff_users table
-      // Return null - user will see "No linked staff account" message
-      return null;
-    },
-    enabled: false, // Disabled until linked_profile_id column is created
-  });
-
   // Get staff users for filter dropdown
   const { data: staffUsers = [] } = useStaffUsersForFilter(profile?.agency_id || null);
+  
+  // Get profile users (owners/managers) for filter dropdown
+  const { data: profileUsers = [] } = useProfileUsersForFilter(profile?.agency_id || null);
 
-  // Track if user has no linked staff account (for "My Tasks" mode)
-  const hasNoLinkedStaffUser = !linkedStaffUser?.id && profile?.agency_id;
+  // Build combined assignee filter options
+  const assigneeFilterOptions = useMemo((): AssigneeFilterOption[] => {
+    const options: AssigneeFilterOption[] = [
+      { value: 'all', type: 'all', label: 'All team members' },
+    ];
 
-  // Determine the assignee filter
-  const assigneeFilter = useMemo(() => {
-    if (showAllAgency) {
-      return selectedAssignee === 'all' ? null : selectedAssignee;
+    // Add profile users (owners/managers)
+    for (const profile of profileUsers) {
+      const label = profile.full_name || profile.email || 'Unnamed User';
+      const badge = profile.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : undefined;
+      options.push({
+        value: `user:${profile.id}`,
+        type: 'user',
+        id: profile.id,
+        label,
+        badge,
+      });
     }
-    // If not showing all agency, show the user's linked staff user tasks
-    // If no linked staff user, use a placeholder UUID that won't match any tasks
-    // This prevents showing all agency tasks when user has no staff account
-    return linkedStaffUser?.id || '00000000-0000-0000-0000-000000000000';
-  }, [showAllAgency, selectedAssignee, linkedStaffUser?.id]);
+
+    // Add staff users
+    for (const staff of staffUsers) {
+      const label = staff.display_name || staff.username;
+      options.push({
+        value: `staff:${staff.id}`,
+        type: 'staff',
+        id: staff.id,
+        label,
+        badge: 'Staff',
+      });
+    }
+
+    return options;
+  }, [staffUsers, profileUsers]);
+
+  // Determine the assignee filters based on current selection
+  const { assigneeId, assigneeUserId } = useMemo(() => {
+    if (showAllAgency) {
+      // Viewing all agency tasks with optional filter
+      if (selectedAssignee === 'all') {
+        return { assigneeId: undefined, assigneeUserId: undefined };
+      }
+      
+      const [type, id] = selectedAssignee.split(':') as ['staff' | 'user', string];
+      if (type === 'staff') {
+        return { assigneeId: id, assigneeUserId: undefined };
+      } else {
+        return { assigneeId: undefined, assigneeUserId: id };
+      }
+    }
+    
+    // "My Tasks" mode - show tasks assigned to the current user (profile)
+    // Use the current user's profile ID for filtering
+    return { assigneeId: undefined, assigneeUserId: user?.id };
+  }, [showAllAgency, selectedAssignee, user?.id]);
 
   // Fetch tasks
   const {
@@ -104,7 +146,8 @@ export default function OnboardingTasksPage() {
     refetch,
   } = useOnboardingTasksToday({
     agencyId: profile?.agency_id || null,
-    assigneeId: assigneeFilter,
+    assigneeId,
+    assigneeUserId,
   });
 
   // Complete task mutation
@@ -260,14 +303,20 @@ export default function OnboardingTasksPage() {
                 <div className="flex items-center gap-2">
                   <Label className="text-sm text-muted-foreground">Filter by:</Label>
                   <Select value={selectedAssignee} onValueChange={setSelectedAssignee}>
-                    <SelectTrigger className="w-[180px]">
+                    <SelectTrigger className="w-[220px]">
                       <SelectValue placeholder="All team members" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All team members</SelectItem>
-                      {staffUsers.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.display_name || user.username}
+                      {assigneeFilterOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          <div className="flex items-center gap-2">
+                            <span>{option.label}</span>
+                            {option.badge && (
+                              <Badge variant="secondary" className="text-xs">
+                                {option.badge}
+                              </Badge>
+                            )}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -311,15 +360,11 @@ export default function OnboardingTasksPage() {
               <p className="text-sm text-muted-foreground">
                 {showAllAgency
                   ? 'No onboarding tasks in your agency.'
-                  : hasNoLinkedStaffUser
-                    ? 'Your account is not linked to a staff user. Tasks can only be assigned to staff users.'
-                    : 'You have no assigned onboarding tasks.'}
+                  : 'You have no assigned onboarding tasks.'}
               </p>
-              {!hasNoLinkedStaffUser && (
-                <p className="text-sm text-muted-foreground mt-2">
-                  Tasks are created when you apply a sequence to a sale.
-                </p>
-              )}
+              <p className="text-sm text-muted-foreground mt-2">
+                Tasks are created when you apply a sequence to a sale.
+              </p>
             </div>
           </CardContent>
         </Card>

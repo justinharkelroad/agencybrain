@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,22 @@ interface StaffUser {
   is_active: boolean;
 }
 
+interface ProfileUser {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  role: string | null;
+}
+
+// Composite assignee option for the dropdown
+interface AssigneeOption {
+  value: string; // "staff:<uuid>" or "user:<uuid>"
+  type: 'staff' | 'user';
+  id: string;
+  label: string;
+  badge?: string;
+}
+
 interface ApplySequenceModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -62,7 +78,7 @@ export function ApplySequenceModal({
   onSuccess,
 }: ApplySequenceModalProps) {
   const [selectedSequenceId, setSelectedSequenceId] = useState<string>('');
-  const [assigneeId, setAssigneeId] = useState<string>('');
+  const [assigneeValue, setAssigneeValue] = useState<string>(''); // "staff:<uuid>" or "user:<uuid>"
   const [startDate, setStartDate] = useState<Date>(todayLocal());
   const [applying, setApplying] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -71,7 +87,7 @@ export function ApplySequenceModal({
   useEffect(() => {
     if (open) {
       setSelectedSequenceId('');
-      setAssigneeId('');
+      setAssigneeValue('');
       setStartDate(todayLocal());
       setApplying(false);
       setSuccess(false);
@@ -119,6 +135,54 @@ export function ApplySequenceModal({
     enabled: open && !!agencyId,
   });
 
+  // Fetch profile users (owners/managers) for this agency
+  const { data: profileUsers = [], isLoading: profilesLoading } = useQuery<ProfileUser[]>({
+    queryKey: ['profile-users-active', agencyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .eq('agency_id', agencyId)
+        .order('full_name');
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && !!agencyId,
+  });
+
+  // Build combined assignee options
+  const assigneeOptions = useMemo((): AssigneeOption[] => {
+    const options: AssigneeOption[] = [];
+
+    // Add profile users (owners/managers) first
+    for (const profile of profileUsers) {
+      const label = profile.full_name || profile.email || 'Unnamed User';
+      const badge = profile.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : undefined;
+      options.push({
+        value: `user:${profile.id}`,
+        type: 'user',
+        id: profile.id,
+        label,
+        badge,
+      });
+    }
+
+    // Add staff users
+    for (const staff of staffUsers) {
+      const label = staff.display_name || staff.username;
+      options.push({
+        value: `staff:${staff.id}`,
+        type: 'staff',
+        id: staff.id,
+        label,
+        badge: 'Staff',
+      });
+    }
+
+    return options;
+  }, [staffUsers, profileUsers]);
+
   const selectedSequence = sequences.find(s => s.id === selectedSequenceId);
   const totalSteps = selectedSequence?.steps?.length || 0;
   const totalDays = selectedSequence?.steps?.length
@@ -126,24 +190,35 @@ export function ApplySequenceModal({
     : 0;
 
   const handleApply = async () => {
-    if (!selectedSequenceId || !assigneeId || !startDate) {
+    if (!selectedSequenceId || !assigneeValue || !startDate) {
       toast.error('Please fill in all required fields');
       return;
     }
 
+    // Parse the composite assignee value
+    const [assigneeType, assigneeId] = assigneeValue.split(':') as ['staff' | 'user', string];
+
     setApplying(true);
     try {
+      const body: Record<string, unknown> = {
+        contact_id: contactId || null,
+        sale_id: saleId || null,
+        sequence_id: selectedSequenceId,
+        start_date: format(startDate, 'yyyy-MM-dd'),
+        customer_name: customerName,
+        customer_phone: customerPhone || null,
+        customer_email: customerEmail || null,
+      };
+
+      // Set the appropriate assignee field based on type
+      if (assigneeType === 'staff') {
+        body.assigned_to_staff_user_id = assigneeId;
+      } else {
+        body.assigned_to_user_id = assigneeId;
+      }
+
       const { data, error } = await supabase.functions.invoke('assign_onboarding_sequence', {
-        body: {
-          contact_id: contactId || null,
-          sale_id: saleId || null,
-          sequence_id: selectedSequenceId,
-          assigned_to_staff_user_id: assigneeId,
-          start_date: format(startDate, 'yyyy-MM-dd'),
-          customer_name: customerName,
-          customer_phone: customerPhone || null,
-          customer_email: customerEmail || null,
-        },
+        body,
       });
 
       // Check for network/auth errors
@@ -172,8 +247,8 @@ export function ApplySequenceModal({
     onSuccess?.();
   };
 
-  const isLoading = sequencesLoading || staffLoading;
-  const canApply = selectedSequenceId && assigneeId && startDate && !applying;
+  const isLoading = sequencesLoading || staffLoading || profilesLoading;
+  const canApply = selectedSequenceId && assigneeValue && startDate && !applying;
 
   if (success) {
     return (
@@ -260,14 +335,21 @@ export function ApplySequenceModal({
               <Label>
                 Assign To <span className="text-red-500">*</span>
               </Label>
-              <Select value={assigneeId} onValueChange={setAssigneeId}>
+              <Select value={assigneeValue} onValueChange={setAssigneeValue}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select team member..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {staffUsers.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.display_name || user.username}
+                  {assigneeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      <div className="flex items-center gap-2">
+                        <span>{option.label}</span>
+                        {option.badge && (
+                          <Badge variant="secondary" className="text-xs">
+                            {option.badge}
+                          </Badge>
+                        )}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
