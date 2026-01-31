@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
+import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
 import { supabase } from '@/integrations/supabase/client';
@@ -58,33 +59,57 @@ interface LqsRoadmapPageProps {
 }
 
 export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberId = null }: LqsRoadmapPageProps) {
-  const { user, isAgencyOwner, isKeyEmployee } = useAuth();
+  const { user: authUser, isAgencyOwner, isKeyEmployee } = useAuth();
+  const { user: staffUser, loading: staffLoading } = useStaffAuth();
   const navigate = useNavigate();
 
-  // Check access via agency whitelist
+  // For staff portal, use staff auth; for agency portal, use regular auth
+  const effectiveAgencyId = isStaffPortal ? staffUser?.agency_id : null;
+  const effectiveTeamMemberId = isStaffPortal ? (staffTeamMemberId || staffUser?.team_member_id) : null;
+
+  // Check access via agency whitelist (only for agency portal users)
   const { data: profile } = useQuery({
-    queryKey: ['profile-agency', user?.id],
-    enabled: !!user?.id,
+    queryKey: ['profile-agency', authUser?.id],
+    enabled: !isStaffPortal && !!authUser?.id,
     queryFn: async () => {
       const { data } = await supabase
         .from('profiles')
         .select('agency_id')
-        .eq('id', user!.id)
+        .eq('id', authUser!.id)
         .maybeSingle();
       return data;
     },
   });
-  
-  const hasAccess = hasSalesBetaAccess(profile?.agency_id ?? null);
 
-  const { data: agencyProfile, isLoading: agencyLoading } = useAgencyProfile(user?.id, 'Manager');
+  // For staff portal, check access using staff user's agency_id
+  const hasAccess = isStaffPortal
+    ? hasSalesBetaAccess(effectiveAgencyId ?? null)
+    : hasSalesBetaAccess(profile?.agency_id ?? null);
+
+  // For agency portal, use useAgencyProfile hook; for staff portal, construct from staff user
+  const { data: agencyProfileData, isLoading: agencyProfileLoading } = useAgencyProfile(
+    isStaffPortal ? null : authUser?.id,
+    'Manager'
+  );
+
+  // Construct agency profile for staff portal users
+  const agencyProfile = isStaffPortal
+    ? (staffUser ? { agencyId: staffUser.agency_id, agencyName: '' } : null)
+    : agencyProfileData;
+  const agencyLoading = isStaffPortal ? staffLoading : agencyProfileLoading;
 
   useEffect(() => {
-    if (user && profile && !hasAccess) {
+    // For agency portal: redirect if no access
+    if (!isStaffPortal && authUser && profile && !hasAccess) {
       toast.error('Access restricted');
-      navigate(isStaffPortal ? '/staff/dashboard' : '/dashboard', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
-  }, [user, profile, hasAccess, isStaffPortal, navigate]);
+    // For staff portal: redirect if no access
+    if (isStaffPortal && staffUser && !hasAccess) {
+      toast.error('Access restricted');
+      navigate('/staff/dashboard', { replace: true });
+    }
+  }, [authUser, staffUser, profile, hasAccess, isStaffPortal, navigate]);
 
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>('overview');
@@ -151,18 +176,19 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
 
   // Determine team member ID for "My Numbers" filter - match by email
   const currentTeamMemberId = useMemo(() => {
-    if (isStaffPortal && staffTeamMemberId) {
-      return staffTeamMemberId;
+    // For staff portal, use effectiveTeamMemberId (from props or staffUser)
+    if (isStaffPortal) {
+      return effectiveTeamMemberId || null;
     }
     // For brain portal, find matching team member by email (exact match)
-    if (user?.email && teamMembers.length > 0) {
-      const currentUserMember = teamMembers.find(m => 
-        m.email?.toLowerCase() === user.email?.toLowerCase()
+    if (authUser?.email && teamMembers.length > 0) {
+      const currentUserMember = teamMembers.find(m =>
+        m.email?.toLowerCase() === authUser.email?.toLowerCase()
       );
       return currentUserMember?.id || null;
     }
     return null;
-  }, [isStaffPortal, staffTeamMemberId, teamMembers, user?.email]);
+  }, [isStaffPortal, effectiveTeamMemberId, teamMembers, authUser?.email]);
 
   // Data fetching - apply personal filter if needed
   const { data, isLoading, refetch } = useLqsData({
@@ -483,7 +509,8 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   }, [bucketFilteredHouseholds]);
 
   // Show nothing while checking access or if not allowed (redirect happens via useEffect)
-  if (!user || (profile && !hasAccess)) {
+  const effectiveUser = isStaffPortal ? staffUser : authUser;
+  if (!effectiveUser || (!isStaffPortal && profile && !hasAccess) || (isStaffPortal && !hasAccess)) {
     return null;
   }
 
@@ -527,8 +554,8 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
             onAddQuote={() => setAddQuoteModalOpen(true)}
             onUploadQuotes={() => setUploadModalOpen(true)}
             agencyId={agencyProfile?.agencyId ?? ''}
-            userId={user?.id ?? null}
-            displayName={user?.email ?? 'User'}
+            userId={isStaffPortal ? staffUser?.id ?? null : authUser?.id ?? null}
+            displayName={isStaffPortal ? (staffUser?.display_name || staffUser?.email || 'User') : (authUser?.email ?? 'User')}
             leadSources={leadSources}
             onUploadComplete={() => refetch()}
             onSalesUploadResults={(result) => {
@@ -771,8 +798,8 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         open={uploadModalOpen}
         onOpenChange={setUploadModalOpen}
         agencyId={agencyProfile.agencyId}
-        userId={user?.id ?? null}
-        displayName={user?.email ?? 'Unknown'}
+        userId={isStaffPortal ? staffUser?.id ?? null : authUser?.id ?? null}
+        displayName={isStaffPortal ? (staffUser?.display_name || staffUser?.email || 'Unknown') : (authUser?.email ?? 'Unknown')}
         onUploadComplete={handleUploadComplete}
         onUploadResults={handleUploadResults}
       />
@@ -853,8 +880,8 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         agencyId={agencyProfile?.agencyId}
         defaultSourceModule="lqs"
         sourceRecordId={profileHousehold?.id}
-        userId={user?.id}
-        displayName={user?.email || 'User'}
+        userId={isStaffPortal ? staffUser?.id : authUser?.id}
+        displayName={isStaffPortal ? (staffUser?.display_name || staffUser?.email || 'User') : (authUser?.email || 'User')}
         lqsHousehold={profileHousehold ? { id: profileHousehold.id } : undefined}
         teamMembers={teamMembers}
         currentUserTeamMemberId={currentTeamMemberId}
