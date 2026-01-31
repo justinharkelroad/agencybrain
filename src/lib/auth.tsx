@@ -186,7 +186,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Check roles immediately
+        // Skip role/tier re-checks on token refresh - the user hasn't changed,
+        // and re-running these checks causes tierLoading to briefly become true,
+        // which makes ProtectedRoute unmount children and lose their state.
+        if (event === 'TOKEN_REFRESHED') {
+          return;
+        }
+
+        // Check roles on actual auth changes (SIGNED_IN, INITIAL_SESSION, etc.)
         if (session?.user) {
           // Abort any in-flight requests from previous auth state
           roleCheckAbortRef.current?.abort();
