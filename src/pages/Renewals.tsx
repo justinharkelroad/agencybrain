@@ -44,7 +44,14 @@ export default function Renewals() {
   const [selectedRecord, setSelectedRecord] = useState<RenewalRecord | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [activeTab, setActiveTab] = useState('all');
+  // Persist activeTab to sessionStorage
+  const [activeTab, setActiveTabState] = useState(() => {
+    return sessionStorage.getItem('renewals_active_tab') || 'all';
+  });
+  const setActiveTab = (tab: string) => {
+    sessionStorage.setItem('renewals_active_tab', tab);
+    setActiveTabState(tab);
+  };
   const [filters, setFilters] = useState<RenewalFilters>({});
   const [searchQuery, setSearchQuery] = useState('');
   // Multi-column sorting
@@ -53,11 +60,18 @@ export default function Renewals() {
     direction: 'asc' | 'desc';
   }
   const [sortCriteria, setSortCriteria] = useState<SortCriteria[]>([]);
-  
+
   // Phase 3: New state variables
   const [quickActivityRecord, setQuickActivityRecord] = useState<RenewalRecord | null>(null);
   const [quickActivityType, setQuickActivityType] = useState<'phone_call' | 'appointment' | null>(null);
-  const [showPriorityOnly, setShowPriorityOnly] = useState(false);
+  // Persist showPriorityOnly to sessionStorage
+  const [showPriorityOnly, setShowPriorityOnlyState] = useState(() => {
+    return sessionStorage.getItem('renewals_priority_only') === 'true';
+  });
+  const setShowPriorityOnly = (value: boolean) => {
+    sessionStorage.setItem('renewals_priority_only', String(value));
+    setShowPriorityOnlyState(value);
+  };
 
   // Hide "Renewal Taken" toggle with session persistence
   const [hideRenewalTaken, setHideRenewalTaken] = useState(() => {

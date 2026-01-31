@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +31,9 @@ import {
   type TrainingAssignment
 } from '@/lib/trainingAdminApi';
 
+// Session storage key for filter state
+const ASSIGNMENTS_FILTERS_KEY = 'training_assignments_filters';
+
 interface TrainingAssignmentsTabProps {
   agencyId: string;
 }
@@ -38,23 +41,42 @@ interface TrainingAssignmentsTabProps {
 export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  
+
+  // Initialize filter state from sessionStorage to survive tab switches
+  const getInitialFilters = () => {
+    try {
+      const saved = sessionStorage.getItem(ASSIGNMENTS_FILTERS_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  };
+  const initialFilters = getInitialFilters();
+
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  
+
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
   const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([]);
   const [bulkDueDate, setBulkDueDate] = useState<Date | undefined>();
-  
+
   const [editingAssignment, setEditingAssignment] = useState<TrainingAssignment | null>(null);
   const [editDueDate, setEditDueDate] = useState<Date | undefined>();
-  
+
   const [deletingAssignment, setDeletingAssignment] = useState<TrainingAssignment | null>(null);
-  
-  const [filterStaffId, setFilterStaffId] = useState<string>('all');
-  const [filterModuleId, setFilterModuleId] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+
+  const [filterStaffId, setFilterStaffId] = useState<string>(initialFilters?.filterStaffId || 'all');
+  const [filterModuleId, setFilterModuleId] = useState<string>(initialFilters?.filterModuleId || 'all');
+  const [filterStatus, setFilterStatus] = useState<string>(initialFilters?.filterStatus || 'all');
+
+  // Persist filter state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem(ASSIGNMENTS_FILTERS_KEY, JSON.stringify({
+      filterStaffId,
+      filterModuleId,
+      filterStatus,
+    }));
+  }, [filterStaffId, filterModuleId, filterStatus]);
 
   // Fetch roster with staff login status via API
   const { data: rosterData } = useQuery({

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,19 +19,44 @@ type SortField = 'name' | 'modules' | 'completed' | 'percentage' | 'lastActivity
 type SortDirection = 'asc' | 'desc';
 type StatusFilter = 'all' | 'On Track' | 'Behind' | 'Overdue';
 
+// Session storage key for filter state
+const PROGRESS_FILTERS_KEY = 'training_progress_filters';
+
 interface TrainingProgressTabProps {
   agencyId: string;
 }
 
 export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
+  // Initialize filter state from sessionStorage to survive tab switches
+  const getInitialFilters = () => {
+    try {
+      const saved = sessionStorage.getItem(PROGRESS_FILTERS_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  };
+  const initialFilters = getInitialFilters();
+
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [moduleFilter, setModuleFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<SortField>(initialFilters?.sortField || 'name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>(initialFilters?.sortDirection || 'asc');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialFilters?.statusFilter || 'all');
+  const [moduleFilter, setModuleFilter] = useState<string>(initialFilters?.moduleFilter || 'all');
+  const [searchQuery, setSearchQuery] = useState(initialFilters?.searchQuery || '');
   const [expandedReflections, setExpandedReflections] = useState<Set<string>>(new Set());
-  const [reflectionStaffFilter, setReflectionStaffFilter] = useState<string>('all');
+  const [reflectionStaffFilter, setReflectionStaffFilter] = useState<string>(initialFilters?.reflectionStaffFilter || 'all');
+
+  // Persist filter state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem(PROGRESS_FILTERS_KEY, JSON.stringify({
+      sortField,
+      sortDirection,
+      statusFilter,
+      moduleFilter,
+      searchQuery,
+      reflectionStaffFilter,
+    }));
+  }, [sortField, sortDirection, statusFilter, moduleFilter, searchQuery, reflectionStaffFilter]);
 
   // Get unified roster with login status
   const { data: rosterData, isLoading: rosterLoading } = useAgencyRosterWithStaffLogins(agencyId);

@@ -61,6 +61,10 @@ const WHISPER_MAX_SIZE_MB = 25; // Files over this will be converted
 const WHISPER_MAX_SIZE_BYTES = WHISPER_MAX_SIZE_MB * 1024 * 1024;
 const MAX_DURATION_MINUTES = 75; // Maximum call duration
 
+// Session storage keys for caching state to survive tab switches
+const CALL_SCORING_AGENCY_ID_KEY = 'call_scoring_agency_id';
+const CALL_SCORING_TAB_KEY = 'call_scoring_active_tab';
+
 export default function CallScoring() {
   const { user, isAdmin } = useAuth();
   const { canUploadCallRecordings: ownerCanUpload, loading: permissionsLoading } = useUserPermissions();
@@ -70,10 +74,31 @@ export default function CallScoring() {
   const [recentCalls, setRecentCalls] = useState<RecentCall[]>([]);
   const [analyticsCalls, setAnalyticsCalls] = useState<AnalyticsCall[]>([]);
   const [loading, setLoading] = useState(true);
-  const [agencyId, setAgencyId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('upload');
+  // Initialize from sessionStorage to survive remounts caused by auth state changes
+  const [agencyId, setAgencyIdState] = useState<string | null>(() => {
+    return sessionStorage.getItem(CALL_SCORING_AGENCY_ID_KEY);
+  });
+  const [activeTab, setActiveTabState] = useState(() => {
+    return sessionStorage.getItem(CALL_SCORING_TAB_KEY) || 'upload';
+  });
   const [userRole, setUserRole] = useState<string>('staff');
   const [userTeamMemberId, setUserTeamMemberId] = useState<string | null>(null);
+
+  // Wrapper to persist agencyId to sessionStorage
+  const setAgencyId = (id: string | null) => {
+    if (id) {
+      sessionStorage.setItem(CALL_SCORING_AGENCY_ID_KEY, id);
+    } else {
+      sessionStorage.removeItem(CALL_SCORING_AGENCY_ID_KEY);
+    }
+    setAgencyIdState(id);
+  };
+
+  // Wrapper to persist activeTab to sessionStorage
+  const setActiveTab = (tab: string) => {
+    sessionStorage.setItem(CALL_SCORING_TAB_KEY, tab);
+    setActiveTabState(tab);
+  };
   
   // Staff user detection - check localStorage for staff session token
   const [isStaffUser, setIsStaffUser] = useState(false);
