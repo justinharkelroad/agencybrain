@@ -10275,6 +10275,18 @@ export type Database = {
           kpi_id: string
         }[]
       }
+      check_kpi_in_active_forms: {
+        Args: { p_agency_id: string; p_kpi_key: string }
+        Returns: {
+          id: string
+          name: string
+          source: string
+        }[]
+      }
+      check_kpi_references: {
+        Args: { p_agency_id: string; p_kpi_key: string }
+        Returns: Json
+      }
       check_meaningful_data: { Args: { data: Json }; Returns: boolean }
       cleanup_expired_staff_sessions: { Args: never; Returns: undefined }
       cleanup_field_mapping_audit_logs: { Args: never; Returns: undefined }
@@ -10525,6 +10537,7 @@ export type Database = {
             }
             Returns: {
               cross_sells_uncovered: number
+              custom_kpis: Json
               daily_score: number
               date: string
               hits: number
@@ -10921,6 +10934,10 @@ export type Database = {
             }
             Returns: Json
           }
+      validate_kpi_deletion: {
+        Args: { p_agency_id: string; p_kpi_key: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_employment_type: "Full-time" | "Part-time"
