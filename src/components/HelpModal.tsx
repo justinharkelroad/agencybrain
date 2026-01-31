@@ -49,7 +49,7 @@ export function HelpModal({ open, onClose, title, videoUrl, videoType, pdfUrl }:
           {/* PDF Slideshow Section */}
           {hasPdf && (
             <div className="p-4 pt-0">
-              <PdfSlideshow pdfUrl={pdfUrl} />
+              <PdfSlideshow pdfUrl={pdfUrl!} />
             </div>
           )}
         </div>
