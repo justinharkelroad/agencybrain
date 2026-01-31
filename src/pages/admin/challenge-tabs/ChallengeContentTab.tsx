@@ -1,22 +1,51 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Edit, Video, FileText, HelpCircle, Zap, CheckCircle2, Circle } from "lucide-react";
-import { 
-  useChallengeProducts, 
-  useChallengeModules, 
+import {
+  useChallengeProducts,
+  useChallengeModules,
   useChallengeLessons,
-  type ChallengeLesson 
+  type ChallengeLesson
 } from "@/hooks/useChallengeAdmin";
 import { ChallengeLessonEditor } from "@/components/challenge/admin/ChallengeLessonEditor";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { cn } from "@/lib/utils";
 
 export function ChallengeContentTab() {
-  const [selectedWeek, setSelectedWeek] = useState(1);
-  const [editingLesson, setEditingLesson] = useState<ChallengeLesson | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Persist selectedWeek to URL to survive tab switches
+  const selectedWeek = parseInt(searchParams.get('week') || '1', 10);
+  const editLessonId = searchParams.get('editLessonId') || '';
+
+  const setSelectedWeek = useCallback((week: number) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('week', String(week));
+      // Clear lesson edit when week changes
+      next.delete('editLessonId');
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  const setEditLessonId = useCallback((id: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (id) {
+        next.set('editLessonId', id);
+      } else {
+        next.delete('editLessonId');
+      }
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  // Track the actual editing lesson object (synced from lessons data)
+  const [editingLesson, setEditingLessonState] = useState<ChallengeLesson | null>(null);
 
   // Fetch challenge product (assuming single product for now)
   const { data: products, isLoading: productsLoading } = useChallengeProducts();
@@ -30,6 +59,30 @@ export function ChallengeContentTab() {
 
   // Fetch lessons for the current module
   const { data: lessons, isLoading: lessonsLoading } = useChallengeLessons(currentModule?.id);
+
+  // Sync editingLesson from URL param when lessons data is available
+  useEffect(() => {
+    if (editLessonId && lessons) {
+      const lesson = lessons.find((l: ChallengeLesson) => l.id === editLessonId);
+      if (lesson) {
+        setEditingLessonState(lesson);
+      }
+    } else if (!editLessonId) {
+      setEditingLessonState(null);
+    }
+  }, [editLessonId, lessons]);
+
+  // Wrapper to open lesson editor via URL param
+  const openLessonEditor = (lesson: ChallengeLesson) => {
+    setEditLessonId(lesson.id);
+    setEditingLessonState(lesson);
+  };
+
+  // Wrapper to close lesson editor
+  const closeLessonEditor = () => {
+    setEditLessonId('');
+    setEditingLessonState(null);
+  };
 
   if (productsLoading) {
     return <LoadingSpinner />;
@@ -128,7 +181,7 @@ export function ChallengeContentTab() {
                         "cursor-pointer transition-colors hover:bg-muted/50",
                         hasContent(lesson) ? "border-l-4 border-l-primary" : "border-l-4 border-l-muted"
                       )}
-                      onClick={() => setEditingLesson(lesson)}
+                      onClick={() => openLessonEditor(lesson)}
                     >
                       <CardContent className="py-4">
                         <div className="flex items-center justify-between">
@@ -219,7 +272,7 @@ export function ChallengeContentTab() {
         <ChallengeLessonEditor
           lesson={editingLesson}
           weekNumber={selectedWeek}
-          onClose={() => setEditingLesson(null)}
+          onClose={closeLessonEditor}
         />
       )}
     </div>

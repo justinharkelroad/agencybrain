@@ -10,7 +10,12 @@ export default function AdminChallenge() {
   const currentTab = searchParams.get('tab') || 'content';
 
   const handleTabChange = (value: string) => {
-    setSearchParams({ tab: value });
+    // Preserve existing URL params when changing tabs
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', value);
+      return next;
+    }, { replace: true });
   };
 
   return (
