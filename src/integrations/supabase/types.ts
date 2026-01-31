@@ -50,6 +50,8 @@ export type Database = {
           sales_realtime_email_enabled: boolean | null
           slug: string | null
           staff_can_upload_calls: boolean | null
+          stripe_customer_id: string | null
+          subscription_status: string | null
           suppress_if_final_exists: boolean | null
           timezone: string | null
           updated_at: string
@@ -89,6 +91,8 @@ export type Database = {
           sales_realtime_email_enabled?: boolean | null
           slug?: string | null
           staff_can_upload_calls?: boolean | null
+          stripe_customer_id?: string | null
+          subscription_status?: string | null
           suppress_if_final_exists?: boolean | null
           timezone?: string | null
           updated_at?: string
@@ -128,6 +132,8 @@ export type Database = {
           sales_realtime_email_enabled?: boolean | null
           slug?: string | null
           staff_can_upload_calls?: boolean | null
+          stripe_customer_id?: string | null
+          subscription_status?: string | null
           suppress_if_final_exists?: boolean | null
           timezone?: string | null
           updated_at?: string
@@ -166,6 +172,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      agency_call_balance: {
+        Row: {
+          agency_id: string
+          created_at: string | null
+          id: string
+          purchased_calls_remaining: number | null
+          subscription_calls_limit: number | null
+          subscription_calls_used: number | null
+          subscription_period_start: string | null
+          total_calls_used_all_time: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string | null
+          id?: string
+          purchased_calls_remaining?: number | null
+          subscription_calls_limit?: number | null
+          subscription_calls_used?: number | null
+          subscription_period_start?: string | null
+          total_calls_used_all_time?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string | null
+          id?: string
+          purchased_calls_remaining?: number | null
+          subscription_calls_limit?: number | null
+          subscription_calls_used?: number | null
+          subscription_period_start?: string | null
+          total_calls_used_all_time?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_call_balance_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       agency_call_scoring_settings: {
         Row: {
@@ -988,6 +1038,109 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      call_pack_purchases: {
+        Row: {
+          agency_id: string
+          call_count: number
+          call_pack_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          price_cents: number
+          purchased_by: string | null
+          status: string | null
+          stripe_invoice_id: string | null
+          stripe_payment_intent_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          call_count: number
+          call_pack_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          price_cents: number
+          purchased_by?: string | null
+          status?: string | null
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          call_count?: number
+          call_pack_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          price_cents?: number
+          purchased_by?: string | null
+          status?: string | null
+          stripe_invoice_id?: string | null
+          stripe_payment_intent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_pack_purchases_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_pack_purchases_call_pack_id_fkey"
+            columns: ["call_pack_id"]
+            isOneToOne: false
+            referencedRelation: "call_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_pack_purchases_purchased_by_fkey"
+            columns: ["purchased_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_packs: {
+        Row: {
+          call_count: number
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          price_cents: number
+          sort_order: number | null
+          stripe_price_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          call_count: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price_cents: number
+          sort_order?: number | null
+          stripe_price_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          call_count?: number
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price_cents?: number
+          sort_order?: number | null
+          stripe_price_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       call_scoring_templates: {
         Row: {
@@ -2983,6 +3136,30 @@ export type Database = {
           },
         ]
       }
+      default_scorecard_templates: {
+        Row: {
+          created_at: string | null
+          id: string
+          kpis: Json
+          role: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          kpis: Json
+          role: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          kpis?: Json
+          role?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       dictionaries: {
         Row: {
           agency_id: string
@@ -3556,6 +3733,80 @@ export type Database = {
           team_member_id?: string
         }
         Relationships: []
+      }
+      feature_limits: {
+        Row: {
+          access_type: string
+          created_at: string | null
+          description: string | null
+          feature_key: string
+          id: string
+          subscription_status: string
+          upgrade_message: string | null
+          usage_limit: number | null
+        }
+        Insert: {
+          access_type: string
+          created_at?: string | null
+          description?: string | null
+          feature_key: string
+          id?: string
+          subscription_status: string
+          upgrade_message?: string | null
+          usage_limit?: number | null
+        }
+        Update: {
+          access_type?: string
+          created_at?: string | null
+          description?: string | null
+          feature_key?: string
+          id?: string
+          subscription_status?: string
+          upgrade_message?: string | null
+          usage_limit?: number | null
+        }
+        Relationships: []
+      }
+      feature_usage: {
+        Row: {
+          agency_id: string
+          created_at: string | null
+          feature_key: string
+          id: string
+          last_used_at: string | null
+          period_start: string
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string | null
+          feature_key: string
+          id?: string
+          last_used_at?: string | null
+          period_start: string
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string | null
+          feature_key?: string
+          id?: string
+          last_used_at?: string | null
+          period_start?: string
+          updated_at?: string | null
+          usage_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feature_usage_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       field_mapping_audit: {
         Row: {
@@ -8335,6 +8586,65 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          agency_id: string
+          cancel_at_period_end: boolean | null
+          canceled_at: string | null
+          created_at: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          price_id: string | null
+          status: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          trial_end: string | null
+          trial_start: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id: string
+          cancel_at_period_end?: boolean | null
+          canceled_at?: string | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          price_id?: string | null
+          status?: string
+          stripe_customer_id: string
+          stripe_subscription_id: string
+          trial_end?: string | null
+          trial_start?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          cancel_at_period_end?: boolean | null
+          canceled_at?: string | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          price_id?: string | null
+          status?: string
+          stripe_customer_id?: string
+          stripe_subscription_id?: string
+          trial_end?: string | null
+          trial_start?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       support_tickets: {
         Row: {
           admin_notes: string | null
@@ -9379,6 +9689,45 @@ export type Database = {
           },
         ]
       }
+      trial_reminder_log: {
+        Row: {
+          agency_id: string
+          days_remaining: number
+          id: string
+          sent_at: string
+          subscription_id: string
+        }
+        Insert: {
+          agency_id: string
+          days_remaining: number
+          id?: string
+          sent_at?: string
+          subscription_id: string
+        }
+        Update: {
+          agency_id?: string
+          days_remaining?: number
+          id?: string
+          sent_at?: string
+          subscription_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trial_reminder_log_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "trial_reminder_log_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       uploads: {
         Row: {
           category: string
@@ -10230,6 +10579,14 @@ export type Database = {
         }
         Returns: Json
       }
+      add_purchased_calls: {
+        Args: {
+          p_agency_id: string
+          p_call_count: number
+          p_purchase_id?: string
+        }
+        Returns: number
+      }
       admin_create_user: {
         Args: {
           p_agency_id: string
@@ -10270,6 +10627,27 @@ export type Database = {
           calls_used: number
           period_end: string
           should_reset: boolean
+        }[]
+      }
+      check_call_scoring_access: {
+        Args: { p_agency_id: string }
+        Returns: {
+          can_score: boolean
+          message: string
+          purchased_remaining: number
+          subscription_remaining: number
+          total_remaining: number
+        }[]
+      }
+      check_feature_access: {
+        Args: { p_agency_id: string; p_feature_key: string }
+        Returns: {
+          access_type: string
+          can_access: boolean
+          current_usage: number
+          remaining: number
+          upgrade_message: string
+          usage_limit: number
         }[]
       }
       check_form_kpi_versions: {
@@ -10316,6 +10694,10 @@ export type Database = {
         Returns: undefined
       }
       create_default_scorecard_rules: {
+        Args: { p_agency_id: string }
+        Returns: undefined
+      }
+      create_default_scorecards_for_agency: {
         Args: { p_agency_id: string }
         Returns: undefined
       }
@@ -10692,6 +11074,14 @@ export type Database = {
         Args: { p_agency_id: string; p_month?: string }
         Returns: undefined
       }
+      increment_feature_usage: {
+        Args: {
+          p_agency_id: string
+          p_feature_key: string
+          p_period_start?: string
+        }
+        Returns: number
+      }
       increment_metrics_quoted_count: {
         Args: { p_agency_id: string; p_date: string; p_team_member_id: string }
         Returns: undefined
@@ -10823,6 +11213,14 @@ export type Database = {
         Args: { p_end: string; p_member: string; p_start: string }
         Returns: undefined
       }
+      reset_subscription_calls: {
+        Args: {
+          p_agency_id: string
+          p_new_limit: number
+          p_period_start: string
+        }
+        Returns: undefined
+      }
       search_exchange_users: {
         Args: { current_user_id: string; search_term: string }
         Returns: {
@@ -10834,6 +11232,10 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      sync_subscription_status: {
+        Args: { p_status: string; p_stripe_subscription_id: string }
+        Returns: undefined
+      }
       upsert_cancel_audit_record: {
         Args: {
           p_account_type: string
@@ -10940,6 +11342,15 @@ export type Database = {
             }
             Returns: Json
           }
+      use_call_score: {
+        Args: { p_agency_id: string }
+        Returns: {
+          message: string
+          remaining: number
+          source: string
+          success: boolean
+        }[]
+      }
       validate_kpi_deletion: {
         Args: { p_agency_id: string; p_kpi_key: string }
         Returns: Json

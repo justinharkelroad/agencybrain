@@ -224,10 +224,12 @@ export function OnboardingTaskCard({
               <span className="capitalize">{actionLabel}</span>
 
               {/* Assignee */}
-              {showAssignee && task.assignee && (
+              {showAssignee && (task.assignee || task.assigneeProfile) && (
                 <span className="flex items-center gap-1">
                   <User className="h-3 w-3" />
-                  {task.assignee.display_name || task.assignee.username}
+                  {task.assignee 
+                    ? (task.assignee.display_name || task.assignee.username)
+                    : (task.assigneeProfile?.full_name || task.assigneeProfile?.email || 'Unknown')}
                 </span>
               )}
 

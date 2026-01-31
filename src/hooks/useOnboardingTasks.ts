@@ -11,7 +11,8 @@ export interface OnboardingTask {
   instance_id: string;
   step_id: string | null;
   agency_id: string;
-  assigned_to_staff_user_id: string;
+  assigned_to_staff_user_id: string | null;
+  assigned_to_user_id: string | null;
   day_number: number;
   action_type: ActionType;
   title: string;
@@ -36,15 +37,22 @@ export interface OnboardingTask {
       name: string;
     };
   };
+  // Assignee can be staff user or profile user
   assignee?: {
     id: string;
     display_name: string | null;
     username: string;
-  };
+  } | null;
+  assigneeProfile?: {
+    id: string;
+    full_name: string | null;
+    email: string | null;
+  } | null;
 }
 
 export interface TaskFilters {
   assigneeId?: string | null;
+  assigneeUserId?: string | null; // For profile-based filtering
   status?: TaskStatus | 'active' | 'all';
   includeCompleted?: boolean;
 }
@@ -73,15 +81,21 @@ export function useOnboardingTasks({ agencyId, filters = {}, enabled = true }: U
             sale_id,
             sequence:onboarding_sequences(id, name)
           ),
-          assignee:staff_users!assigned_to_staff_user_id(id, display_name, username)
+          assignee:staff_users!assigned_to_staff_user_id(id, display_name, username),
+          assigneeProfile:profiles!assigned_to_user_id(id, full_name, email)
         `)
         .eq('agency_id', agencyId)
         .order('due_date', { ascending: true })
         .order('created_at', { ascending: true });
 
-      // Filter by assignee if specified
+      // Filter by staff assignee if specified
       if (filters.assigneeId) {
         query = query.eq('assigned_to_staff_user_id', filters.assigneeId);
+      }
+
+      // Filter by user profile assignee if specified
+      if (filters.assigneeUserId) {
+        query = query.eq('assigned_to_user_id', filters.assigneeUserId);
       }
 
       // Filter by status
@@ -114,11 +128,19 @@ export function useOnboardingTasks({ agencyId, filters = {}, enabled = true }: U
 }
 
 // Hook to get tasks for today's view (active + completed today)
-export function useOnboardingTasksToday({ agencyId, assigneeId }: { agencyId: string | null; assigneeId?: string | null }) {
+export function useOnboardingTasksToday({ 
+  agencyId, 
+  assigneeId,
+  assigneeUserId,
+}: { 
+  agencyId: string | null; 
+  assigneeId?: string | null;
+  assigneeUserId?: string | null;
+}) {
   const today = format(todayLocal(), 'yyyy-MM-dd');
 
   const query = useQuery({
-    queryKey: ['onboarding-tasks-today', agencyId, assigneeId, today],
+    queryKey: ['onboarding-tasks-today', agencyId, assigneeId, assigneeUserId, today],
     queryFn: async () => {
       if (!agencyId) return { active: [], completedToday: [] };
 
@@ -135,7 +157,8 @@ export function useOnboardingTasksToday({ agencyId, assigneeId }: { agencyId: st
             sale_id,
             sequence:onboarding_sequences(id, name)
           ),
-          assignee:staff_users!assigned_to_staff_user_id(id, display_name, username)
+          assignee:staff_users!assigned_to_staff_user_id(id, display_name, username),
+          assigneeProfile:profiles!assigned_to_user_id(id, full_name, email)
         `)
         .eq('agency_id', agencyId)
         .in('status', ['pending', 'due', 'overdue'])
@@ -144,6 +167,10 @@ export function useOnboardingTasksToday({ agencyId, assigneeId }: { agencyId: st
 
       if (assigneeId) {
         activeQuery = activeQuery.eq('assigned_to_staff_user_id', assigneeId);
+      }
+      
+      if (assigneeUserId) {
+        activeQuery = activeQuery.eq('assigned_to_user_id', assigneeUserId);
       }
 
       // Fetch tasks completed today
@@ -159,7 +186,8 @@ export function useOnboardingTasksToday({ agencyId, assigneeId }: { agencyId: st
             sale_id,
             sequence:onboarding_sequences(id, name)
           ),
-          assignee:staff_users!assigned_to_staff_user_id(id, display_name, username)
+          assignee:staff_users!assigned_to_staff_user_id(id, display_name, username),
+          assigneeProfile:profiles!assigned_to_user_id(id, full_name, email)
         `)
         .eq('agency_id', agencyId)
         .eq('status', 'completed')
@@ -169,6 +197,10 @@ export function useOnboardingTasksToday({ agencyId, assigneeId }: { agencyId: st
 
       if (assigneeId) {
         completedQuery = completedQuery.eq('assigned_to_staff_user_id', assigneeId);
+      }
+      
+      if (assigneeUserId) {
+        completedQuery = completedQuery.eq('assigned_to_user_id', assigneeUserId);
       }
 
       const [activeResult, completedResult] = await Promise.all([
@@ -237,6 +269,26 @@ export function useStaffUsersForFilter(agencyId: string | null) {
         .eq('agency_id', agencyId)
         .eq('is_active', true)
         .order('display_name');
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!agencyId,
+  });
+}
+
+// Hook to get profile users (owners/managers) for filtering
+export function useProfileUsersForFilter(agencyId: string | null) {
+  return useQuery({
+    queryKey: ['profile-users-filter', agencyId],
+    queryFn: async () => {
+      if (!agencyId) return [];
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .eq('agency_id', agencyId)
+        .order('full_name');
 
       if (error) throw error;
       return data || [];

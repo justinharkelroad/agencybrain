@@ -8,7 +8,9 @@ const corsHeaders = {
 
 interface AssignSequenceRequest {
   sequence_id: string;
-  assigned_to_staff_user_id: string;
+  // Either staff user or profile user (exactly one required)
+  assigned_to_staff_user_id?: string;
+  assigned_to_user_id?: string;
   start_date: string; // YYYY-MM-DD
   customer_name: string;
   customer_phone?: string | null;
@@ -69,6 +71,7 @@ serve(async (req) => {
       sale_id,
       sequence_id,
       assigned_to_staff_user_id,
+      assigned_to_user_id,
       start_date,
       customer_name,
       customer_phone,
@@ -76,9 +79,24 @@ serve(async (req) => {
     } = body;
 
     // Validate required fields
-    if (!sequence_id || !assigned_to_staff_user_id || !start_date || !customer_name) {
+    if (!sequence_id || !start_date || !customer_name) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
+        JSON.stringify({ error: 'Missing required fields: sequence_id, start_date, customer_name' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Require exactly one assignee type
+    if (!assigned_to_staff_user_id && !assigned_to_user_id) {
+      return new Response(
+        JSON.stringify({ error: 'Either assigned_to_staff_user_id or assigned_to_user_id must be provided' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (assigned_to_staff_user_id && assigned_to_user_id) {
+      return new Response(
+        JSON.stringify({ error: 'Provide only one of assigned_to_staff_user_id or assigned_to_user_id, not both' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -172,32 +190,57 @@ serve(async (req) => {
     }
 
     // Verify the assignee exists and belongs to this agency
-    const { data: staffUser, error: staffError } = await supabase
-      .from('staff_users')
-      .select('id, agency_id, is_active')
-      .eq('id', assigned_to_staff_user_id)
-      .single();
+    if (assigned_to_staff_user_id) {
+      // Validate staff user
+      const { data: staffUser, error: staffError } = await supabase
+        .from('staff_users')
+        .select('id, agency_id, is_active')
+        .eq('id', assigned_to_staff_user_id)
+        .single();
 
-    if (staffError || !staffUser) {
-      console.error('[assign_onboarding_sequence] Staff user not found:', staffError);
-      return new Response(
-        JSON.stringify({ error: 'Staff user not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+      if (staffError || !staffUser) {
+        console.error('[assign_onboarding_sequence] Staff user not found:', staffError);
+        return new Response(
+          JSON.stringify({ error: 'Staff user not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-    if (staffUser.agency_id !== profile.agency_id) {
-      return new Response(
-        JSON.stringify({ error: 'Staff user does not belong to your agency' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+      if (staffUser.agency_id !== profile.agency_id) {
+        return new Response(
+          JSON.stringify({ error: 'Staff user does not belong to your agency' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
-    if (!staffUser.is_active) {
-      return new Response(
-        JSON.stringify({ error: 'Cannot assign to an inactive staff user' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      if (!staffUser.is_active) {
+        return new Response(
+          JSON.stringify({ error: 'Cannot assign to an inactive staff user' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else if (assigned_to_user_id) {
+      // Validate profile user
+      const { data: profileUser, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, agency_id')
+        .eq('id', assigned_to_user_id)
+        .single();
+
+      if (profileError || !profileUser) {
+        console.error('[assign_onboarding_sequence] User profile not found:', profileError);
+        return new Response(
+          JSON.stringify({ error: 'User profile not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (profileUser.agency_id !== profile.agency_id) {
+        return new Response(
+          JSON.stringify({ error: 'User does not belong to your agency' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     // Check if an active sequence is already assigned to this contact or sale
@@ -247,7 +290,8 @@ serve(async (req) => {
         customer_name: customer_name,
         customer_phone: customer_phone || null,
         customer_email: customer_email || null,
-        assigned_to_staff_user_id: assigned_to_staff_user_id,
+        assigned_to_staff_user_id: assigned_to_staff_user_id || null,
+        assigned_to_user_id: assigned_to_user_id || null,
         assigned_by: user.id,
         start_date: start_date,
         status: 'active',
@@ -272,7 +316,10 @@ serve(async (req) => {
     const taskCount = tasks?.length || 0;
 
     const targetLabel = contact_id ? `contact ${contact_id}` : `sale ${sale_id}`;
-    console.log(`[assign_onboarding_sequence] Instance ${instance.id} created with ${taskCount} tasks for ${targetLabel}`);
+    const assigneeLabel = assigned_to_staff_user_id 
+      ? `staff user ${assigned_to_staff_user_id}` 
+      : `profile user ${assigned_to_user_id}`;
+    console.log(`[assign_onboarding_sequence] Instance ${instance.id} created with ${taskCount} tasks for ${targetLabel}, assigned to ${assigneeLabel}`);
 
     return new Response(
       JSON.stringify({
