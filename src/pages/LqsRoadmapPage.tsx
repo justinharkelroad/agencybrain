@@ -19,13 +19,14 @@ import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
-import { 
-  useLqsData, 
-  useLqsLeadSources, 
+import {
+  useLqsData,
+  useLqsLeadSources,
   useAssignLeadSource,
   useBulkAssignLeadSource,
-  HouseholdWithRelations 
+  HouseholdWithRelations
 } from '@/hooks/useLqsData';
+import { useStaffLqsData } from '@/hooks/useStaffLqsData';
 import { LqsMetricTiles } from '@/components/lqs/LqsMetricTiles';
 import { LqsFilters } from '@/components/lqs/LqsFilters';
 import { LqsHouseholdTable } from '@/components/lqs/LqsHouseholdTable';
@@ -60,7 +61,7 @@ interface LqsRoadmapPageProps {
 
 export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberId = null }: LqsRoadmapPageProps) {
   const { user: authUser, isAgencyOwner, isKeyEmployee } = useAuth();
-  const { user: staffUser, loading: staffLoading } = useStaffAuth();
+  const { user: staffUser, loading: staffLoading, sessionToken: staffSessionToken } = useStaffAuth();
   const navigate = useNavigate();
 
   // For staff portal, use staff auth; for agency portal, use regular auth
@@ -190,15 +191,37 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
     return null;
   }, [isStaffPortal, effectiveTeamMemberId, teamMembers, authUser?.email]);
 
-  // Data fetching - apply personal filter if needed
-  const { data, isLoading, refetch } = useLqsData({
-    agencyId: agencyProfile?.agencyId ?? null,
+  // Data fetching - use staff hook for staff portal, regular hook for agency portal
+  // Staff portal: uses edge function to bypass RLS
+  const {
+    data: staffData,
+    isLoading: staffDataLoading,
+    refetch: staffRefetch
+  } = useStaffLqsData({
+    sessionToken: isStaffPortal ? staffSessionToken : null,
     dateRange,
     statusFilter,
     searchTerm,
   });
 
-  const { data: leadSources = [] } = useLqsLeadSources(agencyProfile?.agencyId ?? null);
+  // Agency portal: uses direct Supabase queries with RLS
+  const {
+    data: agencyData,
+    isLoading: agencyDataLoading,
+    refetch: agencyRefetch
+  } = useLqsData({
+    agencyId: isStaffPortal ? null : (agencyProfile?.agencyId ?? null),
+    dateRange,
+    statusFilter,
+    searchTerm,
+  });
+
+  // Use the appropriate data based on portal type
+  const data = isStaffPortal ? staffData : agencyData;
+  const isLoading = isStaffPortal ? staffDataLoading : agencyDataLoading;
+  const refetch = isStaffPortal ? staffRefetch : agencyRefetch;
+
+  const { data: leadSources = [] } = useLqsLeadSources(isStaffPortal ? null : (agencyProfile?.agencyId ?? null));
   const assignMutation = useAssignLeadSource();
   const bulkAssignMutation = useBulkAssignLeadSource();
 

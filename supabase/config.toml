@@ -249,6 +249,9 @@ verify_jwt = true
 [functions.get_staff_sales]
 verify_jwt = false
 
+[functions.get_staff_lqs_data]
+verify_jwt = false
+
 [functions.get_staff_renewals]
 verify_jwt = false
 
