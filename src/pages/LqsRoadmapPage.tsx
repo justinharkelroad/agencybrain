@@ -89,7 +89,8 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   // View state
   const [viewMode, setViewMode] = useState<ViewMode>('overview');
   const [activeBucket, setActiveBucket] = useState<BucketType>('quoted');
-  const [dataViewMode, setDataViewMode] = useState<DataViewMode>('agency');
+  // Staff portal defaults to "My Numbers", agency portal defaults to "Agency Wide"
+  const [dataViewMode, setDataViewMode] = useState<DataViewMode>(isStaffPortal ? 'personal' : 'agency');
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');

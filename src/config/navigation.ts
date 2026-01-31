@@ -537,7 +537,6 @@ export const staffNavigationConfig: NavEntry[] = [
         type: 'link',
         url: '/staff/lqs-roadmap',
         access: { staff: true, manager: true, owner: true },
-        emailRestriction: 'justin@hfiagencies.com',
       },
       {
         id: 'ai-sales-bot',
