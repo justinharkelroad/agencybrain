@@ -11,7 +11,7 @@ import {
   Loader2,
   Building2,
 } from 'lucide-react';
-import { HelpVideoButton } from '@/components/HelpVideoButton';
+import { HelpButton } from '@/components/HelpButton';
 import standardPlaybookLogo from '@/assets/standard-playbook-logo.png';
 
 interface TrainingStats {
@@ -97,7 +97,7 @@ export default function StaffUnifiedTrainingHub() {
         <h1 className="text-2xl font-medium flex items-center gap-2">
           <BookOpen className="h-6 w-6" strokeWidth={1.5} />
           Training
-          <HelpVideoButton videoKey="training-overview" />
+          <HelpButton videoKey="training-overview" />
         </h1>
         <p className="text-muted-foreground/70 mt-1">
           Welcome back, {user?.display_name || 'Team Member'}

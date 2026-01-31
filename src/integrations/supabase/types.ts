@@ -4133,6 +4133,7 @@ export type Database = {
           created_at: string | null
           id: string
           is_active: boolean | null
+          pdf_url: string | null
           placement_description: string | null
           title: string
           updated_at: string | null
@@ -4144,6 +4145,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          pdf_url?: string | null
           placement_description?: string | null
           title: string
           updated_at?: string | null
@@ -4155,6 +4157,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           is_active?: boolean | null
+          pdf_url?: string | null
           placement_description?: string | null
           title?: string
           updated_at?: string | null
@@ -8197,6 +8200,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           last_login_at: string | null
+          linked_profile_id: string | null
           password_hash: string
           profile_photo_url: string | null
           team_member_id: string | null
@@ -8211,6 +8215,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_login_at?: string | null
+          linked_profile_id?: string | null
           password_hash: string
           profile_photo_url?: string | null
           team_member_id?: string | null
@@ -8225,6 +8230,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           last_login_at?: string | null
+          linked_profile_id?: string | null
           password_hash?: string
           profile_photo_url?: string | null
           team_member_id?: string | null

@@ -25,7 +25,7 @@ import { PolicyTypeManager } from "@/components/PolicyTypeManager";
 import { BrokeredCarriersManager } from "@/components/settings/BrokeredCarriersManager";
 import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
 import { UploadsContent } from "@/components/UploadsContent";
-import { HelpVideoButton } from '@/components/HelpVideoButton';
+import { HelpButton } from '@/components/HelpButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
 import { MeetingFrameTab } from "@/components/agency/MeetingFrameTab";
@@ -882,7 +882,7 @@ export default function Agency() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               Agency Information
-              <HelpVideoButton videoKey="agency-information" />
+              <HelpButton videoKey="agency-information" />
             </CardTitle>
             <CardDescription>Update your agency profile</CardDescription>
           </CardHeader>
@@ -1367,7 +1367,7 @@ export default function Agency() {
               <div>
                 <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
                   Lead Sources
-                  <HelpVideoButton videoKey="tool-lead-source-manager" />
+                  <HelpButton videoKey="tool-lead-source-manager" />
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
                   Manage the lead sources that appear when your team logs quoted households.
@@ -1381,7 +1381,7 @@ export default function Agency() {
               <div className="border-t pt-6">
                 <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
                   Policy Types
-                  <HelpVideoButton videoKey="tool-policy-type-manager" />
+                  <HelpButton videoKey="tool-policy-type-manager" />
                 </h3>
                 <p className="text-sm text-muted-foreground mb-4">
                   Manage the policy types that appear when your team logs quoted and sold policies.

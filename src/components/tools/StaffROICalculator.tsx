@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ArrowLeft, RotateCcw, History, Calculator } from 'lucide-react';
-import { HelpVideoButton } from '@/components/HelpVideoButton';
+import { HelpButton } from '@/components/HelpButton';
 import {
   Select,
   SelectContent,
@@ -123,7 +123,7 @@ export function StaffROICalculator({ onBack }: StaffROICalculatorProps) {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <h3 className="text-base font-medium text-muted-foreground">ROI on Staff</h3>
-          <HelpVideoButton videoKey="Roi_staff" />
+          <HelpButton videoKey="Roi_staff" />
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={loadLast} className="gap-1">

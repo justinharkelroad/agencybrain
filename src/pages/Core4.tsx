@@ -15,7 +15,7 @@ import { LatinCross } from '@/components/icons/LatinCross';
 import { format, addDays, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SmartBackButton } from '@/components/SmartBackButton';
-import { HelpVideoButton } from '@/components/HelpVideoButton';
+import { HelpButton } from '@/components/HelpButton';
 
 const domains: { key: Core4Domain; label: string; icon: React.ElementType; color: string }[] = [
   { key: 'body', label: 'BODY', icon: Dumbbell, color: 'from-green-500 to-emerald-600' },
@@ -117,7 +117,7 @@ export default function Core4() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold">Core 4</h1>
-                <HelpVideoButton videoKey="core4_page" />
+                <HelpButton videoKey="core4_page" />
               </div>
               <p className="text-sm text-muted-foreground">Daily habits tracker</p>
             </div>

@@ -17,7 +17,7 @@ import { versionLabel } from "@/version";
 import EnvironmentStatusBadge from "@/components/EnvironmentStatusBadge";
 import { getEnvironmentOverride, type EnvOverride } from "@/lib/environment";
 import { enableMetrics } from "@/lib/featureFlags";
-import { HelpVideoButton } from '@/components/HelpVideoButton';
+import { HelpButton } from '@/components/HelpButton';
 import { PeriodRefreshProvider } from '@/contexts/PeriodRefreshContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { RenewalSummaryWidget } from '@/components/dashboard/RenewalSummaryWidget';
@@ -141,7 +141,7 @@ const Dashboard = () => {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Dashboard</p>
-              <HelpVideoButton videoKey="dashboard-overview" />
+              <HelpButton videoKey="dashboard-overview" />
             </div>
             {agencyName && (
               <h2 className="text-2xl font-semibold leading-none tracking-tight flex items-center gap-2">
