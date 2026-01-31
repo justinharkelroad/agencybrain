@@ -1,6 +1,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -25,6 +26,9 @@ export function HelpModal({ open, onClose, title, videoUrl, videoType, pdfUrl }:
       <DialogContent className="max-w-4xl p-0 overflow-hidden bg-background max-h-[90vh] flex flex-col">
         <DialogHeader className="p-4 pb-2 flex-shrink-0">
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">
+            Help content including video tutorials and walkthrough slides
+          </DialogDescription>
         </DialogHeader>
         
         <div className="overflow-y-auto flex-1">
