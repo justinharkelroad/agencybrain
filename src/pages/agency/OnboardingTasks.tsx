@@ -66,20 +66,16 @@ export default function OnboardingTasksPage() {
   });
 
   // Get the user's linked staff_user_id (if any)
+  // NOTE: linked_profile_id column doesn't exist on staff_users table yet
+  // This feature is disabled until the column is created
   const { data: linkedStaffUser } = useQuery({
     queryKey: ['linked-staff-user', user?.id, profile?.agency_id],
     queryFn: async () => {
-      if (!user?.id || !profile?.agency_id) return null;
-      const { data, error } = await supabase
-        .from('staff_users')
-        .select('id')
-        .eq('agency_id', profile.agency_id)
-        .eq('linked_profile_id', user.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
+      // DISABLED: linked_profile_id column doesn't exist on staff_users table
+      // Return null - user will see "No linked staff account" message
+      return null;
     },
-    enabled: !!user?.id && !!profile?.agency_id,
+    enabled: false, // Disabled until linked_profile_id column is created
   });
 
   // Get staff users for filter dropdown
