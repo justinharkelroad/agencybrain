@@ -5,18 +5,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { TrainingContentTab, TrainingAssignmentsTab, TrainingProgressTab, StaffUsersTab } from "./training-tabs";
 
+// Session storage key for caching agencyId to survive component remounts
+const AGENCY_ID_CACHE_KEY = 'training_page_agency_id';
+
 export default function AdminTraining() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [agencyId, setAgencyId] = useState<string | null>(null);
-  
+
+  // Initialize from sessionStorage to survive remounts caused by auth state changes
+  const [agencyId, setAgencyId] = useState<string | null>(() => {
+    return sessionStorage.getItem(AGENCY_ID_CACHE_KEY);
+  });
+
   const currentTab = searchParams.get('tab') || 'content';
 
-  // Fetch agency ID
+  // Fetch agency ID - skip if we already have a cached value
   useEffect(() => {
+    // If we already have agencyId from cache, validate it's still correct
+    // but don't block rendering
     async function fetchAgencyId() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        sessionStorage.removeItem(AGENCY_ID_CACHE_KEY);
         navigate('/dashboard');
         return;
       }
@@ -28,10 +38,13 @@ export default function AdminTraining() {
         .single();
 
       if (!profile?.agency_id) {
+        sessionStorage.removeItem(AGENCY_ID_CACHE_KEY);
         navigate('/dashboard');
         return;
       }
 
+      // Cache in sessionStorage for remounts
+      sessionStorage.setItem(AGENCY_ID_CACHE_KEY, profile.agency_id);
       setAgencyId(profile.agency_id);
     }
 
@@ -39,7 +52,12 @@ export default function AdminTraining() {
   }, [navigate]);
 
   const handleTabChange = (value: string) => {
-    setSearchParams({ tab: value });
+    // Preserve existing URL params (categoryId, moduleId, editLessonId) when changing tabs
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', value);
+      return next;
+    }, { replace: true });
   };
 
   if (!agencyId) {
