@@ -6,6 +6,7 @@ import { format, parseISO } from 'date-fns';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -314,6 +315,9 @@ export function LqsHouseholdDetailModal({
               </div>
             )}
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            View and edit household contact information, quotes, and sales
+          </DialogDescription>
         </DialogHeader>
 
         {/* Delete Confirmation */}

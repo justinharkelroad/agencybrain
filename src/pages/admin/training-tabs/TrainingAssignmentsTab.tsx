@@ -509,6 +509,9 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Due Date</DialogTitle>
+            <DialogDescription className="sr-only">
+              Change the due date for this training assignment
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>

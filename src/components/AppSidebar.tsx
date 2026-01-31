@@ -204,15 +204,7 @@ const toggleFolder = useCallback((folderId: string) => {
 
   // Check if call scoring is enabled for user's agency
   useEffect(() => {
-    let hasChecked = false;
-    
-    const checkCallScoringAccess = async (userId: string, userEmail?: string) => {
-      // Only log once per mount to reduce console noise
-      if (!hasChecked) {
-        console.log('Sidebar - Checking access for user:', userEmail);
-      }
-      hasChecked = true;
-
+    const checkCallScoringAccess = async (userId: string) => {
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('agency_id, role')
@@ -222,7 +214,6 @@ const toggleFolder = useCallback((folderId: string) => {
       if (profileError) {
         console.error('Sidebar - Profile fetch error:', {
           userId,
-          userEmail,
           error: profileError,
         });
       }
@@ -267,7 +258,7 @@ const toggleFolder = useCallback((folderId: string) => {
 
         // Defer the async call to avoid deadlock
         setTimeout(() => {
-          checkCallScoringAccess(session.user.id, session.user.email);
+          checkCallScoringAccess(session.user.id);
         }, 0);
       }
     );
@@ -275,7 +266,7 @@ const toggleFolder = useCallback((folderId: string) => {
     // Also check current session immediately
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        checkCallScoringAccess(session.user.id, session.user.email);
+        checkCallScoringAccess(session.user.id);
       }
     });
 

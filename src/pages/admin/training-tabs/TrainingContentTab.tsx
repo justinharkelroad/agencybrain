@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -757,6 +757,9 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingCategory ? 'Edit Category' : 'New Category'}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingCategory ? 'Edit training category details' : 'Create a new training category'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -796,6 +799,9 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingModule ? 'Edit Module' : 'New Module'}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingModule ? 'Edit training module details' : 'Create a new training module'}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -835,6 +841,9 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingLesson ? `Edit Lesson: ${editingLesson.name}` : 'New Lesson'}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {editingLesson ? 'Edit lesson content, attachments, and quiz' : 'Create a new training lesson'}
+            </DialogDescription>
           </DialogHeader>
           <Tabs value={lessonTab} onValueChange={handleLessonTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
