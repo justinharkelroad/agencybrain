@@ -54,7 +54,7 @@ interface AssigneeFilterOption {
 }
 
 export default function OnboardingTasksPage() {
-  const { user, isAdmin, isAgencyOwner } = useAuth();
+  const { user, isAdmin, isAgencyOwner, isKeyEmployee } = useAuth();
   const [showAllAgency, setShowAllAgency] = useState(false);
   const [selectedAssignee, setSelectedAssignee] = useState<string>('all');
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
@@ -183,8 +183,8 @@ export default function OnboardingTasksPage() {
   }, [activeTasks, completedTodayTasks]);
 
   const isLoading = profileLoading || tasksLoading;
-  // Managers, owners, and admins can view all agency tasks
-  const canViewAllAgency = isAdmin || isAgencyOwner;
+  // Managers, owners, key employees, and admins can view all agency tasks
+  const canViewAllAgency = isAdmin || isAgencyOwner || isKeyEmployee;
   // Only owners and admins can reassign sequences
   const canReassign = isAdmin || isAgencyOwner;
 
@@ -223,10 +223,12 @@ export default function OnboardingTasksPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card className={stats.overdue > 0 ? 'border-red-300 bg-red-50' : ''}>
+        <Card className={stats.overdue > 0 ? 'border-red-300 dark:border-red-500/50 bg-red-50 dark:bg-red-500/10' : ''}>
           <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className={`h-5 w-5 ${stats.overdue > 0 ? 'text-red-500' : 'text-muted-foreground'}`} />
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-full ${stats.overdue > 0 ? 'bg-red-100 dark:bg-red-500/20' : 'bg-muted'}`}>
+                <AlertCircle className={`h-4 w-4 ${stats.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
+              </div>
               <div>
                 <p className="text-2xl font-bold">{stats.overdue}</p>
                 <p className="text-xs text-muted-foreground">Overdue</p>
@@ -235,10 +237,12 @@ export default function OnboardingTasksPage() {
           </CardContent>
         </Card>
 
-        <Card className={stats.dueToday > 0 ? 'border-blue-300 bg-blue-50' : ''}>
+        <Card className={stats.dueToday > 0 ? 'border-blue-300 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-500/10' : ''}>
           <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <CalendarClock className={`h-5 w-5 ${stats.dueToday > 0 ? 'text-blue-500' : 'text-muted-foreground'}`} />
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-full ${stats.dueToday > 0 ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-muted'}`}>
+                <CalendarClock className={`h-4 w-4 ${stats.dueToday > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
+              </div>
               <div>
                 <p className="text-2xl font-bold">{stats.dueToday}</p>
                 <p className="text-xs text-muted-foreground">Due Today</p>
@@ -249,8 +253,10 @@ export default function OnboardingTasksPage() {
 
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <Workflow className="h-5 w-5 text-muted-foreground" />
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-muted">
+                <Workflow className="h-4 w-4 text-muted-foreground" />
+              </div>
               <div>
                 <p className="text-2xl font-bold">{stats.upcoming}</p>
                 <p className="text-xs text-muted-foreground">Upcoming</p>
@@ -259,10 +265,12 @@ export default function OnboardingTasksPage() {
           </CardContent>
         </Card>
 
-        <Card className={stats.completedToday > 0 ? 'border-green-300 bg-green-50' : ''}>
+        <Card className={stats.completedToday > 0 ? 'border-green-200 dark:border-green-500/30 bg-green-50/50 dark:bg-green-500/10' : ''}>
           <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className={`h-5 w-5 ${stats.completedToday > 0 ? 'text-green-500' : 'text-muted-foreground'}`} />
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-full ${stats.completedToday > 0 ? 'bg-green-100 dark:bg-green-500/20' : 'bg-muted'}`}>
+                <CheckCircle2 className={`h-4 w-4 ${stats.completedToday > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`} />
+              </div>
               <div>
                 <p className="text-2xl font-bold">{stats.completedToday}</p>
                 <p className="text-xs text-muted-foreground">Done Today</p>

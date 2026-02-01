@@ -21,8 +21,9 @@ export interface StaffOnboardingTask {
   due_date: string;
   status: TaskStatus;
   completed_at: string | null;
-  completed_by: string | null;
-  notes: string | null;
+  completed_by_user_id: string | null;
+  completed_by_staff_user_id: string | null;
+  completion_notes: string | null;
   created_at: string;
   updated_at: string;
   // Joined fields

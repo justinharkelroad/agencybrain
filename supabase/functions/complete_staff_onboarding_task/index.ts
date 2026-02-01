@@ -136,14 +136,14 @@ serve(async (req) => {
     }
 
     // Update the task to completed
-    // Note: completed_by stores the staff_user_id (not a profiles.id since staff users don't have auth.uid)
+    // Note: completed_by_staff_user_id stores the staff_user_id (not a profiles.id since staff users don't have auth.uid)
     const { error: updateError } = await supabase
       .from('onboarding_tasks')
       .update({
         status: 'completed',
         completed_at: new Date().toISOString(),
-        completed_by: staffUserId, // Store staff_user_id for staff portal completions
-        notes: notes || null,
+        completed_by_staff_user_id: staffUserId, // Store staff_user_id for staff portal completions
+        completion_notes: notes || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', task_id);

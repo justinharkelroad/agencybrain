@@ -55,16 +55,20 @@ export function CustomerTasksGroup({
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
       <div className={cn(
-        'border rounded-lg',
-        hasOverdue ? 'border-red-500/50 bg-red-500/10' : 'border-border'
+        'border rounded-lg shadow-sm transition-shadow hover:shadow-md',
+        hasOverdue
+          ? 'border-red-400/60 dark:border-red-500/50 bg-red-50/50 dark:bg-red-500/10'
+          : dueCount > 0
+            ? 'border-blue-300/60 dark:border-blue-500/40 bg-blue-50/30 dark:bg-blue-500/5'
+            : 'border-border bg-card'
       )}>
         {/* Group Header */}
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
             className={cn(
-              'w-full justify-between p-4 h-auto hover:bg-transparent',
-              hasOverdue && 'hover:bg-red-500/10'
+              'w-full justify-between p-4 h-auto hover:bg-muted/50',
+              hasOverdue && 'hover:bg-red-100/50 dark:hover:bg-red-500/15'
             )}
           >
             <div className="flex items-center gap-3">
@@ -75,23 +79,39 @@ export function CustomerTasksGroup({
               )}
 
               <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{customerName}</span>
+                <div className={cn(
+                  'p-1.5 rounded-full',
+                  hasOverdue
+                    ? 'bg-red-100 dark:bg-red-500/20'
+                    : dueCount > 0
+                      ? 'bg-blue-100 dark:bg-blue-500/20'
+                      : 'bg-muted'
+                )}>
+                  <User className={cn(
+                    'h-4 w-4',
+                    hasOverdue
+                      ? 'text-red-600 dark:text-red-400'
+                      : dueCount > 0
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-muted-foreground'
+                  )} />
+                </div>
+                <span className="font-semibold text-base">{customerName}</span>
               </div>
 
               {hasOverdue && (
-                <AlertCircle className="h-4 w-4 text-red-500" />
+                <AlertCircle className="h-4 w-4 text-red-500 dark:text-red-400" />
               )}
             </div>
 
             <div className="flex items-center gap-2">
               {overdueCount > 0 && (
-                <Badge variant="destructive" className="text-xs">
+                <Badge variant="destructive" className="text-xs bg-red-500 dark:bg-red-600">
                   {overdueCount} overdue
                 </Badge>
               )}
               {dueCount > 0 && (
-                <Badge variant="default" className="text-xs">
+                <Badge className="text-xs bg-blue-500 dark:bg-blue-600 text-white">
                   {dueCount} due today
                 </Badge>
               )}
@@ -101,7 +121,7 @@ export function CustomerTasksGroup({
                 </Badge>
               )}
               {completedCount > 0 && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="text-xs bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400">
                   {completedCount} done
                 </Badge>
               )}

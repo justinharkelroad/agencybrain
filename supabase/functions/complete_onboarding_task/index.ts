@@ -104,8 +104,8 @@ serve(async (req) => {
       .update({
         status: 'completed',
         completed_at: new Date().toISOString(),
-        completed_by: user.id,
-        notes: notes || null,
+        completed_by_user_id: user.id,
+        completion_notes: notes || null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', task_id);
