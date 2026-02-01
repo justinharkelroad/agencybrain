@@ -33,6 +33,7 @@ export interface OnboardingTask {
     customer_phone: string | null;
     customer_email: string | null;
     sale_id: string;
+    contact_id: string | null;
     sequence?: {
       id: string;
       name: string;
@@ -80,6 +81,7 @@ export function useOnboardingTasks({ agencyId, filters = {}, enabled = true }: U
             customer_phone,
             customer_email,
             sale_id,
+            contact_id,
             sequence:onboarding_sequences(id, name)
           ),
           assignee:staff_users!assigned_to_staff_user_id(id, display_name, username),
@@ -156,6 +158,7 @@ export function useOnboardingTasksToday({
             customer_phone,
             customer_email,
             sale_id,
+            contact_id,
             sequence:onboarding_sequences(id, name)
           ),
           assignee:staff_users!assigned_to_staff_user_id(id, display_name, username),
@@ -185,6 +188,7 @@ export function useOnboardingTasksToday({
             customer_phone,
             customer_email,
             sale_id,
+            contact_id,
             sequence:onboarding_sequences(id, name)
           ),
           assignee:staff_users!assigned_to_staff_user_id(id, display_name, username),

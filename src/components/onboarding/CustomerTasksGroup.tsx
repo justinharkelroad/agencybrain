@@ -26,6 +26,7 @@ interface CustomerTasksGroupProps {
   defaultExpanded?: boolean;
   onReassign?: (instanceId: string, customerName: string, pendingCount: number) => void;
   canReassign?: boolean;
+  onViewProfile?: (contactId: string, customerName: string) => void;
 }
 
 export function CustomerTasksGroup({
@@ -37,6 +38,7 @@ export function CustomerTasksGroup({
   defaultExpanded = true,
   onReassign,
   canReassign = false,
+  onViewProfile,
 }: CustomerTasksGroupProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
@@ -49,8 +51,9 @@ export function CustomerTasksGroup({
 
   const hasOverdue = overdueCount > 0;
 
-  // Get the instance ID from the first task (all tasks in group share the same instance)
+  // Get the instance ID and contact ID from the first task (all tasks in group share the same instance)
   const instanceId = tasks[0]?.instance_id;
+  const contactId = tasks[0]?.instance?.contact_id;
 
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
@@ -96,7 +99,28 @@ export function CustomerTasksGroup({
                         : 'text-muted-foreground'
                   )} />
                 </div>
-                <span className="font-semibold text-base">{customerName}</span>
+                {onViewProfile && contactId ? (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className="font-semibold text-base hover:text-primary hover:underline transition-colors text-left cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewProfile(contactId, customerName);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        onViewProfile(contactId, customerName);
+                      }
+                    }}
+                  >
+                    {customerName}
+                  </span>
+                ) : (
+                  <span className="font-semibold text-base">{customerName}</span>
+                )}
               </div>
 
               {hasOverdue && (
