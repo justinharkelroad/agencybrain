@@ -168,6 +168,14 @@ serve(async (req) => {
 
     if (existingHousehold) {
       householdId = existingHousehold.id;
+      // Update contact_id if the existing household doesn't have one but the cancel record does
+      if (record.contact_id) {
+        await supabase
+          .from("winback_households")
+          .update({ contact_id: record.contact_id })
+          .eq("id", householdId)
+          .is("contact_id", null);
+      }
     } else {
       const { data: newHousehold, error: householdError } = await supabase
         .from("winback_households")
@@ -179,6 +187,7 @@ serve(async (req) => {
           email: record.insured_email || null,
           phone: record.insured_phone || null,
           status: "untouched",
+          contact_id: record.contact_id || null,
         })
         .select("id")
         .single();
