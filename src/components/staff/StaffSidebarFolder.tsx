@@ -238,7 +238,9 @@ export function StaffSidebarFolder({
                       <Clock className="h-3 w-3 shrink-0 text-blue-500" />
                     )}
                     {hasTrialRestriction && !isGatedForCallScoring && !isGatedForChallenge && (
-                      <Clock className="h-3 w-3 shrink-0 text-sky-500" title="Some features available after trial" />
+                      <span title="Some features available after trial">
+                        <Clock className="h-3 w-3 shrink-0 text-sky-500" />
+                      </span>
                     )}
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>

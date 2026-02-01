@@ -60,7 +60,9 @@ function MockSidebar({ disabled = false, isTrialing = false }: { disabled?: bool
             <item.icon className="w-4 h-4" />
             <span className="flex-1">{item.label}</span>
             {isTrialing && item.trialRestricted && (
-              <Clock className="w-3 h-3 text-sky-500" title="Some features available after trial" />
+              <span title="Some features available after trial">
+                <Clock className="w-3 h-3 text-sky-500" />
+              </span>
             )}
             {item.label !== 'Dashboard' && item.label !== 'Call Scoring' && !item.trialRestricted && (
               <ChevronRight className="w-4 h-4 ml-auto" />
@@ -264,7 +266,7 @@ export default function SubscriptionPreview() {
           </Button>
           <Button
             size="sm"
-            variant={mode === 'past_due' ? 'default' : 'outline'}
+            variant="outline"
             onClick={() => setMode('past_due')}
           >
             Past Due

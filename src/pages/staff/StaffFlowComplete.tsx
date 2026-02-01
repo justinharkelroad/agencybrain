@@ -31,12 +31,33 @@ export default function StaffFlowComplete() {
   const { toast } = useToast();
   const celebrationShownRef = useRef(false);
   
-  const [session, setSession] = useState<StaffFlowSession | null>(null);
+const [session, setSession] = useState<StaffFlowSession | null>(null);
   const [template, setTemplate] = useState<FlowTemplate | null>(null);
+  const [questions, setQuestions] = useState<FlowQuestion[]>([]);
   const [analysis, setAnalysis] = useState<FlowAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  // Interpolate placeholders in question prompts
+  const interpolatePrompt = (prompt: string): string => {
+    let result = prompt;
+    const matches = prompt.match(/\{([^}]+)\}/g);
+    
+    if (matches && session?.responses_json) {
+      matches.forEach(match => {
+        const key = match.slice(1, -1);
+        const sourceQuestion = questions.find(
+          q => q.interpolation_key === key || q.id === key
+        );
+        if (sourceQuestion && session.responses_json[sourceQuestion.id]) {
+          result = result.replace(match, session.responses_json[sourceQuestion.id]);
+        }
+      });
+    }
+    
+    return result;
+  };
 
   // Celebration effect
   useEffect(() => {
@@ -99,6 +120,7 @@ export default function StaffFlowComplete() {
 
       setSession(data.session);
       setTemplate(templateData);
+      setQuestions(templateData.questions_json || []);
 
       // Check if we already have analysis
       if (data.session.ai_analysis_json) {
@@ -349,6 +371,32 @@ export default function StaffFlowComplete() {
             )}
           </CardContent>
         </Card>
+
+        {/* Full Flow Q&A Section */}
+        {questions.length > 0 && (
+          <Card className="mb-6 border-border/10">
+            <CardContent className="p-6">
+              <h2 className="font-medium text-lg mb-6">Your Flow Responses</h2>
+              <div className="space-y-6">
+                {questions.map((question) => {
+                  const response = session.responses_json?.[question.id];
+                  if (!response) return null;
+                  
+                  return (
+                    <div key={question.id} className="border-b border-border/10 pb-6 last:border-0 last:pb-0">
+                      <p className="text-muted-foreground/70 text-sm mb-2">
+                        {interpolatePrompt(question.prompt)}
+                      </p>
+                      <p className="text-foreground leading-relaxed whitespace-pre-wrap">
+                        {response}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Actions */}
         <div className="space-y-3">
