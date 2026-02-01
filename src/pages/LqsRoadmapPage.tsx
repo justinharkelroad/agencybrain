@@ -909,6 +909,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         teamMembers={teamMembers}
         currentUserTeamMemberId={currentTeamMemberId}
         onActivityLogged={() => refetch()}
+        staffSessionToken={isStaffPortal ? staffSessionToken : null}
       />
 
       {/* Sales Upload Results Modal */}

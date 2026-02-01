@@ -56,6 +56,7 @@ export type NavItem = {
   adminOnly?: boolean;   // Only visible to system admins (not regular agency owners)
   emailRestriction?: string;  // Only visible to this specific email address
   challengeAccess?: boolean;  // Requires agency to be in challenge beta list
+  trialRestricted?: boolean;  // Some functionality restricted during trial (shows indicator)
 };
 
 // Sub-folder that can appear inside a NavFolder
@@ -226,6 +227,7 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/metrics',
         access: { staff: true, manager: true, owner: true },
+        trialRestricted: true,  // Editing/creating restricted during trial
       },
       {
         id: 'call-scoring',
@@ -573,6 +575,7 @@ export const staffNavigationConfig: NavEntry[] = [
         type: 'link',
         url: '/staff/metrics',
         access: { staff: false, manager: true, owner: true },
+        trialRestricted: true,  // Editing/creating restricted during trial
       },
       {
         id: 'call-scoring',

@@ -26,12 +26,14 @@ import {
   LayoutDashboard,
   GraduationCap,
   Users,
+  CreditCard,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import { useSubscription } from "@/hooks/useSubscription";
 import {
   Sidebar,
   SidebarContent,
@@ -97,7 +99,11 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const { filterNavigation, loading: accessLoading, agencyId } = useSidebarAccess();
   const location = useLocation();
-  
+  const { data: subscription } = useSubscription();
+
+  // Check if user is on trial (for showing trial restriction indicators)
+  const isTrialing = subscription?.isTrialing ?? false;
+
   // Check if user is on a Call Scoring tier
   const isCallScoringTier = checkIsCallScoringTier(membershipTier);
   
@@ -465,6 +471,7 @@ useEffect(() => {
                                   isCallScoringTier={isCallScoringTier}
                                   callScoringAccessibleIds={callScoringAccessibleIds}
                                   agencyId={agencyId}
+                                  isTrialing={isTrialing}
                                 />
                               );
                             }
@@ -490,6 +497,7 @@ useEffect(() => {
                                 isCallScoringTier={isCallScoringTier}
                                 callScoringAccessibleIds={callScoringAccessibleIds}
                                 agencyId={agencyId}
+                                isTrialing={isTrialing}
                               />
                             );
                           })}
@@ -518,6 +526,7 @@ useEffect(() => {
                       isCallScoringTier={isCallScoringTier}
                       callScoringAccessibleIds={callScoringAccessibleIds}
                       agencyId={agencyId}
+                      isTrialing={isTrialing}
                     />
                   );
                 })}
@@ -584,8 +593,8 @@ useEffect(() => {
             <SidebarGroupContent>
               <SidebarMenu>
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
+                  <SidebarMenuButton
+                    asChild
                     isActive={isActive("/agency")}
                     className={cn(
                       "hover:bg-muted/40 transition-colors",
@@ -599,7 +608,22 @@ useEffect(() => {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
-                  <SidebarMenuButton 
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive("/settings/billing")}
+                    className={cn(
+                      "hover:bg-muted/40 transition-colors",
+                      isActive("/settings/billing") && "bg-muted/50 text-foreground"
+                    )}
+                  >
+                    <Link to="/settings/billing" onClick={handleNavClick} className="flex items-center gap-2">
+                      <CreditCard className="h-4 w-4" strokeWidth={1.5} />
+                      {sidebarOpen && <span>Billing</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
                     asChild
                     className="hover:bg-muted/40 transition-colors"
                   >

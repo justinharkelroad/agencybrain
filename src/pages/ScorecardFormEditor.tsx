@@ -23,6 +23,8 @@ import { toast } from "sonner";
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from "@/lib/auth";
 import { fetchWithAuth } from "@/lib/staffRequest";
+import { FeatureGate } from "@/components/subscription";
+import { FeatureKeys } from "@/hooks/useFeatureAccess";
 
 // Validate that all KPI IDs in schema exist in active KPI list
 function validateKpiIds(
@@ -553,6 +555,7 @@ export default function ScorecardFormEditor() {
   }
 
   return (
+    <FeatureGate featureKey={FeatureKeys.SCORECARD_EDIT} fallback="blur">
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
         <div className="flex items-center gap-4 mb-8">
@@ -800,5 +803,6 @@ export default function ScorecardFormEditor() {
         />
       )}
     </div>
+    </FeatureGate>
   );
 }

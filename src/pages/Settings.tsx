@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Settings as SettingsIcon, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { FeatureGate } from "@/components/subscription";
+import { FeatureKeys } from "@/hooks/useFeatureAccess";
 
 
 export default function Settings() {
@@ -236,13 +238,14 @@ export default function Settings() {
   }
 
   return (
+    <FeatureGate featureKey={FeatureKeys.SCORECARD_SETTINGS} fallback="blur">
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <Link to="/metrics?tab=targets" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Metrics
         </Link>
-        
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold flex items-center gap-3">
             <SettingsIcon className="h-8 w-8" />
@@ -450,5 +453,6 @@ export default function Settings() {
         </Card>
       </div>
     </div>
+    </FeatureGate>
   );
 }

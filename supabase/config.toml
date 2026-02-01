@@ -436,3 +436,6 @@ verify_jwt = true
 
 [functions.admin-update-client-profile]
 verify_jwt = true
+
+[functions.get_staff_sequences]
+verify_jwt = false

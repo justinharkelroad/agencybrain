@@ -9,6 +9,7 @@ import {
   Sun,
   Settings,
   Lock,
+  Clock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -35,6 +36,7 @@ import { StaffSidebarFolder } from "./StaffSidebarFolder";
 import { CalcKey } from "@/components/ROIForecastersModal";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
 import { getFeatureGateConfig } from "@/config/featureGates";
+import { useSubscription } from "@/hooks/useSubscription";
 
 const STAFF_SIDEBAR_OPEN_FOLDER_KEY = 'staff-sidebar-open-folder';
 
@@ -165,6 +167,10 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
 
   // Get overdue task count for badge
   const { data: overdueTaskCount = 0 } = useStaffOverdueTaskCount();
+
+  // Get subscription status for trial indicators
+  const { data: subscription } = useSubscription();
+  const isTrialing = subscription?.isTrialing ?? false;
 
   // Items that Call Scoring tier users can actually access (not just see)
   // Merge base IDs with any challenge-granted IDs (Core 4, Flows)
@@ -464,6 +470,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                           isCallScoringTier={isCallScoringTier}
                           callScoringAccessibleIds={callScoringAccessibleIds}
                           agencyId={user?.agency_id}
+                          isTrialing={isTrialing}
                         />
                       );
                     }
@@ -471,6 +478,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                     // Direct nav item (Dashboard, Submit Form, Call Scoring)
                     const active = entry.url ? isActive(entry.url) : false;
                     const isGatedForCallScoring = isCallScoringTier && !callScoringAccessibleIds.includes(entry.id);
+                    const hasTrialRestriction = isTrialing && entry.trialRestricted;
 
                     // Badge for onboarding tasks
                     const showTaskBadge = entry.id === 'onboarding-tasks' && overdueTaskCount > 0;
@@ -497,7 +505,10 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                               {isGatedForCallScoring && (
                                 <Lock className="h-3 w-3 shrink-0 text-red-500" />
                               )}
-                              {showTaskBadge && !isGatedForCallScoring && (
+                              {hasTrialRestriction && !isGatedForCallScoring && (
+                                <Clock className="h-3 w-3 shrink-0 text-sky-500" title="Some features available after trial" />
+                              )}
+                              {showTaskBadge && !isGatedForCallScoring && !hasTrialRestriction && (
                                 <Badge
                                   variant="destructive"
                                   className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"

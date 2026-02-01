@@ -42,7 +42,7 @@ interface PageContext {
 
 export default function Contacts() {
   const { user } = useAuth();
-  const { user: staffUser, loading: staffLoading } = useStaffAuth();
+  const { user: staffUser, loading: staffLoading, sessionToken: staffSessionToken } = useStaffAuth();
 
   // Page state
   const [context, setContext] = useState<PageContext | null>(null);
@@ -417,6 +417,7 @@ export default function Contacts() {
           userId={context.userId ?? undefined}
           staffMemberId={context.staffMemberId ?? undefined}
           displayName={context.displayName}
+          staffSessionToken={staffSessionToken}
         />
       )}
 

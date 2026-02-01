@@ -31,6 +31,8 @@ interface StaffSidebarFolderProps {
   callScoringAccessibleIds?: string[];
   // Agency ID for challenge access check
   agencyId?: string | null;
+  // Trial status for showing trial restriction indicators
+  isTrialing?: boolean;
 }
 
 export function StaffSidebarFolder({
@@ -45,6 +47,7 @@ export function StaffSidebarFolder({
   isCallScoringTier = false,
   callScoringAccessibleIds = ['call-scoring', 'call-scoring-top'],
   agencyId,
+  isTrialing = false,
 }: StaffSidebarFolderProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -209,6 +212,7 @@ export function StaffSidebarFolder({
                     isCallScoringTier={isCallScoringTier}
                     callScoringAccessibleIds={callScoringAccessibleIds}
                     agencyId={agencyId}
+                    isTrialing={isTrialing}
                   />
                 );
               }
@@ -216,6 +220,7 @@ export function StaffSidebarFolder({
               const isActive = isItemActive(item);
               const isGatedForCallScoring = isCallScoringTier && !callScoringAccessibleIds.includes(item.id);
               const isGatedForChallenge = item.challengeAccess && !hasChallengeAccess(agencyId ?? null);
+              const hasTrialRestriction = isTrialing && item.trialRestricted;
 
               return (
                 <SidebarMenuSubItem key={item.id}>
@@ -231,6 +236,9 @@ export function StaffSidebarFolder({
                     )}
                     {isGatedForChallenge && !isGatedForCallScoring && (
                       <Clock className="h-3 w-3 shrink-0 text-blue-500" />
+                    )}
+                    {hasTrialRestriction && !isGatedForCallScoring && !isGatedForChallenge && (
+                      <Clock className="h-3 w-3 shrink-0 text-sky-500" title="Some features available after trial" />
                     )}
                   </SidebarMenuSubButton>
                 </SidebarMenuSubItem>

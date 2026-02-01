@@ -64,6 +64,7 @@ interface ApplySequenceModalProps {
   customerEmail?: string;
   agencyId: string;
   onSuccess?: () => void;
+  staffSessionToken?: string | null; // For staff portal context
 }
 
 export function ApplySequenceModal({
@@ -76,7 +77,9 @@ export function ApplySequenceModal({
   customerEmail,
   agencyId,
   onSuccess,
+  staffSessionToken,
 }: ApplySequenceModalProps) {
+  const isStaffContext = !!staffSessionToken;
   const [selectedSequenceId, setSelectedSequenceId] = useState<string>('');
   const [assigneeValue, setAssigneeValue] = useState<string>(''); // "staff:<uuid>" or "user:<uuid>"
   const [startDate, setStartDate] = useState<Date>(todayLocal());
@@ -94,8 +97,26 @@ export function ApplySequenceModal({
     }
   }, [open]);
 
-  // Fetch active sequences for this agency
-  const { data: sequences = [], isLoading: sequencesLoading } = useQuery({
+  // Fetch data via edge function for staff, or direct queries for regular users
+  const { data: staffData, isLoading: staffDataLoading } = useQuery({
+    queryKey: ['staff-sequences-data', agencyId, staffSessionToken],
+    queryFn: async () => {
+      const response = await supabase.functions.invoke('get_staff_sequences', {
+        headers: { 'x-staff-session': staffSessionToken! },
+      });
+      if (response.error) throw response.error;
+      if (response.data?.error) throw new Error(response.data.error);
+      return response.data as {
+        sequences: OnboardingSequence[];
+        staff_users: StaffUser[];
+        profile_users: ProfileUser[];
+      };
+    },
+    enabled: open && !!agencyId && isStaffContext,
+  });
+
+  // Fetch active sequences for this agency (non-staff)
+  const { data: directSequences = [], isLoading: sequencesLoading } = useQuery({
     queryKey: ['onboarding-sequences-active', agencyId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -115,11 +136,11 @@ export function ApplySequenceModal({
       if (error) throw error;
       return data as OnboardingSequence[];
     },
-    enabled: open && !!agencyId,
+    enabled: open && !!agencyId && !isStaffContext,
   });
 
-  // Fetch staff users for this agency
-  const { data: staffUsers = [], isLoading: staffLoading } = useQuery<StaffUser[]>({
+  // Fetch staff users for this agency (non-staff)
+  const { data: directStaffUsers = [], isLoading: staffLoading } = useQuery<StaffUser[]>({
     queryKey: ['staff-users-active', agencyId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -132,11 +153,11 @@ export function ApplySequenceModal({
       if (error) throw error;
       return data || [];
     },
-    enabled: open && !!agencyId,
+    enabled: open && !!agencyId && !isStaffContext,
   });
 
-  // Fetch profile users (owners/managers) for this agency
-  const { data: profileUsers = [], isLoading: profilesLoading } = useQuery<ProfileUser[]>({
+  // Fetch profile users (owners/managers) for this agency (non-staff)
+  const { data: directProfileUsers = [], isLoading: profilesLoading } = useQuery<ProfileUser[]>({
     queryKey: ['profile-users-active', agencyId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -148,8 +169,13 @@ export function ApplySequenceModal({
       if (error) throw error;
       return data || [];
     },
-    enabled: open && !!agencyId,
+    enabled: open && !!agencyId && !isStaffContext,
   });
+
+  // Use edge function data for staff, direct queries for non-staff
+  const sequences = isStaffContext ? (staffData?.sequences || []) : directSequences;
+  const staffUsers = isStaffContext ? (staffData?.staff_users || []) : directStaffUsers;
+  const profileUsers = isStaffContext ? (staffData?.profile_users || []) : directProfileUsers;
 
   // Build combined assignee options
   const assigneeOptions = useMemo((): AssigneeOption[] => {
@@ -247,7 +273,9 @@ export function ApplySequenceModal({
     onSuccess?.();
   };
 
-  const isLoading = sequencesLoading || staffLoading || profilesLoading;
+  const isLoading = isStaffContext
+    ? staffDataLoading
+    : (sequencesLoading || staffLoading || profilesLoading);
   const canApply = selectedSequenceId && assigneeValue && startDate && !applying;
 
   if (success) {

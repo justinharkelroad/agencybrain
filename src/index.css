@@ -7,6 +7,35 @@
 
 /* The Standard App Design System - Based on PRD Colors */
 
+/* Marketing Landing Page Colors - Matched to App UI */
+.marketing-dark {
+  /* Background & Atmosphere - Matched to actual app */
+  --marketing-bg: #0B0F14;           /* Very dark charcoal (matches app) */
+  --marketing-surface: #151A21;       /* Dark surface cards */
+  --marketing-surface-light: #1E252E; /* Slightly lighter */
+
+  /* Accent Colors - Burnt Orange from Stan's brain */
+  --marketing-amber: #9A3412;         /* Dark burnt orange (Stan's brain) */
+  --marketing-amber-light: #C2410C;   /* Slightly lighter for hover */
+  --marketing-cyan: #38BDF8;          /* Light cyan/sky blue (replaces green) */
+  --marketing-cyan-light: #7DD3FC;    /* Lighter cyan */
+  --marketing-blue: #3B82F6;          /* Electric Blue (info) */
+  --marketing-red: #EF4444;           /* Muted Neon Red (urgency) */
+
+  /* Legacy alias for emerald -> cyan */
+  --marketing-emerald: #38BDF8;
+  --marketing-emerald-light: #7DD3FC;
+
+  /* Text */
+  --marketing-text: #FFFFFF;          /* Pure White for headers */
+  --marketing-text-muted: #94A3B8;    /* Cool Grey for body */
+  --marketing-text-dim: #64748B;      /* Dimmer grey */
+
+  /* Borders */
+  --marketing-border: rgba(255, 255, 255, 0.06);
+  --marketing-border-light: rgba(255, 255, 255, 0.12);
+}
+
 @layer base {
   :root {
     /* PRD Brand Colors */

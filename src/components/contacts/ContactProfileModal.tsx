@@ -62,6 +62,7 @@ interface ContactProfileModalProps {
   teamMembers?: Array<{ id: string; name: string }>;
   currentUserTeamMemberId?: string | null;
   onActivityLogged?: () => void;
+  staffSessionToken?: string | null; // For staff portal context
 }
 
 export function ContactProfileModal({
@@ -82,6 +83,7 @@ export function ContactProfileModal({
   teamMembers = [],
   currentUserTeamMemberId,
   onActivityLogged,
+  staffSessionToken,
 }: ContactProfileModalProps) {
   const [activeTab, setActiveTab] = useState('overview');
   const [showActivityForm, setShowActivityForm] = useState(false);
@@ -889,6 +891,7 @@ export function ContactProfileModal({
           customerPhone={profile.phones?.[0]}
           customerEmail={profile.emails?.[0]}
           agencyId={agencyId}
+          staffSessionToken={staffSessionToken}
           onSuccess={() => {
             setApplySequenceModalOpen(false);
             onActivityLogged?.();

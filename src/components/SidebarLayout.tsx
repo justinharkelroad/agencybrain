@@ -9,6 +9,8 @@ import { StanChatBot } from "@/components/chatbot/StanChatBot";
 import { ReportIssueButton } from "@/components/feedback";
 import { isCallScoringTier } from "@/utils/tierAccess";
 import { useAuth } from "@/lib/auth";
+import { TrialBanner, PaymentFailedLockout } from "@/components/subscription";
+import { useSubscription } from "@/hooks/useSubscription";
 
 type SidebarLayoutProps = {
   children: React.ReactNode;
@@ -20,6 +22,14 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { membershipTier, roleLoading } = useAuth();
+  const { data: subscription } = useSubscription();
+
+  // Lock out users with failed payments (but not legacy users without subscriptions)
+  const isPastDue = subscription?.status === 'past_due';
+
+  if (isPastDue) {
+    return <PaymentFailedLockout />;
+  }
 
   // Routes that Call Scoring tier users ARE allowed to access in Brain Portal
   const callScoringAllowedPaths = [
@@ -126,6 +136,10 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
         </div>
         
         <main className="flex-1 flex flex-col pt-[calc(3.5rem+env(safe-area-inset-top))] md:pt-0 overflow-x-hidden min-w-0">
+          {/* Trial Banner - shown for users on trial */}
+          <div className="px-4 pt-4 md:px-6 md:pt-6">
+            <TrialBanner dismissible className="max-w-6xl mx-auto" />
+          </div>
           <div className="flex-1 min-w-0 w-full">
             {children}
           </div>

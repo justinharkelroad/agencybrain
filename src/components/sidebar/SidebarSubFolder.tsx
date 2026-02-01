@@ -17,6 +17,7 @@ interface SidebarSubFolderProps {
   isCallScoringTier?: boolean;
   callScoringAccessibleIds?: string[];
   agencyId?: string | null;
+  isTrialing?: boolean;
   // For accordion behavior within sub-folders
   isOpen?: boolean;
   onToggle?: () => void;
@@ -29,6 +30,7 @@ export function SidebarSubFolder({
   isCallScoringTier = false,
   callScoringAccessibleIds = ['call-scoring', 'call-scoring-top', 'the-exchange'],
   agencyId,
+  isTrialing = false,
   isOpen: controlledOpen,
   onToggle,
 }: SidebarSubFolderProps) {
@@ -89,6 +91,7 @@ export function SidebarSubFolder({
             isCallScoringTier={isCallScoringTier}
             callScoringAccessibleIds={callScoringAccessibleIds}
             agencyId={agencyId}
+            isTrialing={isTrialing}
           />
         </div>
       ))}

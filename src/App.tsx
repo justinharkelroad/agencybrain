@@ -20,6 +20,7 @@ import ScorecardSettings from "./pages/ScorecardSettings";
 import ProspectSettings from "./pages/ProspectSettings";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import BillingSettings from "./pages/BillingSettings";
 import TeamRingsGrid from "./pages/TeamRingsGrid";
 // Index page removed
 import Auth from "./pages/Auth";
@@ -38,6 +39,7 @@ import MetricsEditRedirect from "./components/MetricsEditRedirect";
 import { LegacyScorecardsSubmissionsRedirect } from "./components/LegacyScorecardsRedirect";
 import OnboardingTasksPrototype from "./pages/prototype/OnboardingTasksPrototype";
 import SequenceBuilderPrototype from "./pages/prototype/SequenceBuilderPrototype";
+import SubscriptionPreview from "./pages/SubscriptionPreview";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
@@ -67,6 +69,7 @@ import NotFound from "./pages/NotFound";
 import Health from "./pages/Health";
 import Landing from "./pages/Landing";
 import LandingPagePreview from "./pages/LandingPage";
+import MarketingLanding from "./pages/MarketingLanding";
 import BonusGrid from "./pages/BonusGrid";
 import SnapshotPlanner from "./pages/SnapshotPlanner";
 import CancelAudit from "./pages/CancelAudit";
@@ -222,6 +225,7 @@ const App = () => {
             <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/landing-preview" element={<LandingPagePreview />} />
+            <Route path="/marketing" element={<MarketingLanding />} />
             <Route path="/auth" element={<Auth />} />
             {/* Public Challenge Routes - Standalone Purchase Flow */}
             <Route path="/six-week-challenge" element={<ChallengeLanding />} />
@@ -230,6 +234,7 @@ const App = () => {
             {/* Prototype Routes - UI Development */}
             <Route path="/prototype/onboarding-tasks" element={<OnboardingTasksPrototype />} />
             <Route path="/prototype/sequence-builder" element={<SequenceBuilderPrototype />} />
+            <Route path="/preview/subscription" element={<SubscriptionPreview />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <SidebarLayout>
@@ -598,6 +603,11 @@ const App = () => {
                 <SidebarLayout>
                   <Settings />
                 </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/settings/billing" element={
+              <ProtectedRoute>
+                <BillingSettings />
               </ProtectedRoute>
             } />
             <Route path="/scorecard-settings" element={<Navigate to="/settings" replace />} />

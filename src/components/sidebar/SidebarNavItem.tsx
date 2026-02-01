@@ -24,6 +24,7 @@ interface SidebarNavItemProps {
   isCallScoringTier?: boolean;
   callScoringAccessibleIds?: string[];
   agencyId?: string | null;
+  isTrialing?: boolean;  // Show trial restriction indicator
 }
 
 export function SidebarNavItem({
@@ -34,7 +35,8 @@ export function SidebarNavItem({
   membershipTier,
   isCallScoringTier = false,
   callScoringAccessibleIds = ['call-scoring', 'call-scoring-top', 'the-exchange'],
-  agencyId
+  agencyId,
+  isTrialing = false
 }: SidebarNavItemProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -48,6 +50,9 @@ export function SidebarNavItem({
 
   // Check if this challenge item should show "Coming Soon" for non-whitelisted agencies
   const isGatedForChallenge = item.challengeAccess && !hasChallengeAccess(agencyId ?? null);
+
+  // Check if this item has trial restrictions (show subtle indicator)
+  const hasTrialRestriction = isTrialing && item.trialRestricted;
   
   // Helper to close mobile sidebar and dispatch navigation event
   const dispatchNavigation = () => {
@@ -130,7 +135,10 @@ export function SidebarNavItem({
       {isGatedForChallenge && !isGatedForCallScoring && (
         <Clock className="h-3 w-3 shrink-0 text-blue-500" />
       )}
-      {!isGatedForCallScoring && !isGatedForChallenge && badge}
+      {hasTrialRestriction && !isGatedForCallScoring && !isGatedForChallenge && (
+        <Clock className="h-3 w-3 shrink-0 text-sky-500" title="Some features available after trial" />
+      )}
+      {!isGatedForCallScoring && !isGatedForChallenge && !hasTrialRestriction && badge}
     </>
   );
 
