@@ -506,7 +506,9 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                                 <Lock className="h-3 w-3 shrink-0 text-red-500" />
                               )}
                               {hasTrialRestriction && !isGatedForCallScoring && (
-                                <Clock className="h-3 w-3 shrink-0 text-sky-500" title="Some features available after trial" />
+                                <span title="Some features available after trial">
+                                  <Clock className="h-3 w-3 shrink-0 text-sky-500" />
+                                </span>
                               )}
                               {showTaskBadge && !isGatedForCallScoring && !hasTrialRestriction && (
                                 <Badge
