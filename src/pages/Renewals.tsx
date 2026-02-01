@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, EyeOff, Phone, Calendar, Star, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -35,7 +36,8 @@ const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 
 
 export default function Renewals() {
   const { user } = useAuth();
-  const { user: staffUser, loading: staffLoading } = useStaffAuth();
+  const { user: staffUser, loading: staffLoading, sessionToken: staffSessionToken } = useStaffAuth();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [context, setContext] = useState<RenewalUploadContext | null>(null);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
@@ -903,6 +905,7 @@ export default function Renewals() {
           userId={context.userId || undefined}
           staffMemberId={context.staffMemberId || undefined}
           displayName={context.displayName}
+          staffSessionToken={location.pathname.startsWith('/staff') ? staffSessionToken : null}
         />
       )}
     </div>

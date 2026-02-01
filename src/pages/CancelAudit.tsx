@@ -34,7 +34,7 @@ import { differenceInDays, startOfDay, parseISO } from 'date-fns';
 
 const CancelAuditPage = () => {
   const { user, membershipTier, loading: authLoading } = useAuth();
-  const { user: staffUser, loading: staffLoading, isAuthenticated: isStaffAuthenticated } = useStaffAuth();
+  const { user: staffUser, loading: staffLoading, isAuthenticated: isStaffAuthenticated, sessionToken: staffSessionToken } = useStaffAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { toast: showToast } = useToast();
@@ -739,6 +739,7 @@ const CancelAuditPage = () => {
           userId={userId || undefined}
           staffMemberId={staffMemberId || undefined}
           displayName={displayName}
+          staffSessionToken={location.pathname.startsWith('/staff') ? staffSessionToken : null}
           onActivityLogged={() => {
             // Refresh the records when activity is logged
             refetch();

@@ -42,7 +42,7 @@ interface TeamMember {
 
 export default function WinbackHQ() {
   const { user, loading: authLoading } = useAuth();
-  const { user: staffUser, loading: staffLoading, isAuthenticated: isStaffAuthenticated } = useStaffAuth();
+  const { user: staffUser, loading: staffLoading, isAuthenticated: isStaffAuthenticated, sessionToken: staffSessionToken } = useStaffAuth();
   const location = useLocation();
 
   // Core state
@@ -546,6 +546,7 @@ export default function WinbackHQ() {
           winbackHousehold={profileHouseholdId ? { id: profileHouseholdId } : undefined}
           teamMembers={teamMembers}
           currentUserTeamMemberId={currentUserTeamMemberId}
+          staffSessionToken={location.pathname.startsWith('/staff') ? staffSessionToken : null}
           onActivityLogged={() => {
             // Refresh data when activity is logged
             if (agencyId) loadHouseholds(agencyId, teamMembers);
