@@ -49,6 +49,7 @@ import { format, parseISO, isToday, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SevenDayOutlook } from '@/components/onboarding/SevenDayOutlook';
 import { ContactProfileModal } from '@/components/contacts/ContactProfileModal';
+import { TaskCompleteDialog } from '@/components/onboarding/TaskCompleteDialog';
 import type { ActionType } from '@/hooks/useStaffOnboardingTasks';
 import type { OnboardingTask } from '@/hooks/useOnboardingTasks';
 
@@ -118,7 +119,7 @@ function getStatusStyles(task: StaffOnboardingTask): {
 
 interface StaffTaskCardProps {
   task: StaffOnboardingTask;
-  onComplete: (taskId: string) => Promise<void>;
+  onComplete: (taskId: string, notes?: string) => Promise<void>;
   isCompleting?: boolean;
   onViewProfile?: (contactId: string, customerName: string) => void;
 }
@@ -126,17 +127,29 @@ interface StaffTaskCardProps {
 function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }: StaffTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
 
   const ActionIcon = ACTION_ICONS[task.action_type] || MoreHorizontal;
   const actionColor = ACTION_COLORS[task.action_type] || ACTION_COLORS.other;
   const actionLabel = ACTION_LABELS[task.action_type] || 'Task';
   const statusStyles = getStatusStyles(task);
 
-  const handleComplete = async () => {
+  const handleCheckboxChange = () => {
+    if (completing || isCompleting) return;
+    // For call tasks, show the dialog to require notes
+    if (task.action_type === 'call') {
+      setShowCompleteDialog(true);
+    } else {
+      // For other tasks, complete immediately
+      handleComplete();
+    }
+  };
+
+  const handleComplete = async (notes?: string) => {
     if (completing || isCompleting) return;
     setCompleting(true);
     try {
-      await onComplete(task.id);
+      await onComplete(task.id, notes);
     } finally {
       setCompleting(false);
     }
@@ -165,7 +178,7 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
               <Checkbox
                 checked={task.status === 'completed'}
                 disabled={task.status === 'completed' || isTaskCompleting}
-                onCheckedChange={handleComplete}
+                onCheckedChange={handleCheckboxChange}
                 className="h-5 w-5"
               />
             )}
@@ -318,6 +331,17 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
           </div>
         </div>
       </CardContent>
+
+      {/* Complete Task Dialog (for call tasks that require notes) */}
+      <TaskCompleteDialog
+        open={showCompleteDialog}
+        onOpenChange={setShowCompleteDialog}
+        taskId={task.id}
+        taskTitle={task.title}
+        customerName={task.instance?.customer_name || 'Unknown'}
+        actionType={task.action_type}
+        onComplete={handleComplete}
+      />
     </Card>
   );
 }
@@ -421,10 +445,10 @@ export default function StaffOnboardingTasks() {
   // Profile sidebar state
   const [profileViewState, setProfileViewState] = useState<ProfileViewState | null>(null);
 
-  const handleComplete = async (taskId: string) => {
+  const handleComplete = async (taskId: string, notes?: string) => {
     setCompletingTaskId(taskId);
     try {
-      await completeTask.mutateAsync({ taskId });
+      await completeTask.mutateAsync({ taskId, notes });
       toast({
         title: 'Task completed',
         description: 'Great job! The task has been marked as done.',

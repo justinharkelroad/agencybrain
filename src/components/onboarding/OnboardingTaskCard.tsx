@@ -29,6 +29,7 @@ import {
 import { format, isToday, isPast, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { OnboardingTask, ActionType } from '@/hooks/useOnboardingTasks';
+import { TaskCompleteDialog } from './TaskCompleteDialog';
 
 interface OnboardingTaskCardProps {
   task: OnboardingTask;
@@ -124,17 +125,29 @@ export function OnboardingTaskCard({
 }: OnboardingTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
 
   const ActionIcon = ACTION_ICONS[task.action_type] || MoreHorizontal;
   const actionColor = ACTION_COLORS[task.action_type] || ACTION_COLORS.other;
   const actionLabel = ACTION_LABELS[task.action_type] || 'Task';
   const statusStyles = getStatusStyles(task);
 
-  const handleComplete = async () => {
+  const handleCheckboxChange = () => {
+    if (completing || isCompleting) return;
+    // For call tasks, show the dialog to require notes
+    if (task.action_type === 'call') {
+      setShowCompleteDialog(true);
+    } else {
+      // For other tasks, complete immediately
+      handleComplete();
+    }
+  };
+
+  const handleComplete = async (notes?: string) => {
     if (completing || isCompleting) return;
     setCompleting(true);
     try {
-      await onComplete(task.id);
+      await onComplete(task.id, notes);
     } finally {
       setCompleting(false);
     }
@@ -166,7 +179,7 @@ export function OnboardingTaskCard({
               <Checkbox
                 checked={task.status === 'completed'}
                 disabled={task.status === 'completed' || isTaskCompleting}
-                onCheckedChange={handleComplete}
+                onCheckedChange={handleCheckboxChange}
                 className="h-5 w-5"
               />
             )}
@@ -297,6 +310,17 @@ export function OnboardingTaskCard({
           </div>
         </div>
       </CardContent>
+
+      {/* Complete Task Dialog (for call tasks that require notes) */}
+      <TaskCompleteDialog
+        open={showCompleteDialog}
+        onOpenChange={setShowCompleteDialog}
+        taskId={task.id}
+        taskTitle={task.title}
+        customerName={task.instance?.customer_name || 'Unknown'}
+        actionType={task.action_type}
+        onComplete={handleComplete}
+      />
     </Card>
   );
 }
