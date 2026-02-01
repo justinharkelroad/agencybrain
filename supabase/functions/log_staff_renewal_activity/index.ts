@@ -172,20 +172,21 @@ serve(async (req) => {
 
     // If push_to_winback, create a winback record
     if (activityStatus === 'push_to_winback') {
-      // Fetch the full renewal record to create winback
-      const { data: renewalForWinback, error: renewalFetchError } = await supabase
-        .from('renewal_records')
-        .select(`
-          id, agency_id, first_name, last_name, email, phone,
-          policy_number, product_name, renewal_effective_date,
-          premium_old, premium_new, agent_number, household_key, contact_id
-        `)
-        .eq('id', renewalRecordId)
-        .single();
+      try {
+        // Fetch the full renewal record to create winback
+        const { data: renewalForWinback, error: renewalFetchError } = await supabase
+          .from('renewal_records')
+          .select(`
+            id, agency_id, first_name, last_name, email, phone,
+            policy_number, product_name, renewal_effective_date,
+            premium_old, premium_new, agent_number, household_key, contact_id
+          `)
+          .eq('id', renewalRecordId)
+          .single();
 
-      if (renewalFetchError) {
-        console.error('[log_staff_renewal_activity] Failed to fetch renewal for winback:', renewalFetchError);
-      } else if (renewalForWinback && renewalForWinback.first_name && renewalForWinback.last_name) {
+        if (renewalFetchError) {
+          console.error('[log_staff_renewal_activity] Failed to fetch renewal for winback:', renewalFetchError);
+        } else if (renewalForWinback && renewalForWinback.first_name && renewalForWinback.last_name && renewalForWinback.renewal_effective_date) {
         // Create or find existing winback household
         const firstName = renewalForWinback.first_name.trim().toUpperCase();
         const lastName = renewalForWinback.last_name.trim().toUpperCase();
@@ -317,6 +318,10 @@ serve(async (req) => {
 
           console.log('[log_staff_renewal_activity] Created/linked winback household:', householdId);
         }
+        }
+      } catch (winbackError) {
+        console.error('[log_staff_renewal_activity] Error creating winback:', winbackError);
+        // Don't fail the whole operation - activity was already logged
       }
     }
 
