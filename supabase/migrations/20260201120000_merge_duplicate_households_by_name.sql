@@ -74,7 +74,7 @@ BEGIN
       -- Content fields
       notes = COALESCE(notes, v_source.notes),
       products_interested = COALESCE(products_interested, v_source.products_interested),
-      needs_attention = needs_attention OR v_source.needs_attention,
+      needs_attention = COALESCE(needs_attention, false) OR COALESCE(v_source.needs_attention, false),
       -- Contact linking
       contact_id = COALESCE(contact_id, v_source.contact_id),
       updated_at = now()
