@@ -300,11 +300,31 @@ serve(async (req) => {
             if (policyError) {
               console.error('[log_staff_renewal_activity] Failed to create winback policy:', policyError);
             } else {
-              // Recalculate aggregates
-              await supabase.rpc('recalculate_winback_household_aggregates', {
+              // Recalculate aggregates - try RPC first
+              const { error: rpcError } = await supabase.rpc('recalculate_winback_household_aggregates', {
                 p_household_id: householdId,
-              }).catch(e => console.error('Failed to recalc aggregates:', e));
+              });
+
+              if (rpcError) {
+                console.error('[log_staff_renewal_activity] Failed to recalc aggregates:', rpcError);
+                // Fallback: set earliest_winback_date directly
+                await supabase
+                  .from('winback_households')
+                  .update({
+                    earliest_winback_date: winbackDate.toISOString().split('T')[0],
+                    policy_count: 1,
+                    total_premium_potential_cents: premiumNewCents || 0,
+                  })
+                  .eq('id', householdId);
+                console.log('[log_staff_renewal_activity] Set earliest_winback_date directly:', winbackDate.toISOString().split('T')[0]);
+              }
             }
+          } else {
+            // Policy already exists - still need to ensure earliest_winback_date is set
+            // Just trigger the RPC to recalculate
+            await supabase.rpc('recalculate_winback_household_aggregates', {
+              p_household_id: householdId,
+            }).catch(e => console.error('Failed to recalc aggregates for existing policy:', e));
           }
 
           // Update renewal record with winback link
