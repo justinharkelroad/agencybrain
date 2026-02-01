@@ -49,32 +49,26 @@ export interface QuarterlyTargets {
 }
 
 export function useQuarterlyTargets(quarter: string) {
-  // Get current user for cache key
-  const { data: currentUser } = useQuery({
-    queryKey: ["auth-user"],
+  return useQuery({
+    queryKey: ['quarterly-targets', quarter],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      return user;
-    },
-    staleTime: Infinity,
-  });
+      if (!user) throw new Error('Not authenticated');
 
-  return useQuery({
-    queryKey: ['quarterly-targets', currentUser?.id, quarter],
-    queryFn: async () => {
       // Normalize quarter format for backward compatibility (Q1 → 2025-Q1)
       const normalizedQuarter = quarter.includes('-') ? quarter : `${new Date().getFullYear()}-${quarter}`;
       
       const { data, error } = await supabase
         .from('life_targets_quarterly')
         .select('*')
+        .eq('user_id', user.id)
         .eq('quarter', normalizedQuarter)
         .maybeSingle();
 
       if (error) throw error;
       return data as QuarterlyTargets | null;
     },
-    enabled: !!quarter && !!currentUser?.id
+    enabled: !!quarter
   });
 }
 
