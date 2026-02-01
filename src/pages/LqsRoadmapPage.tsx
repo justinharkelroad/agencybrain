@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Target, RefreshCw, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { HelpButton } from '@/components/HelpButton';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -566,6 +567,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
           <div className="flex items-center gap-2">
             <Target className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold">LQS Roadmap</h1>
+            <HelpButton videoKey="Lqs_Roadmap" />
           </div>
           <p className="text-muted-foreground mt-1">
             Track leads from quote to sale

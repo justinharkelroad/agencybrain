@@ -47,19 +47,19 @@ export function HelpButton({ videoKey, size = 'sm', className }: HelpButtonProps
   // Should have at least one
   if (!hasVideo && !hasPdf) return null;
 
-  const iconSize = size === 'sm' ? 'h-3 w-3' : 'h-4 w-4';
-  const buttonSize = size === 'sm' ? 'h-6 w-6' : 'h-8 w-8';
+  const iconSize = size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4';
 
   return (
     <>
       <Button
         variant="ghost"
-        size="icon"
-        className={`${buttonSize} rounded-full bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary ${className}`}
+        size="sm"
+        className={`h-7 px-2.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary gap-1.5 ${className}`}
         onClick={() => setOpen(true)}
         title={`Help: ${content.title}`}
       >
         <HelpCircle className={iconSize} />
+        <span className="text-xs font-medium">Help</span>
       </Button>
 
       <HelpModal
