@@ -11,6 +11,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -35,10 +42,15 @@ import {
   CheckCircle2,
   Clock,
   CalendarClock,
+  Workflow,
+  RefreshCw,
 } from 'lucide-react';
 import { format, parseISO, isToday, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { SevenDayOutlook } from '@/components/onboarding/SevenDayOutlook';
+import { ContactProfileModal } from '@/components/contacts/ContactProfileModal';
 import type { ActionType } from '@/hooks/useStaffOnboardingTasks';
+import type { OnboardingTask } from '@/hooks/useOnboardingTasks';
 
 const ACTION_ICONS: Record<ActionType, React.ElementType> = {
   call: Phone,
@@ -108,9 +120,10 @@ interface StaffTaskCardProps {
   task: StaffOnboardingTask;
   onComplete: (taskId: string) => Promise<void>;
   isCompleting?: boolean;
+  onViewProfile?: (contactId: string, customerName: string) => void;
 }
 
-function StaffTaskCard({ task, onComplete, isCompleting = false }: StaffTaskCardProps) {
+function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }: StaffTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [completing, setCompleting] = useState(false);
 
@@ -131,6 +144,7 @@ function StaffTaskCard({ task, onComplete, isCompleting = false }: StaffTaskCard
 
   const dueDate = parseISO(task.due_date);
   const isTaskCompleting = completing || isCompleting;
+  const contactId = task.instance?.contact_id;
 
   return (
     <Card
@@ -192,9 +206,26 @@ function StaffTaskCard({ task, onComplete, isCompleting = false }: StaffTaskCard
 
             {/* Meta Info */}
             <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
-              {/* Customer Name */}
+              {/* Customer Name - Clickable */}
               {task.instance && (
-                <span className="font-medium text-foreground">{task.instance.customer_name}</span>
+                onViewProfile && contactId ? (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className="font-medium text-foreground hover:text-primary hover:underline cursor-pointer transition-colors"
+                    onClick={() => onViewProfile(contactId, task.instance!.customer_name)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onViewProfile(contactId, task.instance!.customer_name);
+                      }
+                    }}
+                  >
+                    {task.instance.customer_name}
+                  </span>
+                ) : (
+                  <span className="font-medium text-foreground">{task.instance.customer_name}</span>
+                )
               )}
 
               {/* Due Date */}
@@ -293,12 +324,12 @@ function StaffTaskCard({ task, onComplete, isCompleting = false }: StaffTaskCard
 
 // Group tasks by customer
 function groupTasksByCustomer(tasks: StaffOnboardingTask[]) {
-  const groups: Map<string, { customerName: string; tasks: StaffOnboardingTask[] }> = new Map();
+  const groups: Map<string, { customerName: string; contactId: string | null; tasks: StaffOnboardingTask[] }> = new Map();
 
   for (const task of tasks) {
     const key = task.instance?.customer_name || 'Unknown Customer';
     if (!groups.has(key)) {
-      groups.set(key, { customerName: key, tasks: [] });
+      groups.set(key, { customerName: key, contactId: task.instance?.contact_id || null, tasks: [] });
     }
     groups.get(key)!.tasks.push(task);
   }
@@ -321,9 +352,11 @@ function groupTasksByCustomer(tasks: StaffOnboardingTask[]) {
 function CompletedTodaySection({
   tasks,
   onComplete,
+  onViewProfile,
 }: {
   tasks: StaffOnboardingTask[];
   onComplete: (taskId: string) => Promise<void>;
+  onViewProfile?: (contactId: string, customerName: string) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -359,13 +392,18 @@ function CompletedTodaySection({
         <CollapsibleContent>
           <div className="p-4 pt-0 space-y-3">
             {tasks.map((task) => (
-              <StaffTaskCard key={task.id} task={task} onComplete={onComplete} />
+              <StaffTaskCard key={task.id} task={task} onComplete={onComplete} onViewProfile={onViewProfile} />
             ))}
           </div>
         </CollapsibleContent>
       </div>
     </Collapsible>
   );
+}
+
+interface ProfileViewState {
+  contactId: string;
+  customerName: string;
 }
 
 export default function StaffOnboardingTasks() {
@@ -376,6 +414,12 @@ export default function StaffOnboardingTasks() {
   const { toast } = useToast();
 
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  // Date filter - when a day is clicked in the outlook
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  // Sequence filter
+  const [selectedSequence, setSelectedSequence] = useState<string>('all');
+  // Profile sidebar state
+  const [profileViewState, setProfileViewState] = useState<ProfileViewState | null>(null);
 
   const handleComplete = async (taskId: string) => {
     setCompletingTaskId(taskId);
@@ -396,8 +440,68 @@ export default function StaffOnboardingTasks() {
     }
   };
 
-  // Group active tasks by customer
-  const groupedTasks = useMemo(() => groupTasksByCustomer(activeTasks), [activeTasks]);
+  // Handle view profile
+  const handleViewProfile = (contactId: string, customerName: string) => {
+    setProfileViewState({ contactId, customerName });
+  };
+
+  // Handle day click in outlook
+  const handleDayClick = (date: Date) => {
+    if (selectedDate && format(selectedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')) {
+      setSelectedDate(null);
+    } else {
+      setSelectedDate(date);
+    }
+  };
+
+  // Extract unique sequences from tasks for filter dropdown
+  const availableSequences = useMemo(() => {
+    const sequenceMap = new Map<string, { id: string; name: string }>();
+    for (const task of activeTasks) {
+      const seq = task.instance?.sequence;
+      if (seq && !sequenceMap.has(seq.id)) {
+        sequenceMap.set(seq.id, { id: seq.id, name: seq.name });
+      }
+    }
+    return Array.from(sequenceMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [activeTasks]);
+
+  // Filter tasks by selected date and sequence
+  const filteredTasks = useMemo(() => {
+    let filtered = activeTasks;
+
+    if (selectedDate) {
+      const dateStr = format(selectedDate, 'yyyy-MM-dd');
+      filtered = filtered.filter(task => {
+        const taskDate = task.due_date.split('T')[0];
+        return taskDate === dateStr;
+      });
+    }
+
+    if (selectedSequence !== 'all') {
+      filtered = filtered.filter(task => task.instance?.sequence?.id === selectedSequence);
+    }
+
+    return filtered;
+  }, [activeTasks, selectedDate, selectedSequence]);
+
+  // Group filtered tasks by customer
+  const groupedTasks = useMemo(() => groupTasksByCustomer(filteredTasks), [filteredTasks]);
+
+  // Auto-collapse if more than 5 customers
+  const shouldAutoCollapse = groupedTasks.length > 5;
+
+  // Convert StaffOnboardingTask[] to OnboardingTask[] for SevenDayOutlook
+  const tasksForOutlook = useMemo(() => {
+    return activeTasks.map(task => ({
+      ...task,
+      assigned_to_user_id: null,
+      instance: task.instance ? {
+        ...task.instance,
+        contact_id: task.instance.contact_id || null,
+      } : undefined,
+    })) as unknown as OnboardingTask[];
+  }, [activeTasks]);
 
   if (!sessionToken || !user) {
     return (
@@ -409,15 +513,28 @@ export default function StaffOnboardingTasks() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">My Tasks</h1>
-        <p className="text-muted-foreground mt-1">Follow-up tasks for your assigned customers</p>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Workflow className="h-6 w-6 text-primary" />
+          <h1 className="text-2xl font-bold">Your Sequence Queue</h1>
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
+          disabled={isLoading}
+        >
+          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-4 mb-8">
+      <div className="grid gap-4 md:grid-cols-4 mb-6">
         <Card className={cn(stats.overdue > 0 && 'border-red-300 dark:border-red-500/50 bg-red-50 dark:bg-red-500/10')}>
-          <CardContent className="pt-4 pb-4">
+          <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div
                 className={cn(
@@ -438,7 +555,7 @@ export default function StaffOnboardingTasks() {
         </Card>
 
         <Card className={cn(stats.due_today > 0 && 'border-blue-300 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-500/10')}>
-          <CardContent className="pt-4 pb-4">
+          <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div
                 className={cn(
@@ -462,7 +579,7 @@ export default function StaffOnboardingTasks() {
         </Card>
 
         <Card>
-          <CardContent className="pt-4 pb-4">
+          <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-full bg-muted">
                 <CalendarClock className="h-4 w-4 text-muted-foreground" />
@@ -475,25 +592,82 @@ export default function StaffOnboardingTasks() {
           </CardContent>
         </Card>
 
-        <Card className="border-green-200 dark:border-green-500/30 bg-green-50/30 dark:bg-green-500/10">
-          <CardContent className="pt-4 pb-4">
+        <Card className={cn(stats.completed_today > 0 && 'border-green-200 dark:border-green-500/30 bg-green-50/50 dark:bg-green-500/10')}>
+          <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-green-100 dark:bg-green-500/20">
-                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <div className={cn('p-2 rounded-full', stats.completed_today > 0 ? 'bg-green-100 dark:bg-green-500/20' : 'bg-muted')}>
+                <CheckCircle2 className={cn('h-4 w-4', stats.completed_today > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground')} />
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.completed_today}</p>
-                <p className="text-xs text-muted-foreground">Completed Today</p>
+                <p className="text-xs text-muted-foreground">Done Today</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Sequence Filter */}
+      {availableSequences.length > 0 && (
+        <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Sequence:</span>
+            <Select value={selectedSequence} onValueChange={setSelectedSequence}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <Workflow className="h-4 w-4 text-muted-foreground" />
+                    <span>All Sequences</span>
+                  </div>
+                </SelectItem>
+                {availableSequences.map((seq) => (
+                  <SelectItem key={seq.id} value={seq.id}>
+                    <div className="flex items-center gap-2">
+                      <Workflow className="h-4 w-4 text-muted-foreground" />
+                      <span>{seq.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
+      {/* 7-Day Outlook */}
+      {!isLoading && (
+        <SevenDayOutlook
+          tasks={tasksForOutlook}
+          onDayClick={handleDayClick}
+          selectedDate={selectedDate}
+        />
+      )}
+
+      {/* Date Filter Indicator */}
+      {selectedDate && (
+        <div className="flex items-center gap-2 mb-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+          <Calendar className="h-4 w-4 text-primary" />
+          <span className="text-sm">
+            Showing tasks for <strong>{format(selectedDate, 'EEEE, MMM d')}</strong>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 ml-auto text-xs"
+            onClick={() => setSelectedDate(null)}
+          >
+            Clear filter
+          </Button>
+        </div>
+      )}
+
       {/* Error State */}
       {error && (
         <Card className="border-red-300 bg-red-50 mb-6">
-          <CardContent className="pt-4 pb-4">
+          <CardContent className="py-4">
             <div className="flex items-center gap-2 text-red-700">
               <AlertCircle className="h-5 w-5" />
               <p>Failed to load tasks: {error.message}</p>
@@ -512,10 +686,40 @@ export default function StaffOnboardingTasks() {
         </div>
       )}
 
+      {/* Empty State - when filters show no results */}
+      {!isLoading && !error && (selectedDate || selectedSequence !== 'all') && filteredTasks.length === 0 && activeTasks.length > 0 && (
+        <Card>
+          <CardContent className="py-8">
+            <div className="text-center">
+              <Calendar className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
+              <h3 className="text-base font-medium mb-1">
+                No tasks match your filters
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {selectedDate && `No tasks on ${format(selectedDate, 'EEEE, MMM d')}`}
+                {selectedDate && selectedSequence !== 'all' && ' for this sequence'}
+                {!selectedDate && selectedSequence !== 'all' && 'No tasks for this sequence'}
+                .{' '}
+                <button
+                  className="text-primary underline hover:no-underline"
+                  onClick={() => {
+                    setSelectedDate(null);
+                    setSelectedSequence('all');
+                  }}
+                >
+                  Clear filters
+                </button>{' '}
+                to see all tasks.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Active Tasks */}
       {!isLoading && !error && (
         <div className="space-y-6">
-          {groupedTasks.length === 0 ? (
+          {groupedTasks.length === 0 && !selectedDate && selectedSequence === 'all' ? (
             <Card>
               <CardContent className="pt-8 pb-8 text-center">
                 <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
@@ -523,33 +727,78 @@ export default function StaffOnboardingTasks() {
                 <p className="text-muted-foreground">You have no pending tasks right now.</p>
               </CardContent>
             </Card>
-          ) : (
-            groupedTasks.map((group) => (
-              <div key={group.customerName} className="space-y-3">
-                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  {group.customerName}
-                  <Badge variant="outline" className="text-xs">
-                    {group.tasks.length} task{group.tasks.length !== 1 ? 's' : ''}
-                  </Badge>
-                </h3>
-                <div className="space-y-3">
-                  {group.tasks.map((task) => (
-                    <StaffTaskCard
-                      key={task.id}
-                      task={task}
-                      onComplete={handleComplete}
-                      isCompleting={completingTaskId === task.id}
-                    />
-                  ))}
+          ) : groupedTasks.length > 0 && (
+            <>
+              {/* Show collapse hint when auto-collapsing */}
+              {shouldAutoCollapse && (
+                <p className="text-xs text-muted-foreground">
+                  {groupedTasks.length} customers shown
+                </p>
+              )}
+              {groupedTasks.map((group) => (
+                <div key={group.customerName} className="space-y-3">
+                  <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    {group.contactId ? (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="hover:text-primary hover:underline cursor-pointer transition-colors"
+                        onClick={() => handleViewProfile(group.contactId!, group.customerName)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleViewProfile(group.contactId!, group.customerName);
+                          }
+                        }}
+                      >
+                        {group.customerName}
+                      </span>
+                    ) : (
+                      group.customerName
+                    )}
+                    <Badge variant="outline" className="text-xs">
+                      {group.tasks.length} task{group.tasks.length !== 1 ? 's' : ''}
+                    </Badge>
+                  </h3>
+                  <div className="space-y-3">
+                    {group.tasks.map((task) => (
+                      <StaffTaskCard
+                        key={task.id}
+                        task={task}
+                        onComplete={handleComplete}
+                        isCompleting={completingTaskId === task.id}
+                        onViewProfile={handleViewProfile}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </>
           )}
 
           {/* Completed Today Section */}
-          <CompletedTodaySection tasks={completedTodayTasks} onComplete={handleComplete} />
+          {completedTodayTasks.length > 0 && (
+            <CompletedTodaySection
+              tasks={completedTodayTasks}
+              onComplete={handleComplete}
+              onViewProfile={handleViewProfile}
+            />
+          )}
         </div>
       )}
+
+      {/* Contact Profile Sidebar */}
+      <ContactProfileModal
+        contactId={profileViewState?.contactId || null}
+        open={!!profileViewState}
+        onClose={() => setProfileViewState(null)}
+        agencyId={user?.agency_id || null}
+        displayName={user?.display_name || user?.username || undefined}
+        defaultSourceModule="manual"
+        staffMemberId={user?.id}
+        staffSessionToken={sessionToken}
+        onActivityLogged={() => refetch()}
+      />
     </div>
   );
 }

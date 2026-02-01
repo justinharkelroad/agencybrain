@@ -120,6 +120,7 @@ serve(async (req) => {
           customer_phone,
           customer_email,
           sale_id,
+          contact_id,
           sequence:onboarding_sequences(id, name)
         )
       `)
@@ -150,6 +151,7 @@ serve(async (req) => {
             customer_phone,
             customer_email,
             sale_id,
+            contact_id,
             sequence:onboarding_sequences(id, name)
           )
         `)

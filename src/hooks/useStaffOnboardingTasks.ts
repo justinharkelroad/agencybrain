@@ -33,6 +33,7 @@ export interface StaffOnboardingTask {
     customer_phone: string | null;
     customer_email: string | null;
     sale_id: string;
+    contact_id: string | null;
     sequence?: {
       id: string;
       name: string;
