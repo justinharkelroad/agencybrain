@@ -289,16 +289,34 @@ export default function Agency() {
         if (error) throw error;
         toastHook({ title: "Saved", description: "Agency updated" });
       } else {
-        const { data, error } = await supabase
-          .from("agencies")
-          .insert([{ name: agencyName.trim(), agency_email: agencyEmail.trim() || null, phone: agencyPhone.trim() || null }])
-          .select("id")
-          .single();
-        if (error) throw error;
-        const newId = data.id as string;
-        const { error: upErr } = await supabase.from("profiles").update({ agency_id: newId }).eq("id", user.id);
-        if (upErr) throw upErr;
-        setAgencyId(newId);
+        // Use edge function for agency creation (requires privileged profile update)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('No active session');
+        }
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-agency-and-link-profile`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+              name: agencyName.trim(),
+              agency_email: agencyEmail.trim() || null,
+              phone: agencyPhone.trim() || null,
+            }),
+          }
+        );
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to create agency');
+        }
+
+        setAgencyId(result.agency_id);
         toastHook({ title: "Created", description: "Agency created and linked" });
       }
     } catch (e: any) {

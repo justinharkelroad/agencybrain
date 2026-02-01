@@ -78,13 +78,30 @@ export function CreateClientDialog({ onClientCreated }: CreateClientDialogProps)
         description: "Client account created successfully",
       });
 
-      // Optionally set initial Coaching MRR
+      // Optionally set initial Coaching MRR using edge function
       try {
-        if (formData.mrr && !Number.isNaN(Number(formData.mrr))) {
-          await supabase
-            .from('profiles')
-            .update({ mrr: Number(formData.mrr) })
-            .eq('id', data?.user?.id);
+        if (formData.mrr && !Number.isNaN(Number(formData.mrr)) && data?.user?.id) {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.access_token) {
+            const mrrResponse = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-update-client-profile`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({
+                  client_id: data.user.id,
+                  mrr: Number(formData.mrr),
+                }),
+              }
+            );
+            if (!mrrResponse.ok) {
+              const mrrResult = await mrrResponse.json();
+              console.error('Failed to set initial MRR:', mrrResult.error);
+            }
+          }
         }
       } catch (mrrError) {
         console.error('Failed to set initial MRR:', mrrError);

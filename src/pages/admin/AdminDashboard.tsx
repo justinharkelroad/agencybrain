@@ -305,14 +305,33 @@ setCoachingRevenue(totalMRR);
 
   const handleUpdateTier = async () => {
     if (!editingClient) return;
-    
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ membership_tier: newTier })
-        .eq('id', editingClient.id);
 
-      if (error) throw error;
+    try {
+      // Use edge function for privileged profile update
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No active session');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-update-client-profile`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            client_id: editingClient.id,
+            membership_tier: newTier,
+          }),
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update tier');
+      }
 
       // Auto-configure call scoring settings based on tier
       if (editingClient.agency?.id) {

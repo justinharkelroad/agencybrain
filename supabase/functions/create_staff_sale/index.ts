@@ -156,7 +156,7 @@ serve(async (req) => {
     // Find or create contact for this customer
     let contactId: string | null = null;
     try {
-      const { data: contactResult } = await supabase.rpc('find_or_create_contact', {
+      const { data: contactResult, error: contactError } = await supabase.rpc('find_or_create_contact', {
         p_agency_id: staffUser.agency_id,
         p_first_name: firstName,
         p_last_name: lastName,
@@ -164,11 +164,26 @@ serve(async (req) => {
         p_phone: body.customer_phone || null,
         p_email: body.customer_email || null,
       });
-      contactId = contactResult;
-      console.log('[create_staff_sale] Contact linked:', contactId);
-    } catch (contactErr) {
+      if (contactError) {
+        // Auth errors should NOT be silently continued - they indicate security bugs
+        const errorMessage = contactError.message || '';
+        if (errorMessage.includes('Access denied') || errorMessage.includes('permission')) {
+          throw new Error(`Authorization failed for contact creation: ${errorMessage}`);
+        }
+        // Other errors (network, timeout) can continue without contact
+        console.warn('[create_staff_sale] Could not link contact:', contactError);
+      } else {
+        contactId = contactResult;
+        console.log('[create_staff_sale] Contact linked:', contactId);
+      }
+    } catch (contactErr: unknown) {
+      const errMessage = contactErr instanceof Error ? contactErr.message : String(contactErr);
+      // Re-throw auth errors, continue for others
+      if (errMessage.includes('Access denied') || errMessage.includes('Authorization failed') || errMessage.includes('permission')) {
+        throw contactErr;
+      }
       console.warn('[create_staff_sale] Could not link contact:', contactErr);
-      // Continue without contact - not a fatal error
+      // Continue without contact - not a fatal error for non-auth issues
     }
 
     // Create LQS pipeline records (household → quote → sale)

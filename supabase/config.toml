@@ -413,3 +413,26 @@ verify_jwt = false
 
 [functions.send_onboarding_overdue_alerts]
 verify_jwt = false
+
+# Stripe subscription functions
+[functions.create-checkout-session]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.create-customer-portal-session]
+verify_jwt = true
+
+[functions.purchase-call-pack]
+verify_jwt = true
+
+[functions.send-trial-reminders]
+verify_jwt = false
+
+# Profile update functions (privileged operations)
+[functions.create-agency-and-link-profile]
+verify_jwt = true
+
+[functions.admin-update-client-profile]
+verify_jwt = true

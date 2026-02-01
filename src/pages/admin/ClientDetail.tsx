@@ -995,8 +995,33 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
     }
     try {
       setSavingMRR(true);
-      const { error } = await supabase.from('profiles').update({ mrr: value }).eq('id', clientId);
-      if (error) throw error;
+
+      // Use edge function for privileged profile update
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No active session');
+      }
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-update-client-profile`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            client_id: clientId,
+            mrr: value,
+          }),
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update MRR');
+      }
+
       setClient(prev => prev ? { ...(prev as any), mrr: value } : prev);
       toast({ title: 'Coaching MRR updated' });
     } catch (e: any) {
