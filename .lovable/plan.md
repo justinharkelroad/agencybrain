@@ -1,113 +1,180 @@
 
-## Goal
-Make the **“Assign To”** dropdown in the **Apply Onboarding Sequence** modal include the **agency owner (you)** and other non-staff “regular users”, while keeping existing staff assignment behavior intact and avoiding new crashes.
+# Complete Plan: Fix Discovery Flow & Show Full Flow on Completion
 
-## What I see (based on code + your screenshot)
-- The dropdown you’re looking at is in **`src/components/onboarding/ApplySequenceModal.tsx`**.
-- That dropdown is populated **only from `staff_users`**:
-  - `ApplySequenceModal.tsx` queries `staff_users` where `is_active = true`.
-  - Agency owners generally exist in **`profiles`** and **`team_members`**, but *not necessarily* in `staff_users`.
-- The edge function that actually applies a sequence is **`supabase/functions/assign_onboarding_sequence/index.ts`** and it **requires** `assigned_to_staff_user_id` and validates it against `staff_users`.
-- The database schema already supports both:
-  - `onboarding_instances.assigned_to_user_id` (profiles)
-  - `onboarding_instances.assigned_to_staff_user_id` (staff_users)
-  But the **frontend + edge function are currently hardcoded to staff_users only**, which is why you don’t see yourself.
+## Part 1: Flow Template Audit Results
 
-## High-level fix (no changes to sale matching logic)
-We will **not** touch any LQS matching logic. This is strictly about onboarding sequence “assignee” selection.
+| Flow | Status | Notes |
+|------|--------|-------|
+| **Grateful** | ✅ OK | Uses `{trigger}` and `{story}` interpolation - both are properly configured as `textarea` type questions with matching `interpolation_key` |
+| **Bible** | ✅ OK | Uses conditional `show_if` logic only - no problematic interpolations |
+| **Discovery** | ❌ BROKEN | `apply_category` question is misconfigured |
 
-We’ll implement “assignee can be either”:
-- **Staff user** (existing behavior)
-- **Regular user profile** (so owners/managers/key employees can appear)
+**Only the Discovery flow has the interpolation bug.**
 
-## Implementation steps
+---
 
-### 1) Update the ApplySequenceModal UI to list both Staff Users and Owner/Manager Profiles
-**File:** `src/components/onboarding/ApplySequenceModal.tsx`
+## Part 2: Discovery Flow Bug Details
+
+### Root Cause
+The `apply_category` question (index 9) in the database has:
+
+```json
+{
+  "id": "apply_category",
+  "type": "textarea",           // ❌ WRONG - should be "select"
+  "prompt": "...What is ONE specific action you will take within the next 24 hours to apply this learning?",  // ❌ WRONG prompt
+  "options": ["BALANCE", "BODY", "BEING", "BUSINESS"],  // Correct but ignored
+  "interpolation_key": "apply_category"
+}
+```
+
+The next question (`apply_lesson`) expects `{apply_category}` to be a domain like "BUSINESS" but instead gets the user's action text.
+
+### Fix: Database Update
+
+```sql
+UPDATE flow_templates 
+SET questions_json = (
+  SELECT jsonb_agg(
+    CASE 
+      WHEN elem->>'id' = 'apply_category' THEN 
+        jsonb_build_object(
+          'id', 'apply_category',
+          'type', 'select',
+          'prompt', 'What Category of life would you like to apply this discovery?',
+          'options', jsonb_build_array('BALANCE', 'BODY', 'BEING', 'BUSINESS'),
+          'required', true,
+          'interpolation_key', 'apply_category'
+        )
+      ELSE elem
+    END
+  )
+  FROM jsonb_array_elements(questions_json) AS elem
+),
+updated_at = now()
+WHERE slug = 'discovery';
+```
+
+**Result**: The `apply_category` question becomes a 4-option select dropdown, and selecting "BUSINESS" will correctly interpolate into the next question.
+
+---
+
+## Part 3: Show Full Flow on Completion Page
+
+### Current State
+- `StaffFlowComplete.tsx` shows AI analysis only
+- `FlowReportCard.tsx` (used in owner view) shows AI analysis AND full Q&A responses
+- Staff users don't see their responses after completing a flow
+
+### Solution
+Add the Q&A section to `StaffFlowComplete.tsx`, matching the pattern in `FlowReportCard.tsx`.
+
+### File: `src/pages/staff/StaffFlowComplete.tsx`
 
 **Changes:**
-- Replace the single `staff_users` query with two queries that run when the modal is open:
-  1) `staff_users` (same as today)
-  2) `profiles` for the same `agency_id` (to include owner)
-- Build a combined list of options:
-  - Example internal shape:
-    - `{ type: 'staff', id: staffUser.id, label: display_name || username }`
-    - `{ type: 'user', id: profile.id, label: full_name || email || '(Unnamed user)' }`
-- Store selection as a composite value so IDs don’t collide:
-  - Example: `staff:<uuid>` or `user:<uuid>`
-- Render labels clearly so it’s obvious who is who:
-  - Example: `Justin E Harkelroad (Owner)` or `Jane Doe (Staff)`
-  - We can add a small badge/tag in the dropdown row.
 
-**Result:** You will see yourself in that dropdown even if you don’t have a `staff_users` record.
+1. Add state for parsed questions:
+```typescript
+const [questions, setQuestions] = useState<FlowQuestion[]>([]);
+```
 
-### 2) Update assign_onboarding_sequence edge function to accept either staff_user or profile user
-**File:** `supabase/functions/assign_onboarding_sequence/index.ts`
+2. Store questions when loading session (already being parsed in `templateData`):
+```typescript
+setQuestions(templateData.questions_json);
+```
 
-**Changes:**
-- Change request payload rules:
-  - Allow `assigned_to_staff_user_id` OR `assigned_to_user_id`
-  - Require exactly one of them (to avoid ambiguity)
-- Validation logic:
-  - If assigning to staff:
-    - keep current `staff_users` validation
-  - If assigning to user:
-    - validate `profiles.id = assigned_to_user_id`
-    - confirm that profile belongs to the same `agency_id`
-- Insert onboarding_instances with the correct field set:
-  - If user assignee: set `assigned_to_user_id`
-  - If staff assignee: set `assigned_to_staff_user_id`
+3. Add interpolation helper (same as FlowReportCard):
+```typescript
+const interpolatePrompt = (prompt: string): string => {
+  let result = prompt;
+  const matches = prompt.match(/\{([^}]+)\}/g);
+  
+  if (matches && session?.responses_json) {
+    matches.forEach(match => {
+      const key = match.slice(1, -1);
+      const sourceQuestion = questions.find(
+        q => q.interpolation_key === key || q.id === key
+      );
+      if (sourceQuestion && session.responses_json[sourceQuestion.id]) {
+        result = result.replace(match, session.responses_json[sourceQuestion.id]);
+      }
+    });
+  }
+  
+  return result;
+};
+```
 
-**Why this is safe:** The DB trigger that creates onboarding tasks already copies both columns from the instance into tasks, so it works as-designed.
+4. Add "Your Flow Responses" section after the AI Analysis Card (around line 351):
+```tsx
+{/* Full Flow Q&A Section */}
+<Card className="mb-6 border-border/10">
+  <CardContent className="p-6">
+    <h2 className="font-medium text-lg mb-6">Your Flow Responses</h2>
+    <div className="space-y-6">
+      {questions.map((question) => {
+        const response = session.responses_json?.[question.id];
+        if (!response) return null;
+        
+        return (
+          <div key={question.id} className="border-b border-border/10 pb-6 last:border-0">
+            <p className="text-muted-foreground/70 text-sm mb-2">
+              {interpolatePrompt(question.prompt)}
+            </p>
+            <p className="text-foreground leading-relaxed whitespace-pre-wrap">
+              {response}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  </CardContent>
+</Card>
+```
 
-### 3) Ensure owners can actually see tasks assigned to their profile (so the feature isn’t “write-only”)
-Right now, the owner-facing onboarding tasks UI is staff-only in multiple places.
+---
 
-**Files:**
-- `src/hooks/useOnboardingTasks.ts`
-- `src/pages/agency/OnboardingTasks.tsx`
-- (and any small related “staff users for filter” hook found via search)
+## Part 4: Fix Build Errors (Pre-existing)
 
-**Changes:**
-- In `useOnboardingTasks` and `useOnboardingTasksToday`:
-  - Join assignee from both:
-    - `staff_users!assigned_to_staff_user_id(...)`
-    - `profiles!assigned_to_user_id(...)`
-  - Update filtering so it can filter by either:
-    - `assigned_to_staff_user_id = X`
-    - `assigned_to_user_id = Y`
-  - Adjust types to reflect that assignee can be “staff” or “user”.
-- In `OnboardingTasks.tsx`:
-  - The “My tasks” mode currently relies on a “linked staff account” concept and falls back to a dummy UUID.
-  - Change “My tasks” for owners to use:
-    - `assigned_to_user_id = currentUser.id`
-  - Update the “All team members” filter dropdown to include both staff users and user profiles.
+Several edge functions have TypeScript errors that need fixing. These are unrelated to flows but are blocking deployment:
 
-**Result:** If you assign sequences to yourself (owner), the tasks will show up correctly for you.
+### Critical Fix: `assign_onboarding_sequence/index.ts`
+- Line 108: `agencyId = agencyId;` - variable used before assignment
 
-### 4) Verification checklist (what we’ll test after implementing)
-1. As agency owner, create a sale → Apply Sequence modal opens.
-2. “Assign To” dropdown includes you (owner) and staff users.
-3. Choose yourself → Apply Sequence → success toast.
-4. Visit Onboarding Tasks page:
-   - “My tasks” shows tasks assigned to your owner profile.
-   - “All agency” view can filter by you and by staff users.
-5. Confirm no regressions:
-   - Assigning to staff still works.
-   - Staff portal flows using onboarding tasks still work.
+### Type Safety Fixes (multiple files):
+- Cast `error` as `Error` type: `(error as Error).message`
+- Add explicit types for callback parameters
 
-## Notes on why you didn’t see yourself
-This is not a caching issue in this case—the modal is **coded to only show `staff_users`**, and owners typically don’t have a `staff_users` entry. So you are excluded by design/implementation, not by your permissions.
+---
 
-## Scope boundaries (explicitly not touching)
-- No changes to sales creation logic beyond enabling the modal’s assignment properly.
-- No changes to LQS matching.
-- No changes to “producer/team member assignment” dropdown in Add Sale form (unless it still reproduces after this; it’s a separate control fed by `team_members`).
+## Summary of Files to Change
 
-## Files expected to change
-- `src/components/onboarding/ApplySequenceModal.tsx`
-- `supabase/functions/assign_onboarding_sequence/index.ts`
-- `src/hooks/useOnboardingTasks.ts`
-- `src/pages/agency/OnboardingTasks.tsx`
-- Potentially one small hook that provides assignee options for filters (if present)
+| File | Change |
+|------|--------|
+| Database migration | Fix Discovery flow `apply_category` question |
+| `src/pages/staff/StaffFlowComplete.tsx` | Add full Q&A section after AI analysis |
+| `supabase/functions/assign_onboarding_sequence/index.ts` | Fix `agencyId` variable assignment |
+| Multiple edge functions | Fix TypeScript type errors |
 
+---
+
+## Testing Checklist
+
+After implementation:
+
+1. **Discovery Flow Fix**:
+   - Start a new Discovery Flow
+   - At `apply_category` question, verify it shows a 4-option dropdown (BALANCE/BODY/BEING/BUSINESS)
+   - Select "BUSINESS" and advance
+   - Verify `apply_lesson` prompt shows: "...How does this lesson apply to your **BUSINESS** domain?"
+
+2. **Flow Completion View**:
+   - Complete any flow (Grateful, Bible, or Discovery)
+   - On completion page, verify:
+     - AI revelation/analysis appears at top
+     - Full Q&A responses appear below
+     - Questions show with interpolated values filled in
+
+3. **Other Flows Still Work**:
+   - Run through a Grateful flow - verify `{trigger}` and `{story}` interpolate correctly
+   - Run through a Bible flow - verify conditional questions appear/hide correctly
