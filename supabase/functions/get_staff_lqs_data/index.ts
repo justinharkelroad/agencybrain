@@ -170,64 +170,79 @@ serve(async (req) => {
 
     console.log('Fetching LQS data for agency:', agencyId, 'team_member:', teamMemberId);
 
-    // Fetch all households with relations
-    let query = supabase
-      .from('lqs_households')
-      .select(`
-        id,
-        agency_id,
-        household_key,
-        first_name,
-        last_name,
-        email,
-        phone,
-        zip_code,
-        lead_source_id,
-        team_member_id,
-        status,
-        first_quote_date,
-        sold_date,
-        needs_attention,
-        contact_id,
-        created_at,
-        updated_at,
-        lead_source:lead_sources!lqs_households_lead_source_id_fkey(id, name, is_self_generated),
-        team_member:team_members(id, name),
-        quotes:lqs_quotes(id, household_id, quote_date, product_type, items_quoted, premium_cents, source),
-        sales:lqs_sales(id, household_id, sale_date, product_type, items_sold, policies_sold, premium_cents, policy_number, source, source_reference_id, linked_quote_id)
-      `)
-      .eq('agency_id', agencyId)
-      .order('updated_at', { ascending: false });
+    // Fetch all households with relations using pagination to bypass 1000 row limit
+    const PAGE_SIZE = 1000;
+    const MAX_FETCH = 20000;
+    const allHouseholds: LqsHousehold[] = [];
 
-    // Apply date filter if provided
-    if (date_start) {
-      query = query.gte('first_quote_date', date_start);
+    for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
+      let query = supabase
+        .from('lqs_households')
+        .select(`
+          id,
+          agency_id,
+          household_key,
+          first_name,
+          last_name,
+          email,
+          phone,
+          zip_code,
+          lead_source_id,
+          team_member_id,
+          status,
+          first_quote_date,
+          sold_date,
+          needs_attention,
+          contact_id,
+          created_at,
+          updated_at,
+          lead_source:lead_sources!lqs_households_lead_source_id_fkey(id, name, is_self_generated),
+          team_member:team_members(id, name),
+          quotes:lqs_quotes(id, household_id, quote_date, product_type, items_quoted, premium_cents, source),
+          sales:lqs_sales(id, household_id, sale_date, product_type, items_sold, policies_sold, premium_cents, policy_number, source, source_reference_id, linked_quote_id)
+        `)
+        .eq('agency_id', agencyId)
+        .order('updated_at', { ascending: false })
+        .range(from, from + PAGE_SIZE - 1);
+
+      // Apply date filter if provided
+      if (date_start) {
+        query = query.gte('first_quote_date', date_start);
+      }
+      if (date_end) {
+        query = query.lte('first_quote_date', date_end);
+      }
+
+      // Apply status filter if provided
+      if (status_filter && status_filter !== 'all') {
+        query = query.eq('status', status_filter);
+      }
+
+      // Apply search term if provided
+      if (search_term) {
+        query = query.or(`first_name.ilike.%${search_term}%,last_name.ilike.%${search_term}%,email.ilike.%${search_term}%`);
+      }
+
+      const { data: page, error: pageError } = await query;
+
+      if (pageError) {
+        console.error('Error fetching households page:', pageError);
+        return new Response(JSON.stringify({ error: 'Failed to fetch LQS data', details: pageError.message }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      if (!page || page.length === 0) break;
+
+      allHouseholds.push(...(page as LqsHousehold[]));
+
+      // If we got less than PAGE_SIZE, we've reached the end
+      if (page.length < PAGE_SIZE) break;
     }
-    if (date_end) {
-      query = query.lte('first_quote_date', date_end);
-    }
 
-    // Apply status filter if provided
-    if (status_filter && status_filter !== 'all') {
-      query = query.eq('status', status_filter);
-    }
-
-    // Apply search term if provided
-    if (search_term) {
-      query = query.or(`first_name.ilike.%${search_term}%,last_name.ilike.%${search_term}%,email.ilike.%${search_term}%`);
-    }
-
-    const { data: households, error: householdsError } = await query;
-
-    if (householdsError) {
-      console.error('Error fetching households:', householdsError);
-      return new Response(JSON.stringify({ error: 'Failed to fetch LQS data', details: householdsError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-
-    console.log('Fetched households:', households?.length || 0);
+    const households = allHouseholds;
+    console.log('Fetched households:', households.length);
 
     // Fetch lead sources for the agency
     const { data: leadSources, error: leadSourcesError } = await supabase
