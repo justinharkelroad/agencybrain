@@ -4,6 +4,7 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { BarChart3, TrendingUp, Users, DollarSign, Percent, Target, Info, CalendarIcon, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { HelpButton } from '@/components/HelpButton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -554,6 +555,7 @@ export default function LqsRoiPage() {
           <div className="flex items-center gap-2">
             <BarChart3 className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold">ROI Analytics</h1>
+            <HelpButton videoKey="LQS_Analytics" />
           </div>
           <p className="text-muted-foreground mt-1">
             Analyze marketing performance across the LQS pipeline
