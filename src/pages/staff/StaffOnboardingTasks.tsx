@@ -48,10 +48,10 @@ const ACTION_ICONS: Record<ActionType, React.ElementType> = {
 };
 
 const ACTION_COLORS: Record<ActionType, string> = {
-  call: 'text-green-600 bg-green-100',
-  text: 'text-blue-600 bg-blue-100',
-  email: 'text-purple-600 bg-purple-100',
-  other: 'text-gray-600 bg-gray-100',
+  call: 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-500/20',
+  text: 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-500/20',
+  email: 'text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-500/20',
+  other: 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-500/20',
 };
 
 const ACTION_LABELS: Record<ActionType, string> = {
@@ -69,8 +69,8 @@ function getStatusStyles(task: StaffOnboardingTask): {
 } {
   if (task.status === 'completed') {
     return {
-      border: 'border-gray-200',
-      bg: 'bg-gray-50',
+      border: 'border-gray-200 dark:border-gray-700',
+      bg: 'bg-gray-50 dark:bg-gray-800/50',
       badge: 'Completed',
       badgeVariant: 'secondary',
     };
@@ -80,8 +80,8 @@ function getStatusStyles(task: StaffOnboardingTask): {
 
   if (task.status === 'overdue' || (isPast(dueDate) && !isToday(dueDate))) {
     return {
-      border: 'border-red-300 border-2',
-      bg: 'bg-red-50',
+      border: 'border-red-300 dark:border-red-500/50 border-2',
+      bg: 'bg-red-50 dark:bg-red-500/10',
       badge: 'Overdue',
       badgeVariant: 'destructive',
     };
@@ -89,16 +89,16 @@ function getStatusStyles(task: StaffOnboardingTask): {
 
   if (isToday(dueDate) || task.status === 'due') {
     return {
-      border: 'border-blue-300 border-2',
-      bg: 'bg-blue-50',
+      border: 'border-blue-300 dark:border-blue-500/50 border-2',
+      bg: 'bg-blue-50 dark:bg-blue-500/10',
       badge: 'Due Today',
       badgeVariant: 'default',
     };
   }
 
   return {
-    border: 'border-gray-200',
-    bg: 'bg-white',
+    border: 'border-gray-200 dark:border-gray-700',
+    bg: 'bg-white dark:bg-card',
     badge: 'Upcoming',
     badgeVariant: 'outline',
   };
@@ -331,11 +331,11 @@ function CompletedTodaySection({
 
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-      <div className="border border-green-200 rounded-lg bg-green-50/30">
+      <div className="border border-green-200 dark:border-green-500/30 rounded-lg bg-green-50/30 dark:bg-green-500/10">
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
-            className="w-full justify-between p-4 h-auto hover:bg-green-50/50"
+            className="w-full justify-between p-4 h-auto hover:bg-green-50/50 dark:hover:bg-green-500/15"
           >
             <div className="flex items-center gap-3">
               {isExpanded ? (
@@ -345,12 +345,12 @@ function CompletedTodaySection({
               )}
 
               <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                <span className="font-medium text-green-700">Completed Today</span>
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+                <span className="font-medium text-green-700 dark:text-green-400">Completed Today</span>
               </div>
             </div>
 
-            <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+            <Badge variant="secondary" className="bg-green-100 dark:bg-green-500/20 text-green-700 dark:text-green-400 text-xs">
               {tasks.length} task{tasks.length !== 1 ? 's' : ''}
             </Badge>
           </Button>
@@ -416,17 +416,17 @@ export default function StaffOnboardingTasks() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4 mb-8">
-        <Card className={cn(stats.overdue > 0 && 'border-red-300 bg-red-50')}>
+        <Card className={cn(stats.overdue > 0 && 'border-red-300 dark:border-red-500/50 bg-red-50 dark:bg-red-500/10')}>
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-3">
               <div
                 className={cn(
                   'p-2 rounded-full',
-                  stats.overdue > 0 ? 'bg-red-100' : 'bg-muted'
+                  stats.overdue > 0 ? 'bg-red-100 dark:bg-red-500/20' : 'bg-muted'
                 )}
               >
                 <AlertCircle
-                  className={cn('h-4 w-4', stats.overdue > 0 ? 'text-red-600' : 'text-muted-foreground')}
+                  className={cn('h-4 w-4', stats.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')}
                 />
               </div>
               <div>
@@ -437,19 +437,19 @@ export default function StaffOnboardingTasks() {
           </CardContent>
         </Card>
 
-        <Card className={cn(stats.due_today > 0 && 'border-blue-300 bg-blue-50')}>
+        <Card className={cn(stats.due_today > 0 && 'border-blue-300 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-500/10')}>
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-3">
               <div
                 className={cn(
                   'p-2 rounded-full',
-                  stats.due_today > 0 ? 'bg-blue-100' : 'bg-muted'
+                  stats.due_today > 0 ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-muted'
                 )}
               >
                 <Clock
                   className={cn(
                     'h-4 w-4',
-                    stats.due_today > 0 ? 'text-blue-600' : 'text-muted-foreground'
+                    stats.due_today > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'
                   )}
                 />
               </div>
@@ -475,11 +475,11 @@ export default function StaffOnboardingTasks() {
           </CardContent>
         </Card>
 
-        <Card className="border-green-200 bg-green-50/30">
+        <Card className="border-green-200 dark:border-green-500/30 bg-green-50/30 dark:bg-green-500/10">
           <CardContent className="pt-4 pb-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-green-100">
-                <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <div className="p-2 rounded-full bg-green-100 dark:bg-green-500/20">
+                <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
               </div>
               <div>
                 <p className="text-2xl font-bold">{stats.completed_today}</p>

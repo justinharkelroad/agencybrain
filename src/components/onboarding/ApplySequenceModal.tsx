@@ -89,21 +89,29 @@ export function ApplySequenceModal({
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
+      console.log('[ApplySequenceModal] Modal opened', {
+        isStaffContext,
+        staffSessionToken: staffSessionToken ? 'present' : 'null/undefined',
+        agencyId,
+        contactId,
+      });
       setSelectedSequenceId('');
       setAssigneeValue('');
       setStartDate(todayLocal());
       setApplying(false);
       setSuccess(false);
     }
-  }, [open]);
+  }, [open, isStaffContext, staffSessionToken, agencyId, contactId]);
 
   // Fetch data via edge function for staff, or direct queries for regular users
-  const { data: staffData, isLoading: staffDataLoading } = useQuery({
+  const { data: staffData, isLoading: staffDataLoading, error: staffDataError } = useQuery({
     queryKey: ['staff-sequences-data', agencyId, staffSessionToken],
     queryFn: async () => {
+      console.log('[ApplySequenceModal] Calling get_staff_sequences with token:', staffSessionToken ? 'present' : 'missing');
       const response = await supabase.functions.invoke('get_staff_sequences', {
         headers: { 'x-staff-session': staffSessionToken! },
       });
+      console.log('[ApplySequenceModal] get_staff_sequences response:', response);
       if (response.error) throw response.error;
       if (response.data?.error) throw new Error(response.data.error);
       return response.data as {
@@ -116,9 +124,10 @@ export function ApplySequenceModal({
   });
 
   // Fetch active sequences for this agency (non-staff)
-  const { data: directSequences = [], isLoading: sequencesLoading } = useQuery({
+  const { data: directSequences = [], isLoading: sequencesLoading, error: directSequencesError } = useQuery({
     queryKey: ['onboarding-sequences-active', agencyId],
     queryFn: async () => {
+      console.log('[ApplySequenceModal] Fetching sequences directly (non-staff context)');
       const { data, error } = await supabase
         .from('onboarding_sequences')
         .select(`
@@ -134,6 +143,7 @@ export function ApplySequenceModal({
         .order('name');
 
       if (error) throw error;
+      console.log('[ApplySequenceModal] Direct sequences result:', data?.length, 'sequences');
       return data as OnboardingSequence[];
     },
     enabled: open && !!agencyId && !isStaffContext,
@@ -276,6 +286,7 @@ export function ApplySequenceModal({
   const isLoading = isStaffContext
     ? staffDataLoading
     : (sequencesLoading || staffLoading || profilesLoading);
+  const queryError = isStaffContext ? staffDataError : directSequencesError;
   const canApply = selectedSequenceId && assigneeValue && startDate && !applying;
 
   if (success) {
@@ -312,6 +323,19 @@ export function ApplySequenceModal({
           <div className="flex items-center justify-center py-8">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
+        ) : queryError ? (
+          <div className="py-6 text-center">
+            <Workflow className="w-12 h-12 mx-auto text-red-400/50 mb-3" />
+            <p className="text-red-400 mb-2">
+              Failed to load sequences
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {queryError instanceof Error ? queryError.message : 'Unknown error'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Context: {isStaffContext ? 'staff' : 'agency'} | Token: {staffSessionToken ? 'present' : 'missing'}
+            </p>
+          </div>
         ) : sequences.length === 0 ? (
           <div className="py-6 text-center">
             <Workflow className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
@@ -320,6 +344,9 @@ export function ApplySequenceModal({
             </p>
             <p className="text-sm text-muted-foreground">
               Create sequences in the Sequence Builder first.
+            </p>
+            <p className="text-xs text-muted-foreground/50 mt-4">
+              Debug: {isStaffContext ? 'staff context' : 'agency context'} | Token: {staffSessionToken ? 'present' : 'missing'}
             </p>
           </div>
         ) : (
