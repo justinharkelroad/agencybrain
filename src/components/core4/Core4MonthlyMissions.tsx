@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Dumbbell, Heart, Briefcase, Plus, CheckCircle2, Circle, Loader2 } from 'lucide-react';
+import { Dumbbell, Heart, Briefcase, Plus, CheckCircle2, Circle, Loader2, Pencil } from 'lucide-react';
 import { LatinCross } from '@/components/icons/LatinCross';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -56,6 +56,7 @@ export function Core4MonthlyMissions() {
   const [missions, setMissions] = useState<Core4Mission[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingMission, setEditingMission] = useState<Core4Mission | null>(null);
   const [newMission, setNewMission] = useState({
     domain: 'body' as Core4Domain,
     title: '',
@@ -101,14 +102,41 @@ export function Core4MonthlyMissions() {
     return missions.find(m => m.domain === domain) || null;
   };
 
-  const handleCreateMission = async () => {
+  const openEditDialog = (mission: Core4Mission) => {
+    setEditingMission(mission);
+    setNewMission({
+      domain: mission.domain,
+      title: mission.title,
+      items: [
+        mission.items[0]?.text || '',
+        mission.items[1]?.text || '',
+        mission.items[2]?.text || '',
+        mission.items[3]?.text || '',
+      ],
+      weekly_measurable: mission.weekly_measurable || '',
+    });
+    setDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setDialogOpen(false);
+    setEditingMission(null);
+    setNewMission({
+      domain: 'body',
+      title: '',
+      items: ['', '', '', ''],
+      weekly_measurable: '',
+    });
+  };
+
+  const handleSaveMission = async () => {
     if (!user?.id || !newMission.title.trim()) {
       toast.error('Please enter a mission title');
       return;
     }
 
-    // Check if mission already exists for this domain
-    if (getMissionForDomain(newMission.domain)) {
+    // Check if mission already exists for this domain (only for new missions)
+    if (!editingMission && getMissionForDomain(newMission.domain)) {
       toast.error(`A mission already exists for ${domainConfig[newMission.domain].label}`);
       return;
     }
@@ -116,34 +144,48 @@ export function Core4MonthlyMissions() {
     try {
       const items: MissionItem[] = newMission.items
         .filter(item => item.trim())
-        .map(text => ({ text, completed: false }));
+        .map((text, idx) => ({ 
+          text, 
+          completed: editingMission?.items[idx]?.completed || false 
+        }));
 
-      const { error } = await supabase
-        .from('core4_monthly_missions')
-        .insert({
-          user_id: user.id,
-          domain: newMission.domain,
-          title: newMission.title.trim(),
-          items,
-          weekly_measurable: newMission.weekly_measurable.trim() || null,
-          month_year: currentMonthYear,
-          status: 'active',
-        });
+      if (editingMission) {
+        // Update existing mission
+        const { error } = await supabase
+          .from('core4_monthly_missions')
+          .update({
+            title: newMission.title.trim(),
+            items,
+            weekly_measurable: newMission.weekly_measurable.trim() || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', editingMission.id);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success('Mission updated!');
+      } else {
+        // Create new mission
+        const { error } = await supabase
+          .from('core4_monthly_missions')
+          .insert({
+            user_id: user.id,
+            domain: newMission.domain,
+            title: newMission.title.trim(),
+            items,
+            weekly_measurable: newMission.weekly_measurable.trim() || null,
+            month_year: currentMonthYear,
+            status: 'active',
+          });
 
-      toast.success('Mission created!');
-      setDialogOpen(false);
-      setNewMission({
-        domain: 'body',
-        title: '',
-        items: ['', '', '', ''],
-        weekly_measurable: '',
-      });
+        if (error) throw error;
+        toast.success('Mission created!');
+      }
+
+      closeDialog();
       fetchMissions();
     } catch (err) {
-      console.error('Error creating mission:', err);
-      toast.error('Failed to create mission');
+      console.error('Error saving mission:', err);
+      toast.error('Failed to save mission');
     }
   };
 
@@ -204,9 +246,9 @@ export function Core4MonthlyMissions() {
     <div id="monthly-missions" className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Monthly Missions</h3>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
           <DialogTrigger asChild>
-            <Button size="sm" variant="outline">
+            <Button size="sm" variant="outline" onClick={() => setEditingMission(null)}>
               <Plus className="h-4 w-4 mr-1" />
               Add Mission
             </Button>
@@ -219,7 +261,7 @@ export function Core4MonthlyMissions() {
                   return <Icon className={cn("h-8 w-8", color)} />;
                 })()}
                 <DialogTitle className={cn("text-2xl font-bold", domainConfig[newMission.domain].color)}>
-                  {domainConfig[newMission.domain].label.toUpperCase()}
+                  {editingMission ? 'Edit' : ''} {domainConfig[newMission.domain].label.toUpperCase()}
                 </DialogTitle>
               </div>
             </DialogHeader>
@@ -258,8 +300,8 @@ export function Core4MonthlyMissions() {
                 />
               </div>
 
-              <Button onClick={handleCreateMission} className="w-full">
-                Create Mission
+              <Button onClick={handleSaveMission} className="w-full">
+                {editingMission ? 'Save Changes' : 'Create Mission'}
               </Button>
             </div>
           </DialogContent>
@@ -316,6 +358,15 @@ export function Core4MonthlyMissions() {
                         {completedCount}/{totalItems} complete
                       </span>
                       <div className="flex gap-1">
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-7 text-xs"
+                          onClick={() => openEditDialog(mission)}
+                        >
+                          <Pencil className="h-3 w-3 mr-1" />
+                          Edit
+                        </Button>
                         <Button 
                           size="sm" 
                           variant="ghost" 
