@@ -29,6 +29,7 @@ import { toast } from 'sonner';
 import * as winbackApi from '@/lib/winbackApi';
 import { supabase } from '@/integrations/supabase/client';
 import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
+import { sendRenewalToWinback } from '@/lib/sendToWinback';
 import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';
 
 interface ContactProfileModalProps {
@@ -556,7 +557,56 @@ export function ContactProfileModal({
         queryClient.invalidateQueries({ queryKey: ['winback-activity-summary'] });
         toast.success('Renewal marked as successful!', { description: 'Great work!' });
       } else if (activityStatus === 'push_to_winback') {
-        toast.success('Pushed to Winback', { description: 'Record will appear in Winback module' });
+        // Create a winback record so it appears in Winback HQ
+        // For staff users, the edge function already handles winback creation
+        if (isStaff) {
+          // Edge function already created the winback - just show success and invalidate
+          queryClient.invalidateQueries({ queryKey: ['winback-households'] });
+          queryClient.invalidateQueries({ queryKey: ['winback-activity-summary'] });
+          toast.success('Pushed to Winback', { description: 'Record created in Winback HQ' });
+        } else {
+          // For non-staff users, create the winback record via direct Supabase calls
+          const linkedRenewal = profile?.renewal_records?.find(r => r.id === record.id);
+          if (linkedRenewal && profile) {
+            const renewalData = {
+              id: record.id,
+              agency_id: agencyId,
+              first_name: profile.first_name,
+              last_name: profile.last_name,
+              email: profile.emails?.[0] || null,
+              phone: profile.phones?.[0] || null,
+              policy_number: linkedRenewal.policy_number,
+              product_name: linkedRenewal.product_name || null,
+              renewal_effective_date: linkedRenewal.renewal_effective_date,
+              premium_old: linkedRenewal.premium_old || null,
+              premium_new: linkedRenewal.premium_new || null,
+              agent_number: null,
+              household_key: profile.household_key,
+            };
+
+            const winbackResult = await sendRenewalToWinback(renewalData);
+
+            if (winbackResult.success && winbackResult.householdId) {
+              // Link the contact to the winback household
+              if (contactId) {
+                await supabase
+                  .from('winback_households')
+                  .update({ contact_id: contactId })
+                  .eq('id', winbackResult.householdId);
+              }
+
+              // Invalidate winback queries
+              queryClient.invalidateQueries({ queryKey: ['winback-households'] });
+              queryClient.invalidateQueries({ queryKey: ['winback-activity-summary'] });
+              toast.success('Pushed to Winback', { description: 'Record created in Winback HQ' });
+            } else {
+              console.error('[handleRenewalActivity] Failed to create winback:', winbackResult.error);
+              toast.warning('Activity logged, but winback record creation failed', { description: winbackResult.error });
+            }
+          } else {
+            toast.warning('Activity logged', { description: 'Could not find renewal details to create winback' });
+          }
+        }
       } else {
         toast.success('Activity logged');
       }

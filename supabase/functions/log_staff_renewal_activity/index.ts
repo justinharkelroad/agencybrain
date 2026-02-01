@@ -170,6 +170,156 @@ serve(async (req) => {
       }
     }
 
+    // If push_to_winback, create a winback record
+    if (activityStatus === 'push_to_winback') {
+      // Fetch the full renewal record to create winback
+      const { data: renewalForWinback, error: renewalFetchError } = await supabase
+        .from('renewal_records')
+        .select(`
+          id, agency_id, first_name, last_name, email, phone,
+          policy_number, product_name, renewal_effective_date,
+          premium_old, premium_new, agent_number, household_key, contact_id
+        `)
+        .eq('id', renewalRecordId)
+        .single();
+
+      if (renewalFetchError) {
+        console.error('[log_staff_renewal_activity] Failed to fetch renewal for winback:', renewalFetchError);
+      } else if (renewalForWinback && renewalForWinback.first_name && renewalForWinback.last_name) {
+        // Create or find existing winback household
+        const firstName = renewalForWinback.first_name.trim().toUpperCase();
+        const lastName = renewalForWinback.last_name.trim().toUpperCase();
+        let zipCode = '00000';
+        if (renewalForWinback.household_key) {
+          const zipMatch = renewalForWinback.household_key.match(/\d{5}/);
+          if (zipMatch) zipCode = zipMatch[0];
+        }
+
+        // Check for existing household
+        const { data: existingHousehold } = await supabase
+          .from('winback_households')
+          .select('id')
+          .eq('agency_id', agencyId)
+          .ilike('first_name', firstName)
+          .ilike('last_name', lastName)
+          .maybeSingle();
+
+        let householdId: string;
+
+        if (existingHousehold) {
+          householdId = existingHousehold.id;
+        } else {
+          const { data: newHousehold, error: householdError } = await supabase
+            .from('winback_households')
+            .insert({
+              agency_id: agencyId,
+              first_name: firstName,
+              last_name: lastName,
+              zip_code: zipCode,
+              email: renewalForWinback.email || null,
+              phone: renewalForWinback.phone || null,
+              status: 'untouched',
+              contact_id: renewalForWinback.contact_id || contactId || null,
+            })
+            .select('id')
+            .single();
+
+          if (householdError) {
+            console.error('[log_staff_renewal_activity] Failed to create winback household:', householdError);
+          } else {
+            householdId = newHousehold.id;
+          }
+        }
+
+        // If household exists or was created, create the policy
+        if (householdId!) {
+          // Update contact_id on existing household if not set
+          if (existingHousehold && (renewalForWinback.contact_id || contactId)) {
+            await supabase
+              .from('winback_households')
+              .update({ contact_id: renewalForWinback.contact_id || contactId })
+              .eq('id', householdId)
+              .is('contact_id', null);
+          }
+
+          // Check for existing policy
+          const { data: existingPolicy } = await supabase
+            .from('winback_policies')
+            .select('id')
+            .eq('agency_id', agencyId)
+            .eq('policy_number', renewalForWinback.policy_number)
+            .maybeSingle();
+
+          if (!existingPolicy) {
+            // Calculate winback date
+            const terminationDate = new Date(renewalForWinback.renewal_effective_date);
+            const policyTermMonths = 12; // Default to annual
+            const contactDaysBefore = 45;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            let competitorRenewal = new Date(terminationDate);
+            competitorRenewal.setMonth(competitorRenewal.getMonth() + policyTermMonths);
+
+            let winbackDate = new Date(competitorRenewal);
+            winbackDate.setDate(winbackDate.getDate() - contactDaysBefore);
+
+            while (winbackDate <= today) {
+              competitorRenewal.setMonth(competitorRenewal.getMonth() + policyTermMonths);
+              winbackDate = new Date(competitorRenewal);
+              winbackDate.setDate(winbackDate.getDate() - contactDaysBefore);
+            }
+
+            const premiumNewCents = renewalForWinback.premium_new ? Math.round(renewalForWinback.premium_new * 100) : null;
+            const premiumOldCents = renewalForWinback.premium_old ? Math.round(renewalForWinback.premium_old * 100) : null;
+            const premiumChangeCents = premiumNewCents && premiumOldCents ? premiumNewCents - premiumOldCents : null;
+            const premiumChangePercent = premiumOldCents && premiumChangeCents
+              ? Math.round((premiumChangeCents / premiumOldCents) * 10000) / 100
+              : null;
+
+            const { error: policyError } = await supabase
+              .from('winback_policies')
+              .insert({
+                household_id: householdId,
+                agency_id: agencyId,
+                policy_number: renewalForWinback.policy_number,
+                agent_number: renewalForWinback.agent_number || null,
+                product_name: renewalForWinback.product_name || 'Unknown',
+                policy_term_months: policyTermMonths,
+                termination_effective_date: renewalForWinback.renewal_effective_date,
+                termination_reason: 'Renewal Not Taken - From Renewal Audit',
+                premium_new_cents: premiumNewCents,
+                premium_old_cents: premiumOldCents,
+                premium_change_cents: premiumChangeCents,
+                premium_change_percent: premiumChangePercent,
+                calculated_winback_date: winbackDate.toISOString().split('T')[0],
+                is_cancel_rewrite: false,
+              });
+
+            if (policyError) {
+              console.error('[log_staff_renewal_activity] Failed to create winback policy:', policyError);
+            } else {
+              // Recalculate aggregates
+              await supabase.rpc('recalculate_winback_household_aggregates', {
+                p_household_id: householdId,
+              }).catch(e => console.error('Failed to recalc aggregates:', e));
+            }
+          }
+
+          // Update renewal record with winback link
+          await supabase
+            .from('renewal_records')
+            .update({
+              winback_household_id: householdId,
+              sent_to_winback_at: new Date().toISOString(),
+            })
+            .eq('id', renewalRecordId);
+
+          console.log('[log_staff_renewal_activity] Created/linked winback household:', householdId);
+        }
+      }
+    }
+
     // Mirror to contact_activities for "Last Activity" display
     // First get contact_id from the renewal record if not passed
     let mirrorContactId = contactId;
