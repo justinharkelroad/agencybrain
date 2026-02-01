@@ -191,7 +191,7 @@ serve(async (req) => {
         contact_id,
         created_at,
         updated_at,
-        lead_source:lead_sources(id, name, is_self_generated),
+        lead_source:lead_sources!lqs_households_lead_source_id_fkey(id, name, is_self_generated),
         team_member:team_members(id, name),
         quotes:lqs_quotes(id, household_id, quote_date, product_type, items_quoted, premium_cents, source),
         sales:lqs_sales(id, household_id, sale_date, product_type, items_sold, policies_sold, premium_cents, policy_number, source, source_reference_id, linked_quote_id)
