@@ -50,7 +50,8 @@ serve(async (req) => {
   }
 
   try {
-    const staffToken = req.headers.get("x-staff-session");
+    // Accept both header names for compatibility
+    const staffToken = req.headers.get("x-staff-session") || req.headers.get("x-staff-session-token");
     if (!staffToken) {
       return new Response(
         JSON.stringify({ success: false, error: "Missing staff session token" }),
@@ -231,10 +232,29 @@ serve(async (req) => {
         );
       }
 
-      // Recalculate aggregates
-      await supabase.rpc("recalculate_winback_household_aggregates", {
+      // Recalculate aggregates - try RPC first
+      const { error: rpcError } = await supabase.rpc("recalculate_winback_household_aggregates", {
         p_household_id: householdId,
       });
+
+      if (rpcError) {
+        console.error("Failed to recalc aggregates:", rpcError);
+        // Fallback: set earliest_winback_date directly
+        await supabase
+          .from("winback_households")
+          .update({
+            earliest_winback_date: winbackDate.toISOString().split("T")[0],
+            policy_count: 1,
+            total_premium_potential_cents: premiumNewCents || 0,
+          })
+          .eq("id", householdId);
+        console.log("Set earliest_winback_date directly:", winbackDate.toISOString().split("T")[0]);
+      }
+    } else {
+      // Policy exists - still recalculate to ensure earliest_winback_date is set
+      await supabase.rpc("recalculate_winback_household_aggregates", {
+        p_household_id: householdId,
+      }).catch(e => console.error("Failed to recalc for existing policy:", e));
     }
 
     // Update cancel audit record
