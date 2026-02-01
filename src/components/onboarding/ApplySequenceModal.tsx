@@ -253,9 +253,14 @@ export function ApplySequenceModal({
         body.assigned_to_user_id = assigneeId;
       }
 
-      const { data, error } = await supabase.functions.invoke('assign_onboarding_sequence', {
-        body,
-      });
+      const invokeOptions: { body: typeof body; headers?: Record<string, string> } = { body };
+
+      // Pass staff session token if in staff context
+      if (isStaffContext && staffSessionToken) {
+        invokeOptions.headers = { 'x-staff-session': staffSessionToken };
+      }
+
+      const { data, error } = await supabase.functions.invoke('assign_onboarding_sequence', invokeOptions);
 
       // Check for network/auth errors
       if (error) throw error;

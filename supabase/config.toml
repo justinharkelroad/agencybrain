@@ -394,7 +394,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.assign_onboarding_sequence]
-verify_jwt = true
+verify_jwt = false
 
 [functions.complete_onboarding_task]
 verify_jwt = true

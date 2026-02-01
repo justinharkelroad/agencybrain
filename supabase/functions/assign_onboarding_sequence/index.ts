@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session',
 };
 
 interface AssignSequenceRequest {
@@ -30,38 +30,89 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
 
+    // Service role client for all DB operations
+    const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
+
+    let agencyId: string;
+    let assignedByUserId: string | null = null;
+    let assignedByStaffUserId: string | null = null;
+
+    // Check for staff session token first
+    const staffSessionToken = req.headers.get('x-staff-session');
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+
+    if (staffSessionToken) {
+      // Staff authentication via custom session token
+      const nowISO = new Date().toISOString();
+      const { data: session, error: sessionError } = await supabaseService
+        .from('staff_sessions')
+        .select('staff_user_id, expires_at, is_valid')
+        .eq('session_token', staffSessionToken)
+        .eq('is_valid', true)
+        .gt('expires_at', nowISO)
+        .maybeSingle();
+
+      if (sessionError || !session) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized - invalid or expired staff session' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get staff user details
+      const { data: staffUser, error: staffError } = await supabaseService
+        .from('staff_users')
+        .select('id, agency_id, is_active')
+        .eq('id', session.staff_user_id)
+        .single();
+
+      if (staffError || !staffUser || !staffUser.is_active) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized - staff user not found or inactive' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      agencyId = staffUser.agency_id;
+      assignedByStaffUserId = staffUser.id;
+      console.log('[assign_onboarding_sequence] Authenticated via staff session:', staffUser.id);
+
+    } else if (authHeader) {
+      // Regular user authentication via Supabase Auth JWT
+      const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } }
+      });
+
+      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Get user's agency_id
+      const { data: profile } = await supabaseAuth
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile?.agency_id) {
+        return new Response(
+          JSON.stringify({ error: 'User has no agency' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      agencyId = agencyId;
+      assignedByUserId = user.id;
+      console.log('[assign_onboarding_sequence] Authenticated via JWT:', user.id);
+
+    } else {
       return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
+        JSON.stringify({ error: 'No authorization provided' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Use anon key with user's auth for verification
-    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get user's agency_id
-    const { data: profile } = await supabaseAuth
-      .from('profiles')
-      .select('agency_id')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile?.agency_id) {
-      return new Response(
-        JSON.stringify({ error: 'User has no agency' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -110,7 +161,7 @@ serve(async (req) => {
     }
 
     // Use service role client for database operations (bypasses RLS)
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = supabaseService;
 
     // Verify the sequence exists and belongs to this agency
     const { data: sequence, error: seqError } = await supabase
@@ -127,7 +178,7 @@ serve(async (req) => {
       );
     }
 
-    if (sequence.agency_id !== profile.agency_id) {
+    if (sequence.agency_id !== agencyId) {
       return new Response(
         JSON.stringify({ error: 'Sequence does not belong to your agency' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -157,7 +208,7 @@ serve(async (req) => {
         );
       }
 
-      if (contact.agency_id !== profile.agency_id) {
+      if (contact.agency_id !== agencyId) {
         return new Response(
           JSON.stringify({ error: 'Contact does not belong to your agency' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -181,7 +232,7 @@ serve(async (req) => {
         );
       }
 
-      if (sale.agency_id !== profile.agency_id) {
+      if (sale.agency_id !== agencyId) {
         return new Response(
           JSON.stringify({ error: 'Sale does not belong to your agency' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -206,7 +257,7 @@ serve(async (req) => {
         );
       }
 
-      if (staffUser.agency_id !== profile.agency_id) {
+      if (staffUser.agency_id !== agencyId) {
         return new Response(
           JSON.stringify({ error: 'Staff user does not belong to your agency' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -235,7 +286,7 @@ serve(async (req) => {
         );
       }
 
-      if (profileUser.agency_id !== profile.agency_id) {
+      if (profileUser.agency_id !== agencyId) {
         return new Response(
           JSON.stringify({ error: 'User does not belong to your agency' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -283,7 +334,7 @@ serve(async (req) => {
     const { data: instance, error: instanceError } = await supabase
       .from('onboarding_instances')
       .insert({
-        agency_id: profile.agency_id,
+        agency_id: agencyId,
         sequence_id: sequence_id,
         contact_id: contact_id || null,
         sale_id: sale_id || null,
@@ -292,7 +343,7 @@ serve(async (req) => {
         customer_email: customer_email || null,
         assigned_to_staff_user_id: assigned_to_staff_user_id || null,
         assigned_to_user_id: assigned_to_user_id || null,
-        assigned_by: user.id,
+        assigned_by: assignedByUserId,  // null for staff users
         start_date: start_date,
         status: 'active',
       })
