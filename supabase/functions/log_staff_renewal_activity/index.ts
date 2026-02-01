@@ -204,7 +204,7 @@ serve(async (req) => {
           .ilike('last_name', lastName)
           .maybeSingle();
 
-        let householdId: string;
+        let householdId: string | null = null;
 
         if (existingHousehold) {
           householdId = existingHousehold.id;
@@ -232,7 +232,7 @@ serve(async (req) => {
         }
 
         // If household exists or was created, create the policy
-        if (householdId!) {
+        if (householdId) {
           // Update contact_id on existing household if not set
           if (existingHousehold && (renewalForWinback.contact_id || contactId)) {
             await supabase
