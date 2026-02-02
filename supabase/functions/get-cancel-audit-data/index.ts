@@ -76,6 +76,7 @@ serve(async (req) => {
 
     const agencyId = staffUser.agency_id;
     const teamMemberId = staffUser.team_member_id;
+    const staffUserId = staffUser.id;
 
     // Get the operation type from request body
     const body = await req.json();
@@ -99,7 +100,7 @@ serve(async (req) => {
         result = await getActivities(supabase, agencyId, params);
         break;
       case "log_activity":
-        result = await logActivity(supabase, agencyId, teamMemberId, params);
+        result = await logActivity(supabase, agencyId, teamMemberId, staffUserId, params);
         break;
       case "update_status":
         result = await updateStatus(supabase, agencyId, params);
@@ -412,7 +413,7 @@ async function getActivities(supabase: any, agencyId: string, params: any) {
 }
 
 // Log an activity
-async function logActivity(supabase: any, agencyId: string, teamMemberId: string, params: any) {
+async function logActivity(supabase: any, agencyId: string, teamMemberId: string, staffUserId: string, params: any) {
   const { recordId, householdKey, activityType, notes, userDisplayName } = params;
 
   // Get team member name if not provided
@@ -484,7 +485,7 @@ async function logActivity(supabase: any, agencyId: string, teamMemberId: string
         p_activity_type: activityType,
         p_source_record_id: recordId,
         p_notes: notes || null,
-        p_created_by_staff_id: teamMemberId,
+        p_created_by_staff_id: staffUserId,
         p_created_by_display_name: displayName,
       });
     } catch (mirrorError) {

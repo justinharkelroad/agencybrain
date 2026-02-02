@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -7,8 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { format, differenceInDays, eachMonthOfInterval } from 'date-fns';
-import { CalendarIcon, Users, Plus, History, Image, FileText, Trash2, Save } from 'lucide-react';
+import { CalendarIcon, Users, Plus, History, Image, FileText, Trash2, Save, Shield, RotateCcw, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getMetricValue } from '@/lib/kpiKeyMapping';
 import { MonthlyCalendarHeatmap } from './MonthlyCalendarHeatmap';
@@ -21,6 +22,8 @@ import jsPDF from 'jspdf';
 import { Json } from '@/integrations/supabase/types';
 import { fetchWithAuth } from '@/lib/staffRequest';
 import { useAgencyKpisWithConfig } from '@/hooks/useAgencyKpisWithConfig';
+import { useUniversalDataProtection } from '@/hooks/useUniversalDataProtection';
+import { UniversalDataProtectionService } from '@/lib/universalDataProtection';
 
 interface MeetingFrameTabProps {
   agencyId: string;
@@ -66,6 +69,22 @@ interface MeetingFrame {
     role: string;
   };
 }
+
+// Combined form data for data protection
+interface MeetingFrameFormData {
+  selectedMember: string;
+  startDate: string | null;
+  endDate: string | null;
+  kpiTotals: KPITotal[];
+  callLogData: CallLogData | null;
+  quotedData: QuotedData | null;
+  soldData: SoldData | null;
+  callScoringData: CallScoringData[];
+  meetingNotes: string;
+  reportGenerated: boolean;
+}
+
+const FORM_TYPE = 'meeting_frame' as const;
 
 export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   // Detect staff mode
@@ -136,7 +155,100 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const [saving, setSaving] = useState(false);
   const [meetingFrameHistory, setMeetingFrameHistory] = useState<MeetingFrame[]>([]);
   const [viewingHistoricalFrame, setViewingHistoricalFrame] = useState<string | null>(null);
+  const [showRecoveryBanner, setShowRecoveryBanner] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const recoveryCheckedRef = useRef(false);
+
+  // Combine all form data for data protection
+  const formData: MeetingFrameFormData = useMemo(() => ({
+    selectedMember,
+    startDate: startDate ? startDate.toISOString() : null,
+    endDate: endDate ? endDate.toISOString() : null,
+    kpiTotals,
+    callLogData,
+    quotedData,
+    soldData,
+    callScoringData,
+    meetingNotes,
+    reportGenerated,
+  }), [selectedMember, startDate, endDate, kpiTotals, callLogData, quotedData, soldData, callScoringData, meetingNotes, reportGenerated]);
+
+  // Restore form data from backup
+  const restoreFormData = useCallback((data: MeetingFrameFormData) => {
+    setSelectedMember(data.selectedMember || '');
+    setStartDate(data.startDate ? new Date(data.startDate) : undefined);
+    setEndDate(data.endDate ? new Date(data.endDate) : undefined);
+    setKpiTotals(data.kpiTotals || []);
+    setCallLogData(data.callLogData || null);
+    setQuotedData(data.quotedData || null);
+    setSoldData(data.soldData || null);
+    setCallScoringData(data.callScoringData || []);
+    setMeetingNotes(data.meetingNotes || '');
+    setReportGenerated(data.reportGenerated || false);
+    setHasUnsavedChanges(true);
+  }, []);
+
+  // Initialize data protection
+  const dataProtection = useUniversalDataProtection<MeetingFrameFormData>({
+    formData,
+    formType: FORM_TYPE,
+    autoBackupEnabled: true,
+    autoBackupInterval: 30,
+    onDataRestored: restoreFormData,
+  });
+
+  // Check for existing backup on mount
+  useEffect(() => {
+    if (recoveryCheckedRef.current) return;
+    recoveryCheckedRef.current = true;
+
+    const backups = UniversalDataProtectionService.getBackupsFromStorage<MeetingFrameFormData>(FORM_TYPE);
+    if (backups.length > 0) {
+      const latestBackup = backups[0];
+      // Only show recovery if there's meaningful data
+      const hasData = latestBackup.formData.reportGenerated ||
+                      latestBackup.formData.selectedMember ||
+                      latestBackup.formData.meetingNotes;
+      if (hasData) {
+        setShowRecoveryBanner(true);
+      }
+    }
+  }, []);
+
+  // Warn before leaving with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && reportGenerated && !viewingHistoricalFrame) {
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges, reportGenerated, viewingHistoricalFrame]);
+
+  // Track changes
+  useEffect(() => {
+    if (reportGenerated && !viewingHistoricalFrame) {
+      setHasUnsavedChanges(true);
+    }
+  }, [kpiTotals, callLogData, quotedData, soldData, callScoringData, meetingNotes, reportGenerated, viewingHistoricalFrame]);
+
+  // Handle recovery
+  const handleRecover = () => {
+    const recovered = dataProtection.recoverFromLatestBackup();
+    if (recovered) {
+      setShowRecoveryBanner(false);
+      toast.success('Your previous work has been recovered!');
+    }
+  };
+
+  const handleDismissRecovery = () => {
+    setShowRecoveryBanner(false);
+  };
 
   // Fetch team members and meeting frame history on mount
   // KPIs are now fetched reactively via useAgencyKpisWithConfig when member is selected
@@ -384,6 +496,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
       }
 
       toast.success('Meeting frame saved successfully!');
+      setHasUnsavedChanges(false);
       fetchMeetingFrameHistory();
     } catch (err) {
       console.error('Error saving meeting frame:', err);
@@ -502,6 +615,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
     setMeetingNotes('');
     setReportGenerated(false);
     setViewingHistoricalFrame(null);
+    setHasUnsavedChanges(false);
   };
 
   const selectedMemberName = teamMembers.find(m => m.id === selectedMember)?.name || '';
@@ -527,6 +641,26 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
 
   return (
     <div className="space-y-6">
+      {/* Recovery Banner */}
+      {showRecoveryBanner && (
+        <Alert className="border-amber-500 bg-amber-500/10">
+          <Shield className="h-4 w-4 text-amber-500" />
+          <AlertTitle className="text-amber-500">Unsaved Work Detected</AlertTitle>
+          <AlertDescription className="flex items-center justify-between">
+            <span>We found unsaved data from a previous session. Would you like to recover it?</span>
+            <div className="flex gap-2 ml-4">
+              <Button size="sm" variant="outline" onClick={handleRecover}>
+                <RotateCcw className="h-4 w-4 mr-1" />
+                Recover
+              </Button>
+              <Button size="sm" variant="ghost" onClick={handleDismissRecovery}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Header with toggle */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
