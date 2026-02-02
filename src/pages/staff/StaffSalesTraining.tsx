@@ -77,7 +77,7 @@ interface SalesExperienceData {
 
 export default function StaffSalesTraining() {
   const navigate = useNavigate();
-  const { user, sessionToken, isAuthenticated, loading: authLoading, agencyId } = useStaffAuth();
+  const { user, sessionToken, isAuthenticated, loading: authLoading } = useStaffAuth();
 
   const [data, setData] = useState<SalesExperienceData | null>(null);
   const [loading, setLoading] = useState(true);
