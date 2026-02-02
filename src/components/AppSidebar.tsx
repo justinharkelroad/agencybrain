@@ -104,8 +104,9 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const { filterNavigation, loading: accessLoading, agencyId } = useSidebarAccess();
   const { hasAccess: hasSalesExperienceAccess } = useSalesExperienceAccess();
-  const { data: salesProcessBuilderData } = useSalesProcessBuilderAccess();
-  const hasSalesProcessBuilderAccess = salesProcessBuilderData?.hasAccess ?? false;
+  const { data: salesProcessBuilderData, isError: salesProcessBuilderError } = useSalesProcessBuilderAccess();
+  // If there's an error (like 403), treat as no access - don't crash the app
+  const hasSalesProcessBuilderAccess = (!salesProcessBuilderError && salesProcessBuilderData?.hasAccess) ?? false;
   const location = useLocation();
   const { data: subscription } = useSubscription();
 
