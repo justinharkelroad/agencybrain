@@ -283,6 +283,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timeoutId);
   }, [adminLoading, tierLoading]);
 
+  // Proactive token refresh - prevents stale session issues
+  useEffect(() => {
+    if (!session) return;
+
+    // Get token expiry time
+    const expiresAt = session.expires_at;
+    if (!expiresAt) return;
+
+    const expiryTime = expiresAt * 1000; // Convert to milliseconds
+    const refreshBuffer = 5 * 60 * 1000; // Refresh 5 minutes before expiry
+    const now = Date.now();
+
+    // Calculate when to refresh
+    const refreshAt = expiryTime - refreshBuffer;
+    const timeUntilRefresh = refreshAt - now;
+
+    // If already expired or about to expire, refresh immediately
+    if (timeUntilRefresh <= 0) {
+      console.log('[Auth] Token expired or expiring soon, refreshing...');
+      supabase.auth.refreshSession().catch((err) => {
+        console.error('[Auth] Failed to refresh session:', err);
+      });
+      return;
+    }
+
+    // Set up timer to refresh before expiry
+    console.log(`[Auth] Token refresh scheduled in ${Math.round(timeUntilRefresh / 1000 / 60)} minutes`);
+    const timerId = setTimeout(() => {
+      console.log('[Auth] Proactively refreshing token before expiry...');
+      supabase.auth.refreshSession().catch((err) => {
+        console.error('[Auth] Failed to refresh session:', err);
+      });
+    }, timeUntilRefresh);
+
+    // Also refresh when tab becomes visible (user returns after being away)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const currentTime = Date.now();
+        const timeRemaining = expiryTime - currentTime;
+
+        // If less than 10 minutes remaining or already expired, refresh
+        if (timeRemaining < 10 * 60 * 1000) {
+          console.log('[Auth] Tab visible with token expiring soon, refreshing...');
+          supabase.auth.refreshSession().catch((err) => {
+            console.error('[Auth] Failed to refresh session on visibility:', err);
+          });
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearTimeout(timerId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [session]);
+
   const signUp = async (email: string, password: string, agencyName: string, fullName: string) => {
     // Always use production URL to avoid localhost redirect issues
     const redirectUrl = window.location.hostname === 'localhost'
