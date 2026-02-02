@@ -7657,6 +7657,7 @@ export type Database = {
           created_at: string
           day_of_week: number
           description: string | null
+          documents_json: Json | null
           id: string
           is_owner_only: boolean
           is_staff_visible: boolean
@@ -7674,6 +7675,7 @@ export type Database = {
           created_at?: string
           day_of_week: number
           description?: string | null
+          documents_json?: Json | null
           id?: string
           is_owner_only?: boolean
           is_staff_visible?: boolean
@@ -7691,6 +7693,7 @@ export type Database = {
           created_at?: string
           day_of_week?: number
           description?: string | null
+          documents_json?: Json | null
           id?: string
           is_owner_only?: boolean
           is_staff_visible?: boolean
