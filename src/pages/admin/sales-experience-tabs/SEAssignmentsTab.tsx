@@ -43,7 +43,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format, addDays, nextMonday } from 'date-fns';
+import { format, addDays, nextMonday, differenceInBusinessDays, isBefore, startOfDay } from 'date-fns';
 
 interface Agency {
   id: string;
@@ -119,13 +119,13 @@ export function SEAssignmentsTab() {
 
   // Create assignment mutation
   const createAssignment = useMutation({
-    mutationFn: async (params: { agency_id: string; start_date: string; notes: string }) => {
+    mutationFn: async (params: { agency_id: string; start_date: string; notes: string; auto_activate?: boolean }) => {
       const { data, error } = await supabase.from('sales_experience_assignments').insert({
         agency_id: params.agency_id,
         assigned_by: user?.id,
         start_date: params.start_date,
         notes: params.notes || null,
-        status: 'pending',
+        status: params.auto_activate ? 'active' : 'pending',
       }).select();
 
       if (error) throw error;
@@ -182,10 +182,14 @@ export function SEAssignmentsTab() {
       return;
     }
 
+    // Auto-activate if start date is in the past (arrears mode)
+    const isArrears = startingWeekInfo?.isArrears ?? false;
+
     createAssignment.mutate({
       agency_id: selectedAgency,
       start_date: startDate,
       notes,
+      auto_activate: isArrears,
     });
   };
 
@@ -193,6 +197,37 @@ export function SEAssignmentsTab() {
     const monday = nextMonday(new Date());
     return format(monday, 'yyyy-MM-dd');
   };
+
+  // Calculate what week/day they'll be in based on selected start date
+  const getStartingWeekInfo = () => {
+    if (!startDate) return null;
+
+    const selected = new Date(startDate + 'T00:00:00');
+    const today = startOfDay(new Date());
+
+    // If start date is in the future, they'll start at Week 1, Day 1
+    if (!isBefore(selected, today)) {
+      return { week: 1, day: 1, isArrears: false, businessDays: 0 };
+    }
+
+    // Calculate business days since start date
+    let businessDays = 0;
+    const currentDate = new Date(selected);
+    while (currentDate <= today) {
+      const dow = currentDate.getDay();
+      if (dow !== 0 && dow !== 6) {
+        businessDays++;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    const week = Math.min(8, Math.max(1, Math.ceil(businessDays / 5)));
+    const day = ((businessDays - 1) % 5) + 1;
+
+    return { week, day, isArrears: true, businessDays };
+  };
+
+  const startingWeekInfo = getStartingWeekInfo();
 
   if (assignmentsLoading || agenciesLoading) {
     return (
@@ -247,11 +282,37 @@ export function SEAssignmentsTab() {
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  min={getNextMonday()}
                 />
                 <p className="text-xs text-muted-foreground">
                   Next Monday: {getNextMonday()}
                 </p>
+                {startingWeekInfo && (
+                  <div className={`text-sm p-3 rounded-md ${
+                    startingWeekInfo.isArrears
+                      ? 'bg-amber-500/10 border border-amber-500/30'
+                      : 'bg-green-500/10 border border-green-500/30'
+                  }`}>
+                    {startingWeekInfo.isArrears ? (
+                      <>
+                        <p className="font-medium text-amber-600">Starting in Arrears</p>
+                        <p className="text-muted-foreground">
+                          They'll start at <strong>Week {startingWeekInfo.week}, Day {startingWeekInfo.day}</strong> ({startingWeekInfo.businessDays} business days in).
+                          All prior content will be immediately available.
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Assignment will be auto-activated since the start date has passed.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-medium text-green-600">Starting Fresh</p>
+                        <p className="text-muted-foreground">
+                          They'll start at Week 1, Day 1 when the program begins.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Notes (optional)</Label>

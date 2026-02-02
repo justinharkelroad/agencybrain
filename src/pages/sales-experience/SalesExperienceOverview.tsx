@@ -4,10 +4,10 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { useSalesExperienceAccess } from '@/hooks/useSalesExperienceAccess';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { pillarColors, pillarLabels, type Pillar } from '@/components/sales-experience';
 import {
   Loader2,
   Trophy,
@@ -15,7 +15,6 @@ import {
   Circle,
   Lock,
   ChevronRight,
-  BookOpen,
   MessageSquare,
   Users,
   Calendar,
@@ -26,7 +25,7 @@ interface ModuleWithLessons {
   week_number: number;
   title: string;
   description: string;
-  pillar: 'sales_process' | 'accountability' | 'coaching_cadence';
+  pillar: Pillar;
   icon: string;
   lessons: any[];
 }
@@ -52,18 +51,6 @@ interface SalesExperienceData {
   unread_messages: number;
   current_week_transcript: any | null;
 }
-
-const pillarColors = {
-  sales_process: 'bg-blue-500',
-  accountability: 'bg-amber-500',
-  coaching_cadence: 'bg-green-500',
-};
-
-const pillarLabels = {
-  sales_process: 'Sales Process',
-  accountability: 'Accountability',
-  coaching_cadence: 'Coaching Cadence',
-};
 
 export default function SalesExperienceOverview() {
   const { session } = useAuth();

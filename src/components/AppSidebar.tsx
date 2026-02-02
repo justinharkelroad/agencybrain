@@ -54,6 +54,7 @@ import { MyAccountDialogContent } from "@/components/MyAccountDialogContent";
 import { useExchangeNotifications } from "@/hooks/useExchangeNotifications";
 import { useUnreadMessageCount } from "@/hooks/useExchangeUnread";
 import { useOverdueTaskCount } from "@/hooks/useOverdueTaskCount";
+import { useSalesExperienceUnreadMessages } from "@/hooks/useSalesExperienceUnread";
 import { Badge } from "@/components/ui/badge";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
 import { getFeatureGateConfig } from "@/config/featureGates";
@@ -134,6 +135,9 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
 
   // Get overdue task count for badge
   const { data: overdueTaskCount = 0 } = useOverdueTaskCount();
+
+  // Get sales experience unread messages for badge (owner/manager only)
+  const { data: seUnreadCount = 0 } = useSalesExperienceUnreadMessages();
   
   // State - which folder(s) are open (kept as an array for compatibility, but enforced as single-open)
   const [openFolders, setOpenFolders] = useState<string[]>(() => {
@@ -454,6 +458,16 @@ useEffect(() => {
                     // Get visible items for this folder
                     const visibleItems = entry.items;
 
+                    // Badge for Sales Experience folder (unread coach messages)
+                    const folderBadge = entry.id === 'sales-experience' && seUnreadCount > 0 ? (
+                      <Badge
+                        variant="destructive"
+                        className="h-5 min-w-5 flex items-center justify-center text-xs px-1"
+                      >
+                        {seUnreadCount > 99 ? '99+' : seUnreadCount}
+                      </Badge>
+                    ) : undefined;
+
                       return (
                         <SidebarFolder
                           key={entry.id}
@@ -465,6 +479,7 @@ useEffect(() => {
                           }}
                           isOpen={openFolders.includes(entry.id)}
                           onToggle={() => toggleFolder(entry.id)}
+                          badge={folderBadge}
                         >
                           {visibleItems.map((item) => {
                             // Check if this is a sub-folder
@@ -483,15 +498,27 @@ useEffect(() => {
                               );
                             }
 
-                            // Badge for onboarding tasks
-                            const itemBadge = item.id === 'onboarding-tasks' && overdueTaskCount > 0 ? (
-                              <Badge
-                                variant="destructive"
-                                className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
-                              >
-                                {overdueTaskCount > 99 ? '99+' : overdueTaskCount}
-                              </Badge>
-                            ) : undefined;
+                            // Badge for onboarding tasks or sales experience messages
+                            let itemBadge: React.ReactNode = undefined;
+                            if (item.id === 'onboarding-tasks' && overdueTaskCount > 0) {
+                              itemBadge = (
+                                <Badge
+                                  variant="destructive"
+                                  className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
+                                >
+                                  {overdueTaskCount > 99 ? '99+' : overdueTaskCount}
+                                </Badge>
+                              );
+                            } else if (item.id === 'se-messages' && seUnreadCount > 0) {
+                              itemBadge = (
+                                <Badge
+                                  variant="destructive"
+                                  className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
+                                >
+                                  {seUnreadCount > 99 ? '99+' : seUnreadCount}
+                                </Badge>
+                              );
+                            }
 
                             return (
                               <SidebarNavItem

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { useSalesExperienceAccess } from '@/hooks/useSalesExperienceAccess';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useToast } from '@/hooks/use-toast';
+import { VideoEmbed, dayLabels, pillarColors, pillarLabels, type Pillar } from '@/components/sales-experience';
 import {
   Loader2,
   ArrowLeft,
@@ -22,11 +24,9 @@ import {
   MessageSquare,
   CheckCircle2,
   Circle,
-  Lock,
   Play,
   ChevronRight,
   BookOpen,
-  X,
 } from 'lucide-react';
 
 interface Module {
@@ -34,7 +34,7 @@ interface Module {
   week_number: number;
   title: string;
   description: string;
-  pillar: 'sales_process' | 'accountability' | 'coaching_cadence';
+  pillar: Pillar;
 }
 
 interface Lesson {
@@ -49,29 +49,25 @@ interface Lesson {
   is_staff_visible: boolean;
 }
 
-const dayLabels: Record<number, string> = {
-  1: 'Monday',
-  3: 'Wednesday',
-  5: 'Friday',
-};
-
-const pillarColors = {
-  sales_process: 'bg-blue-500',
-  accountability: 'bg-amber-500',
-  coaching_cadence: 'bg-green-500',
-};
-
-const pillarLabels = {
-  sales_process: 'Sales Process',
-  accountability: 'Accountability',
-  coaching_cadence: 'Coaching Cadence',
-};
+interface OwnerProgress {
+  id: string;
+  assignment_id: string;
+  user_id: string;
+  lesson_id: string;
+  status: 'not_started' | 'in_progress' | 'completed';
+  started_at: string | null;
+  completed_at: string | null;
+  video_watched_seconds: number;
+  video_completed: boolean;
+}
 
 export default function SalesExperienceWeek() {
   const { week } = useParams<{ week: string }>();
   const weekNumber = parseInt(week || '1', 10);
-  const { hasAccess, currentWeek, isLoading: accessLoading } = useSalesExperienceAccess();
+  const { hasAccess, assignment, currentWeek, isLoading: accessLoading } = useSalesExperienceAccess();
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   // Fetch module for this week
   const { data: module, isLoading: moduleLoading } = useQuery({
@@ -104,6 +100,89 @@ export default function SalesExperienceWeek() {
       return data as Lesson[];
     },
   });
+
+  // Fetch owner progress for this week's lessons
+  const { data: progressRecords } = useQuery({
+    queryKey: ['sales-experience-owner-progress', assignment?.id, weekNumber],
+    enabled: hasAccess && !!assignment?.id && !!lessons?.length,
+    queryFn: async () => {
+      const lessonIds = lessons!.map((l) => l.id);
+      const { data, error } = await supabase
+        .from('sales_experience_owner_progress')
+        .select('*')
+        .eq('assignment_id', assignment!.id)
+        .in('lesson_id', lessonIds);
+
+      if (error) throw error;
+      return data as OwnerProgress[];
+    },
+  });
+
+  // Create a map of lesson progress
+  const progressMap = useMemo(() => {
+    const map = new Map<string, OwnerProgress>();
+    progressRecords?.forEach((p) => map.set(p.lesson_id, p));
+    return map;
+  }, [progressRecords]);
+
+  // Mutation for updating lesson progress
+  const progressMutation = useMutation({
+    mutationFn: async ({ lessonId, action }: { lessonId: string; action: 'start' | 'complete' }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/complete-sales-lesson`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ lesson_id: lessonId, action }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update progress');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales-experience-owner-progress'] });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Mark lesson as started when modal opens
+  const handleOpenLesson = (lesson: Lesson) => {
+    setSelectedLesson(lesson);
+    const progress = progressMap.get(lesson.id);
+    if (!progress || progress.status === 'not_started') {
+      progressMutation.mutate({ lessonId: lesson.id, action: 'start' });
+    }
+  };
+
+  // Mark lesson as completed
+  const handleCompleteLesson = () => {
+    if (!selectedLesson) return;
+    progressMutation.mutate(
+      { lessonId: selectedLesson.id, action: 'complete' },
+      {
+        onSuccess: () => {
+          toast({
+            title: 'Lesson completed',
+            description: 'Your progress has been saved.',
+          });
+        },
+      }
+    );
+  };
 
   const isWeekUnlocked = currentWeek >= weekNumber;
 
@@ -205,7 +284,8 @@ export default function SalesExperienceWeek() {
                   key={lesson.id}
                   lesson={lesson}
                   weekNumber={weekNumber}
-                  onView={() => setSelectedLesson(lesson)}
+                  progress={progressMap.get(lesson.id)}
+                  onView={() => handleOpenLesson(lesson)}
                 />
               ))}
             </div>
@@ -245,41 +325,19 @@ export default function SalesExperienceWeek() {
             <DialogTitle className="flex items-center gap-2">
               <Badge variant="outline">{dayLabels[selectedLesson?.day_of_week || 1]}</Badge>
               {selectedLesson?.title}
+              {selectedLesson && progressMap.get(selectedLesson.id)?.status === 'completed' && (
+                <CheckCircle2 className="h-5 w-5 text-green-500 ml-auto" />
+              )}
             </DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[calc(90vh-100px)]">
+          <ScrollArea className="max-h-[calc(90vh-160px)]">
             <div className="p-6 pt-4 space-y-6">
               {/* Video */}
               {selectedLesson?.video_url && (
-                <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-                  {selectedLesson.video_platform === 'vimeo' ? (
-                    <iframe
-                      src={selectedLesson.video_url}
-                      className="w-full h-full"
-                      allow="autoplay; fullscreen; picture-in-picture"
-                      allowFullScreen
-                    />
-                  ) : selectedLesson.video_platform === 'youtube' ? (
-                    <iframe
-                      src={selectedLesson.video_url?.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/')}
-                      className="w-full h-full"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                    />
-                  ) : selectedLesson.video_platform === 'loom' ? (
-                    <iframe
-                      src={selectedLesson.video_url?.replace('loom.com/share/', 'loom.com/embed/')}
-                      className="w-full h-full"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <video
-                      src={selectedLesson.video_url}
-                      controls
-                      className="w-full h-full"
-                    />
-                  )}
-                </div>
+                <VideoEmbed
+                  url={selectedLesson.video_url}
+                  platform={selectedLesson.video_platform}
+                />
               )}
 
               {/* Content */}
@@ -304,6 +362,42 @@ export default function SalesExperienceWeek() {
               )}
             </div>
           </ScrollArea>
+
+          {/* Footer with Mark Complete button */}
+          {selectedLesson && (
+            <div className="p-6 pt-0 border-t bg-background">
+              <div className="flex items-center justify-between pt-4">
+                {progressMap.get(selectedLesson.id)?.status === 'completed' ? (
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span className="font-medium">Completed</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Circle className="h-5 w-5" />
+                    <span>Not yet completed</span>
+                  </div>
+                )}
+                <Button
+                  onClick={handleCompleteLesson}
+                  disabled={
+                    progressMutation.isPending ||
+                    progressMap.get(selectedLesson.id)?.status === 'completed'
+                  }
+                  className="gap-2"
+                >
+                  {progressMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4" />
+                  )}
+                  {progressMap.get(selectedLesson.id)?.status === 'completed'
+                    ? 'Completed'
+                    : 'Mark as Complete'}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -313,13 +407,14 @@ export default function SalesExperienceWeek() {
 interface LessonCardProps {
   lesson: Lesson;
   weekNumber: number;
+  progress?: OwnerProgress;
   onView: () => void;
 }
 
-function LessonCard({ lesson, weekNumber, onView }: LessonCardProps) {
+function LessonCard({ lesson, weekNumber, progress, onView }: LessonCardProps) {
   const hasVideo = !!lesson.video_url;
-  // TODO: Fetch actual completion status
-  const isCompleted = false;
+  const isCompleted = progress?.status === 'completed';
+  const isInProgress = progress?.status === 'in_progress';
 
   return (
     <Card className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={onView}>
@@ -335,9 +430,11 @@ function LessonCard({ lesson, weekNumber, onView }: LessonCardProps) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <h4 className="font-semibold">{lesson.title}</h4>
-            {isCompleted && (
+            {isCompleted ? (
               <CheckCircle2 className="h-4 w-4 text-green-500" />
-            )}
+            ) : isInProgress ? (
+              <Circle className="h-4 w-4 text-amber-500" />
+            ) : null}
           </div>
           {lesson.description && (
             <p className="text-sm text-muted-foreground line-clamp-2">

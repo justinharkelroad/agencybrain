@@ -24,9 +24,10 @@ interface SidebarFolderProps {
   isOpen: boolean;
   onToggle: () => void;
   children: React.ReactNode;
+  badge?: React.ReactNode;
 }
 
-export function SidebarFolder({ folder, isOpen, onToggle, children }: SidebarFolderProps) {
+export function SidebarFolder({ folder, isOpen, onToggle, children, badge }: SidebarFolderProps) {
   const Icon = folder.icon;
 
   return (
@@ -50,6 +51,7 @@ export function SidebarFolder({ folder, isOpen, onToggle, children }: SidebarFol
       >
         <Icon className="h-4 w-4 shrink-0" />
         <span className="flex-1 truncate text-left">{folder.title}</span>
+        {badge}
         <ChevronRight
           className={cn(
             "h-4 w-4 shrink-0 transition-transform duration-200",

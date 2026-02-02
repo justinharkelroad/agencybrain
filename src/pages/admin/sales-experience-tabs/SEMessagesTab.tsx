@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
@@ -115,6 +115,12 @@ export function SEMessagesTab() {
     },
   });
 
+  // Calculate unread count from messages (messages from owners that are unread)
+  const unreadCount = useMemo(() => {
+    if (!messages) return 0;
+    return messages.filter((m) => m.sender_type === 'owner' && !m.is_read).length;
+  }, [messages]);
+
   // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (params: { assignment_ids: string[]; subject: string; body: string }) => {
@@ -185,7 +191,14 @@ export function SEMessagesTab() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-semibold">Messages</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold">Messages</h2>
+            {unreadCount > 0 && (
+              <Badge variant="destructive" className="h-5 min-w-5 flex items-center justify-center text-xs px-1.5">
+                {unreadCount > 99 ? '99+' : unreadCount} unread
+              </Badge>
+            )}
+          </div>
           <p className="text-sm text-muted-foreground">
             Send messages to agencies enrolled in the 8-Week Sales Experience
           </p>

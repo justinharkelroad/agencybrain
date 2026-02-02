@@ -16,6 +16,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { dayLabels } from '@/components/sales-experience';
 
 interface SalesExperienceLesson {
   id: string;
@@ -66,18 +67,6 @@ interface SalesExperienceData {
   };
   staff_name: string;
 }
-
-const dayLabels: Record<number, string> = {
-  1: 'Monday',
-  3: 'Wednesday',
-  5: 'Friday',
-};
-
-const pillarColors: Record<string, string> = {
-  sales_process: 'bg-blue-500',
-  accountability: 'bg-amber-500',
-  coaching_cadence: 'bg-green-500',
-};
 
 export default function StaffSalesTraining() {
   const navigate = useNavigate();
