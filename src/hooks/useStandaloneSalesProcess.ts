@@ -54,15 +54,18 @@ export function useSalesProcessBuilderAccess() {
         }
       );
 
-      if (response.status === 403) {
+      if (!response.ok) {
+        // Any error means no access
         return { hasAccess: false, salesProcess: null, session: null };
       }
 
-      if (!response.ok) {
-        throw new Error('Failed to check access');
+      const data = await response.json();
+
+      // Check if response explicitly indicates no access
+      if (data.hasAccess === false) {
+        return { hasAccess: false, salesProcess: null, session: null };
       }
 
-      const data = await response.json();
       return {
         hasAccess: true,
         salesProcess: data.sales_process as StandaloneSalesProcess | null,

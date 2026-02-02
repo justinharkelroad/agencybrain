@@ -155,9 +155,10 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!featureAccess) {
+      // Return 200 with hasAccess: false instead of 403 to avoid triggering error trackers
       return new Response(
-        JSON.stringify({ error: 'Access denied - feature not enabled for this agency' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ hasAccess: false, sales_process: null, session: null }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
