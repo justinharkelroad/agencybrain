@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
 import { useSalesExperienceAccess } from '@/hooks/useSalesExperienceAccess';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,61 +28,81 @@ interface Message {
   content: string;
   read_at: string | null;
   created_at: string;
-  profiles: {
+  sender: {
     full_name: string | null;
-    email: string | null;
+    avatar_url: string | null;
   } | null;
 }
 
 export default function SalesExperienceMessages() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const queryClient = useQueryClient();
   const { hasAccess, assignment, isLoading: accessLoading } = useSalesExperienceAccess();
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch messages
-  const { data: messages, isLoading: messagesLoading } = useQuery({
+  // Fetch messages using edge function
+  const { data: messagesData, isLoading: messagesLoading } = useQuery({
     queryKey: ['sales-experience-messages', assignment?.id],
-    enabled: hasAccess && !!assignment?.id,
-    refetchInterval: 30000, // Poll every 30 seconds
+    enabled: hasAccess && !!assignment?.id && !!session?.access_token,
+    refetchInterval: 30000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sales_experience_messages')
-        .select(`
-          *,
-          profiles:sender_user_id(full_name, email)
-        `)
-        .eq('assignment_id', assignment!.id)
-        .order('created_at', { ascending: true });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sales-experience-messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            action: 'list',
+          }),
+        }
+      );
 
-      if (error) throw error;
-      return data as Message[];
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch messages');
+      }
+
+      return response.json();
     },
   });
 
+  const messages = messagesData?.messages || [];
+
   // Mark messages as read
   useEffect(() => {
-    if (!messages || !assignment?.id || !user?.id) return;
+    if (!messages.length || !session?.access_token || !user?.id) return;
 
     const unreadMessages = messages.filter(
-      (m) => !m.read_at && m.sender_user_id !== user.id
+      (m: Message) => !m.read_at && m.sender_user_id !== user.id && m.sender_type === 'coach'
     );
 
     if (unreadMessages.length === 0) return;
 
     const markAsRead = async () => {
-      await supabase
-        .from('sales_experience_messages')
-        .update({ read_at: new Date().toISOString(), read_by: user.id })
-        .in(
-          'id',
-          unreadMessages.map((m) => m.id)
+      for (const message of unreadMessages) {
+        await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sales-experience-messages`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({
+              action: 'mark_read',
+              message_id: message.id,
+            }),
+          }
         );
+      }
     };
 
     markAsRead();
-  }, [messages, assignment?.id, user?.id]);
+  }, [messages, session?.access_token, user?.id]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -94,18 +112,32 @@ export default function SalesExperienceMessages() {
   // Send message mutation
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
-      if (!assignment?.id || !user?.id) {
-        throw new Error('Missing assignment or user');
+      if (!assignment?.id || !session?.access_token) {
+        throw new Error('Missing assignment or session');
       }
 
-      const { error } = await supabase.from('sales_experience_messages').insert({
-        assignment_id: assignment.id,
-        sender_type: 'owner', // Owners/managers send as 'owner' type
-        sender_user_id: user.id,
-        content,
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sales-experience-messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            action: 'send',
+            assignment_id: assignment.id,
+            content,
+          }),
+        }
+      );
 
-      if (error) throw error;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send message');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       setNewMessage('');
@@ -136,6 +168,11 @@ export default function SalesExperienceMessages() {
   if (!hasAccess) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  // Sort messages chronologically (oldest first)
+  const sortedMessages = [...messages].sort(
+    (a: Message, b: Message) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
 
   return (
     <div className="container max-w-3xl mx-auto py-8 px-4">
@@ -179,9 +216,9 @@ export default function SalesExperienceMessages() {
                 </div>
               ))}
             </div>
-          ) : messages && messages.length > 0 ? (
+          ) : sortedMessages.length > 0 ? (
             <div className="space-y-4">
-              {messages.map((message) => {
+              {sortedMessages.map((message: Message) => {
                 const isCoach = message.sender_type === 'coach';
                 const isOwnMessage = message.sender_user_id === user?.id;
 
@@ -217,7 +254,7 @@ export default function SalesExperienceMessages() {
                         <span className="text-sm font-medium">
                           {isCoach
                             ? 'Coach'
-                            : message.profiles?.full_name || 'You'}
+                            : message.sender?.full_name || 'You'}
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {formatDistanceToNow(new Date(message.created_at), {

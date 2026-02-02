@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import {
   Accordion,
   AccordionContent,
@@ -23,6 +24,13 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Loader2,
   Plus,
   Video,
@@ -30,6 +38,8 @@ import {
   Edit,
   Save,
   BookOpen,
+  Trash2,
+  HelpCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -42,6 +52,14 @@ interface Module {
   icon: string | null;
 }
 
+interface QuizQuestion {
+  id: string;
+  question: string;
+  type: 'multiple_choice' | 'text';
+  options?: string[];
+  correct_answer?: string;
+}
+
 interface Lesson {
   id: string;
   module_id: string;
@@ -52,7 +70,7 @@ interface Lesson {
   video_platform: string | null;
   content_html: string | null;
   is_staff_visible: boolean;
-  quiz_questions: any[];
+  quiz_questions: QuizQuestion[];
 }
 
 const dayLabels: Record<number, string> = {
@@ -271,32 +289,184 @@ export function SEContentTab() {
                     onChange={(e) =>
                       setEditingLesson({ ...editingLesson, video_url: e.target.value })
                     }
-                    placeholder="https://vimeo.com/..."
+                    placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Video Platform</Label>
-                  <Input
+                  <Select
                     value={editingLesson.video_platform || ''}
-                    onChange={(e) =>
-                      setEditingLesson({ ...editingLesson, video_platform: e.target.value })
+                    onValueChange={(value) =>
+                      setEditingLesson({ ...editingLesson, video_platform: value })
                     }
-                    placeholder="vimeo, youtube, etc."
-                  />
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select platform" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="youtube">YouTube</SelectItem>
+                      <SelectItem value="vimeo">Vimeo</SelectItem>
+                      <SelectItem value="loom">Loom</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Content (HTML)</Label>
-                <Textarea
+                <Label>Content</Label>
+                <RichTextEditor
                   value={editingLesson.content_html || ''}
-                  onChange={(e) =>
-                    setEditingLesson({ ...editingLesson, content_html: e.target.value })
+                  onChange={(html) =>
+                    setEditingLesson({ ...editingLesson, content_html: html })
                   }
-                  rows={8}
-                  className="font-mono text-sm"
-                  placeholder="<p>Lesson content...</p>"
+                  placeholder="Write lesson content here..."
                 />
               </div>
+
+              {/* Quiz Questions Editor */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <HelpCircle className="h-4 w-4" />
+                    Quiz Questions ({editingLesson.quiz_questions?.length || 0})
+                  </Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const newQuestion: QuizQuestion = {
+                        id: crypto.randomUUID(),
+                        question: '',
+                        type: 'text',
+                        options: [],
+                      };
+                      setEditingLesson({
+                        ...editingLesson,
+                        quiz_questions: [...(editingLesson.quiz_questions || []), newQuestion],
+                      });
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Question
+                  </Button>
+                </div>
+
+                {editingLesson.quiz_questions?.map((q, qIndex) => (
+                  <Card key={q.id} className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 space-y-2">
+                          <Label className="text-xs text-muted-foreground">Question {qIndex + 1}</Label>
+                          <Textarea
+                            value={q.question}
+                            onChange={(e) => {
+                              const updated = [...editingLesson.quiz_questions];
+                              updated[qIndex] = { ...q, question: e.target.value };
+                              setEditingLesson({ ...editingLesson, quiz_questions: updated });
+                            }}
+                            placeholder="Enter question..."
+                            rows={2}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => {
+                            const updated = editingLesson.quiz_questions.filter((_, i) => i !== qIndex);
+                            setEditingLesson({ ...editingLesson, quiz_questions: updated });
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      <div className="flex items-center gap-4">
+                        <Label className="text-xs">Type:</Label>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={q.type === 'text' ? 'default' : 'outline'}
+                            onClick={() => {
+                              const updated = [...editingLesson.quiz_questions];
+                              updated[qIndex] = { ...q, type: 'text', options: [] };
+                              setEditingLesson({ ...editingLesson, quiz_questions: updated });
+                            }}
+                          >
+                            Text Answer
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={q.type === 'multiple_choice' ? 'default' : 'outline'}
+                            onClick={() => {
+                              const updated = [...editingLesson.quiz_questions];
+                              updated[qIndex] = {
+                                ...q,
+                                type: 'multiple_choice',
+                                options: q.options?.length ? q.options : ['', '', '', '']
+                              };
+                              setEditingLesson({ ...editingLesson, quiz_questions: updated });
+                            }}
+                          >
+                            Multiple Choice
+                          </Button>
+                        </div>
+                      </div>
+
+                      {q.type === 'multiple_choice' && (
+                        <div className="space-y-2 pl-4 border-l-2 border-muted">
+                          <Label className="text-xs text-muted-foreground">Options (click to set as correct answer)</Label>
+                          {q.options?.map((opt, optIndex) => (
+                            <div key={optIndex} className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant={q.correct_answer === opt && opt ? 'default' : 'outline'}
+                                className="w-8 h-8 p-0"
+                                onClick={() => {
+                                  const updated = [...editingLesson.quiz_questions];
+                                  updated[qIndex] = { ...q, correct_answer: opt };
+                                  setEditingLesson({ ...editingLesson, quiz_questions: updated });
+                                }}
+                                disabled={!opt}
+                              >
+                                {String.fromCharCode(65 + optIndex)}
+                              </Button>
+                              <Input
+                                value={opt}
+                                onChange={(e) => {
+                                  const updated = [...editingLesson.quiz_questions];
+                                  const newOptions = [...(q.options || [])];
+                                  newOptions[optIndex] = e.target.value;
+                                  updated[qIndex] = { ...q, options: newOptions };
+                                  setEditingLesson({ ...editingLesson, quiz_questions: updated });
+                                }}
+                                placeholder={`Option ${String.fromCharCode(65 + optIndex)}`}
+                                className="flex-1"
+                              />
+                            </div>
+                          ))}
+                          {q.correct_answer && (
+                            <p className="text-xs text-green-600">
+                              Correct answer: {q.correct_answer}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                ))}
+
+                {(!editingLesson.quiz_questions || editingLesson.quiz_questions.length === 0) && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No quiz questions yet. Add questions to create a quiz for this lesson.
+                  </p>
+                )}
+              </div>
+
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Visible to Staff</Label>

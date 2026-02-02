@@ -16,30 +16,34 @@ import {
   Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { isLessonUnlocked } from '@/hooks/useSalesExperienceAccess';
 
 interface SalesExperienceLesson {
   id: string;
   title: string;
   description: string | null;
   day_of_week: number;
+  week_number: number;
   video_url: string | null;
-  is_staff_visible: boolean;
+  is_unlocked: boolean;
   quiz_questions: any[];
-  module: {
-    id: string;
-    week_number: number;
-    title: string;
-    pillar: string;
-  };
   progress: {
-    id: string;
     status: 'locked' | 'available' | 'in_progress' | 'completed';
     unlocked_at: string | null;
     started_at: string | null;
     completed_at: string | null;
     quiz_score_percent: number | null;
-  } | null;
+  };
+}
+
+interface SalesExperienceWeek {
+  week_number: number;
+  title: string;
+  description: string | null;
+  pillar: string;
+  icon: string | null;
+  lessons: SalesExperienceLesson[];
+  is_current: boolean;
+  is_completed: boolean;
 }
 
 interface SalesExperienceData {
@@ -51,13 +55,16 @@ interface SalesExperienceData {
     end_date: string;
   };
   current_week: number;
-  lessons: SalesExperienceLesson[];
+  current_business_day: number;
+  day_in_week: number;
+  weeks: SalesExperienceWeek[];
+  todays_lesson: SalesExperienceLesson | null;
   progress: {
     total_lessons: number;
     completed_lessons: number;
     progress_percent: number;
-    avg_quiz_score: number | null;
   };
+  staff_name: string;
 }
 
 const dayLabels: Record<number, string> = {
@@ -99,12 +106,11 @@ export default function StaffSalesTraining() {
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-staff-sales-lessons`,
         {
-          method: 'POST',
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${sessionToken}`,
+            'x-staff-session': sessionToken,
           },
-          body: JSON.stringify({ staff_user_id: user.id }),
         }
       );
 
@@ -122,26 +128,31 @@ export default function StaffSalesTraining() {
       }
     } catch (error) {
       console.error('Error fetching sales experience data:', error);
-      toast.error('Failed to load training content');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load training content';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
-  // Filter lessons by selected week
+  // Get lessons for selected week
   const weekLessons = useMemo(() => {
-    if (!data?.lessons) return [];
-    return data.lessons
-      .filter((lesson) => lesson.module.week_number === selectedWeek)
-      .sort((a, b) => a.day_of_week - b.day_of_week);
-  }, [data?.lessons, selectedWeek]);
+    if (!data?.weeks) return [];
+    const week = data.weeks.find((w) => w.week_number === selectedWeek);
+    return week?.lessons?.sort((a, b) => a.day_of_week - b.day_of_week) || [];
+  }, [data?.weeks, selectedWeek]);
 
-  // Group lessons by week for navigation
+  // Get available week numbers
   const weekNumbers = useMemo(() => {
-    if (!data?.lessons) return [];
-    const weeks = new Set(data.lessons.map((l) => l.module.week_number));
-    return Array.from(weeks).sort((a, b) => a - b);
-  }, [data?.lessons]);
+    if (!data?.weeks) return [];
+    return data.weeks.map((w) => w.week_number).sort((a, b) => a - b);
+  }, [data?.weeks]);
+
+  // Get current week data
+  const currentWeekData = useMemo(() => {
+    if (!data?.weeks) return null;
+    return data.weeks.find((w) => w.week_number === selectedWeek);
+  }, [data?.weeks, selectedWeek]);
 
   if (authLoading || loading) {
     return (
@@ -157,9 +168,9 @@ export default function StaffSalesTraining() {
         <Card>
           <CardContent className="text-center py-16">
             <Trophy className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2">8-Week Sales Experience</h2>
+            <h2 className="text-2xl font-bold mb-2">8 Week Sales Experience</h2>
             <p className="text-muted-foreground max-w-md mx-auto mb-6">
-              Your agency hasn't been enrolled in the 8-Week Sales Experience yet.
+              Your agency hasn't been enrolled in the 8 Week Sales Experience yet.
               Contact your agency owner to learn more about this training program.
             </p>
           </CardContent>
@@ -174,7 +185,7 @@ export default function StaffSalesTraining() {
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <Trophy className="h-8 w-8 text-amber-500" />
-          <h1 className="text-3xl font-bold">8-Week Sales Training</h1>
+          <h1 className="text-3xl font-bold">8 Week Sales Experience</h1>
         </div>
         <p className="text-muted-foreground">
           Complete your lessons and quizzes to build a world-class sales mindset
@@ -184,7 +195,7 @@ export default function StaffSalesTraining() {
       {/* Progress Card */}
       <Card className="mb-6">
         <CardContent className="p-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <p className="text-sm text-muted-foreground mb-1">Current Week</p>
               <p className="text-3xl font-bold">{data.current_week}</p>
@@ -201,14 +212,6 @@ export default function StaffSalesTraining() {
                 <Progress value={data.progress.progress_percent} className="h-2 flex-1" />
                 <span className="text-sm font-medium">{data.progress.progress_percent}%</span>
               </div>
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground mb-1">Avg Quiz Score</p>
-              <p className="text-3xl font-bold">
-                {data.progress.avg_quiz_score !== null
-                  ? `${Math.round(data.progress.avg_quiz_score)}%`
-                  : '--'}
-              </p>
             </div>
           </div>
         </CardContent>
@@ -261,7 +264,6 @@ export default function StaffSalesTraining() {
                 <LessonCard
                   key={lesson.id}
                   lesson={lesson}
-                  startDate={data.assignment?.start_date || ''}
                   onStart={() => navigate(`/staff/sales-training/lesson/${lesson.id}`)}
                 />
               ))
@@ -275,18 +277,12 @@ export default function StaffSalesTraining() {
 
 interface LessonCardProps {
   lesson: SalesExperienceLesson;
-  startDate: string;
   onStart: () => void;
 }
 
-function LessonCard({ lesson, startDate, onStart }: LessonCardProps) {
-  const isUnlocked = isLessonUnlocked(
-    startDate,
-    lesson.module.week_number,
-    lesson.day_of_week
-  );
-  const progress = lesson.progress;
-  const status = progress?.status || (isUnlocked ? 'available' : 'locked');
+function LessonCard({ lesson, onStart }: LessonCardProps) {
+  const isUnlocked = lesson.is_unlocked;
+  const status = lesson.progress?.status || (isUnlocked ? 'available' : 'locked');
   const hasQuiz = lesson.quiz_questions && lesson.quiz_questions.length > 0;
   const hasVideo = !!lesson.video_url;
 
@@ -369,9 +365,9 @@ function LessonCard({ lesson, startDate, onStart }: LessonCardProps) {
                 Quiz
               </span>
             )}
-            {progress?.quiz_score_percent !== null && progress?.quiz_score_percent !== undefined && (
+            {lesson.progress?.quiz_score_percent !== null && lesson.progress?.quiz_score_percent !== undefined && (
               <span className="flex items-center gap-1">
-                Score: {progress.quiz_score_percent}%
+                Score: {lesson.progress.quiz_score_percent}%
               </span>
             )}
           </div>

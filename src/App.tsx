@@ -55,6 +55,7 @@ import AdminChatbot from "./pages/admin/AdminChatbot";
 import AdminSupportTickets from "./pages/admin/AdminSupportTickets";
 import AdminTraining from "./pages/admin/AdminTraining";
 import AdminChallenge from "./pages/admin/AdminChallenge";
+import AdminSalesExperience from "./pages/admin/AdminSalesExperience";
 import AdminStandardPlaybook from "./pages/admin/AdminStandardPlaybook";
 import AdminSPCategoryEditor from "./pages/admin/AdminSPCategoryEditor";
 import AdminSPCategoryDetail from "./pages/admin/AdminSPCategoryDetail";
@@ -811,6 +812,13 @@ const App = () => {
               <ProtectedRoute requireAdmin>
                 <SidebarLayout>
                   <AdminChallenge />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/sales-experience" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminSalesExperience />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

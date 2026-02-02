@@ -1,69 +1,88 @@
-# 8-Week Sales Experience Implementation Handoff
+# 8 Week Sales Experience - Implementation Handoff
 
 ## Overview
-Implementing the 8-Week Sales Experience coaching program as a premium, invite-only feature for coached agency owners/managers with time-gated staff training.
+Premium, invite-only coaching program for agency owners/managers with time-gated staff training. Features include video lessons, quizzes with AI feedback, coach messaging, and progress tracking.
 
 ---
 
 ## Completed Work
 
-### 1. Database Migration
+### 1. Database Schema
 **File:** `supabase/migrations/20260202060000_sales_experience_tables.sql`
 
-Created comprehensive database schema including:
-- **Enums:** `sales_experience_assignment_status`, `sales_experience_progress_status`, `sales_experience_email_status`, `sales_experience_sender_type`, `sales_experience_pillar`, `sales_experience_file_type`
-- **Tables:**
-  - `sales_experience_assignments` - Agency enrollment in the 8-week program
-  - `sales_experience_modules` - 8 weekly modules (seeded with content)
-  - `sales_experience_lessons` - 3 per week (Mon/Wed/Fri = 24 total, seeded with placeholders)
-  - `sales_experience_resources` - Documents per module
-  - `sales_experience_transcripts` - Zoom meeting transcripts with AI summaries
-  - `sales_experience_ai_prompts` - Admin-editable AI prompts (seeded with 3 prompts)
-  - `sales_experience_owner_progress` - Owner/Manager lesson tracking
-  - `sales_experience_staff_progress` - Staff lesson tracking with time-gating
-  - `sales_experience_quiz_attempts` - Staff quiz history
-  - `sales_experience_messages` - Coach to Agency messaging
-  - `sales_experience_email_templates` - Editable email templates (seeded with 4 templates)
-  - `sales_experience_email_queue` - Scheduled email queue
-- **Functions:**
-  - `get_sales_experience_business_day()` - Calculate business days
-  - `is_sales_experience_lesson_unlocked()` - Time-gating logic (Mon/Wed/Fri)
-  - `get_sales_experience_current_week()` - Get current week number
-  - `has_sales_experience_access()` - Check user access
-- **Triggers:** Auto-initialize staff progress, queue lesson emails
-- **RLS Policies:** Agency-scoped access, admin-only for management tables
+**Tables Created:**
+- `sales_experience_assignments` - Agency enrollment (start_date must be Monday)
+- `sales_experience_modules` - 8 weekly modules (seeded)
+- `sales_experience_lessons` - 24 lessons (3 per week: Mon/Wed/Fri, seeded)
+- `sales_experience_resources` - Documents per module
+- `sales_experience_transcripts` - Zoom transcripts with AI summaries
+- `sales_experience_ai_prompts` - Admin-editable AI prompts
+- `sales_experience_owner_progress` - Owner/Manager lesson tracking
+- `sales_experience_staff_progress` - Staff lesson tracking with time-gating
+- `sales_experience_quiz_attempts` - Staff quiz history
+- `sales_experience_messages` - Coach ↔ Owner messaging
+- `sales_experience_email_templates` - Editable email templates
+- `sales_experience_email_queue` - Scheduled email queue
 
-### 2. Access Hook
+**Functions:**
+- `get_sales_experience_business_day()` - Calculate business days
+- `is_sales_experience_lesson_unlocked()` - Time-gating logic
+- `get_sales_experience_current_week()` - Get current week number
+- `has_sales_experience_access()` - Check user access
+
+**RLS Fix:** `supabase/migrations/20260202070000_fix_se_admin_rls.sql`
+- Fixed admin policies to use `user_roles` table (not `profiles.role`)
+
+---
+
+### 2. Edge Functions (All Deployed)
+**Directory:** `supabase/functions/`
+
+| Function | Auth | Purpose |
+|----------|------|---------|
+| `get-sales-experience/index.ts` | JWT Bearer | Owner fetches assignment, modules, lessons, progress |
+| `get-staff-sales-lessons/index.ts` | x-staff-session | Staff fetches time-gated lessons |
+| `submit-sales-quiz/index.ts` | x-staff-session | Quiz submission with **Claude AI feedback** + email queue |
+| `complete-sales-lesson/index.ts` | Both | Marks lessons as started/completed |
+| `sales-experience-messages/index.ts` | JWT Bearer | Coach ↔ owner messaging CRUD |
+| `upload-sales-transcript/index.ts` | JWT (Admin) | Upload Zoom transcript with AI summary |
+
+**Key Features in `submit-sales-quiz`:**
+- Uses Claude API (claude-3-haiku) for personalized feedback based on lesson content and answers
+- Queues email notifications to agency owner and staff member
+- Falls back to template feedback if ANTHROPIC_API_KEY not set
+
+---
+
+### 3. Access Control Hook
 **File:** `src/hooks/useSalesExperienceAccess.ts`
 
 - `useSalesExperienceAccess()` - Returns `{ hasAccess, assignment, currentWeek, isActive, isPending, isLoading, error }`
-- `isLessonUnlocked()` - Helper to check if a lesson is unlocked based on time-gating
-- `calculateCurrentWeek()` - Calculate which week the assignment is in
+- `isLessonUnlocked()` - Helper for time-gating checks
+- `calculateCurrentWeek()` - Business day calculation
 
-### 3. Navigation Updates
-**File:** `src/config/navigation.ts`
+---
 
-- Added `salesExperienceAccess?: boolean` flag to `NavItem` and `NavFolder` types
-- Added imports: `Trophy`, `FileText`, `MessageSquare`
-- Added full "8-Week Experience" folder with:
-  - Overview & Progress link
-  - Week 1-8 subfolders (each with Lessons, Documents, Transcript)
-  - Coach Messages link
-  - Team Quiz Results link
+### 4. Navigation & Sidebar
 
-### 4. Sidebar Access Updates
-**File:** `src/hooks/useSidebarAccess.ts`
+**Files Modified:**
+- `src/config/navigation.ts` - Added `salesExperienceAccess` flag, Trophy icon, staff nav item
+- `src/hooks/useSidebarAccess.ts` - Added `SidebarFilterOptions` interface
+- `src/components/AppSidebar.tsx` - Added hook import, filter options, admin sidebar item
 
-- Added `SidebarFilterOptions` interface with `hasSalesExperienceAccess` option
-- Updated `checkItemAccess()` to filter items with `salesExperienceAccess` flag
-- Updated `filterNavigation()` to check folder-level `salesExperienceAccess`
+**Staff Navigation Item:**
+```typescript
+{
+  id: 'staff-sales-training',
+  title: '8 Week Sales Experience',
+  icon: Trophy,
+  url: '/staff/sales-training',
+  access: { staff: true, manager: true, owner: true },
+}
+```
+Located in Training folder of staff sidebar.
 
-**File:** `src/components/AppSidebar.tsx`
-
-- Added import for `useSalesExperienceAccess`
-- Added `hasSalesExperienceAccess` from hook
-- Updated `filterNavigation` call to pass `hasSalesExperienceAccess` in options object
-- Updated `useMemo` dependency array
+---
 
 ### 5. Owner/Manager Pages
 **Directory:** `src/pages/sales-experience/`
@@ -71,12 +90,19 @@ Created comprehensive database schema including:
 | File | Purpose |
 |------|---------|
 | `index.ts` | Exports all pages |
-| `SalesExperienceOverview.tsx` | Dashboard with 8-week progress timeline, quick actions |
-| `SalesExperienceWeek.tsx` | Week detail page with lessons list |
+| `SalesExperienceOverview.tsx` | Dashboard with 8-week progress timeline |
+| `SalesExperienceWeek.tsx` | Week detail with lessons, **modal for viewing content/video** |
 | `SalesExperienceDocuments.tsx` | Downloadable resources per week |
-| `SalesExperienceTranscript.tsx` | Zoom transcript with AI summary, action items |
+| `SalesExperienceTranscript.tsx` | Zoom transcript with AI summary |
 | `SalesExperienceMessages.tsx` | Chat interface with coach |
 | `SalesExperienceTeamProgress.tsx` | Staff quiz results, completion rates |
+
+**Key Fix in `SalesExperienceWeek.tsx`:**
+- Added `selectedLesson` state and Dialog modal
+- Watch/View buttons now open modal with video embed + content
+- Supports YouTube, Vimeo, Loom video platforms
+
+---
 
 ### 6. Staff Training Pages
 **Directory:** `src/pages/staff/`
@@ -86,163 +112,228 @@ Created comprehensive database schema including:
 | `StaffSalesTraining.tsx` | Lesson list with time-gating, progress tracking |
 | `StaffSalesLesson.tsx` | Lesson detail with video, content, quiz submission |
 
-### 7. Routes Added
+**Key Features:**
+- Time-gating: Lessons unlock Mon/Wed/Fri based on business days since start
+- Program must be "active" and start_date must have passed
+- Supports YouTube, Vimeo, Loom video embeds
+- Quiz submission with AI feedback display
+
+---
+
+### 7. Admin Pages
+**Directory:** `src/pages/admin/`
+
+| File | Purpose |
+|------|---------|
+| `AdminSalesExperience.tsx` | Main admin page with tabs |
+| `sales-experience-tabs/SEAssignmentsTab.tsx` | Assign agencies, manage status, **validates Monday start date** |
+| `sales-experience-tabs/SEContentTab.tsx` | Edit lessons with **Rich Text Editor**, video, quizzes |
+| `sales-experience-tabs/SEMessagesTab.tsx` | Send messages to all participants |
+| `sales-experience-tabs/SEAnalyticsTab.tsx` | View participation analytics |
+
+**Admin Route:** `/admin/sales-experience`
+**Admin Sidebar:** Added "Sales Experience" with GraduationCap icon
+
+---
+
+### 8. Rich Text Editor
+**File:** `src/components/ui/rich-text-editor.tsx`
+
+**Dependencies Added:**
+- `@tiptap/react`
+- `@tiptap/starter-kit`
+- `@tiptap/extension-link`
+- `@tiptap/extension-placeholder`
+
+**Features:**
+- Bold, Italic
+- Headings (H2, H3)
+- Bullet & numbered lists
+- Links
+- Undo/Redo
+
+**Styles:** Added TipTap styles in `src/index.css` (lines ~255-290)
+
+---
+
+### 9. Routes
 **File:** `src/App.tsx`
 
-Added imports and routes for:
-- `/sales-experience` - Overview
-- `/sales-experience/week/:week` - Week detail
-- `/sales-experience/week/:week/documents` - Documents
-- `/sales-experience/week/:week/transcript` - Transcript
-- `/sales-experience/messages` - Messages
-- `/sales-experience/team-progress` - Team progress
-- `/staff/sales-training` - Staff training list
-- `/staff/sales-training/lesson/:id` - Staff lesson detail
-
-### 8. Admin Pages (Partial)
-**Files Created:**
-- `src/pages/admin/AdminSalesExperience.tsx` - Main admin page with tabs
-- `src/pages/admin/sales-experience-tabs/SEAssignmentsTab.tsx` - Assign agencies, manage status
-- `src/pages/admin/sales-experience-tabs/SEContentTab.tsx` - Edit lessons content
+**Routes Added:**
+```
+/sales-experience                      → SalesExperienceOverview
+/sales-experience/week/:week           → SalesExperienceWeek
+/sales-experience/week/:week/documents → SalesExperienceDocuments
+/sales-experience/week/:week/transcript→ SalesExperienceTranscript
+/sales-experience/messages             → SalesExperienceMessages
+/sales-experience/team-progress        → SalesExperienceTeamProgress
+/staff/sales-training                  → StaffSalesTraining
+/staff/sales-training/lesson/:id       → StaffSalesLesson
+/admin/sales-experience                → AdminSalesExperience
+```
 
 ---
 
-## Currently In Progress
+## Configuration Files Updated
 
-### Admin Sales Experience Pages (Task #7)
-**Missing Files:**
-- `src/pages/admin/sales-experience-tabs/SEMessagesTab.tsx` - Send messages to all participants
-- `src/pages/admin/sales-experience-tabs/SEAnalyticsTab.tsx` - View participation analytics
-
-**Missing Routes in App.tsx:**
-- `/admin/sales-experience` route not yet added
-
-**Missing Admin Sidebar Item:**
-- Need to add "Sales Experience" to `adminOnlyItems` array in `AppSidebar.tsx`
+| File | Change |
+|------|--------|
+| `supabase/config.toml` | Added all 6 edge functions with verify_jwt settings |
+| `package.json` | Added TipTap dependencies |
 
 ---
 
-## Remaining Work
+## Key Design Decisions
 
-### Task #8: Edge Functions
-**Directory:** `supabase/functions/`
+### 1. Time-Gating Logic
+- Program must be `status: 'active'` (not just 'pending')
+- Start date must be a **Monday** (validated in admin form)
+- Today must be >= start_date for any lessons to unlock
+- Staff lessons unlock: Mon (day_of_week=1), Wed (day_of_week=3), Fri (day_of_week=5)
+- Business day calculation excludes weekends
 
-| Function | Purpose |
-|----------|---------|
-| `get-sales-experience/` | Fetch assignment, modules, lessons, progress for owner |
-| `get-staff-sales-lessons/` | Fetch time-gated lessons for staff |
-| `complete-sales-lesson/` | Mark lesson complete (start/complete actions) |
-| `submit-sales-quiz/` | Submit quiz, AI evaluates, stores score |
-| `send-sales-experience-messages/` | CRUD for coach ↔ owner messaging |
-| `upload-sales-transcript/` | Store Zoom transcript with AI summarization |
+### 2. Authentication Patterns
+- **Owners/Managers:** JWT Bearer token via `Authorization` header
+- **Staff:** Session token via `x-staff-session` header
+- `complete-sales-lesson` supports both patterns
 
-### Task #10: Reusable Components
-**Directory:** `src/components/sales-experience/`
+### 3. Video Platform Support
+YouTube, Vimeo, and Loom all supported with auto URL conversion:
+- YouTube: `youtu.be/xxx` or `watch?v=xxx` → embed
+- Vimeo: Uses URL as-is (paste embed URL)
+- Loom: `loom.com/share/xxx` → embed
 
-Consider creating shared components for:
+### 4. AI Integration
+- Uses `ANTHROPIC_API_KEY` environment variable
+- Claude 3 Haiku for quiz feedback and transcript summaries
+- Graceful fallback to template text if API key missing
+
+---
+
+## What Remains (Not Implemented)
+
+### 1. Email Sending Cron Job
+Emails are **queued** in `sales_experience_email_queue` but not sent.
+
+**Needs:**
+- Edge function with pg_cron or external scheduler
+- Email service integration (Resend, SendGrid, etc.)
+- Process queue and send emails
+
+### 2. Additional Admin Pages
+- `AdminSalesExperiencePrompts.tsx` - Edit AI prompts
+- `AdminSalesExperienceTemplates.tsx` - Edit email templates
+
+### 3. Owner Lesson Progress Tracking
+- `SalesExperienceWeek.tsx` shows lessons but doesn't track owner completion
+- Could wire up `complete-sales-lesson` for owner tracking
+
+### 4. Reusable Components
+**Directory:** `src/components/sales-experience/` (not created)
+
+Consider extracting:
 - Week timeline visualization
 - Lesson card component
 - Quiz component
 - Progress indicators
 
-### Additional Admin Pages
-**Files Needed:**
-- `src/pages/admin/AdminSalesExperiencePrompts.tsx` - Edit AI prompts
-- `src/pages/admin/AdminSalesExperienceTemplates.tsx` - Edit email templates
+---
 
-### Email Cron Job
-- `send-sales-lesson-emails/` edge function for Mon/Wed/Fri lesson reminders
+## Files Created/Modified Summary
 
-### Config File Updates
-- Add new edge functions to `supabase/config.toml`
+### Created (27 files)
+```
+supabase/migrations/20260202060000_sales_experience_tables.sql
+supabase/migrations/20260202070000_fix_se_admin_rls.sql
+supabase/functions/get-sales-experience/index.ts
+supabase/functions/get-staff-sales-lessons/index.ts
+supabase/functions/submit-sales-quiz/index.ts
+supabase/functions/complete-sales-lesson/index.ts
+supabase/functions/sales-experience-messages/index.ts
+supabase/functions/upload-sales-transcript/index.ts
+src/hooks/useSalesExperienceAccess.ts
+src/pages/sales-experience/index.ts
+src/pages/sales-experience/SalesExperienceOverview.tsx
+src/pages/sales-experience/SalesExperienceWeek.tsx
+src/pages/sales-experience/SalesExperienceDocuments.tsx
+src/pages/sales-experience/SalesExperienceTranscript.tsx
+src/pages/sales-experience/SalesExperienceMessages.tsx
+src/pages/sales-experience/SalesExperienceTeamProgress.tsx
+src/pages/staff/StaffSalesTraining.tsx
+src/pages/staff/StaffSalesLesson.tsx
+src/pages/admin/AdminSalesExperience.tsx
+src/pages/admin/sales-experience-tabs/SEAssignmentsTab.tsx
+src/pages/admin/sales-experience-tabs/SEContentTab.tsx
+src/pages/admin/sales-experience-tabs/SEMessagesTab.tsx
+src/pages/admin/sales-experience-tabs/SEAnalyticsTab.tsx
+src/components/ui/rich-text-editor.tsx
+```
+
+### Modified (7 files)
+```
+src/config/navigation.ts
+src/hooks/useSidebarAccess.ts
+src/components/AppSidebar.tsx
+src/App.tsx
+src/index.css
+supabase/config.toml
+package.json
+```
 
 ---
 
-## Key Decisions & Patterns
+## Testing Checklist
 
-### 1. Time-Gating Logic
-- Staff lessons unlock Mon (day_of_week=1), Wed (day_of_week=3), Fri (day_of_week=5)
-- Uses business day calculation (excludes weekends)
-- Week 1 = business days 1-5, Week 2 = days 6-10, etc.
+### Admin Flow
+1. ✅ Login as admin
+2. ✅ Go to `/admin/sales-experience`
+3. ✅ Create assignment (select agency, pick Monday date, click Start)
+4. ✅ Edit lesson content with rich text editor
+5. ✅ Add video URL and select platform
+6. ✅ Add quiz questions
 
-### 2. Separate from Challenge System
-- New tables rather than extending challenge tables
-- Different unlock cadence (Mon/Wed/Fri vs daily)
-- Owner-focused vs staff-focused
+### Owner Flow
+1. ✅ Login as agency owner
+2. ✅ See "8-Week Experience" folder in sidebar (if assigned)
+3. ✅ View overview, week details
+4. ✅ Click Watch/View to open lesson modal with video
+5. ✅ Send/receive coach messages
 
-### 3. Sidebar Visibility
-- Uses `salesExperienceAccess` flag (similar to `challengeAccess`)
-- Folder only appears for agencies with active/pending assignment
-- Staff don't see sidebar - access via `/staff/sales-training`
-
-### 4. API Pattern for Staff
-- Staff pages call edge functions with `sessionToken` (not Supabase auth)
-- Pattern follows existing `StaffChallenge.tsx`
-
-### 5. Three Pillars Structure
-- Weeks 1-3: Sales Process (`sales_process`)
-- Weeks 4-5: Accountability (`accountability`)
-- Weeks 6-8: Coaching Cadence (`coaching_cadence`)
-
----
-
-## Exact Next Steps
-
-1. **Finish Admin Tab Components:**
-   ```bash
-   # Create these files:
-   src/pages/admin/sales-experience-tabs/SEMessagesTab.tsx
-   src/pages/admin/sales-experience-tabs/SEAnalyticsTab.tsx
-   ```
-
-2. **Add Admin Route to App.tsx:**
-   ```tsx
-   <Route path="/admin/sales-experience" element={
-     <ProtectedRoute requireAdmin>
-       <SidebarLayout>
-         <AdminSalesExperience />
-       </SidebarLayout>
-     </ProtectedRoute>
-   } />
-   ```
-
-3. **Add Admin Sidebar Item:**
-   In `src/components/AppSidebar.tsx`, add to `adminOnlyItems`:
-   ```tsx
-   { title: "Sales Experience", url: "/admin/sales-experience", icon: Trophy },
-   ```
-
-4. **Create Edge Functions** (highest priority after admin pages):
-   - Start with `get-sales-experience` (owner data)
-   - Then `get-staff-sales-lessons` (staff data with time-gating)
-   - Then `submit-sales-quiz` (quiz submission)
-
-5. **Test Locally:**
-   ```bash
-   npm run dev              # Frontend
-   supabase start           # Local DB
-   supabase db reset        # Apply migration
-   ```
+### Staff Flow
+1. ✅ Go to `/staff/sales-training` as logged-in staff
+2. ✅ See lessons with time-gating (locked/available based on date)
+3. ✅ Click into unlocked lesson
+4. ✅ Watch video, read content
+5. ✅ Submit quiz and see AI feedback
+6. ✅ See completion status
 
 ---
 
-## Files Modified (Summary)
+## Environment Variables Required
 
-| File | Changes |
-|------|---------|
-| `src/config/navigation.ts` | Added types, icons, full nav structure |
-| `src/hooks/useSidebarAccess.ts` | Added SidebarFilterOptions, salesExperienceAccess checks |
-| `src/components/AppSidebar.tsx` | Added hook import, filter options |
-| `src/App.tsx` | Added imports and 8 new routes |
+```
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=xxx
+ANTHROPIC_API_KEY=xxx  # For AI feedback (optional, has fallback)
+```
 
-## Files Created (Summary)
+---
 
-| Path | Count |
-|------|-------|
-| `supabase/migrations/` | 1 file |
-| `src/hooks/` | 1 file |
-| `src/pages/sales-experience/` | 7 files |
-| `src/pages/staff/` | 2 files |
-| `src/pages/admin/` | 1 file |
-| `src/pages/admin/sales-experience-tabs/` | 2 files |
-| **Total** | **14 files** |
+## Deployment Commands
+
+```bash
+# Push database migrations
+supabase db push
+
+# Deploy all edge functions
+supabase functions deploy get-sales-experience
+supabase functions deploy get-staff-sales-lessons --no-verify-jwt
+supabase functions deploy submit-sales-quiz --no-verify-jwt
+supabase functions deploy complete-sales-lesson --no-verify-jwt
+supabase functions deploy sales-experience-messages
+supabase functions deploy upload-sales-transcript
+```
+
+---
+
+*Last Updated: 2026-02-02*

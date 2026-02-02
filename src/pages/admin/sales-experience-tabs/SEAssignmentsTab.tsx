@@ -120,15 +120,19 @@ export function SEAssignmentsTab() {
   // Create assignment mutation
   const createAssignment = useMutation({
     mutationFn: async (params: { agency_id: string; start_date: string; notes: string }) => {
-      const { error } = await supabase.from('sales_experience_assignments').insert({
+      const { data, error } = await supabase.from('sales_experience_assignments').insert({
         agency_id: params.agency_id,
         assigned_by: user?.id,
         start_date: params.start_date,
         notes: params.notes || null,
         status: 'pending',
-      });
+      }).select();
 
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('Insert blocked by RLS policy. Check admin permissions.');
+      }
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-se-assignments'] });
@@ -138,9 +142,10 @@ export function SEAssignmentsTab() {
       setNotes('');
       toast.success('Assignment created successfully');
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Error creating assignment:', error);
-      toast.error('Failed to create assignment');
+      const message = error?.message || error?.toString() || 'Failed to create assignment';
+      toast.error(`Failed to create assignment: ${message}`);
     },
   });
 
@@ -167,6 +172,13 @@ export function SEAssignmentsTab() {
   const handleCreateAssignment = () => {
     if (!selectedAgency || !startDate) {
       toast.error('Please select an agency and start date');
+      return;
+    }
+
+    // Validate that start date is a Monday
+    const selectedDate = new Date(startDate + 'T00:00:00');
+    if (selectedDate.getDay() !== 1) {
+      toast.error('Start date must be a Monday');
       return;
     }
 

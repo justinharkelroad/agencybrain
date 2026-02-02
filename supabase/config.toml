@@ -439,3 +439,22 @@ verify_jwt = true
 
 [functions.get_staff_sequences]
 verify_jwt = false
+
+# Sales Experience functions
+[functions.get-sales-experience]
+verify_jwt = true
+
+[functions.get-staff-sales-lessons]
+verify_jwt = false
+
+[functions.submit-sales-quiz]
+verify_jwt = false
+
+[functions.complete-sales-lesson]
+verify_jwt = false
+
+[functions.sales-experience-messages]
+verify_jwt = true
+
+[functions.upload-sales-transcript]
+verify_jwt = true

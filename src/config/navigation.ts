@@ -1007,6 +1007,14 @@ export const staffNavigationConfig: NavEntry[] = [
         access: { staff: true, manager: true, owner: true },
         challengeAccess: true,
       },
+      {
+        id: 'staff-sales-training',
+        title: '8 Week Sales Experience',
+        icon: Trophy,
+        type: 'link',
+        url: '/staff/sales-training',
+        access: { staff: true, manager: true, owner: true },
+      },
     ],
   },
 

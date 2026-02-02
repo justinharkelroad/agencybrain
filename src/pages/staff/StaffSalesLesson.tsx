@@ -90,18 +90,15 @@ export default function StaffSalesLesson() {
 
     setLoading(true);
     try {
+      // First fetch all lessons to find this one
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-staff-sales-lessons`,
         {
-          method: 'POST',
+          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${sessionToken}`,
+            'x-staff-session': sessionToken,
           },
-          body: JSON.stringify({
-            staff_user_id: user?.id,
-            lesson_id: id,
-          }),
         }
       );
 
@@ -111,15 +108,38 @@ export default function StaffSalesLesson() {
       }
 
       const result = await response.json();
-      setLesson(result.lesson);
+
+      // Find the lesson in the weeks data
+      let foundLesson: any = null;
+      for (const week of result.weeks || []) {
+        const lesson = week.lessons?.find((l: any) => l.id === id);
+        if (lesson) {
+          foundLesson = {
+            ...lesson,
+            module: {
+              id: week.id,
+              week_number: week.week_number,
+              title: week.title,
+              pillar: week.pillar,
+            },
+          };
+          break;
+        }
+      }
+
+      if (!foundLesson) {
+        throw new Error('Lesson not found');
+      }
+
+      setLesson(foundLesson);
 
       // Check if already completed
-      if (result.lesson.progress?.status === 'completed') {
+      if (foundLesson.progress?.status === 'completed') {
         setQuizSubmitted(true);
-        if (result.lesson.progress.quiz_score_percent !== null) {
+        if (foundLesson.progress.quiz_score_percent !== null) {
           setQuizResult({
-            score: result.lesson.progress.quiz_score_percent,
-            feedback: result.lesson.progress.quiz_feedback_ai,
+            score: foundLesson.progress.quiz_score_percent,
+            feedback: foundLesson.progress.quiz_feedback_ai,
           });
         }
       }
@@ -145,18 +165,23 @@ export default function StaffSalesLesson() {
 
     setSubmitting(true);
     try {
+      // Format answers as expected by the edge function
+      const formattedAnswers = Object.entries(quizAnswers).map(([question_id, answer]) => ({
+        question_id,
+        answer,
+      }));
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-sales-quiz`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${sessionToken}`,
+            'x-staff-session': sessionToken,
           },
           body: JSON.stringify({
-            staff_user_id: user.id,
             lesson_id: lesson.id,
-            answers: quizAnswers,
+            answers: formattedAnswers,
           }),
         }
       );
@@ -184,7 +209,7 @@ export default function StaffSalesLesson() {
   const handleVideoComplete = async () => {
     setVideoWatched(true);
     // Mark lesson as started if not already
-    if (!lesson?.progress?.started_at && sessionToken && user) {
+    if (!lesson?.progress?.started_at && sessionToken) {
       try {
         await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/complete-sales-lesson`,
@@ -192,10 +217,9 @@ export default function StaffSalesLesson() {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${sessionToken}`,
+              'x-staff-session': sessionToken,
             },
             body: JSON.stringify({
-              staff_user_id: user.id,
               lesson_id: lesson?.id,
               action: 'start',
             }),
@@ -284,9 +308,16 @@ export default function StaffSalesLesson() {
                 />
               ) : lesson.video_platform === 'youtube' ? (
                 <iframe
-                  src={lesson.video_url?.replace('watch?v=', 'embed/') || ''}
+                  src={lesson.video_url?.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/') || ''}
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  onLoad={() => handleVideoComplete()}
+                />
+              ) : lesson.video_platform === 'loom' ? (
+                <iframe
+                  src={lesson.video_url?.replace('loom.com/share/', 'loom.com/embed/') || ''}
+                  className="w-full h-full"
                   allowFullScreen
                   onLoad={() => handleVideoComplete()}
                 />
@@ -457,7 +488,7 @@ export default function StaffSalesLesson() {
         <div className="text-center mt-6">
           <Button
             onClick={async () => {
-              if (!sessionToken || !user) return;
+              if (!sessionToken) return;
               setSubmitting(true);
               try {
                 await fetch(
@@ -466,10 +497,9 @@ export default function StaffSalesLesson() {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',
-                      Authorization: `Bearer ${sessionToken}`,
+                      'x-staff-session': sessionToken,
                     },
                     body: JSON.stringify({
-                      staff_user_id: user.id,
                       lesson_id: lesson.id,
                       action: 'complete',
                     }),

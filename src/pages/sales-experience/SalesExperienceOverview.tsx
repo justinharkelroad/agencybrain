@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/lib/auth';
 import { useSalesExperienceAccess } from '@/hooks/useSalesExperienceAccess';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,21 +21,36 @@ import {
   Calendar,
 } from 'lucide-react';
 
-interface Module {
+interface ModuleWithLessons {
   id: string;
   week_number: number;
   title: string;
   description: string;
   pillar: 'sales_process' | 'accountability' | 'coaching_cadence';
   icon: string;
+  lessons: any[];
 }
 
-interface LessonWithProgress {
-  id: string;
-  module_id: string;
-  day_of_week: number;
-  title: string;
-  status: 'locked' | 'available' | 'in_progress' | 'completed';
+interface SalesExperienceData {
+  has_access: boolean;
+  assignment: {
+    id: string;
+    status: string;
+    start_date: string;
+    end_date: string;
+    timezone: string;
+  } | null;
+  current_week: number;
+  current_business_day: number;
+  day_in_week: number;
+  modules: ModuleWithLessons[];
+  progress: {
+    total_lessons: number;
+    completed_lessons: number;
+    progress_percent: number;
+  };
+  unread_messages: number;
+  current_week_transcript: any | null;
 }
 
 const pillarColors = {
@@ -51,67 +66,42 @@ const pillarLabels = {
 };
 
 export default function SalesExperienceOverview() {
-  const { hasAccess, assignment, currentWeek, isActive, isLoading: accessLoading } = useSalesExperienceAccess();
+  const { session } = useAuth();
+  const { hasAccess, isLoading: accessLoading } = useSalesExperienceAccess();
 
-  // Fetch modules
-  const { data: modules, isLoading: modulesLoading } = useQuery({
-    queryKey: ['sales-experience-modules'],
-    enabled: hasAccess,
+  // Fetch data using edge function
+  const { data, isLoading: dataLoading, error } = useQuery<SalesExperienceData>({
+    queryKey: ['sales-experience-data'],
+    enabled: hasAccess && !!session?.access_token,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sales_experience_modules')
-        .select('*')
-        .order('week_number', { ascending: true });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-sales-experience`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+        }
+      );
 
-      if (error) throw error;
-      return data as Module[];
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch data');
+      }
+
+      return response.json();
     },
   });
-
-  // Fetch lessons for progress calculation
-  const { data: lessons, isLoading: lessonsLoading } = useQuery({
-    queryKey: ['sales-experience-lessons-overview', assignment?.id],
-    enabled: hasAccess && !!assignment?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sales_experience_lessons')
-        .select(`
-          id,
-          module_id,
-          day_of_week,
-          title,
-          sales_experience_modules!inner(week_number)
-        `)
-        .eq('is_staff_visible', true)
-        .order('day_of_week', { ascending: true });
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Calculate progress stats
-  const progressStats = useMemo(() => {
-    if (!lessons || !assignment) {
-      return { completed: 0, total: 0, percent: 0 };
-    }
-
-    // For now, we just show total lessons - actual progress would come from owner_progress
-    const total = lessons.length;
-    const completed = 0; // TODO: Fetch actual completion from owner_progress
-    const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-    return { completed, total, percent };
-  }, [lessons, assignment]);
 
   // Calculate days until end
   const daysRemaining = useMemo(() => {
-    if (!assignment?.end_date) return 0;
-    const end = new Date(assignment.end_date);
+    if (!data?.assignment?.end_date) return 0;
+    const end = new Date(data.assignment.end_date);
     const today = new Date();
     const diff = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
     return Math.max(0, diff);
-  }, [assignment]);
+  }, [data?.assignment?.end_date]);
 
   if (accessLoading) {
     return (
@@ -125,7 +115,9 @@ export default function SalesExperienceOverview() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const isLoading = modulesLoading || lessonsLoading;
+  const isLoading = dataLoading;
+  const currentWeek = data?.current_week || 1;
+  const isActive = data?.assignment?.status === 'active';
 
   return (
     <div className="container max-w-6xl mx-auto py-8 px-4">
@@ -169,11 +161,11 @@ export default function SalesExperienceOverview() {
           </CardHeader>
           <CardContent>
             <div className="flex items-baseline gap-2 mb-2">
-              <span className="text-4xl font-bold">{progressStats.percent}%</span>
+              <span className="text-4xl font-bold">{data?.progress?.progress_percent || 0}%</span>
             </div>
-            <Progress value={progressStats.percent} className="h-2" />
+            <Progress value={data?.progress?.progress_percent || 0} className="h-2" />
             <p className="text-xs text-muted-foreground mt-2">
-              {progressStats.completed} of {progressStats.total} lessons completed
+              {data?.progress?.completed_lessons || 0} of {data?.progress?.total_lessons || 0} lessons completed
             </p>
           </CardContent>
         </Card>
@@ -191,7 +183,7 @@ export default function SalesExperienceOverview() {
             </div>
             <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
               <Calendar className="h-4 w-4" />
-              <span>Ends {assignment?.end_date}</span>
+              <span>Ends {data?.assignment?.end_date}</span>
             </div>
           </CardContent>
         </Card>
@@ -202,13 +194,20 @@ export default function SalesExperienceOverview() {
         <Link to="/sales-experience/messages">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
             <CardContent className="flex items-center gap-4 p-6">
-              <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center relative">
                 <MessageSquare className="h-6 w-6 text-blue-500" />
+                {(data?.unread_messages || 0) > 0 && (
+                  <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
+                    {data?.unread_messages}
+                  </span>
+                )}
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold">Coach Messages</h3>
                 <p className="text-sm text-muted-foreground">
-                  Connect with your coach
+                  {(data?.unread_messages || 0) > 0
+                    ? `${data?.unread_messages} unread message${data?.unread_messages === 1 ? '' : 's'}`
+                    : 'Connect with your coach'}
                 </p>
               </div>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -251,10 +250,12 @@ export default function SalesExperienceOverview() {
             </div>
           ) : (
             <div className="space-y-4">
-              {modules?.map((module) => {
+              {data?.modules?.map((module) => {
                 const isUnlocked = currentWeek >= module.week_number;
                 const isCurrent = currentWeek === module.week_number;
-                const isCompleted = currentWeek > module.week_number;
+                const isCompleted = module.lessons?.every(
+                  (l: any) => l.progress?.status === 'completed'
+                );
 
                 return (
                   <Link

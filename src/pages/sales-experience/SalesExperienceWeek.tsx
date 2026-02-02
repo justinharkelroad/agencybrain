@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
@@ -7,7 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Loader2,
   ArrowLeft,
@@ -20,6 +26,7 @@ import {
   Play,
   ChevronRight,
   BookOpen,
+  X,
 } from 'lucide-react';
 
 interface Module {
@@ -64,6 +71,7 @@ export default function SalesExperienceWeek() {
   const { week } = useParams<{ week: string }>();
   const weekNumber = parseInt(week || '1', 10);
   const { hasAccess, currentWeek, isLoading: accessLoading } = useSalesExperienceAccess();
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
 
   // Fetch module for this week
   const { data: module, isLoading: moduleLoading } = useQuery({
@@ -193,7 +201,12 @@ export default function SalesExperienceWeek() {
           ) : lessons && lessons.length > 0 ? (
             <div className="space-y-4">
               {lessons.map((lesson) => (
-                <LessonCard key={lesson.id} lesson={lesson} weekNumber={weekNumber} />
+                <LessonCard
+                  key={lesson.id}
+                  lesson={lesson}
+                  weekNumber={weekNumber}
+                  onView={() => setSelectedLesson(lesson)}
+                />
               ))}
             </div>
           ) : (
@@ -224,6 +237,75 @@ export default function SalesExperienceWeek() {
           </Link>
         )}
       </div>
+
+      {/* Lesson Detail Dialog */}
+      <Dialog open={!!selectedLesson} onOpenChange={(open) => !open && setSelectedLesson(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle className="flex items-center gap-2">
+              <Badge variant="outline">{dayLabels[selectedLesson?.day_of_week || 1]}</Badge>
+              {selectedLesson?.title}
+            </DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="max-h-[calc(90vh-100px)]">
+            <div className="p-6 pt-4 space-y-6">
+              {/* Video */}
+              {selectedLesson?.video_url && (
+                <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+                  {selectedLesson.video_platform === 'vimeo' ? (
+                    <iframe
+                      src={selectedLesson.video_url}
+                      className="w-full h-full"
+                      allow="autoplay; fullscreen; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : selectedLesson.video_platform === 'youtube' ? (
+                    <iframe
+                      src={selectedLesson.video_url?.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/')}
+                      className="w-full h-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : selectedLesson.video_platform === 'loom' ? (
+                    <iframe
+                      src={selectedLesson.video_url?.replace('loom.com/share/', 'loom.com/embed/')}
+                      className="w-full h-full"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <video
+                      src={selectedLesson.video_url}
+                      controls
+                      className="w-full h-full"
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Content */}
+              {selectedLesson?.content_html && (
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    Lesson Content
+                  </h3>
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none"
+                    dangerouslySetInnerHTML={{ __html: selectedLesson.content_html }}
+                  />
+                </div>
+              )}
+
+              {/* No content message */}
+              {!selectedLesson?.video_url && !selectedLesson?.content_html && (
+                <p className="text-muted-foreground text-center py-8">
+                  No content available for this lesson yet.
+                </p>
+              )}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -231,15 +313,16 @@ export default function SalesExperienceWeek() {
 interface LessonCardProps {
   lesson: Lesson;
   weekNumber: number;
+  onView: () => void;
 }
 
-function LessonCard({ lesson, weekNumber }: LessonCardProps) {
+function LessonCard({ lesson, weekNumber, onView }: LessonCardProps) {
   const hasVideo = !!lesson.video_url;
   // TODO: Fetch actual completion status
   const isCompleted = false;
 
   return (
-    <Card className="hover:bg-muted/50 transition-colors">
+    <Card className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={onView}>
       <CardContent className="flex items-start gap-4 p-4">
         {/* Day indicator */}
         <div className="h-12 w-12 rounded-lg bg-primary/10 flex flex-col items-center justify-center text-primary">
@@ -278,12 +361,12 @@ function LessonCard({ lesson, weekNumber }: LessonCardProps) {
 
         {/* Action */}
         {hasVideo ? (
-          <Button size="sm" className="gap-2">
+          <Button size="sm" className="gap-2" onClick={(e) => { e.stopPropagation(); onView(); }}>
             <Play className="h-4 w-4" />
             Watch
           </Button>
         ) : (
-          <Button size="sm" variant="outline">
+          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); onView(); }}>
             View
           </Button>
         )}
