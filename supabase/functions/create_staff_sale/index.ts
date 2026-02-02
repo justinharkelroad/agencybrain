@@ -21,6 +21,7 @@ interface Policy {
   policy_number?: string;
   effective_date: string;
   is_vc_qualifying: boolean;
+  brokered_carrier_id?: string | null;
   items: LineItem[];
 }
 
@@ -383,6 +384,7 @@ serve(async (req) => {
           total_premium: policyTotals.premium,
           total_points: policyTotals.points,
           is_vc_qualifying: policy.is_vc_qualifying,
+          brokered_carrier_id: policy.brokered_carrier_id || null,
         })
         .select('id')
         .single();

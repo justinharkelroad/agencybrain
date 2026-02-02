@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, ExternalLink } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2 } from "lucide-react";
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -54,6 +54,8 @@ type Policy = {
   is_vc_qualifying: boolean;
   lineItems: LineItem[];
   isExpanded: boolean;
+  isBrokered: boolean;
+  brokeredCarrierId: string | null;
 };
 
 interface StaffAddSaleFormProps {
@@ -109,8 +111,6 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerZip, setCustomerZip] = useState("");
   const [leadSourceId, setLeadSourceId] = useState("");
-  const [isBrokeredBusiness, setIsBrokeredBusiness] = useState(false);
-  const [brokeredCarrierId, setBrokeredCarrierId] = useState<string | null>(null);
   const [saleDate, setSaleDate] = useState<Date | undefined>(todayLocal());
   const [policies, setPolicies] = useState<Policy[]>([]);
 
@@ -164,6 +164,8 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         is_vc_qualifying: false,
         lineItems: [],
         isExpanded: true,
+        isBrokered: false,
+        brokeredCarrierId: null,
       },
     ]);
   };
@@ -195,6 +197,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
           // Handle brokered business (product_type_id = "brokered")
           if (value === "brokered") {
             updated.is_vc_qualifying = false;
+            updated.isBrokered = true;
             // Auto-create a line item for brokered business if none exists
             if (p.lineItems.length === 0) {
               updated.lineItems = [
@@ -210,6 +213,8 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
               ];
             }
           } else {
+            updated.isBrokered = false;
+            updated.brokeredCarrierId = null;
             const selectedProduct = productTypes.find((pt) => pt.id === value);
             if (!selectedProduct) return p;
 
@@ -238,8 +243,8 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
           }
         }
 
-        // For brokered business: also update line item's product_type_name when policy_type_name changes
-        if (field === "policy_type_name" && isBrokeredBusiness && updated.lineItems.length > 0) {
+        // For brokered policy: also update line item's product_type_name when policy_type_name changes
+        if (field === "policy_type_name" && updated.isBrokered && updated.lineItems.length > 0) {
           updated.lineItems = updated.lineItems.map((item) => ({
             ...item,
             product_type_name: value,
@@ -356,20 +361,20 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       if (!leadSourceId) throw new Error("Lead source is required");
       if (policies.length === 0) throw new Error("At least one policy is required");
       if (!staffSessionToken) throw new Error("Staff session required");
-      if (isBrokeredBusiness && !brokeredCarrierId) {
-        throw new Error("Please select a brokered carrier");
-      }
 
       // Validate each policy
       for (const policy of policies) {
         if (!policy.effective_date) {
           throw new Error("Each policy must have an effective date");
         }
-        // For brokered business, require policy_type_name (free text)
-        // For regular business, require product_type_id (from dropdown)
-        if (isBrokeredBusiness) {
+        // For brokered policies, require policy_type_name (free text) and carrier
+        // For regular policies, require product_type_id (from dropdown)
+        if (policy.isBrokered) {
           if (!policy.policy_type_name?.trim()) {
-            throw new Error("Each policy must have a policy type entered");
+            throw new Error("Each brokered policy must have a policy type entered");
+          }
+          if (!policy.brokeredCarrierId) {
+            throw new Error(`Policy "${policy.policy_type_name}" requires a brokered carrier`);
           }
         } else {
           if (!policy.product_type_id) {
@@ -395,9 +400,13 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         { items: 0, premium: 0, points: 0 }
       );
 
+      // For backward compatibility, set sales.brokered_carrier_id to first brokered policy's carrier
+      const firstBrokeredPolicy = policies.find(p => p.isBrokered && p.brokeredCarrierId);
+      const saleLevelBrokeredCarrierId = firstBrokeredPolicy?.brokeredCarrierId || undefined;
+
       const salePayload = {
         lead_source_id: leadSourceId,
-        brokered_carrier_id: brokeredCarrierId || undefined,
+        brokered_carrier_id: saleLevelBrokeredCarrierId,
         customer_name: customerName.trim(),
         customer_email: customerEmail || undefined,
         customer_phone: customerPhone || undefined,
@@ -416,7 +425,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         is_bundle: bundleInfo.isBundle,
         bundle_type: bundleInfo.bundleType,
         policies: policies.map((policy) => {
-          // For brokered business, product_type_id is "brokered" - convert to null for DB
+          // For brokered policies, product_type_id is "brokered" - convert to null for DB
           const productTypeId = policy.product_type_id === "brokered" ? null : (policy.product_type_id || null);
           return {
             product_type_id: productTypeId,
@@ -424,6 +433,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
             policy_number: policy.policy_number || undefined,
             effective_date: format(policy.effective_date!, "yyyy-MM-dd"),
             is_vc_qualifying: policy.is_vc_qualifying,
+            brokered_carrier_id: policy.isBrokered ? policy.brokeredCarrierId : null,
             items: policy.lineItems.map((item) => ({
               product_type_id: item.product_type_id && item.product_type_id !== "brokered" ? item.product_type_id : null,
               product_type_name: item.product_type_name,
@@ -468,9 +478,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
     setCustomerPhone("");
     setCustomerZip("");
     setLeadSourceId("");
-    setIsBrokeredBusiness(false);
-    setBrokeredCarrierId(null);
-    setSaleDate(new Date());
+    setSaleDate(todayLocal());
     setPolicies([]);
   };
 
@@ -566,77 +574,6 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Brokered Business Toggle */}
-            <div className="sm:col-span-2 pt-2">
-              <div className={cn(
-                "flex items-center justify-between p-4 rounded-lg border-2 transition-colors",
-                isBrokeredBusiness
-                  ? "border-amber-500 bg-amber-50 dark:bg-amber-950/20"
-                  : "border-muted bg-muted/30"
-              )}>
-                <div className="flex items-center gap-3">
-                  <Building2 className={cn(
-                    "h-5 w-5",
-                    isBrokeredBusiness ? "text-amber-600" : "text-muted-foreground"
-                  )} />
-                  <div>
-                    <Label htmlFor="brokeredToggle" className="text-base font-medium cursor-pointer">
-                      Brokered Business
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      This sale is through a non-captive carrier
-                    </p>
-                  </div>
-                </div>
-                <Switch
-                  id="brokeredToggle"
-                  checked={isBrokeredBusiness}
-                  onCheckedChange={(checked) => {
-                    setIsBrokeredBusiness(checked);
-                    if (!checked) {
-                      setBrokeredCarrierId(null);
-                    }
-                  }}
-                />
-              </div>
-
-              {/* Brokered Carrier Selection - shown when toggle is on */}
-              {isBrokeredBusiness && (
-                <div className="mt-3 pl-8 space-y-2">
-                  {brokeredCarriers.length > 0 ? (
-                    <>
-                      <Label htmlFor="brokeredCarrier">
-                        Select Carrier <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={brokeredCarrierId || ""}
-                        onValueChange={(value) => setBrokeredCarrierId(value || null)}
-                      >
-                        <SelectTrigger className={cn(
-                          !brokeredCarrierId && "border-amber-500"
-                        )}>
-                          <SelectValue placeholder="Choose a brokered carrier..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {brokeredCarriers.map((carrier) => (
-                            <SelectItem key={carrier.id} value={carrier.id}>
-                              {carrier.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </>
-                  ) : (
-                    <div className="flex items-center gap-2 p-3 rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800">
-                      <span className="text-sm text-amber-800 dark:text-amber-200">
-                        No brokered carriers configured. Please ask your administrator to set up carriers.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
           </CardContent>
         </Card>
 
@@ -699,7 +636,12 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                     >
                       <div className="border rounded-lg">
                         {/* Policy Header */}
-                        <div className="flex items-center justify-between p-4 bg-muted/30">
+                        <div className={cn(
+                          "flex items-center justify-between p-4",
+                          policy.isBrokered
+                            ? "bg-amber-50 dark:bg-amber-950/20 border-b border-amber-200 dark:border-amber-800"
+                            : "bg-muted/30"
+                        )}>
                           <CollapsibleTrigger asChild>
                             <Button variant="ghost" size="sm" className="gap-2">
                               {policy.isExpanded ? (
@@ -711,6 +653,12 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                                 Policy {policyIndex + 1}
                                 {policy.policy_type_name && `: ${policy.policy_type_name}`}
                               </span>
+                              {policy.isBrokered && (
+                                <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400 ml-2">
+                                  <Building2 className="h-3 w-3 mr-1" />
+                                  Brokered
+                                </Badge>
+                              )}
                               {policy.is_vc_qualifying && (
                                 <Badge variant="default" className="bg-green-600 ml-2">
                                   VC
@@ -721,6 +669,57 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                           <div className="flex items-center gap-4">
                             <div className="text-sm text-muted-foreground">
                               {policyTotals.items} items · ${policyTotals.premium.toLocaleString()} · {policyTotals.points} pts
+                            </div>
+                            {/* Brokered Toggle */}
+                            <div className="flex items-center gap-2">
+                              <Label htmlFor={`brokered-${policy.id}`} className="text-xs text-muted-foreground cursor-pointer">
+                                Brokered
+                              </Label>
+                              <Switch
+                                id={`brokered-${policy.id}`}
+                                checked={policy.isBrokered}
+                                onCheckedChange={(checked) => {
+                                  setPolicies(policies.map((p) => {
+                                    if (p.id !== policy.id) return p;
+                                    if (checked) {
+                                      // Switching to brokered - clear product_type_id, keep premium/points if exists
+                                      return {
+                                        ...p,
+                                        isBrokered: true,
+                                        product_type_id: "brokered",
+                                        is_vc_qualifying: false,
+                                        lineItems: p.lineItems.length > 0 ? [{
+                                          ...p.lineItems[0],
+                                          product_type_id: "",  // Clear since this is now brokered
+                                          product_type_name: p.policy_type_name || "",
+                                          is_vc_qualifying: false,
+                                        }] : [{
+                                          id: crypto.randomUUID(),
+                                          product_type_id: "",
+                                          product_type_name: p.policy_type_name || "",
+                                          item_count: 1,
+                                          premium: 0,
+                                          points: 0,
+                                          is_vc_qualifying: false,
+                                        }],
+                                      };
+                                    } else {
+                                      // Switching from brokered - clear brokered fields
+                                      return {
+                                        ...p,
+                                        isBrokered: false,
+                                        brokeredCarrierId: null,
+                                        product_type_id: "",
+                                        policy_type_name: "",
+                                        lineItems: [],
+                                      };
+                                    }
+                                  }));
+                                }}
+                                className={cn(
+                                  "data-[state=checked]:bg-amber-500"
+                                )}
+                              />
                             </div>
                             <Button
                               type="button"
@@ -736,13 +735,55 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                         {/* Policy Content */}
                         <CollapsibleContent>
                           <div className="p-4 space-y-4">
+                            {/* Brokered Carrier Selector - shown when policy is brokered */}
+                            {policy.isBrokered && (
+                              <div className="p-3 rounded-lg border-2 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/10">
+                                <div className="space-y-2">
+                                  <Label>
+                                    Brokered Carrier <span className="text-destructive">*</span>
+                                  </Label>
+                                  {brokeredCarriers.length > 0 ? (
+                                    <Select
+                                      value={policy.brokeredCarrierId || ""}
+                                      onValueChange={(value) => {
+                                        setPolicies(policies.map((p) =>
+                                          p.id === policy.id
+                                            ? { ...p, brokeredCarrierId: value || null }
+                                            : p
+                                        ));
+                                      }}
+                                    >
+                                      <SelectTrigger className={cn(
+                                        !policy.brokeredCarrierId && "border-amber-500"
+                                      )}>
+                                        <SelectValue placeholder="Choose a brokered carrier..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {brokeredCarriers.map((carrier) => (
+                                          <SelectItem key={carrier.id} value={carrier.id}>
+                                            {carrier.name}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  ) : (
+                                    <div className="flex items-center gap-2 p-3 rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800">
+                                      <span className="text-sm text-amber-800 dark:text-amber-200">
+                                        No brokered carriers configured. Please ask your administrator to set up carriers.
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
                             {/* Policy Fields */}
                             <div className="grid gap-4 sm:grid-cols-3">
                               <div className="space-y-2">
                                 <Label>
                                   Policy Type <span className="text-destructive">*</span>
                                 </Label>
-                                {isBrokeredBusiness ? (
+                                {policy.isBrokered ? (
                                   <Input
                                     value={policy.policy_type_name}
                                     onChange={(e) => {
@@ -945,7 +986,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                                   </div>
                                 )}
                               </>
-                            ) : isBrokeredBusiness && policy.policy_type_name ? (
+                            ) : policy.isBrokered && policy.policy_type_name ? (
                               /* Brokered business: Simplified interface with editable items */
                               <div className="grid gap-4 mt-4 sm:grid-cols-4 items-end">
                                 <div className="space-y-1">
@@ -1098,7 +1139,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                             ) : (
                               /* No product type selected yet */
                               <div className="text-center py-4 text-sm text-muted-foreground border rounded-lg mt-4">
-                                {isBrokeredBusiness ? "Enter a policy type to add details." : "Select a policy type to add details."}
+                                {policy.isBrokered ? "Enter a policy type to add details." : "Select a policy type to add details."}
                               </div>
                             )}
 

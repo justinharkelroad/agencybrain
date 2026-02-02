@@ -4,7 +4,7 @@ import { Navigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { hasSalesBetaAccess } from "@/lib/salesBetaAccess";
+import { hasSalesAccess } from "@/lib/salesBetaAccess";
 import { SalesLog } from "@/components/sales/SalesLog";
 import { AddSaleForm } from "@/components/sales/AddSaleForm";
 import { SalesGoals } from "@/components/sales/SalesGoals";
@@ -76,6 +76,7 @@ export default function Sales() {
           customer_zip,
           lead_source_id,
           lead_source:lead_sources(name),
+          brokered_carrier_id,
           team_member_id,
           sale_date,
           is_bundle,
@@ -95,7 +96,8 @@ export default function Sales() {
           policy_type_name,
           policy_number,
           effective_date,
-          is_vc_qualifying
+          is_vc_qualifying,
+          brokered_carrier_id
         `)
         .eq("sale_id", editingSaleId)
         .order("created_at");
@@ -150,7 +152,7 @@ export default function Sales() {
   }
 
   // Admin or beta agency access
-  if (!isAdmin && !hasSalesBetaAccess(agencyId)) {
+  if (!isAdmin && !hasSalesAccess(agencyId)) {
     return <Navigate to="/dashboard" replace />;
   }
 
