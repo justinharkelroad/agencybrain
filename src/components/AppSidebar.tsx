@@ -62,6 +62,7 @@ import { isCallScoringTier as checkIsCallScoringTier } from "@/utils/tierAccess"
 // New imports for navigation system
 import { navigationConfig, isNavFolder, isNavSubFolder, NavEntry, NavItem } from "@/config/navigation";
 import { useSidebarAccess } from "@/hooks/useSidebarAccess";
+import { useSalesExperienceAccess } from "@/hooks/useSalesExperienceAccess";
 import { SidebarNavItem, SidebarFolder, SidebarSubFolder } from "@/components/sidebar";
 import type { CalcKey } from "@/components/ROIForecastersModal";
 
@@ -98,6 +99,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { signOut, isAdmin, user, membershipTier } = useAuth();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const { filterNavigation, loading: accessLoading, agencyId } = useSidebarAccess();
+  const { hasAccess: hasSalesExperienceAccess } = useSalesExperienceAccess();
   const location = useLocation();
   const { data: subscription } = useSubscription();
 
@@ -292,7 +294,11 @@ const toggleFolder = useCallback((folderId: string) => {
   // Filter and reorder navigation based on user access and tier
   const visibleNavigation = useMemo<NavEntry[]>(() => {
     // First apply the standard filtering from useSidebarAccess
-    let filtered = filterNavigation(navigationConfig, callScoringEnabled, user?.email);
+    let filtered = filterNavigation(navigationConfig, {
+      callScoringEnabled,
+      userEmail: user?.email,
+      hasSalesExperienceAccess,
+    });
     
     if (isCallScoringTier) {
       // For Call Scoring tier: 
@@ -336,7 +342,7 @@ const toggleFolder = useCallback((folderId: string) => {
     }
     
     return filtered;
-  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier]);
+  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, hasSalesExperienceAccess]);
 
 // Auto-expand folder containing active route
 useEffect(() => {

@@ -29,6 +29,9 @@ import {
   RotateCcw,
   Contact,
   Workflow,
+  Trophy,
+  FileText,
+  MessageSquare,
   type LucideIcon
 } from "lucide-react";
 import { TrendingUp } from "lucide-react";
@@ -57,6 +60,7 @@ export type NavItem = {
   emailRestriction?: string;  // Only visible to this specific email address
   challengeAccess?: boolean;  // Requires agency to be in challenge beta list
   trialRestricted?: boolean;  // Some functionality restricted during trial (shows indicator)
+  salesExperienceAccess?: boolean;  // Requires agency to have active sales experience assignment
 };
 
 // Sub-folder that can appear inside a NavFolder
@@ -76,6 +80,7 @@ export type NavFolder = {
   access: AccessConfig;
   items: (NavItem | NavSubFolder)[];  // Can contain items or sub-folders
   isFolder: true;
+  salesExperienceAccess?: boolean;  // Requires agency to have active sales experience assignment
 };
 
 export type NavEntry = NavItem | NavFolder;
@@ -289,6 +294,343 @@ export const navigationConfig: NavEntry[] = [
         url: '/training/challenge',
         access: { staff: false, manager: true, owner: true },
         challengeAccess: true,
+      },
+    ],
+  },
+
+  // 8-Week Sales Experience - Owner/Manager only, conditional on assignment
+  {
+    id: 'sales-experience',
+    title: '8-Week Experience',
+    icon: Trophy,
+    isFolder: true,
+    access: { staff: false, manager: true, owner: true },
+    salesExperienceAccess: true,
+    items: [
+      {
+        id: 'se-overview',
+        title: 'Overview & Progress',
+        icon: LayoutDashboard,
+        type: 'link',
+        url: '/sales-experience',
+        access: { staff: false, manager: true, owner: true },
+        salesExperienceAccess: true,
+      },
+      // Week 1: Sales Process Foundation
+      {
+        id: 'se-week-1',
+        title: 'Week 1: Foundation',
+        icon: BookOpen,
+        isSubFolder: true,
+        access: { staff: false, manager: true, owner: true },
+        items: [
+          {
+            id: 'se-week-1-lessons',
+            title: 'Lesson Materials',
+            icon: Video,
+            type: 'link',
+            url: '/sales-experience/week/1',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-1-documents',
+            title: 'Documents',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/1/documents',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-1-transcript',
+            title: 'Transcript',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/1/transcript',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+        ],
+      },
+      // Week 2: Prospecting & Pipeline
+      {
+        id: 'se-week-2',
+        title: 'Week 2: Prospecting',
+        icon: BookOpen,
+        isSubFolder: true,
+        access: { staff: false, manager: true, owner: true },
+        items: [
+          {
+            id: 'se-week-2-lessons',
+            title: 'Lesson Materials',
+            icon: Video,
+            type: 'link',
+            url: '/sales-experience/week/2',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-2-documents',
+            title: 'Documents',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/2/documents',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-2-transcript',
+            title: 'Transcript',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/2/transcript',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+        ],
+      },
+      // Week 3: Discovery & Qualification
+      {
+        id: 'se-week-3',
+        title: 'Week 3: Discovery',
+        icon: BookOpen,
+        isSubFolder: true,
+        access: { staff: false, manager: true, owner: true },
+        items: [
+          {
+            id: 'se-week-3-lessons',
+            title: 'Lesson Materials',
+            icon: Video,
+            type: 'link',
+            url: '/sales-experience/week/3',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-3-documents',
+            title: 'Documents',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/3/documents',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-3-transcript',
+            title: 'Transcript',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/3/transcript',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+        ],
+      },
+      // Week 4: Building Accountability Systems
+      {
+        id: 'se-week-4',
+        title: 'Week 4: Accountability',
+        icon: BookOpen,
+        isSubFolder: true,
+        access: { staff: false, manager: true, owner: true },
+        items: [
+          {
+            id: 'se-week-4-lessons',
+            title: 'Lesson Materials',
+            icon: Video,
+            type: 'link',
+            url: '/sales-experience/week/4',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-4-documents',
+            title: 'Documents',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/4/documents',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-4-transcript',
+            title: 'Transcript',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/4/transcript',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+        ],
+      },
+      // Week 5: Metrics & Performance Tracking
+      {
+        id: 'se-week-5',
+        title: 'Week 5: Metrics',
+        icon: BookOpen,
+        isSubFolder: true,
+        access: { staff: false, manager: true, owner: true },
+        items: [
+          {
+            id: 'se-week-5-lessons',
+            title: 'Lesson Materials',
+            icon: Video,
+            type: 'link',
+            url: '/sales-experience/week/5',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-5-documents',
+            title: 'Documents',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/5/documents',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-5-transcript',
+            title: 'Transcript',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/5/transcript',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+        ],
+      },
+      // Week 6: Coaching Fundamentals
+      {
+        id: 'se-week-6',
+        title: 'Week 6: Coaching',
+        icon: BookOpen,
+        isSubFolder: true,
+        access: { staff: false, manager: true, owner: true },
+        items: [
+          {
+            id: 'se-week-6-lessons',
+            title: 'Lesson Materials',
+            icon: Video,
+            type: 'link',
+            url: '/sales-experience/week/6',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-6-documents',
+            title: 'Documents',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/6/documents',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-6-transcript',
+            title: 'Transcript',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/6/transcript',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+        ],
+      },
+      // Week 7: One-on-One Excellence
+      {
+        id: 'se-week-7',
+        title: 'Week 7: One-on-Ones',
+        icon: BookOpen,
+        isSubFolder: true,
+        access: { staff: false, manager: true, owner: true },
+        items: [
+          {
+            id: 'se-week-7-lessons',
+            title: 'Lesson Materials',
+            icon: Video,
+            type: 'link',
+            url: '/sales-experience/week/7',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-7-documents',
+            title: 'Documents',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/7/documents',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-7-transcript',
+            title: 'Transcript',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/7/transcript',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+        ],
+      },
+      // Week 8: Sustaining the System
+      {
+        id: 'se-week-8',
+        title: 'Week 8: Sustaining',
+        icon: BookOpen,
+        isSubFolder: true,
+        access: { staff: false, manager: true, owner: true },
+        items: [
+          {
+            id: 'se-week-8-lessons',
+            title: 'Lesson Materials',
+            icon: Video,
+            type: 'link',
+            url: '/sales-experience/week/8',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-8-documents',
+            title: 'Documents',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/8/documents',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+          {
+            id: 'se-week-8-transcript',
+            title: 'Transcript',
+            icon: FileText,
+            type: 'link',
+            url: '/sales-experience/week/8/transcript',
+            access: { staff: false, manager: true, owner: true },
+            salesExperienceAccess: true,
+          },
+        ],
+      },
+      // Coach Messages
+      {
+        id: 'se-messages',
+        title: 'Coach Messages',
+        icon: MessageSquare,
+        type: 'link',
+        url: '/sales-experience/messages',
+        access: { staff: false, manager: true, owner: true },
+        salesExperienceAccess: true,
+      },
+      // Team Progress
+      {
+        id: 'se-team-progress',
+        title: 'Team Quiz Results',
+        icon: Users,
+        type: 'link',
+        url: '/sales-experience/team-progress',
+        access: { staff: false, manager: true, owner: true },
+        salesExperienceAccess: true,
       },
     ],
   },

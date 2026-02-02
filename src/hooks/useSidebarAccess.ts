@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
-import { 
-  NavEntry, 
-  NavItem, 
-  NavFolder, 
+import {
+  NavEntry,
+  NavItem,
+  NavFolder,
   NavSubFolder,
-  AccessConfig, 
+  AccessConfig,
   isNavFolder,
-  isNavSubFolder 
+  isNavSubFolder
 } from '@/config/navigation';
 import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
 
@@ -17,6 +17,12 @@ export interface UserAccess {
   isManager: boolean;
   isOwner: boolean;
   isAdmin: boolean;
+}
+
+export interface SidebarFilterOptions {
+  callScoringEnabled: boolean;
+  userEmail?: string;
+  hasSalesExperienceAccess?: boolean;
 }
 
 export function useSidebarAccess() {
@@ -49,7 +55,9 @@ export function useSidebarAccess() {
   }, [userAccess]);
 
   const checkItemAccess = useMemo(() => {
-    return (item: NavItem, callScoringEnabled: boolean, userEmail?: string): boolean => {
+    return (item: NavItem, options: SidebarFilterOptions): boolean => {
+      const { callScoringEnabled, userEmail, hasSalesExperienceAccess } = options;
+
       // Check email restriction first - most restrictive
       if (item.emailRestriction) {
         if (!userEmail || userEmail.toLowerCase() !== item.emailRestriction.toLowerCase()) {
@@ -64,6 +72,11 @@ export function useSidebarAccess() {
 
       // NOTE: challengeAccess items are NOT filtered here - they're shown to everyone
       // and gated at click-time with a "Coming Soon" modal for non-whitelisted agencies
+
+      // Check salesExperienceAccess - only show if user has active assignment
+      if (item.salesExperienceAccess && !hasSalesExperienceAccess) {
+        return false;
+      }
 
       // First check base access
       if (!canAccess(item.access)) return false;
@@ -83,15 +96,20 @@ export function useSidebarAccess() {
   }, [canAccess, hasTierAccess, userAccess.isAdmin, agencyId]);
 
   const filterNavigation = useMemo(() => {
-    return (config: NavEntry[], callScoringEnabled: boolean, userEmail?: string): NavEntry[] => {
+    return (config: NavEntry[], options: SidebarFilterOptions): NavEntry[] => {
       return config
         .filter((entry) => {
           if (isNavFolder(entry)) {
             // Check folder-level access first
-            return canAccess(entry.access);
+            if (!canAccess(entry.access)) return false;
+            // Check salesExperienceAccess on folder level
+            if (entry.salesExperienceAccess && !options.hasSalesExperienceAccess) {
+              return false;
+            }
+            return true;
           }
           // Check individual item access
-          return checkItemAccess(entry, callScoringEnabled, userEmail);
+          return checkItemAccess(entry, options);
         })
         .map((entry) => {
           if (isNavFolder(entry)) {
@@ -102,13 +120,13 @@ export function useSidebarAccess() {
                   // Check sub-folder access
                   return canAccess(item.access);
                 }
-                return checkItemAccess(item, callScoringEnabled, userEmail);
+                return checkItemAccess(item, options);
               })
               .map((item) => {
                 if (isNavSubFolder(item)) {
                   // Filter items within sub-folder
                   const filteredSubItems = item.items.filter((subItem) =>
-                    checkItemAccess(subItem, callScoringEnabled, userEmail)
+                    checkItemAccess(subItem, options)
                   );
                   return { ...item, items: filteredSubItems };
                 }
