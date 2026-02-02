@@ -16,7 +16,7 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
-import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
+import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -85,8 +85,8 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
 
   // For staff portal, check access using staff user's agency_id
   const hasAccess = isStaffPortal
-    ? hasSalesBetaAccess(effectiveAgencyId ?? null)
-    : hasSalesBetaAccess(profile?.agency_id ?? null);
+    ? hasSalesAccess(effectiveAgencyId ?? null)
+    : hasSalesAccess(profile?.agency_id ?? null);
 
   // For agency portal, use useAgencyProfile hook; for staff portal, construct from staff user
   const { data: agencyProfileData, isLoading: agencyProfileLoading } = useAgencyProfile(

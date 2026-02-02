@@ -10,7 +10,7 @@ import {
   isNavFolder,
   isNavSubFolder 
 } from '@/config/navigation';
-import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
+import { hasSalesAccess } from '@/lib/salesBetaAccess';
 
 export interface UserAccess {
   isStaff: boolean;
@@ -58,7 +58,7 @@ export function useSidebarAccess() {
       }
 
       // Check adminOnly flag - system admins and beta agencies can see these items
-      if (item.adminOnly && !userAccess.isAdmin && !hasSalesBetaAccess(agencyId)) {
+      if (item.adminOnly && !userAccess.isAdmin && !hasSalesAccess(agencyId)) {
         return false;
       }
 

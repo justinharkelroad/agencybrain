@@ -44,7 +44,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
+import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -458,7 +458,7 @@ export default function LqsRoiPage() {
   );
 
   // Check access via agency whitelist
-  const hasAccess = hasSalesBetaAccess(agencyProfile?.agencyId ?? null);
+  const hasAccess = hasSalesAccess(agencyProfile?.agencyId ?? null);
   
   // Load commission rate from agency when available
   useEffect(() => {

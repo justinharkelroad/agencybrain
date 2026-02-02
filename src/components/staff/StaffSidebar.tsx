@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { isCallScoringTier as checkIsCallScoringTier, getStaffHomePath, hasOneOnOneAccess } from "@/utils/tierAccess";
-import { hasSalesBetaAccess } from "@/lib/salesBetaAccess";
+import { hasSalesAccess } from "@/lib/salesBetaAccess";
 import { useChallengeAccessGrant } from "@/hooks/useChallengeAccessGrant";
 import { useStaffOverdueTaskCount } from "@/hooks/useStaffOverdueTaskCount";
 import {
@@ -180,7 +180,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   }, [challengeGrantedIds]);
 
   // Check if agency has sales beta access
-  const salesEnabled = hasSalesBetaAccess(user?.agency_id ?? null);
+  const salesEnabled = hasSalesAccess(user?.agency_id ?? null);
 
   // Filter navigation items based on role, callScoringEnabled setting
   // For Call Scoring tier: we show all items but gate them at click time

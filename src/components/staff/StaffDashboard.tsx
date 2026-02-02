@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { AlertTriangle, CheckCircle, XCircle, Target, Plus } from 'lucide-react';
-import { RING_COLORS } from '@/components/rings/colors';
+import { getRingColor } from '@/components/rings/colors';
 import { StaffFocusTargets } from './StaffFocusTargets';
 import { StaffTeamOverview } from './StaffTeamOverview';
 import { StaffRoleplaySessions } from './StaffRoleplaySessions';
@@ -14,7 +14,7 @@ import { AgencyDailyGoals } from '@/components/dashboard/AgencyDailyGoals';
 import { StaffCore4Card } from './StaffCore4Card';
 import { StaffCore4MonthlyMissions } from './StaffCore4MonthlyMissions';
 import { StaffSalesSummary } from './StaffSalesSummary';
-import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
+import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { ChallengeDashboardWidget } from '@/components/challenge/ChallengeDashboardWidget';
 interface KPIData {
@@ -235,7 +235,7 @@ export function StaffDashboard() {
       </div>
 
       {/* Sales Summary Widget - At Top (only for whitelisted agencies) */}
-      {user?.agency_id && user?.team_member_id && hasSalesBetaAccess(user.agency_id) && (
+      {user?.agency_id && user?.team_member_id && hasSalesAccess(user.agency_id) && (
         <StaffSalesSummary
           agencyId={user.agency_id}
           teamMemberId={user.team_member_id}
@@ -285,7 +285,7 @@ export function StaffDashboard() {
                   <div key={kpi.key} className="flex flex-col items-center gap-2">
                     <CompactRing
                       progress={kpi.progress}
-                      color={hasSubmission ? (RING_COLORS[kpi.slug] || '#9ca3af') : 'hsl(var(--muted-foreground) / 0.3)'}
+                      color={hasSubmission ? getRingColor(kpi.slug) : 'hsl(var(--muted-foreground) / 0.3)'}
                       actual={kpi.actual}
                     />
                     <span className="text-xs text-muted-foreground text-center max-w-[80px]">

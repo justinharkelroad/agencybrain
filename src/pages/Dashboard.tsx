@@ -22,7 +22,7 @@ import { PeriodRefreshProvider } from '@/contexts/PeriodRefreshContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { RenewalSummaryWidget } from '@/components/dashboard/RenewalSummaryWidget';
 import { SalesDashboardWidget } from '@/components/sales/SalesDashboardWidget';
-import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
+import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { Plus } from 'lucide-react';
 
@@ -176,7 +176,7 @@ const Dashboard = () => {
         </div>
         <PeriodRefreshProvider>
           {/* 0. Sales Dashboard Widget - admin and beta agencies */}
-          {(isAdmin || hasSalesBetaAccess(agencyId)) && <SalesDashboardWidget agencyId={agencyId} />}
+          {(isAdmin || hasSalesAccess(agencyId)) && <SalesDashboardWidget agencyId={agencyId} />}
           
           {/* 1. Core 4 + Flow */}
           <Core4Card />
