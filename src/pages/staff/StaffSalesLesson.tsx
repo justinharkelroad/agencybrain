@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
+import { useStaffFlowProfile } from '@/hooks/useStaffFlowProfile';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,7 @@ interface LessonData {
   video_platform: string | null;
   content_html: string | null;
   quiz_questions: QuizQuestion[];
+  is_discovery_flow: boolean;
   module: {
     id: string;
     week_number: number;
@@ -67,6 +69,7 @@ interface ApiLesson {
   video_platform: string | null;
   content_html: string | null;
   quiz_questions: QuizQuestion[];
+  is_discovery_flow: boolean;
   progress: {
     id: string;
     status: string;
@@ -89,6 +92,7 @@ export default function StaffSalesLesson() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, sessionToken, isAuthenticated, loading: authLoading } = useStaffAuth();
+  const { hasProfile, loading: profileLoading } = useStaffFlowProfile();
 
   const [lesson, setLesson] = useState<LessonData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -132,6 +136,7 @@ export default function StaffSalesLesson() {
         if (lessonFromApi) {
           foundLesson = {
             ...lessonFromApi,
+            is_discovery_flow: lessonFromApi.is_discovery_flow || false,
             module: {
               id: week.id,
               week_number: week.week_number,
@@ -375,6 +380,44 @@ export default function StaffSalesLesson() {
               className="prose prose-sm dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: lesson.content_html }}
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Discovery Flow Section */}
+      {lesson.is_discovery_flow && lesson.progress?.status !== 'completed' && (
+        <Card className="mb-6 border-purple-500/30 bg-purple-500/5">
+          <CardContent className="py-6">
+            <div className="text-center space-y-4">
+              <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-purple-500/20 text-purple-500 mx-auto">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">Discovery Flow Session</h3>
+                <p className="text-muted-foreground text-sm">
+                  Complete a guided reflection session to deepen your learning
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  if (profileLoading) return;
+                  if (hasProfile) {
+                    navigate('/staff/flows/start/discovery');
+                  } else {
+                    navigate('/staff/flows/profile', { state: { returnTo: `/staff/flows/start/discovery` } });
+                  }
+                }}
+                disabled={profileLoading}
+                className="gap-2 bg-purple-500 hover:bg-purple-600"
+              >
+                {profileLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                Start Discovery Flow
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
