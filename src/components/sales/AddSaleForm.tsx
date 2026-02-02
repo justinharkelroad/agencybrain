@@ -82,6 +82,7 @@ type SaleForEdit = {
   is_bundle: boolean | null;
   bundle_type: string | null;
   existing_customer_products: string[] | null;
+  brokered_counts_toward_bundling: boolean | null;
   sale_policies: {
     id: string;
     product_type_id: string | null;
@@ -173,6 +174,9 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
   const [hasExistingPolicies, setHasExistingPolicies] = useState(false);
   const [existingPolicyTypes, setExistingPolicyTypes] = useState<string[]>([]);
 
+  // Brokered bundling state - when checked, brokered policies count toward bundling metrics
+  const [brokeredCountsTowardBundling, setBrokeredCountsTowardBundling] = useState(false);
+
   // Apply sequence modal state
   const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
   const [newSaleData, setNewSaleData] = useState<{
@@ -204,6 +208,9 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         setHasExistingPolicies(false);
         setExistingPolicyTypes([]);
       }
+
+      // Restore brokered bundling state
+      setBrokeredCountsTowardBundling(editSale.brokered_counts_toward_bundling || false);
 
       // Map policies and items
       // For backward compatibility: if sale has brokered_carrier_id but policies don't,
@@ -328,6 +335,12 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
   const bundleInfo = useMemo(
     () => detectBundleType(policies, hasExistingPolicies ? existingPolicyTypes : []),
     [policies, hasExistingPolicies, existingPolicyTypes]
+  );
+
+  // Check if sale has any brokered policies
+  const hasBrokeredPolicy = useMemo(
+    () => policies.some(p => p.isBrokered),
+    [policies]
   );
 
   // Add a new policy
@@ -636,6 +649,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         is_bundle: bundleInfo.isBundle,
         bundle_type: bundleInfo.bundleType,
         existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
+        brokered_counts_toward_bundling: hasBrokeredPolicy && brokeredCountsTowardBundling,
         source: "manual",
         created_by: user?.id,
       };
@@ -777,6 +791,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     setPolicies([]);
     setHasExistingPolicies(false);
     setExistingPolicyTypes([]);
+    setBrokeredCountsTowardBundling(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1622,6 +1637,35 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                   <div className="text-sm text-muted-foreground">Total Points</div>
                 </div>
               </div>
+
+              {/* Brokered Bundling Option - show when sale has brokered policy and is a bundle */}
+              {hasBrokeredPolicy && bundleInfo.isBundle && (
+                <div className={cn(
+                  "p-4 rounded-lg border transition-colors",
+                  brokeredCountsTowardBundling
+                    ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20"
+                    : "border-muted bg-muted/30"
+                )}>
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="brokeredCountsTowardBundling"
+                      checked={brokeredCountsTowardBundling}
+                      onCheckedChange={(checked) => setBrokeredCountsTowardBundling(checked === true)}
+                    />
+                    <Label
+                      htmlFor="brokeredCountsTowardBundling"
+                      className="flex items-center gap-2 cursor-pointer font-medium"
+                    >
+                      <Building2 className="h-4 w-4 text-amber-600" />
+                      Count brokered policy toward bundling metrics
+                    </Label>
+                  </div>
+                  <p className="mt-2 pl-7 text-sm text-muted-foreground">
+                    When enabled, this brokered policy will count toward your bundled household goals.
+                    Use this when your carrier doesn't write this product in your state.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

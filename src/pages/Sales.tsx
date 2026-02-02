@@ -81,7 +81,8 @@ export default function Sales() {
           sale_date,
           is_bundle,
           bundle_type,
-          existing_customer_products
+          existing_customer_products,
+          brokered_counts_toward_bundling
         `)
         .eq("id", editingSaleId)
         .single();

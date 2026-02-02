@@ -117,6 +117,7 @@ export function CreateCompPlanModal({
   const [brokeredPayoutType, setBrokeredPayoutType] = useState("flat_per_item");
   const [brokeredFlatRate, setBrokeredFlatRate] = useState<string>("");
   const [brokeredCountsTowardTier, setBrokeredCountsTowardTier] = useState(false);
+  const [includeBrokeredInBundling, setIncludeBrokeredInBundling] = useState(false);
   const [brokeredTiers, setBrokeredTiers] = useState<TierFormData[]>([
     { min_threshold: 0, commission_value: 0, sort_order: 0 },
   ]);
@@ -198,6 +199,7 @@ export function CreateCompPlanModal({
       setBrokeredPayoutType(editPlan.brokered_payout_type || "flat_per_item");
       setBrokeredFlatRate(editPlan.brokered_flat_rate?.toString() || "");
       setBrokeredCountsTowardTier(editPlan.brokered_counts_toward_tier || false);
+      setIncludeBrokeredInBundling((editPlan as any).include_brokered_in_bundling || false);
       setTiers(
         editPlan.tiers.length > 0
           ? editPlan.tiers.map((t, i) => ({
@@ -377,6 +379,7 @@ export function CreateCompPlanModal({
     setBrokeredPayoutType("flat_per_item");
     setBrokeredFlatRate("");
     setBrokeredCountsTowardTier(false);
+    setIncludeBrokeredInBundling(false);
     setBrokeredTiers([{ min_threshold: 0, commission_value: 0, sort_order: 0 }]);
     setTiers([{ min_threshold: 0, commission_value: 0, sort_order: 0 }]);
     setSelectedMembers([]);
@@ -457,6 +460,7 @@ export function CreateCompPlanModal({
       brokered_payout_type: brokeredPayoutType,
       brokered_flat_rate: brokeredFlatRate ? parseFloat(brokeredFlatRate) : null,
       brokered_counts_toward_tier: brokeredCountsTowardTier,
+      include_brokered_in_bundling: includeBrokeredInBundling,
       is_active: isActive,
       tiers: sortedTiers,
       brokered_tiers: brokeredPayoutType === 'tiered' ? sortedBrokeredTiers : [],
@@ -736,6 +740,26 @@ export function CreateCompPlanModal({
                 <Label htmlFor="brokered-counts" className="font-normal">
                   Counts toward tier threshold
                 </Label>
+              </div>
+
+              {/* Include brokered in bundling calculations */}
+              <div className="space-y-2 pt-2 border-t mt-4">
+                <div className="flex items-center gap-2 pt-2">
+                  <Checkbox
+                    id="brokered-bundling"
+                    checked={includeBrokeredInBundling}
+                    onCheckedChange={(checked) =>
+                      setIncludeBrokeredInBundling(checked === true)
+                    }
+                  />
+                  <Label htmlFor="brokered-bundling" className="font-normal">
+                    Include brokered policies in bundling calculations
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground pl-6">
+                  When enabled, salespeople can mark brokered policies to count toward bundled household goals.
+                  Use this when your captive carrier doesn't write certain products in your state.
+                </p>
               </div>
             </div>
 
