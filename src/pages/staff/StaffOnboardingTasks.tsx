@@ -512,8 +512,8 @@ export default function StaffOnboardingTasks() {
   // Group filtered tasks by customer
   const groupedTasks = useMemo(() => groupTasksByCustomer(filteredTasks), [filteredTasks]);
 
-  // Auto-collapse if more than 5 customers
-  const shouldAutoCollapse = groupedTasks.length > 5;
+  // Auto-collapse if more than 1 customer
+  const shouldAutoCollapse = groupedTasks.length > 1;
 
   // Convert StaffOnboardingTask[] to OnboardingTask[] for SevenDayOutlook
   const tasksForOutlook = useMemo(() => {
@@ -759,14 +759,24 @@ export default function StaffOnboardingTasks() {
                   {groupedTasks.length} customers shown
                 </p>
               )}
-              {groupedTasks.map((group) => (
+              {groupedTasks.map((group) => {
+                const hasOverdue = group.tasks.some(t => t.status === 'overdue');
+                return (
                 <div key={group.customerName} className="space-y-3">
-                  <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                  <h3 className={cn(
+                    "text-sm font-medium flex items-center gap-2",
+                    hasOverdue ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
+                  )}>
                     {group.contactId ? (
                       <span
                         role="button"
                         tabIndex={0}
-                        className="hover:text-primary hover:underline cursor-pointer transition-colors"
+                        className={cn(
+                          "cursor-pointer transition-colors",
+                          hasOverdue
+                            ? "hover:text-red-700 dark:hover:text-red-300 hover:underline"
+                            : "hover:text-primary hover:underline"
+                        )}
                         onClick={() => handleViewProfile(group.contactId!, group.customerName)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
@@ -780,9 +790,15 @@ export default function StaffOnboardingTasks() {
                     ) : (
                       group.customerName
                     )}
-                    <Badge variant="outline" className="text-xs">
-                      {group.tasks.length} task{group.tasks.length !== 1 ? 's' : ''}
-                    </Badge>
+                    {hasOverdue ? (
+                      <Badge variant="destructive" className="text-xs">
+                        {group.tasks.filter(t => t.status === 'overdue').length} overdue
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs">
+                        {group.tasks.length} task{group.tasks.length !== 1 ? 's' : ''}
+                      </Badge>
+                    )}
                   </h3>
                   <div className="space-y-3">
                     {group.tasks.map((task) => (
@@ -796,7 +812,8 @@ export default function StaffOnboardingTasks() {
                     ))}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </>
           )}
 

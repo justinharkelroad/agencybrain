@@ -226,8 +226,8 @@ export default function OnboardingTasksPage() {
     [filteredTasks]
   );
 
-  // Auto-collapse if more than 5 customers
-  const shouldAutoCollapse = groupedTasks.size > 5;
+  // Auto-collapse if more than 1 customer
+  const shouldAutoCollapse = groupedTasks.size > 1;
 
   // Handle day click in outlook
   const handleDayClick = (date: Date) => {
