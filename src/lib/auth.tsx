@@ -44,6 +44,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // This prevents the tierLoading flash when tab regains focus
   const lastCheckedUserIdRef = useRef<string | null>(null);
 
+  // Track if a proactive token refresh is in progress to prevent duplicate refreshes
+  const isRefreshingTokenRef = useRef(false);
+
   const checkUserRole = useCallback(async (userId: string, signal?: AbortSignal) => {
     try {
       const { data, error } = await supabase
@@ -295,26 +298,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const refreshBuffer = 5 * 60 * 1000; // Refresh 5 minutes before expiry
     const now = Date.now();
 
+    // Helper to safely refresh without duplicate calls
+    const safeRefresh = async (reason: string) => {
+      if (isRefreshingTokenRef.current) {
+        console.log(`[Auth] Skipping refresh (${reason}) - already refreshing`);
+        return;
+      }
+      isRefreshingTokenRef.current = true;
+      console.log(`[Auth] Refreshing token: ${reason}`);
+      try {
+        await supabase.auth.refreshSession();
+      } catch (err) {
+        console.error('[Auth] Failed to refresh session:', err);
+      } finally {
+        isRefreshingTokenRef.current = false;
+      }
+    };
+
     // Calculate when to refresh
     const refreshAt = expiryTime - refreshBuffer;
     const timeUntilRefresh = refreshAt - now;
 
     // If already expired or about to expire, refresh immediately
     if (timeUntilRefresh <= 0) {
-      console.log('[Auth] Token expired or expiring soon, refreshing...');
-      supabase.auth.refreshSession().catch((err) => {
-        console.error('[Auth] Failed to refresh session:', err);
-      });
+      safeRefresh('token expired or expiring soon');
       return;
     }
 
     // Set up timer to refresh before expiry
     console.log(`[Auth] Token refresh scheduled in ${Math.round(timeUntilRefresh / 1000 / 60)} minutes`);
     const timerId = setTimeout(() => {
-      console.log('[Auth] Proactively refreshing token before expiry...');
-      supabase.auth.refreshSession().catch((err) => {
-        console.error('[Auth] Failed to refresh session:', err);
-      });
+      safeRefresh('scheduled proactive refresh');
     }, timeUntilRefresh);
 
     // Also refresh when tab becomes visible (user returns after being away)
@@ -325,10 +339,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // If less than 10 minutes remaining or already expired, refresh
         if (timeRemaining < 10 * 60 * 1000) {
-          console.log('[Auth] Tab visible with token expiring soon, refreshing...');
-          supabase.auth.refreshSession().catch((err) => {
-            console.error('[Auth] Failed to refresh session on visibility:', err);
-          });
+          safeRefresh('tab visible with token expiring soon');
         }
       }
     };

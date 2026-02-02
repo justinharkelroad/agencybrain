@@ -535,9 +535,6 @@ export default function StaffOnboardingTasks() {
     setCurrentPage(1);
   }, [selectedDate, selectedSequence]);
 
-  // Auto-collapse if more than 1 customer on current page
-  const shouldAutoCollapse = paginatedGroups.length > 1;
-
   // Convert StaffOnboardingTask[] to OnboardingTask[] for SevenDayOutlook
   const tasksForOutlook = useMemo(() => {
     return activeTasks.map(task => ({

@@ -28,7 +28,7 @@ serve(async (req) => {
 
   try {
     const body = await req.text()
-    const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''
+    const webhookSecret = Deno.env.get('STRIPE_SUBSCRIPTION_WEBHOOK_SECRET') || ''
 
     let event: Stripe.Event
 

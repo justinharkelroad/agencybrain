@@ -72,57 +72,58 @@ export function useSessionRecovery() {
     const originalFetch = window.fetch;
 
     window.fetch = async (...args) => {
-      const response = await originalFetch(...args);
+      try {
+        const response = await originalFetch(...args);
 
-      // Check if it's a Supabase request that returned 401/403
-      let url = '';
-      if (typeof args[0] === 'string') {
-        url = args[0];
-      } else if (args[0] instanceof Request) {
-        url = args[0].url;
-      } else if (args[0] instanceof URL) {
-        url = args[0].toString();
-      }
-      const isSupabaseRequest = url.includes('supabase.co') || url.includes('supabase.in');
-
-      if (isSupabaseRequest && (response.status === 401 || response.status === 403)) {
-        // CRITICAL: Don't trigger recovery for staff sessions
-        // Staff users authenticate via session tokens, not Supabase Auth
-        if (isStaffSession()) {
-          return response;
+        // Check if it's a Supabase request that returned 401/403
+        let url = '';
+        if (typeof args[0] === 'string') {
+          url = args[0];
+        } else if (args[0] instanceof Request) {
+          url = args[0].url;
+        } else if (args[0] instanceof URL) {
+          url = args[0].toString();
         }
+        const isSupabaseRequest = url.includes('supabase.co') || url.includes('supabase.in');
 
-        // Clone the response to read the body
-        const clonedResponse = response.clone();
-        let isAuthError = false;
-        try {
-          const body = await clonedResponse.json();
-          isAuthError = isSessionError({ ...body, status: response.status });
-        } catch (e) {
-          // Body wasn't JSON, treat 401 as auth error
-          isAuthError = response.status === 401;
-        }
-
-        if (isAuthError) {
-          // Try to refresh the session first
-          const refreshed = await tryRefreshSession();
-          if (refreshed) {
-            // Session refreshed - show a quick toast and let React Query retry
-            toast.info('Session refreshed. Please try again.', {
-              duration: 3000,
-              id: 'session-refreshed',
-            });
-            // Return the original failed response - React Query will retry on next query
-            // or the user can retry their action
+        if (isSupabaseRequest && (response.status === 401 || response.status === 403)) {
+          // CRITICAL: Don't trigger recovery for staff sessions
+          // Staff users authenticate via session tokens, not Supabase Auth
+          if (isStaffSession()) {
             return response;
-          } else {
-            // Refresh failed - trigger full recovery
-            handleRecovery();
+          }
+
+          // Clone the response to read the body
+          const clonedResponse = response.clone();
+          let isAuthError = false;
+          try {
+            const body = await clonedResponse.json();
+            isAuthError = isSessionError({ ...body, status: response.status });
+          } catch (e) {
+            // Body wasn't JSON, treat 401 as auth error
+            isAuthError = response.status === 401;
+          }
+
+          if (isAuthError) {
+            // Try to refresh the session first
+            const refreshed = await tryRefreshSession();
+            if (refreshed) {
+              // Session refreshed silently - the component will retry via React Query
+              // or user can retry their action. No toast to avoid confusion.
+              console.log('[SessionRecovery] Session refreshed, returning original response for retry');
+              return response;
+            } else {
+              // Refresh failed - trigger full recovery
+              handleRecovery();
+            }
           }
         }
-      }
 
-      return response;
+        return response;
+      } catch (error) {
+        // Network error or other fetch failure - re-throw
+        throw error;
+      }
     };
 
     // Listen for auth state changes
@@ -157,5 +158,5 @@ export function useSessionRecovery() {
       window.fetch = originalFetch;
       subscription.unsubscribe();
     };
-  }, [handleRecovery, navigate]);
+  }, [handleRecovery, tryRefreshSession, navigate]);
 }
