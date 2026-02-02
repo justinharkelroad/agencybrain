@@ -79,8 +79,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    // User must be owner, key_employee, or admin
-    if (!['admin', 'agency_owner', 'key_employee'].includes(profile.role)) {
+    // Check if user is admin, agency owner (has agency_id), or key employee
+    const isAdmin = profile.role === 'admin';
+    let isOwnerOrManager = !!profile.agency_id;
+
+    if (!isOwnerOrManager) {
+      // Check key_employees table
+      const { data: keyEmployee } = await supabase
+        .from('key_employees')
+        .select('agency_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (keyEmployee?.agency_id) {
+        isOwnerOrManager = true;
+        profile.agency_id = keyEmployee.agency_id;
+      }
+    }
+
+    if (!isAdmin && !isOwnerOrManager) {
       return new Response(
         JSON.stringify({ error: 'Access denied', has_access: false }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

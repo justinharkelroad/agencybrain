@@ -61,6 +61,7 @@ export type NavItem = {
   challengeAccess?: boolean;  // Requires agency to be in challenge beta list
   trialRestricted?: boolean;  // Some functionality restricted during trial (shows indicator)
   salesExperienceAccess?: boolean;  // Requires agency to have active sales experience assignment
+  salesProcessBuilderAccess?: boolean;  // Requires agency to have sales_process_builder feature flag
 };
 
 // Sub-folder that can appear inside a NavFolder
@@ -660,6 +661,15 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/sequence-builder',
         access: { staff: false, manager: true, owner: true },
+      },
+      {
+        id: 'sales-process-builder',
+        title: 'Sales Process Builder',
+        icon: Sparkles,
+        type: 'link',
+        url: '/tools/sales-process-builder',
+        access: { staff: false, manager: true, owner: true },
+        salesProcessBuilderAccess: true,
       },
       {
         id: 'annual-bonus-tool',

@@ -64,6 +64,7 @@ import { isCallScoringTier as checkIsCallScoringTier } from "@/utils/tierAccess"
 import { navigationConfig, isNavFolder, isNavSubFolder, NavEntry, NavItem } from "@/config/navigation";
 import { useSidebarAccess } from "@/hooks/useSidebarAccess";
 import { useSalesExperienceAccess } from "@/hooks/useSalesExperienceAccess";
+import { useSalesProcessBuilderAccess } from "@/hooks/useStandaloneSalesProcess";
 import { SidebarNavItem, SidebarFolder, SidebarSubFolder } from "@/components/sidebar";
 import type { CalcKey } from "@/components/ROIForecastersModal";
 
@@ -95,6 +96,7 @@ const adminOnlyItems = [
   { title: "Exchange Tags", url: "/admin/exchange-tags", icon: ArrowLeftRight },
   { title: "Exchange Reports", url: "/admin/exchange-reports", icon: FileBarChart },
   { title: "Exchange Analytics", url: "/admin/exchange-analytics", icon: BarChart3 },
+  { title: "1:1 Clients", url: "/admin/one-on-one-clients", icon: Users },
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
@@ -102,6 +104,8 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const { filterNavigation, loading: accessLoading, agencyId } = useSidebarAccess();
   const { hasAccess: hasSalesExperienceAccess } = useSalesExperienceAccess();
+  const { data: salesProcessBuilderData } = useSalesProcessBuilderAccess();
+  const hasSalesProcessBuilderAccess = salesProcessBuilderData?.hasAccess ?? false;
   const location = useLocation();
   const { data: subscription } = useSubscription();
 
@@ -303,6 +307,7 @@ const toggleFolder = useCallback((folderId: string) => {
       callScoringEnabled,
       userEmail: user?.email,
       hasSalesExperienceAccess,
+      hasSalesProcessBuilderAccess,
     });
     
     if (isCallScoringTier) {
@@ -347,7 +352,7 @@ const toggleFolder = useCallback((folderId: string) => {
     }
     
     return filtered;
-  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, hasSalesExperienceAccess]);
+  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, hasSalesExperienceAccess, hasSalesProcessBuilderAccess]);
 
 // Auto-expand folder containing active route
 useEffect(() => {

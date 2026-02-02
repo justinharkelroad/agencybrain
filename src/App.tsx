@@ -56,6 +56,7 @@ import AdminSupportTickets from "./pages/admin/AdminSupportTickets";
 import AdminTraining from "./pages/admin/AdminTraining";
 import AdminChallenge from "./pages/admin/AdminChallenge";
 import AdminSalesExperience from "./pages/admin/AdminSalesExperience";
+import AdminOneOnOneClients from "./pages/admin/AdminOneOnOneClients";
 import AdminStandardPlaybook from "./pages/admin/AdminStandardPlaybook";
 import AdminSPCategoryEditor from "./pages/admin/AdminSPCategoryEditor";
 import AdminSPCategoryDetail from "./pages/admin/AdminSPCategoryDetail";
@@ -178,6 +179,7 @@ import {
   SalesExperienceDeliverableBuilder,
   SalesExperienceDeliverableEdit,
 } from "./pages/sales-experience";
+import SalesProcessBuilder from "./pages/tools/SalesProcessBuilder";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -846,6 +848,13 @@ const App = () => {
                 </SidebarLayout>
               </ProtectedRoute>
             } />
+            <Route path="/admin/one-on-one-clients" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminOneOnOneClients />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
             {/* Standard Playbook Routes */}
             <Route path="/admin/standard-playbook" element={
               <ProtectedRoute requireAdmin>
@@ -963,6 +972,14 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <SequenceBuilder />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Standalone Sales Process Builder - 1:1 Clients */}
+            <Route path="/tools/sales-process-builder" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesProcessBuilder />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

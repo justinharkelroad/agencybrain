@@ -23,6 +23,7 @@ export interface SidebarFilterOptions {
   callScoringEnabled: boolean;
   userEmail?: string;
   hasSalesExperienceAccess?: boolean;
+  hasSalesProcessBuilderAccess?: boolean;
 }
 
 export function useSidebarAccess() {
@@ -56,7 +57,7 @@ export function useSidebarAccess() {
 
   const checkItemAccess = useMemo(() => {
     return (item: NavItem, options: SidebarFilterOptions): boolean => {
-      const { callScoringEnabled, userEmail, hasSalesExperienceAccess } = options;
+      const { callScoringEnabled, userEmail, hasSalesExperienceAccess, hasSalesProcessBuilderAccess } = options;
 
       // Check email restriction first - most restrictive
       if (item.emailRestriction) {
@@ -75,6 +76,11 @@ export function useSidebarAccess() {
 
       // Check salesExperienceAccess - only show if user has active assignment
       if (item.salesExperienceAccess && !hasSalesExperienceAccess) {
+        return false;
+      }
+
+      // Check salesProcessBuilderAccess - only show if agency has feature flag
+      if (item.salesProcessBuilderAccess && !hasSalesProcessBuilderAccess) {
         return false;
       }
 

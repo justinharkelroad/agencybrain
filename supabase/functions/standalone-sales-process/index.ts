@@ -6,16 +6,19 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const anthropicApiKey = Deno.env.get('ANTHROPIC_API_KEY')!;
 
-type DeliverableType = 'sales_process' | 'accountability_metrics' | 'consequence_ladder';
-
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
 }
 
+interface SalesProcessContent {
+  rapport: string[];
+  coverage: string[];
+  closing: string[];
+}
+
 interface StartSessionBody {
   action: 'start';
-  deliverable_id: string;
 }
 
 interface SendMessageBody {
@@ -24,9 +27,14 @@ interface SendMessageBody {
   message: string;
 }
 
-interface GetSessionBody {
-  action: 'get_session';
-  deliverable_id: string;
+interface GetStatusBody {
+  action: 'get';
+}
+
+interface SaveContentBody {
+  action: 'save';
+  content: SalesProcessContent;
+  mark_complete?: boolean;
 }
 
 interface ApplyContentBody {
@@ -34,20 +42,35 @@ interface ApplyContentBody {
   session_id: string;
 }
 
-type RequestBody = StartSessionBody | SendMessageBody | GetSessionBody | ApplyContentBody;
+type RequestBody = StartSessionBody | SendMessageBody | GetStatusBody | SaveContentBody | ApplyContentBody;
 
 // Extract JSON from AI response
-function extractJsonFromResponse(text: string): Record<string, unknown> | null {
+function extractJsonFromResponse(text: string): SalesProcessContent | null {
   const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
   if (jsonMatch) {
     try {
-      return JSON.parse(jsonMatch[1]);
+      return JSON.parse(jsonMatch[1]) as SalesProcessContent;
     } catch {
       return null;
     }
   }
   return null;
 }
+
+// Default system prompt (can be overridden from database)
+const DEFAULT_SYSTEM_PROMPT = `# Role & Objective
+You are the **AgencyBrain Sales Architect**. Your mission is to help an insurance agency owner build a structured, professional Sales Process.
+
+You guide them through three phases: Rapport, Coverage, and Closing. Ask questions, understand their current approach, and help them articulate their process clearly.
+
+# Output Rules
+After gathering the details for all three phases, provide a summary of their new playbook. Then, output the structured data in this exact JSON format at the very END of your response:
+
+\`\`\`json
+{"rapport": ["item1", "item2"], "coverage": ["item1", "item2"], "closing": ["item1", "item2"]}
+\`\`\`
+
+Keep responses concise and focused. Ask one or two questions at a time.`;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -87,7 +110,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user's profile
+    // Get user's profile and agency
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('id, agency_id, role')
@@ -101,13 +124,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    const isAdmin = profile.role === 'admin';
+    // Determine agency_id (could be from profile or key_employees)
+    let agencyId = profile.agency_id;
 
-    // Check if user is agency owner (has agency_id) or key employee
-    let isOwnerOrManager = !!profile.agency_id;
-
-    if (!isOwnerOrManager) {
-      // Check key_employees table
+    if (!agencyId) {
       const { data: keyEmployee } = await supabase
         .from('key_employees')
         .select('agency_id')
@@ -115,61 +135,106 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       if (keyEmployee?.agency_id) {
-        isOwnerOrManager = true;
-        profile.agency_id = keyEmployee.agency_id;
+        agencyId = keyEmployee.agency_id;
       }
     }
 
-    if (!isAdmin && !isOwnerOrManager) {
+    if (!agencyId) {
       return new Response(
-        JSON.stringify({ error: 'Access denied' }),
+        JSON.stringify({ error: 'No agency found for user' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check if agency has access to sales_process_builder feature
+    const { data: featureAccess } = await supabase
+      .from('agency_feature_access')
+      .select('id')
+      .eq('agency_id', agencyId)
+      .eq('feature_key', 'sales_process_builder')
+      .maybeSingle();
+
+    if (!featureAccess) {
+      return new Response(
+        JSON.stringify({ error: 'Access denied - feature not enabled for this agency' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     const body: RequestBody = await req.json();
 
+    // Get system prompt from database (or use default)
+    const { data: promptData } = await supabase
+      .from('sales_experience_ai_prompts')
+      .select('prompt_template')
+      .eq('prompt_key', 'deliverable_sales_process')
+      .single();
+
+    const systemPrompt = promptData?.prompt_template || DEFAULT_SYSTEM_PROMPT;
+
     switch (body.action) {
+      case 'get': {
+        // Get or create the sales process record for this agency
+        let { data: salesProcess } = await supabase
+          .from('standalone_sales_process')
+          .select('*')
+          .eq('agency_id', agencyId)
+          .maybeSingle();
+
+        // Get any existing session
+        let session = null;
+        if (salesProcess) {
+          const { data: existingSession } = await supabase
+            .from('standalone_sales_process_sessions')
+            .select('*')
+            .eq('sales_process_id', salesProcess.id)
+            .eq('user_id', user.id)
+            .eq('status', 'in_progress')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          session = existingSession;
+        }
+
+        return new Response(
+          JSON.stringify({ sales_process: salesProcess, session }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       case 'start': {
-        const { deliverable_id } = body as StartSessionBody;
+        // Get or create the sales process record
+        let { data: salesProcess } = await supabase
+          .from('standalone_sales_process')
+          .select('*')
+          .eq('agency_id', agencyId)
+          .maybeSingle();
 
-        if (!deliverable_id) {
-          return new Response(
-            JSON.stringify({ error: 'Missing deliverable_id' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
+        if (!salesProcess) {
+          const { data: newSP, error: createSPError } = await supabase
+            .from('standalone_sales_process')
+            .insert({
+              agency_id: agencyId,
+              status: 'in_progress',
+            })
+            .select()
+            .single();
 
-        // Get deliverable and verify access
-        const { data: deliverable, error: deliverableError } = await supabase
-          .from('sales_experience_deliverables')
-          .select(`
-            *,
-            sales_experience_assignments(id, agency_id, status)
-          `)
-          .eq('id', deliverable_id)
-          .single();
-
-        if (deliverableError || !deliverable) {
-          return new Response(
-            JSON.stringify({ error: 'Deliverable not found' }),
-            { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        const assignment = deliverable.sales_experience_assignments as { id: string; agency_id: string; status: string };
-        if (!isAdmin && assignment.agency_id !== profile.agency_id) {
-          return new Response(
-            JSON.stringify({ error: 'Access denied' }),
-            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+          if (createSPError) {
+            console.error('Create sales process error:', createSPError);
+            return new Response(
+              JSON.stringify({ error: 'Failed to create sales process' }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          salesProcess = newSP;
         }
 
         // Check for existing active session
         const { data: existingSession } = await supabase
-          .from('sales_experience_deliverable_sessions')
+          .from('standalone_sales_process_sessions')
           .select('*')
-          .eq('deliverable_id', deliverable_id)
+          .eq('sales_process_id', salesProcess.id)
           .eq('user_id', user.id)
           .eq('status', 'in_progress')
           .order('created_at', { ascending: false })
@@ -178,42 +243,15 @@ Deno.serve(async (req) => {
 
         if (existingSession) {
           return new Response(
-            JSON.stringify({ session: existingSession }),
+            JSON.stringify({ session: existingSession, sales_process: salesProcess }),
             { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        // Get the AI prompt for this deliverable type
-        const promptKey = `deliverable_${deliverable.deliverable_type}`;
-        const { data: promptData } = await supabase
-          .from('sales_experience_ai_prompts')
-          .select('prompt_template')
-          .eq('prompt_key', promptKey)
-          .single();
-
-        const systemPrompt = promptData?.prompt_template || 'You are a helpful assistant.';
-
         // Initialize the Anthropic client
         const anthropic = new Anthropic({ apiKey: anthropicApiKey });
 
-        // Map deliverable type to friendly name and initial prompt
-        const deliverableContext: Record<DeliverableType, { name: string; opener: string }> = {
-          sales_process: {
-            name: 'Sales Process',
-            opener: "Hi, I'm ready to build my agency's Sales Process. Let's get started.",
-          },
-          accountability_metrics: {
-            name: 'Accountability Metrics',
-            opener: "Hi, I want to define the accountability metrics for my team.",
-          },
-          consequence_ladder: {
-            name: 'Consequence Ladder',
-            opener: "Hi, I need to create a consequence ladder for performance management.",
-          },
-        };
-
-        const context = deliverableContext[deliverable.deliverable_type as DeliverableType];
-        const userOpener = context?.opener || 'Hi, I want to build my deliverable.';
+        const userOpener = "Hi, I'm ready to build my agency's Sales Process. Let's get started.";
 
         // Get initial greeting from AI
         const response = await anthropic.messages.create({
@@ -232,9 +270,9 @@ Deno.serve(async (req) => {
         ];
 
         const { data: newSession, error: createError } = await supabase
-          .from('sales_experience_deliverable_sessions')
+          .from('standalone_sales_process_sessions')
           .insert({
-            deliverable_id,
+            sales_process_id: salesProcess.id,
             user_id: user.id,
             messages_json: initialMessages,
             status: 'in_progress',
@@ -250,41 +288,14 @@ Deno.serve(async (req) => {
           );
         }
 
-        // Update deliverable status to in_progress
+        // Update sales process status
         await supabase
-          .from('sales_experience_deliverables')
+          .from('standalone_sales_process')
           .update({ status: 'in_progress' })
-          .eq('id', deliverable_id)
-          .eq('status', 'draft');
+          .eq('id', salesProcess.id);
 
         return new Response(
-          JSON.stringify({ session: newSession }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      case 'get_session': {
-        const { deliverable_id } = body as GetSessionBody;
-
-        if (!deliverable_id) {
-          return new Response(
-            JSON.stringify({ error: 'Missing deliverable_id' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        // Get existing session
-        const { data: session } = await supabase
-          .from('sales_experience_deliverable_sessions')
-          .select('*')
-          .eq('deliverable_id', deliverable_id)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        return new Response(
-          JSON.stringify({ session }),
+          JSON.stringify({ session: newSession, sales_process: salesProcess }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -301,11 +312,8 @@ Deno.serve(async (req) => {
 
         // Get session and verify ownership
         const { data: session, error: sessionError } = await supabase
-          .from('sales_experience_deliverable_sessions')
-          .select(`
-            *,
-            sales_experience_deliverables(deliverable_type, sales_experience_assignments(agency_id))
-          `)
+          .from('standalone_sales_process_sessions')
+          .select('*')
           .eq('id', session_id)
           .single();
 
@@ -330,18 +338,6 @@ Deno.serve(async (req) => {
           );
         }
 
-        const deliverable = session.sales_experience_deliverables as { deliverable_type: DeliverableType };
-        const promptKey = `deliverable_${deliverable.deliverable_type}`;
-
-        // Get the AI prompt
-        const { data: promptData } = await supabase
-          .from('sales_experience_ai_prompts')
-          .select('prompt_template')
-          .eq('prompt_key', promptKey)
-          .single();
-
-        const systemPrompt = promptData?.prompt_template || 'You are a helpful assistant.';
-
         // Build conversation history
         const messages = session.messages_json as ChatMessage[];
         messages.push({ role: 'user', content: message.trim() });
@@ -363,7 +359,7 @@ Deno.serve(async (req) => {
 
         // Update session
         const { error: updateError } = await supabase
-          .from('sales_experience_deliverable_sessions')
+          .from('standalone_sales_process_sessions')
           .update({
             messages_json: messages,
             generated_content_json: generatedContent || session.generated_content_json,
@@ -397,9 +393,9 @@ Deno.serve(async (req) => {
           );
         }
 
-        // Get session and verify ownership
+        // Get session
         const { data: session, error: sessionError } = await supabase
-          .from('sales_experience_deliverable_sessions')
+          .from('standalone_sales_process_sessions')
           .select('*')
           .eq('id', session_id)
           .single();
@@ -425,17 +421,17 @@ Deno.serve(async (req) => {
           );
         }
 
-        // Update deliverable with generated content
-        const { error: deliverableError } = await supabase
-          .from('sales_experience_deliverables')
+        // Apply content to sales process
+        const { error: updateSPError } = await supabase
+          .from('standalone_sales_process')
           .update({
             content_json: session.generated_content_json,
-            status: 'complete',
+            status: 'in_progress',
           })
-          .eq('id', session.deliverable_id);
+          .eq('id', session.sales_process_id);
 
-        if (deliverableError) {
-          console.error('Update deliverable error:', deliverableError);
+        if (updateSPError) {
+          console.error('Update sales process error:', updateSPError);
           return new Response(
             JSON.stringify({ error: 'Failed to apply content' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -444,7 +440,7 @@ Deno.serve(async (req) => {
 
         // Mark session as completed
         await supabase
-          .from('sales_experience_deliverable_sessions')
+          .from('standalone_sales_process_sessions')
           .update({ status: 'completed' })
           .eq('id', session_id);
 
@@ -454,14 +450,98 @@ Deno.serve(async (req) => {
         );
       }
 
+      case 'save': {
+        const { content, mark_complete } = body as SaveContentBody;
+
+        if (!content) {
+          return new Response(
+            JSON.stringify({ error: 'Missing content' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Validate content structure
+        if (!Array.isArray(content.rapport) || !Array.isArray(content.coverage) || !Array.isArray(content.closing)) {
+          return new Response(
+            JSON.stringify({ error: 'Invalid content structure' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Check if complete enough
+        const isComplete = content.rapport.length > 0 && content.coverage.length > 0 && content.closing.length > 0;
+        if (mark_complete && !isComplete) {
+          return new Response(
+            JSON.stringify({ error: 'Content is not complete enough to mark as complete' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get or create sales process
+        let { data: salesProcess } = await supabase
+          .from('standalone_sales_process')
+          .select('*')
+          .eq('agency_id', agencyId)
+          .maybeSingle();
+
+        if (!salesProcess) {
+          const { data: newSP, error: createError } = await supabase
+            .from('standalone_sales_process')
+            .insert({
+              agency_id: agencyId,
+              content_json: content,
+              status: mark_complete ? 'complete' : 'in_progress',
+            })
+            .select()
+            .single();
+
+          if (createError) {
+            console.error('Create sales process error:', createError);
+            return new Response(
+              JSON.stringify({ error: 'Failed to save content' }),
+              { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+
+          return new Response(
+            JSON.stringify({ success: true, sales_process: newSP }),
+            { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Update existing
+        const { data: updated, error: updateError } = await supabase
+          .from('standalone_sales_process')
+          .update({
+            content_json: content,
+            status: mark_complete ? 'complete' : (salesProcess.status === 'not_started' ? 'in_progress' : salesProcess.status),
+          })
+          .eq('id', salesProcess.id)
+          .select()
+          .single();
+
+        if (updateError) {
+          console.error('Update sales process error:', updateError);
+          return new Response(
+            JSON.stringify({ error: 'Failed to save content' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, sales_process: updated }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
       default:
         return new Response(
-          JSON.stringify({ error: 'Invalid action. Must be: start, get_session, message, or apply' }),
+          JSON.stringify({ error: 'Invalid action' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
     }
   } catch (error) {
-    console.error('Deliverable builder chat error:', error);
+    console.error('Standalone sales process error:', error);
     return new Response(
       JSON.stringify({ error: 'Failed to process request' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

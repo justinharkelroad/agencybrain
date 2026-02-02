@@ -49,7 +49,13 @@ export interface DeliverableSession {
   updated_at: string;
 }
 
-// Deliverable display info
+// Deliverable display order and info
+export const deliverableOrder: DeliverableType[] = [
+  'sales_process',
+  'accountability_metrics',
+  'consequence_ladder',
+];
+
 export const deliverableInfo: Record<DeliverableType, { title: string; description: string; icon: string }> = {
   sales_process: {
     title: 'Sales Process',
@@ -96,7 +102,14 @@ export function useSalesExperienceDeliverables() {
       }
 
       const data = await response.json();
-      return data.deliverables as Deliverable[];
+      const deliverables = data.deliverables as Deliverable[];
+
+      // Sort by defined order: sales_process, accountability_metrics, consequence_ladder
+      return deliverables.sort((a, b) => {
+        const orderA = deliverableOrder.indexOf(a.deliverable_type);
+        const orderB = deliverableOrder.indexOf(b.deliverable_type);
+        return orderA - orderB;
+      });
     },
     enabled: !!session?.access_token && hasAccess && !!assignment?.id,
     staleTime: 60000, // 1 minute

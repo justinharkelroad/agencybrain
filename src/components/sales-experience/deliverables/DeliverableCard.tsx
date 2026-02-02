@@ -89,17 +89,30 @@ export function DeliverableCard({ deliverable }: DeliverableCardProps) {
         )}
 
         <div className="flex gap-2">
-          <Link to={`/sales-experience/deliverables/${deliverable.deliverable_type}`} className="flex-1">
-            <Button variant="default" className="w-full gap-2">
-              <Sparkles className="h-4 w-4" />
-              {isDraft ? 'Build with AI' : 'Continue Building'}
-            </Button>
-          </Link>
-          <Link to={`/sales-experience/deliverables/${deliverable.deliverable_type}/edit`}>
-            <Button variant="outline" size="icon">
-              <Edit className="h-4 w-4" />
-            </Button>
-          </Link>
+          {isComplete ? (
+            // For complete items, show View & Edit as main action
+            <Link to={`/sales-experience/deliverables/${deliverable.deliverable_type}/edit`} className="flex-1">
+              <Button variant="default" className="w-full gap-2">
+                <Edit className="h-4 w-4" />
+                View & Edit
+              </Button>
+            </Link>
+          ) : (
+            // For draft/in-progress, show AI builder as main action
+            <>
+              <Link to={`/sales-experience/deliverables/${deliverable.deliverable_type}`} className="flex-1">
+                <Button variant="default" className="w-full gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  {isDraft ? 'Build with AI' : 'Continue Building'}
+                </Button>
+              </Link>
+              <Link to={`/sales-experience/deliverables/${deliverable.deliverable_type}/edit`}>
+                <Button variant="outline" size="icon">
+                  <Edit className="h-4 w-4" />
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

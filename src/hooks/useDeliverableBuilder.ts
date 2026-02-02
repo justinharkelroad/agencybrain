@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import type { DeliverableContent, DeliverableSession } from './useSalesExperienceDeliverables';
@@ -15,6 +15,8 @@ export function useDeliverableBuilder(deliverableId: string | undefined) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const [isStreaming, setIsStreaming] = useState(false);
+  // Optimistic message - shows user's message immediately while waiting for AI
+  const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(null);
 
   // Fetch existing session
   const {
@@ -93,6 +95,8 @@ export function useDeliverableBuilder(deliverableId: string | undefined) {
       const sessionId = existingSession?.id;
       if (!sessionId) throw new Error('No active session');
 
+      // Show user's message immediately (optimistic UI)
+      setPendingUserMessage(message);
       setIsStreaming(true);
 
       const response = await fetch(
@@ -127,6 +131,7 @@ export function useDeliverableBuilder(deliverableId: string | undefined) {
     },
     onSettled: () => {
       setIsStreaming(false);
+      setPendingUserMessage(null);
     },
   });
 
@@ -164,8 +169,16 @@ export function useDeliverableBuilder(deliverableId: string | undefined) {
     },
   });
 
-  // Helper to get current messages
-  const messages = existingSession?.messages_json || [];
+  // Helper to get current messages (including optimistic pending message)
+  const messages = useMemo<ChatMessage[]>(() => {
+    const sessionMessages = existingSession?.messages_json || [];
+    // Add pending user message for optimistic UI
+    if (pendingUserMessage) {
+      return [...sessionMessages, { role: 'user' as const, content: pendingUserMessage }];
+    }
+    return sessionMessages;
+  }, [existingSession?.messages_json, pendingUserMessage]);
+
   const generatedContent = existingSession?.generated_content_json;
   const sessionStatus = existingSession?.status;
   const hasActiveSession = existingSession && sessionStatus === 'in_progress';

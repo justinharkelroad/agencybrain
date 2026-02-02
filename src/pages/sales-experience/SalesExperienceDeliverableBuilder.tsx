@@ -55,6 +55,11 @@ export default function SalesExperienceDeliverableBuilder() {
     );
   }
 
+  // If deliverable is complete, redirect to edit page instead of showing "Start Building" again
+  if (deliverable.status === 'complete') {
+    return <Navigate to={`/sales-experience/deliverables/${deliverableType}/edit`} replace />;
+  }
+
   const info = deliverableInfo[deliverableType];
   const Icon = iconMap[info.icon] || Workflow;
 
