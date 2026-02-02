@@ -607,21 +607,23 @@ useEffect(() => {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={isActive("/settings/billing")}
-                    className={cn(
-                      "hover:bg-muted/40 transition-colors",
-                      isActive("/settings/billing") && "bg-muted/50 text-foreground"
-                    )}
-                  >
-                    <Link to="/settings/billing" onClick={handleNavClick} className="flex items-center gap-2">
-                      <CreditCard className="h-4 w-4" strokeWidth={1.5} />
-                      {sidebarOpen && <span>Billing</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                {isAdmin && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive("/settings/billing")}
+                      className={cn(
+                        "hover:bg-muted/40 transition-colors",
+                        isActive("/settings/billing") && "bg-muted/50 text-foreground"
+                      )}
+                    >
+                      <Link to="/settings/billing" onClick={handleNavClick} className="flex items-center gap-2">
+                        <CreditCard className="h-4 w-4" strokeWidth={1.5} />
+                        {sidebarOpen && <span>Billing</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     asChild

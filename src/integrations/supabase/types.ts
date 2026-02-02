@@ -7313,6 +7313,683 @@ export type Database = {
           },
         ]
       }
+      sales_experience_ai_prompts: {
+        Row: {
+          description: string | null
+          id: string
+          model_preference: string | null
+          prompt_key: string
+          prompt_name: string
+          prompt_template: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          model_preference?: string | null
+          prompt_key: string
+          prompt_name: string
+          prompt_template: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          model_preference?: string | null
+          prompt_key?: string
+          prompt_name?: string
+          prompt_template?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_ai_prompts_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_experience_assignments: {
+        Row: {
+          agency_id: string
+          assigned_by: string | null
+          created_at: string
+          end_date: string | null
+          id: string
+          notes: string | null
+          start_date: string
+          status: Database["public"]["Enums"]["sales_experience_assignment_status"]
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          assigned_by?: string | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          start_date: string
+          status?: Database["public"]["Enums"]["sales_experience_assignment_status"]
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          assigned_by?: string | null
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          notes?: string | null
+          start_date?: string
+          status?: Database["public"]["Enums"]["sales_experience_assignment_status"]
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_assignments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_experience_email_queue: {
+        Row: {
+          assignment_id: string
+          created_at: string
+          email_body_html: string | null
+          email_subject: string
+          error_message: string | null
+          id: string
+          recipient_email: string
+          recipient_name: string | null
+          recipient_type: string
+          resend_message_id: string | null
+          retry_count: number
+          scheduled_for: string
+          sent_at: string | null
+          status: Database["public"]["Enums"]["sales_experience_email_status"]
+          template_key: string
+          updated_at: string
+          variables_json: Json | null
+        }
+        Insert: {
+          assignment_id: string
+          created_at?: string
+          email_body_html?: string | null
+          email_subject: string
+          error_message?: string | null
+          id?: string
+          recipient_email: string
+          recipient_name?: string | null
+          recipient_type?: string
+          resend_message_id?: string | null
+          retry_count?: number
+          scheduled_for: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["sales_experience_email_status"]
+          template_key: string
+          updated_at?: string
+          variables_json?: Json | null
+        }
+        Update: {
+          assignment_id?: string
+          created_at?: string
+          email_body_html?: string | null
+          email_subject?: string
+          error_message?: string | null
+          id?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          recipient_type?: string
+          resend_message_id?: string | null
+          retry_count?: number
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["sales_experience_email_status"]
+          template_key?: string
+          updated_at?: string
+          variables_json?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_email_queue_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_experience_email_templates: {
+        Row: {
+          body_template: string
+          id: string
+          is_active: boolean
+          subject_template: string
+          template_key: string
+          template_name: string
+          updated_at: string
+          updated_by: string | null
+          variables_available: Json
+        }
+        Insert: {
+          body_template: string
+          id?: string
+          is_active?: boolean
+          subject_template: string
+          template_key: string
+          template_name: string
+          updated_at?: string
+          updated_by?: string | null
+          variables_available?: Json
+        }
+        Update: {
+          body_template?: string
+          id?: string
+          is_active?: boolean
+          subject_template?: string
+          template_key?: string
+          template_name?: string
+          updated_at?: string
+          updated_by?: string | null
+          variables_available?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_email_templates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_experience_lessons: {
+        Row: {
+          content_html: string | null
+          created_at: string
+          day_of_week: number
+          description: string | null
+          id: string
+          is_owner_only: boolean
+          is_staff_visible: boolean
+          module_id: string
+          quiz_questions: Json | null
+          sort_order: number
+          title: string
+          updated_at: string
+          video_platform: string | null
+          video_thumbnail_url: string | null
+          video_url: string | null
+        }
+        Insert: {
+          content_html?: string | null
+          created_at?: string
+          day_of_week: number
+          description?: string | null
+          id?: string
+          is_owner_only?: boolean
+          is_staff_visible?: boolean
+          module_id: string
+          quiz_questions?: Json | null
+          sort_order?: number
+          title: string
+          updated_at?: string
+          video_platform?: string | null
+          video_thumbnail_url?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          content_html?: string | null
+          created_at?: string
+          day_of_week?: number
+          description?: string | null
+          id?: string
+          is_owner_only?: boolean
+          is_staff_visible?: boolean
+          module_id?: string
+          quiz_questions?: Json | null
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          video_platform?: string | null
+          video_thumbnail_url?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_experience_messages: {
+        Row: {
+          assignment_id: string
+          attachments_json: Json | null
+          content: string
+          created_at: string
+          id: string
+          read_at: string | null
+          read_by: string | null
+          sender_type: Database["public"]["Enums"]["sales_experience_sender_type"]
+          sender_user_id: string
+        }
+        Insert: {
+          assignment_id: string
+          attachments_json?: Json | null
+          content: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          read_by?: string | null
+          sender_type: Database["public"]["Enums"]["sales_experience_sender_type"]
+          sender_user_id: string
+        }
+        Update: {
+          assignment_id?: string
+          attachments_json?: Json | null
+          content?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          read_by?: string | null
+          sender_type?: Database["public"]["Enums"]["sales_experience_sender_type"]
+          sender_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_messages_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_messages_read_by_fkey"
+            columns: ["read_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_messages_sender_user_id_fkey"
+            columns: ["sender_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_experience_modules: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          pillar: Database["public"]["Enums"]["sales_experience_pillar"]
+          sort_order: number
+          title: string
+          updated_at: string
+          week_number: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          pillar: Database["public"]["Enums"]["sales_experience_pillar"]
+          sort_order?: number
+          title: string
+          updated_at?: string
+          week_number: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          pillar?: Database["public"]["Enums"]["sales_experience_pillar"]
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          week_number?: number
+        }
+        Relationships: []
+      }
+      sales_experience_owner_progress: {
+        Row: {
+          assignment_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          lesson_id: string
+          notes: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["sales_experience_progress_status"]
+          updated_at: string
+          user_id: string
+          video_completed: boolean | null
+          video_watched_seconds: number | null
+        }
+        Insert: {
+          assignment_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_id: string
+          notes?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["sales_experience_progress_status"]
+          updated_at?: string
+          user_id: string
+          video_completed?: boolean | null
+          video_watched_seconds?: number | null
+        }
+        Update: {
+          assignment_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          notes?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["sales_experience_progress_status"]
+          updated_at?: string
+          user_id?: string
+          video_completed?: boolean | null
+          video_watched_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_owner_progress_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_owner_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_owner_progress_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_experience_quiz_attempts: {
+        Row: {
+          answers_json: Json
+          assignment_id: string
+          attempt_number: number
+          completed_at: string | null
+          created_at: string
+          feedback_ai: string | null
+          id: string
+          lesson_id: string
+          score_percent: number
+          staff_user_id: string
+          started_at: string
+        }
+        Insert: {
+          answers_json: Json
+          assignment_id: string
+          attempt_number?: number
+          completed_at?: string | null
+          created_at?: string
+          feedback_ai?: string | null
+          id?: string
+          lesson_id: string
+          score_percent: number
+          staff_user_id: string
+          started_at?: string
+        }
+        Update: {
+          answers_json?: Json
+          assignment_id?: string
+          attempt_number?: number
+          completed_at?: string | null
+          created_at?: string
+          feedback_ai?: string | null
+          id?: string
+          lesson_id?: string
+          score_percent?: number
+          staff_user_id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_quiz_attempts_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_quiz_attempts_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_quiz_attempts_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_experience_resources: {
+        Row: {
+          created_at: string
+          description: string | null
+          external_url: string | null
+          file_type: Database["public"]["Enums"]["sales_experience_file_type"]
+          id: string
+          is_staff_visible: boolean
+          module_id: string
+          sort_order: number
+          storage_path: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          external_url?: string | null
+          file_type: Database["public"]["Enums"]["sales_experience_file_type"]
+          id?: string
+          is_staff_visible?: boolean
+          module_id: string
+          sort_order?: number
+          storage_path?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          external_url?: string | null
+          file_type?: Database["public"]["Enums"]["sales_experience_file_type"]
+          id?: string
+          is_staff_visible?: boolean
+          module_id?: string
+          sort_order?: number
+          storage_path?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_resources_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_experience_staff_progress: {
+        Row: {
+          assignment_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          lesson_id: string
+          quiz_completed_at: string | null
+          quiz_feedback_ai: string | null
+          quiz_score_percent: number | null
+          staff_user_id: string
+          started_at: string | null
+          status: Database["public"]["Enums"]["sales_experience_progress_status"]
+          unlocked_at: string | null
+          updated_at: string
+          video_completed: boolean | null
+          video_watched_seconds: number | null
+        }
+        Insert: {
+          assignment_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_id: string
+          quiz_completed_at?: string | null
+          quiz_feedback_ai?: string | null
+          quiz_score_percent?: number | null
+          staff_user_id: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["sales_experience_progress_status"]
+          unlocked_at?: string | null
+          updated_at?: string
+          video_completed?: boolean | null
+          video_watched_seconds?: number | null
+        }
+        Update: {
+          assignment_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          lesson_id?: string
+          quiz_completed_at?: string | null
+          quiz_feedback_ai?: string | null
+          quiz_score_percent?: number | null
+          staff_user_id?: string
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["sales_experience_progress_status"]
+          unlocked_at?: string | null
+          updated_at?: string
+          video_completed?: boolean | null
+          video_watched_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_staff_progress_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_staff_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_staff_progress_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_experience_transcripts: {
+        Row: {
+          action_items_json: Json | null
+          assignment_id: string
+          created_at: string
+          id: string
+          key_points_json: Json | null
+          meeting_date: string
+          summary_ai: string | null
+          transcript_text: string
+          updated_at: string
+          uploaded_by: string | null
+          week_number: number
+        }
+        Insert: {
+          action_items_json?: Json | null
+          assignment_id: string
+          created_at?: string
+          id?: string
+          key_points_json?: Json | null
+          meeting_date: string
+          summary_ai?: string | null
+          transcript_text: string
+          updated_at?: string
+          uploaded_by?: string | null
+          week_number: number
+        }
+        Update: {
+          action_items_json?: Json | null
+          assignment_id?: string
+          created_at?: string
+          id?: string
+          key_points_json?: Json | null
+          meeting_date?: string
+          summary_ai?: string | null
+          transcript_text?: string
+          updated_at?: string
+          uploaded_by?: string | null
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_transcripts_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_transcripts_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_goal_assignments: {
         Row: {
           created_at: string | null
@@ -10947,6 +11624,14 @@ export type Database = {
       }
       get_my_agency_id: { Args: never; Returns: string }
       get_next_monday: { Args: { p_from_date?: string }; Returns: string }
+      get_sales_experience_business_day: {
+        Args: { p_check_date: string; p_start_date: string }
+        Returns: number
+      }
+      get_sales_experience_current_week: {
+        Args: { p_assignment_id: string }
+        Returns: number
+      }
       get_staff_call_details: {
         Args: {
           p_agency_id?: string
@@ -11070,6 +11755,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_sales_experience_access: {
+        Args: { p_agency_id?: string; p_user_id: string }
+        Returns: boolean
+      }
       increment_call_usage: {
         Args: { p_agency_id: string; p_month?: string }
         Returns: undefined
@@ -11127,6 +11816,10 @@ export type Database = {
       is_now_agency_time: {
         Args: { p_agency_id: string; p_hhmm: string }
         Returns: Json
+      }
+      is_sales_experience_lesson_unlocked: {
+        Args: { p_assignment_id: string; p_lesson_id: string }
+        Returns: boolean
       }
       is_staff_assigned_to_module: {
         Args: { p_module_id: string; p_staff_user_id: string }
@@ -11392,6 +12085,24 @@ export type Database = {
         | "retention"
         | "other"
       onboarding_task_status: "pending" | "due" | "overdue" | "completed"
+      sales_experience_assignment_status:
+        | "pending"
+        | "active"
+        | "paused"
+        | "completed"
+        | "cancelled"
+      sales_experience_email_status: "pending" | "sent" | "failed" | "skipped"
+      sales_experience_file_type: "pdf" | "doc" | "video" | "link"
+      sales_experience_pillar:
+        | "sales_process"
+        | "accountability"
+        | "coaching_cadence"
+      sales_experience_progress_status:
+        | "locked"
+        | "available"
+        | "in_progress"
+        | "completed"
+      sales_experience_sender_type: "coach" | "owner" | "manager"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -11558,6 +12269,27 @@ export const Constants = {
         "other",
       ],
       onboarding_task_status: ["pending", "due", "overdue", "completed"],
+      sales_experience_assignment_status: [
+        "pending",
+        "active",
+        "paused",
+        "completed",
+        "cancelled",
+      ],
+      sales_experience_email_status: ["pending", "sent", "failed", "skipped"],
+      sales_experience_file_type: ["pdf", "doc", "video", "link"],
+      sales_experience_pillar: [
+        "sales_process",
+        "accountability",
+        "coaching_cadence",
+      ],
+      sales_experience_progress_status: [
+        "locked",
+        "available",
+        "in_progress",
+        "completed",
+      ],
+      sales_experience_sender_type: ["coach", "owner", "manager"],
     },
   },
 } as const
