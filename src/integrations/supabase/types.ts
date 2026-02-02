@@ -1759,6 +1759,7 @@ export type Database = {
           created_at: string
           day_number: number
           day_of_week: number | null
+          documents_json: Json | null
           email_preview: string | null
           email_subject: string | null
           id: string
@@ -1780,6 +1781,7 @@ export type Database = {
           created_at?: string
           day_number: number
           day_of_week?: number | null
+          documents_json?: Json | null
           email_preview?: string | null
           email_subject?: string | null
           id?: string
@@ -1801,6 +1803,7 @@ export type Database = {
           created_at?: string
           day_number?: number
           day_of_week?: number | null
+          documents_json?: Json | null
           email_preview?: string | null
           email_subject?: string | null
           id?: string
