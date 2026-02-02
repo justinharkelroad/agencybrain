@@ -40,6 +40,7 @@ import {
   BookOpen,
   Trash2,
   HelpCircle,
+  Link2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -60,6 +61,12 @@ interface QuizQuestion {
   correct_answer?: string;
 }
 
+interface LessonDocument {
+  id: string;
+  name: string;
+  url: string;
+}
+
 interface Lesson {
   id: string;
   module_id: string;
@@ -71,6 +78,7 @@ interface Lesson {
   content_html: string | null;
   is_staff_visible: boolean;
   quiz_questions: QuizQuestion[];
+  documents_json: LessonDocument[] | null;
 }
 
 const dayLabels: Record<number, string> = {
@@ -219,6 +227,12 @@ export function SEContentTab() {
                             <Badge variant="secondary" className="text-xs">
                               <Video className="h-3 w-3 mr-1" />
                               Video
+                            </Badge>
+                          )}
+                          {lesson.documents_json && lesson.documents_json.length > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              <FileText className="h-3 w-3 mr-1" />
+                              {lesson.documents_json.length} Doc{lesson.documents_json.length > 1 ? 's' : ''}
                             </Badge>
                           )}
                           {lesson.is_staff_visible && (
@@ -463,6 +477,88 @@ export function SEContentTab() {
                 {(!editingLesson.quiz_questions || editingLesson.quiz_questions.length === 0) && (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     No quiz questions yet. Add questions to create a quiz for this lesson.
+                  </p>
+                )}
+              </div>
+
+              {/* Documents Editor */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <Link2 className="h-4 w-4" />
+                    Documents ({editingLesson.documents_json?.length || 0})
+                  </Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const newDoc: LessonDocument = {
+                        id: crypto.randomUUID(),
+                        name: '',
+                        url: '',
+                      };
+                      setEditingLesson({
+                        ...editingLesson,
+                        documents_json: [...(editingLesson.documents_json || []), newDoc],
+                      });
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Document
+                  </Button>
+                </div>
+
+                {editingLesson.documents_json?.map((doc, docIndex) => (
+                  <Card key={doc.id} className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Document Name</Label>
+                            <Input
+                              value={doc.name}
+                              onChange={(e) => {
+                                const updated = [...(editingLesson.documents_json || [])];
+                                updated[docIndex] = { ...doc, name: e.target.value };
+                                setEditingLesson({ ...editingLesson, documents_json: updated });
+                              }}
+                              placeholder="e.g., Sales Process Guide"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Document URL</Label>
+                            <Input
+                              value={doc.url}
+                              onChange={(e) => {
+                                const updated = [...(editingLesson.documents_json || [])];
+                                updated[docIndex] = { ...doc, url: e.target.value };
+                                setEditingLesson({ ...editingLesson, documents_json: updated });
+                              }}
+                              placeholder="https://drive.google.com/..."
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive mt-5"
+                          onClick={() => {
+                            const updated = (editingLesson.documents_json || []).filter((_, i) => i !== docIndex);
+                            setEditingLesson({ ...editingLesson, documents_json: updated });
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+
+                {(!editingLesson.documents_json || editingLesson.documents_json.length === 0) && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No documents yet. Add downloadable documents for this lesson.
                   </p>
                 )}
               </div>
