@@ -80,7 +80,8 @@ export default function Sales() {
           team_member_id,
           sale_date,
           is_bundle,
-          bundle_type
+          bundle_type,
+          existing_customer_products
         `)
         .eq("id", editingSaleId)
         .single();

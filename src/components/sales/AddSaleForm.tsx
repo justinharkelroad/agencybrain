@@ -25,7 +25,8 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, ExternalLink } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, ExternalLink, Users } from "lucide-react";
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
@@ -80,6 +81,7 @@ type SaleForEdit = {
   sale_date: string | null;
   is_bundle: boolean | null;
   bundle_type: string | null;
+  existing_customer_products: string[] | null;
   sale_policies: {
     id: string;
     product_type_id: string | null;
@@ -112,26 +114,34 @@ const AUTO_PRODUCTS = ['Standard Auto', 'Non-Standard Auto', 'Specialty Auto'];
 const HOME_PRODUCTS = ['Homeowners', 'North Light Homeowners', 'Condo', 'North Light Condo'];
 
 // Helper to detect bundle type automatically
-const detectBundleType = (policies: Policy[]): { isBundle: boolean; bundleType: string | null } => {
+// Accepts optional existingTypes array for customers with existing policies
+const detectBundleType = (
+  policies: Policy[],
+  existingTypes: string[] = []
+): { isBundle: boolean; bundleType: string | null } => {
   const productNames = policies.map(p => p.policy_type_name).filter(Boolean);
-  
-  const hasAuto = productNames.some(name => 
+
+  // Check both new policies AND existing policies
+  const hasAuto = productNames.some(name =>
     AUTO_PRODUCTS.some(auto => name.toLowerCase() === auto.toLowerCase())
-  );
-  const hasHome = productNames.some(name => 
+  ) || existingTypes.includes('auto');
+
+  const hasHome = productNames.some(name =>
     HOME_PRODUCTS.some(home => name.toLowerCase() === home.toLowerCase())
-  );
-  
-  // Preferred Bundle: Auto + Home
+  ) || existingTypes.includes('home');
+
+  // Preferred Bundle: Auto + Home (either existing or new)
   if (hasAuto && hasHome) {
     return { isBundle: true, bundleType: 'Preferred' };
   }
-  
-  // Standard Bundle: Multiple policies but not Auto + Home
-  if (policies.filter(p => p.policy_type_name).length > 1) {
+
+  // Standard Bundle: Multiple policies OR 1 new + existing
+  const newPolicyCount = policies.filter(p => p.policy_type_name).length;
+  const totalPolicies = newPolicyCount + existingTypes.length;
+  if (totalPolicies > 1) {
     return { isBundle: true, bundleType: 'Standard' };
   }
-  
+
   // Monoline: Single policy
   return { isBundle: false, bundleType: null };
 };
@@ -159,6 +169,10 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
   const [saleDate, setSaleDate] = useState<Date | undefined>(todayLocal());
   const [policies, setPolicies] = useState<Policy[]>([]);
 
+  // Existing customer state for bundle classification
+  const [hasExistingPolicies, setHasExistingPolicies] = useState(false);
+  const [existingPolicyTypes, setExistingPolicyTypes] = useState<string[]>([]);
+
   // Apply sequence modal state
   const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
   const [newSaleData, setNewSaleData] = useState<{
@@ -180,7 +194,16 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       setLeadSourceId(editSale.lead_source_id || "");
       setProducerId(editSale.team_member_id || "");
       setSaleDate(editSale.sale_date ? toLocalDate(new Date(editSale.sale_date + 'T12:00:00')) : todayLocal());
-      // Bundle type is now auto-calculated, no need to restore
+
+      // Restore existing customer products state
+      const existingProducts = editSale.existing_customer_products || [];
+      if (existingProducts.length > 0) {
+        setHasExistingPolicies(true);
+        setExistingPolicyTypes(existingProducts);
+      } else {
+        setHasExistingPolicies(false);
+        setExistingPolicyTypes([]);
+      }
 
       // Map policies and items
       // For backward compatibility: if sale has brokered_carrier_id but policies don't,
@@ -301,8 +324,11 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     );
   }, [policies]);
 
-  // Auto-detect bundle type based on policies
-  const bundleInfo = useMemo(() => detectBundleType(policies), [policies]);
+  // Auto-detect bundle type based on policies and existing customer products
+  const bundleInfo = useMemo(
+    () => detectBundleType(policies, hasExistingPolicies ? existingPolicyTypes : []),
+    [policies, hasExistingPolicies, existingPolicyTypes]
+  );
 
   // Add a new policy
   const addPolicy = () => {
@@ -609,6 +635,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         vc_points: vcTotals.points,
         is_bundle: bundleInfo.isBundle,
         bundle_type: bundleInfo.bundleType,
+        existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
         source: "manual",
         created_by: user?.id,
       };
@@ -748,6 +775,8 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     setProducerId("");
     setSaleDate(todayLocal());
     setPolicies([]);
+    setHasExistingPolicies(false);
+    setExistingPolicyTypes([]);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -836,6 +865,93 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                   </SelectContent>
                 </Select>
               )}
+            </div>
+
+            {/* Existing Customer Section */}
+            <div className="space-y-3 sm:col-span-2">
+              <div className={cn(
+                "p-4 rounded-lg border transition-colors",
+                hasExistingPolicies
+                  ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20"
+                  : "border-muted bg-muted/30"
+              )}>
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id="hasExistingPolicies"
+                    checked={hasExistingPolicies}
+                    onCheckedChange={(checked) => {
+                      setHasExistingPolicies(checked === true);
+                      if (!checked) {
+                        setExistingPolicyTypes([]);
+                      }
+                    }}
+                  />
+                  <Label
+                    htmlFor="hasExistingPolicies"
+                    className="flex items-center gap-2 cursor-pointer font-medium"
+                  >
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    Customer has existing policies with us
+                  </Label>
+                </div>
+
+                {hasExistingPolicies && (
+                  <div className="mt-4 pl-7 space-y-3">
+                    <Label className="text-sm text-muted-foreground">
+                      What products do they already have?
+                    </Label>
+                    <div className="flex flex-wrap gap-4">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="existingAuto"
+                          checked={existingPolicyTypes.includes('auto')}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setExistingPolicyTypes([...existingPolicyTypes, 'auto']);
+                            } else {
+                              setExistingPolicyTypes(existingPolicyTypes.filter(t => t !== 'auto'));
+                            }
+                          }}
+                        />
+                        <Label htmlFor="existingAuto" className="cursor-pointer">
+                          Auto
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="existingHome"
+                          checked={existingPolicyTypes.includes('home')}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setExistingPolicyTypes([...existingPolicyTypes, 'home']);
+                            } else {
+                              setExistingPolicyTypes(existingPolicyTypes.filter(t => t !== 'home'));
+                            }
+                          }}
+                        />
+                        <Label htmlFor="existingHome" className="cursor-pointer">
+                          Home/Property
+                        </Label>
+                      </div>
+                    </div>
+
+                    {/* Bundle Type Preview */}
+                    {policies.length > 0 && existingPolicyTypes.length > 0 && (
+                      <div className="mt-3 p-2 rounded bg-blue-100 dark:bg-blue-900/30 text-sm">
+                        {bundleInfo.bundleType === 'Preferred' ? (
+                          <span className="text-blue-700 dark:text-blue-300">
+                            → Adding {policies.map(p => p.policy_type_name).filter(Boolean).join(', ') || 'this policy'} = <strong>Preferred Bundle</strong>
+                          </span>
+                        ) : bundleInfo.bundleType === 'Standard' ? (
+                          <span className="text-blue-700 dark:text-blue-300">
+                            → Adding {policies.map(p => p.policy_type_name).filter(Boolean).join(', ') || 'this policy'} = <strong>Standard Bundle</strong>
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
