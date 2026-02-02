@@ -55,6 +55,8 @@ import AdminChatbot from "./pages/admin/AdminChatbot";
 import AdminSupportTickets from "./pages/admin/AdminSupportTickets";
 import AdminTraining from "./pages/admin/AdminTraining";
 import AdminChallenge from "./pages/admin/AdminChallenge";
+import AdminSalesExperience from "./pages/admin/AdminSalesExperience";
+import AdminOneOnOneClients from "./pages/admin/AdminOneOnOneClients";
 import AdminStandardPlaybook from "./pages/admin/AdminStandardPlaybook";
 import AdminSPCategoryEditor from "./pages/admin/AdminSPCategoryEditor";
 import AdminSPCategoryDetail from "./pages/admin/AdminSPCategoryDetail";
@@ -162,6 +164,22 @@ import ChallengeLanding from "./pages/ChallengeLanding";
 import ChallengeSuccess from "./pages/ChallengeSuccess";
 import StaffUnifiedTrainingHub from "./pages/staff/StaffUnifiedTrainingHub";
 import StaffChallenge from "./pages/staff/StaffChallenge";
+import StaffSalesTraining from "./pages/staff/StaffSalesTraining";
+import StaffSalesLesson from "./pages/staff/StaffSalesLesson";
+
+// Sales Experience pages
+import {
+  SalesExperienceOverview,
+  SalesExperienceWeek,
+  SalesExperienceDocuments,
+  SalesExperienceTranscript,
+  SalesExperienceMessages,
+  SalesExperienceTeamProgress,
+  SalesExperienceDeliverables,
+  SalesExperienceDeliverableBuilder,
+  SalesExperienceDeliverableEdit,
+} from "./pages/sales-experience";
+import SalesProcessBuilder from "./pages/tools/SalesProcessBuilder";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -468,6 +486,70 @@ const App = () => {
                 </SidebarLayout>
               </ProtectedRoute>
             } />
+            {/* 8-Week Sales Experience Routes */}
+            <Route path="/sales-experience" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceOverview />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sales-experience/week/:week" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceWeek />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sales-experience/week/:week/documents" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceDocuments />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sales-experience/week/:week/transcript" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceTranscript />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sales-experience/messages" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceMessages />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sales-experience/team-progress" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceTeamProgress />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sales-experience/deliverables" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceDeliverables />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sales-experience/deliverables/:type" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceDeliverableBuilder />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sales-experience/deliverables/:type/edit" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceDeliverableEdit />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
             {/* Metrics Routes */}
             {enableMetrics && (
               <>
@@ -759,6 +841,20 @@ const App = () => {
                 </SidebarLayout>
               </ProtectedRoute>
             } />
+            <Route path="/admin/sales-experience" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminSalesExperience />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/one-on-one-clients" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminOneOnOneClients />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
             {/* Standard Playbook Routes */}
             <Route path="/admin/standard-playbook" element={
               <ProtectedRoute requireAdmin>
@@ -876,6 +972,14 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <SequenceBuilder />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Standalone Sales Process Builder - 1:1 Clients */}
+            <Route path="/tools/sales-process-builder" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesProcessBuilder />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
@@ -1015,6 +1119,9 @@ const App = () => {
               <Route path="training/manage" element={<StaffTrainingManagement />} />
               {/* The Challenge */}
               <Route path="challenge" element={<StaffChallenge />} />
+              {/* 8-Week Sales Experience Training */}
+              <Route path="sales-training" element={<StaffSalesTraining />} />
+              <Route path="sales-training/lesson/:id" element={<StaffSalesLesson />} />
               {/* Legacy redirects for backward compatibility */}
               <Route path="playbook/*" element={<Navigate to="/staff/training/standard" replace />} />
               <Route path="account" element={<StaffAccountSettings />} />

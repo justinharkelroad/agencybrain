@@ -54,6 +54,7 @@ import { MyAccountDialogContent } from "@/components/MyAccountDialogContent";
 import { useExchangeNotifications } from "@/hooks/useExchangeNotifications";
 import { useUnreadMessageCount } from "@/hooks/useExchangeUnread";
 import { useOverdueTaskCount } from "@/hooks/useOverdueTaskCount";
+import { useSalesExperienceUnreadMessages } from "@/hooks/useSalesExperienceUnread";
 import { Badge } from "@/components/ui/badge";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
 import { getFeatureGateConfig } from "@/config/featureGates";
@@ -62,6 +63,8 @@ import { isCallScoringTier as checkIsCallScoringTier } from "@/utils/tierAccess"
 // New imports for navigation system
 import { navigationConfig, isNavFolder, isNavSubFolder, NavEntry, NavItem } from "@/config/navigation";
 import { useSidebarAccess } from "@/hooks/useSidebarAccess";
+import { useSalesExperienceAccess } from "@/hooks/useSalesExperienceAccess";
+import { useSalesProcessBuilderAccess } from "@/hooks/useStandaloneSalesProcess";
 import { SidebarNavItem, SidebarFolder, SidebarSubFolder } from "@/components/sidebar";
 import type { CalcKey } from "@/components/ROIForecastersModal";
 
@@ -77,6 +80,7 @@ const adminOnlyItems = [
   { title: "Stan Chatbot", url: "/admin/chatbot", icon: Bot },
   { title: "Training Admin", url: "/admin/training", icon: GraduationCap },
   { title: "6-Week Challenge", url: "/admin/challenge", icon: Target },
+  { title: "Sales Experience", url: "/admin/sales-experience", icon: GraduationCap },
   { title: "Standard Playbook", url: "/admin/standard-playbook", icon: BookOpen },
   { title: "Flow Templates", url: "/admin/flows", icon: Sparkles },
   { title: "Call Scoring", url: "/admin/call-scoring/templates", icon: Phone },
@@ -92,12 +96,16 @@ const adminOnlyItems = [
   { title: "Exchange Tags", url: "/admin/exchange-tags", icon: ArrowLeftRight },
   { title: "Exchange Reports", url: "/admin/exchange-reports", icon: FileBarChart },
   { title: "Exchange Analytics", url: "/admin/exchange-analytics", icon: BarChart3 },
+  { title: "1:1 Clients", url: "/admin/one-on-one-clients", icon: Users },
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { signOut, isAdmin, user, membershipTier } = useAuth();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const { filterNavigation, loading: accessLoading, agencyId } = useSidebarAccess();
+  const { hasAccess: hasSalesExperienceAccess } = useSalesExperienceAccess();
+  const { data: salesProcessBuilderData } = useSalesProcessBuilderAccess();
+  const hasSalesProcessBuilderAccess = salesProcessBuilderData?.hasAccess ?? false;
   const location = useLocation();
   const { data: subscription } = useSubscription();
 
@@ -131,6 +139,9 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
 
   // Get overdue task count for badge
   const { data: overdueTaskCount = 0 } = useOverdueTaskCount();
+
+  // Get sales experience unread messages for badge (owner/manager only)
+  const { data: seUnreadCount = 0 } = useSalesExperienceUnreadMessages();
   
   // State - which folder(s) are open (kept as an array for compatibility, but enforced as single-open)
   const [openFolders, setOpenFolders] = useState<string[]>(() => {
@@ -292,7 +303,12 @@ const toggleFolder = useCallback((folderId: string) => {
   // Filter and reorder navigation based on user access and tier
   const visibleNavigation = useMemo<NavEntry[]>(() => {
     // First apply the standard filtering from useSidebarAccess
-    let filtered = filterNavigation(navigationConfig, callScoringEnabled, user?.email);
+    let filtered = filterNavigation(navigationConfig, {
+      callScoringEnabled,
+      userEmail: user?.email,
+      hasSalesExperienceAccess,
+      hasSalesProcessBuilderAccess,
+    });
     
     if (isCallScoringTier) {
       // For Call Scoring tier: 
@@ -336,7 +352,7 @@ const toggleFolder = useCallback((folderId: string) => {
     }
     
     return filtered;
-  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier]);
+  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, hasSalesExperienceAccess, hasSalesProcessBuilderAccess]);
 
 // Auto-expand folder containing active route
 useEffect(() => {
@@ -447,6 +463,16 @@ useEffect(() => {
                     // Get visible items for this folder
                     const visibleItems = entry.items;
 
+                    // Badge for Sales Experience folder (unread coach messages)
+                    const folderBadge = entry.id === 'sales-experience' && seUnreadCount > 0 ? (
+                      <Badge
+                        variant="destructive"
+                        className="h-5 min-w-5 flex items-center justify-center text-xs px-1"
+                      >
+                        {seUnreadCount > 99 ? '99+' : seUnreadCount}
+                      </Badge>
+                    ) : undefined;
+
                       return (
                         <SidebarFolder
                           key={entry.id}
@@ -458,6 +484,7 @@ useEffect(() => {
                           }}
                           isOpen={openFolders.includes(entry.id)}
                           onToggle={() => toggleFolder(entry.id)}
+                          badge={folderBadge}
                         >
                           {visibleItems.map((item) => {
                             // Check if this is a sub-folder
@@ -476,15 +503,27 @@ useEffect(() => {
                               );
                             }
 
-                            // Badge for onboarding tasks
-                            const itemBadge = item.id === 'onboarding-tasks' && overdueTaskCount > 0 ? (
-                              <Badge
-                                variant="destructive"
-                                className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
-                              >
-                                {overdueTaskCount > 99 ? '99+' : overdueTaskCount}
-                              </Badge>
-                            ) : undefined;
+                            // Badge for onboarding tasks or sales experience messages
+                            let itemBadge: React.ReactNode = undefined;
+                            if (item.id === 'onboarding-tasks' && overdueTaskCount > 0) {
+                              itemBadge = (
+                                <Badge
+                                  variant="destructive"
+                                  className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
+                                >
+                                  {overdueTaskCount > 99 ? '99+' : overdueTaskCount}
+                                </Badge>
+                              );
+                            } else if (item.id === 'se-messages' && seUnreadCount > 0) {
+                              itemBadge = (
+                                <Badge
+                                  variant="destructive"
+                                  className="ml-auto h-5 min-w-5 flex items-center justify-center text-xs px-1"
+                                >
+                                  {seUnreadCount > 99 ? '99+' : seUnreadCount}
+                                </Badge>
+                              );
+                            }
 
                             return (
                               <SidebarNavItem
