@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompPlans } from "./useCompPlans";
 import { calculateAllPayouts, convertToPerformance, calculateMemberPayout, BrokeredMetrics } from "@/lib/payout-calculator/calculator";
-import { PayoutCalculation, WrittenMetrics } from "@/lib/payout-calculator/types";
+import { PayoutCalculation, WrittenMetrics, BrokeredBundlingMetrics } from "@/lib/payout-calculator/types";
 import { calculateSelfGenMetricsBatch, SelfGenMetrics } from "@/lib/payout-calculator/self-gen";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { toast } from "sonner";
@@ -174,13 +174,6 @@ async function fetchBrokeredMetrics(
   }
 
   return brokeredByMember;
-}
-
-// Brokered bundling metrics - items in bundled sales that should count toward bundling %
-export interface BrokeredBundlingMetrics {
-  bundledItems: number;      // Items in Standard + Preferred bundles
-  bundledHouseholds: number; // Households in Standard + Preferred bundles
-  totalItems: number;        // All brokered items (for denominator)
 }
 
 // Fetch brokered bundling metrics - sales marked to count toward bundling
@@ -408,6 +401,9 @@ export function usePayoutCalculator(agencyId: string | null) {
     // Fetch written metrics from sales table (for tier qualification when source = 'written')
     const writtenMetricsByMember = await fetchWrittenMetrics(agencyId, teamMemberIds, month, year);
 
+    // Fetch brokered bundling metrics - sales marked to count toward bundling
+    const brokeredBundlingMetricsByMember = await fetchBrokeredBundlingMetrics(agencyId, month, year);
+
     return await calculateAllPayouts(
       subProducerData,
       plans,
@@ -420,7 +416,8 @@ export function usePayoutCalculator(agencyId: string | null) {
       selfGenByMember,
       selfGenMetricsByMember,
       brokeredMetricsByMember,
-      writtenMetricsByMember
+      writtenMetricsByMember,
+      brokeredBundlingMetricsByMember
     );
   };
 
