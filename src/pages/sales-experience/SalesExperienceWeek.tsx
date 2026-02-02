@@ -27,6 +27,8 @@ import {
   Play,
   ChevronRight,
   BookOpen,
+  Download,
+  ExternalLink,
 } from 'lucide-react';
 
 interface Module {
@@ -35,6 +37,12 @@ interface Module {
   title: string;
   description: string;
   pillar: Pillar;
+}
+
+interface LessonDocument {
+  id: string;
+  name: string;
+  url: string;
 }
 
 interface Lesson {
@@ -47,6 +55,7 @@ interface Lesson {
   video_platform: string | null;
   content_html: string | null;
   is_staff_visible: boolean;
+  documents_json: LessonDocument[] | null;
 }
 
 interface OwnerProgress {
@@ -354,8 +363,39 @@ export default function SalesExperienceWeek() {
                 </div>
               )}
 
+              {/* Documents */}
+              {selectedLesson?.documents_json && selectedLesson.documents_json.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    Downloadable Resources
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedLesson.documents_json.map((doc) => (
+                      <a
+                        key={doc.id}
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors group"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{doc.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{doc.url}</p>
+                        </div>
+                        <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* No content message */}
-              {!selectedLesson?.video_url && !selectedLesson?.content_html && (
+              {!selectedLesson?.video_url && !selectedLesson?.content_html && (!selectedLesson?.documents_json || selectedLesson.documents_json.length === 0) && (
                 <p className="text-muted-foreground text-center py-8">
                   No content available for this lesson yet.
                 </p>
@@ -413,6 +453,7 @@ interface LessonCardProps {
 
 function LessonCard({ lesson, weekNumber, progress, onView }: LessonCardProps) {
   const hasVideo = !!lesson.video_url;
+  const hasDocuments = lesson.documents_json && lesson.documents_json.length > 0;
   const isCompleted = progress?.status === 'completed';
   const isInProgress = progress?.status === 'in_progress';
 
@@ -446,6 +487,12 @@ function LessonCard({ lesson, weekNumber, progress, onView }: LessonCardProps) {
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Video className="h-3 w-3" />
                 Video
+              </span>
+            )}
+            {hasDocuments && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <FileText className="h-3 w-3" />
+                {lesson.documents_json!.length} Doc{lesson.documents_json!.length > 1 ? 's' : ''}
               </span>
             )}
             {lesson.is_staff_visible && (

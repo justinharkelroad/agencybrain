@@ -7659,6 +7659,7 @@ export type Database = {
           description: string | null
           documents_json: Json | null
           id: string
+          is_discovery_flow: boolean
           is_owner_only: boolean
           is_staff_visible: boolean
           module_id: string
@@ -7677,6 +7678,7 @@ export type Database = {
           description?: string | null
           documents_json?: Json | null
           id?: string
+          is_discovery_flow?: boolean
           is_owner_only?: boolean
           is_staff_visible?: boolean
           module_id: string
@@ -7695,6 +7697,7 @@ export type Database = {
           description?: string | null
           documents_json?: Json | null
           id?: string
+          is_discovery_flow?: boolean
           is_owner_only?: boolean
           is_staff_visible?: boolean
           module_id?: string
