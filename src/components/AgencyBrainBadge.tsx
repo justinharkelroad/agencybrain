@@ -1,8 +1,10 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import lightModeLogo from "@/assets/agencybrain-logo-light.png";
 
-const STAN_LOGO_URL = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
+// Dark mode logo (white text)
+const DARK_LOGO_URL = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
 
 type Props = {
   size?: "sm" | "md" | "lg";
@@ -29,10 +31,17 @@ export function AgencyBrainBadge({ size = "md", className, asLink = false, to = 
         className
       )}
     >
+      {/* Light mode logo (black text) - hidden in dark mode */}
       <img
-        src={STAN_LOGO_URL}
+        src={lightModeLogo}
         alt="AgencyBrain logo"
-        className={cn("w-auto object-contain", imageHeight)}
+        className={cn("w-auto object-contain dark:hidden", imageHeight)}
+      />
+      {/* Dark mode logo (white text) - hidden in light mode */}
+      <img
+        src={DARK_LOGO_URL}
+        alt="AgencyBrain logo"
+        className={cn("w-auto object-contain hidden dark:block", imageHeight)}
       />
     </Comp>
   );

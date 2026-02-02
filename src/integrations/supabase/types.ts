@@ -518,6 +518,48 @@ export type Database = {
           },
         ]
       }
+      agency_feature_access: {
+        Row: {
+          agency_id: string
+          feature_key: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          agency_id: string
+          feature_key: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          agency_id?: string
+          feature_key?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_feature_access_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_feature_access_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_files: {
         Row: {
           agency_id: string
@@ -7408,6 +7450,92 @@ export type Database = {
           },
         ]
       }
+      sales_experience_deliverable_sessions: {
+        Row: {
+          created_at: string
+          deliverable_id: string
+          generated_content_json: Json | null
+          id: string
+          messages_json: Json
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          deliverable_id: string
+          generated_content_json?: Json | null
+          id?: string
+          messages_json?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          deliverable_id?: string
+          generated_content_json?: Json | null
+          id?: string
+          messages_json?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_deliverable_sessions_deliverable_id_fkey"
+            columns: ["deliverable_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_deliverables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_deliverable_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales_experience_deliverables: {
+        Row: {
+          assignment_id: string
+          content_json: Json
+          created_at: string
+          deliverable_type: string
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assignment_id: string
+          content_json?: Json
+          created_at?: string
+          deliverable_type: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assignment_id?: string
+          content_json?: Json
+          created_at?: string
+          deliverable_type?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_experience_deliverables_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_experience_email_queue: {
         Row: {
           assignment_id: string
@@ -9178,6 +9306,89 @@ export type Database = {
             columns: ["team_member_id"]
             isOneToOne: true
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      standalone_sales_process: {
+        Row: {
+          agency_id: string
+          content_json: Json
+          created_at: string
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          content_json?: Json
+          created_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          content_json?: Json
+          created_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "standalone_sales_process_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      standalone_sales_process_sessions: {
+        Row: {
+          created_at: string
+          generated_content_json: Json | null
+          id: string
+          messages_json: Json
+          sales_process_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          generated_content_json?: Json | null
+          id?: string
+          messages_json?: Json
+          sales_process_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          generated_content_json?: Json | null
+          id?: string
+          messages_json?: Json
+          sales_process_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "standalone_sales_process_sessions_sales_process_id_fkey"
+            columns: ["sales_process_id"]
+            isOneToOne: false
+            referencedRelation: "standalone_sales_process"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "standalone_sales_process_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -11742,6 +11953,10 @@ export type Database = {
         | { Args: { check_agency_id: string }; Returns: boolean }
       has_cancel_audit_access: {
         Args: { check_agency_id: string }
+        Returns: boolean
+      }
+      has_feature_access: {
+        Args: { p_agency_id: string; p_feature_key: string }
         Returns: boolean
       }
       has_renewal_access: {
