@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -23,6 +23,8 @@ import {
   Users,
   User,
   RefreshCw,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -73,6 +75,10 @@ export default function OnboardingTasksPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   // Sequence filter - filter by specific sequence
   const [selectedSequence, setSelectedSequence] = useState<string>('all');
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
+  const MAX_ITEMS = 50;
 
   // Fetch user's profile for agency_id
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -221,13 +227,32 @@ export default function OnboardingTasksPage() {
   }, [activeTasks, selectedDate, selectedSequence]);
 
   // Group filtered tasks by customer
-  const groupedTasks = useMemo(
+  const allGroupedTasks = useMemo(
     () => groupTasksByCustomer(filteredTasks),
     [filteredTasks]
   );
 
-  // Auto-collapse if more than 1 customer
-  const shouldAutoCollapse = groupedTasks.size > 1;
+  // Convert to array and limit to MAX_ITEMS
+  const groupedTasksArray = useMemo(() => {
+    const arr = Array.from(allGroupedTasks.entries());
+    return arr.slice(0, MAX_ITEMS);
+  }, [allGroupedTasks]);
+
+  // Pagination
+  const totalPages = Math.ceil(groupedTasksArray.length / ITEMS_PER_PAGE);
+  const paginatedGroups = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    return groupedTasksArray.slice(start, end);
+  }, [groupedTasksArray, currentPage]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [viewFilter, selectedDate, selectedSequence]);
+
+  // Auto-collapse if more than 1 customer on current page
+  const shouldAutoCollapse = paginatedGroups.length > 1;
 
   // Handle day click in outlook
   const handleDayClick = (date: Date) => {
@@ -518,13 +543,15 @@ export default function OnboardingTasksPage() {
       {/* Task Groups */}
       {!isLoading && filteredTasks.length > 0 && (
         <div className="space-y-4 mb-6">
-          {/* Show collapse hint when auto-collapsing */}
-          {shouldAutoCollapse && (
+          {/* Show count and pagination info */}
+          {groupedTasksArray.length > 0 && (
             <p className="text-xs text-muted-foreground">
-              {groupedTasks.size} customers shown • Click to expand each group
+              {groupedTasksArray.length} customer{groupedTasksArray.length !== 1 ? 's' : ''}
+              {totalPages > 1 && ` • Page ${currentPage} of ${totalPages}`}
+              {groupedTasksArray.length >= MAX_ITEMS && ` (showing first ${MAX_ITEMS})`}
             </p>
           )}
-          {Array.from(groupedTasks.entries()).map(([customerName, tasks]) => (
+          {paginatedGroups.map(([customerName, tasks]) => (
             <CustomerTasksGroup
               key={customerName}
               customerName={customerName}
@@ -538,6 +565,43 @@ export default function OnboardingTasksPage() {
               defaultExpanded={!shouldAutoCollapse}
             />
           ))}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Previous
+              </Button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                  <Button
+                    key={page}
+                    variant={page === currentPage ? 'default' : 'outline'}
+                    size="sm"
+                    className="w-8 h-8 p-0"
+                    onClick={() => setCurrentPage(page)}
+                  >
+                    {page}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

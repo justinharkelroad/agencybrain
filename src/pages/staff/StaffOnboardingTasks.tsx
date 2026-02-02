@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import {
   useStaffOnboardingTasks,
@@ -35,6 +35,7 @@ import {
   MoreHorizontal,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Calendar,
   FileText,
   Loader2,
@@ -444,6 +445,10 @@ export default function StaffOnboardingTasks() {
   const [selectedSequence, setSelectedSequence] = useState<string>('all');
   // Profile sidebar state
   const [profileViewState, setProfileViewState] = useState<ProfileViewState | null>(null);
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
+  const MAX_ITEMS = 50;
 
   const handleComplete = async (taskId: string, notes?: string) => {
     setCompletingTaskId(taskId);
@@ -510,10 +515,28 @@ export default function StaffOnboardingTasks() {
   }, [activeTasks, selectedDate, selectedSequence]);
 
   // Group filtered tasks by customer
-  const groupedTasks = useMemo(() => groupTasksByCustomer(filteredTasks), [filteredTasks]);
+  const allGroupedTasks = useMemo(() => groupTasksByCustomer(filteredTasks), [filteredTasks]);
 
-  // Auto-collapse if more than 1 customer
-  const shouldAutoCollapse = groupedTasks.length > 1;
+  // Limit to MAX_ITEMS
+  const groupedTasksArray = useMemo(() => {
+    return allGroupedTasks.slice(0, MAX_ITEMS);
+  }, [allGroupedTasks]);
+
+  // Pagination
+  const totalPages = Math.ceil(groupedTasksArray.length / ITEMS_PER_PAGE);
+  const paginatedGroups = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    return groupedTasksArray.slice(start, end);
+  }, [groupedTasksArray, currentPage]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedDate, selectedSequence]);
+
+  // Auto-collapse if more than 1 customer on current page
+  const shouldAutoCollapse = paginatedGroups.length > 1;
 
   // Convert StaffOnboardingTask[] to OnboardingTask[] for SevenDayOutlook
   const tasksForOutlook = useMemo(() => {
@@ -743,7 +766,7 @@ export default function StaffOnboardingTasks() {
       {/* Active Tasks */}
       {!isLoading && !error && (
         <div className="space-y-6">
-          {groupedTasks.length === 0 && !selectedDate && selectedSequence === 'all' ? (
+          {paginatedGroups.length === 0 && !selectedDate && selectedSequence === 'all' ? (
             <Card>
               <CardContent className="pt-8 pb-8 text-center">
                 <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
@@ -751,15 +774,19 @@ export default function StaffOnboardingTasks() {
                 <p className="text-muted-foreground">You have no pending tasks right now.</p>
               </CardContent>
             </Card>
-          ) : groupedTasks.length > 0 && (
+          ) : paginatedGroups.length > 0 && (
             <>
-              {/* Show collapse hint when auto-collapsing */}
-              {shouldAutoCollapse && (
+              {/* Show count info */}
+              <div className="flex items-center justify-between">
                 <p className="text-xs text-muted-foreground">
-                  {groupedTasks.length} customers shown
+                  {totalPages > 1
+                    ? `Showing ${(currentPage - 1) * ITEMS_PER_PAGE + 1}-${Math.min(currentPage * ITEMS_PER_PAGE, groupedTasksArray.length)} of ${groupedTasksArray.length} customers`
+                    : `${paginatedGroups.length} customer${paginatedGroups.length !== 1 ? 's' : ''}`
+                  }
+                  {allGroupedTasks.length > MAX_ITEMS && ` (limited to ${MAX_ITEMS})`}
                 </p>
-              )}
-              {groupedTasks.map((group) => {
+              </div>
+              {paginatedGroups.map((group) => {
                 const hasOverdue = group.tasks.some(t => t.status === 'overdue');
                 return (
                 <div key={group.customerName} className="space-y-3">
@@ -814,6 +841,43 @@ export default function StaffOnboardingTasks() {
                 </div>
                 );
               })}
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 pt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" />
+                    Previous
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <Button
+                        key={page}
+                        variant={currentPage === page ? 'default' : 'outline'}
+                        size="sm"
+                        className="w-8 h-8 p-0"
+                        onClick={() => setCurrentPage(page)}
+                      >
+                        {page}
+                      </Button>
+                    ))}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              )}
             </>
           )}
 
