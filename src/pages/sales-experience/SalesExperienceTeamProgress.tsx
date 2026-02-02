@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
@@ -50,6 +50,16 @@ interface QuizAttempt {
   lesson_id: string;
   score_percent: number;
   completed_at: string;
+  answers_json: Array<{
+    question_id: string;
+    question: string;
+    user_answer: string;
+    correct_answer?: string | null;
+    is_correct?: boolean;
+    is_open_ended?: boolean;
+    points?: number;
+  }>;
+  feedback_ai?: string | null;
   staff_users: {
     display_name: string;
   };
@@ -65,6 +75,7 @@ type StaffUsersData = StaffProgress['staff_users'];
 
 export default function SalesExperienceTeamProgress() {
   const { hasAccess, assignment, currentWeek, isLoading: accessLoading } = useSalesExperienceAccess();
+  const [selectedQuiz, setSelectedQuiz] = useState<QuizAttempt | null>(null);
 
   // Fetch staff progress
   const { data: staffProgress, isLoading: progressLoading } = useQuery({
@@ -151,6 +162,8 @@ export default function SalesExperienceTeamProgress() {
           lesson_id,
           score_percent,
           completed_at,
+          answers_json,
+          feedback_ai,
           staff_users(display_name),
           sales_experience_lessons(
             title,
@@ -247,6 +260,11 @@ export default function SalesExperienceTeamProgress() {
     if (score >= 80) return 'text-green-600';
     if (score >= 60) return 'text-amber-600';
     return 'text-red-600';
+  };
+  
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return '--';
+    return new Date(dateString).toLocaleDateString();
   };
 
   return (
@@ -481,10 +499,15 @@ export default function SalesExperienceTeamProgress() {
                       {quiz.score_percent}%
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {quiz.completed_at
-                        ? new Date(quiz.completed_at).toLocaleDateString()
-                        : '--'}
+                      {formatDate(quiz.completed_at)}
                     </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSelectedQuiz(quiz)}
+                    >
+                      View Responses
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -497,6 +520,80 @@ export default function SalesExperienceTeamProgress() {
           )}
         </CardContent>
       </Card>
+
+      {selectedQuiz && (
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="text-lg">
+              Quiz Responses
+            </CardTitle>
+            <CardDescription>
+              {selectedQuiz.staff_users?.display_name || 'Unknown'} • Week{' '}
+              {selectedQuiz.sales_experience_lessons?.sales_experience_modules?.week_number || '?'} •{' '}
+              {selectedQuiz.sales_experience_lessons?.title || 'Unknown Lesson'} •{' '}
+              {formatDate(selectedQuiz.completed_at)}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              <span className={`text-2xl font-bold ${getScoreColor(selectedQuiz.score_percent)}`}>
+                {selectedQuiz.score_percent}%
+              </span>
+              {selectedQuiz.feedback_ai ? (
+                <span className="text-sm text-muted-foreground">
+                  AI Feedback available below
+                </span>
+              ) : null}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectedQuiz(null)}
+              >
+                Close
+              </Button>
+            </div>
+
+            {selectedQuiz.answers_json && selectedQuiz.answers_json.length > 0 ? (
+              <div className="space-y-3">
+                {selectedQuiz.answers_json.map((answer, index) => (
+                  <div key={answer.question_id || index} className="p-3 rounded-lg border">
+                    <p className="font-medium mb-2">
+                      {index + 1}. {answer.question}
+                    </p>
+                    <p className="text-sm">
+                      <span className="font-semibold">Answer:</span>{' '}
+                      {answer.user_answer || '--'}
+                    </p>
+                    {answer.correct_answer ? (
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-semibold">Correct:</span>{' '}
+                        {answer.correct_answer}
+                      </p>
+                    ) : null}
+                    {typeof answer.is_correct === 'boolean' ? (
+                      <p className="text-sm">
+                        <span className="font-semibold">Result:</span>{' '}
+                        <span className={answer.is_correct ? 'text-green-600' : 'text-red-600'}>
+                          {answer.is_correct ? 'Correct' : 'Incorrect'}
+                        </span>
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No responses recorded.</p>
+            )}
+
+            {selectedQuiz.feedback_ai ? (
+              <div className="p-3 rounded-lg bg-muted/50">
+                <p className="text-sm font-semibold mb-1">AI Feedback</p>
+                <p className="text-sm whitespace-pre-wrap">{selectedQuiz.feedback_ai}</p>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
