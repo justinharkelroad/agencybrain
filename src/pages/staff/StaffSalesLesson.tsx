@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -58,6 +58,33 @@ const dayLabels: Record<number, string> = {
   5: 'Friday',
 };
 
+interface ApiLesson {
+  id: string;
+  title: string;
+  description: string | null;
+  day_of_week: number;
+  video_url: string | null;
+  video_platform: string | null;
+  content_html: string | null;
+  quiz_questions: QuizQuestion[];
+  progress: {
+    id: string;
+    status: string;
+    started_at: string | null;
+    completed_at: string | null;
+    quiz_score_percent: number | null;
+    quiz_feedback_ai: string | null;
+  } | null;
+}
+
+interface ApiWeek {
+  id: string;
+  week_number: number;
+  title: string;
+  pillar: string;
+  lessons: ApiLesson[];
+}
+
 export default function StaffSalesLesson() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -74,18 +101,7 @@ export default function StaffSalesLesson() {
     feedback: string | null;
   } | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate('/staff/login');
-      return;
-    }
-
-    if (isAuthenticated && id && sessionToken) {
-      fetchLessonData();
-    }
-  }, [authLoading, isAuthenticated, id, sessionToken]);
-
-  const fetchLessonData = async () => {
+  const fetchLessonData = useCallback(async () => {
     if (!sessionToken || !id) return;
 
     setLoading(true);
@@ -110,12 +126,12 @@ export default function StaffSalesLesson() {
       const result = await response.json();
 
       // Find the lesson in the weeks data
-      let foundLesson: any = null;
-      for (const week of result.weeks || []) {
-        const lesson = week.lessons?.find((l: any) => l.id === id);
-        if (lesson) {
+      let foundLesson: LessonData | null = null;
+      for (const week of (result.weeks || []) as ApiWeek[]) {
+        const lessonFromApi = week.lessons?.find((l: ApiLesson) => l.id === id);
+        if (lessonFromApi) {
           foundLesson = {
-            ...lesson,
+            ...lessonFromApi,
             module: {
               id: week.id,
               week_number: week.week_number,
@@ -149,7 +165,18 @@ export default function StaffSalesLesson() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionToken, id]);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      navigate('/staff/login');
+      return;
+    }
+
+    if (isAuthenticated && id && sessionToken) {
+      fetchLessonData();
+    }
+  }, [authLoading, isAuthenticated, id, sessionToken, navigate, fetchLessonData]);
 
   const handleQuizSubmit = async () => {
     if (!sessionToken || !lesson || !user) return;

@@ -174,6 +174,9 @@ import {
   SalesExperienceTranscript,
   SalesExperienceMessages,
   SalesExperienceTeamProgress,
+  SalesExperienceDeliverables,
+  SalesExperienceDeliverableBuilder,
+  SalesExperienceDeliverableEdit,
 } from "./pages/sales-experience";
 
 const queryClient = new QueryClient({
@@ -521,6 +524,27 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <SalesExperienceTeamProgress />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sales-experience/deliverables" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceDeliverables />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sales-experience/deliverables/:type" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceDeliverableBuilder />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/sales-experience/deliverables/:type/edit" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceDeliverableEdit />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

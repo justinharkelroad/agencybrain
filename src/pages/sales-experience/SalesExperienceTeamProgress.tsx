@@ -61,6 +61,8 @@ interface QuizAttempt {
   };
 }
 
+type StaffUsersData = StaffProgress['staff_users'];
+
 export default function SalesExperienceTeamProgress() {
   const { hasAccess, assignment, currentWeek, isLoading: accessLoading } = useSalesExperienceAccess();
 
@@ -97,7 +99,7 @@ export default function SalesExperienceTeamProgress() {
         if (!staffMap.has(staffId)) {
           staffMap.set(staffId, {
             staff_user_id: staffId,
-            staff_users: record.staff_users as any,
+            staff_users: record.staff_users as StaffUsersData,
             total_lessons: 0,
             completed_lessons: 0,
             avg_quiz_score: null,

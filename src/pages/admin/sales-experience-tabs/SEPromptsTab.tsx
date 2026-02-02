@@ -123,7 +123,7 @@ export function SEPromptsTab() {
       <div>
         <h2 className="text-xl font-semibold">AI Prompt Management</h2>
         <p className="text-sm text-muted-foreground">
-          Customize the AI prompts used for transcript summaries and quiz feedback
+          Customize the AI prompts used for transcript summaries, quiz feedback, and deliverable builders
         </p>
       </div>
 

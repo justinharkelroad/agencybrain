@@ -41,16 +41,23 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+interface Agency {
+  id: string;
+  name: string;
+}
+
 interface Assignment {
   id: string;
   agency_id: string;
   status: string;
   start_date: string;
   end_date: string;
-  agency: {
-    id: string;
-    name: string;
-  };
+  agency: Agency;
+}
+
+interface ActionItem {
+  action: string;
+  owner?: string;
 }
 
 interface Transcript {
@@ -60,7 +67,7 @@ interface Transcript {
   meeting_date: string;
   transcript_text: string;
   summary_ai: string | null;
-  action_items_json: any[];
+  action_items_json: (ActionItem | string)[];
   created_at: string;
 }
 
@@ -270,7 +277,7 @@ export function SETranscriptsTab() {
                     <div className="flex-1 text-left">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">
-                          {(assignment.agency as any)?.name || 'Unknown Agency'}
+                          {assignment.agency?.name || 'Unknown Agency'}
                         </span>
                         <Badge
                           variant={assignment.status === 'active' ? 'default' : 'secondary'}
@@ -355,7 +362,7 @@ export function SETranscriptsTab() {
               Upload Transcript - Week {selectedWeek}
             </DialogTitle>
             <DialogDescription>
-              {(selectedAssignment?.agency as any)?.name} - Paste the Zoom transcript text below
+              {selectedAssignment?.agency?.name} - Paste the Zoom transcript text below
             </DialogDescription>
           </DialogHeader>
 
@@ -469,14 +476,14 @@ export function SETranscriptsTab() {
                     </CardHeader>
                     <CardContent>
                       <ul className="space-y-2">
-                        {viewingTranscript.action_items_json.map((item: any, i: number) => (
+                        {viewingTranscript.action_items_json.map((item, i) => (
                           <li key={i} className="text-sm flex items-start gap-2">
                             <span className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
                               {i + 1}
                             </span>
                             <div>
-                              <span>{item.action || item}</span>
-                              {item.owner && (
+                              <span>{typeof item === 'string' ? item : item.action}</span>
+                              {typeof item !== 'string' && item.owner && (
                                 <span className="text-muted-foreground ml-2">
                                   — {item.owner}
                                 </span>

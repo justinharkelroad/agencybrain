@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,6 +18,13 @@ import {
 import { toast } from 'sonner';
 import { dayLabels } from '@/components/sales-experience';
 
+interface QuizQuestion {
+  id: string;
+  question: string;
+  type: 'text' | 'multiple_choice';
+  options?: string[];
+}
+
 interface SalesExperienceLesson {
   id: string;
   title: string;
@@ -26,7 +33,7 @@ interface SalesExperienceLesson {
   week_number: number;
   video_url: string | null;
   is_unlocked: boolean;
-  quiz_questions: any[];
+  quiz_questions: QuizQuestion[];
   progress: {
     status: 'locked' | 'available' | 'in_progress' | 'completed';
     unlocked_at: string | null;
@@ -76,18 +83,7 @@ export default function StaffSalesTraining() {
   const [loading, setLoading] = useState(true);
   const [selectedWeek, setSelectedWeek] = useState<number>(1);
 
-  useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate('/staff/login');
-      return;
-    }
-
-    if (isAuthenticated && user && sessionToken) {
-      fetchSalesExperienceData();
-    }
-  }, [authLoading, isAuthenticated, user, sessionToken]);
-
-  const fetchSalesExperienceData = async () => {
+  const fetchSalesExperienceData = useCallback(async () => {
     if (!sessionToken || !user) return;
 
     setLoading(true);
@@ -122,7 +118,18 @@ export default function StaffSalesTraining() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionToken, user]);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      navigate('/staff/login');
+      return;
+    }
+
+    if (isAuthenticated && user && sessionToken) {
+      fetchSalesExperienceData();
+    }
+  }, [authLoading, isAuthenticated, user, sessionToken, navigate, fetchSalesExperienceData]);
 
   // Get lessons for selected week
   const weekLessons = useMemo(() => {

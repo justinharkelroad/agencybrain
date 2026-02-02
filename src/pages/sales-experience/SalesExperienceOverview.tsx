@@ -18,7 +18,26 @@ import {
   MessageSquare,
   Users,
   Calendar,
+  FileText,
 } from 'lucide-react';
+import {
+  useSalesExperienceDeliverables,
+  getOverallProgress,
+} from '@/hooks/useSalesExperienceDeliverables';
+
+interface LessonProgress {
+  id: string;
+  status: 'locked' | 'available' | 'in_progress' | 'completed';
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+interface ModuleLesson {
+  id: string;
+  title: string;
+  day_of_week: number;
+  progress: LessonProgress | null;
+}
 
 interface ModuleWithLessons {
   id: string;
@@ -27,7 +46,14 @@ interface ModuleWithLessons {
   description: string;
   pillar: Pillar;
   icon: string;
-  lessons: any[];
+  lessons: ModuleLesson[];
+}
+
+interface WeekTranscript {
+  id: string;
+  week_number: number;
+  meeting_date: string;
+  summary_ai: string | null;
 }
 
 interface SalesExperienceData {
@@ -49,12 +75,13 @@ interface SalesExperienceData {
     progress_percent: number;
   };
   unread_messages: number;
-  current_week_transcript: any | null;
+  current_week_transcript: WeekTranscript | null;
 }
 
 export default function SalesExperienceOverview() {
   const { session } = useAuth();
   const { hasAccess, isLoading: accessLoading } = useSalesExperienceAccess();
+  const { data: deliverables } = useSalesExperienceDeliverables();
 
   // Fetch data using edge function
   const { data, isLoading: dataLoading, error } = useQuery<SalesExperienceData>({
@@ -220,6 +247,42 @@ export default function SalesExperienceOverview() {
         </Link>
       </div>
 
+      {/* Your Deliverables */}
+      <Card className="mb-8">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Your Deliverables
+              </CardTitle>
+              <CardDescription>
+                Build your Sales Process, Accountability Metrics, and Consequence Ladder
+              </CardDescription>
+            </div>
+            <Link to="/sales-experience/deliverables">
+              <Badge variant="outline" className="cursor-pointer hover:bg-muted">
+                View All <ChevronRight className="h-3 w-3 ml-1" />
+              </Badge>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-4">
+            <Progress
+              value={deliverables ? getOverallProgress(deliverables) : 0}
+              className="flex-1 h-2"
+            />
+            <span className="text-sm font-medium text-muted-foreground">
+              {deliverables?.filter(d => d.status === 'complete').length || 0} / 3 complete
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Use the AI Builder to create professional documents throughout your 8-week experience
+          </p>
+        </CardContent>
+      </Card>
+
       {/* 8-Week Timeline */}
       <Card>
         <CardHeader>
@@ -241,7 +304,7 @@ export default function SalesExperienceOverview() {
                 const isUnlocked = currentWeek >= module.week_number;
                 const isCurrent = currentWeek === module.week_number;
                 const isCompleted = module.lessons?.every(
-                  (l: any) => l.progress?.status === 'completed'
+                  (l) => l.progress?.status === 'completed'
                 );
 
                 return (

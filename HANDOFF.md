@@ -280,10 +280,11 @@ YouTube, Vimeo, and Loom all supported with auto URL conversion:
 
 ## Files Created/Modified Summary
 
-### Created (39 files)
+### Created (55 files)
 ```
 supabase/migrations/20260202060000_sales_experience_tables.sql
 supabase/migrations/20260202070000_fix_se_admin_rls.sql
+supabase/migrations/20260202080000_sales_experience_deliverables.sql       # NEW - Deliverables
 supabase/functions/get-sales-experience/index.ts
 supabase/functions/get-staff-sales-lessons/index.ts
 supabase/functions/submit-sales-quiz/index.ts
@@ -291,8 +292,13 @@ supabase/functions/complete-sales-lesson/index.ts
 supabase/functions/sales-experience-messages/index.ts
 supabase/functions/upload-sales-transcript/index.ts
 supabase/functions/process-sales-experience-emails/index.ts
+supabase/functions/deliverable-builder-chat/index.ts                       # NEW - Deliverables
+supabase/functions/save-deliverable-content/index.ts                       # NEW - Deliverables
+supabase/functions/generate-deliverables-pdf/index.ts                      # NEW - Deliverables
 src/hooks/useSalesExperienceAccess.ts
-src/hooks/useSalesExperienceUnread.ts                          # NEW - Unread message hooks
+src/hooks/useSalesExperienceUnread.ts
+src/hooks/useSalesExperienceDeliverables.ts                                # NEW - Deliverables
+src/hooks/useDeliverableBuilder.ts                                         # NEW - Deliverables
 src/pages/sales-experience/index.ts
 src/pages/sales-experience/SalesExperienceOverview.tsx
 src/pages/sales-experience/SalesExperienceWeek.tsx
@@ -300,6 +306,9 @@ src/pages/sales-experience/SalesExperienceDocuments.tsx
 src/pages/sales-experience/SalesExperienceTranscript.tsx
 src/pages/sales-experience/SalesExperienceMessages.tsx
 src/pages/sales-experience/SalesExperienceTeamProgress.tsx
+src/pages/sales-experience/SalesExperienceDeliverables.tsx                 # NEW - Deliverables
+src/pages/sales-experience/SalesExperienceDeliverableBuilder.tsx           # NEW - Deliverables
+src/pages/sales-experience/SalesExperienceDeliverableEdit.tsx              # NEW - Deliverables
 src/pages/staff/StaffSalesTraining.tsx
 src/pages/staff/StaffSalesLesson.tsx
 src/pages/admin/AdminSalesExperience.tsx
@@ -317,18 +326,27 @@ src/components/sales-experience/VideoEmbed.tsx
 src/components/sales-experience/WeekCard.tsx
 src/components/sales-experience/LessonCard.tsx
 src/components/sales-experience/ProgressStats.tsx
+src/components/sales-experience/deliverables/index.ts                      # NEW - Deliverables
+src/components/sales-experience/deliverables/DeliverableCard.tsx           # NEW - Deliverables
+src/components/sales-experience/deliverables/SalesProcessEditor.tsx        # NEW - Deliverables
+src/components/sales-experience/deliverables/AccountabilityEditor.tsx      # NEW - Deliverables
+src/components/sales-experience/deliverables/ConsequenceLadderEditor.tsx   # NEW - Deliverables
+src/components/sales-experience/deliverables/DeliverableBuilderChat.tsx    # NEW - Deliverables
+src/components/sales-experience/deliverables/DeliverablesPDFDialog.tsx     # NEW - Deliverables
 ```
 
-### Modified (8 files)
+### Modified (10 files)
 ```
-src/config/navigation.ts
+src/config/navigation.ts                                      # Added deliverables nav item
 src/hooks/useSidebarAccess.ts
-src/components/AppSidebar.tsx                    # Added unread badge hook + rendering
-src/components/sidebar/SidebarFolder.tsx         # Added badge prop support
-src/App.tsx
+src/components/AppSidebar.tsx
+src/components/sidebar/SidebarFolder.tsx
+src/App.tsx                                                   # Added deliverables routes
 src/index.css
-supabase/config.toml
+supabase/config.toml                                          # Added 3 deliverable functions
 package.json
+src/pages/sales-experience/index.ts                           # Added deliverable exports
+src/pages/admin/sales-experience-tabs/SEPromptsTab.tsx        # Updated description
 ```
 
 ---
@@ -401,8 +419,154 @@ supabase functions deploy complete-sales-lesson --no-verify-jwt
 supabase functions deploy sales-experience-messages
 supabase functions deploy upload-sales-transcript
 supabase functions deploy process-sales-experience-emails --no-verify-jwt
+
+# Deliverables functions (NEW)
+supabase functions deploy deliverable-builder-chat
+supabase functions deploy save-deliverable-content
+supabase functions deploy generate-deliverables-pdf
 ```
 
 ---
 
-*Last Updated: 2026-02-02 (Added: Start in Arrears feature, Unread message notification badges)*
+---
+
+## 13. Deliverables Feature ✅ NEW (2026-02-02)
+
+Three key documents that agency owners build throughout the 8-Week program and receive as a professional branded PDF at the end.
+
+### Deliverable Types
+1. **Sales Process** - Rapport → Coverage → Closing framework with bullet points
+2. **Accountability Metrics** - User-defined categories with metrics
+3. **Consequence Ladder** - Progressive steps (1st incident → 2nd → 3rd...)
+
+### Database Migration
+**File:** `supabase/migrations/20260202080000_sales_experience_deliverables.sql`
+
+**Tables:**
+- `sales_experience_deliverables` - One row per deliverable type per assignment
+  - Columns: `id`, `assignment_id`, `deliverable_type`, `status`, `content_json`, timestamps
+  - Status values: `draft`, `in_progress`, `complete`
+- `sales_experience_deliverable_sessions` - AI Builder conversation history
+  - Columns: `id`, `deliverable_id`, `user_id`, `messages_json`, `generated_content_json`, `status`, timestamps
+
+**Auto-creation trigger:** When assignment becomes active/pending, auto-creates 3 deliverables with empty content.
+
+**AI Prompts seeded:** `deliverable_sales_process`, `deliverable_accountability_metrics`, `deliverable_consequence_ladder`
+
+### Content JSON Structures
+```typescript
+// Sales Process
+{ "rapport": ["item1", "item2"], "coverage": ["item1"], "closing": ["item1"] }
+
+// Accountability Metrics
+{ "categories": [{ "name": "Category Name", "items": ["metric1", "metric2"] }] }
+
+// Consequence Ladder
+{ "steps": [{ "incident": 1, "title": "Step Title", "description": "..." }] }
+```
+
+### Edge Functions
+**Directory:** `supabase/functions/`
+
+| Function | Actions | Purpose |
+|----------|---------|---------|
+| `deliverable-builder-chat` | start, get_session, message, apply | AI-guided Q&A conversation |
+| `save-deliverable-content` | list, save | Manual edits and list deliverables |
+| `generate-deliverables-pdf` | generate | Returns branded HTML for PDF |
+
+**Key AI Pattern:** AI prompts instruct Claude to output JSON in \`\`\`json blocks when user is ready. The `extractJsonFromResponse()` function parses these.
+
+### React Hooks
+**Directory:** `src/hooks/`
+
+| Hook | Purpose |
+|------|---------|
+| `useSalesExperienceDeliverables.ts` | Fetches deliverables, save mutations, progress calculations |
+| `useDeliverableBuilder.ts` | Manages AI builder conversation state |
+
+**Exported from `useSalesExperienceDeliverables.ts`:**
+- Types: `DeliverableType`, `DeliverableStatus`, `Deliverable`, `DeliverableSession`
+- Content types: `SalesProcessContent`, `AccountabilityMetricsContent`, `ConsequenceLadderContent`
+- Hooks: `useSalesExperienceDeliverables()`, `useSaveDeliverableContent()`, `useGenerateDeliverablesPdf()`
+- Helpers: `getDeliverableProgress()`, `getOverallProgress()`, `deliverableInfo`
+
+### Components
+**Directory:** `src/components/sales-experience/deliverables/`
+
+| Component | Purpose |
+|-----------|---------|
+| `DeliverableCard.tsx` | Visual card with status badge, progress, action buttons |
+| `SalesProcessEditor.tsx` | 3-column layout with drag-drop (@dnd-kit) |
+| `AccountabilityEditor.tsx` | Dynamic categories with nested items, drag-drop |
+| `ConsequenceLadderEditor.tsx` | Progressive steps editor with drag-drop |
+| `DeliverableBuilderChat.tsx` | AI chat interface with JSON preview |
+| `DeliverablesPDFDialog.tsx` | Dialog with iframe preview, print/download |
+| `index.ts` | Barrel exports |
+
+### Pages
+**Directory:** `src/pages/sales-experience/`
+
+| File | Route | Purpose |
+|------|-------|---------|
+| `SalesExperienceDeliverables.tsx` | `/sales-experience/deliverables` | Dashboard with 3 cards |
+| `SalesExperienceDeliverableBuilder.tsx` | `/sales-experience/deliverables/:type` | AI builder |
+| `SalesExperienceDeliverableEdit.tsx` | `/sales-experience/deliverables/:type/edit` | Direct editor |
+
+### Integration Points
+
+| File | Change |
+|------|--------|
+| `src/App.tsx` | Added imports and 3 routes |
+| `src/pages/sales-experience/index.ts` | Added exports |
+| `src/pages/sales-experience/SalesExperienceOverview.tsx` | Added "Your Deliverables" card section |
+| `src/config/navigation.ts` | Added "Your Deliverables" nav item |
+| `src/pages/admin/sales-experience-tabs/SEPromptsTab.tsx` | Updated description |
+| `supabase/config.toml` | Added 3 edge functions |
+
+### Files Created
+```
+supabase/migrations/20260202080000_sales_experience_deliverables.sql
+supabase/functions/deliverable-builder-chat/index.ts
+supabase/functions/save-deliverable-content/index.ts
+supabase/functions/generate-deliverables-pdf/index.ts
+src/hooks/useSalesExperienceDeliverables.ts
+src/hooks/useDeliverableBuilder.ts
+src/components/sales-experience/deliverables/DeliverableCard.tsx
+src/components/sales-experience/deliverables/SalesProcessEditor.tsx
+src/components/sales-experience/deliverables/AccountabilityEditor.tsx
+src/components/sales-experience/deliverables/ConsequenceLadderEditor.tsx
+src/components/sales-experience/deliverables/DeliverableBuilderChat.tsx
+src/components/sales-experience/deliverables/DeliverablesPDFDialog.tsx
+src/components/sales-experience/deliverables/index.ts
+src/pages/sales-experience/SalesExperienceDeliverables.tsx
+src/pages/sales-experience/SalesExperienceDeliverableBuilder.tsx
+src/pages/sales-experience/SalesExperienceDeliverableEdit.tsx
+```
+
+### Known Limitations
+1. **PDF is HTML-based** - Uses browser print dialog. No server-side PDF library.
+2. **AI must include JSON block** - If AI doesn't output ```json, user must continue conversation.
+3. **No version history** - Content is overwritten on save.
+
+### Testing Checklist for Deliverables
+1. [ ] Apply migration: `supabase db push`
+2. [ ] Deploy functions: `supabase functions deploy deliverable-builder-chat save-deliverable-content generate-deliverables-pdf`
+3. [ ] Create/activate assignment in Admin
+4. [ ] Verify 3 deliverables auto-created
+5. [ ] Test AI builder for each type (Sales Process, Accountability, Consequence Ladder)
+6. [ ] Test direct editor with drag-drop
+7. [ ] Test "Mark Complete" validation
+8. [ ] Test PDF generation and print
+9. [ ] Verify admin can see/edit prompts in SEPromptsTab
+
+### Next Steps to Continue
+1. **Deploy:** Apply migration and deploy edge functions
+2. **Test:** Full end-to-end testing of deliverables flow
+3. **Optional enhancements:**
+   - Add deliverables data to `get-sales-experience` response
+   - Add deliverable progress to admin analytics
+   - Server-side PDF generation with jsPDF
+
+---
+
+*Last Updated: 2026-02-02 (Added: Deliverables feature with AI builder, direct editors, PDF generation)*

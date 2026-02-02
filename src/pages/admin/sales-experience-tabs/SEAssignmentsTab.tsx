@@ -142,10 +142,9 @@ export function SEAssignmentsTab() {
       setNotes('');
       toast.success('Assignment created successfully');
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       console.error('Error creating assignment:', error);
-      const message = error?.message || error?.toString() || 'Failed to create assignment';
-      toast.error(`Failed to create assignment: ${message}`);
+      toast.error(`Failed to create assignment: ${error.message}`);
     },
   });
 

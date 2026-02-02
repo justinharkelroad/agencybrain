@@ -632,6 +632,16 @@ export const navigationConfig: NavEntry[] = [
         access: { staff: false, manager: true, owner: true },
         salesExperienceAccess: true,
       },
+      // Deliverables
+      {
+        id: 'se-deliverables',
+        title: 'Your Deliverables',
+        icon: FileText,
+        type: 'link',
+        url: '/sales-experience/deliverables',
+        access: { staff: false, manager: true, owner: true },
+        salesExperienceAccess: true,
+      },
     ],
   },
 
