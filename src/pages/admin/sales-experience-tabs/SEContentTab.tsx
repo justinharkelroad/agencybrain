@@ -41,6 +41,7 @@ import {
   Trash2,
   HelpCircle,
   Link2,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -77,6 +78,7 @@ interface Lesson {
   video_platform: string | null;
   content_html: string | null;
   is_staff_visible: boolean;
+  is_discovery_flow: boolean;
   quiz_questions: QuizQuestion[];
   documents_json: LessonDocument[] | null;
 }
@@ -238,6 +240,12 @@ export function SEContentTab() {
                           {lesson.is_staff_visible && (
                             <Badge variant="secondary" className="text-xs">
                               Staff
+                            </Badge>
+                          )}
+                          {lesson.is_discovery_flow && (
+                            <Badge className="text-xs bg-purple-500 text-white">
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              Discovery Flow
                             </Badge>
                           )}
                         </div>
@@ -577,6 +585,27 @@ export function SEContentTab() {
                   }
                 />
               </div>
+
+              {/* Discovery Flow Toggle - Only for Friday lessons */}
+              {editingLesson.day_of_week === 5 && (
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-purple-500" />
+                      Discovery Flow Day
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Staff will see a button to start the Discovery Flow
+                    </p>
+                  </div>
+                  <Switch
+                    checked={editingLesson.is_discovery_flow}
+                    onCheckedChange={(checked) =>
+                      setEditingLesson({ ...editingLesson, is_discovery_flow: checked })
+                    }
+                  />
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>

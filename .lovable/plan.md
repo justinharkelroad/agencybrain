@@ -1,53 +1,26 @@
-
 # Plan: Add Discovery Flow Toggle to Sales Experience
 
-## Problem
-The `is_discovery_flow` database column exists in `sales_experience_lessons`, but the UI code was never updated to:
-1. Show an admin toggle in `SEContentTab.tsx`
-2. Display the Discovery Flow button in `StaffSalesLesson.tsx`
+## ✅ COMPLETED
 
-## Changes Required
+All changes have been implemented:
 
-### 1. Update SEContentTab.tsx (Admin UI)
+### 1. SEContentTab.tsx (Admin UI) ✅
+- Added `is_discovery_flow: boolean` to Lesson interface
+- Added `Sparkles` icon import
+- Added purple "Discovery Flow" badge in lesson list (visible when `is_discovery_flow` is true)
+- Added toggle switch in edit dialog (only visible for Friday lessons, `day_of_week === 5`)
 
-**Add to Lesson interface (line ~70-82):**
-```typescript
-is_discovery_flow: boolean;
-```
+### 2. StaffSalesLesson.tsx (Staff View) ✅
+- Added `is_discovery_flow: boolean` to LessonData and ApiLesson interfaces
+- Imported `useStaffFlowProfile` hook
+- Added Discovery Flow button section (visible when `is_discovery_flow === true` and lesson not completed)
+- Button navigates to profile setup or directly to flow start based on profile status
 
-**Add toggle switch in the edit dialog (after the "Visible to Staff" switch, ~line 579):**
-- Only show for Friday lessons (`editingLesson.day_of_week === 5`)
-- Label: "Discovery Flow Day"
-- Description: "Staff will see a button to start the Discovery Flow"
-
-**Add badge in lesson list (after the Staff badge, ~line 243):**
-- Purple "Discovery Flow" badge with a Sparkles icon
-
-### 2. Update StaffSalesLesson.tsx (Staff View)
-
-**Add to LessonData and ApiLesson interfaces:**
-```typescript
-is_discovery_flow: boolean;
-```
-
-**Update fetchLessonData to include is_discovery_flow (~line 133):**
-- Pass through the `is_discovery_flow` property from the API
-
-**Add Discovery Flow button section (before or after the Quiz section):**
-- Only show when `lesson.is_discovery_flow === true` and lesson is not completed
-- Button: "Start Discovery Flow" with Sparkles icon
-- Clicking navigates to `/staff/flows/start/discovery` (or profile setup if needed)
-- Import and use `useStaffFlowProfile` hook to check profile status
-
-### 3. Update Edge Function (if needed)
-Verify `get-staff-sales-lessons` returns `is_discovery_flow` field.
-
-## Files to Modify
-1. `src/pages/admin/sales-experience-tabs/SEContentTab.tsx`
-2. `src/pages/staff/StaffSalesLesson.tsx`
-3. `supabase/functions/get-staff-sales-lessons/index.ts` (verify/update)
+### 3. Edge Function (get-staff-sales-lessons) ✅
+- Added `is_discovery_flow` field to the returned lesson data
 
 ## Technical Notes
-- The database already has the `is_discovery_flow` boolean column (default: `false`)
-- The challenge system (`StaffChallenge.tsx`, `ChallengeContentTab.tsx`) has a working implementation to reference
-- Use `useStaffFlowProfile` hook (already exists) to determine if user needs profile setup before starting flow
+- The toggle only appears for Friday lessons (`day_of_week === 5`)
+- Staff see a purple-themed card with "Start Discovery Flow" button
+- Users without a flow profile are redirected to `/staff/flows/profile` first
+- Users with a profile go directly to `/staff/flows/start/discovery`

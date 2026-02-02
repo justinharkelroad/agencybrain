@@ -218,6 +218,7 @@ Deno.serve(async (req) => {
         video_thumbnail_url: lesson.video_thumbnail_url,
         content_html: isUnlocked ? lesson.content_html : null,
         quiz_questions: isUnlocked ? lesson.quiz_questions : null,
+        is_discovery_flow: lesson.is_discovery_flow || false,
         week_number: moduleWeek,
         is_unlocked: isUnlocked,
         progress: {
