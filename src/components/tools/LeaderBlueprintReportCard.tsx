@@ -230,7 +230,7 @@ export function LeaderBlueprintReportCard({ module, open, onClose }: LeaderBluep
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 bg-slate-900 border-slate-700">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 bg-background border-border">
         {/* Header Actions */}
         <div style={{ 
           position: 'sticky', 

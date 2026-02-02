@@ -54,10 +54,10 @@ export function StatusIndicator({ record, showStatusBadge = false }: StatusIndic
       {urgencyLabels[urgency] && (
         <span className={cn(
           'text-xs font-medium',
-          urgency === 'critical' && 'text-red-500',
-          urgency === 'warning' && 'text-yellow-500',
-          urgency === 'cancelled' && 'text-red-400',
-          urgency === 'normal' && 'text-green-500'
+          urgency === 'critical' && 'text-red-600 dark:text-red-500',
+          urgency === 'warning' && 'text-amber-600 dark:text-yellow-500',
+          urgency === 'cancelled' && 'text-red-500 dark:text-red-400',
+          urgency === 'normal' && 'text-green-600 dark:text-green-500'
         )}>
           {urgencyLabels[urgency]}
         </span>
@@ -81,15 +81,15 @@ export function StatusBadge({ status }: StatusBadgeProps) {
     },
     in_progress: {
       label: 'Working',
-      className: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+      className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20',
     },
     resolved: {
       label: 'Resolved',
-      className: 'bg-green-500/10 text-green-400 border border-green-500/20',
+      className: 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20',
     },
     lost: {
       label: 'Lost',
-      className: 'bg-red-500/10 text-red-400 border border-red-500/20',
+      className: 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20',
     },
   };
 

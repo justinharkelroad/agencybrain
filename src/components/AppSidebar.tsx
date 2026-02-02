@@ -410,11 +410,11 @@ useEffect(() => {
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r border-border/30"
+      className="border-r border-border/50 dark:border-border/30"
     >
       <div className="flex flex-col h-full">
 {/* Logo Section with Stan */}
-<div className="py-3 px-2 flex items-center gap-2 border-b border-border/20">
+<div className="py-3 px-2 flex items-center gap-2 border-b border-border/40 dark:border-border/20">
   <img 
     src="https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/chatbot-assets/stan-waving.png"
     alt="Stan"
@@ -661,7 +661,7 @@ useEffect(() => {
         </SidebarContent>
 
         {/* User Avatar Footer */}
-        <div className="mt-auto p-3 border-t border-border/20">
+        <div className="mt-auto p-3 border-t border-border/40 dark:border-border/20">
           <Dialog open={accountDialogOpen} onOpenChange={setAccountDialogOpen}>
             <DialogTrigger asChild>
               <button className="flex items-center gap-3 w-full hover:bg-muted/40 rounded-lg p-2 transition-colors">

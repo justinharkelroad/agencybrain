@@ -166,7 +166,7 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
   
   if (isLoading) {
     return (
-      <Card className="bg-[#1a1f2e] border-gray-700">
+      <Card className="bg-card dark:bg-[#1a1f2e] border-border dark:border-gray-700">
         <CardHeader className="pb-2">
           <Skeleton className="h-6 w-48" />
         </CardHeader>
@@ -178,12 +178,12 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
   }
   
   return (
-    <Card className="bg-[#1a1f2e] border-gray-700">
+    <Card className="bg-card dark:bg-[#1a1f2e] border-border dark:border-gray-700">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <Activity className="h-5 w-5 text-blue-400" />
-            <CardTitle className="text-base text-white">Activity Summary</CardTitle>
+            <Activity className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+            <CardTitle className="text-base text-foreground">Activity Summary</CardTitle>
           </div>
           
           {/* Date Navigation */}
@@ -191,7 +191,7 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-gray-400 hover:text-white"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
               onClick={goToPreviousDay}
             >
               <ChevronLeft className="h-4 w-4" />
@@ -201,7 +201,7 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
-                  className="h-7 px-2 text-sm text-gray-300 hover:text-white"
+                  className="h-7 px-2 text-sm text-muted-foreground hover:text-foreground"
                 >
                   <Calendar className="h-3.5 w-3.5 mr-1.5" />
                   {displayDate}
@@ -227,7 +227,7 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 text-gray-400 hover:text-white disabled:opacity-30"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground disabled:opacity-30"
               onClick={goToNextDay}
               disabled={!canGoNext}
             >
@@ -250,42 +250,42 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
       <CardContent>
         {/* Empty state */}
         {totalActivities === 0 ? (
-          <div className="flex items-center justify-center gap-2 text-gray-400 py-2">
+          <div className="flex items-center justify-center gap-2 text-muted-foreground py-2">
             <span>No activity logged {isToday(selectedDate) ? 'yet today' : `on ${format(selectedDate, 'MMM d')}`}</span>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-700">
-                  <th className="text-left py-2 px-2 text-gray-400 font-medium">Team Member</th>
-                  <th className="text-center py-2 px-2 text-gray-400 font-medium">
+                <tr className="border-b border-border dark:border-gray-700">
+                  <th className="text-left py-2 px-2 text-muted-foreground font-medium">Team Member</th>
+                  <th className="text-center py-2 px-2 text-muted-foreground font-medium">
                     <div className="flex items-center justify-center gap-1">
-                      <Phone className="h-3.5 w-3.5 text-blue-400" />
+                      <Phone className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
                       <span>Calls</span>
                     </div>
                   </th>
-                  <th className="text-center py-2 px-2 text-gray-400 font-medium">
+                  <th className="text-center py-2 px-2 text-muted-foreground font-medium">
                     <div className="flex items-center justify-center gap-1">
-                      <Voicemail className="h-3.5 w-3.5 text-purple-400" />
+                      <Voicemail className="h-3.5 w-3.5 text-purple-500 dark:text-purple-400" />
                       <span>VM</span>
                     </div>
                   </th>
-                  <th className="text-center py-2 px-2 text-gray-400 font-medium">
+                  <th className="text-center py-2 px-2 text-muted-foreground font-medium">
                     <div className="flex items-center justify-center gap-1">
-                      <MessageSquare className="h-3.5 w-3.5 text-cyan-400" />
+                      <MessageSquare className="h-3.5 w-3.5 text-cyan-500 dark:text-cyan-400" />
                       <span>Texts</span>
                     </div>
                   </th>
-                  <th className="text-center py-2 px-2 text-gray-400 font-medium">
+                  <th className="text-center py-2 px-2 text-muted-foreground font-medium">
                     <div className="flex items-center justify-center gap-1">
-                      <Mail className="h-3.5 w-3.5 text-green-400" />
+                      <Mail className="h-3.5 w-3.5 text-green-500 dark:text-green-400" />
                       <span>Emails</span>
                     </div>
                   </th>
-                  <th className="text-center py-2 px-2 text-gray-400 font-medium">
+                  <th className="text-center py-2 px-2 text-muted-foreground font-medium">
                     <div className="flex items-center justify-center gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-yellow-400" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-yellow-500 dark:text-yellow-400" />
                       <span>Reviews</span>
                     </div>
                   </th>
@@ -293,23 +293,23 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
               </thead>
               <tbody>
                 {activityByUser.map((user) => (
-                  <tr key={user.userId} className="border-b border-gray-700/50">
-                    <td className="py-2 px-2 text-white">{user.displayName}</td>
-                    <td className="py-2 px-2 text-center text-blue-400">{user.calls || '—'}</td>
-                    <td className="py-2 px-2 text-center text-purple-400">{user.voicemails || '—'}</td>
-                    <td className="py-2 px-2 text-center text-cyan-400">{user.texts || '—'}</td>
-                    <td className="py-2 px-2 text-center text-green-400">{user.emails || '—'}</td>
-                    <td className="py-2 px-2 text-center text-yellow-400">{user.reviewsDone || '—'}</td>
+                  <tr key={user.userId} className="border-b border-border/50 dark:border-gray-700/50">
+                    <td className="py-2 px-2 text-foreground">{user.displayName}</td>
+                    <td className="py-2 px-2 text-center text-blue-500 dark:text-blue-400">{user.calls || '—'}</td>
+                    <td className="py-2 px-2 text-center text-purple-500 dark:text-purple-400">{user.voicemails || '—'}</td>
+                    <td className="py-2 px-2 text-center text-cyan-500 dark:text-cyan-400">{user.texts || '—'}</td>
+                    <td className="py-2 px-2 text-center text-green-500 dark:text-green-400">{user.emails || '—'}</td>
+                    <td className="py-2 px-2 text-center text-yellow-500 dark:text-yellow-400">{user.reviewsDone || '—'}</td>
                   </tr>
                 ))}
                 {/* Totals row */}
-                <tr className="bg-gray-800/50 font-medium">
-                  <td className="py-2 px-2 text-white">TOTAL</td>
-                  <td className="py-2 px-2 text-center text-blue-400">{totals.calls}</td>
-                  <td className="py-2 px-2 text-center text-purple-400">{totals.voicemails}</td>
-                  <td className="py-2 px-2 text-center text-cyan-400">{totals.texts}</td>
-                  <td className="py-2 px-2 text-center text-green-400">{totals.emails}</td>
-                  <td className="py-2 px-2 text-center text-yellow-400">{totals.reviewsDone}</td>
+                <tr className="bg-muted/50 dark:bg-gray-800/50 font-medium">
+                  <td className="py-2 px-2 text-foreground">TOTAL</td>
+                  <td className="py-2 px-2 text-center text-blue-500 dark:text-blue-400">{totals.calls}</td>
+                  <td className="py-2 px-2 text-center text-purple-500 dark:text-purple-400">{totals.voicemails}</td>
+                  <td className="py-2 px-2 text-center text-cyan-500 dark:text-cyan-400">{totals.texts}</td>
+                  <td className="py-2 px-2 text-center text-green-500 dark:text-green-400">{totals.emails}</td>
+                  <td className="py-2 px-2 text-center text-yellow-500 dark:text-yellow-400">{totals.reviewsDone}</td>
                 </tr>
               </tbody>
             </table>
