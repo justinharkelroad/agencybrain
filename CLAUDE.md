@@ -15,12 +15,18 @@ npm run dev          # Start dev server (localhost:8080)
 npm run build        # Production build
 npm run lint         # ESLint
 npm run test         # Run Vitest unit tests
+npm run test:watch   # Vitest watch mode
 npm run test:e2e     # Playwright E2E tests
 ```
 
 Run a single test file:
 ```bash
 npx vitest run src/tests/your-test.test.ts
+```
+
+Run tests matching a pattern:
+```bash
+npx vitest run -t "pattern"
 ```
 
 ## Architecture
@@ -77,6 +83,11 @@ Edge functions auto-deploy to Supabase on push to `main`.
 - **Vitest**: Unit tests with jsdom, setup in `src/tests/setup.ts`
 - **Playwright**: E2E tests in `src/tests/e2e/`
 - Supabase client is auto-mocked in tests
+
+Test locations:
+- `src/tests/` - Main test directory (security, edge functions, integration)
+- `src/tests/e2e/` - Playwright E2E tests
+- `src/utils/*.test.ts` - Unit tests co-located with utilities
 
 ## Path Aliases
 
