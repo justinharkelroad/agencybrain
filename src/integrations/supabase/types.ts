@@ -7165,6 +7165,7 @@ export type Database = {
       }
       sale_policies: {
         Row: {
+          brokered_carrier_id: string | null
           created_at: string | null
           effective_date: string
           expiration_date: string | null
@@ -7179,6 +7180,7 @@ export type Database = {
           total_premium: number | null
         }
         Insert: {
+          brokered_carrier_id?: string | null
           created_at?: string | null
           effective_date: string
           expiration_date?: string | null
@@ -7193,6 +7195,7 @@ export type Database = {
           total_premium?: number | null
         }
         Update: {
+          brokered_carrier_id?: string | null
           created_at?: string | null
           effective_date?: string
           expiration_date?: string | null
@@ -7207,6 +7210,13 @@ export type Database = {
           total_premium?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "sale_policies_brokered_carrier_id_fkey"
+            columns: ["brokered_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "brokered_carriers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sale_policies_product_type_id_fkey"
             columns: ["product_type_id"]
