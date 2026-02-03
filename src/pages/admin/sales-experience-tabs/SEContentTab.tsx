@@ -105,6 +105,8 @@ export function SEContentTab() {
   const queryClient = useQueryClient();
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingModule, setEditingModule] = useState<Module | null>(null);
+  const [isModuleDialogOpen, setIsModuleDialogOpen] = useState(false);
 
   // Fetch modules
   const { data: modules, isLoading: modulesLoading } = useQuery({
@@ -157,6 +159,39 @@ export function SEContentTab() {
     },
   });
 
+  // Update module mutation
+  const updateModule = useMutation({
+    mutationFn: async (module: Partial<Module> & { id: string }) => {
+      const { id, ...updates } = module;
+      const { error } = await supabase
+        .from('sales_experience_modules')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-se-modules'] });
+      setIsModuleDialogOpen(false);
+      setEditingModule(null);
+      toast.success('Week updated successfully');
+    },
+    onError: (error) => {
+      console.error('Error updating module:', error);
+      toast.error('Failed to update week');
+    },
+  });
+
+  const handleEditModule = (module: Module) => {
+    setEditingModule({ ...module });
+    setIsModuleDialogOpen(true);
+  };
+
+  const handleSaveModule = () => {
+    if (!editingModule) return;
+    updateModule.mutate(editingModule);
+  };
+
   const handleEditLesson = (lesson: Lesson) => {
     setEditingLesson({ ...lesson });
     setIsEditDialogOpen(true);
@@ -196,21 +231,34 @@ export function SEContentTab() {
       <Accordion type="single" collapsible className="space-y-4">
         {modules?.map((module) => (
           <AccordionItem key={module.id} value={module.id} className="border rounded-lg">
-            <AccordionTrigger className="px-4 hover:no-underline">
-              <div className="flex items-center gap-4">
-                <div className={`h-2 w-2 rounded-full ${pillarColors[module.pillar]}`} />
-                <div className="text-left">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">Week {module.week_number}:</span>
-                    <span>{module.title}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {pillarLabels[module.pillar]}
-                    </Badge>
+            <div className="flex items-center">
+              <AccordionTrigger className="px-4 hover:no-underline flex-1">
+                <div className="flex items-center gap-4">
+                  <div className={`h-2 w-2 rounded-full ${pillarColors[module.pillar]}`} />
+                  <div className="text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">Week {module.week_number}:</span>
+                      <span>{module.title}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {pillarLabels[module.pillar]}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{module.description}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">{module.description}</p>
                 </div>
-              </div>
-            </AccordionTrigger>
+              </AccordionTrigger>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="mr-2"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditModule(module);
+                }}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            </div>
             <AccordionContent className="px-4 pb-4">
               <div className="space-y-3 mt-2">
                 {lessonsByModule?.[module.id]?.map((lesson) => (
@@ -618,6 +666,78 @@ export function SEContentTab() {
               className="gap-2"
             >
               {updateLesson.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Module/Week Dialog */}
+      <Dialog open={isModuleDialogOpen} onOpenChange={setIsModuleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Week {editingModule?.week_number}</DialogTitle>
+            <DialogDescription>
+              Update the week title, description, and pillar
+            </DialogDescription>
+          </DialogHeader>
+          {editingModule && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Title</Label>
+                <Input
+                  value={editingModule.title}
+                  onChange={(e) =>
+                    setEditingModule({ ...editingModule, title: e.target.value })
+                  }
+                  placeholder="e.g., Building Rapport"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Textarea
+                  value={editingModule.description || ''}
+                  onChange={(e) =>
+                    setEditingModule({ ...editingModule, description: e.target.value })
+                  }
+                  rows={3}
+                  placeholder="Brief description of this week's focus..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Pillar</Label>
+                <Select
+                  value={editingModule.pillar}
+                  onValueChange={(value) =>
+                    setEditingModule({ ...editingModule, pillar: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select pillar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sales_process">Sales Process</SelectItem>
+                    <SelectItem value="accountability">Accountability</SelectItem>
+                    <SelectItem value="coaching_cadence">Coaching Cadence</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsModuleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveModule}
+              disabled={updateModule.isPending}
+              className="gap-2"
+            >
+              {updateModule.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Save className="h-4 w-4" />
