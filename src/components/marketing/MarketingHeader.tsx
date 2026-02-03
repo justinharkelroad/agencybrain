@@ -4,7 +4,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import lightModeLogo from "@/assets/agencybrain-landing-logo.png";
+import lightModeLogo from "@/assets/agencybrain-logo-light.png";
 
 // White text logo for dark backgrounds
 const DARK_MODE_LOGO = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";

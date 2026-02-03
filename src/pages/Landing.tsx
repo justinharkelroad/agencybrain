@@ -6,7 +6,7 @@ import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { LaptopVideoFrame } from "@/components/landing/LaptopVideoFrame";
 import { LeadCaptureModal } from "@/components/landing/LeadCaptureModal";
 import { Brain, Users, ArrowRight } from "lucide-react";
-import lightModeLogo from "@/assets/agencybrain-landing-logo.png";
+import lightModeLogo from "@/assets/agencybrain-logo-light.png";
 
 const DARK_MODE_LOGO = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
 const DEMO_VIDEO_URL = "https://vimeo.com/1157362034";
