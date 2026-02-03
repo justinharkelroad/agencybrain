@@ -294,13 +294,23 @@ serve(async (req) => {
         }
       }
 
-      if (document_type === 'image' || document_type === 'pdf') {
-        // For images/PDFs, Claude can process them directly via base64
+      if (document_type === 'image') {
+        // For images, use the image type
         currentContent.push({
           type: 'image',
           source: {
             type: 'base64',
-            media_type: document_type === 'pdf' ? 'application/pdf' : 'image/png',
+            media_type: 'image/png',
+            data: document_content
+          }
+        });
+      } else if (document_type === 'pdf') {
+        // For PDFs, use the document type (not image)
+        currentContent.push({
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
             data: document_content
           }
         });
