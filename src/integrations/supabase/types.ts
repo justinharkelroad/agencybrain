@@ -7246,6 +7246,7 @@ export type Database = {
           customer_phone: string | null
           customer_zip: string | null
           effective_date: string
+          existing_customer_products: string[] | null
           expiration_date: string | null
           id: string
           is_bundle: boolean | null
@@ -7278,6 +7279,7 @@ export type Database = {
           customer_phone?: string | null
           customer_zip?: string | null
           effective_date: string
+          existing_customer_products?: string[] | null
           expiration_date?: string | null
           id?: string
           is_bundle?: boolean | null
@@ -7310,6 +7312,7 @@ export type Database = {
           customer_phone?: string | null
           customer_zip?: string | null
           effective_date?: string
+          existing_customer_products?: string[] | null
           expiration_date?: string | null
           id?: string
           is_bundle?: boolean | null
