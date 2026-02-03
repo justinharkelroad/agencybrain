@@ -196,6 +196,37 @@ Deno.serve(async (req) => {
           }
 
           query = query.eq('assignment_id', assignment.id);
+          
+          // Filter messages to show only:
+          // 1. Messages sent BY this user
+          // 2. Messages with no recipient (broadcast to all)
+          // 3. Messages targeted to this specific user
+          // 4. Messages targeted to their role
+          
+          // Determine user's role in the agency
+          let userRole = 'owner'; // default
+          if (keyEmployee) {
+            userRole = 'key_employee';
+          }
+          // Check if user is a manager (has a team_member record)
+          const { data: teamMember } = await supabase
+            .from('team_members')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('agency_id', profile.agency_id)
+            .maybeSingle();
+          
+          if (teamMember) {
+            userRole = 'manager';
+          }
+          
+          // Build filter for recipient targeting
+          query = query.or(
+            `sender_user_id.eq.${user.id},` +
+            `recipient_user_id.is.null,` +
+            `recipient_user_id.eq.${user.id},` +
+            `and(recipient_role.eq.${userRole},recipient_user_id.is.null)`
+          );
         }
 
         const { data: messages, error: listError } = await query;

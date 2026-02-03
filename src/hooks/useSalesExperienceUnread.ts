@@ -12,17 +12,19 @@ export function useSalesExperienceUnreadMessages() {
   const { hasAccess, assignment } = useSalesExperienceAccess();
 
   return useQuery({
-    queryKey: ['sales-experience-unread-messages', assignment?.id],
+    queryKey: ['sales-experience-unread-messages', assignment?.id, user?.id],
     queryFn: async () => {
-      if (!assignment?.id) return 0;
+      if (!assignment?.id || !user?.id) return 0;
 
       // Count unread messages from coach (sender_type = 'coach' and read_at is null)
+      // that are targeted to this user (or broadcast to all)
       const { count, error } = await supabase
         .from('sales_experience_messages')
         .select('id', { count: 'exact', head: true })
         .eq('assignment_id', assignment.id)
         .eq('sender_type', 'coach')
-        .is('read_at', null);
+        .is('read_at', null)
+        .or(`recipient_user_id.is.null,recipient_user_id.eq.${user.id}`);
 
       if (error) {
         console.error('Error fetching unread messages:', error);
