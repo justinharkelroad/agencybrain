@@ -164,33 +164,23 @@ export default function StaffFormSubmission() {
   // Fetch dashboard metrics (quotes/sales added via dashboard) when work_date changes
   useEffect(() => {
     async function fetchDashboardMetrics() {
-      if (!user?.team_member_id || !user?.agency_id || !values.work_date) return;
+      if (!sessionToken || !values.work_date) return;
 
       try {
-        // Get lqs_households count for this team member on the work date
-        const { count: quotedCount } = await supabase
-          .from('lqs_households')
-          .select('*', { count: 'exact', head: true })
-          .eq('team_member_id', user.team_member_id)
-          .eq('agency_id', user.agency_id)
-          .eq('first_quote_date', values.work_date)
-          .in('status', ['quoted', 'sold']);
+        // Use edge function to bypass RLS (staff users don't have direct table access)
+        const { data, error } = await supabase.functions.invoke('staff_get_dashboard_metrics', {
+          body: { workDate: values.work_date },
+          headers: { 'x-staff-session': sessionToken }
+        });
 
-        setDashboardQuotedCount(quotedCount || 0);
+        if (error) {
+          console.error('Error fetching dashboard metrics:', error);
+          return;
+        }
 
-        // Also check metrics_daily for any pre-existing values
-        const { data: metricsDaily } = await supabase
-          .from('metrics_daily')
-          .select('quoted_count, sold_items')
-          .eq('team_member_id', user.team_member_id)
-          .eq('agency_id', user.agency_id)
-          .eq('date', values.work_date)
-          .single();
-
-        if (metricsDaily) {
-          // Use max of lqs_households count and metrics_daily
-          setDashboardQuotedCount(prev => Math.max(prev, metricsDaily.quoted_count || 0));
-          setDashboardSoldCount(metricsDaily.sold_items || 0);
+        if (data?.success) {
+          setDashboardQuotedCount(data.dashboardQuotedCount || 0);
+          setDashboardSoldCount(data.dashboardSoldCount || 0);
         }
       } catch (err) {
         console.error('Error fetching dashboard metrics:', err);
@@ -198,7 +188,7 @@ export default function StaffFormSubmission() {
     }
 
     fetchDashboardMetrics();
-  }, [user?.team_member_id, user?.agency_id, values.work_date]);
+  }, [sessionToken, values.work_date]);
 
   // Helper function to convert string to Title Case (for prospect names)
   const toTitleCase = (str: string): string => {
