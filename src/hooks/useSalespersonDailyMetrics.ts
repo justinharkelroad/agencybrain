@@ -157,10 +157,21 @@ export function useSalespersonDailyMetrics({
 }
 
 function calculateSummary(rows: DailyMetricRow[]): DailyMetricsSummary {
-  const passDays = rows.filter((r) => r.pass).length;
+  // Count unique dates (not total rows, since multiple team members can have entries per day)
+  const uniqueDates = new Set(rows.map((r) => r.date));
+  const totalDays = uniqueDates.size;
+
+  // Count pass days - a day counts as a pass if ANY team member passed that day
+  // For individual view, this is straightforward; for "all team members" view,
+  // we count how many unique dates had at least one pass
+  const datesWithPass = new Set(rows.filter((r) => r.pass).map((r) => r.date));
+  const passDays = datesWithPass.size;
+
+  // Total submissions (rows) for calculating averages per submission
+  const totalSubmissions = rows.length;
 
   return {
-    totalDays: rows.length,
+    totalDays,
     totalCalls: rows.reduce((sum, r) => sum + r.outbound_calls, 0),
     totalTalkMinutes: rows.reduce((sum, r) => sum + r.talk_minutes, 0),
     totalQuoted: rows.reduce((sum, r) => sum + r.quoted_count, 0),
@@ -170,10 +181,10 @@ function calculateSummary(rows: DailyMetricRow[]): DailyMetricsSummary {
     totalCrossSells: rows.reduce((sum, r) => sum + r.cross_sells_uncovered, 0),
     totalMiniReviews: rows.reduce((sum, r) => sum + r.mini_reviews, 0),
     passDays,
-    passRate: rows.length > 0 ? Math.round((passDays / rows.length) * 100) : 0,
+    passRate: totalDays > 0 ? Math.round((passDays / totalDays) * 100) : 0,
     avgDailyScore:
-      rows.length > 0
-        ? Math.round((rows.reduce((sum, r) => sum + r.daily_score, 0) / rows.length) * 10) / 10
+      totalSubmissions > 0
+        ? Math.round((rows.reduce((sum, r) => sum + r.daily_score, 0) / totalSubmissions) * 10) / 10
         : 0,
   };
 }
