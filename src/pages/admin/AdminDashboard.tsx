@@ -451,7 +451,10 @@ const getSubmissionStatus = (profile: Profile) => {
       <main className="container mx-auto px-4 py-8">
 <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
   <div>
-    <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
+    <div className="flex items-center gap-2">
+      <h1 className="text-3xl font-bold mb-2">Admin Dashboard</h1>
+      <span className="px-2 py-1 text-xs bg-yellow-500 text-black rounded font-medium">Testing Update</span>
+    </div>
     <p className="text-muted-foreground">
       Monitor client submissions and manage the coaching platform
     </p>
