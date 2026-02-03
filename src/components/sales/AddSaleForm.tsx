@@ -263,18 +263,24 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     enabled: !!user?.id,
   });
 
-  // Fetch product types (global + agency-specific)
+  // Fetch policy types from agency settings
   const { data: productTypes = [] } = useQuery<ProductType[]>({
-    queryKey: ["product-types", profile?.agency_id],
+    queryKey: ["policy-types-for-sales", profile?.agency_id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("product_types")
-        .select("id, name, category, default_points, is_vc_item")
-        .or(`agency_id.is.null,agency_id.eq.${profile?.agency_id}`)
+        .from("policy_types")
+        .select("id, name")
+        .eq("agency_id", profile?.agency_id)
         .eq("is_active", true)
-        .order("name");
+        .order("order_index", { ascending: true });
       if (error) throw error;
-      return data || [];
+      return (data || []).map(pt => ({
+        id: pt.id,
+        name: pt.name,
+        category: 'General',
+        default_points: 0,
+        is_vc_item: false
+      }));
     },
     enabled: !!profile?.agency_id,
   });

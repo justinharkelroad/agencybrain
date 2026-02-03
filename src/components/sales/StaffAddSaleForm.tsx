@@ -117,18 +117,24 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
   // Fetch brokered carriers
   const { activeCarriers: brokeredCarriers } = useBrokeredCarriers(agencyId || null);
 
-  // Fetch product types
+  // Fetch policy types from agency settings
   const { data: productTypes = [] } = useQuery<ProductType[]>({
-    queryKey: ["product-types", agencyId],
+    queryKey: ["policy-types-for-sales", agencyId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("product_types")
-        .select("id, name, category, default_points, is_vc_item")
-        .or(`agency_id.is.null,agency_id.eq.${agencyId}`)
+        .from("policy_types")
+        .select("id, name")
+        .eq("agency_id", agencyId)
         .eq("is_active", true)
-        .order("name");
+        .order("order_index", { ascending: true });
       if (error) throw error;
-      return data || [];
+      return (data || []).map(pt => ({
+        id: pt.id,
+        name: pt.name,
+        category: 'General',
+        default_points: 0,
+        is_vc_item: false
+      }));
     },
     enabled: !!agencyId,
   });
