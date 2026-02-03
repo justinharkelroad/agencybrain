@@ -118,41 +118,27 @@ export function SEMessagesTab() {
     return assignments?.find(a => a.id === selectedAssignment)?.agency_id || null;
   }, [selectedAssignment, assignments]);
 
-  // Fetch users for selected agency (owner + key employees)
+  // Fetch users for selected agency (owner + key employees + managers)
   const { data: agencyUsers, isLoading: usersLoading } = useQuery({
     queryKey: ['agency-users-for-messaging', selectedAgencyId],
     queryFn: async () => {
       if (!selectedAgencyId) return [];
 
       const users: AgencyUser[] = [];
+      const keyEmployeeUserIds = new Set<string>();
 
-      // Fetch owner (profile with this agency_id)
-      const { data: owner, error: ownerError } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .eq('agency_id', selectedAgencyId)
-        .maybeSingle();
-
-      if (ownerError) throw ownerError;
-      if (owner) {
-        users.push({
-          id: owner.id,
-          full_name: owner.full_name,
-          email: owner.email || '',
-          role: 'Owner',
-        });
-      }
-
-      // Fetch key employees for this agency
+      // First, fetch key employees to know who they are
       const { data: keyEmployees, error: keError } = await supabase
         .from('key_employees')
         .select('user_id, profiles:user_id(id, full_name, email)')
         .eq('agency_id', selectedAgencyId);
 
-      if (keError) throw keError;
-      if (keyEmployees) {
+      if (keError) {
+        console.error('Error fetching key employees:', keError);
+      } else if (keyEmployees) {
         keyEmployees.forEach((ke: any) => {
-          if (ke.profiles) {
+          if (ke.profiles && ke.user_id) {
+            keyEmployeeUserIds.add(ke.user_id);
             users.push({
               id: ke.profiles.id,
               full_name: ke.profiles.full_name,
@@ -163,20 +149,42 @@ export function SEMessagesTab() {
         });
       }
 
-      // Fetch managers (team_members with role = 'manager')
+      // Fetch all profiles with this agency_id (owner is the one NOT in key_employees)
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('agency_id', selectedAgencyId);
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+      } else if (profiles) {
+        profiles.forEach((p: any) => {
+          // If this profile is not a key employee, they're the owner
+          if (!keyEmployeeUserIds.has(p.id)) {
+            users.push({
+              id: p.id,
+              full_name: p.full_name,
+              email: p.email || '',
+              role: 'Owner',
+            });
+          }
+        });
+      }
+
+      // Fetch managers (team_members with role = 'manager') - use 'name' column
       const { data: managers, error: mgError } = await supabase
         .from('team_members')
-        .select('id, full_name, email')
+        .select('id, name, email')
         .eq('agency_id', selectedAgencyId)
         .eq('role', 'manager');
 
-      if (mgError) throw mgError;
-      if (managers) {
+      if (mgError) {
+        console.error('Error fetching managers:', mgError);
+      } else if (managers) {
         managers.forEach((m: any) => {
-          // Create a unique ID for managers (they don't have auth accounts)
           users.push({
             id: `manager_${m.id}`,
-            full_name: m.full_name,
+            full_name: m.name,
             email: m.email || '',
             role: 'Manager',
           });
