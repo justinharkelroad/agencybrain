@@ -7739,10 +7739,14 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          is_read: boolean | null
           read_at: string | null
           read_by: string | null
+          recipient_role: string | null
+          recipient_user_id: string | null
           sender_type: Database["public"]["Enums"]["sales_experience_sender_type"]
           sender_user_id: string
+          subject: string | null
         }
         Insert: {
           assignment_id: string
@@ -7750,10 +7754,14 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          is_read?: boolean | null
           read_at?: string | null
           read_by?: string | null
+          recipient_role?: string | null
+          recipient_user_id?: string | null
           sender_type: Database["public"]["Enums"]["sales_experience_sender_type"]
           sender_user_id: string
+          subject?: string | null
         }
         Update: {
           assignment_id?: string
@@ -7761,10 +7769,14 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_read?: boolean | null
           read_at?: string | null
           read_by?: string | null
+          recipient_role?: string | null
+          recipient_user_id?: string | null
           sender_type?: Database["public"]["Enums"]["sales_experience_sender_type"]
           sender_user_id?: string
+          subject?: string | null
         }
         Relationships: [
           {
@@ -7777,6 +7789,13 @@ export type Database = {
           {
             foreignKeyName: "sales_experience_messages_read_by_fkey"
             columns: ["read_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_messages_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
