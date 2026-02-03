@@ -124,6 +124,11 @@ function normalizeQuotedRows(
     const email = row.email ?? "";
     const phone = row.phone ?? row.phone_number ?? "";
 
+    // Extract special fields that need custom formatting
+    const itemsQuoted = row.items_quoted ?? null;
+    const policiesQuoted = row.policies_quoted ?? null;
+    const premiumPotential = row.premium_potential ?? null;
+
     // Any extra custom fields the agency added
     const EXCLUDE = new Set([
       "prospect_name","name","prospect",
@@ -131,7 +136,8 @@ function normalizeQuotedRows(
       "lead_source_label",
       "detailed_notes","notes",
       "zip","zip_code","postal",
-      "email","phone","phone_number"
+      "email","phone","phone_number",
+      "items_quoted","policies_quoted","premium_potential"
     ]);
     const extras = Object.entries(row)
       .filter(([k]) => !EXCLUDE.has(k) && row[k] != null && row[k] !== "")
@@ -159,7 +165,7 @@ function normalizeQuotedRows(
         return { key: label, value };
       });
 
-    return { prospect, leadSourceLabel, notes, zip, email, phone, extras };
+    return { prospect, leadSourceLabel, notes, zip, email, phone, itemsQuoted, policiesQuoted, premiumPotential, extras };
   });
 }
 
@@ -472,56 +478,60 @@ export default function SubmissionDetail() {
                   </span>
                   <div className="rounded-md bg-muted/50 p-4 border border-border">
                     <ul className="space-y-3 list-disc pl-5">
-                      {submission.payload_json.quoted_details.map((detail: any, i: number) => (
+                      {normalizeQuotedRows(submission, leadSources, submission.form_templates?.schema_json).map((row, i) => (
                         <li key={i} className="text-sm">
                           <div className="space-y-1">
-                            {detail.prospect_name && (
+                            {row.prospect && (
                               <div>
-                                <span className="font-semibold">Prospect:</span> {detail.prospect_name}
+                                <span className="font-semibold">Prospect:</span> {row.prospect}
                               </div>
                             )}
-                            {(detail.lead_source_id || detail.lead_source) && (
+                            {row.leadSourceLabel && (
                               <div>
-                                <span className="font-semibold">Lead Source:</span> {
-                                  detail.lead_source_id 
-                                    ? leadSources.find(ls => ls.id === detail.lead_source_id)?.name || detail.lead_source_id
-                                    : detail.lead_source || 'Unknown'
-                                }
+                                <span className="font-semibold">Lead Source:</span> {row.leadSourceLabel}
                               </div>
                             )}
-                            {detail.items_quoted != null && (
+                            {row.zip && (
                               <div>
-                                <span className="font-semibold"># Items Quoted:</span> {detail.items_quoted}
+                                <span className="font-semibold">Zip Code:</span> {row.zip}
                               </div>
                             )}
-                            {detail.policies_quoted != null && (
+                            {row.email && (
                               <div>
-                                <span className="font-semibold"># Policies Quoted:</span> {detail.policies_quoted}
+                                <span className="font-semibold">Email:</span> {row.email}
                               </div>
                             )}
-                            {detail.premium_potential != null && (
+                            {row.phone && (
                               <div>
-                                <span className="font-semibold">Premium Potential:</span> ${Number(detail.premium_potential).toLocaleString()}
+                                <span className="font-semibold">Phone:</span> {row.phone}
                               </div>
                             )}
-                            {detail.detailed_notes && (
+                            {row.itemsQuoted != null && (
                               <div>
-                                <span className="font-semibold">Notes:</span> {detail.detailed_notes}
+                                <span className="font-semibold"># Items Quoted:</span> {row.itemsQuoted}
                               </div>
                             )}
-                            {/* Render any custom/extra fields dynamically */}
-                            {Object.entries(detail).map(([key, value]) => {
-                              // Skip known fields already rendered above
-                              const knownFields = ['prospect_name', 'lead_source_id', 'lead_source', 'items_quoted', 'policies_quoted', 'premium_potential', 'detailed_notes'];
-                              if (knownFields.includes(key) || value == null || value === '') return null;
-                              // Format key for display (convert snake_case to Title Case)
-                              const displayKey = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-                              return (
-                                <div key={key}>
-                                  <span className="font-semibold">{displayKey}:</span> {String(value)}
-                                </div>
-                              );
-                            })}
+                            {row.policiesQuoted != null && (
+                              <div>
+                                <span className="font-semibold"># Policies Quoted:</span> {row.policiesQuoted}
+                              </div>
+                            )}
+                            {row.premiumPotential != null && (
+                              <div>
+                                <span className="font-semibold">Premium Potential:</span> ${Number(row.premiumPotential).toLocaleString()}
+                              </div>
+                            )}
+                            {row.notes && (
+                              <div>
+                                <span className="font-semibold">Notes:</span> {row.notes}
+                              </div>
+                            )}
+                            {/* Render any custom/extra fields with proper labels from schema */}
+                            {row.extras.map((extra) => (
+                              <div key={extra.key}>
+                                <span className="font-semibold">{extra.key}:</span> {extra.value}
+                              </div>
+                            ))}
                           </div>
                         </li>
                       ))}

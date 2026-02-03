@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { fetchWithAuth } from "@/lib/staffRequest";
+import { startOfWeek, endOfWeek, startOfMonth, subDays, isWithinInterval, parseISO } from "date-fns";
 
 interface Submission {
   id: string;
@@ -39,7 +40,23 @@ interface SubmissionMetrics {
   sold_items: number | null;
 }
 
-export function useSubmissions(staffAgencyId?: string) {
+export type DateRangePreset = 'all' | 'this_week' | 'last_week' | 'this_month' | 'last_30_days' | 'custom';
+export type StatusFilter = 'all' | 'final' | 'draft';
+
+export interface SubmissionFilters {
+  searchQuery: string;
+  dateRangePreset: DateRangePreset;
+  customDateRange?: { start: Date; end: Date };
+  formTemplateId: string; // 'all' or specific template ID
+  status: StatusFilter;
+}
+
+export interface FormTemplateOption {
+  id: string;
+  name: string;
+}
+
+export function useSubmissions(staffAgencyId?: string, filters?: SubmissionFilters) {
   const { user } = useAuth();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [submissionMetrics, setSubmissionMetrics] = useState<Record<string, SubmissionMetrics>>({});
@@ -243,11 +260,89 @@ export function useSubmissions(staffAgencyId?: string) {
     ];
   };
 
+  // Extract unique form templates for filter dropdown
+  const formTemplateOptions = useMemo((): FormTemplateOption[] => {
+    const templateMap = new Map<string, string>();
+    submissions.forEach(s => {
+      if (s.form_template_id && s.form_templates?.name) {
+        templateMap.set(s.form_template_id, s.form_templates.name);
+      }
+    });
+    return Array.from(templateMap.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [submissions]);
+
+  // Helper to get date range from preset
+  const getDateRange = (preset: DateRangePreset, customRange?: { start: Date; end: Date }) => {
+    const now = new Date();
+    switch (preset) {
+      case 'this_week':
+        return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
+      case 'last_week': {
+        const lastWeek = subDays(now, 7);
+        return { start: startOfWeek(lastWeek, { weekStartsOn: 1 }), end: endOfWeek(lastWeek, { weekStartsOn: 1 }) };
+      }
+      case 'this_month':
+        return { start: startOfMonth(now), end: now };
+      case 'last_30_days':
+        return { start: subDays(now, 30), end: now };
+      case 'custom':
+        return customRange || null;
+      default:
+        return null;
+    }
+  };
+
+  // Apply client-side filtering
+  const filteredSubmissions = useMemo(() => {
+    if (!filters) return submissions;
+
+    let result = [...submissions];
+
+    // Search filter (by team member name)
+    if (filters.searchQuery.trim()) {
+      const query = filters.searchQuery.toLowerCase().trim();
+      result = result.filter(s =>
+        s.team_members?.name?.toLowerCase().includes(query) ||
+        s.team_members?.email?.toLowerCase().includes(query) ||
+        s.form_templates?.name?.toLowerCase().includes(query)
+      );
+    }
+
+    // Date range filter
+    const dateRange = getDateRange(filters.dateRangePreset, filters.customDateRange);
+    if (dateRange) {
+      result = result.filter(s => {
+        const workDate = parseISO(s.work_date);
+        return isWithinInterval(workDate, { start: dateRange.start, end: dateRange.end });
+      });
+    }
+
+    // Form template filter
+    if (filters.formTemplateId && filters.formTemplateId !== 'all') {
+      result = result.filter(s => s.form_template_id === filters.formTemplateId);
+    }
+
+    // Status filter
+    if (filters.status === 'final') {
+      result = result.filter(s => s.final);
+    } else if (filters.status === 'draft') {
+      result = result.filter(s => !s.final);
+    }
+
+    return result;
+  }, [submissions, filters]);
+
   return {
-    submissions,
+    submissions: filteredSubmissions,
+    allSubmissions: submissions,
     loading,
     refetch: fetchSubmissions,
     getSubmissionMetrics,
     getDynamicKpiMetrics,
+    formTemplateOptions,
+    totalCount: submissions.length,
+    filteredCount: filteredSubmissions.length,
   };
 }
