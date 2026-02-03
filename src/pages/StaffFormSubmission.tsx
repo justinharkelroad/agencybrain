@@ -132,8 +132,8 @@ export default function StaffFormSubmission() {
           .select('metric_key, value_number, team_member_id')
           .eq('agency_id', template.agency_id);
 
+        const targetsMap: Record<string, number> = {};
         if (targetRows) {
-          const targetsMap: Record<string, number> = {};
           // First load agency defaults (team_member_id = null)
           targetRows.forEach(t => {
             if (!t.team_member_id) {
@@ -151,22 +151,22 @@ export default function StaffFormSubmission() {
           setTargets(targetsMap);
         }
 
-        // Fetch scorecard_rules to get enabled KPIs for this agency
+        console.log('[StaffForm DEBUG] targets loaded:', targetsMap);
+
+        // Fetch scorecard_rules to get enabled KPIs for this agency (optional - may not exist)
         const formRole = template.schema_json?.role || 'Sales';
-        const { data: scorecardRules, error: scorecardError } = await supabase
+        const { data: scorecardRules } = await supabase
           .from('scorecard_rules')
           .select('selected_metrics')
           .eq('agency_id', template.agency_id)
           .eq('role', formRole)
-          .single();
+          .maybeSingle();  // Use maybeSingle instead of single to avoid error when no rows
 
         console.log('[StaffForm DEBUG] scorecard_rules query:', {
           agency_id: template.agency_id,
           role: formRole,
-          result: scorecardRules,
-          error: scorecardError
+          result: scorecardRules
         });
-        console.log('[StaffForm DEBUG] targets loaded:', targetsMap);
 
         if (scorecardRules?.selected_metrics) {
           setEnabledKpis(new Set(scorecardRules.selected_metrics));
