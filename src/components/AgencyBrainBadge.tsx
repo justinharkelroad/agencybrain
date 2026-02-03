@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import lightModeLogo from "@/assets/agencybrain-logo-light.png";
+import lightModeLogo from "@/assets/agencybrain-logo-new.png";
 
 // Dark mode logo (white text)
 const DARK_LOGO_URL = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
