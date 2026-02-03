@@ -247,14 +247,22 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
           onKeyDown={(e) => e.key === 'Enter' && addPolicyType()}
           disabled={loading}
         />
-        <Button 
-          onClick={addPolicyType} 
+        <Button
+          onClick={addPolicyType}
           disabled={!newTypeName.trim() || loading}
           size="sm"
         >
           <Plus className="h-4 w-4 mr-1" />
           Add
         </Button>
+      </div>
+
+      {/* Info blurb about linking */}
+      <div className="flex gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm">
+        <Info className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
+        <p className="text-muted-foreground">
+          <span className="text-blue-400 font-medium">Link policy types</span> to enable accurate points, VC tracking, and bundle detection for compensation. Unlinked types show 0 points.
+        </p>
       </div>
 
       {/* Policy types list */}
@@ -355,19 +363,6 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
         )}
       </div>
 
-      {/* Info blurb about linking */}
-      <div className="flex gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm">
-        <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
-        <div className="text-muted-foreground">
-          <p className="font-medium text-blue-400 mb-1">Why link policy types?</p>
-          <p>
-            Linking connects your custom policy names to compensation tracking. Linked types automatically
-            get the correct <span className="text-foreground">points</span>, <span className="text-foreground">VC qualifying</span> status,
-            and <span className="text-foreground">bundle detection</span> for accurate commission calculations.
-            Unlinked types will show 0 points and won't count toward VC or bundling bonuses.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }
