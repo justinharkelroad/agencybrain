@@ -57,7 +57,11 @@ export default function StaffFormSubmission() {
   const [targets, setTargets] = useState<Record<string, number>>({});
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string }>>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  
+
+  // Dashboard metrics (quotes added via dashboard, not on form)
+  const [dashboardQuotedCount, setDashboardQuotedCount] = useState<number>(0);
+  const [dashboardSoldCount, setDashboardSoldCount] = useState<number>(0);
+
   // Error handling state for structured errors
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [submissionErrorMessage, setSubmissionErrorMessage] = useState<string | null>(null);
@@ -157,6 +161,45 @@ export default function StaffFormSubmission() {
     }
   }, [user, formSlug, isAuthenticated]);
 
+  // Fetch dashboard metrics (quotes/sales added via dashboard) when work_date changes
+  useEffect(() => {
+    async function fetchDashboardMetrics() {
+      if (!user?.team_member_id || !user?.agency_id || !values.work_date) return;
+
+      try {
+        // Get lqs_households count for this team member on the work date
+        const { count: quotedCount } = await supabase
+          .from('lqs_households')
+          .select('*', { count: 'exact', head: true })
+          .eq('team_member_id', user.team_member_id)
+          .eq('agency_id', user.agency_id)
+          .eq('first_quote_date', values.work_date)
+          .in('status', ['quoted', 'sold']);
+
+        setDashboardQuotedCount(quotedCount || 0);
+
+        // Also check metrics_daily for any pre-existing values
+        const { data: metricsDaily } = await supabase
+          .from('metrics_daily')
+          .select('quoted_count, sold_items')
+          .eq('team_member_id', user.team_member_id)
+          .eq('agency_id', user.agency_id)
+          .eq('date', values.work_date)
+          .single();
+
+        if (metricsDaily) {
+          // Use max of lqs_households count and metrics_daily
+          setDashboardQuotedCount(prev => Math.max(prev, metricsDaily.quoted_count || 0));
+          setDashboardSoldCount(metricsDaily.sold_items || 0);
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard metrics:', err);
+      }
+    }
+
+    fetchDashboardMetrics();
+  }, [user?.team_member_id, user?.agency_id, values.work_date]);
+
   // Helper function to convert string to Title Case (for prospect names)
   const toTitleCase = (str: string): string => {
     if (!str) return str;
@@ -246,11 +289,21 @@ export default function StaffFormSubmission() {
     return result;
   }, [formTemplate]);
 
-  // Build performance summary for KPIs with targets
+  // Build performance summary for KPIs with targets (including dashboard metrics)
   const performanceSummary: PerformanceSummary = useMemo(() => {
     const kpiPerformance: KPIPerformance[] = [];
     const kpis = formTemplate?.schema_json?.kpis || [];
-    
+
+    // Normalize KPI keys to check what's in form
+    const normalizeKey = (key: string) => {
+      const lower = key?.toLowerCase() || '';
+      if (['quoted_households', 'quoted_count', 'policies_quoted'].includes(lower)) return 'quoted_households';
+      if (['items_sold', 'sold_items', 'sold_count'].includes(lower)) return 'items_sold';
+      return key;
+    };
+
+    const formKpiKeys = new Set(kpis.map((kpi: any) => normalizeKey(kpi.selectedKpiSlug || kpi.key)));
+
     kpis.forEach((kpi: any) => {
       // Priority: form schema target > targets table by slug > targets table by key
       const target = kpi.target?.goal ?? targets[kpi.selectedKpiSlug] ?? targets[kpi.key] ?? 0;
@@ -267,6 +320,31 @@ export default function StaffFormSubmission() {
       }
     });
 
+    // Add dashboard metrics if they have targets but aren't on the form
+    const quotedTarget = targets['quoted_households'] ?? targets['quoted_count'] ?? 0;
+    if (quotedTarget > 0 && !formKpiKeys.has('quoted_households') && dashboardQuotedCount > 0) {
+      kpiPerformance.push({
+        key: 'dashboard_quoted_households',
+        label: '📊 Quoted Households (Dashboard)',
+        submitted: dashboardQuotedCount,
+        target: quotedTarget,
+        passed: dashboardQuotedCount >= quotedTarget,
+        percentOfTarget: Math.round((dashboardQuotedCount / quotedTarget) * 100)
+      });
+    }
+
+    const soldTarget = targets['items_sold'] ?? targets['sold_items'] ?? 0;
+    if (soldTarget > 0 && !formKpiKeys.has('items_sold') && dashboardSoldCount > 0) {
+      kpiPerformance.push({
+        key: 'dashboard_items_sold',
+        label: '📊 Items Sold (Dashboard)',
+        submitted: dashboardSoldCount,
+        target: soldTarget,
+        passed: dashboardSoldCount >= soldTarget,
+        percentOfTarget: Math.round((dashboardSoldCount / soldTarget) * 100)
+      });
+    }
+
     const totalKPIs = kpiPerformance.length;
     const passedKPIs = kpiPerformance.filter(k => k.passed).length;
     const passRate = totalKPIs > 0 ? Math.round((passedKPIs / totalKPIs) * 100) : 0;
@@ -280,7 +358,7 @@ export default function StaffFormSubmission() {
         overallPass: passRate >= 50 // At least half targets met
       }
     };
-  }, [fields, values, targets]);
+  }, [formTemplate, values, targets, dashboardQuotedCount, dashboardSoldCount]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

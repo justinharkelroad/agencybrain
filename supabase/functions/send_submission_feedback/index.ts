@@ -39,7 +39,19 @@ Output Guidelines:
 - Use bullet points for readability.
 - Address the user directly as "you."`;
 
-function logStructured(level: 'info' | 'warn' | 'error', eventType: string, data: Record<string, any>) {
+// ========== Discrepancy Detection Types ==========
+interface PerformanceMetric {
+  metric: string;
+  actual: number;
+  target: number;
+  passed: boolean;
+  percentage: number;
+  hasDiscrepancy?: boolean;
+  trackedCount?: number | null;
+  discrepancyNote?: string;
+}
+
+function logStructured(level: 'info' | 'warn' | 'error', eventType: string, data: Record<string, unknown>) {
   const logEntry = {
     timestamp: new Date().toISOString(),
     level,
@@ -47,7 +59,7 @@ function logStructured(level: 'info' | 'warn' | 'error', eventType: string, data
     function: 'send_submission_feedback',
     ...data
   };
-  
+
   if (level === 'error') {
     console.error(`[${level.toUpperCase()}] ${eventType}:`, JSON.stringify(logEntry));
   } else {
@@ -67,7 +79,7 @@ function normalizeMetricKey(key: string): string {
 }
 
 // Get metric value from payload, trying aliases if primary key missing
-function getMetricValueFromPayload(payload: Record<string, any>, kpiSlug: string, kpiKey: string): { value: number; resolvedFrom: string } {
+function getMetricValueFromPayload(payload: Record<string, unknown>, kpiSlug: string, kpiKey: string): { value: number; resolvedFrom: string } {
   // 1. Try selectedKpiSlug directly
   if (payload[kpiSlug] !== undefined && payload[kpiSlug] !== null) {
     return { value: Number(payload[kpiSlug]) || 0, resolvedFrom: kpiSlug };
@@ -88,7 +100,7 @@ function getMetricValueFromPayload(payload: Record<string, any>, kpiSlug: string
   if (normalized === 'quoted_households') aliases = QUOTED_ALIASES;
   else if (normalized === 'items_sold') aliases = SOLD_ALIASES;
   else aliases = [kpiSlug, kpiKey, strippedKey].filter(Boolean);
-  
+
   for (const alias of aliases) {
     if (payload[alias] !== undefined && payload[alias] !== null) {
       return { value: Number(payload[alias]) || 0, resolvedFrom: alias };
@@ -117,7 +129,7 @@ function getTargetValue(targetsMap: Record<string, number>, kpiSlug: string, kpi
   if (normalized === 'quoted_households') aliases = QUOTED_ALIASES;
   else if (normalized === 'items_sold') aliases = SOLD_ALIASES;
   else aliases = [kpiSlug, kpiKey].filter(Boolean);
-  
+
   for (const alias of aliases) {
     if (targetsMap[alias] !== undefined) {
       return { value: targetsMap[alias], resolvedFrom: `targets.${alias}` };
@@ -135,7 +147,7 @@ Deno.serve(async (req) => {
 
   try {
     const { submissionId } = await req.json();
-    
+
     logStructured('info', 'feedback_start', {
       request_id: requestId,
       submission_id: submissionId
@@ -189,7 +201,7 @@ Deno.serve(async (req) => {
     // Check if immediate email is enabled (default: true for backward compatibility)
     const settings = formTemplate.settings_json || {};
     const sendImmediate = settings.sendImmediateEmail !== false;
-    
+
     if (!sendImmediate) {
       logStructured('info', 'email_disabled', { request_id: requestId });
       return new Response(
@@ -218,8 +230,8 @@ Deno.serve(async (req) => {
       submitterEmail = staffUser.email;
     }
 
-    logStructured('info', 'team_member_loaded', { 
-      request_id: requestId, 
+    logStructured('info', 'team_member_loaded', {
+      request_id: requestId,
       name: teamMember?.name,
       team_member_email: teamMember?.email,
       staff_user_email: staffUser?.email,
@@ -239,56 +251,253 @@ Deno.serve(async (req) => {
 
     logStructured('info', 'targets_loaded', { request_id: requestId, count: Object.keys(targetsMap).length });
 
-    // 6. Build performance data
+    // ========== ADDED: Get metrics_daily for source of truth ==========
+    const workDate = submission.work_date || submission.submission_date;
+
+    const { data: metricsDaily } = await supabase
+      .from('metrics_daily')
+      .select('quoted_count, sold_items')
+      .eq('team_member_id', submission.team_member_id)
+      .eq('date', workDate)
+      .eq('agency_id', formTemplate.agency_id)
+      .single();
+
+    logStructured('info', 'metrics_daily_loaded', {
+      request_id: requestId,
+      quoted_count: metricsDaily?.quoted_count,
+      sold_items: metricsDaily?.sold_items
+    });
+
+    // ========== ADDED: Get tracked household count for discrepancy detection ==========
+    // Use quoted_household_details for immediate email (same transaction, guaranteed committed)
+    // This avoids sync lag issues with lqs_households
+    const { count: trackedQuotedCount } = await supabase
+      .from('quoted_household_details')
+      .select('*', { count: 'exact', head: true })
+      .eq('team_member_id', submission.team_member_id)
+      .eq('agency_id', formTemplate.agency_id)
+      .eq('work_date', workDate);
+
+    // Also check lqs_households for dashboard-added entries
+    const { count: lqsTrackedCount } = await supabase
+      .from('lqs_households')
+      .select('*', { count: 'exact', head: true })
+      .eq('team_member_id', submission.team_member_id)
+      .eq('agency_id', formTemplate.agency_id)
+      .eq('first_quote_date', workDate)
+      .in('status', ['quoted', 'sold']);
+
+    // Use MAX of both sources to avoid false positives from sync timing
+    const totalTrackedQuotes = Math.max(trackedQuotedCount || 0, lqsTrackedCount || 0);
+
+    logStructured('info', 'tracked_counts_loaded', {
+      request_id: requestId,
+      quoted_household_details_count: trackedQuotedCount,
+      lqs_households_count: lqsTrackedCount,
+      total_tracked: totalTrackedQuotes
+    });
+
+    // ========== ADDED: Get agency's enabled KPIs from scorecard_rules ==========
+    const formRole = formTemplate.role || 'Sales';
+    const { data: scorecardRules } = await supabase
+      .from('scorecard_rules')
+      .select('selected_metrics')
+      .eq('agency_id', formTemplate.agency_id)
+      .eq('role', formRole)
+      .single();
+
+    const enabledKpis = new Set<string>(scorecardRules?.selected_metrics || []);
+
+    logStructured('info', 'scorecard_rules_loaded', {
+      request_id: requestId,
+      role: formRole,
+      enabled_kpis: Array.from(enabledKpis)
+    });
+
+    // 6. Build performance data with discrepancy detection
     const payload = submission.payload_json || {};
     const kpis = formTemplate.schema_json?.kpis || [];
-    
-    const performanceData: Array<{
-      metric: string;
-      actual: number;
-      target: number;
-      passed: boolean;
-      percentage: number;
-    }> = [];
+
+    const performanceData: PerformanceMetric[] = [];
 
     for (const kpi of kpis) {
       const kpiSlug = kpi.selectedKpiSlug || '';
       const kpiKey = kpi.key || '';
-      
-      // Use alias-aware resolution for actual and target
-      const actualResult = getMetricValueFromPayload(payload, kpiSlug, kpiKey);
+      const normalizedKey = normalizeMetricKey(kpiSlug || kpiKey);
+
+      let actual: number;
+      let hasDiscrepancy = false;
+      let trackedCount: number | null = null;
+      let discrepancyNote: string | undefined;
+
+      // For quoted_households: prefer metrics_daily (includes dashboard) over payload
+      if (normalizedKey === 'quoted_households') {
+        actual = metricsDaily?.quoted_count ?? 0;
+
+        // Fall back to payload if metrics_daily is empty/missing
+        if (actual === 0) {
+          const payloadResult = getMetricValueFromPayload(payload, kpiSlug, kpiKey);
+          actual = payloadResult.value;
+        }
+
+        // Discrepancy detection for quoted_households
+        trackedCount = totalTrackedQuotes;
+        if (actual > trackedCount) {
+          hasDiscrepancy = true;
+          const missing = actual - trackedCount;
+          discrepancyNote = `${missing} household${missing > 1 ? 's' : ''} not tracked with details`;
+        }
+
+        logStructured('info', 'quoted_households_resolved', {
+          request_id: requestId,
+          actual,
+          trackedCount,
+          hasDiscrepancy,
+          source: metricsDaily?.quoted_count ? 'metrics_daily' : 'payload'
+        });
+
+      } else if (normalizedKey === 'items_sold') {
+        // For items_sold: prefer metrics_daily over payload
+        actual = metricsDaily?.sold_items ?? 0;
+
+        if (actual === 0) {
+          const payloadResult = getMetricValueFromPayload(payload, kpiSlug, kpiKey);
+          actual = payloadResult.value;
+        }
+        // Note: Could add lqs_sales discrepancy detection here in future
+
+      } else {
+        // All other KPIs: use payload directly (no aggregation source)
+        const actualResult = getMetricValueFromPayload(payload, kpiSlug, kpiKey);
+        actual = actualResult.value;
+      }
+
+      // Get target value (unchanged logic)
       const targetResult = getTargetValue(targetsMap, kpiSlug, kpiKey, kpi.target?.goal);
-      
-      const actual = actualResult.value;
       const target = targetResult.value;
       const percentage = target > 0 ? Math.round((actual / target) * 100) : 100;
-      
-      // Debug logging for KPI resolution
+
       logStructured('info', 'kpi_resolution', {
         request_id: requestId,
         label: kpi.label,
         selectedKpiSlug: kpiSlug,
         key: kpiKey,
+        normalizedKey,
         actual,
-        actualResolvedFrom: actualResult.resolvedFrom,
         target,
-        targetResolvedFrom: targetResult.resolvedFrom,
-        percentage
+        percentage,
+        hasDiscrepancy,
+        trackedCount
       });
-      
+
       performanceData.push({
         metric: kpi.label,
         actual,
         target,
         passed: actual >= target,
-        percentage
+        percentage,
+        hasDiscrepancy,
+        trackedCount,
+        discrepancyNote
       });
     }
 
-    logStructured('info', 'performance_calculated', { 
-      request_id: requestId, 
+    // ========== ADDED: Include metrics not in form but enabled for agency ==========
+    const quotedInForm = kpis.some((k: { selectedKpiSlug?: string; key?: string }) => {
+      const normalized = normalizeMetricKey(k.selectedKpiSlug || k.key || '');
+      return normalized === 'quoted_households';
+    });
+
+    // Check if quoted_households is an enabled KPI for this agency (check common key variations)
+    const quotedEnabled = enabledKpis.has('quoted_households') ||
+                          enabledKpis.has('quoted_count') ||
+                          enabledKpis.has('policies_quoted') ||
+                          enabledKpis.has('households_quoted');
+
+    // Also check if there's a target configured (fallback if scorecard_rules doesn't match)
+    const hasQuotedTarget = targetsMap['quoted_households'] !== undefined ||
+                            targetsMap['quoted_count'] !== undefined ||
+                            targetsMap['policies_quoted'] !== undefined ||
+                            targetsMap['households_quoted'] !== undefined;
+
+    // Add Quoted Households if:
+    // 1. It's enabled for agency, OR
+    // 2. There's a target configured, OR
+    // 3. There are tracked quotes in lqs_households (dashboard data exists)
+    const shouldAddQuoted = quotedEnabled || hasQuotedTarget || totalTrackedQuotes > 0;
+
+    if (!quotedInForm && shouldAddQuoted) {
+      // Use MAX of metrics_daily and lqs_households for actual value
+      // Dashboard quotes go to lqs_households but may not be in metrics_daily yet
+      const actualQuoted = Math.max(metricsDaily?.quoted_count ?? 0, totalTrackedQuotes);
+      const quotedTarget = getTargetValue(targetsMap, 'quoted_households', 'quoted_count', undefined);
+      const hasDiscrepancy = actualQuoted > totalTrackedQuotes;
+      const missing = actualQuoted - totalTrackedQuotes;
+
+      performanceData.push({
+        metric: 'Quoted Households',
+        actual: actualQuoted,
+        target: quotedTarget.value,
+        passed: quotedTarget.value > 0 ? actualQuoted >= quotedTarget.value : true,
+        percentage: quotedTarget.value > 0 ? Math.round((actualQuoted / quotedTarget.value) * 100) : 100,
+        hasDiscrepancy,
+        trackedCount: totalTrackedQuotes,
+        discrepancyNote: hasDiscrepancy ? `${missing} household${missing > 1 ? 's' : ''} not tracked with details` : undefined
+      });
+
+      logStructured('info', 'quoted_households_added_from_agency_kpis', {
+        request_id: requestId,
+        actual: actualQuoted,
+        target: quotedTarget.value,
+        trackedCount: totalTrackedQuotes,
+        hasDiscrepancy,
+        quotedEnabled,
+        hasQuotedTarget,
+        totalTrackedQuotes,
+        enabled_via: Array.from(enabledKpis).filter(k =>
+          ['quoted_households', 'quoted_count', 'policies_quoted', 'households_quoted'].includes(k)
+        )
+      });
+    }
+
+    // Same pattern for sold_items if not in form
+    const soldInForm = kpis.some((k: { selectedKpiSlug?: string; key?: string }) => {
+      const normalized = normalizeMetricKey(k.selectedKpiSlug || k.key || '');
+      return normalized === 'items_sold';
+    });
+
+    // Check if items_sold is an enabled KPI for this agency
+    const soldEnabled = enabledKpis.has('items_sold') ||
+                        enabledKpis.has('sold_items') ||
+                        enabledKpis.has('sold_count');
+
+    // Add Items Sold if it's enabled for agency but not in form
+    if (!soldInForm && soldEnabled) {
+      const actualSold = metricsDaily?.sold_items ?? 0;
+      const soldTarget = getTargetValue(targetsMap, 'items_sold', 'sold_items', undefined);
+
+      performanceData.push({
+        metric: 'Items Sold',
+        actual: actualSold,
+        target: soldTarget.value,
+        passed: soldTarget.value > 0 ? actualSold >= soldTarget.value : true,
+        percentage: soldTarget.value > 0 ? Math.round((actualSold / soldTarget.value) * 100) : 100,
+        hasDiscrepancy: false,
+        trackedCount: null
+      });
+
+      logStructured('info', 'items_sold_added_from_agency_kpis', {
+        request_id: requestId,
+        actual: actualSold,
+        target: soldTarget.value
+      });
+    }
+
+    logStructured('info', 'performance_calculated', {
+      request_id: requestId,
       metrics_count: performanceData.length,
-      passed_count: performanceData.filter(p => p.passed).length
+      passed_count: performanceData.filter(p => p.passed).length,
+      discrepancy_count: performanceData.filter(p => p.hasDiscrepancy).length
     });
 
     // 7. Build prompt for OpenAI
@@ -310,7 +519,7 @@ Provide your coaching feedback based on these results.`;
     let aiFeedback = '';
     try {
       logStructured('info', 'openai_calling', { request_id: requestId });
-      
+
       const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -329,23 +538,23 @@ Provide your coaching feedback based on these results.`;
       });
 
       const openaiData = await openaiResponse.json();
-      
+
       if (!openaiResponse.ok) {
-        logStructured('warn', 'openai_error_response', { 
-          request_id: requestId, 
+        logStructured('warn', 'openai_error_response', {
+          request_id: requestId,
           status: openaiResponse.status,
-          error: openaiData 
+          error: openaiData
         });
       } else {
         aiFeedback = openaiData.choices?.[0]?.message?.content || '';
-        logStructured('info', 'openai_success', { 
-          request_id: requestId, 
-          feedback_length: aiFeedback.length 
+        logStructured('info', 'openai_success', {
+          request_id: requestId,
+          feedback_length: aiFeedback.length
         });
       }
     } catch (aiError) {
-      logStructured('warn', 'openai_exception', { 
-        request_id: requestId, 
+      logStructured('warn', 'openai_exception', {
+        request_id: requestId,
         error: aiError instanceof Error ? aiError.message : String(aiError)
       });
       // Continue without AI feedback - email will still be sent with stats
@@ -353,7 +562,7 @@ Provide your coaching feedback based on these results.`;
 
     // 9. Build recipient list
     const recipients: string[] = [];
-    
+
     // Submitter email (use staff_users email if available, else team_members email)
     if (submitterEmail && !submitterEmail.includes('@staff.placeholder')) {
       recipients.push(submitterEmail);
@@ -413,7 +622,7 @@ Provide your coaching feedback based on these results.`;
 
     // 11. Send email via Resend
     logStructured('info', 'sending_email', { request_id: requestId, recipient_count: recipients.length });
-    
+
     const emailResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -431,15 +640,15 @@ Provide your coaching feedback based on these results.`;
     const emailResult = await emailResponse.json();
 
     if (!emailResponse.ok) {
-      logStructured('error', 'resend_error', { 
-        request_id: requestId, 
+      logStructured('error', 'resend_error', {
+        request_id: requestId,
         status: emailResponse.status,
-        error: emailResult 
+        error: emailResult
       });
       throw new Error(`Email failed: ${JSON.stringify(emailResult)}`);
     }
 
-    logStructured('info', 'feedback_complete', { 
+    logStructured('info', 'feedback_complete', {
       request_id: requestId,
       email_id: emailResult?.id,
       recipients,
@@ -449,8 +658,8 @@ Provide your coaching feedback based on these results.`;
     });
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
+      JSON.stringify({
+        success: true,
         emailId: emailResult?.id,
         recipients,
         passedCount,
@@ -462,7 +671,7 @@ Provide your coaching feedback based on these results.`;
     );
 
   } catch (error) {
-    logStructured('error', 'feedback_failed', { 
+    logStructured('error', 'feedback_failed', {
       request_id: requestId,
       error: error instanceof Error ? error.message : String(error)
     });

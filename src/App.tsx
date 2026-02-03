@@ -40,6 +40,7 @@ import { LegacyScorecardsSubmissionsRedirect } from "./components/LegacyScorecar
 import OnboardingTasksPrototype from "./pages/prototype/OnboardingTasksPrototype";
 import SequenceBuilderPrototype from "./pages/prototype/SequenceBuilderPrototype";
 import SubscriptionPreview from "./pages/SubscriptionPreview";
+import TestCheckout from "./pages/TestCheckout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
@@ -253,6 +254,7 @@ const App = () => {
             <Route path="/prototype/onboarding-tasks" element={<OnboardingTasksPrototype />} />
             <Route path="/prototype/sequence-builder" element={<SequenceBuilderPrototype />} />
             <Route path="/preview/subscription" element={<SubscriptionPreview />} />
+            <Route path="/test/checkout" element={<TestCheckout />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <SidebarLayout>
