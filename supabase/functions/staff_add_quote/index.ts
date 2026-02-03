@@ -20,6 +20,7 @@ interface AddQuoteRequest {
   phone?: string;
   email?: string;
   lead_source_id?: string;
+  objection_id?: string;
   quote_date: string;
   notes?: string;
   products: ProductEntry[];
@@ -150,6 +151,7 @@ serve(async (req) => {
         updates.lead_source_id = body.lead_source_id;
         updates.needs_attention = false;
       }
+      if (body.objection_id) updates.objection_id = body.objection_id;
       updates.team_member_id = staffUser.team_member_id;
       if (body.notes) updates.notes = body.notes;
 
@@ -180,6 +182,7 @@ serve(async (req) => {
           status: 'quoted',
           first_quote_date: body.quote_date,
           lead_source_id: body.lead_source_id || null,
+          objection_id: body.objection_id || null,
           team_member_id: staffUser.team_member_id,
           needs_attention: !body.lead_source_id,
           notes: body.notes || null,

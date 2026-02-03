@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { HouseholdWithRelations, LqsMetrics, LqsLeadSource } from './useLqsData';
+import { LqsObjection } from './useLqsObjections';
 
 interface UseStaffLqsDataParams {
   sessionToken: string | null;
@@ -108,6 +109,28 @@ export function useStaffLqsTeamMembers(sessionToken: string | null) {
       }
 
       return data?.team_members || [];
+    },
+  });
+}
+
+export function useStaffLqsObjections(sessionToken: string | null) {
+  return useQuery({
+    queryKey: ['staff-lqs-objections', sessionToken],
+    enabled: !!sessionToken,
+    queryFn: async (): Promise<LqsObjection[]> => {
+      const { data, error } = await supabase.functions.invoke('get_staff_lqs_data', {
+        headers: {
+          'x-staff-session': sessionToken!,
+        },
+        body: {},
+      });
+
+      if (error) {
+        console.error('Error fetching staff objections:', error);
+        throw error;
+      }
+
+      return data?.objections || [];
     },
   });
 }

@@ -13,6 +13,11 @@ interface LqsLeadSource {
   is_self_generated: boolean;
 }
 
+interface LqsObjection {
+  id: string;
+  name: string;
+}
+
 interface LqsTeamMember {
   id: string;
   name: string;
@@ -53,6 +58,7 @@ interface LqsHousehold {
   zip_code: string | null;
   lead_source_id: string | null;
   team_member_id: string | null;
+  objection_id: string | null;
   status: string;
   first_quote_date: string | null;
   sold_date: string | null;
@@ -64,6 +70,7 @@ interface LqsHousehold {
   sales: LqsSale[];
   lead_source: LqsLeadSource | null;
   team_member: LqsTeamMember | null;
+  objection: LqsObjection | null;
 }
 
 interface LqsMetrics {
@@ -189,6 +196,7 @@ serve(async (req) => {
           zip_code,
           lead_source_id,
           team_member_id,
+          objection_id,
           status,
           first_quote_date,
           sold_date,
@@ -198,6 +206,7 @@ serve(async (req) => {
           updated_at,
           lead_source:lead_sources!lqs_households_lead_source_id_fkey(id, name, is_self_generated),
           team_member:team_members(id, name),
+          objection:lqs_objections(id, name),
           quotes:lqs_quotes(id, household_id, quote_date, product_type, items_quoted, premium_cents, source),
           sales:lqs_sales(id, household_id, sale_date, product_type, items_sold, policies_sold, premium_cents, policy_number, source, source_reference_id, linked_quote_id)
         `)
@@ -268,6 +277,18 @@ serve(async (req) => {
       console.error('Error fetching team members:', teamMembersError);
     }
 
+    // Fetch global objections (not agency-scoped)
+    const { data: objections, error: objectionsError } = await supabase
+      .from('lqs_objections')
+      .select('id, name')
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('name');
+
+    if (objectionsError) {
+      console.error('Error fetching objections:', objectionsError);
+    }
+
     // Calculate metrics
     const householdList = (households || []) as LqsHousehold[];
 
@@ -325,6 +346,7 @@ serve(async (req) => {
       metrics,
       lead_sources: leadSources || [],
       team_members: teamMembers || [],
+      objections: objections || [],
       team_member_id: teamMemberId,
       agency_id: agencyId,
     }), {

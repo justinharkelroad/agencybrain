@@ -59,6 +59,7 @@ interface ApplySequenceModalProps {
   onOpenChange: (open: boolean) => void;
   contactId?: string;       // For contact-based sequences
   saleId?: string;          // For sale-based sequences (now optional)
+  householdId?: string;     // For LQS household-based sequences
   customerName: string;
   customerPhone?: string;
   customerEmail?: string;
@@ -72,6 +73,7 @@ export function ApplySequenceModal({
   onOpenChange,
   contactId,
   saleId,
+  householdId,
   customerName,
   customerPhone,
   customerEmail,
@@ -239,6 +241,7 @@ export function ApplySequenceModal({
       const body: Record<string, unknown> = {
         contact_id: contactId || null,
         sale_id: saleId || null,
+        household_id: householdId || null,
         sequence_id: selectedSequenceId,
         start_date: format(startDate, 'yyyy-MM-dd'),
         customer_name: customerName,

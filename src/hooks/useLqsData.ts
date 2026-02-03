@@ -17,6 +17,11 @@ export interface LqsTeamMember {
   name: string;
 }
 
+export interface LqsObjectionRef {
+  id: string;
+  name: string;
+}
+
 export interface LqsSaleRecord {
   id: string;
   sale_date: string;
@@ -35,6 +40,7 @@ export interface HouseholdWithRelations extends LqsHousehold {
   sales: LqsSaleRecord[];
   lead_source: LqsLeadSource | null;
   team_member: LqsTeamMember | null;
+  objection: LqsObjectionRef | null;
 }
 
 export interface LqsMetrics {
@@ -84,7 +90,8 @@ export function useLqsData({ agencyId, dateRange, statusFilter, searchTerm }: Us
             quotes:lqs_quotes(*),
             sales:lqs_sales(*),
             lead_source:lead_sources!lqs_households_lead_source_id_fkey(id, name, is_self_generated, bucket:marketing_buckets(id, name)),
-            team_member:team_members(id, name)
+            team_member:team_members(id, name),
+            objection:lqs_objections(id, name)
           `)
           .eq('agency_id', agencyId!)
           .order('created_at', { ascending: false })

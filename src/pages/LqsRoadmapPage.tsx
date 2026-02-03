@@ -27,7 +27,8 @@ import {
   useBulkAssignLeadSource,
   HouseholdWithRelations
 } from '@/hooks/useLqsData';
-import { useStaffLqsData } from '@/hooks/useStaffLqsData';
+import { useLqsObjections } from '@/hooks/useLqsObjections';
+import { useStaffLqsData, useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { LqsMetricTiles } from '@/components/lqs/LqsMetricTiles';
 import { LqsFilters } from '@/components/lqs/LqsFilters';
 import { LqsHouseholdTable } from '@/components/lqs/LqsHouseholdTable';
@@ -223,6 +224,10 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const refetch = isStaffPortal ? staffRefetch : agencyRefetch;
 
   const { data: leadSources = [] } = useLqsLeadSources(isStaffPortal ? null : (agencyProfile?.agencyId ?? null));
+  // Use staff hook for objections in staff portal, regular hook otherwise
+  const { data: staffObjections = [] } = useStaffLqsObjections(isStaffPortal ? staffSessionToken : null);
+  const { data: agencyObjections = [] } = useLqsObjections(!isStaffPortal);
+  const objections = isStaffPortal ? staffObjections : agencyObjections;
   const assignMutation = useAssignLeadSource();
   const bulkAssignMutation = useBulkAssignLeadSource();
 
@@ -868,9 +873,11 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         onOpenChange={setAddQuoteModalOpen}
         agencyId={agencyProfile.agencyId}
         leadSources={leadSources}
+        objections={objections}
         teamMembers={teamMembers}
         currentTeamMemberId={currentTeamMemberId}
         onSuccess={refetch}
+        staffSessionToken={isStaffPortal ? staffSessionToken : null}
       />
 
       {/* Household Detail Modal */}

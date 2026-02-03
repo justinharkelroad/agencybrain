@@ -15,9 +15,10 @@ interface AssignSequenceRequest {
   customer_name: string;
   customer_phone?: string | null;
   customer_email?: string | null;
-  // Either contact_id or sale_id must be provided
-  contact_id?: string;  // For contact-based sequences
-  sale_id?: string;     // For sale-based sequences (backward compatible)
+  // At least one of contact_id, sale_id, or household_id must be provided
+  contact_id?: string;    // For contact-based sequences
+  sale_id?: string;       // For sale-based sequences (backward compatible)
+  household_id?: string;  // For LQS household-based sequences
 }
 
 serve(async (req) => {
@@ -105,7 +106,7 @@ serve(async (req) => {
         );
       }
 
-      agencyId = agencyId;
+      agencyId = profile.agency_id;
       assignedByUserId = user.id;
       console.log('[assign_onboarding_sequence] Authenticated via JWT:', user.id);
 
@@ -120,6 +121,7 @@ serve(async (req) => {
     const {
       contact_id,
       sale_id,
+      household_id,
       sequence_id,
       assigned_to_staff_user_id,
       assigned_to_user_id,
@@ -152,10 +154,10 @@ serve(async (req) => {
       );
     }
 
-    // Require either contact_id or sale_id
-    if (!contact_id && !sale_id) {
+    // Require at least one of contact_id, sale_id, or household_id
+    if (!contact_id && !sale_id && !household_id) {
       return new Response(
-        JSON.stringify({ error: 'Either contact_id or sale_id must be provided' }),
+        JSON.stringify({ error: 'At least one of contact_id, sale_id, or household_id must be provided' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -235,6 +237,30 @@ serve(async (req) => {
       if (sale.agency_id !== agencyId) {
         return new Response(
           JSON.stringify({ error: 'Sale does not belong to your agency' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Verify the household exists and belongs to this agency (if provided)
+    if (household_id) {
+      const { data: household, error: householdError } = await supabase
+        .from('lqs_households')
+        .select('id, agency_id')
+        .eq('id', household_id)
+        .single();
+
+      if (householdError || !household) {
+        console.error('[assign_onboarding_sequence] Household not found:', householdError);
+        return new Response(
+          JSON.stringify({ error: 'Household not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (household.agency_id !== agencyId) {
+        return new Response(
+          JSON.stringify({ error: 'Household does not belong to your agency' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
@@ -329,6 +355,23 @@ serve(async (req) => {
       }
     }
 
+    if (household_id) {
+      // Check for active sequence on this household
+      const { data: existingHouseholdInstance } = await supabase
+        .from('onboarding_instances')
+        .select('id, status')
+        .eq('household_id', household_id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (existingHouseholdInstance) {
+        return new Response(
+          JSON.stringify({ error: 'A sequence is already assigned to this household' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Create the onboarding instance
     // The trigger will automatically create all tasks
     const { data: instance, error: instanceError } = await supabase
@@ -338,6 +381,7 @@ serve(async (req) => {
         sequence_id: sequence_id,
         contact_id: contact_id || null,
         sale_id: sale_id || null,
+        household_id: household_id || null,
         customer_name: customer_name,
         customer_phone: customer_phone || null,
         customer_email: customer_email || null,
@@ -366,9 +410,13 @@ serve(async (req) => {
 
     const taskCount = tasks?.length || 0;
 
-    const targetLabel = contact_id ? `contact ${contact_id}` : `sale ${sale_id}`;
-    const assigneeLabel = assigned_to_staff_user_id 
-      ? `staff user ${assigned_to_staff_user_id}` 
+    const targetLabel = contact_id
+      ? `contact ${contact_id}`
+      : sale_id
+        ? `sale ${sale_id}`
+        : `household ${household_id}`;
+    const assigneeLabel = assigned_to_staff_user_id
+      ? `staff user ${assigned_to_staff_user_id}`
       : `profile user ${assigned_to_user_id}`;
     console.log(`[assign_onboarding_sequence] Instance ${instance.id} created with ${taskCount} tasks for ${targetLabel}, assigned to ${assigneeLabel}`);
 

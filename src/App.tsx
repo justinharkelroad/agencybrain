@@ -136,6 +136,7 @@ import CallScoringTemplates from "./pages/admin/CallScoringTemplates";
 import AdminExchangeTags from "./pages/admin/AdminExchangeTags";
 import AdminExchangeReports from "./pages/admin/AdminExchangeReports";
 import AdminExchangeAnalytics from "./pages/admin/AdminExchangeAnalytics";
+import AdminLqsObjections from "./pages/admin/AdminLqsObjections";
 import CallScoring from "./pages/CallScoring";
 import Exchange from "./pages/Exchange";
 import ExchangeMessages from "./pages/ExchangeMessages";
@@ -827,6 +828,11 @@ const App = () => {
             <Route path="/admin/exchange-analytics" element={
               <ProtectedRoute requireAdmin>
                 <AdminExchangeAnalytics />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/lqs-objections" element={
+              <ProtectedRoute requireAdmin>
+                <AdminLqsObjections />
               </ProtectedRoute>
             } />
             <Route path="/admin/training" element={

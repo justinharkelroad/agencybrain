@@ -36,6 +36,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { HouseholdWithRelations } from '@/hooks/useLqsData';
 import { filterCountableQuotes } from '@/lib/lqs-constants';
 import { formatPhoneNumber } from '@/lib/utils';
+import { useLqsObjections } from '@/hooks/useLqsObjections';
+import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 
 interface LqsHouseholdDetailModalProps {
   household: HouseholdWithRelations | null;
@@ -63,6 +65,7 @@ export function LqsHouseholdDetailModal({
   const [editEmail, setEditEmail] = useState('');
   const [editZipCode, setEditZipCode] = useState('');
   const [editTeamMemberId, setEditTeamMemberId] = useState('');
+  const [editObjectionId, setEditObjectionId] = useState('');
   const [deletedQuoteIds, setDeletedQuoteIds] = useState<string[]>([]);
   const [conflictingSourceName, setConflictingSourceName] = useState<string | null>(null);
   const [isResolvingConflict, setIsResolvingConflict] = useState(false);
@@ -70,6 +73,12 @@ export function LqsHouseholdDetailModal({
   const [isAddingQuote, setIsAddingQuote] = useState(false);
   const [showAddSaleForm, setShowAddSaleForm] = useState(false);
   const [isAddingSale, setIsAddingSale] = useState(false);
+
+  // Fetch objections for edit dropdown - use staff hook in staff context
+  const isStaffContext = !!staffSessionToken;
+  const { data: staffObjections = [] } = useStaffLqsObjections(staffSessionToken);
+  const { data: agencyObjections = [] } = useLqsObjections(!isStaffContext);
+  const objections = isStaffContext ? staffObjections : agencyObjections;
 
   const PRODUCT_OPTIONS = [
     'Standard Auto',
@@ -170,6 +179,7 @@ export function LqsHouseholdDetailModal({
       setEditEmail(household.email || '');
       setEditZipCode(household.zip_code || '');
       setEditTeamMemberId(household.team_member_id || '');
+      setEditObjectionId(household.objection?.id || '');
       setDeletedQuoteIds([]);
       setIsEditing(false);
       setShowAddQuoteForm(false);
@@ -249,6 +259,7 @@ export function LqsHouseholdDetailModal({
           email: editEmail || null,
           zip_code: editZipCode || null,
           team_member_id: editTeamMemberId || null,
+          objection_id: editObjectionId || null,
           ...(shouldRevertToLead && { status: 'lead', first_quote_date: null }),
           updated_at: new Date().toISOString(),
         })
@@ -279,6 +290,7 @@ export function LqsHouseholdDetailModal({
       setEditEmail(household.email || '');
       setEditZipCode(household.zip_code || '');
       setEditTeamMemberId(household.team_member_id || '');
+      setEditObjectionId(household.objection?.id || '');
       setDeletedQuoteIds([]);
     }
     setIsEditing(false);
@@ -802,6 +814,38 @@ export function LqsHouseholdDetailModal({
                   </div>
                 )}
               </>
+            )}
+          </div>
+
+          <Separator />
+
+          {/* Objection Section */}
+          <div className="space-y-3">
+            <h4 className="font-medium flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Main Objection
+            </h4>
+            {isEditing ? (
+              <Select
+                value={editObjectionId || '__none__'}
+                onValueChange={(val) => setEditObjectionId(val === '__none__' ? '' : val)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select objection..." />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="__none__">Not specified</SelectItem>
+                  {objections.map((obj) => (
+                    <SelectItem key={obj.id} value={obj.id}>
+                      {obj.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Badge variant="outline">
+                {household.objection?.name || 'Not specified'}
+              </Badge>
             )}
           </div>
 
