@@ -350,6 +350,12 @@ const App = () => {
                 </SidebarLayout>
               </ProtectedRoute>
             } />
+            {/* Objection Manager - Agency Owners and Managers */}
+            <Route path="/objection-manager" element={
+              <ProtectedRoute>
+                <AdminLqsObjections />
+              </ProtectedRoute>
+            } />
             {/* Exchange Routes */}
             <Route path="/exchange" element={
               <ProtectedRoute>

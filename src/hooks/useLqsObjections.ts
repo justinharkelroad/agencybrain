@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 
 export interface LqsObjection {
   id: string;
+  agency_id: string;
   name: string;
   is_active: boolean;
   sort_order: number;
@@ -35,18 +36,21 @@ export function useLqsObjections(enabled: boolean = true) {
 }
 
 /**
- * Hook for admin management of objections (all objections including inactive)
- * Returns all objections and CRUD mutations
+ * Hook for agency management of objections (all objections including inactive)
+ * Returns all objections for the agency and CRUD mutations
+ * @param agencyId - The agency ID to manage objections for
  */
-export function useAdminLqsObjections() {
+export function useAdminLqsObjections(agencyId: string | null) {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['admin-lqs-objections'],
+    queryKey: ['admin-lqs-objections', agencyId],
+    enabled: !!agencyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('lqs_objections')
         .select('*')
+        .eq('agency_id', agencyId)
         .order('sort_order')
         .order('name');
 
@@ -57,10 +61,13 @@ export function useAdminLqsObjections() {
 
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
+      if (!agencyId) throw new Error('No agency ID');
+
       // Get the highest sort_order for new items
       const { data: maxSort } = await supabase
         .from('lqs_objections')
         .select('sort_order')
+        .eq('agency_id', agencyId)
         .order('sort_order', { ascending: false })
         .limit(1)
         .single();
@@ -69,12 +76,12 @@ export function useAdminLqsObjections() {
 
       const { error } = await supabase
         .from('lqs_objections')
-        .insert({ name: name.trim(), sort_order: nextSortOrder });
+        .insert({ name: name.trim(), sort_order: nextSortOrder, agency_id: agencyId });
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-lqs-objections'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-lqs-objections', agencyId] });
       queryClient.invalidateQueries({ queryKey: ['lqs-objections-active'] });
       toast.success('Objection created');
     },
@@ -93,7 +100,7 @@ export function useAdminLqsObjections() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-lqs-objections'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-lqs-objections', agencyId] });
       queryClient.invalidateQueries({ queryKey: ['lqs-objections-active'] });
       toast.success('Objection updated');
     },
@@ -112,7 +119,7 @@ export function useAdminLqsObjections() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-lqs-objections'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-lqs-objections', agencyId] });
       queryClient.invalidateQueries({ queryKey: ['lqs-objections-active'] });
     },
     onError: (error: Error) => {
@@ -130,7 +137,7 @@ export function useAdminLqsObjections() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-lqs-objections'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-lqs-objections', agencyId] });
       queryClient.invalidateQueries({ queryKey: ['lqs-objections-active'] });
       toast.success('Objection deleted');
     },

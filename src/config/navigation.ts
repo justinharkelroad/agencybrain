@@ -169,6 +169,14 @@ export const navigationConfig: NavEntry[] = [
         access: { staff: true, manager: true, owner: true },
       },
       {
+        id: 'objection-manager',
+        title: 'Objection Manager',
+        icon: ClipboardList,
+        type: 'link',
+        url: '/objection-manager',
+        access: { staff: false, manager: true, owner: true },
+      },
+      {
         id: 'ai-sales-bot',
         title: 'AI Sales Bot',
         icon: Bot,

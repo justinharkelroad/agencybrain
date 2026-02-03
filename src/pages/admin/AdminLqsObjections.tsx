@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2, ToggleLeft, ToggleRight, Edit2, Check, X } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,12 +24,30 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useAdminLqsObjections } from '@/hooks/useLqsObjections';
 import { SidebarLayout } from '@/components/SidebarLayout';
+import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function AdminLqsObjections() {
+  const { user } = useAuth();
+  const [agencyId, setAgencyId] = useState<string | null>(null);
   const [newObjectionName, setNewObjectionName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Fetch agency ID for the current user
+  useEffect(() => {
+    async function fetchAgencyId() {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user.id)
+        .single();
+      if (data?.agency_id) setAgencyId(data.agency_id);
+    }
+    fetchAgencyId();
+  }, [user]);
 
   const {
     data: objections,
@@ -38,7 +56,7 @@ export default function AdminLqsObjections() {
     updateObjection,
     toggleActive,
     deleteObjection,
-  } = useAdminLqsObjections();
+  } = useAdminLqsObjections(agencyId);
 
   const handleCreate = () => {
     if (newObjectionName.trim()) {
@@ -58,9 +76,9 @@ export default function AdminLqsObjections() {
     <SidebarLayout>
       <div className="flex-1 p-6 max-w-4xl mx-auto w-full">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">LQS Objections</h1>
+          <h1 className="text-2xl font-bold text-foreground">Objection Manager</h1>
           <p className="text-muted-foreground">
-            Manage objection options for quoted households. These are global options used by all agencies.
+            Manage objection options for quoted households. These options appear in the dropdown when adding quotes.
           </p>
         </div>
 
