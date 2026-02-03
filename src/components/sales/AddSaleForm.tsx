@@ -231,6 +231,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
           id: policy.id,
           product_type_id: isBrokered ? "brokered" : (policy.product_type_id || ""),
           policy_type_name: policy.policy_type_name,
+          canonical_name: (policy as any).canonical_name || null,
           policy_number: policy.policy_number || "",
           effective_date: toLocalDate(new Date(policy.effective_date + 'T12:00:00')),
           is_vc_qualifying: policy.is_vc_qualifying || false,
