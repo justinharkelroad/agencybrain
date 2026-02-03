@@ -40,6 +40,9 @@ import {
   Calendar,
   Eye,
   Users,
+  User,
+  Crown,
+  UserCog,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -53,21 +56,33 @@ interface Assignment {
   };
 }
 
+interface AgencyUser {
+  id: string;
+  full_name: string | null;
+  email: string;
+  role: 'Owner' | 'Key Employee' | 'Manager';
+}
+
 interface Message {
   id: string;
   assignment_id: string;
   sender_type: 'coach' | 'owner';
-  sender_id: string | null;
-  subject: string;
-  body: string;
+  sender_user_id: string | null;
+  subject: string | null;
+  content: string;
   is_read: boolean;
   created_at: string;
+  recipient_user_id: string | null;
+  recipient_role: string | null;
   sales_experience_assignments: {
     agencies: {
       name: string;
     };
   };
   profiles: {
+    full_name: string | null;
+  } | null;
+  recipient_profile: {
     full_name: string | null;
   } | null;
 }
@@ -77,6 +92,7 @@ export function SEMessagesTab() {
   const queryClient = useQueryClient();
   const [isComposeDialogOpen, setIsComposeDialogOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<string>('all');
+  const [selectedRecipient, setSelectedRecipient] = useState<string>('all');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [viewingMessage, setViewingMessage] = useState<Message | null>(null);
@@ -96,6 +112,88 @@ export function SEMessagesTab() {
     },
   });
 
+  // Get the selected assignment's agency_id
+  const selectedAgencyId = useMemo(() => {
+    if (selectedAssignment === 'all') return null;
+    return assignments?.find(a => a.id === selectedAssignment)?.agency_id || null;
+  }, [selectedAssignment, assignments]);
+
+  // Fetch users for selected agency (owner + key employees)
+  const { data: agencyUsers, isLoading: usersLoading } = useQuery({
+    queryKey: ['agency-users-for-messaging', selectedAgencyId],
+    queryFn: async () => {
+      if (!selectedAgencyId) return [];
+
+      const users: AgencyUser[] = [];
+
+      // Fetch owner (profile with this agency_id)
+      const { data: owner, error: ownerError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('agency_id', selectedAgencyId)
+        .maybeSingle();
+
+      if (ownerError) throw ownerError;
+      if (owner) {
+        users.push({
+          id: owner.id,
+          full_name: owner.full_name,
+          email: owner.email || '',
+          role: 'Owner',
+        });
+      }
+
+      // Fetch key employees for this agency
+      const { data: keyEmployees, error: keError } = await supabase
+        .from('key_employees')
+        .select('user_id, profiles:user_id(id, full_name, email)')
+        .eq('agency_id', selectedAgencyId);
+
+      if (keError) throw keError;
+      if (keyEmployees) {
+        keyEmployees.forEach((ke: any) => {
+          if (ke.profiles) {
+            users.push({
+              id: ke.profiles.id,
+              full_name: ke.profiles.full_name,
+              email: ke.profiles.email || '',
+              role: 'Key Employee',
+            });
+          }
+        });
+      }
+
+      // Fetch managers (team_members with role = 'manager')
+      const { data: managers, error: mgError } = await supabase
+        .from('team_members')
+        .select('id, full_name, email')
+        .eq('agency_id', selectedAgencyId)
+        .eq('role', 'manager');
+
+      if (mgError) throw mgError;
+      if (managers) {
+        managers.forEach((m: any) => {
+          // Create a unique ID for managers (they don't have auth accounts)
+          users.push({
+            id: `manager_${m.id}`,
+            full_name: m.full_name,
+            email: m.email || '',
+            role: 'Manager',
+          });
+        });
+      }
+
+      return users;
+    },
+    enabled: !!selectedAgencyId,
+  });
+
+  // Reset recipient when assignment changes
+  const handleAssignmentChange = (value: string) => {
+    setSelectedAssignment(value);
+    setSelectedRecipient('all'); // Reset recipient selection
+  };
+
   // Fetch all messages (both sent and received)
   const { data: messages, isLoading: messagesLoading } = useQuery({
     queryKey: ['admin-se-messages'],
@@ -105,7 +203,8 @@ export function SEMessagesTab() {
         .select(`
           *,
           sales_experience_assignments(agencies(name)),
-          profiles:sender_id(full_name)
+          profiles:sender_user_id(full_name),
+          recipient_profile:recipient_user_id(full_name)
         `)
         .order('created_at', { ascending: false })
         .limit(100);
@@ -123,15 +222,23 @@ export function SEMessagesTab() {
 
   // Send message mutation
   const sendMessage = useMutation({
-    mutationFn: async (params: { assignment_ids: string[]; subject: string; body: string }) => {
+    mutationFn: async (params: { 
+      assignment_ids: string[]; 
+      subject: string; 
+      content: string;
+      recipient_user_id: string | null;
+      recipient_role: string | null;
+    }) => {
       // Insert a message for each selected assignment
       const messagesToInsert = params.assignment_ids.map((assignment_id) => ({
         assignment_id,
         sender_type: 'coach' as const,
-        sender_id: user?.id,
+        sender_user_id: user?.id,
         subject: params.subject,
-        body: params.body,
+        content: params.content,
         is_read: false,
+        recipient_user_id: params.recipient_user_id?.startsWith('manager_') ? null : params.recipient_user_id,
+        recipient_role: params.recipient_role,
       }));
 
       const { error } = await supabase
@@ -144,6 +251,7 @@ export function SEMessagesTab() {
       queryClient.invalidateQueries({ queryKey: ['admin-se-messages'] });
       setIsComposeDialogOpen(false);
       setSelectedAssignment('all');
+      setSelectedRecipient('all');
       setSubject('');
       setBody('');
       toast.success('Message sent successfully');
@@ -170,10 +278,17 @@ export function SEMessagesTab() {
       return;
     }
 
+    // Get recipient info
+    const selectedUser = selectedRecipient !== 'all' 
+      ? agencyUsers?.find(u => u.id === selectedRecipient)
+      : null;
+
     sendMessage.mutate({
       assignment_ids: assignmentIds,
       subject,
-      body,
+      content: body,
+      recipient_user_id: selectedUser?.id || null,
+      recipient_role: selectedUser?.role || null,
     });
   };
 
@@ -219,10 +334,10 @@ export function SEMessagesTab() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Recipients</Label>
-                <Select value={selectedAssignment} onValueChange={setSelectedAssignment}>
+                <Label>Agency</Label>
+                <Select value={selectedAssignment} onValueChange={handleAssignmentChange}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select recipients" />
+                    <SelectValue placeholder="Select agency" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">
@@ -242,6 +357,40 @@ export function SEMessagesTab() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Recipient selector - only shown when a specific agency is selected */}
+              {selectedAssignment !== 'all' && (
+                <div className="space-y-2">
+                  <Label>Recipient</Label>
+                  <Select value={selectedRecipient} onValueChange={setSelectedRecipient}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={usersLoading ? "Loading..." : "Select recipient"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          Everyone at agency
+                        </div>
+                      </SelectItem>
+                      {agencyUsers?.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          <div className="flex items-center gap-2">
+                            {u.role === 'Owner' && <Crown className="h-4 w-4 text-amber-500" />}
+                            {u.role === 'Key Employee' && <UserCog className="h-4 w-4 text-blue-500" />}
+                            {u.role === 'Manager' && <User className="h-4 w-4 text-green-500" />}
+                            <span>{u.full_name || u.email}</span>
+                            <Badge variant="outline" className="text-xs ml-1">
+                              {u.role}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label>Subject</Label>
                 <Input
@@ -295,6 +444,7 @@ export function SEMessagesTab() {
               <TableRow>
                 <TableHead>Date</TableHead>
                 <TableHead>Agency</TableHead>
+                <TableHead>Recipient</TableHead>
                 <TableHead>Direction</TableHead>
                 <TableHead>Subject</TableHead>
                 <TableHead>Status</TableHead>
@@ -304,7 +454,7 @@ export function SEMessagesTab() {
             <TableBody>
               {messages?.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No messages yet. Compose a message to get started.
                   </TableCell>
                 </TableRow>
@@ -322,6 +472,25 @@ export function SEMessagesTab() {
                         <Building2 className="h-4 w-4 text-muted-foreground" />
                         {message.sales_experience_assignments?.agencies?.name || 'Unknown'}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {message.sender_type === 'coach' && (
+                        <div className="flex items-center gap-1">
+                          {message.recipient_role ? (
+                            <>
+                              <User className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-sm">
+                                {message.recipient_profile?.full_name || message.recipient_role}
+                              </span>
+                              <Badge variant="outline" className="text-xs">
+                                {message.recipient_role}
+                              </Badge>
+                            </>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Everyone</span>
+                          )}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Badge
@@ -376,11 +545,21 @@ export function SEMessagesTab() {
             <DialogTitle>{viewingMessage?.subject}</DialogTitle>
             <DialogDescription>
               {viewingMessage && (
-                <div className="flex items-center gap-4 mt-2">
-                  <span>
-                    {viewingMessage.sender_type === 'coach' ? 'To' : 'From'}:{' '}
-                    {viewingMessage.sales_experience_assignments?.agencies?.name}
-                  </span>
+                <div className="flex flex-col gap-1 mt-2">
+                  <div className="flex items-center gap-4">
+                    <span>
+                      {viewingMessage.sender_type === 'coach' ? 'To' : 'From'}:{' '}
+                      {viewingMessage.sales_experience_assignments?.agencies?.name}
+                      {viewingMessage.sender_type === 'coach' && viewingMessage.recipient_role && (
+                        <span className="text-foreground ml-1">
+                          → {viewingMessage.recipient_profile?.full_name || viewingMessage.recipient_role}
+                          <Badge variant="outline" className="text-xs ml-1">
+                            {viewingMessage.recipient_role}
+                          </Badge>
+                        </span>
+                      )}
+                    </span>
+                  </div>
                   <span className="text-muted-foreground">
                     {format(new Date(viewingMessage.created_at), 'MMM d, yyyy h:mm a')}
                   </span>
@@ -389,7 +568,7 @@ export function SEMessagesTab() {
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            <div className="whitespace-pre-wrap text-sm">{viewingMessage?.body}</div>
+            <div className="whitespace-pre-wrap text-sm">{viewingMessage?.content}</div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewingMessage(null)}>
