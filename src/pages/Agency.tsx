@@ -33,7 +33,7 @@ import { RingCentralConnect } from "@/components/RingCentralConnect";
 import { Core4Tab } from "@/components/agency/Core4Tab";
 import { EmailDeliveryNoticeButton, EmailDeliveryNoticeModal } from "@/components/EmailDeliveryNoticeModal";
 import { SalesEmailSettings } from "@/components/settings/SalesEmailSettings";
-import { hasSalesBetaAccess } from "@/lib/salesBetaAccess";
+import { hasSalesAccess } from "@/lib/salesBetaAccess";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
 const EMPLOYMENT_TYPES = ["Full-time", "Part-time"] as const;
@@ -1450,7 +1450,7 @@ export default function Agency() {
             </div>
 
             {/* Sales Email Notifications - Show for admins or agencies with sales beta access */}
-            {(isAdmin || hasSalesBetaAccess(agencyId)) && (
+            {(isAdmin || hasSalesAccess(agencyId)) && (
               <div className="border-t pt-6">
                 <SalesEmailSettings agencyId={agencyId} />
               </div>

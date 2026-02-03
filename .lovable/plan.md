@@ -1,180 +1,118 @@
 
-# Complete Plan: Fix Discovery Flow & Show Full Flow on Completion
+# Plan: Unify Policy Types System
 
-## Part 1: Flow Template Audit Results
+## Current Situation
+- **88 agencies** in the system
+- **25 default policy types** in `product_types` (the old system table)
+- Some agencies already have policy types in their settings (up to 21), many have only 6
+- The sales dropdown reads from `product_types`, but settings manages `policy_types`
 
-| Flow | Status | Notes |
-|------|--------|-------|
-| **Grateful** | ✅ OK | Uses `{trigger}` and `{story}` interpolation - both are properly configured as `textarea` type questions with matching `interpolation_key` |
-| **Bible** | ✅ OK | Uses conditional `show_if` logic only - no problematic interpolations |
-| **Discovery** | ❌ BROKEN | `apply_category` question is misconfigured |
+## Solution Overview
+1. **Migrate defaults**: Add all 25 default product types to every agency's `policy_types` (skip if they already have that name)
+2. **Update code**: Change sales forms to read from `policy_types` instead of `product_types`
+3. **Preserve everything**: No deletions - only additions
 
-**Only the Discovery flow has the interpolation bug.**
+## Phase 1: Database Migration
 
----
-
-## Part 2: Discovery Flow Bug Details
-
-### Root Cause
-The `apply_category` question (index 9) in the database has:
-
-```json
-{
-  "id": "apply_category",
-  "type": "textarea",           // ❌ WRONG - should be "select"
-  "prompt": "...What is ONE specific action you will take within the next 24 hours to apply this learning?",  // ❌ WRONG prompt
-  "options": ["BALANCE", "BODY", "BEING", "BUSINESS"],  // Correct but ignored
-  "interpolation_key": "apply_category"
-}
-```
-
-The next question (`apply_lesson`) expects `{apply_category}` to be a domain like "BUSINESS" but instead gets the user's action text.
-
-### Fix: Database Update
+Run a SQL migration that:
+- Loops through all 88 agencies
+- For each agency, inserts the 25 default product types into their `policy_types`
+- Uses `ON CONFLICT DO NOTHING` to skip names that already exist
+- Assigns order_index based on insertion order
 
 ```sql
-UPDATE flow_templates 
-SET questions_json = (
-  SELECT jsonb_agg(
-    CASE 
-      WHEN elem->>'id' = 'apply_category' THEN 
-        jsonb_build_object(
-          'id', 'apply_category',
-          'type', 'select',
-          'prompt', 'What Category of life would you like to apply this discovery?',
-          'options', jsonb_build_array('BALANCE', 'BODY', 'BEING', 'BUSINESS'),
-          'required', true,
-          'interpolation_key', 'apply_category'
-        )
-      ELSE elem
-    END
-  )
-  FROM jsonb_array_elements(questions_json) AS elem
-),
-updated_at = now()
-WHERE slug = 'discovery';
+-- Insert default policy types for all agencies that don't already have them
+INSERT INTO policy_types (id, agency_id, name, is_active, order_index, created_at, updated_at)
+SELECT 
+  gen_random_uuid(),
+  a.id,
+  pt.name,
+  true,
+  ROW_NUMBER() OVER (PARTITION BY a.id ORDER BY pt.name) + COALESCE(
+    (SELECT MAX(order_index) FROM policy_types WHERE agency_id = a.id), 0
+  ),
+  NOW(),
+  NOW()
+FROM agencies a
+CROSS JOIN (
+  SELECT DISTINCT name FROM product_types 
+  WHERE agency_id IS NULL AND is_active = true
+) pt
+WHERE NOT EXISTS (
+  SELECT 1 FROM policy_types 
+  WHERE agency_id = a.id AND LOWER(name) = LOWER(pt.name)
+);
 ```
 
-**Result**: The `apply_category` question becomes a 4-option select dropdown, and selecting "BUSINESS" will correctly interpolate into the next question.
+**Result**: Every agency gets all 25 default types added (unless they already have them by name).
 
----
+## Phase 2: Code Changes
 
-## Part 3: Show Full Flow on Completion Page
+### Files to Modify
 
-### Current State
-- `StaffFlowComplete.tsx` shows AI analysis only
-- `FlowReportCard.tsx` (used in owner view) shows AI analysis AND full Q&A responses
-- Staff users don't see their responses after completing a flow
+1. **`src/components/sales/AddSaleForm.tsx`**
+   - Change query from `product_types` to `policy_types`
+   - Filter by `agency_id` and `is_active = true`
+   - Order by `order_index`
 
-### Solution
-Add the Q&A section to `StaffFlowComplete.tsx`, matching the pattern in `FlowReportCard.tsx`.
+2. **`src/components/sales/StaffAddSaleForm.tsx`**
+   - Same changes as AddSaleForm
 
-### File: `src/pages/staff/StaffFlowComplete.tsx`
+### Code Change Detail
 
-**Changes:**
-
-1. Add state for parsed questions:
 ```typescript
-const [questions, setQuestions] = useState<FlowQuestion[]>([]);
+// BEFORE (reading from wrong table)
+const { data: productTypes = [] } = useQuery({
+  queryKey: ["product-types", profile?.agency_id],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("product_types")
+      .select("id, name, category, default_points, is_vc_item")
+      .or(`agency_id.is.null,agency_id.eq.${profile?.agency_id}`)
+      .eq("is_active", true)
+      .order("name");
+    // ...
+  },
+});
+
+// AFTER (reading from settings table)
+const { data: productTypes = [] } = useQuery({
+  queryKey: ["policy-types-for-sales", profile?.agency_id],
+  queryFn: async () => {
+    const { data, error } = await supabase
+      .from("policy_types")
+      .select("id, name")
+      .eq("agency_id", profile?.agency_id)
+      .eq("is_active", true)
+      .order("order_index", { ascending: true });
+    if (error) throw error;
+    return (data || []).map(pt => ({
+      id: pt.id,
+      name: pt.name,
+      category: 'General',
+      default_points: 0,
+      is_vc_item: false
+    }));
+  },
+  enabled: !!profile?.agency_id,
+});
 ```
 
-2. Store questions when loading session (already being parsed in `templateData`):
-```typescript
-setQuestions(templateData.questions_json);
-```
+## What This Fixes
 
-3. Add interpolation helper (same as FlowReportCard):
-```typescript
-const interpolatePrompt = (prompt: string): string => {
-  let result = prompt;
-  const matches = prompt.match(/\{([^}]+)\}/g);
-  
-  if (matches && session?.responses_json) {
-    matches.forEach(match => {
-      const key = match.slice(1, -1);
-      const sourceQuestion = questions.find(
-        q => q.interpolation_key === key || q.id === key
-      );
-      if (sourceQuestion && session.responses_json[sourceQuestion.id]) {
-        result = result.replace(match, session.responses_json[sourceQuestion.id]);
-      }
-    });
-  }
-  
-  return result;
-};
-```
+| Before | After |
+|--------|-------|
+| Settings changes don't affect dropdown | Settings changes immediately reflected |
+| 25 defaults only shown for some | All agencies get all 25 defaults |
+| Users confused about missing types | Consistent experience across agencies |
+| "Motorcycle" missing from dropdown | "Motorcycle" (and all custom types) appear |
 
-4. Add "Your Flow Responses" section after the AI Analysis Card (around line 351):
-```tsx
-{/* Full Flow Q&A Section */}
-<Card className="mb-6 border-border/10">
-  <CardContent className="p-6">
-    <h2 className="font-medium text-lg mb-6">Your Flow Responses</h2>
-    <div className="space-y-6">
-      {questions.map((question) => {
-        const response = session.responses_json?.[question.id];
-        if (!response) return null;
-        
-        return (
-          <div key={question.id} className="border-b border-border/10 pb-6 last:border-0">
-            <p className="text-muted-foreground/70 text-sm mb-2">
-              {interpolatePrompt(question.prompt)}
-            </p>
-            <p className="text-foreground leading-relaxed whitespace-pre-wrap">
-              {response}
-            </p>
-          </div>
-        );
-      })}
-    </div>
-  </CardContent>
-</Card>
-```
+## Execution Order
+1. Run database migration first (adds defaults to all agencies)
+2. Then apply code changes (switches data source)
+3. Test in one agency to verify
 
----
-
-## Part 4: Fix Build Errors (Pre-existing)
-
-Several edge functions have TypeScript errors that need fixing. These are unrelated to flows but are blocking deployment:
-
-### Critical Fix: `assign_onboarding_sequence/index.ts`
-- Line 108: `agencyId = agencyId;` - variable used before assignment
-
-### Type Safety Fixes (multiple files):
-- Cast `error` as `Error` type: `(error as Error).message`
-- Add explicit types for callback parameters
-
----
-
-## Summary of Files to Change
-
-| File | Change |
-|------|--------|
-| Database migration | Fix Discovery flow `apply_category` question |
-| `src/pages/staff/StaffFlowComplete.tsx` | Add full Q&A section after AI analysis |
-| `supabase/functions/assign_onboarding_sequence/index.ts` | Fix `agencyId` variable assignment |
-| Multiple edge functions | Fix TypeScript type errors |
-
----
-
-## Testing Checklist
-
-After implementation:
-
-1. **Discovery Flow Fix**:
-   - Start a new Discovery Flow
-   - At `apply_category` question, verify it shows a 4-option dropdown (BALANCE/BODY/BEING/BUSINESS)
-   - Select "BUSINESS" and advance
-   - Verify `apply_lesson` prompt shows: "...How does this lesson apply to your **BUSINESS** domain?"
-
-2. **Flow Completion View**:
-   - Complete any flow (Grateful, Bible, or Discovery)
-   - On completion page, verify:
-     - AI revelation/analysis appears at top
-     - Full Q&A responses appear below
-     - Questions show with interpolated values filled in
-
-3. **Other Flows Still Work**:
-   - Run through a Grateful flow - verify `{trigger}` and `{story}` interpolate correctly
-   - Run through a Bible flow - verify conditional questions appear/hide correctly
+## Safety Guarantees
+- **No deletions**: Only INSERT with conflict checking
+- **Preserves custom types**: Existing agency policy_types untouched
+- **Name-based deduplication**: Won't create duplicates if name already exists

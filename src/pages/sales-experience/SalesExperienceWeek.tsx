@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +29,9 @@ import {
   Play,
   ChevronRight,
   BookOpen,
+  Download,
+  ExternalLink,
+  HelpCircle,
 } from 'lucide-react';
 
 interface Module {
@@ -35,6 +40,19 @@ interface Module {
   title: string;
   description: string;
   pillar: Pillar;
+}
+
+interface LessonDocument {
+  id: string;
+  name: string;
+  url: string;
+}
+
+interface QuizQuestion {
+  id: string;
+  type: 'text' | 'multiple_choice';
+  question: string;
+  options?: string[];
 }
 
 interface Lesson {
@@ -47,6 +65,8 @@ interface Lesson {
   video_platform: string | null;
   content_html: string | null;
   is_staff_visible: boolean;
+  documents_json: LessonDocument[] | null;
+  quiz_questions: QuizQuestion[] | null;
 }
 
 interface OwnerProgress {
@@ -66,6 +86,7 @@ export default function SalesExperienceWeek() {
   const weekNumber = parseInt(week || '1', 10);
   const { hasAccess, assignment, currentWeek, isLoading: accessLoading } = useSalesExperienceAccess();
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -127,7 +148,7 @@ export default function SalesExperienceWeek() {
 
   // Mutation for updating lesson progress
   const progressMutation = useMutation({
-    mutationFn: async ({ lessonId, action }: { lessonId: string; action: 'start' | 'complete' }) => {
+    mutationFn: async ({ lessonId, action, quizAnswers: answers }: { lessonId: string; action: 'start' | 'complete'; quizAnswers?: Record<string, string> }) => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error('Not authenticated');
 
@@ -137,7 +158,7 @@ export default function SalesExperienceWeek() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ lesson_id: lessonId, action }),
+        body: JSON.stringify({ lesson_id: lessonId, action, quiz_answers: answers }),
       });
 
       if (!response.ok) {
@@ -162,17 +183,34 @@ export default function SalesExperienceWeek() {
   // Mark lesson as started when modal opens
   const handleOpenLesson = (lesson: Lesson) => {
     setSelectedLesson(lesson);
+    setQuizAnswers({}); // Reset quiz answers when opening new lesson
     const progress = progressMap.get(lesson.id);
     if (!progress || progress.status === 'not_started') {
       progressMutation.mutate({ lessonId: lesson.id, action: 'start' });
     }
   };
 
+  // Check if quiz is complete
+  const isQuizComplete = useMemo(() => {
+    if (!selectedLesson?.quiz_questions?.length) return true;
+    return selectedLesson.quiz_questions.every(
+      (q) => quizAnswers[q.id]?.trim().length > 0
+    );
+  }, [selectedLesson, quizAnswers]);
+
   // Mark lesson as completed
   const handleCompleteLesson = () => {
     if (!selectedLesson) return;
+    if (!isQuizComplete) {
+      toast({
+        title: 'Quiz incomplete',
+        description: 'Please answer all questions before marking the lesson complete.',
+        variant: 'destructive',
+      });
+      return;
+    }
     progressMutation.mutate(
-      { lessonId: selectedLesson.id, action: 'complete' },
+      { lessonId: selectedLesson.id, action: 'complete', quizAnswers },
       {
         onSuccess: () => {
           toast({
@@ -354,8 +392,69 @@ export default function SalesExperienceWeek() {
                 </div>
               )}
 
+              {/* Documents */}
+              {selectedLesson?.documents_json && selectedLesson.documents_json.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    Downloadable Resources
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedLesson.documents_json.map((doc) => (
+                      <a
+                        key={doc.id}
+                        href={doc.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors group"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <FileText className="h-5 w-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{doc.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{doc.url}</p>
+                        </div>
+                        <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-foreground" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Quiz Questions */}
+              {selectedLesson?.quiz_questions && selectedLesson.quiz_questions.length > 0 && (
+                <div>
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <HelpCircle className="h-4 w-4" />
+                    Reflection Questions
+                    {!isQuizComplete && progressMap.get(selectedLesson.id)?.status !== 'completed' && (
+                      <Badge variant="secondary" className="ml-2">Required</Badge>
+                    )}
+                  </h3>
+                  <div className="space-y-4">
+                    {selectedLesson.quiz_questions.map((question, index) => (
+                      <div key={question.id} className="space-y-2">
+                        <Label htmlFor={question.id} className="text-sm font-medium">
+                          {index + 1}. {question.question}
+                        </Label>
+                        <Textarea
+                          id={question.id}
+                          placeholder="Type your answer here..."
+                          value={quizAnswers[question.id] || ''}
+                          onChange={(e) => setQuizAnswers(prev => ({ ...prev, [question.id]: e.target.value }))}
+                          disabled={progressMap.get(selectedLesson.id)?.status === 'completed'}
+                          className="min-h-[100px]"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* No content message */}
-              {!selectedLesson?.video_url && !selectedLesson?.content_html && (
+              {!selectedLesson?.video_url && !selectedLesson?.content_html && (!selectedLesson?.documents_json || selectedLesson.documents_json.length === 0) && (!selectedLesson?.quiz_questions || selectedLesson.quiz_questions.length === 0) && (
                 <p className="text-muted-foreground text-center py-8">
                   No content available for this lesson yet.
                 </p>
@@ -372,17 +471,23 @@ export default function SalesExperienceWeek() {
                     <CheckCircle2 className="h-5 w-5" />
                     <span className="font-medium">Completed</span>
                   </div>
+                ) : !isQuizComplete ? (
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <HelpCircle className="h-5 w-5" />
+                    <span>Answer all questions to complete</span>
+                  </div>
                 ) : (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Circle className="h-5 w-5" />
-                    <span>Not yet completed</span>
+                    <span>Ready to complete</span>
                   </div>
                 )}
                 <Button
                   onClick={handleCompleteLesson}
                   disabled={
                     progressMutation.isPending ||
-                    progressMap.get(selectedLesson.id)?.status === 'completed'
+                    progressMap.get(selectedLesson.id)?.status === 'completed' ||
+                    !isQuizComplete
                   }
                   className="gap-2"
                 >
@@ -413,6 +518,8 @@ interface LessonCardProps {
 
 function LessonCard({ lesson, weekNumber, progress, onView }: LessonCardProps) {
   const hasVideo = !!lesson.video_url;
+  const hasDocuments = lesson.documents_json && lesson.documents_json.length > 0;
+  const hasQuiz = lesson.quiz_questions && lesson.quiz_questions.length > 0;
   const isCompleted = progress?.status === 'completed';
   const isInProgress = progress?.status === 'in_progress';
 
@@ -446,6 +553,18 @@ function LessonCard({ lesson, weekNumber, progress, onView }: LessonCardProps) {
               <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                 <Video className="h-3 w-3" />
                 Video
+              </span>
+            )}
+            {hasDocuments && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <FileText className="h-3 w-3" />
+                {lesson.documents_json!.length} Doc{lesson.documents_json!.length > 1 ? 's' : ''}
+              </span>
+            )}
+            {hasQuiz && (
+              <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                <HelpCircle className="h-3 w-3" />
+                Quiz
               </span>
             )}
             {lesson.is_staff_visible && (

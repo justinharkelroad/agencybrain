@@ -79,6 +79,7 @@ interface ProductType {
   category: string;
   default_points: number | null;
   is_vc_item: boolean | null;
+  canonical_name: string | null; // From linked product_types, used for matching
 }
 
 interface TeamMember {
@@ -134,7 +135,9 @@ const PRODUCT_ICONS: Record<string, React.ReactNode> = {
 function matchProductType(extracted: string, productTypes: ProductType[]): ProductType | null {
   const normalized = extracted.toLowerCase().trim();
   const mappedName = PRODUCT_TYPE_MAPPING[normalized] || extracted;
-  return productTypes.find(pt => 
+  // Match against canonical_name (from linked product_types) first, then display name
+  return productTypes.find(pt =>
+    (pt.canonical_name && pt.canonical_name.toLowerCase() === mappedName.toLowerCase()) ||
     pt.name.toLowerCase() === mappedName.toLowerCase()
   ) || null;
 }
@@ -209,18 +212,34 @@ export function PdfUploadForm({
     filename: string;
   } | null>(null);
 
-  // Fetch product types
+  // Fetch policy types with linked product_types for comp fields
   const { data: productTypes = [] } = useQuery<ProductType[]>({
-    queryKey: ["product-types", effectiveAgencyId],
+    queryKey: ["policy-types-for-pdf-upload", effectiveAgencyId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("product_types")
-        .select("id, name, category, default_points, is_vc_item")
-        .or(`agency_id.is.null,agency_id.eq.${effectiveAgencyId}`)
+        .from("policy_types")
+        .select(`
+          id,
+          name,
+          product_type:product_types(
+            name,
+            category,
+            default_points,
+            is_vc_item
+          )
+        `)
+        .eq("agency_id", effectiveAgencyId)
         .eq("is_active", true)
-        .order("name");
+        .order("order_index", { ascending: true });
       if (error) throw error;
-      return data || [];
+      return (data || []).map(pt => ({
+        id: pt.id,
+        name: pt.name,
+        category: (pt.product_type as any)?.category || 'General',
+        default_points: (pt.product_type as any)?.default_points ?? 0,
+        is_vc_item: (pt.product_type as any)?.is_vc_item ?? false,
+        canonical_name: (pt.product_type as any)?.name || null,
+      }));
     },
     enabled: !!effectiveAgencyId,
   });

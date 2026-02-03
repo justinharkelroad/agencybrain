@@ -74,7 +74,7 @@ export function SuggestedQuestions({ onSelect, portal }: SuggestedQuestionsProps
           variant="ghost"
           size="sm"
           onClick={() => onSelect(question)}
-          className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1.5 h-auto transition-colors text-left whitespace-normal"
+          className="text-xs bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 border border-black/10 dark:border-white/10 rounded-full px-3 py-1.5 h-auto transition-colors text-left whitespace-normal"
         >
           {question}
         </Button>

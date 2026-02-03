@@ -16,7 +16,7 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
-import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
+import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -27,7 +27,8 @@ import {
   useBulkAssignLeadSource,
   HouseholdWithRelations
 } from '@/hooks/useLqsData';
-import { useStaffLqsData } from '@/hooks/useStaffLqsData';
+import { useLqsObjections } from '@/hooks/useLqsObjections';
+import { useStaffLqsData, useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { LqsMetricTiles } from '@/components/lqs/LqsMetricTiles';
 import { LqsFilters } from '@/components/lqs/LqsFilters';
 import { LqsHouseholdTable } from '@/components/lqs/LqsHouseholdTable';
@@ -85,8 +86,8 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
 
   // For staff portal, check access using staff user's agency_id
   const hasAccess = isStaffPortal
-    ? hasSalesBetaAccess(effectiveAgencyId ?? null)
-    : hasSalesBetaAccess(profile?.agency_id ?? null);
+    ? hasSalesAccess(effectiveAgencyId ?? null)
+    : hasSalesAccess(profile?.agency_id ?? null);
 
   // For agency portal, use useAgencyProfile hook; for staff portal, construct from staff user
   const { data: agencyProfileData, isLoading: agencyProfileLoading } = useAgencyProfile(
@@ -223,6 +224,10 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const refetch = isStaffPortal ? staffRefetch : agencyRefetch;
 
   const { data: leadSources = [] } = useLqsLeadSources(isStaffPortal ? null : (agencyProfile?.agencyId ?? null));
+  // Use staff hook for objections in staff portal, regular hook otherwise
+  const { data: staffObjections = [] } = useStaffLqsObjections(isStaffPortal ? staffSessionToken : null);
+  const { data: agencyObjections = [] } = useLqsObjections(!isStaffPortal);
+  const objections = isStaffPortal ? staffObjections : agencyObjections;
   const assignMutation = useAssignLeadSource();
   const bulkAssignMutation = useBulkAssignLeadSource();
 
@@ -868,9 +873,11 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         onOpenChange={setAddQuoteModalOpen}
         agencyId={agencyProfile.agencyId}
         leadSources={leadSources}
+        objections={objections}
         teamMembers={teamMembers}
         currentTeamMemberId={currentTeamMemberId}
         onSuccess={refetch}
+        staffSessionToken={isStaffPortal ? staffSessionToken : null}
       />
 
       {/* Household Detail Modal */}
@@ -883,6 +890,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
           handleAssignLeadSource(id);
         }}
         teamMembers={teamMembers}
+        staffSessionToken={isStaffPortal ? staffSessionToken : null}
       />
 
       {/* Sale Detail Modal (for sold households) */}

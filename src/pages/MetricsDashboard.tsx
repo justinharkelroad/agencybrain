@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, Users, Target, Award, CalendarIcon, Eye, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ import { useKpiLabels } from "@/hooks/useKpiLabels";
 import { RING_LABELS } from "@/components/rings/colors";
 import { HelpButton } from '@/components/HelpButton';
 import { AgencyDailyGoals } from '@/components/dashboard/AgencyDailyGoals';
+import SalespersonDailyReport from '@/components/metrics/SalespersonDailyReport';
 
 
 type Role = "Sales" | "Service";
@@ -239,6 +241,13 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
           )}
         </div>
 
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="overview">Team Overview</TabsTrigger>
+            <TabsTrigger value="daily-report">Daily Report</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="space-y-6">
 
         {/* Controls */}
         <Card className="glass-surface">
@@ -444,6 +453,20 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
             </CardContent>
           </Card>
         )}
+
+          </TabsContent>
+
+          <TabsContent value="daily-report">
+            {agencyId && (
+              <SalespersonDailyReport
+                agencyId={agencyId}
+                role={role}
+                kpiLabels={kpiLabels || {}}
+                scorecardRules={scorecardRules}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

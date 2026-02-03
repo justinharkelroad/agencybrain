@@ -21,10 +21,10 @@ const rankConfig = {
   2: {
     emoji: "🥈",
     label: "#2",
-    bgColor: "bg-gradient-to-r from-slate-400/20 to-slate-300/20",
-    borderColor: "border-slate-400/50",
-    textColor: "text-slate-400",
-    glowColor: "shadow-slate-400/20",
+    bgColor: "bg-gradient-to-r from-slate-500/20 dark:from-slate-400/20 to-slate-400/20 dark:to-slate-300/20",
+    borderColor: "border-slate-500/50 dark:border-slate-400/50",
+    textColor: "text-slate-600 dark:text-slate-400",
+    glowColor: "shadow-slate-500/20 dark:shadow-slate-400/20",
   },
   3: {
     emoji: "🥉",

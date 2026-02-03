@@ -167,6 +167,11 @@ export function LqsHouseholdRow({
           )}
         </TableCell>
 
+        {/* Objection */}
+        <TableCell className="text-muted-foreground text-sm">
+          {household.objection?.name || '—'}
+        </TableCell>
+
         {/* Producer */}
         <TableCell className="text-muted-foreground">
           {household.team_member?.name || '—'}
@@ -229,6 +234,8 @@ export function LqsHouseholdRow({
           <TableCell />
           <TableCell />
           <TableCell />
+          <TableCell />
+          <TableCell />
         </TableRow>
       ))}
 
@@ -237,7 +244,7 @@ export function LqsHouseholdRow({
         <TableRow className="bg-green-50/50 dark:bg-green-950/20">
           {showCheckbox && <TableCell />}
           <TableCell />
-          <TableCell colSpan={8} className="pl-8">
+          <TableCell colSpan={10} className="pl-8">
             <div className="space-y-2 py-2">
               <div className="flex items-center gap-2 text-sm font-medium text-green-700 dark:text-green-400">
                 <CheckCircle className="h-4 w-4" />

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Navigate } from "react-router-dom";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
-import { hasSalesBetaAccess } from "@/lib/salesBetaAccess";
+import { hasSalesAccess } from "@/lib/salesBetaAccess";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -153,7 +153,7 @@ export default function StaffSales() {
   }
 
   // Guard: only beta agencies can access staff sales
-  if (!hasSalesBetaAccess(user.agency_id ?? null)) {
+  if (!hasSalesAccess(user.agency_id ?? null)) {
     return <Navigate to="/staff/dashboard" replace />;
   }
 

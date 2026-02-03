@@ -14,7 +14,8 @@ import {
   ChargebackDetail,
   ChargebackFilterResult,
   CalculationSnapshot,
-  WrittenMetrics
+  WrittenMetrics,
+  BrokeredBundlingMetrics
 } from "./types";
 import { SelfGenMetrics } from "./self-gen";
 import { supabase } from "@/integrations/supabase/client";
@@ -496,12 +497,20 @@ export function getBundlingMultiplier(
 /**
  * Calculate bundling percentage from performance data
  * Bundling % = (Standard + Preferred items) / Total items * 100
+ *
+ * When includeBrokeredInBundling is true and brokeredBundlingMetrics is provided,
+ * brokered sales marked for bundling are included in the calculation.
  */
-export function calculateBundlingPercent(performance: SubProducerPerformance): number {
-  const totalItems = performance.writtenItems;
-  if (totalItems === 0) return 0;
-
+export function calculateBundlingPercent(
+  performance: SubProducerPerformance,
+  brokeredBundlingMetrics?: BrokeredBundlingMetrics,
+  includeBrokeredInBundling: boolean = false
+): number {
+  // Base metrics from Allstate statement data
+  let totalItems = performance.writtenItems;
   let bundledItems = 0;
+
+  // Calculate bundled items from statement data (existing logic)
   for (const bundleData of performance.byBundleType) {
     const bundleType = bundleData.bundleType.toLowerCase();
     if (bundleType === 'standard' || bundleType === 'preferred') {
@@ -509,6 +518,13 @@ export function calculateBundlingPercent(performance: SubProducerPerformance): n
     }
   }
 
+  // ADDITIVE: Include brokered bundling metrics if enabled
+  if (includeBrokeredInBundling && brokeredBundlingMetrics) {
+    bundledItems += brokeredBundlingMetrics.bundledItems;
+    totalItems += brokeredBundlingMetrics.totalItems;
+  }
+
+  if (totalItems === 0) return 0;
   return (bundledItems / totalItems) * 100;
 }
 
@@ -1073,7 +1089,8 @@ export function calculateMemberPayout(
   selfGenItems: number = 0, // Legacy: items marked as self-generated
   selfGenMetrics?: SelfGenMetrics, // New: full self-gen metrics from sales table
   brokeredMetrics?: BrokeredMetrics, // Phase 5: brokered business metrics
-  writtenMetrics?: WrittenMetrics // Written metrics from sales table for tier qualification
+  writtenMetrics?: WrittenMetrics, // Written metrics from sales table for tier qualification
+  brokeredBundlingMetrics?: BrokeredBundlingMetrics // Brokered sales marked for bundling
 ): PayoutCalculation {
   // Get tier metric source from plan (written or issued)
   const tierMetricSource = (plan as any).tier_metric_source || 'written';
@@ -1153,7 +1170,12 @@ export function calculateMemberPayout(
   });
 
   // Calculate bundling percentage and get multiplier
-  const bundlingPercent = calculateBundlingPercent(performance);
+  // Include brokered bundling metrics if comp plan has include_brokered_in_bundling enabled
+  const bundlingPercent = calculateBundlingPercent(
+    performance,
+    brokeredBundlingMetrics,
+    plan.include_brokered_in_bundling === true
+  );
   const bundlingMultiplier = getBundlingMultiplier(bundlingPercent, plan.bundling_multipliers);
 
   // Determine which calculation method to use
@@ -1435,7 +1457,8 @@ export async function calculateAllPayouts(
   selfGenByMember?: Map<string, number>,
   selfGenMetricsByMember?: Map<string, SelfGenMetrics>,
   brokeredMetricsByMember?: Map<string, BrokeredMetrics>,
-  writtenMetricsByMember?: Map<string, WrittenMetrics>
+  writtenMetricsByMember?: Map<string, WrittenMetrics>,
+  brokeredBundlingMetricsByMember?: Map<string, BrokeredBundlingMetrics>
 ): Promise<{ payouts: PayoutCalculation[]; warnings: string[] }> {
   // Guard against missing data
   if (!subProducerData || !Array.isArray(subProducerData)) {
@@ -1595,6 +1618,7 @@ export async function calculateAllPayouts(
       const selfGenMetrics = selfGenMetricsByMember?.get(teamMember.id);
       const brokeredMetrics = brokeredMetricsByMember?.get(teamMember.id);
       const writtenMetrics = writtenMetricsByMember?.get(teamMember.id);
+      const brokeredBundlingMetrics = brokeredBundlingMetricsByMember?.get(teamMember.id);
 
       const payout = calculateMemberPayout(
         performance,
@@ -1605,7 +1629,8 @@ export async function calculateAllPayouts(
         selfGenItems,
         selfGenMetrics,
         brokeredMetrics,
-        writtenMetrics
+        writtenMetrics,
+        brokeredBundlingMetrics
       );
       payouts.push(payout);
     }

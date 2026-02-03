@@ -10,6 +10,25 @@ export interface ChecklistItem {
   criteria: string;
 }
 
+// Follow-up template configuration
+export interface FollowUpPromptConfig {
+  crmNotes?: {
+    enabled: boolean;
+    instructions: string;
+  };
+  emailTemplate?: {
+    enabled: boolean;
+    tone: 'professional' | 'friendly' | 'casual';
+    instructions: string;
+  };
+  textTemplate?: {
+    enabled: boolean;
+    tone: 'professional' | 'friendly' | 'casual';
+    maxLength: number;
+    instructions: string;
+  };
+}
+
 export interface SalesPromptConfig {
   templateName: string;
   summaryInstructions: string;
@@ -19,6 +38,7 @@ export interface SalesPromptConfig {
   closingAttemptsCriteria: string;
   coachingFocus: string;
   checklistItems: ChecklistItem[];
+  followupPrompts?: FollowUpPromptConfig;
 }
 
 export interface ServicePromptConfig {
@@ -29,6 +49,7 @@ export interface ServicePromptConfig {
   crmSections: string[];
   numSuggestions: string;
   suggestionsFocus: string;
+  followupPrompts?: FollowUpPromptConfig;
 }
 
 export const DEFAULT_SALES_CONFIG: SalesPromptConfig = {

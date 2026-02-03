@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompPlans } from "./useCompPlans";
 import { calculateAllPayouts, convertToPerformance, calculateMemberPayout, BrokeredMetrics } from "@/lib/payout-calculator/calculator";
-import { PayoutCalculation, WrittenMetrics } from "@/lib/payout-calculator/types";
+import { PayoutCalculation, WrittenMetrics, BrokeredBundlingMetrics } from "@/lib/payout-calculator/types";
 import { calculateSelfGenMetricsBatch, SelfGenMetrics } from "@/lib/payout-calculator/self-gen";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { toast } from "sonner";
@@ -176,6 +176,64 @@ async function fetchBrokeredMetrics(
   return brokeredByMember;
 }
 
+// Fetch brokered bundling metrics - sales marked to count toward bundling
+async function fetchBrokeredBundlingMetrics(
+  agencyId: string,
+  month: number,
+  year: number
+): Promise<Map<string, BrokeredBundlingMetrics>> {
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0);
+  const startStr = startDate.toISOString().split('T')[0];
+  const endStr = endDate.toISOString().split('T')[0];
+
+  const { data: sales, error } = await supabase
+    .from("sales")
+    .select(`
+      team_member_id,
+      brokered_carrier_id,
+      brokered_counts_toward_bundling,
+      bundle_type,
+      total_items
+    `)
+    .eq("agency_id", agencyId)
+    .not("brokered_carrier_id", "is", null)
+    .eq("brokered_counts_toward_bundling", true)
+    .gte("sale_date", startStr)
+    .lte("sale_date", endStr);
+
+  if (error) {
+    console.error("Error fetching brokered bundling metrics:", error);
+    return new Map();
+  }
+
+  const metricsByMember = new Map<string, BrokeredBundlingMetrics>();
+
+  for (const sale of sales || []) {
+    if (!sale.team_member_id) continue;
+
+    const current = metricsByMember.get(sale.team_member_id) || {
+      bundledItems: 0,
+      bundledHouseholds: 0,
+      totalItems: 0,
+    };
+
+    const items = sale.total_items || 0;
+    current.totalItems += items;
+
+    // Count as bundled if bundle_type is Standard or Preferred
+    const bundleType = (sale.bundle_type || '').toLowerCase();
+    if (bundleType === 'standard' || bundleType === 'preferred') {
+      current.bundledItems += items;
+      current.bundledHouseholds += 1;
+    }
+
+    metricsByMember.set(sale.team_member_id, current);
+  }
+
+  return metricsByMember;
+}
+
 // Fetch written metrics from sales table for tier qualification
 // This is used when tier_metric_source = 'written' to use manual sales entries
 // instead of Allstate statement data for determining which tier a producer qualifies for
@@ -343,6 +401,9 @@ export function usePayoutCalculator(agencyId: string | null) {
     // Fetch written metrics from sales table (for tier qualification when source = 'written')
     const writtenMetricsByMember = await fetchWrittenMetrics(agencyId, teamMemberIds, month, year);
 
+    // Fetch brokered bundling metrics - sales marked to count toward bundling
+    const brokeredBundlingMetricsByMember = await fetchBrokeredBundlingMetrics(agencyId, month, year);
+
     return await calculateAllPayouts(
       subProducerData,
       plans,
@@ -355,7 +416,8 @@ export function usePayoutCalculator(agencyId: string | null) {
       selfGenByMember,
       selfGenMetricsByMember,
       brokeredMetricsByMember,
-      writtenMetricsByMember
+      writtenMetricsByMember,
+      brokeredBundlingMetricsByMember
     );
   };
 

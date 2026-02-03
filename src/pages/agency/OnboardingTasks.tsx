@@ -25,6 +25,9 @@ import {
   RefreshCw,
   ChevronLeft,
   ChevronRight,
+  Plus,
+  List,
+  Grid3X3,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -40,7 +43,14 @@ import {
 import { CompletedTodaySection } from '@/components/onboarding/CompletedTodaySection';
 import { ReassignSequenceModal } from '@/components/onboarding/ReassignSequenceModal';
 import { SevenDayOutlook } from '@/components/onboarding/SevenDayOutlook';
+import { MonthlyTaskCalendar } from '@/components/onboarding/MonthlyTaskCalendar';
+import { ScheduleTaskDialog } from '@/components/onboarding/ScheduleTaskDialog';
 import { ContactProfileModal } from '@/components/contacts/ContactProfileModal';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useScheduleAdhocTask } from '@/hooks/useScheduleAdhocTask';
+
+type CalendarViewType = 'week' | 'month';
 
 interface ReassignState {
   instanceId: string;
@@ -79,6 +89,10 @@ export default function OnboardingTasksPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
   const MAX_ITEMS = 50;
+  // Calendar view toggle
+  const [calendarView, setCalendarView] = useState<CalendarViewType>('week');
+  // Schedule task dialog
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
 
   // Fetch user's profile for agency_id
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -191,6 +205,27 @@ export default function OnboardingTasksPage() {
     } finally {
       setCompletingTaskId(null);
     }
+  };
+
+  // Schedule adhoc task
+  const scheduleTask = useScheduleAdhocTask();
+
+  const handleScheduleTask = async (data: {
+    contactId: string;
+    contactName: string;
+    dueDate: string;
+    actionType: 'call' | 'text' | 'email' | 'other';
+    title: string;
+    description?: string;
+  }) => {
+    await scheduleTask.mutateAsync({
+      contactId: data.contactId,
+      dueDate: data.dueDate,
+      actionType: data.actionType,
+      title: data.title,
+      description: data.description,
+    });
+    toast.success(`Task scheduled: ${data.title} for ${data.contactName}`);
   };
 
   // Extract unique sequences from tasks for filter dropdown
@@ -307,15 +342,25 @@ export default function OnboardingTasksPage() {
           <h1 className="text-2xl font-bold">Your Sequence Queue</h1>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          disabled={isLoading}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setShowScheduleDialog(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Schedule Task
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -378,7 +423,8 @@ export default function OnboardingTasksPage() {
       </div>
 
       {/* Filter Dropdowns - above the week view */}
-      <div className="flex items-center gap-4 mb-4 flex-wrap">
+      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+        <div className="flex items-center gap-4 flex-wrap">
         {/* View/Assignee Filter */}
         {canViewAllAgency && (
           <div className="flex items-center gap-2">
@@ -437,15 +483,53 @@ export default function OnboardingTasksPage() {
             </Select>
           </div>
         )}
+        </div>
+
+        {/* Calendar View Toggle */}
+        <ToggleGroup
+          type="single"
+          value={calendarView}
+          onValueChange={(value) => value && setCalendarView(value as CalendarViewType)}
+          className="border rounded-md"
+        >
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToggleGroupItem value="week" aria-label="Week view" className="h-8 w-8 p-0">
+                  <List className="h-4 w-4" />
+                </ToggleGroupItem>
+              </TooltipTrigger>
+              <TooltipContent>Week view</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToggleGroupItem value="month" aria-label="Month view" className="h-8 w-8 p-0">
+                  <Grid3X3 className="h-4 w-4" />
+                </ToggleGroupItem>
+              </TooltipTrigger>
+              <TooltipContent>Month view</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </ToggleGroup>
       </div>
 
-      {/* This Week Outlook */}
+      {/* Calendar View */}
       {!isLoading && (
-        <SevenDayOutlook
-          tasks={activeTasks}
-          onDayClick={handleDayClick}
-          selectedDate={selectedDate}
-        />
+        calendarView === 'week' ? (
+          <SevenDayOutlook
+            tasks={activeTasks}
+            onDayClick={handleDayClick}
+            selectedDate={selectedDate}
+          />
+        ) : (
+          <MonthlyTaskCalendar
+            tasks={activeTasks}
+            onDayClick={handleDayClick}
+            selectedDate={selectedDate}
+          />
+        )
       )}
 
       {/* Date Filter Indicator */}
@@ -636,6 +720,14 @@ export default function OnboardingTasksPage() {
         defaultSourceModule="manual"
         userId={user?.id}
         onActivityLogged={() => refetch()}
+      />
+
+      {/* Schedule Task Dialog */}
+      <ScheduleTaskDialog
+        open={showScheduleDialog}
+        onOpenChange={setShowScheduleDialog}
+        agencyId={profile?.agency_id || null}
+        onSchedule={handleScheduleTask}
       />
     </div>
   );

@@ -3,9 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {
   User, CheckCircle2, XCircle, Clock, Download,
   Loader2, Headphones, FileText, Lightbulb, ClipboardList,
-  MessageSquareQuote, CheckCircle, AlertTriangle, Target
+  MessageSquareQuote, CheckCircle, AlertTriangle, Target,
+  Sparkles, Mail, MessageSquare
 } from "lucide-react";
 import { parseFeedback } from '@/lib/utils/feedback-parser';
 import { Label } from "@/components/ui/label";
@@ -13,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useState, useRef } from "react";
 import { toast } from 'sonner';
 import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecard';
+import { FollowUpTemplateDisplay } from './FollowUpTemplateDisplay';
 
 interface ServiceSectionScore {
   section_name: string;
@@ -60,6 +68,9 @@ interface ServiceCallReportCardProps {
       csr_name?: string;
       client_first_name?: string;
     };
+    // Follow-up templates
+    generated_email_template?: string | null;
+    generated_text_template?: string | null;
   };
   open: boolean;
   onClose: () => void;
@@ -103,6 +114,7 @@ export function ServiceCallReportCard({
   onAcknowledge
 }: ServiceCallReportCardProps) {
   const [exporting, setExporting] = useState(false);
+  const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
 
   // Staff acknowledgment state
@@ -221,27 +233,49 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
         {/* Export buttons - OUTSIDE the ref */}
         <div className="absolute top-4 right-12 z-10 flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Sparkles className="h-4 w-4" />
+                <span className="ml-1 hidden sm:inline">Follow-Up</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowFollowUpDialog(true)}>
+                <Mail className="h-4 w-4 mr-2" />
+                Generate Email
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowFollowUpDialog(true)}>
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Generate Text/SMS
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowFollowUpDialog(true)}>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Generate Both
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportPNG}
             disabled={exporting}
           >
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             <span className="ml-1 hidden sm:inline">PNG</span>
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportPDF}
             disabled={exporting}
           >
             <Download className="h-4 w-4" />
             <span className="ml-1 hidden sm:inline">PDF</span>
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={copyResults}
           >
             <FileText className="h-4 w-4" />
@@ -724,6 +758,16 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
           </div>
         </div>
       </DialogContent>
+
+      {/* Follow-Up Templates Dialog */}
+      <FollowUpTemplateDisplay
+        open={showFollowUpDialog}
+        onClose={() => setShowFollowUpDialog(false)}
+        callId={call.id}
+        existingEmail={call.generated_email_template}
+        existingText={call.generated_text_template}
+        clientName={mappedClientName || 'Client'}
+      />
     </Dialog>
   );
 }

@@ -59,7 +59,7 @@ export function ExchangePostComposer() {
   };
   
   return (
-    <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+    <Card className="border-border/50 bg-card/90 dark:bg-card/50 backdrop-blur-sm">
       <CardContent className="p-4 space-y-4">
         <Textarea
           value={content}

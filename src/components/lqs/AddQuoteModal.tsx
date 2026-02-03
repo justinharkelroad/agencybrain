@@ -23,16 +23,27 @@ import { formatPhoneNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LqsLeadSource } from '@/hooks/useLqsData';
+import { LqsObjection } from '@/hooks/useLqsObjections';
+import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';
 import { format } from 'date-fns';
 interface AddQuoteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   agencyId: string;
   leadSources: LqsLeadSource[];
+  objections: LqsObjection[];
   teamMembers: { id: string; name: string }[];
   currentTeamMemberId?: string | null;
   onSuccess: () => void;
   staffSessionToken?: string | null;
+}
+
+interface NewHouseholdData {
+  householdId: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  email?: string;
 }
 
 const PRODUCT_OPTIONS = [
@@ -60,6 +71,7 @@ export function AddQuoteModal({
   onOpenChange,
   agencyId,
   leadSources,
+  objections,
   teamMembers,
   currentTeamMemberId,
   onSuccess,
@@ -75,9 +87,14 @@ export function AddQuoteModal({
   const [quoteDate, setQuoteDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [teamMemberId, setTeamMemberId] = useState(currentTeamMemberId || '');
   const [leadSourceId, setLeadSourceId] = useState('');
+  const [objectionId, setObjectionId] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Sequence modal state
+  const [showApplySequenceModal, setShowApplySequenceModal] = useState(false);
+  const [newHouseholdData, setNewHouseholdData] = useState<NewHouseholdData | null>(null);
 
   const resetForm = () => {
     setFirstName('');
@@ -87,6 +104,7 @@ export function AddQuoteModal({
     setQuoteDate(format(new Date(), 'yyyy-MM-dd'));
     setTeamMemberId(currentTeamMemberId || '');
     setLeadSourceId('');
+    setObjectionId('');
     setPhone('');
     setEmail('');
     setNotes('');
@@ -140,6 +158,10 @@ export function AddQuoteModal({
       toast.error('Quote date is required');
       return;
     }
+    if (!objectionId) {
+      toast.error('Main objection is required');
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -159,6 +181,7 @@ export function AddQuoteModal({
             phone: phone || undefined,
             email: email || undefined,
             lead_source_id: leadSourceId || undefined,
+            objection_id: objectionId || undefined,
             quote_date: quoteDate,
             notes: notes || undefined,
             products: products,
@@ -174,9 +197,24 @@ export function AddQuoteModal({
 
         const productCount = products.length;
         toast.success(`${productCount} quote${productCount > 1 ? 's' : ''} added successfully`);
-        resetForm();
-        onSuccess();
-        onOpenChange(false);
+
+        // Store household data for sequence modal
+        const householdId = data?.household_id;
+        if (householdId) {
+          setNewHouseholdData({
+            householdId,
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            phone: phone || undefined,
+            email: email || undefined,
+          });
+          setShowApplySequenceModal(true);
+        } else {
+          // No household ID returned, just close
+          resetForm();
+          onSuccess();
+          onOpenChange(false);
+        }
         return;
       }
 
@@ -193,6 +231,7 @@ export function AddQuoteModal({
         .maybeSingle();
 
       let householdId: string;
+      let isNewHousehold = false;
 
       if (existingHousehold) {
         householdId = existingHousehold.id;
@@ -209,6 +248,7 @@ export function AddQuoteModal({
           updates.lead_source_id = leadSourceId;
           updates.needs_attention = false;
         }
+        if (objectionId) updates.objection_id = objectionId;
         if (teamMemberId) updates.team_member_id = teamMemberId;
         if (notes) updates.notes = notes;
 
@@ -235,6 +275,7 @@ export function AddQuoteModal({
             status: 'quoted',
             first_quote_date: quoteDate,
             lead_source_id: leadSourceId || null,
+            objection_id: objectionId || null,
             team_member_id: teamMemberId || null,
             needs_attention: !leadSourceId,
             notes: notes || null,
@@ -244,6 +285,7 @@ export function AddQuoteModal({
 
         if (insertError) throw insertError;
         householdId = newHousehold.id;
+        isNewHousehold = true;
       }
 
       // Create quote records for each product
@@ -266,15 +308,37 @@ export function AddQuoteModal({
 
       const productCount = products.length;
       toast.success(`${productCount} quote${productCount > 1 ? 's' : ''} added successfully`);
-      resetForm();
-      onSuccess();
-      onOpenChange(false);
+
+      // Show sequence modal for new households
+      if (isNewHousehold) {
+        setNewHouseholdData({
+          householdId,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone || undefined,
+          email: email || undefined,
+        });
+        setShowApplySequenceModal(true);
+      } else {
+        resetForm();
+        onSuccess();
+        onOpenChange(false);
+      }
     } catch (error) {
       console.error('Error adding quote:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to add quote');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Handler for when sequence modal is closed/completed
+  const handleSequenceModalClose = () => {
+    setShowApplySequenceModal(false);
+    setNewHouseholdData(null);
+    resetForm();
+    onSuccess();
+    onOpenChange(false);
   };
 
   // Group lead sources by bucket
@@ -484,6 +548,31 @@ export function AddQuoteModal({
             </Select>
           </div>
 
+          {/* Main Objection */}
+          <div className="space-y-2">
+            <Label htmlFor="objection">
+              Main Objection <span className="text-destructive">*</span>
+            </Label>
+            {objections.length === 0 ? (
+              <div className="text-sm text-muted-foreground p-2 border rounded-md bg-muted/50">
+                No objections configured. Contact your Agency Owner/Manager to add objection options.
+              </div>
+            ) : (
+              <Select value={objectionId} onValueChange={setObjectionId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select main objection..." />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {objections.map((objection) => (
+                    <SelectItem key={objection.id} value={objection.id}>
+                      {objection.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
           {/* Contact Info Row */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -525,7 +614,7 @@ export function AddQuoteModal({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
+          <Button onClick={handleSubmit} disabled={isSubmitting || objections.length === 0}>
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -537,6 +626,23 @@ export function AddQuoteModal({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Apply Sequence Modal - shown after successful quote creation */}
+      {newHouseholdData && (
+        <ApplySequenceModal
+          open={showApplySequenceModal}
+          onOpenChange={(open) => {
+            if (!open) handleSequenceModalClose();
+          }}
+          householdId={newHouseholdData.householdId}
+          customerName={`${newHouseholdData.firstName} ${newHouseholdData.lastName}`}
+          customerPhone={newHouseholdData.phone}
+          customerEmail={newHouseholdData.email}
+          agencyId={agencyId}
+          onSuccess={handleSequenceModalClose}
+          staffSessionToken={staffSessionToken}
+        />
+      )}
     </Dialog>
   );
 }

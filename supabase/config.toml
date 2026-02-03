@@ -150,6 +150,9 @@ verify_jwt = true
 [functions.staff_submit_form]
 verify_jwt = false
 
+[functions.staff_get_dashboard_metrics]
+verify_jwt = false
+
 [functions.send_submission_feedback]
 verify_jwt = false
 
@@ -271,6 +274,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.staff_add_quote]
+verify_jwt = false
+
+[functions.staff_add_policy]
 verify_jwt = false
 
 [functions.get_staff_goal]
@@ -405,6 +411,9 @@ verify_jwt = false
 [functions.complete_staff_onboarding_task]
 verify_jwt = false
 
+[functions.create_adhoc_task]
+verify_jwt = false
+
 [functions.reassign_onboarding_sequence]
 verify_jwt = true
 
@@ -473,6 +482,9 @@ verify_jwt = true
 
 [functions.standalone-sales-process]
 verify_jwt = true
+
+[functions.generate-follow-up-templates]
+verify_jwt = false
 
 [functions.send-morning-digest]
 verify_jwt = false

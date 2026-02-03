@@ -56,6 +56,7 @@ export interface LqsHousehold {
   first_quote_date: string | null;
   sold_date: string | null;
   team_member_id: string | null;
+  objection_id: string | null;
   needs_attention: boolean;
   attention_reason: AttentionReason | null;
   conflicting_lead_source_id: string | null;

@@ -44,7 +44,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { hasSalesBetaAccess } from '@/lib/salesBetaAccess';
+import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { useAgencyProfile } from '@/hooks/useAgencyProfile';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -59,6 +59,8 @@ import { LqsRoiBucketTable } from '@/components/lqs/LqsRoiBucketTable';
 import { LqsProducerBreakdown } from '@/components/lqs/LqsProducerBreakdown';
 import { useLqsProducerBreakdown } from '@/hooks/useLqsProducerBreakdown';
 import { LqsLeadSourceDetailSheet } from '@/components/lqs/LqsLeadSourceDetailSheet';
+import { LqsProducerDetailSheet } from '@/components/lqs/LqsProducerDetailSheet';
+import type { ProducerViewMode } from '@/hooks/useLqsProducerDetail';
 import { LqsGoalsHeader } from '@/components/lqs/LqsGoalsHeader';
 import { LqsSameMonthConversion } from '@/components/lqs/LqsSameMonthConversion';
 import { LqsRoiSpendBubbleChart } from '@/components/lqs/LqsRoiSpendBubbleChart';
@@ -403,10 +405,22 @@ export default function LqsRoiPage() {
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
   const [selectedLeadSourceId, setSelectedLeadSourceId] = useState<string | null | undefined>(undefined);
 
+  // Producer detail sheet state
+  const [producerDetailSheetOpen, setProducerDetailSheetOpen] = useState(false);
+  const [selectedProducerId, setSelectedProducerId] = useState<string | null | undefined>(undefined);
+  const [producerViewMode, setProducerViewMode] = useState<ProducerViewMode>('quotedBy');
+
   // Handler for lead source click
   const handleLeadSourceClick = (leadSourceId: string | null) => {
     setSelectedLeadSourceId(leadSourceId);
     setDetailSheetOpen(true);
+  };
+
+  // Handler for producer click
+  const handleProducerClick = (teamMemberId: string | null, viewMode: ProducerViewMode) => {
+    setSelectedProducerId(teamMemberId);
+    setProducerViewMode(viewMode);
+    setProducerDetailSheetOpen(true);
   };
 
   // Get date range from preset or use custom
@@ -458,7 +472,7 @@ export default function LqsRoiPage() {
   );
 
   // Check access via agency whitelist
-  const hasAccess = hasSalesBetaAccess(agencyProfile?.agencyId ?? null);
+  const hasAccess = hasSalesAccess(agencyProfile?.agencyId ?? null);
   
   // Load commission rate from agency when available
   useEffect(() => {
@@ -864,6 +878,7 @@ export default function LqsRoiPage() {
       <LqsProducerBreakdown
         data={producerData}
         isLoading={producerLoading}
+        onProducerClick={handleProducerClick}
       />
 
       {/* Same-Month Conversion Metric */}
@@ -885,6 +900,16 @@ export default function LqsRoiPage() {
         dateRange={dateRange}
         open={detailSheetOpen}
         onOpenChange={setDetailSheetOpen}
+      />
+
+      {/* Producer Detail Sheet */}
+      <LqsProducerDetailSheet
+        agencyId={agencyProfile?.agencyId ?? null}
+        teamMemberId={selectedProducerId}
+        viewMode={producerViewMode}
+        dateRange={dateRange}
+        open={producerDetailSheetOpen}
+        onOpenChange={setProducerDetailSheetOpen}
       />
     </div>
   );

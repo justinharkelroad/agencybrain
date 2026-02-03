@@ -40,6 +40,7 @@ import { LegacyScorecardsSubmissionsRedirect } from "./components/LegacyScorecar
 import OnboardingTasksPrototype from "./pages/prototype/OnboardingTasksPrototype";
 import SequenceBuilderPrototype from "./pages/prototype/SequenceBuilderPrototype";
 import SubscriptionPreview from "./pages/SubscriptionPreview";
+import TestCheckout from "./pages/TestCheckout";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
@@ -135,6 +136,7 @@ import CallScoringTemplates from "./pages/admin/CallScoringTemplates";
 import AdminExchangeTags from "./pages/admin/AdminExchangeTags";
 import AdminExchangeReports from "./pages/admin/AdminExchangeReports";
 import AdminExchangeAnalytics from "./pages/admin/AdminExchangeAnalytics";
+import AdminLqsObjections from "./pages/admin/AdminLqsObjections";
 import CallScoring from "./pages/CallScoring";
 import Exchange from "./pages/Exchange";
 import ExchangeMessages from "./pages/ExchangeMessages";
@@ -253,6 +255,7 @@ const App = () => {
             <Route path="/prototype/onboarding-tasks" element={<OnboardingTasksPrototype />} />
             <Route path="/prototype/sequence-builder" element={<SequenceBuilderPrototype />} />
             <Route path="/preview/subscription" element={<SubscriptionPreview />} />
+            <Route path="/test/checkout" element={<TestCheckout />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <SidebarLayout>
@@ -345,6 +348,12 @@ const App = () => {
                 <SidebarLayout>
                   <LqsRoiPage />
                 </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* Objection Manager - Agency Owners and Managers */}
+            <Route path="/objection-manager" element={
+              <ProtectedRoute>
+                <AdminLqsObjections />
               </ProtectedRoute>
             } />
             {/* Exchange Routes */}
@@ -825,6 +834,11 @@ const App = () => {
             <Route path="/admin/exchange-analytics" element={
               <ProtectedRoute requireAdmin>
                 <AdminExchangeAnalytics />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/lqs-objections" element={
+              <ProtectedRoute requireAdmin>
+                <AdminLqsObjections />
               </ProtectedRoute>
             } />
             <Route path="/admin/training" element={

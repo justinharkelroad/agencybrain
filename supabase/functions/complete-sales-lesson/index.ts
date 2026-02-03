@@ -92,14 +92,30 @@ Deno.serve(async (req) => {
         .eq('id', user.id)
         .single();
 
-      if (!profile || !['admin', 'agency_owner', 'key_employee'].includes(profile.role)) {
+      // Check if user is admin (by role)
+      const isAdmin = profile?.role === 'admin';
+
+      // Check if user is agency owner (by having agency_id)
+      const isAgencyOwner = !!profile?.agency_id;
+
+      // Check if user is key employee
+      const { data: keyEmployee } = await supabase
+        .from('key_employees')
+        .select('agency_id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      const isKeyEmployee = !!keyEmployee;
+
+      if (!isAdmin && !isAgencyOwner && !isKeyEmployee) {
         return new Response(
           JSON.stringify({ error: 'Access denied' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      agencyId = profile.agency_id;
+      // Use key employee's agency if they don't have one directly
+      agencyId = profile?.agency_id || keyEmployee?.agency_id || null;
     } else {
       return new Response(
         JSON.stringify({ error: 'Missing authentication' }),

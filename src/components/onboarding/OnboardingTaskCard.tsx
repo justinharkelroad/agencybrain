@@ -25,6 +25,7 @@ import {
   User,
   FileText,
   Loader2,
+  Zap,
 } from 'lucide-react';
 import { format, isToday, isPast, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -246,8 +247,16 @@ export function OnboardingTaskCard({
                 </span>
               )}
 
-              {/* Sequence Name */}
-              {task.instance?.sequence && (
+              {/* Sequence Name or Ad-hoc Badge */}
+              {task.is_adhoc ? (
+                <Badge
+                  variant="outline"
+                  className="text-xs font-normal border-amber-400 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10"
+                >
+                  <Zap className="h-3 w-3 mr-1" />
+                  Ad-hoc
+                </Badge>
+              ) : task.instance?.sequence && (
                 <Badge variant="outline" className="text-xs font-normal">
                   {task.instance.sequence.name}
                 </Badge>

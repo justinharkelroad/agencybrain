@@ -285,3 +285,13 @@ export interface WrittenMetrics {
   writtenPolicies: number;
   writtenHouseholds: number;
 }
+
+/**
+ * Brokered bundling metrics for bundling % calculation.
+ * Includes brokered sales where brokered_counts_toward_bundling = true.
+ */
+export interface BrokeredBundlingMetrics {
+  bundledItems: number;      // Items in Standard + Preferred bundles
+  bundledHouseholds: number; // Households in Standard + Preferred bundles
+  totalItems: number;        // All brokered items marked for bundling (for denominator)
+}

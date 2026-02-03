@@ -24,21 +24,21 @@ const statusConfig = {
     icon: TrendingUp,
     label: "Ahead of Pace",
     bgClass: "bg-emerald-500/20",
-    textClass: "text-emerald-400",
+    textClass: "text-emerald-600 dark:text-emerald-400",
     borderClass: "border-emerald-500/30",
   },
   "on-track": {
     icon: CheckCircle2,
     label: "On Track",
     bgClass: "bg-emerald-500/20",
-    textClass: "text-emerald-400",
+    textClass: "text-emerald-600 dark:text-emerald-400",
     borderClass: "border-emerald-500/30",
   },
   behind: {
     icon: AlertTriangle,
     label: "Behind Pace",
     bgClass: "bg-amber-500/20",
-    textClass: "text-amber-400",
+    textClass: "text-amber-600 dark:text-amber-400",
     borderClass: "border-amber-500/30",
   },
 };
@@ -72,8 +72,8 @@ export function PacingIndicator({
       <div className={cn(
         "flex flex-wrap items-center justify-between gap-3 px-4 py-3",
         "rounded-xl",
-        "bg-white/5 dark:bg-white/5 backdrop-blur-sm",
-        "border border-white/10"
+        "bg-black/5 dark:bg-white/5 backdrop-blur-sm",
+        "border border-black/10 dark:border-white/10"
       )}>
         {/* Daily Pace Needed */}
         <div className="flex items-center gap-2">

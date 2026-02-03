@@ -23,6 +23,12 @@ export interface ChallengeModule {
   icon: string | null;
 }
 
+export interface LessonDocument {
+  id: string;
+  name: string;
+  url: string;
+}
+
 export interface ChallengeLesson {
   id: string;
   challenge_product_id: string;
@@ -38,6 +44,7 @@ export interface ChallengeLesson {
   content_html: string | null;
   questions: any[] | null;
   action_items: any[] | null;
+  documents_json: LessonDocument[] | null;
   is_discovery_flow: boolean;
   email_subject: string | null;
   email_preview: string | null;

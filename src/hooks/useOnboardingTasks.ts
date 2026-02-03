@@ -8,7 +8,7 @@ export type ActionType = 'call' | 'text' | 'email' | 'other';
 
 export interface OnboardingTask {
   id: string;
-  instance_id: string;
+  instance_id: string | null;
   step_id: string | null;
   agency_id: string;
   assigned_to_staff_user_id: string | null;
@@ -26,6 +26,10 @@ export interface OnboardingTask {
   completion_notes: string | null;
   created_at: string;
   updated_at: string;
+  // Adhoc task fields
+  is_adhoc?: boolean;
+  contact_id?: string | null;
+  parent_task_id?: string | null;
   // Joined fields
   instance?: {
     id: string;

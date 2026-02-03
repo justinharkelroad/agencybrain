@@ -1,4 +1,4 @@
-import { RING_COLORS, RING_LABELS } from "./colors";
+import { RING_LABELS, getRingColor } from "./colors";
 
 interface RingLegendProps {
   metrics: string[];
@@ -15,7 +15,7 @@ export default function RingLegend({ metrics, kpiLabels }: RingLegendProps) {
         <div key={metricKey} className="flex items-center gap-2">
           <span
             className="inline-block w-3 h-3 rounded-full"
-            style={{ background: RING_COLORS[metricKey] || "#9ca3af" }}
+            style={{ background: getRingColor(metricKey) }}
           />
           <span className="text-foreground">
             {kpiLabels?.[metricKey] || RING_LABELS[metricKey] || metricKey}

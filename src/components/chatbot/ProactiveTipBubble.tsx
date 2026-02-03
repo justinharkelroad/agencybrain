@@ -26,9 +26,9 @@ export function ProactiveTipBubble({
           className="fixed z-50 bottom-24 right-6"
         >
           {/* Speech bubble */}
-          <div 
+          <div
             onClick={onAccept}
-            className="relative bg-gradient-to-br from-slate-800 to-slate-900 border border-primary/30 rounded-2xl p-4 pr-10 shadow-xl cursor-pointer hover:border-primary/50 transition-colors max-w-[280px]"
+            className="relative bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 border border-primary/30 rounded-2xl p-4 pr-10 shadow-xl cursor-pointer hover:border-primary/50 transition-colors max-w-[280px]"
           >
             {/* Dismiss button */}
             <button
@@ -36,7 +36,7 @@ export function ProactiveTipBubble({
                 e.stopPropagation();
                 onDismiss();
               }}
-              className="absolute top-2 right-2 p-1 hover:bg-white/10 rounded-full transition-colors text-muted-foreground hover:text-foreground"
+              className="absolute top-2 right-2 p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded-full transition-colors text-muted-foreground hover:text-foreground"
               aria-label="Dismiss"
             >
               <X className="w-4 h-4" />
@@ -56,7 +56,7 @@ export function ProactiveTipBubble({
             </div>
 
             {/* Pointer triangle */}
-            <div className="absolute -bottom-2 right-8 w-4 h-4 bg-slate-900 border-r border-b border-primary/30 transform rotate-45" />
+            <div className="absolute -bottom-2 right-8 w-4 h-4 bg-slate-200 dark:bg-slate-900 border-r border-b border-primary/30 transform rotate-45" />
           </div>
         </motion.div>
       )}

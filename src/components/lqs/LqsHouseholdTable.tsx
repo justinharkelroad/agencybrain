@@ -154,6 +154,7 @@ export function LqsHouseholdTable({
               <TableHead>Products</TableHead>
               <TableHead>Premium</TableHead>
               <TableHead>Lead Source</TableHead>
+              <TableHead>Objection</TableHead>
               <TableHead>Producer</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-10" />

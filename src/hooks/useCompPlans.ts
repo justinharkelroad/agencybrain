@@ -97,6 +97,7 @@ export interface CompPlan {
   brokered_flat_rate: number | null;
   brokered_payout_type: string | null;
   brokered_counts_toward_tier: boolean | null;
+  include_brokered_in_bundling: boolean | null;
   policy_type_filter: string[] | null;
   is_active: boolean | null;
   created_at: string | null;

@@ -15,6 +15,7 @@ export interface CompPlanFormData {
   brokered_payout_type: string;
   brokered_flat_rate: number | null;
   brokered_counts_toward_tier: boolean;
+  include_brokered_in_bundling?: boolean;
   is_active: boolean;
   tiers: TierFormData[];
   brokered_tiers: TierFormData[];
@@ -57,6 +58,7 @@ export function useCompPlanMutations(agencyId: string | null) {
           brokered_payout_type: data.brokered_payout_type,
           brokered_flat_rate: data.brokered_flat_rate,
           brokered_counts_toward_tier: data.brokered_counts_toward_tier,
+          include_brokered_in_bundling: data.include_brokered_in_bundling || false,
           is_active: data.is_active,
           bundle_configs: data.bundle_configs || null,
           product_rates: data.product_rates || null,
@@ -150,6 +152,7 @@ export function useCompPlanMutations(agencyId: string | null) {
           brokered_payout_type: data.brokered_payout_type,
           brokered_flat_rate: data.brokered_flat_rate,
           brokered_counts_toward_tier: data.brokered_counts_toward_tier,
+          include_brokered_in_bundling: data.include_brokered_in_bundling || false,
           is_active: data.is_active,
           bundle_configs: data.bundle_configs || null,
           product_rates: data.product_rates || null,

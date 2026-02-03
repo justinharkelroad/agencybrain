@@ -46,7 +46,7 @@ export default function StaffFormSubmission() {
   const { formSlug } = useParams<{ formSlug: string }>();
   const navigate = useNavigate();
   const { user, sessionToken, isAuthenticated, loading: authLoading } = useStaffAuth();
-  
+
   const [formTemplate, setFormTemplate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -57,7 +57,14 @@ export default function StaffFormSubmission() {
   const [targets, setTargets] = useState<Record<string, number>>({});
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string }>>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  
+
+  // Dashboard metrics (quotes added via dashboard, not on form)
+  const [dashboardQuotedCount, setDashboardQuotedCount] = useState<number>(0);
+  const [dashboardSoldCount, setDashboardSoldCount] = useState<number>(0);
+
+  // Enabled KPIs from scorecard_rules (agency-level configuration)
+  const [enabledKpis, setEnabledKpis] = useState<Set<string>>(new Set());
+
   // Error handling state for structured errors
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [submissionErrorMessage, setSubmissionErrorMessage] = useState<string | null>(null);
@@ -118,8 +125,8 @@ export default function StaffFormSubmission() {
           .select('metric_key, value_number, team_member_id')
           .eq('agency_id', template.agency_id);
 
+        const targetsMap: Record<string, number> = {};
         if (targetRows) {
-          const targetsMap: Record<string, number> = {};
           // First load agency defaults (team_member_id = null)
           targetRows.forEach(t => {
             if (!t.team_member_id) {
@@ -135,6 +142,19 @@ export default function StaffFormSubmission() {
             });
           }
           setTargets(targetsMap);
+        }
+
+        // Fetch scorecard_rules to get enabled KPIs for this agency (optional - may not exist)
+        const formRole = template.schema_json?.role || 'Sales';
+        const { data: scorecardRules } = await supabase
+          .from('scorecard_rules')
+          .select('selected_metrics')
+          .eq('agency_id', template.agency_id)
+          .eq('role', formRole)
+          .maybeSingle();
+
+        if (scorecardRules?.selected_metrics) {
+          setEnabledKpis(new Set(scorecardRules.selected_metrics));
         }
 
         // Initialize default values
@@ -156,6 +176,39 @@ export default function StaffFormSubmission() {
       loadForm();
     }
   }, [user, formSlug, isAuthenticated]);
+
+  // Fetch dashboard metrics (quotes/sales added via dashboard) when work_date changes
+  useEffect(() => {
+    async function fetchDashboardMetrics() {
+      if (!sessionToken || !values.work_date) return;
+
+      try {
+        // Use edge function to bypass RLS (staff users don't have direct table access)
+        const { data, error } = await supabase.functions.invoke('staff_get_dashboard_metrics', {
+          body: { workDate: values.work_date },
+          headers: { 'x-staff-session': sessionToken }
+        });
+
+        if (error) {
+          console.error('Error fetching dashboard metrics:', error);
+          return;
+        }
+
+        if (data?.success) {
+          setDashboardQuotedCount(data.dashboardQuotedCount || 0);
+          setDashboardSoldCount(data.dashboardSoldCount || 0);
+          // Use targets from edge function (bypasses RLS)
+          if (data.targets) {
+            setTargets(prev => ({ ...prev, ...data.targets }));
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching dashboard metrics:', err);
+      }
+    }
+
+    fetchDashboardMetrics();
+  }, [sessionToken, values.work_date]);
 
   // Helper function to convert string to Title Case (for prospect names)
   const toTitleCase = (str: string): string => {
@@ -246,11 +299,21 @@ export default function StaffFormSubmission() {
     return result;
   }, [formTemplate]);
 
-  // Build performance summary for KPIs with targets
+  // Build performance summary for KPIs with targets (including dashboard metrics)
   const performanceSummary: PerformanceSummary = useMemo(() => {
     const kpiPerformance: KPIPerformance[] = [];
     const kpis = formTemplate?.schema_json?.kpis || [];
-    
+
+    // Normalize KPI keys to check what's in form
+    const normalizeKey = (key: string) => {
+      const lower = key?.toLowerCase() || '';
+      if (['quoted_households', 'quoted_count', 'policies_quoted'].includes(lower)) return 'quoted_households';
+      if (['items_sold', 'sold_items', 'sold_count'].includes(lower)) return 'items_sold';
+      return key;
+    };
+
+    const formKpiKeys = new Set(kpis.map((kpi: any) => normalizeKey(kpi.selectedKpiSlug || kpi.key)));
+
     kpis.forEach((kpi: any) => {
       // Priority: form schema target > targets table by slug > targets table by key
       const target = kpi.target?.goal ?? targets[kpi.selectedKpiSlug] ?? targets[kpi.key] ?? 0;
@@ -267,6 +330,63 @@ export default function StaffFormSubmission() {
       }
     });
 
+    // Add dashboard metrics if enabled for agency but not on form (matches email function logic)
+    // Check if quoted_households is enabled in scorecard_rules (check common key variations)
+    const quotedEnabled = enabledKpis.has('quoted_households') ||
+                          enabledKpis.has('quoted_count') ||
+                          enabledKpis.has('policies_quoted') ||
+                          enabledKpis.has('households_quoted');
+
+    // Check if there's a target configured (fallback if scorecard_rules doesn't match)
+    const hasQuotedTarget = targets['quoted_households'] !== undefined ||
+                            targets['quoted_count'] !== undefined ||
+                            targets['policies_quoted'] !== undefined ||
+                            targets['households_quoted'] !== undefined;
+
+    // Get the actual target value (try all key variations)
+    const quotedTarget = targets['quoted_households'] ?? targets['quoted_count'] ??
+                         targets['policies_quoted'] ?? targets['households_quoted'] ?? 0;
+
+    // Show Quoted Households if: enabled OR has target OR has dashboard data, AND not already on form
+    const shouldAddQuoted = (quotedEnabled || hasQuotedTarget || dashboardQuotedCount > 0) &&
+                            !formKpiKeys.has('quoted_households');
+
+    if (shouldAddQuoted && quotedTarget > 0) {
+      kpiPerformance.push({
+        key: 'dashboard_quoted_households',
+        label: '📊 Quoted Households (Dashboard)',
+        submitted: dashboardQuotedCount,
+        target: quotedTarget,
+        passed: dashboardQuotedCount >= quotedTarget,
+        percentOfTarget: quotedTarget > 0 ? Math.round((dashboardQuotedCount / quotedTarget) * 100) : 0
+      });
+    }
+
+    // Same logic for items_sold
+    const soldEnabled = enabledKpis.has('items_sold') ||
+                        enabledKpis.has('sold_items') ||
+                        enabledKpis.has('sold_count');
+
+    const hasSoldTarget = targets['items_sold'] !== undefined ||
+                          targets['sold_items'] !== undefined ||
+                          targets['sold_count'] !== undefined;
+
+    const soldTarget = targets['items_sold'] ?? targets['sold_items'] ?? targets['sold_count'] ?? 0;
+
+    const shouldAddSold = (soldEnabled || hasSoldTarget || dashboardSoldCount > 0) &&
+                          !formKpiKeys.has('items_sold');
+
+    if (shouldAddSold && soldTarget > 0) {
+      kpiPerformance.push({
+        key: 'dashboard_items_sold',
+        label: '📊 Items Sold (Dashboard)',
+        submitted: dashboardSoldCount,
+        target: soldTarget,
+        passed: dashboardSoldCount >= soldTarget,
+        percentOfTarget: soldTarget > 0 ? Math.round((dashboardSoldCount / soldTarget) * 100) : 0
+      });
+    }
+
     const totalKPIs = kpiPerformance.length;
     const passedKPIs = kpiPerformance.filter(k => k.passed).length;
     const passRate = totalKPIs > 0 ? Math.round((passedKPIs / totalKPIs) * 100) : 0;
@@ -280,7 +400,7 @@ export default function StaffFormSubmission() {
         overallPass: passRate >= 50 // At least half targets met
       }
     };
-  }, [fields, values, targets]);
+  }, [formTemplate, values, targets, dashboardQuotedCount, dashboardSoldCount, enabledKpis]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1097,12 +1217,49 @@ export default function StaffFormSubmission() {
                 </div>
               )}
 
+              {/* Dashboard-Tracked Metrics (metrics tracked via dashboard, not form fields) */}
+              {performanceSummary.kpis.some(k => k.key.startsWith('dashboard_')) && (
+                <div className="space-y-4 border-t pt-4">
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Target className="h-5 w-5" />
+                    Dashboard-Tracked Metrics
+                  </h3>
+                  <p className="text-sm text-muted-foreground">These metrics are tracked via the dashboard and included in your performance summary.</p>
+                  <div className="space-y-3">
+                    {performanceSummary.kpis.filter(k => k.key.startsWith('dashboard_')).map(kpi => (
+                      <div key={kpi.key} className={`p-3 rounded-lg border ${
+                        kpi.passed
+                          ? 'bg-green-500/10 border-green-500/30'
+                          : 'bg-amber-500/10 border-amber-500/30'
+                      }`}>
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">{kpi.label.replace('📊 ', '')}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-lg font-bold ${kpi.passed ? 'text-green-600' : 'text-amber-600'}`}>
+                              {kpi.submitted} / {kpi.target}
+                            </span>
+                            {kpi.passed ? (
+                              <CheckCircle className="h-5 w-5 text-green-500" />
+                            ) : (
+                              <Target className="h-5 w-5 text-amber-500" />
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {kpi.percentOfTarget}% of target
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Performance Summary */}
               {performanceSummary.summary.totalKPIs > 0 && (
                 <div className="border-t border-b border-border py-4 my-4">
                   <div className={`text-center p-3 rounded-lg ${
-                    performanceSummary.summary.overallPass 
-                      ? 'bg-green-500/10 border border-green-500/20' 
+                    performanceSummary.summary.overallPass
+                      ? 'bg-green-500/10 border border-green-500/20'
                       : 'bg-red-500/10 border border-red-500/20'
                   }`}>
                     <p className={`text-lg font-semibold ${

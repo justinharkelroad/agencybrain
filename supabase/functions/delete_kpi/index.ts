@@ -61,26 +61,56 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // LAYER 1: Block deletion if KPI is used in any active forms
-    // Check schema_json for selectedKpiSlug or key references using raw SQL to avoid PostgREST parsing issues
-    const { data: affectedForms, error: formsError } = await supabase
-      .rpc('check_kpi_in_active_forms', {
+    // LAYER 1: Comprehensive validation - check forms AND ring_metrics
+    const { data: validation, error: validationError } = await supabase
+      .rpc('validate_kpi_deletion', {
         p_agency_id: agency_id,
         p_kpi_key: kpi_key
       });
 
-    if (formsError) {
-      console.error('Error checking affected forms:', formsError);
-      // Continue anyway - don't block on query error, let transaction handle it
+    if (validationError) {
+      console.error('Error validating KPI deletion:', validationError);
+      // Fall back to the simpler check
+      const { data: affectedForms } = await supabase
+        .rpc('check_kpi_in_active_forms', {
+          p_agency_id: agency_id,
+          p_kpi_key: kpi_key
+        });
+
+      if (affectedForms && affectedForms.length > 0) {
+        const formNames = affectedForms.map((f: any) => f.name).join(', ');
+        return new Response(
+          JSON.stringify({
+            error: `Cannot delete "${kpi_key}" because it is currently used in: ${formNames}`,
+            blocked: true
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
-    if (affectedForms && affectedForms.length > 0) {
-      const formNames = affectedForms.map(f => f.name).join(', ');
-      console.log(`Blocking KPI deletion - used in active forms: ${formNames}`);
+    if (validation && !validation.can_delete) {
+      const blockers = validation.blockers || [];
+      const formBlockers = blockers.filter((b: any) => b.type === 'form');
+      const ringBlockers = blockers.filter((b: any) => b.type === 'ring_metrics');
+
+      let errorMsg = `Cannot delete "${kpi_key}" because:\n`;
+
+      if (formBlockers.length > 0) {
+        const formNames = formBlockers.map((b: any) => b.name).join(', ');
+        errorMsg += `• It is used in active forms: ${formNames}\n`;
+      }
+
+      if (ringBlockers.length > 0) {
+        const roles = ringBlockers.map((b: any) => b.role).join(', ');
+        errorMsg += `• It is displayed in ring metrics for: ${roles}. Disable the KPI first, then delete it.\n`;
+      }
+
+      console.log(`Blocking KPI deletion:`, blockers);
       return new Response(
-        JSON.stringify({ 
-          error: `Cannot delete "${kpi_key}" because it is currently used in these active forms: ${formNames}. To delete this KPI, first remove it from those forms or deactivate the forms, then try again.`,
-          affected_forms: affectedForms.map(f => ({ id: f.id, name: f.name })),
+        JSON.stringify({
+          error: errorMsg.trim(),
+          blockers: blockers,
           blocked: true
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

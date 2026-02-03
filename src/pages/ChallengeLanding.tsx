@@ -111,27 +111,27 @@ const WEEK_THEMES = [
 
 export default function ChallengeLanding() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-950">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950">
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-orange-500/10 to-red-600/10" />
         <div className="max-w-6xl mx-auto px-4 py-16 sm:py-24 relative">
           <div className="text-center space-y-6">
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/20 text-orange-400">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/20 text-orange-600 dark:text-orange-400">
               <Sparkles className="h-4 w-4" />
               <span className="text-sm font-medium">Transform Your Agency in 6 Weeks</span>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 dark:text-white">
               The 6-Week Challenge
             </h1>
 
-            <p className="text-xl text-slate-300 max-w-2xl mx-auto">
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
               A proven system for insurance professionals to build unstoppable habits,
               elevate performance, and achieve breakthrough results.
             </p>
 
-            <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-400">
+            <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-500 dark:text-slate-400">
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 6 weeks
@@ -159,22 +159,22 @@ export default function ChallengeLanding() {
       </section>
 
       {/* Benefits Section */}
-      <section className="py-16 bg-slate-900/50">
+      <section className="py-16 bg-slate-100/50 dark:bg-slate-900/50">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white">Why The Challenge Works</h2>
-            <p className="text-slate-400 mt-2">Built specifically for insurance professionals</p>
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Why The Challenge Works</h2>
+            <p className="text-slate-500 dark:text-slate-400 mt-2">Built specifically for insurance professionals</p>
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {CHALLENGE_BENEFITS.map((benefit) => (
-              <Card key={benefit.title} className="bg-slate-800/50 border-slate-700">
+              <Card key={benefit.title} className="bg-white/80 border-slate-200 dark:bg-slate-800/50 dark:border-slate-700">
                 <CardContent className="p-6 text-center">
                   <div className="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center mx-auto mb-4">
                     <benefit.icon className="h-6 w-6 text-orange-500" />
                   </div>
-                  <h3 className="font-semibold text-white mb-2">{benefit.title}</h3>
-                  <p className="text-sm text-slate-400">{benefit.description}</p>
+                  <h3 className="font-semibold text-slate-900 dark:text-white mb-2">{benefit.title}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{benefit.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -186,22 +186,22 @@ export default function ChallengeLanding() {
       <section className="py-16">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white">Your 6-Week Journey</h2>
-            <p className="text-slate-400 mt-2">Each week builds on the last</p>
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Your 6-Week Journey</h2>
+            <p className="text-slate-500 dark:text-slate-400 mt-2">Each week builds on the last</p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {WEEK_THEMES.map((week) => (
               <div
                 key={week.week}
-                className="flex items-center gap-4 p-4 rounded-lg bg-slate-800/30 border border-slate-700/50"
+                className="flex items-center gap-4 p-4 rounded-lg bg-white/50 border border-slate-200/50 dark:bg-slate-800/30 dark:border-slate-700/50"
               >
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white font-bold shrink-0">
                   {week.week}
                 </div>
                 <div>
-                  <h3 className="font-semibold text-white">{week.name}</h3>
-                  <p className="text-sm text-slate-400">{week.description}</p>
+                  <h3 className="font-semibold text-slate-900 dark:text-white">{week.name}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">{week.description}</p>
                 </div>
               </div>
             ))}
@@ -210,18 +210,18 @@ export default function ChallengeLanding() {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-16 bg-slate-900/50">
+      <section id="pricing" className="py-16 bg-slate-100/50 dark:bg-slate-900/50">
         <div className="max-w-6xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white">Choose Your Plan</h2>
-            <p className="text-slate-400 mt-2">Per seat pricing - buy as many as you need</p>
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Choose Your Plan</h2>
+            <p className="text-slate-500 dark:text-slate-400 mt-2">Per seat pricing - buy as many as you need</p>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-3">
             {PRICING_TIERS.map((tier) => (
               <Card
                 key={tier.id}
-                className={`relative bg-slate-800/50 border-slate-700 ${
+                className={`relative bg-white/80 border-slate-200 dark:bg-slate-800/50 dark:border-slate-700 ${
                   tier.popular ? 'ring-2 ring-orange-500' : ''
                 }`}
               >
@@ -231,18 +231,18 @@ export default function ChallengeLanding() {
                   </div>
                 )}
                 <CardHeader className="text-center pt-8">
-                  <CardTitle className="text-white">{tier.name}</CardTitle>
-                  <CardDescription className="text-slate-400">{tier.description}</CardDescription>
+                  <CardTitle className="text-slate-900 dark:text-white">{tier.name}</CardTitle>
+                  <CardDescription className="text-slate-500 dark:text-slate-400">{tier.description}</CardDescription>
                   <div className="pt-4">
-                    <span className="text-4xl font-bold text-white">${tier.price}</span>
-                    <span className="text-slate-400">/seat</span>
+                    <span className="text-4xl font-bold text-slate-900 dark:text-white">${tier.price}</span>
+                    <span className="text-slate-500 dark:text-slate-400">/seat</span>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {tier.features.map((feature, i) => (
                     <div key={i} className="flex items-start gap-2">
                       <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
-                      <span className="text-sm text-slate-300">{feature}</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-300">{feature}</span>
                     </div>
                   ))}
                 </CardContent>
@@ -278,7 +278,7 @@ export default function ChallengeLanding() {
       <section className="py-16">
         <div className="max-w-4xl mx-auto px-4">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-white">Everything You Need</h2>
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Everything You Need</h2>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -292,9 +292,9 @@ export default function ChallengeLanding() {
               'Streak tracking for motivation',
               'Mobile-friendly interface',
             ].map((item, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-slate-800/30">
+              <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-white/50 dark:bg-slate-800/30">
                 <Star className="h-5 w-5 text-orange-500" />
-                <span className="text-slate-300">{item}</span>
+                <span className="text-slate-600 dark:text-slate-300">{item}</span>
               </div>
             ))}
           </div>
@@ -304,10 +304,10 @@ export default function ChallengeLanding() {
       {/* CTA Section */}
       <section className="py-16 bg-gradient-to-r from-orange-500/20 to-red-600/20">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
             Ready to Transform Your Results?
           </h2>
-          <p className="text-slate-300 mb-8">
+          <p className="text-slate-600 dark:text-slate-300 mb-8">
             Join agencies across the country who have elevated their performance with The Challenge.
           </p>
           <a href="#pricing">
@@ -320,7 +320,7 @@ export default function ChallengeLanding() {
       </section>
 
       {/* Footer */}
-      <footer className="py-8 border-t border-slate-800">
+      <footer className="py-8 border-t border-slate-200 dark:border-slate-800">
         <div className="max-w-6xl mx-auto px-4 text-center text-sm text-slate-500">
           <p>&copy; {new Date().getFullYear()} Agency Brain. All rights reserved.</p>
           <p className="mt-2">

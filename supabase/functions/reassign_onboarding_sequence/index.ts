@@ -56,8 +56,20 @@ serve(async (req) => {
       );
     }
 
-    // Only owners and admins can reassign sequences
-    if (profile.role !== 'owner' && profile.role !== 'admin') {
+    // Only owners, key employees, and admins can reassign sequences
+    const isAdmin = profile.role === 'admin';
+    const isAgencyOwner = !!profile.agency_id;
+
+    // Check if user is a key employee
+    const { data: keyEmployee } = await supabaseAuth
+      .from('key_employees')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const isKeyEmployee = !!keyEmployee;
+
+    if (!isAdmin && !isAgencyOwner && !isKeyEmployee) {
       return new Response(
         JSON.stringify({ error: 'Only owners and admins can reassign sequences' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

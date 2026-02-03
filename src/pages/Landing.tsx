@@ -6,8 +6,9 @@ import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { LaptopVideoFrame } from "@/components/landing/LaptopVideoFrame";
 import { LeadCaptureModal } from "@/components/landing/LeadCaptureModal";
 import { Brain, Users, ArrowRight } from "lucide-react";
+import lightModeLogo from "@/assets/agencybrain-logo-light.png";
 
-const agencyBrainLogo = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
+const DARK_MODE_LOGO = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
 const DEMO_VIDEO_URL = "https://vimeo.com/1157362034";
 
 export default function Landing() {
@@ -70,10 +71,17 @@ export default function Landing() {
           <div className="flex justify-center mb-6 sm:mb-8">
             <div className="relative animate-float">
               <div className="absolute inset-0 rounded-full bg-primary/20 blur-3xl animate-glow-pulse" />
+              {/* Light mode: dark text logo */}
               <img 
-                src={agencyBrainLogo} 
+                src={lightModeLogo} 
                 alt="AgencyBrain - powered by Standard Playbook" 
-                className="relative w-40 sm:w-56 md:w-64 h-auto drop-shadow-2xl"
+                className="relative w-40 sm:w-56 md:w-64 h-auto drop-shadow-2xl dark:hidden"
+              />
+              {/* Dark mode: white text logo */}
+              <img 
+                src={DARK_MODE_LOGO} 
+                alt="AgencyBrain - powered by Standard Playbook" 
+                className="relative w-40 sm:w-56 md:w-64 h-auto drop-shadow-2xl hidden dark:block"
               />
             </div>
           </div>

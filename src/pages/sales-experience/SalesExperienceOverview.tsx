@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
-import { pillarColors, pillarLabels, type Pillar } from '@/components/sales-experience';
+import { pillarColors, pillarLabels, MeetingResultsCard, type Pillar } from '@/components/sales-experience';
 import {
   Loader2,
   Trophy,
@@ -246,6 +246,13 @@ export default function SalesExperienceOverview() {
           </Card>
         </Link>
       </div>
+
+      {/* Meeting Results */}
+      {data?.assignment?.id && (
+        <div className="mb-8">
+          <MeetingResultsCard assignmentId={data.assignment.id} currentWeek={currentWeek} />
+        </div>
+      )}
 
       {/* Your Deliverables */}
       <Card className="mb-8">

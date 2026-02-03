@@ -65,8 +65,20 @@ serve(async (req) => {
       );
     }
 
-    // Check if user is admin or owner
-    if (!['admin', 'owner'].includes(profile.role || '')) {
+    // Check if user is admin or agency owner
+    const isAdmin = profile.role === 'admin';
+    const isAgencyOwner = !!profile.agency_id;
+
+    // Key employees should NOT be able to impersonate staff
+    const { data: keyEmployee } = await supabaseClient
+      .from('key_employees')
+      .select('id')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const isKeyEmployee = !!keyEmployee;
+
+    if (!isAdmin && (!isAgencyOwner || isKeyEmployee)) {
       return new Response(
         JSON.stringify({ error: 'Only admins and agency owners can impersonate staff' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

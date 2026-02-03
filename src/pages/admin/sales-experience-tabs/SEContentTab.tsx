@@ -40,6 +40,8 @@ import {
   BookOpen,
   Trash2,
   HelpCircle,
+  Link2,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -60,6 +62,12 @@ interface QuizQuestion {
   correct_answer?: string;
 }
 
+interface LessonDocument {
+  id: string;
+  name: string;
+  url: string;
+}
+
 interface Lesson {
   id: string;
   module_id: string;
@@ -70,7 +78,9 @@ interface Lesson {
   video_platform: string | null;
   content_html: string | null;
   is_staff_visible: boolean;
+  is_discovery_flow: boolean;
   quiz_questions: QuizQuestion[];
+  documents_json: LessonDocument[] | null;
 }
 
 const dayLabels: Record<number, string> = {
@@ -95,6 +105,8 @@ export function SEContentTab() {
   const queryClient = useQueryClient();
   const [editingLesson, setEditingLesson] = useState<Lesson | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingModule, setEditingModule] = useState<Module | null>(null);
+  const [isModuleDialogOpen, setIsModuleDialogOpen] = useState(false);
 
   // Fetch modules
   const { data: modules, isLoading: modulesLoading } = useQuery({
@@ -147,6 +159,39 @@ export function SEContentTab() {
     },
   });
 
+  // Update module mutation
+  const updateModule = useMutation({
+    mutationFn: async (module: Partial<Module> & { id: string }) => {
+      const { id, ...updates } = module;
+      const { error } = await supabase
+        .from('sales_experience_modules')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-se-modules'] });
+      setIsModuleDialogOpen(false);
+      setEditingModule(null);
+      toast.success('Week updated successfully');
+    },
+    onError: (error) => {
+      console.error('Error updating module:', error);
+      toast.error('Failed to update week');
+    },
+  });
+
+  const handleEditModule = (module: Module) => {
+    setEditingModule({ ...module });
+    setIsModuleDialogOpen(true);
+  };
+
+  const handleSaveModule = () => {
+    if (!editingModule) return;
+    updateModule.mutate(editingModule);
+  };
+
   const handleEditLesson = (lesson: Lesson) => {
     setEditingLesson({ ...lesson });
     setIsEditDialogOpen(true);
@@ -186,21 +231,35 @@ export function SEContentTab() {
       <Accordion type="single" collapsible className="space-y-4">
         {modules?.map((module) => (
           <AccordionItem key={module.id} value={module.id} className="border rounded-lg">
-            <AccordionTrigger className="px-4 hover:no-underline">
-              <div className="flex items-center gap-4">
-                <div className={`h-2 w-2 rounded-full ${pillarColors[module.pillar]}`} />
-                <div className="text-left">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold">Week {module.week_number}:</span>
-                    <span>{module.title}</span>
-                    <Badge variant="outline" className="text-xs">
-                      {pillarLabels[module.pillar]}
-                    </Badge>
+            <div className="flex items-center">
+              <AccordionTrigger className="px-4 hover:no-underline flex-1">
+                <div className="flex items-center gap-4">
+                  <div className={`h-2 w-2 rounded-full ${pillarColors[module.pillar]}`} />
+                  <div className="text-left">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">Week {module.week_number}:</span>
+                      <span>{module.title}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {pillarLabels[module.pillar]}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">{module.description}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">{module.description}</p>
                 </div>
-              </div>
-            </AccordionTrigger>
+              </AccordionTrigger>
+              <Button
+                size="sm"
+                variant="outline"
+                className="mr-4 gap-1.5"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEditModule(module);
+                }}
+              >
+                <Edit className="h-3.5 w-3.5" />
+                Edit Week
+              </Button>
+            </div>
             <AccordionContent className="px-4 pb-4">
               <div className="space-y-3 mt-2">
                 {lessonsByModule?.[module.id]?.map((lesson) => (
@@ -221,9 +280,21 @@ export function SEContentTab() {
                               Video
                             </Badge>
                           )}
+                          {lesson.documents_json && lesson.documents_json.length > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              <FileText className="h-3 w-3 mr-1" />
+                              {lesson.documents_json.length} Doc{lesson.documents_json.length > 1 ? 's' : ''}
+                            </Badge>
+                          )}
                           {lesson.is_staff_visible && (
                             <Badge variant="secondary" className="text-xs">
                               Staff
+                            </Badge>
+                          )}
+                          {lesson.is_discovery_flow && (
+                            <Badge className="text-xs bg-purple-500 text-white">
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              Discovery Flow
                             </Badge>
                           )}
                         </div>
@@ -467,6 +538,88 @@ export function SEContentTab() {
                 )}
               </div>
 
+              {/* Documents Editor */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    <Link2 className="h-4 w-4" />
+                    Documents ({editingLesson.documents_json?.length || 0})
+                  </Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const newDoc: LessonDocument = {
+                        id: crypto.randomUUID(),
+                        name: '',
+                        url: '',
+                      };
+                      setEditingLesson({
+                        ...editingLesson,
+                        documents_json: [...(editingLesson.documents_json || []), newDoc],
+                      });
+                    }}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Document
+                  </Button>
+                </div>
+
+                {editingLesson.documents_json?.map((doc, docIndex) => (
+                  <Card key={doc.id} className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Document Name</Label>
+                            <Input
+                              value={doc.name}
+                              onChange={(e) => {
+                                const updated = [...(editingLesson.documents_json || [])];
+                                updated[docIndex] = { ...doc, name: e.target.value };
+                                setEditingLesson({ ...editingLesson, documents_json: updated });
+                              }}
+                              placeholder="e.g., Sales Process Guide"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Document URL</Label>
+                            <Input
+                              value={doc.url}
+                              onChange={(e) => {
+                                const updated = [...(editingLesson.documents_json || [])];
+                                updated[docIndex] = { ...doc, url: e.target.value };
+                                setEditingLesson({ ...editingLesson, documents_json: updated });
+                              }}
+                              placeholder="https://drive.google.com/..."
+                            />
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive mt-5"
+                          onClick={() => {
+                            const updated = (editingLesson.documents_json || []).filter((_, i) => i !== docIndex);
+                            setEditingLesson({ ...editingLesson, documents_json: updated });
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+
+                {(!editingLesson.documents_json || editingLesson.documents_json.length === 0) && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No documents yet. Add downloadable documents for this lesson.
+                  </p>
+                )}
+              </div>
+
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Visible to Staff</Label>
@@ -481,6 +634,27 @@ export function SEContentTab() {
                   }
                 />
               </div>
+
+              {/* Discovery Flow Toggle - Only for Friday lessons */}
+              {editingLesson.day_of_week === 5 && (
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-purple-500" />
+                      Discovery Flow Day
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Staff will see a button to start the Discovery Flow
+                    </p>
+                  </div>
+                  <Switch
+                    checked={editingLesson.is_discovery_flow}
+                    onCheckedChange={(checked) =>
+                      setEditingLesson({ ...editingLesson, is_discovery_flow: checked })
+                    }
+                  />
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
@@ -493,6 +667,78 @@ export function SEContentTab() {
               className="gap-2"
             >
               {updateLesson.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Module/Week Dialog */}
+      <Dialog open={isModuleDialogOpen} onOpenChange={setIsModuleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Week {editingModule?.week_number}</DialogTitle>
+            <DialogDescription>
+              Update the week title, description, and pillar
+            </DialogDescription>
+          </DialogHeader>
+          {editingModule && (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Title</Label>
+                <Input
+                  value={editingModule.title}
+                  onChange={(e) =>
+                    setEditingModule({ ...editingModule, title: e.target.value })
+                  }
+                  placeholder="e.g., Building Rapport"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Textarea
+                  value={editingModule.description || ''}
+                  onChange={(e) =>
+                    setEditingModule({ ...editingModule, description: e.target.value })
+                  }
+                  rows={3}
+                  placeholder="Brief description of this week's focus..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Pillar</Label>
+                <Select
+                  value={editingModule.pillar}
+                  onValueChange={(value) =>
+                    setEditingModule({ ...editingModule, pillar: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select pillar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="sales_process">Sales Process</SelectItem>
+                    <SelectItem value="accountability">Accountability</SelectItem>
+                    <SelectItem value="coaching_cadence">Coaching Cadence</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsModuleDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveModule}
+              disabled={updateModule.isPending}
+              className="gap-2"
+            >
+              {updateModule.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Save className="h-4 w-4" />

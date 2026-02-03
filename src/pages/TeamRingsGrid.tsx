@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import MemberRingsCard from "@/components/rings/MemberRingsCard";
 import RingLegend from "@/components/rings/RingLegend";
-import { RING_COLORS, RING_LABELS } from "@/components/rings/colors";
+import { RING_LABELS, getRingColor } from "@/components/rings/colors";
 import { toast } from "sonner";
 import PersonSnapshotModal from "@/components/PersonSnapshotModal";
 import { useKpiLabels } from "@/hooks/useKpiLabels";
@@ -219,7 +219,7 @@ export default function TeamRingsGrid() {
           // Use database labels first, fallback to RING_LABELS, then slug
           label: kpiLabels?.[key] || RING_LABELS[key] || key,
           progress,
-          color: RING_COLORS[key] || "#9ca3af",
+          color: getRingColor(key),
           actual,
           target
         };
