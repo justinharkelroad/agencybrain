@@ -411,6 +411,9 @@ verify_jwt = false
 [functions.complete_staff_onboarding_task]
 verify_jwt = false
 
+[functions.create_adhoc_task]
+verify_jwt = false
+
 [functions.reassign_onboarding_sequence]
 verify_jwt = true
 

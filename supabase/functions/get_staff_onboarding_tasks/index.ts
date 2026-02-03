@@ -110,11 +110,12 @@ serve(async (req) => {
     const today = new Date().toISOString().split('T')[0];
 
     // Fetch active tasks (pending, due, overdue) assigned to this staff user
+    // Use left join to include adhoc tasks that don't have an instance
     const { data: activeTasks, error: activeError } = await supabase
       .from('onboarding_tasks')
       .select(`
         *,
-        instance:onboarding_instances!inner(
+        instance:onboarding_instances(
           id,
           customer_name,
           customer_phone,
@@ -122,6 +123,13 @@ serve(async (req) => {
           sale_id,
           contact_id,
           sequence:onboarding_sequences(id, name)
+        ),
+        contact:agency_contacts(
+          id,
+          first_name,
+          last_name,
+          phone,
+          email
         )
       `)
       .eq('agency_id', agencyId)
@@ -139,13 +147,14 @@ serve(async (req) => {
     }
 
     // Fetch tasks completed today (if requested)
+    // Use left join to include adhoc tasks that don't have an instance
     let completedTodayTasks: any[] = [];
     if (include_completed_today) {
       const { data: completedTasks, error: completedError } = await supabase
         .from('onboarding_tasks')
         .select(`
           *,
-          instance:onboarding_instances!inner(
+          instance:onboarding_instances(
             id,
             customer_name,
             customer_phone,
@@ -153,6 +162,13 @@ serve(async (req) => {
             sale_id,
             contact_id,
             sequence:onboarding_sequences(id, name)
+          ),
+          contact:agency_contacts(
+            id,
+            first_name,
+            last_name,
+            phone,
+            email
           )
         `)
         .eq('agency_id', agencyId)

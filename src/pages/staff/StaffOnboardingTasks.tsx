@@ -5,6 +5,9 @@ import {
   useCompleteStaffOnboardingTask,
   type StaffOnboardingTask,
 } from '@/hooks/useStaffOnboardingTasks';
+import { useCreateAdhocTask } from '@/hooks/useCreateAdhocTask';
+import { useScheduleAdhocTask } from '@/hooks/useScheduleAdhocTask';
+import { ScheduleTaskDialog } from '@/components/onboarding/ScheduleTaskDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +31,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   Phone,
   MessageSquare,
@@ -37,6 +41,8 @@ import {
   ChevronRight,
   ChevronLeft,
   Calendar,
+  List,
+  Grid3X3,
   FileText,
   Loader2,
   AlertCircle,
@@ -45,14 +51,19 @@ import {
   CalendarClock,
   Workflow,
   RefreshCw,
+  Zap,
+  Plus,
 } from 'lucide-react';
 import { format, parseISO, isToday, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SevenDayOutlook } from '@/components/onboarding/SevenDayOutlook';
+import { MonthlyTaskCalendar } from '@/components/onboarding/MonthlyTaskCalendar';
 import { ContactProfileModal } from '@/components/contacts/ContactProfileModal';
 import { TaskCompleteDialog } from '@/components/onboarding/TaskCompleteDialog';
 import type { ActionType } from '@/hooks/useStaffOnboardingTasks';
 import type { OnboardingTask } from '@/hooks/useOnboardingTasks';
+
+type CalendarViewType = 'week' | 'month';
 
 const ACTION_ICONS: Record<ActionType, React.ElementType> = {
   call: Phone,
@@ -118,11 +129,53 @@ function getStatusStyles(task: StaffOnboardingTask): {
   };
 }
 
+interface FollowUpData {
+  dueDate: Date;
+  actionType: ActionType;
+  title: string;
+}
+
 interface StaffTaskCardProps {
   task: StaffOnboardingTask;
-  onComplete: (taskId: string, notes?: string) => Promise<void>;
+  onComplete: (taskId: string, notes?: string, followUp?: FollowUpData) => Promise<void>;
   isCompleting?: boolean;
   onViewProfile?: (contactId: string, customerName: string) => void;
+}
+
+/**
+ * Get customer name from task - handles both instance-based and adhoc tasks
+ */
+function getCustomerName(task: StaffOnboardingTask): string {
+  if (task.instance?.customer_name) {
+    return task.instance.customer_name;
+  }
+  if (task.contact) {
+    const firstName = task.contact.first_name || '';
+    const lastName = task.contact.last_name || '';
+    return `${firstName} ${lastName}`.trim() || 'Unknown';
+  }
+  return 'Unknown';
+}
+
+/**
+ * Get contact ID from task - handles both instance-based and adhoc tasks
+ */
+function getContactId(task: StaffOnboardingTask): string | null {
+  return task.contact_id || task.instance?.contact_id || null;
+}
+
+/**
+ * Get customer phone from task - handles both instance-based and adhoc tasks
+ */
+function getCustomerPhone(task: StaffOnboardingTask): string | null {
+  return task.instance?.customer_phone || task.contact?.phone || null;
+}
+
+/**
+ * Get customer email from task - handles both instance-based and adhoc tasks
+ */
+function getCustomerEmail(task: StaffOnboardingTask): string | null {
+  return task.instance?.customer_email || task.contact?.email || null;
 }
 
 function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }: StaffTaskCardProps) {
@@ -146,11 +199,11 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
     }
   };
 
-  const handleComplete = async (notes?: string) => {
+  const handleComplete = async (notes?: string, followUp?: FollowUpData) => {
     if (completing || isCompleting) return;
     setCompleting(true);
     try {
-      await onComplete(task.id, notes);
+      await onComplete(task.id, notes, followUp);
     } finally {
       setCompleting(false);
     }
@@ -158,7 +211,11 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
 
   const dueDate = parseISO(task.due_date);
   const isTaskCompleting = completing || isCompleting;
-  const contactId = task.instance?.contact_id;
+  const contactId = getContactId(task);
+  const customerName = getCustomerName(task);
+  const customerPhone = getCustomerPhone(task);
+  const customerEmail = getCustomerEmail(task);
+  const isAdhoc = task.is_adhoc === true;
 
   return (
     <Card
@@ -221,25 +278,23 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
             {/* Meta Info */}
             <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
               {/* Customer Name - Clickable */}
-              {task.instance && (
-                onViewProfile && contactId ? (
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    className="font-medium text-foreground hover:text-primary hover:underline cursor-pointer transition-colors"
-                    onClick={() => onViewProfile(contactId, task.instance!.customer_name)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onViewProfile(contactId, task.instance!.customer_name);
-                      }
-                    }}
-                  >
-                    {task.instance.customer_name}
-                  </span>
-                ) : (
-                  <span className="font-medium text-foreground">{task.instance.customer_name}</span>
-                )
+              {onViewProfile && contactId ? (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className="font-medium text-foreground hover:text-primary hover:underline cursor-pointer transition-colors"
+                  onClick={() => onViewProfile(contactId, customerName)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onViewProfile(contactId, customerName);
+                    }
+                  }}
+                >
+                  {customerName}
+                </span>
+              ) : (
+                <span className="font-medium text-foreground">{customerName}</span>
               )}
 
               {/* Due Date */}
@@ -248,11 +303,16 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
                 {format(dueDate, 'MMM d')}
               </span>
 
-              {/* Day Number */}
-              <span>Day {task.day_number}</span>
+              {/* Day Number - hide for adhoc tasks */}
+              {!isAdhoc && <span>Day {task.day_number}</span>}
 
-              {/* Sequence Name */}
-              {task.instance?.sequence && (
+              {/* Sequence Name or Ad-hoc badge */}
+              {isAdhoc ? (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-400 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10">
+                  <Zap className="h-2.5 w-2.5 mr-0.5" />
+                  Ad-hoc
+                </Badge>
+              ) : task.instance?.sequence && (
                 <span className="text-muted-foreground/70">{task.instance.sequence.name}</span>
               )}
             </div>
@@ -288,16 +348,16 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
             )}
 
             {/* Contact Info Quick Actions */}
-            {task.status !== 'completed' && task.instance && (
+            {task.status !== 'completed' && (customerPhone || customerEmail) && (
               <div className="flex items-center gap-2 mt-2">
-                {task.instance.customer_phone && (
+                {customerPhone && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-                          <a href={`tel:${task.instance.customer_phone}`}>
+                          <a href={`tel:${customerPhone}`}>
                             <Phone className="h-3 w-3 mr-1" />
-                            {task.instance.customer_phone}
+                            {customerPhone}
                           </a>
                         </Button>
                       </TooltipTrigger>
@@ -305,18 +365,18 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
                     </Tooltip>
                   </TooltipProvider>
                 )}
-                {task.instance.customer_email && (
+                {customerEmail && (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button variant="outline" size="sm" className="h-7 text-xs" asChild>
-                          <a href={`mailto:${task.instance.customer_email}`}>
+                          <a href={`mailto:${customerEmail}`}>
                             <Mail className="h-3 w-3 mr-1" />
                             Email
                           </a>
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent>{task.instance.customer_email}</TooltipContent>
+                      <TooltipContent>{customerEmail}</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
                 )}
@@ -339,9 +399,10 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
         onOpenChange={setShowCompleteDialog}
         taskId={task.id}
         taskTitle={task.title}
-        customerName={task.instance?.customer_name || 'Unknown'}
+        customerName={customerName}
         actionType={task.action_type}
         onComplete={handleComplete}
+        contactId={contactId || undefined}
       />
     </Card>
   );
@@ -352,9 +413,11 @@ function groupTasksByCustomer(tasks: StaffOnboardingTask[]) {
   const groups: Map<string, { customerName: string; contactId: string | null; tasks: StaffOnboardingTask[] }> = new Map();
 
   for (const task of tasks) {
-    const key = task.instance?.customer_name || 'Unknown Customer';
+    const customerName = getCustomerName(task);
+    const contactId = getContactId(task);
+    const key = customerName || 'Unknown Customer';
     if (!groups.has(key)) {
-      groups.set(key, { customerName: key, contactId: task.instance?.contact_id || null, tasks: [] });
+      groups.set(key, { customerName: key, contactId: contactId, tasks: [] });
     }
     groups.get(key)!.tasks.push(task);
   }
@@ -436,6 +499,7 @@ export default function StaffOnboardingTasks() {
   const { activeTasks, completedTodayTasks, stats, isLoading, error, refetch } =
     useStaffOnboardingTasks();
   const completeTask = useCompleteStaffOnboardingTask();
+  const createAdhocTask = useCreateAdhocTask();
   const { toast } = useToast();
 
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
@@ -449,15 +513,76 @@ export default function StaffOnboardingTasks() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 15;
   const MAX_ITEMS = 50;
+  // Calendar view toggle
+  const [calendarView, setCalendarView] = useState<CalendarViewType>('week');
+  // Schedule task dialog
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const scheduleTask = useScheduleAdhocTask({ staffSessionToken: sessionToken });
 
-  const handleComplete = async (taskId: string, notes?: string) => {
+  const handleScheduleTask = async (data: {
+    contactId: string;
+    contactName: string;
+    dueDate: string;
+    actionType: 'call' | 'text' | 'email' | 'other';
+    title: string;
+    description?: string;
+  }) => {
+    await scheduleTask.mutateAsync({
+      contactId: data.contactId,
+      dueDate: data.dueDate,
+      actionType: data.actionType,
+      title: data.title,
+      description: data.description,
+    });
+    toast({
+      title: 'Task scheduled',
+      description: `${data.title} for ${data.contactName} on ${data.dueDate}.`,
+    });
+  };
+
+  const handleComplete = async (taskId: string, notes?: string, followUp?: FollowUpData) => {
     setCompletingTaskId(taskId);
     try {
       await completeTask.mutateAsync({ taskId, notes });
-      toast({
-        title: 'Task completed',
-        description: 'Great job! The task has been marked as done.',
-      });
+
+      // If follow-up was scheduled, create the adhoc task
+      if (followUp) {
+        // Find the task to get its contact ID
+        const task = activeTasks.find(t => t.id === taskId);
+        const contactId = task ? getContactId(task) : null;
+
+        if (contactId) {
+          try {
+            await createAdhocTask.mutateAsync({
+              contactId,
+              dueDate: format(followUp.dueDate, 'yyyy-MM-dd'),
+              actionType: followUp.actionType,
+              title: followUp.title,
+              parentTaskId: taskId,
+            });
+            toast({
+              title: 'Task completed',
+              description: `Great job! Follow-up scheduled for ${format(followUp.dueDate, 'MMM d')}.`,
+            });
+          } catch (followUpErr) {
+            toast({
+              title: 'Task completed, but follow-up failed',
+              description: followUpErr instanceof Error ? followUpErr.message : 'Could not create follow-up.',
+              variant: 'destructive',
+            });
+          }
+        } else {
+          toast({
+            title: 'Task completed',
+            description: 'Great job! The task has been marked as done.',
+          });
+        }
+      } else {
+        toast({
+          title: 'Task completed',
+          description: 'Great job! The task has been marked as done.',
+        });
+      }
     } catch (err) {
       toast({
         title: 'Failed to complete task',
@@ -564,15 +689,25 @@ export default function StaffOnboardingTasks() {
           <h1 className="text-2xl font-bold">Your Sequence Queue</h1>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => refetch()}
-          disabled={isLoading}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setShowScheduleDialog(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Schedule Task
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -651,43 +786,83 @@ export default function StaffOnboardingTasks() {
         </Card>
       </div>
 
-      {/* Sequence Filter */}
-      {availableSequences.length > 0 && (
-        <div className="flex items-center gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Sequence:</span>
-            <Select value={selectedSequence} onValueChange={setSelectedSequence}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">
-                  <div className="flex items-center gap-2">
-                    <Workflow className="h-4 w-4 text-muted-foreground" />
-                    <span>All Sequences</span>
-                  </div>
-                </SelectItem>
-                {availableSequences.map((seq) => (
-                  <SelectItem key={seq.id} value={seq.id}>
+      {/* Filters and View Toggle */}
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="flex items-center gap-4">
+          {/* Sequence Filter */}
+          {availableSequences.length > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Sequence:</span>
+              <Select value={selectedSequence} onValueChange={setSelectedSequence}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
                     <div className="flex items-center gap-2">
                       <Workflow className="h-4 w-4 text-muted-foreground" />
-                      <span>{seq.name}</span>
+                      <span>All Sequences</span>
                     </div>
                   </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                  {availableSequences.map((seq) => (
+                    <SelectItem key={seq.id} value={seq.id}>
+                      <div className="flex items-center gap-2">
+                        <Workflow className="h-4 w-4 text-muted-foreground" />
+                        <span>{seq.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* 7-Day Outlook */}
+        {/* Calendar View Toggle */}
+        <ToggleGroup
+          type="single"
+          value={calendarView}
+          onValueChange={(value) => value && setCalendarView(value as CalendarViewType)}
+          className="border rounded-md"
+        >
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToggleGroupItem value="week" aria-label="Week view" className="h-8 w-8 p-0">
+                  <List className="h-4 w-4" />
+                </ToggleGroupItem>
+              </TooltipTrigger>
+              <TooltipContent>Week view</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToggleGroupItem value="month" aria-label="Month view" className="h-8 w-8 p-0">
+                  <Grid3X3 className="h-4 w-4" />
+                </ToggleGroupItem>
+              </TooltipTrigger>
+              <TooltipContent>Month view</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </ToggleGroup>
+      </div>
+
+      {/* Calendar View */}
       {!isLoading && (
-        <SevenDayOutlook
-          tasks={tasksForOutlook}
-          onDayClick={handleDayClick}
-          selectedDate={selectedDate}
-        />
+        calendarView === 'week' ? (
+          <SevenDayOutlook
+            tasks={tasksForOutlook}
+            onDayClick={handleDayClick}
+            selectedDate={selectedDate}
+          />
+        ) : (
+          <MonthlyTaskCalendar
+            tasks={tasksForOutlook}
+            onDayClick={handleDayClick}
+            selectedDate={selectedDate}
+          />
+        )
       )}
 
       {/* Date Filter Indicator */}
@@ -900,6 +1075,14 @@ export default function StaffOnboardingTasks() {
         staffMemberId={user?.id}
         staffSessionToken={sessionToken}
         onActivityLogged={() => refetch()}
+      />
+
+      {/* Schedule Task Dialog */}
+      <ScheduleTaskDialog
+        open={showScheduleDialog}
+        onOpenChange={setShowScheduleDialog}
+        agencyId={user?.agency_id || null}
+        onSchedule={handleScheduleTask}
       />
     </div>
   );
