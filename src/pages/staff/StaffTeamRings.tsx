@@ -13,7 +13,7 @@ import { fetchWithAuth } from "@/lib/staffRequest";
 import { getPreviousBusinessDay } from "@/utils/businessDays";
 import MemberRingsCard from "@/components/rings/MemberRingsCard";
 import RingLegend from "@/components/rings/RingLegend";
-import { RING_COLORS, RING_LABELS } from "@/components/rings/colors";
+import { RING_LABELS, getRingColor } from "@/components/rings/colors";
 import PersonSnapshotModal from "@/components/PersonSnapshotModal";
 type TeamMetricRow = {
   team_member_id: string;
@@ -187,7 +187,7 @@ export default function StaffTeamRings() {
           key,
           label: kpiLabels[key] || RING_LABELS[key] || key,
           progress,
-          color: RING_COLORS[key] || "#9ca3af",
+          color: getRingColor(key),
           actual,
           target
         };

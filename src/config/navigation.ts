@@ -151,7 +151,6 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/sales',
         access: { staff: false, manager: true, owner: true },
-        adminOnly: true,  // Only system admins can see this for now
       },
       {
         id: 'lqs-roadmap',
@@ -160,7 +159,6 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/lqs-roadmap',
         access: { staff: false, manager: true, owner: true },
-        adminOnly: true, // Uses hasSalesBetaAccess() check
       },
       {
         id: 'lqs-roi',
@@ -169,7 +167,6 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/lqs-roi',
         access: { staff: true, manager: true, owner: true },
-        adminOnly: true, // Uses hasSalesBetaAccess() check
       },
       {
         id: 'ai-sales-bot',
