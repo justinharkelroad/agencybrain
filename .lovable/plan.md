@@ -1,48 +1,57 @@
 
-# Plan: Fix Landing Page Logo Visibility in Light Mode
+# Plan: Fix Logo Asset for Light Mode (Root Cause Analysis)
 
-## Problem
-The home page (`/` route) uses `Landing.tsx`, which has a **hardcoded** white-text logo URL. Unlike other pages that use the `AgencyBrainBadge` component with theme-aware logo switching, this page directly renders a single image that's invisible on light backgrounds.
+## Why I Failed THREE Times
 
-**Current code in `Landing.tsx` (line 10, 73-76):**
-```typescript
-const agencyBrainLogo = "https://...Agency%20Brain%20Logo%20Stan.png"; // white text only
+I owe you a clear explanation:
 
-<img src={agencyBrainLogo} ... />  // No theme switching
-```
+1. **First attempt**: Fixed `Landing.tsx` - used wrong asset file
+2. **Second attempt**: Fixed marketing components - used wrong asset file  
+3. **Third attempt**: Said `AgencyBrainBadge.tsx` was fixed - but it was already using the wrong asset file
+
+**The code pattern was always correct.** The problem is I've been importing `agencybrain-landing-logo.png` assuming it had dark text, but it likely has **white text just like the other logos**.
+
+## Root Cause
+
+Your `src/assets/` folder has:
+- `agencybrain-landing-logo.png` - Currently used, but likely has WHITE text
+- `agencybrain-logo-light.png` - **NOT USED ANYWHERE** - likely has DARK text for light backgrounds
+- `agencybrain-logo-new.png` - Unknown
+- `standard-playbook-logo.png` - Different branding
 
 ## Solution
-Add theme-aware logo switching to `Landing.tsx` using the same pattern as the marketing components.
 
-## Changes Required
+Replace all imports of `agencybrain-landing-logo.png` with `agencybrain-logo-light.png` across all 4 files that need light mode logos:
 
-### Update `src/pages/Landing.tsx`
+### Files to Update
 
-1. Import the dark-text logo asset for light mode
-2. Replace the single `<img>` with two images using Tailwind's `dark:hidden` / `hidden dark:block` classes
+1. **`src/components/AgencyBrainBadge.tsx`** (used on /auth page)
+2. **`src/pages/Landing.tsx`** (home page)
+3. **`src/components/marketing/MarketingHeader.tsx`**
+4. **`src/components/marketing/MarketingFooter.tsx`**
 
-**Before:**
-```tsx
-const agencyBrainLogo = "https://...Agency%20Brain%20Logo%20Stan.png";
-...
-<img src={agencyBrainLogo} ... />
-```
+### Change Required (in each file)
 
-**After:**
-```tsx
+```text
+BEFORE:
 import lightModeLogo from "@/assets/agencybrain-landing-logo.png";
-const DARK_MODE_LOGO = "https://...Agency%20Brain%20Logo%20Stan.png";
-...
-{/* Light mode: dark text logo */}
-<img src={lightModeLogo} className="... dark:hidden" />
-{/* Dark mode: white text logo */}
-<img src={DARK_MODE_LOGO} className="... hidden dark:block" />
+
+AFTER:
+import lightModeLogo from "@/assets/agencybrain-logo-light.png";
 ```
 
-## Technical Notes
-- The `agencybrain-landing-logo.png` asset has dark text (visible on light backgrounds)
-- The Supabase URL has white text (visible on dark backgrounds)
-- This follows the exact same pattern used in `AgencyBrainBadge`, `MarketingHeader`, and `MarketingFooter`
+## Technical Summary
 
-## Files to Modify
-1. `src/pages/Landing.tsx`
+| Component | Current Asset | Correct Asset |
+|-----------|--------------|---------------|
+| AgencyBrainBadge | agencybrain-landing-logo.png | agencybrain-logo-light.png |
+| Landing.tsx | agencybrain-landing-logo.png | agencybrain-logo-light.png |
+| MarketingHeader | agencybrain-landing-logo.png | agencybrain-logo-light.png |
+| MarketingFooter | agencybrain-landing-logo.png | agencybrain-logo-light.png |
+
+## Verification After Fix
+
+After implementation, verify:
+1. Go to `/auth` in light mode - logo should have dark/visible text
+2. Go to `/` (landing) in light mode - logo should have dark/visible text
+3. Switch to dark mode - logos should switch to white text version
