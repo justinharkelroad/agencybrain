@@ -93,11 +93,34 @@ Deno.serve(async (req) => {
     const dashboardQuotedCount = Math.max(quotedCount || 0, metricsDaily?.quoted_count || 0);
     const dashboardSoldCount = metricsDaily?.sold_items || 0;
 
+    // Get targets from targets table (staff can't query this directly due to RLS)
+    const { data: targetRows } = await supabase
+      .from('targets')
+      .select('metric_key, value_number, team_member_id')
+      .eq('agency_id', staffUser.agency_id);
+
+    const targets: Record<string, number> = {};
+    if (targetRows) {
+      // First load agency defaults (team_member_id = null)
+      targetRows.forEach(t => {
+        if (!t.team_member_id) {
+          targets[t.metric_key] = t.value_number;
+        }
+      });
+      // Then override with member-specific targets if they exist
+      targetRows.forEach(t => {
+        if (t.team_member_id === staffUser.team_member_id) {
+          targets[t.metric_key] = t.value_number;
+        }
+      });
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
         dashboardQuotedCount,
-        dashboardSoldCount
+        dashboardSoldCount,
+        targets
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

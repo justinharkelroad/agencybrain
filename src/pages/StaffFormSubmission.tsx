@@ -213,8 +213,13 @@ export default function StaffFormSubmission() {
 
         if (data?.success) {
           console.log('[StaffForm DEBUG] Setting dashboard counts:', data.dashboardQuotedCount, data.dashboardSoldCount);
+          console.log('[StaffForm DEBUG] Targets from edge function:', data.targets);
           setDashboardQuotedCount(data.dashboardQuotedCount || 0);
           setDashboardSoldCount(data.dashboardSoldCount || 0);
+          // Use targets from edge function (bypasses RLS)
+          if (data.targets) {
+            setTargets(prev => ({ ...prev, ...data.targets }));
+          }
         }
       } catch (err) {
         console.error('Error fetching dashboard metrics:', err);
