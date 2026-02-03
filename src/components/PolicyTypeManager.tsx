@@ -80,15 +80,18 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
 
   // Fetch policy types and global product types on mount
   useEffect(() => {
+    if (!agencyId) {
+      setInitialLoading(false);
+      return;
+    }
+
     const loadData = async () => {
       setInitialLoading(true);
       await Promise.all([fetchPolicyTypes(), fetchGlobalProductTypes()]);
       setInitialLoading(false);
     };
 
-    if (agencyId) {
-      loadData();
-    }
+    loadData();
   }, [agencyId]);
 
   const addPolicyType = async () => {
@@ -241,7 +244,7 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
           placeholder="Enter policy type name..."
           value={newTypeName}
           onChange={(e) => setNewTypeName(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && addPolicyType()}
+          onKeyDown={(e) => e.key === 'Enter' && addPolicyType()}
           disabled={loading}
         />
         <Button 
