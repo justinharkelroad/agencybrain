@@ -1247,12 +1247,49 @@ export default function StaffFormSubmission() {
                 </div>
               )}
 
+              {/* Dashboard-Tracked Metrics (metrics tracked via dashboard, not form fields) */}
+              {performanceSummary.kpis.some(k => k.key.startsWith('dashboard_')) && (
+                <div className="space-y-4 border-t pt-4">
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    <Target className="h-5 w-5" />
+                    Dashboard-Tracked Metrics
+                  </h3>
+                  <p className="text-sm text-muted-foreground">These metrics are tracked via the dashboard and included in your performance summary.</p>
+                  <div className="space-y-3">
+                    {performanceSummary.kpis.filter(k => k.key.startsWith('dashboard_')).map(kpi => (
+                      <div key={kpi.key} className={`p-3 rounded-lg border ${
+                        kpi.passed
+                          ? 'bg-green-500/10 border-green-500/30'
+                          : 'bg-amber-500/10 border-amber-500/30'
+                      }`}>
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">{kpi.label.replace('📊 ', '')}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-lg font-bold ${kpi.passed ? 'text-green-600' : 'text-amber-600'}`}>
+                              {kpi.submitted} / {kpi.target}
+                            </span>
+                            {kpi.passed ? (
+                              <CheckCircle className="h-5 w-5 text-green-500" />
+                            ) : (
+                              <Target className="h-5 w-5 text-amber-500" />
+                            )}
+                          </div>
+                        </div>
+                        <div className="mt-1 text-xs text-muted-foreground">
+                          {kpi.percentOfTarget}% of target
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Performance Summary */}
               {performanceSummary.summary.totalKPIs > 0 && (
                 <div className="border-t border-b border-border py-4 my-4">
                   <div className={`text-center p-3 rounded-lg ${
-                    performanceSummary.summary.overallPass 
-                      ? 'bg-green-500/10 border border-green-500/20' 
+                    performanceSummary.summary.overallPass
+                      ? 'bg-green-500/10 border border-green-500/20'
                       : 'bg-red-500/10 border border-red-500/20'
                   }`}>
                     <p className={`text-lg font-semibold ${
