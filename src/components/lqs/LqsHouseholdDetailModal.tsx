@@ -43,6 +43,7 @@ interface LqsHouseholdDetailModalProps {
   onOpenChange: (open: boolean) => void;
   onAssignLeadSource?: (householdId: string) => void;
   teamMembers?: { id: string; name: string }[];
+  staffSessionToken?: string | null;
 }
 
 export function LqsHouseholdDetailModal({
@@ -51,6 +52,7 @@ export function LqsHouseholdDetailModal({
   onOpenChange,
   onAssignLeadSource,
   teamMembers,
+  staffSessionToken,
 }: LqsHouseholdDetailModalProps) {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -64,6 +66,41 @@ export function LqsHouseholdDetailModal({
   const [deletedQuoteIds, setDeletedQuoteIds] = useState<string[]>([]);
   const [conflictingSourceName, setConflictingSourceName] = useState<string | null>(null);
   const [isResolvingConflict, setIsResolvingConflict] = useState(false);
+  const [showAddQuoteForm, setShowAddQuoteForm] = useState(false);
+  const [isAddingQuote, setIsAddingQuote] = useState(false);
+  const [showAddSaleForm, setShowAddSaleForm] = useState(false);
+  const [isAddingSale, setIsAddingSale] = useState(false);
+
+  const PRODUCT_OPTIONS = [
+    'Standard Auto',
+    'Non-Standard Auto',
+    'Homeowners',
+    'Renters',
+    'Condo',
+    'Umbrella',
+    'Life',
+    'Motorcycle',
+    'Boat',
+    'RV',
+    'Other',
+  ];
+
+  const [newQuote, setNewQuote] = useState({
+    productType: '',
+    premium: '',
+    items: '1',
+    quoteDate: format(new Date(), 'yyyy-MM-dd'),
+    issuedPolicyNumber: '',
+  });
+
+  const [newSale, setNewSale] = useState({
+    productType: '',
+    premium: '',
+    items: '1',
+    policies: '1',
+    saleDate: format(new Date(), 'yyyy-MM-dd'),
+    policyNumber: '',
+  });
 
   // Fetch conflicting lead source name if there's a conflict
   useEffect(() => {
@@ -135,6 +172,23 @@ export function LqsHouseholdDetailModal({
       setEditTeamMemberId(household.team_member_id || '');
       setDeletedQuoteIds([]);
       setIsEditing(false);
+      setShowAddQuoteForm(false);
+      setShowAddSaleForm(false);
+      setNewQuote({
+        productType: '',
+        premium: '',
+        items: '1',
+        quoteDate: format(new Date(), 'yyyy-MM-dd'),
+        issuedPolicyNumber: '',
+      });
+      setNewSale({
+        productType: '',
+        premium: '',
+        items: '1',
+        policies: '1',
+        saleDate: format(new Date(), 'yyyy-MM-dd'),
+        policyNumber: '',
+      });
     }
   }, [household]);
 
@@ -229,6 +283,148 @@ export function LqsHouseholdDetailModal({
     }
     setIsEditing(false);
     setShowDeleteConfirm(false);
+  };
+
+  const handleAddQuote = async () => {
+    if (!household) return;
+    if (!newQuote.productType) {
+      toast.error('Product type is required');
+      return;
+    }
+    const premiumNumber = parseFloat(newQuote.premium);
+    if (isNaN(premiumNumber) || premiumNumber <= 0) {
+      toast.error('Valid premium is required');
+      return;
+    }
+
+    setIsAddingQuote(true);
+    try {
+      // Staff path - use edge function
+      if (staffSessionToken) {
+        const { data, error } = await supabase.functions.invoke('staff_add_quote', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: {
+            first_name: household.first_name,
+            last_name: household.last_name,
+            zip_code: household.zip_code,
+            phone: Array.isArray(household.phone) ? household.phone[0] : household.phone || undefined,
+            email: household.email || undefined,
+            lead_source_id: household.lead_source_id || undefined,
+            quote_date: newQuote.quoteDate,
+            products: [
+              {
+                productType: newQuote.productType,
+                premium: newQuote.premium,
+                items: newQuote.items,
+                issued_policy_number: newQuote.issuedPolicyNumber || undefined,
+              },
+            ],
+          },
+        });
+
+        if (error) throw new Error(error.message || 'Failed to add quote');
+        if (data?.error) throw new Error(data.error);
+      } else {
+        const { error } = await supabase
+          .from('lqs_quotes')
+          .insert({
+            household_id: household.id,
+            agency_id: household.agency_id,
+            team_member_id: editTeamMemberId || household.team_member_id || null,
+            quote_date: newQuote.quoteDate,
+            product_type: newQuote.productType,
+            items_quoted: parseInt(newQuote.items, 10) || 1,
+            premium_cents: Math.round(premiumNumber * 100),
+            issued_policy_number: newQuote.issuedPolicyNumber || null,
+            source: 'manual',
+          });
+        if (error) throw error;
+      }
+
+      toast.success('Quote added');
+      setShowAddQuoteForm(false);
+      setNewQuote({
+        productType: '',
+        premium: '',
+        items: '1',
+        quoteDate: format(new Date(), 'yyyy-MM-dd'),
+        issuedPolicyNumber: '',
+      });
+      queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
+    } catch (err: any) {
+      toast.error(`Failed to add quote: ${err.message || err}`);
+    } finally {
+      setIsAddingQuote(false);
+    }
+  };
+
+  const handleAddPolicy = async () => {
+    if (!household) return;
+    if (!newSale.productType) {
+      toast.error('Product type is required');
+      return;
+    }
+    const premiumNumber = parseFloat(newSale.premium);
+    if (isNaN(premiumNumber) || premiumNumber <= 0) {
+      toast.error('Valid premium is required');
+      return;
+    }
+
+    setIsAddingSale(true);
+    try {
+      if (staffSessionToken) {
+        const { data, error } = await supabase.functions.invoke('staff_add_policy', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: {
+            household_id: household.id,
+            sale_date: newSale.saleDate,
+            product_type: newSale.productType,
+            premium: newSale.premium,
+            items_sold: parseInt(newSale.items, 10) || 1,
+            policies_sold: parseInt(newSale.policies, 10) || 1,
+            policy_number: newSale.policyNumber || undefined,
+            team_member_id: editTeamMemberId || household.team_member_id || undefined,
+          },
+        });
+
+        if (error) throw new Error(error.message || 'Failed to add policy');
+        if (data?.error) throw new Error(data.error);
+      } else {
+        const { error } = await supabase
+          .from('lqs_sales')
+          .insert({
+            household_id: household.id,
+            agency_id: household.agency_id,
+            team_member_id: editTeamMemberId || household.team_member_id || null,
+            sale_date: newSale.saleDate,
+            product_type: newSale.productType,
+            items_sold: parseInt(newSale.items, 10) || 1,
+            policies_sold: parseInt(newSale.policies, 10) || 1,
+            premium_cents: Math.round(premiumNumber * 100),
+            policy_number: newSale.policyNumber || null,
+            source: 'manual',
+          });
+        if (error) throw error;
+      }
+
+      toast.success('Policy added');
+      setShowAddSaleForm(false);
+      setNewSale({
+        productType: '',
+        premium: '',
+        items: '1',
+        policies: '1',
+        saleDate: format(new Date(), 'yyyy-MM-dd'),
+        policyNumber: '',
+      });
+      queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
+    } catch (err: any) {
+      toast.error(`Failed to add policy: ${err.message || err}`);
+    } finally {
+      setIsAddingSale(false);
+    }
   };
 
   const handleDeleteHousehold = async () => {
@@ -600,10 +796,90 @@ export function LqsHouseholdDetailModal({
 
           {/* Quotes Section */}
           <div className="space-y-4">
-            <h4 className="font-medium flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Quotes ({household.quotes?.length || 0})
-            </h4>
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Quotes ({household.quotes?.length || 0})
+              </h4>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowAddQuoteForm((prev) => !prev)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {showAddQuoteForm ? 'Cancel' : 'Add Quote'}
+              </Button>
+            </div>
+
+            {showAddQuoteForm && (
+              <Card className="p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium">Product Type</label>
+                    <Select
+                      value={newQuote.productType}
+                      onValueChange={(val) => setNewQuote((prev) => ({ ...prev, productType: val }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select product..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {PRODUCT_OPTIONS.map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {p}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Quote Date</label>
+                    <Input
+                      type="date"
+                      value={newQuote.quoteDate}
+                      onChange={(e) => setNewQuote((prev) => ({ ...prev, quoteDate: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-sm font-medium">Premium</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newQuote.premium}
+                      onChange={(e) => setNewQuote((prev) => ({ ...prev, premium: e.target.value }))}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Items</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={newQuote.items}
+                      onChange={(e) => setNewQuote((prev) => ({ ...prev, items: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Policy # (optional)</label>
+                    <Input
+                      value={newQuote.issuedPolicyNumber}
+                      onChange={(e) => setNewQuote((prev) => ({ ...prev, issuedPolicyNumber: e.target.value }))}
+                      placeholder="Policy number"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={handleAddQuote} disabled={isAddingQuote}>
+                    {isAddingQuote ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                    Save Quote
+                  </Button>
+                </div>
+              </Card>
+            )}
 
             {household.quotes?.length ? (
               <div className="space-y-3">
@@ -664,6 +940,142 @@ export function LqsHouseholdDetailModal({
           </div>
 
           <Separator />
+
+          {/* Sales Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-medium flex items-center gap-2">
+                <Tag className="h-4 w-4" />
+                Policies ({household.sales?.length || 0})
+              </h4>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowAddSaleForm((prev) => !prev)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {showAddSaleForm ? 'Cancel' : 'Add Policy'}
+              </Button>
+            </div>
+
+            {showAddSaleForm && (
+              <Card className="p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium">Product Type</label>
+                    <Select
+                      value={newSale.productType}
+                      onValueChange={(val) => setNewSale((prev) => ({ ...prev, productType: val }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select product..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background z-50">
+                        {PRODUCT_OPTIONS.map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {p}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Sale Date</label>
+                    <Input
+                      type="date"
+                      value={newSale.saleDate}
+                      onChange={(e) => setNewSale((prev) => ({ ...prev, saleDate: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-sm font-medium">Premium</label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={newSale.premium}
+                      onChange={(e) => setNewSale((prev) => ({ ...prev, premium: e.target.value }))}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Items Sold</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={newSale.items}
+                      onChange={(e) => setNewSale((prev) => ({ ...prev, items: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Policies</label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="99"
+                      value={newSale.policies}
+                      onChange={(e) => setNewSale((prev) => ({ ...prev, policies: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm font-medium">Policy # (optional)</label>
+                    <Input
+                      value={newSale.policyNumber}
+                      onChange={(e) => setNewSale((prev) => ({ ...prev, policyNumber: e.target.value }))}
+                      placeholder="Policy number"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={handleAddPolicy} disabled={isAddingSale}>
+                    {isAddingSale ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                    Save Policy
+                  </Button>
+                </div>
+              </Card>
+            )}
+
+            {household.sales?.length ? (
+              <div className="space-y-3">
+                {household.sales.map((sale) => (
+                  <Card key={sale.id}>
+                    <CardHeader className="py-3">
+                      <CardTitle className="text-base flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline">{sale.product_type}</Badge>
+                        </div>
+                        <div className="text-base font-semibold">
+                          ${((sale.premium_cents || 0) / 100).toLocaleString()}
+                        </div>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-0 pb-3">
+                      <div className="grid grid-cols-2 gap-2 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-3 w-3" />
+                          Sale: {sale.sale_date
+                            ? format(parseISO(sale.sale_date), 'MMM d, yyyy')
+                            : '—'}
+                        </div>
+                        {sale.policy_number && (
+                          <div className="text-green-600 dark:text-green-400 font-medium">
+                            Policy: {sale.policy_number}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">No policies recorded.</p>
+            )}
+          </div>
 
           {/* Totals Section */}
           <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">

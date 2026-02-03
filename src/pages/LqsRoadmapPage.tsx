@@ -883,6 +883,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
           handleAssignLeadSource(id);
         }}
         teamMembers={teamMembers}
+        staffSessionToken={isStaffPortal ? staffSessionToken : null}
       />
 
       {/* Sale Detail Modal (for sold households) */}

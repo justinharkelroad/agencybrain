@@ -10,6 +10,7 @@ interface ProductEntry {
   productType: string;
   premium: string;
   items: string;
+  issued_policy_number?: string;
 }
 
 interface AddQuoteRequest {
@@ -202,6 +203,7 @@ serve(async (req) => {
       quote_date: body.quote_date,
       team_member_id: staffUser.team_member_id,
       items_quoted: parseInt(p.items, 10) || 1,
+      issued_policy_number: p.issued_policy_number || null,
       source: 'manual' as const,
     }));
 
