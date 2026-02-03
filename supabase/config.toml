@@ -150,6 +150,9 @@ verify_jwt = true
 [functions.staff_submit_form]
 verify_jwt = false
 
+[functions.staff_get_dashboard_metrics]
+verify_jwt = false
+
 [functions.send_submission_feedback]
 verify_jwt = false
 
