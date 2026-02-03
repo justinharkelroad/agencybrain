@@ -473,3 +473,6 @@ verify_jwt = true
 
 [functions.standalone-sales-process]
 verify_jwt = true
+
+[functions.send-morning-digest]
+verify_jwt = false

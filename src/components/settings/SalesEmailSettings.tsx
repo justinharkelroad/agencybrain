@@ -25,6 +25,7 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
   const [realtimeEnabled, setRealtimeEnabled] = useState(true);
   const [dailySummaryEnabled, setDailySummaryEnabled] = useState(false);
   const [callScoringEnabled, setCallScoringEnabled] = useState(true);
+  const [morningDigestEnabled, setMorningDigestEnabled] = useState(false);
   const [timezone, setTimezone] = useState('America/New_York');
 
   useEffect(() => {
@@ -32,7 +33,7 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
       try {
         const { data, error } = await supabase
           .from('agencies')
-          .select('sales_realtime_email_enabled, sales_daily_summary_enabled, call_scoring_email_enabled, timezone')
+          .select('sales_realtime_email_enabled, sales_daily_summary_enabled, call_scoring_email_enabled, morning_digest_enabled, timezone')
           .eq('id', agencyId)
           .single();
 
@@ -41,6 +42,7 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
         setRealtimeEnabled(data?.sales_realtime_email_enabled ?? true);
         setDailySummaryEnabled(data?.sales_daily_summary_enabled ?? false);
         setCallScoringEnabled(data?.call_scoring_email_enabled ?? true);
+        setMorningDigestEnabled(data?.morning_digest_enabled ?? false);
         setTimezone(data?.timezone || 'America/New_York');
       } catch (err) {
         console.error('Failed to load sales email settings:', err);
@@ -76,6 +78,8 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
         setDailySummaryEnabled(!value);
       } else if (field === 'call_scoring_email_enabled') {
         setCallScoringEnabled(!value);
+      } else if (field === 'morning_digest_enabled') {
+        setMorningDigestEnabled(!value);
       }
     } finally {
       setSaving(false);
@@ -85,6 +89,11 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
   const handleCallScoringToggle = (checked: boolean) => {
     setCallScoringEnabled(checked);
     updateSetting('call_scoring_email_enabled', checked);
+  };
+
+  const handleMorningDigestToggle = (checked: boolean) => {
+    setMorningDigestEnabled(checked);
+    updateSetting('morning_digest_enabled', checked);
   };
 
   const handleRealtimeToggle = (checked: boolean) => {
@@ -163,6 +172,21 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
           <Switch
             checked={callScoringEnabled}
             onCheckedChange={handleCallScoringToggle}
+            disabled={saving}
+          />
+        </div>
+
+        {/* Morning Digest */}
+        <div className="flex items-start justify-between gap-4 p-4 bg-muted/30 rounded-lg">
+          <div className="space-y-1">
+            <Label className="text-base font-medium">Morning Digest</Label>
+            <p className="text-sm text-muted-foreground">
+              Send a daily briefing at 7:00 AM to owners and key employees with yesterday's highlights, at-risk policies, renewals due, and team progress.
+            </p>
+          </div>
+          <Switch
+            checked={morningDigestEnabled}
+            onCheckedChange={handleMorningDigestToggle}
             disabled={saving}
           />
         </div>
