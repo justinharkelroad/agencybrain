@@ -43,10 +43,13 @@ interface PerformanceSummary {
 }
 
 export default function StaffFormSubmission() {
+  console.log('[StaffForm DEBUG] Component mounted');
   const { formSlug } = useParams<{ formSlug: string }>();
   const navigate = useNavigate();
   const { user, sessionToken, isAuthenticated, loading: authLoading } = useStaffAuth();
-  
+
+  console.log('[StaffForm DEBUG] Auth state:', { user: !!user, sessionToken: !!sessionToken, isAuthenticated, authLoading });
+
   const [formTemplate, setFormTemplate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -72,8 +75,12 @@ export default function StaffFormSubmission() {
 
   // Load form template, team member info, and targets
   useEffect(() => {
+    console.log('[StaffForm DEBUG] loadForm useEffect triggered, isAuthenticated:', isAuthenticated, 'user:', !!user);
     async function loadForm() {
-      if (!user?.agency_id || !formSlug) return;
+      if (!user?.agency_id || !formSlug) {
+        console.log('[StaffForm DEBUG] loadForm early return - agency_id:', user?.agency_id, 'formSlug:', formSlug);
+        return;
+      }
 
       try {
         setLoading(true);
