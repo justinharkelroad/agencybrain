@@ -123,7 +123,7 @@ export function GoalProgressRing({
           cy={config.dimension / 2}
           r={radius}
           fill="none"
-          stroke="rgba(255, 255, 255, 0.1)"
+          className="stroke-foreground/10"
           strokeWidth={config.strokeWidth}
         />
 
