@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2, Plus, ArrowUp, ArrowDown, Loader2, Link, Link2Off } from "lucide-react";
+import { Trash2, Plus, ArrowUp, ArrowDown, Loader2, Link, Link2Off, Info } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
 
@@ -353,6 +353,20 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
             <p className="text-sm">Add your first policy type above.</p>
           </div>
         )}
+      </div>
+
+      {/* Info blurb about linking */}
+      <div className="flex gap-3 p-4 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm">
+        <Info className="h-5 w-5 text-blue-400 shrink-0 mt-0.5" />
+        <div className="text-muted-foreground">
+          <p className="font-medium text-blue-400 mb-1">Why link policy types?</p>
+          <p>
+            Linking connects your custom policy names to compensation tracking. Linked types automatically
+            get the correct <span className="text-foreground">points</span>, <span className="text-foreground">VC qualifying</span> status,
+            and <span className="text-foreground">bundle detection</span> for accurate commission calculations.
+            Unlinked types will show 0 points and won't count toward VC or bundling bonuses.
+          </p>
+        </div>
       </div>
     </div>
   );
