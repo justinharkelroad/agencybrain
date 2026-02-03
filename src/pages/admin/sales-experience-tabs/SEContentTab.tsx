@@ -249,14 +249,15 @@ export function SEContentTab() {
               </AccordionTrigger>
               <Button
                 size="sm"
-                variant="ghost"
-                className="mr-2"
+                variant="outline"
+                className="mr-4 gap-1.5"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleEditModule(module);
                 }}
               >
-                <Edit className="h-4 w-4" />
+                <Edit className="h-3.5 w-3.5" />
+                Edit Week
               </Button>
             </div>
             <AccordionContent className="px-4 pb-4">
