@@ -37,6 +37,7 @@ type ProductType = {
   category: string;
   default_points: number | null;
   is_vc_item: boolean | null;
+  canonical_name: string | null; // From linked product_types, used for bundle detection
 };
 
 type TeamMember = {
@@ -58,6 +59,7 @@ type Policy = {
   id: string;
   product_type_id: string;
   policy_type_name: string;
+  canonical_name: string | null; // From linked product_types, used for bundle detection
   policy_number: string;
   effective_date: Date | undefined;
   is_vc_qualifying: boolean;
@@ -110,17 +112,18 @@ interface AddSaleFormProps {
 }
 
 
-// Auto products for Preferred Bundle detection
+// Auto products for Preferred Bundle detection (uses canonical names from product_types)
 const AUTO_PRODUCTS = ['Standard Auto', 'Non-Standard Auto', 'Specialty Auto'];
 const HOME_PRODUCTS = ['Homeowners', 'North Light Homeowners', 'Condo', 'North Light Condo'];
 
-// Helper to detect bundle type automatically
+// Helper to detect bundle type automatically using canonical names for accurate detection
 // Accepts optional existingTypes array for customers with existing policies
 const detectBundleType = (
   policies: Policy[],
   existingTypes: string[] = []
 ): { isBundle: boolean; bundleType: string | null } => {
-  const productNames = policies.map(p => p.policy_type_name).filter(Boolean);
+  // Use canonical_name (from linked product_types) for bundle detection, fallback to display name
+  const productNames = policies.map(p => p.canonical_name || p.policy_type_name).filter(Boolean);
 
   // Check both new policies AND existing policies
   const hasAuto = productNames.some(name =>
@@ -147,12 +150,14 @@ const detectBundleType = (
   return { isBundle: false, bundleType: null };
 };
 
-// Multi-item product types (can have multiple line items with item counts)
+// Multi-item product types (uses canonical names)
 const MULTI_ITEM_PRODUCTS = ["Standard Auto", "Specialty Auto", "Boatowners"];
 
-const isMultiItemProduct = (productName: string): boolean => {
+// Check if product allows multiple line items - uses canonical name if available
+const isMultiItemProduct = (productName: string, canonicalName?: string | null): boolean => {
+  const nameToCheck = canonicalName || productName;
   return MULTI_ITEM_PRODUCTS.some(
-    (name) => productName.toLowerCase() === name.toLowerCase()
+    (name) => nameToCheck.toLowerCase() === name.toLowerCase()
   );
 };
 
@@ -263,13 +268,22 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     enabled: !!user?.id,
   });
 
-  // Fetch policy types from agency settings
+  // Fetch policy types with linked product_types for comp fields
   const { data: productTypes = [] } = useQuery<ProductType[]>({
     queryKey: ["policy-types-for-sales", profile?.agency_id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("policy_types")
-        .select("id, name")
+        .select(`
+          id,
+          name,
+          product_type:product_types(
+            name,
+            category,
+            default_points,
+            is_vc_item
+          )
+        `)
         .eq("agency_id", profile?.agency_id)
         .eq("is_active", true)
         .order("order_index", { ascending: true });
@@ -277,9 +291,10 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       return (data || []).map(pt => ({
         id: pt.id,
         name: pt.name,
-        category: 'General',
-        default_points: 0,
-        is_vc_item: false
+        category: (pt.product_type as any)?.category || 'General',
+        default_points: (pt.product_type as any)?.default_points ?? 0,
+        is_vc_item: (pt.product_type as any)?.is_vc_item ?? false,
+        canonical_name: (pt.product_type as any)?.name || null,
       }));
     },
     enabled: !!profile?.agency_id,
@@ -357,6 +372,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         id: crypto.randomUUID(),
         product_type_id: "",
         policy_type_name: "",
+        canonical_name: null,
         policy_number: "",
         effective_date: toLocalDate(saleDate) || todayLocal(),
         is_vc_qualifying: false,
@@ -396,6 +412,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
           if (value === "brokered") {
             updated.is_vc_qualifying = false;
             updated.isBrokered = true;
+            updated.canonical_name = null; // Brokered has no canonical product type
             // Auto-create a line item for brokered business if none exists
             if (p.lineItems.length === 0) {
               updated.lineItems = [
@@ -416,10 +433,12 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
             const product = productTypes.find((pt) => pt.id === value);
             if (product) {
               updated.policy_type_name = product.name;
+              updated.canonical_name = product.canonical_name; // For bundle detection
               updated.is_vc_qualifying = product.is_vc_item || false;
 
               // For single-item products, auto-create/update a single line item
-              if (!isMultiItemProduct(product.name)) {
+              // Use canonical_name for accurate multi-item detection
+              if (!isMultiItemProduct(product.name, product.canonical_name)) {
                 // Keep existing premium if there's already a line item, otherwise start at 0
                 const existingPremium = p.lineItems.length > 0 ? p.lineItems[0].premium : 0;
                 updated.lineItems = [
@@ -436,7 +455,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
               } else {
                 // For multi-item products, clear line items if switching from single-item
                 // but only if there's exactly one auto-created item with same product
-                if (p.lineItems.length === 1 && !isMultiItemProduct(p.policy_type_name) && p.policy_type_name) {
+                if (p.lineItems.length === 1 && !isMultiItemProduct(p.policy_type_name, p.canonical_name) && p.policy_type_name) {
                   updated.lineItems = [];
                 }
               }
@@ -1102,6 +1121,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                         ...p,
                                         isBrokered: true,
                                         product_type_id: "brokered",
+                                        canonical_name: null,
                                         is_vc_qualifying: false,
                                         lineItems: p.lineItems.length > 0 ? [{
                                           ...p.lineItems[0],
@@ -1126,6 +1146,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                                         brokeredCarrierId: null,
                                         product_type_id: "",
                                         policy_type_name: "",
+                                        canonical_name: null,
                                         lineItems: [],
                                       };
                                     }
@@ -1298,7 +1319,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                             </div>
 
                             {/* Conditional rendering based on product type */}
-                            {isMultiItemProduct(policy.policy_type_name) ? (
+                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name) ? (
                               /* Multi-item products: Full line items interface */
                               <>
                                 {/* Line Items Header */}
@@ -1573,7 +1594,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                             )}
 
                             {/* Policy Subtotals - only show for multi-item products with items */}
-                            {isMultiItemProduct(policy.policy_type_name) && policy.lineItems.length > 0 && (
+                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name) && policy.lineItems.length > 0 && (
                               <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg mt-4">
                                 <div className="text-center">
                                   <div className="font-semibold">{policyTotals.items}</div>
