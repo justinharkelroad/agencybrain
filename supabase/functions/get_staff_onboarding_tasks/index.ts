@@ -128,8 +128,8 @@ serve(async (req) => {
           id,
           first_name,
           last_name,
-          phone,
-          email
+          phones,
+          emails
         )
       `)
       .eq('agency_id', agencyId)
@@ -167,8 +167,8 @@ serve(async (req) => {
             id,
             first_name,
             last_name,
-            phone,
-            email
+            phones,
+            emails
           )
         `)
         .eq('agency_id', agencyId)
