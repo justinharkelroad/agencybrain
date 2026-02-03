@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, TrendingUp } from 'lucide-react';
+import { Users, TrendingUp, ExternalLink } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -14,9 +14,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { ProducerMetrics, ProducerBreakdownData } from '@/hooks/useLqsProducerBreakdown';
 
+export type ProducerClickHandler = (teamMemberId: string | null, viewMode: 'quotedBy' | 'soldBy') => void;
+
 interface LqsProducerBreakdownProps {
   data: ProducerBreakdownData | null;
   isLoading: boolean;
+  onProducerClick?: ProducerClickHandler;
 }
 
 // Format currency from cents
@@ -36,7 +39,7 @@ function formatPercent(value: number | null): string {
 }
 
 // Producer table for "Quoted By" view
-function QuotedByTable({ data }: { data: ProducerMetrics[] }) {
+function QuotedByTable({ data, onProducerClick }: { data: ProducerMetrics[]; onProducerClick?: ProducerClickHandler }) {
   if (data.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-8">
@@ -44,6 +47,12 @@ function QuotedByTable({ data }: { data: ProducerMetrics[] }) {
       </div>
     );
   }
+
+  const handleClick = (teamMemberId: string | null) => {
+    if (onProducerClick) {
+      onProducerClick(teamMemberId, 'quotedBy');
+    }
+  };
 
   return (
     <div className="overflow-x-auto">
@@ -66,14 +75,23 @@ function QuotedByTable({ data }: { data: ProducerMetrics[] }) {
               key={row.teamMemberId ?? 'unassigned'}
               className={cn(
                 row.teamMemberId === null &&
-                  'bg-amber-500/10 hover:bg-amber-500/20 border-l-4 border-l-amber-500'
+                  'bg-amber-500/10 hover:bg-amber-500/20 border-l-4 border-l-amber-500',
+                onProducerClick && 'cursor-pointer hover:bg-muted/50'
               )}
+              onClick={() => handleClick(row.teamMemberId)}
             >
               <TableCell className="font-medium">
-                {row.teamMemberName}
-                {row.teamMemberId === null && (
-                  <span className="ml-2 text-xs text-amber-500">(no producer)</span>
-                )}
+                <div className="flex items-center gap-2 group">
+                  <span className={cn(onProducerClick && 'hover:text-primary hover:underline')}>
+                    {row.teamMemberName}
+                  </span>
+                  {row.teamMemberId === null && (
+                    <span className="text-xs text-amber-500">(no producer)</span>
+                  )}
+                  {onProducerClick && (
+                    <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  )}
+                </div>
               </TableCell>
               <TableCell className="text-right">{row.quotedHouseholds.toLocaleString()}</TableCell>
               <TableCell className="text-right">{row.quotedPolicies.toLocaleString()}</TableCell>
@@ -101,7 +119,7 @@ function QuotedByTable({ data }: { data: ProducerMetrics[] }) {
 }
 
 // Producer table for "Sold By" view
-function SoldByTable({ data }: { data: ProducerMetrics[] }) {
+function SoldByTable({ data, onProducerClick }: { data: ProducerMetrics[]; onProducerClick?: ProducerClickHandler }) {
   if (data.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-8">
@@ -109,6 +127,12 @@ function SoldByTable({ data }: { data: ProducerMetrics[] }) {
       </div>
     );
   }
+
+  const handleClick = (teamMemberId: string | null) => {
+    if (onProducerClick) {
+      onProducerClick(teamMemberId, 'soldBy');
+    }
+  };
 
   return (
     <div className="overflow-x-auto">
@@ -136,14 +160,23 @@ function SoldByTable({ data }: { data: ProducerMetrics[] }) {
                 key={row.teamMemberId ?? 'unassigned'}
                 className={cn(
                   row.teamMemberId === null &&
-                    'bg-amber-500/10 hover:bg-amber-500/20 border-l-4 border-l-amber-500'
+                    'bg-amber-500/10 hover:bg-amber-500/20 border-l-4 border-l-amber-500',
+                  onProducerClick && 'cursor-pointer hover:bg-muted/50'
                 )}
+                onClick={() => handleClick(row.teamMemberId)}
               >
                 <TableCell className="font-medium">
-                  {row.teamMemberName}
-                  {row.teamMemberId === null && (
-                    <span className="ml-2 text-xs text-amber-500">(no producer)</span>
-                  )}
+                  <div className="flex items-center gap-2 group">
+                    <span className={cn(onProducerClick && 'hover:text-primary hover:underline')}>
+                      {row.teamMemberName}
+                    </span>
+                    {row.teamMemberId === null && (
+                      <span className="text-xs text-amber-500">(no producer)</span>
+                    )}
+                    {onProducerClick && (
+                      <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">{row.soldHouseholds.toLocaleString()}</TableCell>
                 <TableCell className="text-right">{row.soldPolicies.toLocaleString()}</TableCell>
@@ -167,7 +200,7 @@ function SoldByTable({ data }: { data: ProducerMetrics[] }) {
   );
 }
 
-export function LqsProducerBreakdown({ data, isLoading }: LqsProducerBreakdownProps) {
+export function LqsProducerBreakdown({ data, isLoading, onProducerClick }: LqsProducerBreakdownProps) {
   const [activeTab, setActiveTab] = useState<'quotedBy' | 'soldBy'>('quotedBy');
 
   if (isLoading) {
@@ -226,15 +259,17 @@ export function LqsProducerBreakdown({ data, isLoading }: LqsProducerBreakdownPr
           <TabsContent value="quotedBy">
             <div className="text-sm text-muted-foreground mb-4">
               Performance by who created the quote. Close ratio shows % of quoted households that converted to sales.
+              {onProducerClick && <span className="ml-1 text-primary">Click a name to see details.</span>}
             </div>
-            <QuotedByTable data={data.byQuotedBy} />
+            <QuotedByTable data={data.byQuotedBy} onProducerClick={onProducerClick} />
           </TabsContent>
 
           <TabsContent value="soldBy">
             <div className="text-sm text-muted-foreground mb-4">
               Performance by who closed the sale. Shows actual premium written and bundle performance.
+              {onProducerClick && <span className="ml-1 text-primary">Click a name to see details.</span>}
             </div>
-            <SoldByTable data={data.bySoldBy} />
+            <SoldByTable data={data.bySoldBy} onProducerClick={onProducerClick} />
           </TabsContent>
         </Tabs>
 
