@@ -146,12 +146,20 @@ export default function StaffFormSubmission() {
 
         // Fetch scorecard_rules to get enabled KPIs for this agency
         const formRole = template.schema_json?.role || 'Sales';
-        const { data: scorecardRules } = await supabase
+        const { data: scorecardRules, error: scorecardError } = await supabase
           .from('scorecard_rules')
           .select('selected_metrics')
           .eq('agency_id', template.agency_id)
           .eq('role', formRole)
           .single();
+
+        console.log('[StaffForm DEBUG] scorecard_rules query:', {
+          agency_id: template.agency_id,
+          role: formRole,
+          result: scorecardRules,
+          error: scorecardError
+        });
+        console.log('[StaffForm DEBUG] targets loaded:', targetsMap);
 
         if (scorecardRules?.selected_metrics) {
           setEnabledKpis(new Set(scorecardRules.selected_metrics));
@@ -194,7 +202,10 @@ export default function StaffFormSubmission() {
           return;
         }
 
+        console.log('[StaffForm DEBUG] dashboard metrics response:', data, 'error:', error);
+
         if (data?.success) {
+          console.log('[StaffForm DEBUG] Setting dashboard counts:', data.dashboardQuotedCount, data.dashboardSoldCount);
           setDashboardQuotedCount(data.dashboardQuotedCount || 0);
           setDashboardSoldCount(data.dashboardSoldCount || 0);
         }
@@ -346,6 +357,17 @@ export default function StaffFormSubmission() {
     // Show Quoted Households if: enabled OR has target OR has dashboard data, AND not already on form
     const shouldAddQuoted = (quotedEnabled || hasQuotedTarget || dashboardQuotedCount > 0) &&
                             !formKpiKeys.has('quoted_households');
+
+    console.log('[StaffForm DEBUG] performanceSummary calculation:', {
+      enabledKpis: Array.from(enabledKpis),
+      targets,
+      quotedEnabled,
+      hasQuotedTarget,
+      quotedTarget,
+      dashboardQuotedCount,
+      formKpiKeys: Array.from(formKpiKeys),
+      shouldAddQuoted
+    });
 
     if (shouldAddQuoted && quotedTarget > 0) {
       kpiPerformance.push({
