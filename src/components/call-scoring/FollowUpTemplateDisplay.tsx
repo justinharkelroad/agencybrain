@@ -33,11 +33,14 @@ export function FollowUpTemplateDisplay({
 
   const generateMutation = useGenerateFollowUp();
 
-  // Update local state when props change
+  // Reset local state when callId changes or dialog opens
   useEffect(() => {
-    if (existingEmail) setEmailContent(existingEmail);
-    if (existingText) setTextContent(existingText);
-  }, [existingEmail, existingText]);
+    if (open) {
+      setEmailContent(existingEmail || '');
+      setTextContent(existingText || '');
+      setActiveTab('email');
+    }
+  }, [callId, open, existingEmail, existingText]);
 
   const handleGenerate = async (type: 'email' | 'text' | 'both') => {
     try {
