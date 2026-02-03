@@ -135,7 +135,7 @@ export default function Contacts() {
         setContext({
           agencyId: staffUser.agency_id,
           userId: staffUser.id,
-          staffMemberId: staffUser.team_member_id,  // FK references team_members table
+          staffMemberId: staffUser.id,  // staff_users.id for contact_activities.created_by_staff_id
           displayName: staffUser.display_name || staffUser.username || 'Staff User',
         });
         setLoading(false);

@@ -158,7 +158,7 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
     }
 
     // For contact actions, also assign to current user if not already assigned
-    const shouldAssign = isContactAction && !record.assigned_team_member_id && context.staffMemberId;
+    const shouldAssign = isContactAction && !record.assigned_team_member_id && context.staffTeamMemberId;
 
     createActivity.mutate({
       renewalRecordId: record.id,
@@ -170,7 +170,7 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
       displayName: context.displayName,
       userId: context.userId,
       updateRecordStatus,
-      assignedTeamMemberId: shouldAssign ? context.staffMemberId : undefined,
+      assignedTeamMemberId: shouldAssign ? context.staffTeamMemberId : undefined,
       contactId: record.contact_id || undefined,
     }, {
       onSuccess: handleClose,

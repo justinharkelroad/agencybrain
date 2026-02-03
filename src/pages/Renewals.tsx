@@ -185,7 +185,8 @@ export default function Renewals() {
         setContext({
           agencyId: staffUser.agency_id,
           userId: staffUser.id,
-          staffMemberId: staffUser.team_member_id,  // FK references team_members table
+          staffMemberId: staffUser.id,  // staff_users.id for contact_activities.created_by_staff_id
+          staffTeamMemberId: staffUser.team_member_id,  // team_members.id for renewal_activities.assigned_team_member_id
           displayName: staffUser.display_name || staffUser.username || 'Staff User'
         });
         
@@ -237,6 +238,7 @@ export default function Renewals() {
             agencyId: p.agency_id,
             userId: user.id,
             staffMemberId: null,
+            staffTeamMemberId: null,
             displayName: displayName || user.email || 'Unknown'
           });
 

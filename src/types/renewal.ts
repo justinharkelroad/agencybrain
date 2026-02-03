@@ -57,5 +57,5 @@ export interface ParsedRenewalRecord {
 }
 
 export interface RenewalUploadContext {
-  agencyId: string; userId: string | null; staffMemberId: string | null; displayName: string;
+  agencyId: string; userId: string | null; staffMemberId: string | null; staffTeamMemberId: string | null; displayName: string;
 }

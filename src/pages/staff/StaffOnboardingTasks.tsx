@@ -1072,7 +1072,7 @@ export default function StaffOnboardingTasks() {
         agencyId={user?.agency_id || null}
         displayName={user?.display_name || user?.username || undefined}
         defaultSourceModule="manual"
-        staffMemberId={user?.team_member_id ?? undefined}
+        staffMemberId={user?.id}
         staffSessionToken={sessionToken}
         onActivityLogged={() => refetch()}
       />
