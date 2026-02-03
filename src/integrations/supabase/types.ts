@@ -2692,6 +2692,7 @@ export type Database = {
           created_at: string | null
           description: string | null
           id: string
+          include_brokered_in_bundling: boolean | null
           is_active: boolean | null
           name: string
           payout_type: string
@@ -2714,6 +2715,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          include_brokered_in_bundling?: boolean | null
           is_active?: boolean | null
           name: string
           payout_type?: string
@@ -2736,6 +2738,7 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           id?: string
+          include_brokered_in_bundling?: boolean | null
           is_active?: boolean | null
           name?: string
           payout_type?: string
@@ -6080,6 +6083,7 @@ export type Database = {
           is_active: boolean
           name: string
           order_index: number
+          product_type_id: string | null
           updated_at: string
         }
         Insert: {
@@ -6089,6 +6093,7 @@ export type Database = {
           is_active?: boolean
           name: string
           order_index?: number
+          product_type_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -6098,6 +6103,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           order_index?: number
+          product_type_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -6106,6 +6112,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "policy_types_product_type_id_fkey"
+            columns: ["product_type_id"]
+            isOneToOne: false
+            referencedRelation: "product_types"
             referencedColumns: ["id"]
           },
         ]
@@ -7144,7 +7157,7 @@ export type Database = {
             foreignKeyName: "sale_items_product_type_id_fkey"
             columns: ["product_type_id"]
             isOneToOne: false
-            referencedRelation: "product_types"
+            referencedRelation: "policy_types"
             referencedColumns: ["id"]
           },
           {
@@ -7221,7 +7234,7 @@ export type Database = {
             foreignKeyName: "sale_policies_product_type_id_fkey"
             columns: ["product_type_id"]
             isOneToOne: false
-            referencedRelation: "product_types"
+            referencedRelation: "policy_types"
             referencedColumns: ["id"]
           },
           {
@@ -7237,6 +7250,7 @@ export type Database = {
         Row: {
           agency_id: string
           brokered_carrier_id: string | null
+          brokered_counts_toward_bundling: boolean | null
           bundle_type: string | null
           contact_id: string | null
           created_at: string | null
@@ -7270,6 +7284,7 @@ export type Database = {
         Insert: {
           agency_id: string
           brokered_carrier_id?: string | null
+          brokered_counts_toward_bundling?: boolean | null
           bundle_type?: string | null
           contact_id?: string | null
           created_at?: string | null
@@ -7303,6 +7318,7 @@ export type Database = {
         Update: {
           agency_id?: string
           brokered_carrier_id?: string | null
+          brokered_counts_toward_bundling?: boolean | null
           bundle_type?: string | null
           contact_id?: string | null
           created_at?: string | null
