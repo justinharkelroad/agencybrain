@@ -485,3 +485,6 @@ verify_jwt = true
 
 [functions.generate-follow-up-templates]
 verify_jwt = false
+
+[functions.send-morning-digest]
+verify_jwt = false

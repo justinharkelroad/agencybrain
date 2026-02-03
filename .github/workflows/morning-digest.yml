@@ -1,0 +1,25 @@
+name: Morning Digest Email
+
+on:
+  schedule:
+    # Run every hour from 11 UTC to 15 UTC (covers 6-7 AM for all US timezones)
+    # 11 UTC = 6 AM EST, 7 AM EST = 12 UTC
+    # 12 UTC = 7 AM EST, 6 AM CST
+    # 13 UTC = 7 AM CST, 6 AM MST
+    # 14 UTC = 7 AM MST, 6 AM PST
+    # 15 UTC = 7 AM PST
+    # Only runs Tuesday-Saturday (skips Sunday/Monday when yesterday was weekend)
+    - cron: '0 11,12,13,14,15 * * 2-6'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Morning Digest
+        run: |
+          curl -X POST \
+            'https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/send-morning-digest' \
+            -H 'Content-Type: application/json' \
+            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}' \
+            -d '{}'
