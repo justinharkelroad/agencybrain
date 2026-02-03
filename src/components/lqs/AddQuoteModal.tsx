@@ -555,7 +555,7 @@ export function AddQuoteModal({
             </Label>
             {objections.length === 0 ? (
               <div className="text-sm text-muted-foreground p-2 border rounded-md bg-muted/50">
-                No objections configured. Contact an admin to add objection options.
+                No objections configured. Contact your Agency Owner/Manager to add objection options.
               </div>
             ) : (
               <Select value={objectionId} onValueChange={setObjectionId}>
