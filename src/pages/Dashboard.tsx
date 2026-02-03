@@ -24,6 +24,7 @@ import { RenewalSummaryWidget } from '@/components/dashboard/RenewalSummaryWidge
 import { SalesDashboardWidget } from '@/components/sales/SalesDashboardWidget';
 import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
+import { useLqsObjections } from '@/hooks/useLqsObjections';
 import { Plus } from 'lucide-react';
 
 const Dashboard = () => {
@@ -48,6 +49,9 @@ const Dashboard = () => {
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Fetch objections for quote modal
+  const { data: objections = [] } = useLqsObjections();
 
   // ALL useEffect hooks MUST also be declared before any conditional returns (React Rules of Hooks)
 
@@ -233,6 +237,7 @@ const Dashboard = () => {
           agencyId={agencyId}
           leadSources={leadSources}
           teamMembers={teamMembers}
+          objections={objections}
           currentTeamMemberId={null}
           onSuccess={() => {}}
         />

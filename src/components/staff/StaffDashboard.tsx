@@ -16,6 +16,7 @@ import { StaffCore4MonthlyMissions } from './StaffCore4MonthlyMissions';
 import { StaffSalesSummary } from './StaffSalesSummary';
 import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
+import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { ChallengeDashboardWidget } from '@/components/challenge/ChallengeDashboardWidget';
 interface KPIData {
   key: string;
@@ -101,7 +102,10 @@ export function StaffDashboard() {
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
-  
+
+  // Fetch objections for quote modal (via edge function for staff users)
+  const { data: objections = [] } = useStaffLqsObjections(sessionToken);
+
   const isManager = user?.role === 'Manager';
   const previousBusinessDay = getPreviousBusinessDay();
   const previousBusinessDayStr = format(previousBusinessDay, 'yyyy-MM-dd');
@@ -392,6 +396,7 @@ export function StaffDashboard() {
           agencyId={user.agency_id}
           leadSources={leadSources}
           teamMembers={teamMembers}
+          objections={objections}
           currentTeamMemberId={user.team_member_id}
           onSuccess={() => {}}
           staffSessionToken={sessionToken}
