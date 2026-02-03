@@ -205,16 +205,16 @@ export function useUpdateRenewalRecord() {
     onMutate: async ({ id, updates }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['renewal-records'] });
-      
-      // Snapshot previous value
-      const previousRecords = queryClient.getQueryData<RenewalRecord[]>(['renewal-records']);
-      
-      // Optimistically update the cache
-      queryClient.setQueriesData<RenewalRecord[]>(
+
+      // Snapshot previous value (data is RenewalRecordsResult, not array)
+      const previousRecords = queryClient.getQueriesData({ queryKey: ['renewal-records'] });
+
+      // Optimistically update the cache - data is { records: [], totalCount: number }
+      queryClient.setQueriesData<RenewalRecordsResult>(
         { queryKey: ['renewal-records'] },
-        (old) => old?.map(r => r.id === id ? { ...r, ...updates } : r)
+        (old) => old ? { ...old, records: old.records.map(r => r.id === id ? { ...r, ...updates } : r) } : old
       );
-      
+
       return { previousRecords };
     },
     onSuccess: (result) => {
@@ -229,9 +229,11 @@ export function useUpdateRenewalRecord() {
       }
     },
     onError: (_, variables, context) => {
-      // Roll back on error
+      // Roll back on error - restore each query's previous data
       if (context?.previousRecords) {
-        queryClient.setQueriesData({ queryKey: ['renewal-records'] }, context.previousRecords);
+        context.previousRecords.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
       }
       if (!variables.silent) {
         toast.error('Failed to update record');
