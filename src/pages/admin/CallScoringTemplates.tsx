@@ -8,10 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Phone, Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight, Globe, Building, Search, Copy, FileText, BarChart3 } from 'lucide-react';
+import { Phone, Plus, Pencil, Trash2, Loader2, ToggleLeft, ToggleRight, Globe, Building, Search, Copy, FileText, BarChart3, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import AdminCallScoringDashboard from './AdminCallScoringDashboard';
 import PromptBuilderWrapper from '@/components/admin/call-scoring/PromptBuilderWrapper';
+import FollowUpPromptSettings from '@/components/admin/call-scoring/FollowUpPromptSettings';
+import { FollowUpPromptConfig } from '@/components/admin/call-scoring/promptBuilderTypes';
 
 interface CallScoringTemplate {
   id: string;
@@ -31,8 +33,146 @@ interface Agency {
   name: string;
 }
 
+// Separate component for Follow-Up Prompts tab
+function FollowUpPromptsTab({
+  templates,
+  agencies,
+  onRefresh,
+}: {
+  templates: CallScoringTemplate[];
+  agencies: Agency[];
+  onRefresh: () => void;
+}) {
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [followupConfig, setFollowupConfig] = useState<FollowUpPromptConfig | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
+
+  // Load config when template changes
+  useEffect(() => {
+    if (selectedTemplateId) {
+      const template = templates.find(t => t.id === selectedTemplateId);
+      if (template && template.skill_categories) {
+        const skillCats = template.skill_categories as any;
+        setFollowupConfig(skillCats.followupPrompts || undefined);
+      } else {
+        setFollowupConfig(undefined);
+      }
+    } else {
+      setFollowupConfig(undefined);
+    }
+  }, [selectedTemplateId, templates]);
+
+  const getAgencyName = (agencyId: string | null) => {
+    if (!agencyId) return null;
+    return agencies.find(a => a.id === agencyId)?.name || 'Unknown Agency';
+  };
+
+  const handleSave = async () => {
+    if (!selectedTemplateId) {
+      toast.error('Please select a template');
+      return;
+    }
+
+    setSaving(true);
+
+    const template = templates.find(t => t.id === selectedTemplateId);
+    if (!template) {
+      toast.error('Template not found');
+      setSaving(false);
+      return;
+    }
+
+    // Merge followupPrompts into existing skill_categories
+    const existingSkillCats = template.skill_categories as any || {};
+    const updatedSkillCats = {
+      ...existingSkillCats,
+      followupPrompts: followupConfig,
+    };
+
+    const { error } = await supabase
+      .from('call_scoring_templates')
+      .update({
+        skill_categories: updatedSkillCats,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', selectedTemplateId);
+
+    setSaving(false);
+
+    if (error) {
+      toast.error('Failed to save follow-up settings');
+      console.error(error);
+    } else {
+      toast.success('Follow-up settings saved');
+      onRefresh();
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5" />
+          Follow-Up Prompt Settings
+        </CardTitle>
+        <CardDescription>
+          Configure AI-generated follow-up templates for each scoring template.
+          These settings control how CRM notes, emails, and text messages are generated.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Template Selector */}
+        <div className="space-y-2">
+          <Label htmlFor="template-select">Select Template to Configure</Label>
+          <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+            <SelectTrigger id="template-select">
+              <SelectValue placeholder="Choose a template..." />
+            </SelectTrigger>
+            <SelectContent>
+              {templates.filter(t => t.is_active).map((template) => (
+                <SelectItem key={template.id} value={template.id}>
+                  <div className="flex items-center gap-2">
+                    <span>{template.name}</span>
+                    <Badge variant="outline" className="text-xs">
+                      {template.call_type}
+                    </Badge>
+                    {template.is_global ? (
+                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                        Global
+                      </Badge>
+                    ) : template.agency_id && (
+                      <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">
+                        {getAgencyName(template.agency_id)}
+                      </Badge>
+                    )}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Settings Panel */}
+        {selectedTemplateId ? (
+          <FollowUpPromptSettings
+            config={followupConfig}
+            onChange={setFollowupConfig}
+            onSave={handleSave}
+            saving={saving}
+          />
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            <Sparkles className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Select a template above to configure its follow-up prompt settings.</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function CallScoringTemplates() {
-  const [activeTab, setActiveTab] = useState<'templates' | 'analytics'>('templates');
+  const [activeTab, setActiveTab] = useState<'templates' | 'analytics' | 'followup'>('templates');
   const [templates, setTemplates] = useState<CallScoringTemplate[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [loading, setLoading] = useState(true);
@@ -395,10 +535,23 @@ export default function CallScoringTemplates() {
           <BarChart3 className="h-4 w-4 mr-2" />
           Cost Analytics
         </Button>
+        <Button
+          variant={activeTab === 'followup' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('followup')}
+        >
+          <Sparkles className="h-4 w-4 mr-2" />
+          Follow-Up Prompts
+        </Button>
       </div>
 
       {activeTab === 'analytics' ? (
         <AdminCallScoringDashboard />
+      ) : activeTab === 'followup' ? (
+        <FollowUpPromptsTab
+          templates={templates}
+          agencies={agencies}
+          onRefresh={fetchTemplates}
+        />
       ) : (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

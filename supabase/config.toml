@@ -482,3 +482,6 @@ verify_jwt = true
 
 [functions.standalone-sales-process]
 verify_jwt = true
+
+[functions.generate-follow-up-templates]
+verify_jwt = false

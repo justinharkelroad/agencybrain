@@ -4,23 +4,24 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
-import { 
+import {
   User, Users, Target, AlertTriangle, CheckCircle2, XCircle,
-  FileAudio, Clock, ChevronDown, ChevronUp, Download, 
+  FileAudio, Clock, ChevronDown, ChevronUp, Download,
   Image, FileText, Share2, Loader2, CheckCircle, Mic, VolumeX,
-  MessageSquareQuote
+  MessageSquareQuote, Sparkles, Mail, MessageSquare
 } from "lucide-react";
 import { useState, useRef } from "react";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
 import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecard';
 import { parseFeedback } from '@/lib/utils/feedback-parser';
+import { FollowUpTemplateDisplay } from '@/components/call-scoring/FollowUpTemplateDisplay';
 
 interface CallScorecardProps {
   call: any;
@@ -53,6 +54,7 @@ export function CallScorecard({
   const [feedbackPositive, setFeedbackPositive] = useState('');
   const [feedbackImprovement, setFeedbackImprovement] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
   const scorecardRef = useRef<HTMLDivElement>(null);
 
   const handleAcknowledge = async () => {
@@ -288,18 +290,40 @@ export function CallScorecard({
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
         {/* Export buttons - OUTSIDE the ref so they don't appear in export */}
         <div className="absolute top-4 right-12 z-10 flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Sparkles className="h-4 w-4" />
+                <span className="ml-1 hidden sm:inline">Follow-Up</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowFollowUpDialog(true)}>
+                <Mail className="h-4 w-4 mr-2" />
+                Generate Email
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowFollowUpDialog(true)}>
+                <MessageSquare className="h-4 w-4 mr-2" />
+                Generate Text/SMS
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowFollowUpDialog(true)}>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Generate Both
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportPNG}
             disabled={exporting}
           >
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             <span className="ml-1 hidden sm:inline">PNG</span>
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleExportPDF}
             disabled={exporting}
           >
@@ -1419,6 +1443,16 @@ export function CallScorecard({
           </div>
         </div>
       </DialogContent>
+
+      {/* Follow-Up Templates Dialog */}
+      <FollowUpTemplateDisplay
+        open={showFollowUpDialog}
+        onClose={() => setShowFollowUpDialog(false)}
+        callId={call.id}
+        existingEmail={call.generated_email_template}
+        existingText={call.generated_text_template}
+        clientName={extractedData?.client_first_name || 'Client'}
+      />
     </Dialog>
   );
 }
