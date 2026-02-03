@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
+import lightModeLogo from "@/assets/agencybrain-logo-new.png";
 
-const LOGO_URL = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
+// White text logo for dark backgrounds
+const DARK_MODE_LOGO = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
 
 const footerLinks = {
   product: [
@@ -29,10 +31,17 @@ export function MarketingFooter() {
           {/* Logo & Description */}
           <div className="md:col-span-1">
             <Link to="/marketing" className="inline-block mb-4">
+              {/* Light mode: dark text logo */}
               <img
-                src={LOGO_URL}
+                src={lightModeLogo}
                 alt="AgencyBrain"
-                className="h-12 w-auto"
+                className="h-12 w-auto dark:hidden"
+              />
+              {/* Dark mode: white text logo */}
+              <img
+                src={DARK_MODE_LOGO}
+                alt="AgencyBrain"
+                className="h-12 w-auto hidden dark:block"
               />
             </Link>
             <p className="text-marketing-text-muted text-sm leading-relaxed">

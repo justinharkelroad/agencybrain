@@ -4,8 +4,10 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import lightModeLogo from "@/assets/agencybrain-logo-new.png";
 
-const LOGO_URL = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
+// White text logo for dark backgrounds
+const DARK_MODE_LOGO = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
 
 const navLinks = [
   { label: 'Features', href: '#features' },
@@ -48,10 +50,17 @@ export function MarketingHeader() {
         <div className="flex items-center justify-between h-16 sm:h-20">
           {/* Logo */}
           <Link to="/marketing" className="flex items-center gap-2 shrink-0">
+            {/* Light mode: dark text logo */}
             <img
-              src={LOGO_URL}
+              src={lightModeLogo}
               alt="AgencyBrain"
-              className="h-10 sm:h-12 w-auto"
+              className="h-10 sm:h-12 w-auto dark:hidden"
+            />
+            {/* Dark mode: white text logo */}
+            <img
+              src={DARK_MODE_LOGO}
+              alt="AgencyBrain"
+              className="h-10 sm:h-12 w-auto hidden dark:block"
             />
           </Link>
 
