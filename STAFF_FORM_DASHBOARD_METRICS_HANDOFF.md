@@ -1,7 +1,7 @@
 # Staff Form Dashboard Metrics - Handoff
 
 **Date:** 2026-02-03
-**Status:** Email fix WORKING, Form UI fix NOT WORKING
+**Status:** FIXED - Both email and form UI now working
 
 ---
 
@@ -124,10 +124,45 @@ This requires:
 
 ---
 
-## Next Steps
+## Fix Applied (2026-02-03)
 
-1. Add console.log statements to debug why dashboard metrics aren't showing
-2. Verify the edge function is being called and returning data
-3. Check if targets table has `quoted_households` or `quoted_count` key
-4. May need to add more key aliases to the normalizeKey function
-5. Consider if there's a race condition with state updates
+### Root Cause
+The form UI was missing logic that the email function had:
+1. **No `scorecard_rules` fetch** - The form didn't check which KPIs are enabled for the agency
+2. **Incomplete key checking** - Only checked `quoted_households` and `quoted_count`, not all variations (`policies_quoted`, `households_quoted`)
+3. **Wrong condition** - Required `dashboardQuotedCount > 0` to show the metric, but should show if KPI is enabled OR has a target
+
+### Changes Made to `src/pages/StaffFormSubmission.tsx`
+
+1. **Added `enabledKpis` state** (line ~66):
+   ```javascript
+   const [enabledKpis, setEnabledKpis] = useState<Set<string>>(new Set());
+   ```
+
+2. **Fetch `scorecard_rules`** in the `loadForm` useEffect (lines ~147-158):
+   ```javascript
+   const formRole = template.schema_json?.role || 'Sales';
+   const { data: scorecardRules } = await supabase
+     .from('scorecard_rules')
+     .select('selected_metrics')
+     .eq('agency_id', template.agency_id)
+     .eq('role', formRole)
+     .single();
+
+   if (scorecardRules?.selected_metrics) {
+     setEnabledKpis(new Set(scorecardRules.selected_metrics));
+   }
+   ```
+
+3. **Updated `performanceSummary` useMemo** to match email function logic:
+   - Check all key variations (`quoted_households`, `quoted_count`, `policies_quoted`, `households_quoted`)
+   - Show metric if: enabled in scorecard_rules OR has target configured OR has dashboard data
+   - Added `enabledKpis` to dependency array
+
+### How It Works Now
+The form UI now uses the same logic as `send_submission_feedback`:
+- Checks `scorecard_rules.selected_metrics` for enabled KPIs
+- Falls back to `targets` table if scorecard_rules doesn't have the key
+- Shows the dashboard metric even if current count is 0 (as long as target > 0)
+
+## Previous Notes

@@ -62,6 +62,9 @@ export default function StaffFormSubmission() {
   const [dashboardQuotedCount, setDashboardQuotedCount] = useState<number>(0);
   const [dashboardSoldCount, setDashboardSoldCount] = useState<number>(0);
 
+  // Enabled KPIs from scorecard_rules (agency-level configuration)
+  const [enabledKpis, setEnabledKpis] = useState<Set<string>>(new Set());
+
   // Error handling state for structured errors
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [submissionErrorMessage, setSubmissionErrorMessage] = useState<string | null>(null);
@@ -139,6 +142,19 @@ export default function StaffFormSubmission() {
             });
           }
           setTargets(targetsMap);
+        }
+
+        // Fetch scorecard_rules to get enabled KPIs for this agency
+        const formRole = template.schema_json?.role || 'Sales';
+        const { data: scorecardRules } = await supabase
+          .from('scorecard_rules')
+          .select('selected_metrics')
+          .eq('agency_id', template.agency_id)
+          .eq('role', formRole)
+          .single();
+
+        if (scorecardRules?.selected_metrics) {
+          setEnabledKpis(new Set(scorecardRules.selected_metrics));
         }
 
         // Initialize default values
@@ -310,28 +326,60 @@ export default function StaffFormSubmission() {
       }
     });
 
-    // Add dashboard metrics if they have targets but aren't on the form
-    const quotedTarget = targets['quoted_households'] ?? targets['quoted_count'] ?? 0;
-    if (quotedTarget > 0 && !formKpiKeys.has('quoted_households') && dashboardQuotedCount > 0) {
+    // Add dashboard metrics if enabled for agency but not on form (matches email function logic)
+    // Check if quoted_households is enabled in scorecard_rules (check common key variations)
+    const quotedEnabled = enabledKpis.has('quoted_households') ||
+                          enabledKpis.has('quoted_count') ||
+                          enabledKpis.has('policies_quoted') ||
+                          enabledKpis.has('households_quoted');
+
+    // Check if there's a target configured (fallback if scorecard_rules doesn't match)
+    const hasQuotedTarget = targets['quoted_households'] !== undefined ||
+                            targets['quoted_count'] !== undefined ||
+                            targets['policies_quoted'] !== undefined ||
+                            targets['households_quoted'] !== undefined;
+
+    // Get the actual target value (try all key variations)
+    const quotedTarget = targets['quoted_households'] ?? targets['quoted_count'] ??
+                         targets['policies_quoted'] ?? targets['households_quoted'] ?? 0;
+
+    // Show Quoted Households if: enabled OR has target OR has dashboard data, AND not already on form
+    const shouldAddQuoted = (quotedEnabled || hasQuotedTarget || dashboardQuotedCount > 0) &&
+                            !formKpiKeys.has('quoted_households');
+
+    if (shouldAddQuoted && quotedTarget > 0) {
       kpiPerformance.push({
         key: 'dashboard_quoted_households',
         label: '📊 Quoted Households (Dashboard)',
         submitted: dashboardQuotedCount,
         target: quotedTarget,
         passed: dashboardQuotedCount >= quotedTarget,
-        percentOfTarget: Math.round((dashboardQuotedCount / quotedTarget) * 100)
+        percentOfTarget: quotedTarget > 0 ? Math.round((dashboardQuotedCount / quotedTarget) * 100) : 0
       });
     }
 
-    const soldTarget = targets['items_sold'] ?? targets['sold_items'] ?? 0;
-    if (soldTarget > 0 && !formKpiKeys.has('items_sold') && dashboardSoldCount > 0) {
+    // Same logic for items_sold
+    const soldEnabled = enabledKpis.has('items_sold') ||
+                        enabledKpis.has('sold_items') ||
+                        enabledKpis.has('sold_count');
+
+    const hasSoldTarget = targets['items_sold'] !== undefined ||
+                          targets['sold_items'] !== undefined ||
+                          targets['sold_count'] !== undefined;
+
+    const soldTarget = targets['items_sold'] ?? targets['sold_items'] ?? targets['sold_count'] ?? 0;
+
+    const shouldAddSold = (soldEnabled || hasSoldTarget || dashboardSoldCount > 0) &&
+                          !formKpiKeys.has('items_sold');
+
+    if (shouldAddSold && soldTarget > 0) {
       kpiPerformance.push({
         key: 'dashboard_items_sold',
         label: '📊 Items Sold (Dashboard)',
         submitted: dashboardSoldCount,
         target: soldTarget,
         passed: dashboardSoldCount >= soldTarget,
-        percentOfTarget: Math.round((dashboardSoldCount / soldTarget) * 100)
+        percentOfTarget: soldTarget > 0 ? Math.round((dashboardSoldCount / soldTarget) * 100) : 0
       });
     }
 
@@ -348,7 +396,7 @@ export default function StaffFormSubmission() {
         overallPass: passRate >= 50 // At least half targets met
       }
     };
-  }, [formTemplate, values, targets, dashboardQuotedCount, dashboardSoldCount]);
+  }, [formTemplate, values, targets, dashboardQuotedCount, dashboardSoldCount, enabledKpis]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
