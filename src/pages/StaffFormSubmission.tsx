@@ -43,12 +43,9 @@ interface PerformanceSummary {
 }
 
 export default function StaffFormSubmission() {
-  console.log('[StaffForm DEBUG] Component mounted');
   const { formSlug } = useParams<{ formSlug: string }>();
   const navigate = useNavigate();
   const { user, sessionToken, isAuthenticated, loading: authLoading } = useStaffAuth();
-
-  console.log('[StaffForm DEBUG] Auth state:', { user: !!user, sessionToken: !!sessionToken, isAuthenticated, authLoading });
 
   const [formTemplate, setFormTemplate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -75,12 +72,8 @@ export default function StaffFormSubmission() {
 
   // Load form template, team member info, and targets
   useEffect(() => {
-    console.log('[StaffForm DEBUG] loadForm useEffect triggered, isAuthenticated:', isAuthenticated, 'user:', !!user);
     async function loadForm() {
-      if (!user?.agency_id || !formSlug) {
-        console.log('[StaffForm DEBUG] loadForm early return - agency_id:', user?.agency_id, 'formSlug:', formSlug);
-        return;
-      }
+      if (!user?.agency_id || !formSlug) return;
 
       try {
         setLoading(true);
@@ -151,8 +144,6 @@ export default function StaffFormSubmission() {
           setTargets(targetsMap);
         }
 
-        console.log('[StaffForm DEBUG] targets loaded:', targetsMap);
-
         // Fetch scorecard_rules to get enabled KPIs for this agency (optional - may not exist)
         const formRole = template.schema_json?.role || 'Sales';
         const { data: scorecardRules } = await supabase
@@ -160,13 +151,7 @@ export default function StaffFormSubmission() {
           .select('selected_metrics')
           .eq('agency_id', template.agency_id)
           .eq('role', formRole)
-          .maybeSingle();  // Use maybeSingle instead of single to avoid error when no rows
-
-        console.log('[StaffForm DEBUG] scorecard_rules query:', {
-          agency_id: template.agency_id,
-          role: formRole,
-          result: scorecardRules
-        });
+          .maybeSingle();
 
         if (scorecardRules?.selected_metrics) {
           setEnabledKpis(new Set(scorecardRules.selected_metrics));
@@ -209,11 +194,7 @@ export default function StaffFormSubmission() {
           return;
         }
 
-        console.log('[StaffForm DEBUG] dashboard metrics response:', data, 'error:', error);
-
         if (data?.success) {
-          console.log('[StaffForm DEBUG] Setting dashboard counts:', data.dashboardQuotedCount, data.dashboardSoldCount);
-          console.log('[StaffForm DEBUG] Targets from edge function:', data.targets);
           setDashboardQuotedCount(data.dashboardQuotedCount || 0);
           setDashboardSoldCount(data.dashboardSoldCount || 0);
           // Use targets from edge function (bypasses RLS)
@@ -369,17 +350,6 @@ export default function StaffFormSubmission() {
     // Show Quoted Households if: enabled OR has target OR has dashboard data, AND not already on form
     const shouldAddQuoted = (quotedEnabled || hasQuotedTarget || dashboardQuotedCount > 0) &&
                             !formKpiKeys.has('quoted_households');
-
-    console.log('[StaffForm DEBUG] performanceSummary calculation:', {
-      enabledKpis: Array.from(enabledKpis),
-      targets,
-      quotedEnabled,
-      hasQuotedTarget,
-      quotedTarget,
-      dashboardQuotedCount,
-      formKpiKeys: Array.from(formKpiKeys),
-      shouldAddQuoted
-    });
 
     if (shouldAddQuoted && quotedTarget > 0) {
       kpiPerformance.push({
