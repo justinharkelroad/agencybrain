@@ -459,10 +459,23 @@ export function LqsHouseholdDetailModal({
     ? household.phone 
     : household.phone ? [household.phone] : [];
 
-  // Countable quotes exclude Motor Club for metrics
+  // For SOLD households, use sales data; for others, use quotes
+  const isSold = household.status === 'sold';
+  const sales = household.sales || [];
   const countableQuotes = filterCountableQuotes(household.quotes || []);
-  const totalPremium = countableQuotes.reduce((sum, q) => sum + (q.premium_cents || 0), 0);
-  const uniqueProducts = [...new Set(countableQuotes.map(q => q.product_type))];
+
+  // Products: from sales if sold, from quotes otherwise
+  const uniqueProducts = isSold && sales.length > 0
+    ? [...new Set(sales.map(s => s.product_type))]
+    : [...new Set(countableQuotes.map(q => q.product_type))];
+
+  // Premium: from sales if sold, from quotes otherwise
+  const totalPremium = isSold && sales.length > 0
+    ? sales.reduce((sum, s) => sum + (s.premium_cents || 0), 0)
+    : countableQuotes.reduce((sum, q) => sum + (q.premium_cents || 0), 0);
+
+  // Count for the totals section
+  const displayCount = isSold && sales.length > 0 ? sales.length : countableQuotes.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1080,8 +1093,8 @@ export function LqsHouseholdDetailModal({
           {/* Totals Section */}
           <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
             <div className="text-center">
-              <div className="text-2xl font-bold">{countableQuotes.length}</div>
-              <div className="text-sm text-muted-foreground">Quotes</div>
+              <div className="text-2xl font-bold">{displayCount}</div>
+              <div className="text-sm text-muted-foreground">{isSold && sales.length > 0 ? 'Policies' : 'Quotes'}</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold">{uniqueProducts.length}</div>
