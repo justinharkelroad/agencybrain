@@ -131,18 +131,22 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
           renewalRecordId: record.id,
           agencyId: context.agencyId,
           activityType,
-          activityStatus: 'unsuccessful',
+          activityStatus: 'push_to_winback',
           subject: `Sent to WinBack: ${record.first_name} ${record.last_name}`,
           comments: comments || 'Pushed to Win-Back HQ from renewal review',
           displayName: context.displayName,
           userId: context.userId,
           updateRecordStatus,
-        }, { 
+          contactId: record.contact_id || undefined,
+        }, {
           onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
             queryClient.invalidateQueries({ queryKey: ['winback-households'] });
             handleClose();
-          } 
+          },
+          onError: (err) => {
+            console.error('[ScheduleActivityModal] Winback activity creation failed:', err);
+          }
         });
       } catch (error) {
         console.error('Failed to process Win-Back:', error);
@@ -160,14 +164,20 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
       renewalRecordId: record.id,
       agencyId: context.agencyId,
       activityType,
-      activityStatus: updateRecordStatus,
+      activityStatus: isContactAction ? undefined : updateRecordStatus,
       subject: `${activityLabel}: ${record.first_name} ${record.last_name}`,
       comments: comments || undefined,
       displayName: context.displayName,
       userId: context.userId,
       updateRecordStatus,
       assignedTeamMemberId: shouldAssign ? context.staffMemberId : undefined,
-    }, { onSuccess: handleClose });
+      contactId: record.contact_id || undefined,
+    }, {
+      onSuccess: handleClose,
+      onError: (err) => {
+        console.error('[ScheduleActivityModal] Activity creation failed:', err);
+      }
+    });
   };
 
   const handleClose = () => {
