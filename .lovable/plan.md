@@ -1,43 +1,48 @@
 
-# Plan: Fix Homepage Logo Visibility in Light Mode
+# Plan: Fix Landing Page Logo Visibility in Light Mode
 
 ## Problem
-On the homepage (`Index.tsx`) in light mode, the logo is nearly invisible because the current setup is backwards:
-- `agencybrain-logo-light.png` - likely has **light/white text** (meant for dark backgrounds)
-- The Supabase dark logo URL - has **white text** (meant for dark backgrounds)
+The home page (`/` route) uses `Landing.tsx`, which has a **hardcoded** white-text logo URL. Unlike other pages that use the `AgencyBrainBadge` component with theme-aware logo switching, this page directly renders a single image that's invisible on light backgrounds.
 
-Both logos seem to have light text, so there's no proper dark-text logo for the white background.
+**Current code in `Landing.tsx` (line 10, 73-76):**
+```typescript
+const agencyBrainLogo = "https://...Agency%20Brain%20Logo%20Stan.png"; // white text only
+
+<img src={agencyBrainLogo} ... />  // No theme switching
+```
 
 ## Solution
-Swap the logo usage in `AgencyBrainBadge.tsx`:
-- **Light mode** (white background): Use `agencybrain-logo-new.png` or another dark-text logo
-- **Dark mode** (dark background): Keep using the white-text Supabase logo
+Add theme-aware logo switching to `Landing.tsx` using the same pattern as the marketing components.
 
 ## Changes Required
 
-### 1. Update `src/components/AgencyBrainBadge.tsx`
+### Update `src/pages/Landing.tsx`
 
-**Option A**: If `agencybrain-logo-new.png` has dark text:
-```typescript
-import darkTextLogo from "@/assets/agencybrain-logo-new.png";
+1. Import the dark-text logo asset for light mode
+2. Replace the single `<img>` with two images using Tailwind's `dark:hidden` / `hidden dark:block` classes
 
-// Light mode: use dark text logo
-<img src={darkTextLogo} className="dark:hidden" />
-
-// Dark mode: use white text logo (Supabase URL)
-<img src={DARK_LOGO_URL} className="hidden dark:block" />
+**Before:**
+```tsx
+const agencyBrainLogo = "https://...Agency%20Brain%20Logo%20Stan.png";
+...
+<img src={agencyBrainLogo} ... />
 ```
 
-**Option B**: If current files are misnamed, simply swap them:
-```typescript
-// Light mode: use the Supabase logo if it actually has dark text
-// Dark mode: use agencybrain-logo-light.png if it has white text
+**After:**
+```tsx
+import lightModeLogo from "@/assets/agencybrain-landing-logo.png";
+const DARK_MODE_LOGO = "https://...Agency%20Brain%20Logo%20Stan.png";
+...
+{/* Light mode: dark text logo */}
+<img src={lightModeLogo} className="... dark:hidden" />
+{/* Dark mode: white text logo */}
+<img src={DARK_MODE_LOGO} className="... hidden dark:block" />
 ```
 
 ## Technical Notes
-- The `dark:hidden` class hides an element when dark mode is active
-- The `hidden dark:block` shows an element only in dark mode
-- Need to verify which asset file has which text color before implementing
+- The `agencybrain-landing-logo.png` asset has dark text (visible on light backgrounds)
+- The Supabase URL has white text (visible on dark backgrounds)
+- This follows the exact same pattern used in `AgencyBrainBadge`, `MarketingHeader`, and `MarketingFooter`
 
 ## Files to Modify
-1. `src/components/AgencyBrainBadge.tsx` - swap logo sources
+1. `src/pages/Landing.tsx`
