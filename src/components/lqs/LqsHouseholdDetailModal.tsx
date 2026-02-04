@@ -466,6 +466,8 @@ export function LqsHouseholdDetailModal({
         // Authenticated user path: direct Supabase update
         // Auto-assign to current user if they have a team_member_id
         const assignToTeamMemberId = currentTeamMemberId || household.team_member_id || null;
+        // Flag for attention if no lead source
+        const needsAttention = !household.lead_source_id;
 
         // Update household status and assign to current user
         const { error: updateError } = await supabase
@@ -474,6 +476,8 @@ export function LqsHouseholdDetailModal({
             status: 'quoted',
             first_quote_date: today,
             team_member_id: assignToTeamMemberId,
+            needs_attention: needsAttention,
+            attention_reason: needsAttention ? 'missing_lead_source' : null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', household.id);
@@ -497,6 +501,19 @@ export function LqsHouseholdDetailModal({
         if (quoteError) {
           console.warn('Placeholder quote creation failed:', quoteError);
           // Don't fail - status update is primary goal
+        }
+
+        // Log activity if contact exists
+        if (household.contact_id) {
+          await supabase.from('contact_activities').insert({
+            contact_id: household.contact_id,
+            agency_id: household.agency_id,
+            activity_type: 'status_change',
+            source_module: 'lqs',
+            source_record_id: household.id,
+            subject: 'Moved to Quoted',
+            notes: 'Lead promoted to Quoted Household',
+          }).catch(err => console.warn('Activity log failed:', err));
         }
       }
 

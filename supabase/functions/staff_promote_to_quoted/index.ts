@@ -79,10 +79,10 @@ serve(async (req) => {
       );
     }
 
-    // Step 5: Fetch and validate household
+    // Step 5: Fetch and validate household (include lead_source_id and contact_id for needs_attention and activity logging)
     const { data: household, error: householdError } = await supabase
       .from('lqs_households')
-      .select('id, agency_id, status, first_name, last_name')
+      .select('id, agency_id, status, first_name, last_name, lead_source_id, contact_id, team_member_id')
       .eq('id', body.household_id)
       .single();
 
@@ -119,13 +119,19 @@ serve(async (req) => {
 
     const today = new Date().toISOString().split('T')[0];
 
+    // Determine if needs attention (missing lead source)
+    const needsAttention = !household.lead_source_id;
+    const assignToTeamMemberId = staffUser.team_member_id || household.team_member_id;
+
     // Step 6: Update household status to 'quoted'
     const { error: updateError } = await supabase
       .from('lqs_households')
       .update({
         status: 'quoted',
         first_quote_date: today,
-        team_member_id: staffUser.team_member_id || household.team_member_id,
+        team_member_id: assignToTeamMemberId,
+        needs_attention: needsAttention,
+        attention_reason: needsAttention ? 'missing_lead_source' : null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', body.household_id);
@@ -153,6 +159,40 @@ serve(async (req) => {
       if (quoteError) {
         // Log but don't fail - the status update is the primary goal
         console.warn('[staff_promote_to_quoted] Placeholder quote creation failed:', quoteError);
+      }
+    }
+
+    // Step 8: Log activity if contact exists
+    if (household.contact_id) {
+      // Get staff user display name for activity log
+      const { data: staffDetails } = await supabase
+        .from('staff_users')
+        .select('first_name, last_name')
+        .eq('id', staffUser.id)
+        .single();
+
+      const staffDisplayName = staffDetails
+        ? `${staffDetails.first_name || ''} ${staffDetails.last_name || ''}`.trim() || 'Staff User'
+        : 'Staff User';
+
+      const { error: activityError } = await supabase
+        .from('contact_activities')
+        .insert({
+          contact_id: household.contact_id,
+          agency_id: staffUser.agency_id,
+          team_member_id: assignToTeamMemberId,
+          activity_type: 'lqs_status_change',
+          description: `Moved to Quoted by ${staffDisplayName}`,
+          metadata: {
+            previous_status: household.status,
+            new_status: 'quoted',
+            performed_by: staffDisplayName,
+            staff_user_id: staffUser.id,
+          },
+        });
+
+      if (activityError) {
+        console.warn('[staff_promote_to_quoted] Activity log failed:', activityError);
       }
     }
 

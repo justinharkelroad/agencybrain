@@ -680,13 +680,24 @@ export function ContactProfileModal({
         if (data?.error) throw new Error(data.error);
       } else {
         // Authenticated user path: direct Supabase update
-        // Auto-assign to current user
+        // First fetch household to check lead_source_id
+        const { data: householdData } = await supabase
+          .from('lqs_households')
+          .select('lead_source_id')
+          .eq('id', lqsHousehold.id)
+          .single();
+
+        const needsAttention = !householdData?.lead_source_id;
+
+        // Auto-assign to current user and set needs_attention if no lead source
         const { error: updateError } = await supabase
           .from('lqs_households')
           .update({
             status: 'quoted',
             first_quote_date: today,
             team_member_id: currentUserTeamMemberId || null,
+            needs_attention: needsAttention,
+            attention_reason: needsAttention ? 'missing_lead_source' : null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', lqsHousehold.id);
@@ -709,6 +720,22 @@ export function ContactProfileModal({
 
         if (quoteError) {
           console.warn('Placeholder quote creation failed:', quoteError);
+        }
+
+        // Log activity
+        if (contactId) {
+          await supabase.from('contact_activities').insert({
+            contact_id: contactId,
+            agency_id: agencyId,
+            activity_type: 'status_change',
+            source_module: 'lqs',
+            source_record_id: lqsHousehold.id,
+            subject: 'Moved to Quoted',
+            notes: 'Lead promoted to Quoted Household',
+            created_by_user_id: userId || null,
+            created_by_staff_id: staffMemberId || null,
+            created_by_display_name: displayName || null,
+          }).catch(err => console.warn('Activity log failed:', err));
         }
       }
 
