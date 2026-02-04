@@ -38,6 +38,23 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface SPCategory {
   id: string;
@@ -63,6 +80,108 @@ interface SPModule {
 
 const EMOJI_OPTIONS = ['📦', '🎯', '📚', '🚀', '⭐', '🔥', '💡', '📈', '🎓', '🏆', '📊', '🤝', '💪', '🧠'];
 
+interface SortableModuleProps {
+  module: SPModule;
+  index: number;
+  onTogglePublished: (module: SPModule) => void;
+  onManageLessons: (id: string) => void;
+  onEdit: (module: SPModule) => void;
+  onDelete: (id: string) => void;
+}
+
+function SortableModule({ module, index, onTogglePublished, onManageLessons, onEdit, onDelete }: SortableModuleProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: module.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={`transition-opacity ${!module.is_published ? 'opacity-60' : ''} ${isDragging ? 'shadow-lg ring-2 ring-primary' : ''}`}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-center gap-4">
+          {/* Drag Handle */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="text-muted-foreground/40 cursor-grab active:cursor-grabbing hover:text-muted-foreground touch-none"
+          >
+            <GripVertical className="h-5 w-5" />
+          </div>
+
+          {/* Module Number */}
+          <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-sm font-medium">
+            {index + 1}
+          </div>
+
+          {/* Icon */}
+          <div className="text-2xl">{module.icon || '📦'}</div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-medium truncate">{module.name}</h3>
+              {!module.is_published && (
+                <Badge variant="outline" className="text-xs">Draft</Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground/70 truncate">
+              {module.lesson_count} lesson{module.lesson_count !== 1 ? 's' : ''}
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={module.is_published}
+              onCheckedChange={() => onTogglePublished(module)}
+            />
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onManageLessons(module.id)}
+            >
+              <BookOpen className="h-4 w-4 mr-1" />
+              Lessons
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onEdit(module)}
+            >
+              <Pencil className="h-4 w-4" strokeWidth={1.5} />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onDelete(module.id)}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" strokeWidth={1.5} />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminSPCategoryDetail() {
   const { categoryId } = useParams<{ categoryId: string }>();
   const navigate = useNavigate();
@@ -84,6 +203,17 @@ export default function AdminSPCategoryDetail() {
   // Delete state
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     if (categoryId) {
@@ -276,6 +406,44 @@ export default function AdminSPCategoryDetail() {
     }
   };
 
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = modules.findIndex(m => m.id === active.id);
+    const newIndex = modules.findIndex(m => m.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Optimistically update local state
+    const newModules = arrayMove(modules, oldIndex, newIndex);
+    setModules(newModules);
+
+    // Persist new order to database
+    try {
+      const updates = newModules.map((mod, index) => ({
+        id: mod.id,
+        display_order: index,
+      }));
+
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('sp_modules')
+          .update({ display_order: update.display_order })
+          .eq('id', update.id);
+
+        if (error) throw error;
+      }
+
+      toast({ title: 'Order saved' });
+    } catch (err) {
+      console.error('Error saving order:', err);
+      toast({ title: 'Failed to save order', variant: 'destructive' });
+      fetchData();
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6 flex items-center justify-center h-64">
@@ -344,78 +512,30 @@ export default function AdminSPCategoryDetail() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {modules.map((module, index) => (
-            <Card
-              key={module.id}
-              className={`transition-opacity ${!module.is_published ? 'opacity-60' : ''}`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  {/* Drag Handle */}
-                  <div className="text-muted-foreground/40 cursor-grab">
-                    <GripVertical className="h-5 w-5" />
-                  </div>
-
-                  {/* Module Number */}
-                  <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-sm font-medium">
-                    {index + 1}
-                  </div>
-
-                  {/* Icon */}
-                  <div className="text-2xl">{module.icon || '📦'}</div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium truncate">{module.name}</h3>
-                      {!module.is_published && (
-                        <Badge variant="outline" className="text-xs">Draft</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground/70 truncate">
-                      {module.lesson_count} lesson{module.lesson_count !== 1 ? 's' : ''}
-                    </p>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={module.is_published}
-                      onCheckedChange={() => toggleModulePublished(module)}
-                    />
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(`/admin/standard-playbook/module/${module.id}`)}
-                    >
-                      <BookOpen className="h-4 w-4 mr-1" />
-                      Lessons
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openModuleDialog(module)}
-                    >
-                      <Pencil className="h-4 w-4" strokeWidth={1.5} />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteId(module.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" strokeWidth={1.5} />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={modules.map(m => m.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-3">
+              {modules.map((module, index) => (
+                <SortableModule
+                  key={module.id}
+                  module={module}
+                  index={index}
+                  onTogglePublished={toggleModulePublished}
+                  onManageLessons={(id) => navigate(`/admin/standard-playbook/module/${id}`)}
+                  onEdit={openModuleDialog}
+                  onDelete={setDeleteId}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       {/* Module Dialog */}
