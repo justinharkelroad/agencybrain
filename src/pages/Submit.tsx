@@ -27,9 +27,13 @@ import { PercentInput } from '@/components/ui/percent-input';
 import { usePeriodConflictDetection } from '@/hooks/usePeriodConflictDetection';
 import { usePeriodEditSession } from '@/hooks/usePeriodEditSession';
 import { usePeriodBackup } from '@/hooks/usePeriodBackup';
+import { usePeriodOverlap } from '@/hooks/usePeriodOverlap';
 import { ConflictWarningAlert } from '@/components/client/ConflictWarningAlert';
 import { SaveStatusIndicator } from '@/components/client/SaveStatusIndicator';
 import { PeriodBackupManager } from '@/components/client/PeriodBackupManager';
+import { PeriodStatusBanner } from '@/components/client/PeriodStatusBanner';
+import { SubmissionSuccessDialog } from '@/components/client/SubmissionSuccessDialog';
+import { DuplicatePeriodWarningDialog } from '@/components/client/DuplicatePeriodWarningDialog';
 import { generateDeviceFingerprint } from '@/lib/deviceFingerprint';
 import { ConflictResolutionDialog } from '@/components/client/ConflictResolutionDialog';
 import { ValidationErrorDialog } from '@/components/client/ValidationErrorDialog';
@@ -171,6 +175,8 @@ export default function Submit() {
   const [pendingSaveAction, setPendingSaveAction] = useState<(() => void) | null>(null);
   const [originalPeriodDates, setOriginalPeriodDates] = useState<{ start: Date; end: Date; title: string } | null>(null);
   const [showDateChangeWarning, setShowDateChangeWarning] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
   const { toast } = useToast();
   
   const enableSoldAndCommission = true;
@@ -181,6 +187,14 @@ export default function Submit() {
   // Conflict detection and edit session tracking
   const conflictInfo = usePeriodConflictDetection(currentPeriod?.id, deviceFingerprint);
   usePeriodEditSession(currentPeriod?.id, deviceFingerprint);
+
+  // Period overlap detection for duplicate prevention
+  const overlapInfo = usePeriodOverlap(
+    startDate,
+    endDate,
+    mode === 'update' ? periodIdParam || currentPeriod?.id : undefined,
+    user?.id
+  );
   
   // Backup functionality
   const { createBackup } = usePeriodBackup();
@@ -681,10 +695,10 @@ export default function Submit() {
       setSaveStatus('saved');
       setLastSaved(new Date());
       setLastBackupTime(new Date());
-      
+
       if (!isDraft) {
-        // Redirect to upload selection page for final submission
-        navigate('/uploads/select');
+        // Show success dialog instead of immediate redirect
+        setShowSuccessDialog(true);
       } else {
         toast({
           title: "Progress Saved",
@@ -737,8 +751,15 @@ export default function Submit() {
 
   // Submit completed form with validation and conflict checks
   const submitCompletedForm = async () => {
+    // Check for duplicate/overlapping periods when NOT in update mode
+    // (covers both explicit 'new' mode and default/no mode)
+    if (mode !== 'update' && overlapInfo.hasOverlap && overlapInfo.overlappingPeriod) {
+      setShowDuplicateWarning(true);
+      return;
+    }
+
     const incomplete = checkIncompleteSections();
-    
+
     if (incomplete.length > 0) {
       setIncompleteSections(incomplete);
       setShowIncompleteWarning(true);
@@ -1379,18 +1400,29 @@ export default function Submit() {
                 </Popover>
               </div>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <SaveStatusIndicator 
-              status={saveStatus} 
-              lastSaved={lastSaved} 
-              hasUnsavedChanges={hasUnsavedChanges} 
+
+            {/* Period Status Banner - shows existing submission status */}
+            <PeriodStatusBanner
+              hasOverlap={overlapInfo.hasOverlap}
+              overlappingPeriod={overlapInfo.overlappingPeriod}
+              isExactMatch={overlapInfo.isExactMatch}
+              loading={overlapInfo.loading}
+              startDate={startDate}
+              endDate={endDate}
+              mode={mode}
             />
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant="glass" 
-              size="sm" 
+            <SaveStatusIndicator
+              status={saveStatus}
+              lastSaved={lastSaved}
+              hasUnsavedChanges={hasUnsavedChanges}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="glass"
+              size="sm"
               onClick={() => setShowDataProtection(!showDataProtection)}
               className="rounded-full"
             >
@@ -1679,6 +1711,91 @@ export default function Submit() {
           validationResult={validationResult}
         />
       )}
+
+      {/* Submission Success Dialog */}
+      <SubmissionSuccessDialog
+        open={showSuccessDialog}
+        onOpenChange={setShowSuccessDialog}
+        formData={formData}
+        startDate={startDate}
+        endDate={endDate}
+        onViewDashboard={() => {
+          setShowSuccessDialog(false);
+          navigate('/dashboard');
+        }}
+        onUploadDocuments={() => {
+          setShowSuccessDialog(false);
+          navigate('/uploads/select');
+        }}
+        onSubmitAnother={() => {
+          setShowSuccessDialog(false);
+          navigate('/submit?mode=new');
+        }}
+      />
+
+      {/* Duplicate Period Warning Dialog */}
+      <DuplicatePeriodWarningDialog
+        open={showDuplicateWarning}
+        onOpenChange={setShowDuplicateWarning}
+        overlappingPeriod={overlapInfo.overlappingPeriod}
+        isExactMatch={overlapInfo.isExactMatch}
+        onEditExisting={() => {
+          setShowDuplicateWarning(false);
+          if (overlapInfo.overlappingPeriod) {
+            navigate(`/submit?mode=update&periodId=${overlapInfo.overlappingPeriod.id}`);
+          }
+        }}
+        onCreateNew={async () => {
+          setShowDuplicateWarning(false);
+          // Continue with submission - user explicitly chose to create new period
+          // Run the full validation flow (same as submitCompletedForm but without overlap check)
+          const incomplete = checkIncompleteSections();
+          if (incomplete.length > 0) {
+            setIncompleteSections(incomplete);
+            setShowIncompleteWarning(true);
+            return;
+          }
+
+          // Run validation
+          const validation = validateFormData();
+          if (!validation.isValid) {
+            setValidationResult(validation);
+            setShowValidationDialog(true);
+            return;
+          }
+
+          // If there are warnings, show validation dialog with option to continue
+          if (validation.warnings.length > 0) {
+            setValidationResult(validation);
+            setPendingSaveAction(() => async () => {
+              if (checkForConflicts()) {
+                setShowConflictDialog(true);
+                setPendingSaveAction(() => async () => {
+                  await performSave(false);
+                });
+                return;
+              }
+              await performSave(false);
+            });
+            setShowValidationDialog(true);
+            return;
+          }
+
+          // Check for conflicts
+          if (checkForConflicts()) {
+            setShowConflictDialog(true);
+            setPendingSaveAction(() => async () => {
+              await performSave(false);
+            });
+            return;
+          }
+
+          await performSave(false);
+        }}
+        onCancel={() => {
+          setShowDuplicateWarning(false);
+        }}
+      />
     </div>
   );
 }
