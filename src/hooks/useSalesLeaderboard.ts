@@ -84,12 +84,13 @@ export function useSalesLeaderboard({
         return { leaderboard: [], myRank: null, topThree: [] };
       }
 
-      // Get all active team members
+      // Get all active team members (only those included in metrics)
       const { data: teamMembers, error: tmError } = await supabase
         .from("team_members")
         .select("id, name")
         .eq("agency_id", agencyId)
-        .eq("status", "active");
+        .eq("status", "active")
+        .eq("include_in_metrics", true);
 
       if (tmError) throw tmError;
 

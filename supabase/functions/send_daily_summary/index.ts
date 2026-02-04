@@ -191,11 +191,13 @@ Deno.serve(async (req) => {
         logStructured('date_range', { yesterday: yesterdayStr });
 
         // Get team members for this form's role (include Hybrid and Manager)
+        // Only include members with include_in_metrics = true for tracking
         const { data: teamMembers, error: tmError } = await supabase
           .from('team_members')
           .select('id, name, email, role')
           .eq('agency_id', agency.id)
           .eq('status', 'active')
+          .eq('include_in_metrics', true)
           .or(`role.eq.${form.role},role.eq.Hybrid,role.eq.Manager`);
 
         if (tmError) {

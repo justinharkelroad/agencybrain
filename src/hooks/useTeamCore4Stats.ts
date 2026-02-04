@@ -95,12 +95,13 @@ export function useTeamCore4Stats(): TeamCore4Data {
         return { members: [] };
       }
 
-      // Get team member names
+      // Get team member names (only those included in metrics)
       const teamMemberIds = staffUsers.map(s => s.team_member_id).filter(Boolean) as string[];
       const { data: teamMembers } = await supabase
         .from('team_members')
         .select('id, name, email')
-        .in('id', teamMemberIds);
+        .in('id', teamMemberIds)
+        .eq('include_in_metrics', true);
 
       interface TeamMemberData { id: string; name: string; email: string | null }
       const teamMemberMap = new Map<string, TeamMemberData>(
@@ -183,9 +184,11 @@ export function useTeamCore4Stats(): TeamCore4Data {
         flowsByAuthUser.set(flow.user_id, [...existing, flow]);
       });
 
-      // Calculate stats for each team member
-      const members: TeamMemberCore4Stats[] = staffUsers.map(staff => {
-        const teamMember = staff.team_member_id ? teamMemberMap.get(staff.team_member_id) : undefined;
+      // Calculate stats for each team member (only those included in metrics)
+      const members: TeamMemberCore4Stats[] = staffUsers
+        .filter(staff => staff.team_member_id && teamMemberMap.has(staff.team_member_id))
+        .map(staff => {
+        const teamMember = teamMemberMap.get(staff.team_member_id!)!;
         const userEntries = entriesByUser.get(staff.id) || [];
         const userMissions = missionsByUser.get(staff.id) || [];
         const userFlows = staff.user_id ? (flowsByAuthUser.get(staff.user_id) || []) : [];
@@ -270,8 +273,8 @@ export function useTeamCore4Stats(): TeamCore4Data {
         return {
           staffUserId: staff.id,
           teamMemberId: staff.team_member_id!,
-          name: teamMember?.name ?? staff.email ?? 'Unknown',
-          email: staff.email ?? teamMember?.email ?? null,
+          name: teamMember.name,
+          email: staff.email ?? teamMember.email ?? null,
           todayEntry,
           weeklyPoints,
           flowWeeklyProgress,
@@ -281,7 +284,7 @@ export function useTeamCore4Stats(): TeamCore4Data {
           entries: userEntries,
           missions: userMissions,
         };
-      }).filter(m => m.teamMemberId); // Only include users with team member links
+      });
 
       return { members };
     },

@@ -287,19 +287,23 @@ serve(async (req) => {
           throw metricsError;
         }
 
-        // Get team member names
+        // Get team member names (only those included in metrics)
         const memberIds = [...new Set(metrics?.map(m => m.team_member_id) || [])];
         const { data: members } = await supabase
           .from('team_members')
           .select('id, name')
-          .in('id', memberIds.length > 0 ? memberIds : ['00000000-0000-0000-0000-000000000000']);
+          .in('id', memberIds.length > 0 ? memberIds : ['00000000-0000-0000-0000-000000000000'])
+          .eq('include_in_metrics', true);
 
         const memberMap = new Map(members?.map(m => [m.id, m.name]) || []);
 
-        const enrichedMetrics = (metrics || []).map(m => ({
-          ...m,
-          team_member_name: memberMap.get(m.team_member_id) || 'Unknown'
-        }));
+        // Filter out metrics for members who are excluded from metrics
+        const enrichedMetrics = (metrics || [])
+          .filter(m => memberMap.has(m.team_member_id))
+          .map(m => ({
+            ...m,
+            team_member_name: memberMap.get(m.team_member_id)
+          }));
 
         responseData = { performance: enrichedMetrics };
         break;

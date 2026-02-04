@@ -12,6 +12,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { toast } from "sonner";
@@ -37,6 +38,7 @@ type FormState = {
   notes: string;
   hybridTeamAssignments: string[];
   subProducerCode: string;
+  includeInMetrics: boolean;
 };
 
 export default function AdminTeam() {
@@ -73,7 +75,7 @@ export default function AdminTeam() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_members")
-        .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,sub_producer_code,created_at")
+        .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,sub_producer_code,include_in_metrics,created_at")
         .eq("agency_id", agencyId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -109,11 +111,12 @@ export default function AdminTeam() {
     notes: "",
     hybridTeamAssignments: [],
     subProducerCode: "",
+    includeInMetrics: true,
   });
 
   const resetForm = () => {
     setEditingId(null);
-    setForm({ name: "", email: "", role: MEMBER_ROLES[0] as Role, employment: EMPLOYMENT_TYPES[0] as Employment, status: MEMBER_STATUS[0] as MemberStatus, notes: "", hybridTeamAssignments: [], subProducerCode: "" });
+    setForm({ name: "", email: "", role: MEMBER_ROLES[0] as Role, employment: EMPLOYMENT_TYPES[0] as Employment, status: MEMBER_STATUS[0] as MemberStatus, notes: "", hybridTeamAssignments: [], subProducerCode: "", includeInMetrics: true });
   };
 
   const startCreate = () => {
@@ -123,15 +126,16 @@ export default function AdminTeam() {
 
   const startEdit = (m: any) => {
     setEditingId(m.id);
-    setForm({ 
-      name: m.name, 
-      email: m.email, 
-      role: m.role, 
-      employment: m.employment, 
-      status: m.status, 
+    setForm({
+      name: m.name,
+      email: m.email,
+      role: m.role,
+      employment: m.employment,
+      status: m.status,
       notes: m.notes || "",
       hybridTeamAssignments: m.hybrid_team_assignments || [],
-      subProducerCode: m.sub_producer_code || ""
+      subProducerCode: m.sub_producer_code || "",
+      includeInMetrics: m.include_in_metrics ?? true
     });
     setOpen(true);
   };
@@ -148,7 +152,8 @@ export default function AdminTeam() {
         status: form.status,
         notes: form.notes,
         hybrid_team_assignments: form.role === 'Hybrid' ? form.hybridTeamAssignments : null,
-        sub_producer_code: form.subProducerCode || null
+        sub_producer_code: form.subProducerCode || null,
+        include_in_metrics: form.includeInMetrics
       };
       
       if (editingId) {
@@ -332,6 +337,19 @@ export default function AdminTeam() {
                         </SelectContent>
                       </Select>
                     </div>
+                    <div className="grid grid-cols-4 items-center gap-3">
+                      <Label className="text-right" htmlFor="includeInMetrics">Include in Metrics</Label>
+                      <div className="col-span-3 flex items-center gap-3">
+                        <Switch
+                          id="includeInMetrics"
+                          checked={form.includeInMetrics}
+                          onCheckedChange={(checked) => setForm((f) => ({ ...f, includeInMetrics: checked }))}
+                        />
+                        <span className="text-sm text-muted-foreground">
+                          {form.includeInMetrics ? "Included in dashboards and compliance tracking" : "Excluded from metrics (can still submit forms)"}
+                        </span>
+                      </div>
+                    </div>
                     <div className="grid grid-cols-4 items-start gap-3">
                       <Label className="text-right" htmlFor="notes">Notes</Label>
                       <Textarea id="notes" value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} className="col-span-3 min-h-[84px]" />
@@ -383,11 +401,16 @@ export default function AdminTeam() {
                       <TableCell>{m.role}{m.role === 'Hybrid' && m.hybrid_team_assignments?.length > 0 && ` (${m.hybrid_team_assignments.join(', ')})`}</TableCell>
                       <TableCell>{m.employment}</TableCell>
                       <TableCell>
-                        {m.status === 'inactive' ? (
-                          <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">Inactive</Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">Active</Badge>
-                        )}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {m.status === 'inactive' ? (
+                            <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">Inactive</Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">Active</Badge>
+                          )}
+                          {m.include_in_metrics === false && (
+                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">Excluded from metrics</Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
