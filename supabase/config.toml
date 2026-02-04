@@ -279,6 +279,9 @@ verify_jwt = false
 [functions.staff_add_policy]
 verify_jwt = false
 
+[functions.staff_promote_to_quoted]
+verify_jwt = false
+
 [functions.get_staff_goal]
 verify_jwt = false
 

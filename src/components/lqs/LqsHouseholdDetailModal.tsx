@@ -31,6 +31,7 @@ import {
   Plus,
   Trash2,
   AlertTriangle,
+  ArrowRight,
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { HouseholdWithRelations } from '@/hooks/useLqsData';
@@ -73,6 +74,7 @@ export function LqsHouseholdDetailModal({
   const [isAddingQuote, setIsAddingQuote] = useState(false);
   const [showAddSaleForm, setShowAddSaleForm] = useState(false);
   const [isAddingSale, setIsAddingSale] = useState(false);
+  const [isPromotingToQuoted, setIsPromotingToQuoted] = useState(false);
 
   // Fetch objections for edit dropdown - use staff hook in staff context
   const isStaffContext = !!staffSessionToken;
@@ -439,6 +441,70 @@ export function LqsHouseholdDetailModal({
     }
   };
 
+  const handlePromoteToQuoted = async () => {
+    if (!household) return;
+
+    setIsPromotingToQuoted(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      if (staffSessionToken) {
+        // Staff path: use edge function
+        const { data, error } = await supabase.functions.invoke('staff_promote_to_quoted', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: {
+            household_id: household.id,
+            create_placeholder_quote: true,
+          },
+        });
+
+        if (error) throw new Error(error.message || 'Failed to move to quoted');
+        if (data?.error) throw new Error(data.error);
+      } else {
+        // Authenticated user path: direct Supabase update
+        // Update household status
+        const { error: updateError } = await supabase
+          .from('lqs_households')
+          .update({
+            status: 'quoted',
+            first_quote_date: today,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', household.id);
+
+        if (updateError) throw updateError;
+
+        // Create placeholder quote for tracking
+        const { error: quoteError } = await supabase
+          .from('lqs_quotes')
+          .insert({
+            household_id: household.id,
+            agency_id: household.agency_id,
+            team_member_id: household.team_member_id || null,
+            quote_date: today,
+            product_type: 'Bundle',
+            items_quoted: 1,
+            premium_cents: 0,
+            source: 'manual',
+          });
+
+        if (quoteError) {
+          console.warn('Placeholder quote creation failed:', quoteError);
+          // Don't fail - status update is primary goal
+        }
+      }
+
+      toast.success('Moved to Quoted');
+      queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
+      onOpenChange(false);
+    } catch (err: any) {
+      toast.error(`Failed to move to quoted: ${err.message || err}`);
+    } finally {
+      setIsPromotingToQuoted(false);
+    }
+  };
+
   const handleDeleteHousehold = async () => {
     if (!household) return;
 
@@ -592,6 +658,22 @@ export function LqsHouseholdDetailModal({
                 </Badge>
                 {household.needs_attention && (
                   <Badge variant="destructive">Needs Attention</Badge>
+                )}
+                {household.status === 'lead' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handlePromoteToQuoted}
+                    disabled={isPromotingToQuoted}
+                    className="ml-2 text-yellow-600 border-yellow-500/50 hover:bg-yellow-500/10"
+                  >
+                    {isPromotingToQuoted ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <ArrowRight className="h-4 w-4 mr-1" />
+                    )}
+                    Move to Quoted
+                  </Button>
                 )}
               </div>
             </div>

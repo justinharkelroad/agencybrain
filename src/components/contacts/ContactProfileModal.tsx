@@ -658,6 +658,74 @@ export function ContactProfileModal({
     }
   };
 
+  // LQS: Promote lead to quoted status
+  const handleLqsPromoteToQuoted = async () => {
+    if (!lqsHousehold?.id || !agencyId) return;
+
+    setModuleActionLoading('promote_to_quoted');
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      if (staffSessionToken) {
+        // Staff path: use edge function
+        const { data, error } = await supabase.functions.invoke('staff_promote_to_quoted', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: {
+            household_id: lqsHousehold.id,
+            create_placeholder_quote: true,
+          },
+        });
+
+        if (error) throw new Error(error.message || 'Failed to move to quoted');
+        if (data?.error) throw new Error(data.error);
+      } else {
+        // Authenticated user path: direct Supabase update
+        const { error: updateError } = await supabase
+          .from('lqs_households')
+          .update({
+            status: 'quoted',
+            first_quote_date: today,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', lqsHousehold.id);
+
+        if (updateError) throw updateError;
+
+        // Create placeholder quote for tracking
+        const { error: quoteError } = await supabase
+          .from('lqs_quotes')
+          .insert({
+            household_id: lqsHousehold.id,
+            agency_id: agencyId,
+            team_member_id: currentUserTeamMemberId || null,
+            quote_date: today,
+            product_type: 'Bundle',
+            items_quoted: 1,
+            premium_cents: 0,
+            source: 'manual',
+          });
+
+        if (quoteError) {
+          console.warn('Placeholder quote creation failed:', quoteError);
+        }
+      }
+
+      toast.success('Moved to Quoted');
+
+      // Invalidate queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
+      queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      setHasMutated(true);
+      onActivityLogged?.();
+    } catch (error: any) {
+      toast.error('Failed to move to quoted', { description: error.message });
+    } finally {
+      setModuleActionLoading(null);
+    }
+  };
+
   // Format phone for display
   const formatPhone = (phone: string) => {
     const formatted = formatPhoneNumber(phone);
@@ -771,8 +839,10 @@ export function ContactProfileModal({
                 ) : defaultSourceModule === 'lqs' && lqsHousehold ? (
                   <LqsQuickActions
                     onAction={handleLqsActivity}
+                    onPromoteToQuoted={handleLqsPromoteToQuoted}
                     loadingAction={moduleActionLoading}
                     onStartSequence={agencyId ? () => setApplySequenceModalOpen(true) : undefined}
+                    currentStage={displayStage}
                   />
                 ) : (
                   <div className="flex flex-wrap gap-2">
@@ -1237,12 +1307,16 @@ function RenewalQuickActions({
 // LQS Quick Actions - for LQS Roadmap sidebar
 function LqsQuickActions({
   onAction,
+  onPromoteToQuoted,
   loadingAction,
   onStartSequence,
+  currentStage,
 }: {
   onAction: (type: string) => void;
+  onPromoteToQuoted?: () => void;
   loadingAction: string | null;
   onStartSequence?: () => void;
+  currentStage?: LifecycleStage;
 }) {
   const actions = [
     { type: 'call', label: 'Call', icon: Phone, color: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
@@ -1251,6 +1325,9 @@ function LqsQuickActions({
     { type: 'email', label: 'Email', icon: Mail, color: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
     { type: 'appointment', label: 'Appt', icon: Calendar, color: 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
   ];
+
+  // Show "Move to Quoted" only for leads (open_lead stage)
+  const isLead = currentStage === 'open_lead';
 
   return (
     <div className="space-y-2">
@@ -1273,8 +1350,28 @@ function LqsQuickActions({
           </Button>
         ))}
       </div>
-      {onStartSequence && (
-        <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
+        {isLead && onPromoteToQuoted && (
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              'border transition-colors',
+              'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+              loadingAction && 'opacity-50'
+            )}
+            onClick={onPromoteToQuoted}
+            disabled={loadingAction !== null}
+          >
+            {loadingAction === 'promote_to_quoted' ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <FileText className="h-3.5 w-3.5 mr-1.5" />
+            )}
+            Move to Quoted
+          </Button>
+        )}
+        {onStartSequence && (
           <Button
             variant="outline"
             size="sm"
@@ -1283,8 +1380,8 @@ function LqsQuickActions({
             <Workflow className="h-3.5 w-3.5 mr-1.5" />
             Start Sequence
           </Button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
