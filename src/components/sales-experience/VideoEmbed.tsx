@@ -35,10 +35,15 @@ export function VideoEmbed({ url, platform, className = '' }: VideoEmbedProps) {
     }
 
     case 'vimeo': {
+      // Extract video ID and convert to embed URL
+      const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+      const embedUrl = vimeoMatch 
+        ? `https://player.vimeo.com/video/${vimeoMatch[1]}`
+        : url;
       return (
         <div className={containerClass}>
           <iframe
-            src={url}
+            src={embedUrl}
             className="w-full h-full"
             allow="autoplay; fullscreen; picture-in-picture"
             allowFullScreen

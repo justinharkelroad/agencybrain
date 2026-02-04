@@ -47,8 +47,6 @@ export type Database = {
           owner_rollup_time: string | null
           phone: string | null
           reminder_times_json: Json | null
-          morning_digest_enabled: boolean | null
-          morning_digest_sections: Json | null
           sales_daily_summary_enabled: boolean | null
           sales_realtime_email_enabled: boolean | null
           slug: string | null
@@ -91,8 +89,6 @@ export type Database = {
           owner_rollup_time?: string | null
           phone?: string | null
           reminder_times_json?: Json | null
-          morning_digest_enabled?: boolean | null
-          morning_digest_sections?: Json | null
           sales_daily_summary_enabled?: boolean | null
           sales_realtime_email_enabled?: boolean | null
           slug?: string | null
@@ -135,8 +131,6 @@ export type Database = {
           owner_rollup_time?: string | null
           phone?: string | null
           reminder_times_json?: Json | null
-          morning_digest_enabled?: boolean | null
-          morning_digest_sections?: Json | null
           sales_daily_summary_enabled?: boolean | null
           sales_realtime_email_enabled?: boolean | null
           slug?: string | null
@@ -12026,15 +12020,20 @@ export type Database = {
           total_talk_seconds: number
         }[]
       }
-      get_staff_call_scoring_data: {
-        Args: {
-          p_agency_id: string
-          p_page?: number
-          p_page_size?: number
-          p_team_member_id?: string
-        }
-        Returns: Json
-      }
+      get_staff_call_scoring_data:
+        | {
+            Args: { p_agency_id: string; p_team_member_id?: string }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_agency_id: string
+              p_page?: number
+              p_page_size?: number
+              p_team_member_id?: string
+            }
+            Returns: Json
+          }
       get_staff_call_status: {
         Args: { p_agency_id: string; p_call_id: string }
         Returns: Json

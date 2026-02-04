@@ -332,7 +332,12 @@ export default function StaffSalesLesson() {
             <div className="aspect-video bg-muted rounded-lg overflow-hidden">
               {lesson.video_platform === 'vimeo' ? (
                 <iframe
-                  src={lesson.video_url || ''}
+                  src={(() => {
+                    const vimeoMatch = lesson.video_url?.match(/vimeo\.com\/(\d+)/);
+                    return vimeoMatch 
+                      ? `https://player.vimeo.com/video/${vimeoMatch[1]}`
+                      : lesson.video_url || '';
+                  })()}
                   className="w-full h-full"
                   allow="autoplay; fullscreen; picture-in-picture"
                   allowFullScreen
