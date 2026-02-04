@@ -1,69 +1,50 @@
 
-# Fix Vimeo Video Embedding in Sales Experience
+# Fix: Sales Experience Assignment Constraint Bug
 
 ## Problem
-Vimeo videos don't play in the Sales Experience module because the code uses raw Vimeo URLs directly instead of converting them to the proper embed format.
+The database constraint `one_active_per_agency` is incorrectly defined as `UNIQUE (agency_id, status)`, which means each agency can only have ONE assignment per status value (one pending, one active, one cancelled, etc.).
 
-**Your URL:** `https://vimeo.com/1161416262?share=copy&fl=sv&fe=ci`
-**Required format:** `https://player.vimeo.com/video/1161416262`
+This prevents:
+- Cancelling multiple assignments for the same agency
+- Having historical cancelled/completed records
 
 ## Root Cause
-Two files pass Vimeo URLs directly to iframes without conversion:
-- YouTube and Loom have URL transformations
-- Vimeo is missing this conversion
-
-## Fix
-
-### File 1: `src/components/sales-experience/VideoEmbed.tsx`
-
-**Before (line 37-47):**
-```tsx
-case 'vimeo': {
-  return (
-    <div className={containerClass}>
-      <iframe
-        src={url}  // Bug: raw URL
+**Current constraint:**
+```sql
+CONSTRAINT one_active_per_agency UNIQUE (agency_id, status)
 ```
 
-**After:**
-```tsx
-case 'vimeo': {
-  // Extract video ID and convert to embed URL
-  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-  const embedUrl = vimeoMatch 
-    ? `https://player.vimeo.com/video/${vimeoMatch[1]}`
-    : url;
-  return (
-    <div className={containerClass}>
-      <iframe
-        src={embedUrl}
+**Intended behavior:** Only allow one "in-progress" (pending/active/paused) assignment per agency at a time, while allowing unlimited cancelled/completed historical records.
+
+## Solution
+Replace the table constraint with a partial unique index that only enforces uniqueness for non-terminal statuses.
+
+### Database Migration
+
+```sql
+-- Drop the incorrect constraint
+ALTER TABLE sales_experience_assignments 
+DROP CONSTRAINT IF EXISTS one_active_per_agency;
+
+-- Create correct partial unique index
+-- This allows only ONE assignment per agency that is pending, active, or paused
+-- But allows unlimited cancelled or completed assignments (historical records)
+CREATE UNIQUE INDEX one_active_per_agency 
+ON sales_experience_assignments(agency_id) 
+WHERE status IN ('pending', 'active', 'paused');
 ```
 
-### File 2: `src/pages/staff/StaffSalesLesson.tsx`
+## What This Fixes
+- You can cancel the paused Example Insurance Agency assignment
+- You can have multiple historical cancelled/completed records per agency
+- Still enforces: only one "in-progress" assignment per agency at a time
 
-**Before (line 333-340):**
-```tsx
-{lesson.video_platform === 'vimeo' ? (
-  <iframe
-    src={lesson.video_url || ''}  // Bug: raw URL
-```
-
-**After:**
-```tsx
-{lesson.video_platform === 'vimeo' ? (
-  <iframe
-    src={(() => {
-      const vimeoMatch = lesson.video_url?.match(/vimeo\.com\/(\d+)/);
-      return vimeoMatch 
-        ? `https://player.vimeo.com/video/${vimeoMatch[1]}`
-        : lesson.video_url || '';
-    })()}
-```
-
-## Also Fixing: Build Errors
-Will fix the 18 TypeScript errors in edge functions (error type casting, array type assertions) to unblock deployment.
+## Files Changed
+| File | Action |
+|------|--------|
+| New migration SQL | Create partial unique index to replace broken constraint |
 
 ## Impact
-- Only affects Vimeo video embedding
-- No database changes
-- No changes to other features
+- No frontend code changes needed
+- Only affects the database constraint logic
+- Existing data remains intact
