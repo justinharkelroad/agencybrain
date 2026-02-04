@@ -29,6 +29,23 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface SPCategory {
   id: string;
@@ -50,6 +67,124 @@ const TIER_LABELS: Record<string, { label: string; icon: React.ReactNode; color:
   manager: { label: 'Managers', icon: <UserCog className="h-3 w-3" />, color: 'bg-amber-500/20 text-amber-400' },
 };
 
+interface SortableCategoryProps {
+  category: SPCategory;
+  onTogglePublished: (category: SPCategory) => void;
+  onManage: (id: string) => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+}
+
+function SortableCategory({ category, onTogglePublished, onManage, onEdit, onDelete }: SortableCategoryProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={`transition-opacity ${!category.is_published ? 'opacity-60' : ''} ${isDragging ? 'shadow-lg ring-2 ring-primary' : ''}`}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-center gap-4">
+          {/* Drag Handle */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="text-muted-foreground/40 cursor-grab active:cursor-grabbing hover:text-muted-foreground touch-none"
+          >
+            <GripVertical className="h-5 w-5" />
+          </div>
+
+          {/* Icon */}
+          <div className="text-3xl w-12 text-center">
+            {category.icon || '📚'}
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-medium truncate">{category.name}</h3>
+              {!category.is_published && (
+                <Badge variant="outline" className="text-xs">Draft</Badge>
+              )}
+            </div>
+
+            {/* Access Tiers */}
+            <div className="flex flex-wrap gap-1 mb-1">
+              {category.access_tiers.map(tier => {
+                const tierInfo = TIER_LABELS[tier];
+                return tierInfo ? (
+                  <span
+                    key={tier}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${tierInfo.color}`}
+                  >
+                    {tierInfo.icon}
+                    {tierInfo.label}
+                  </span>
+                ) : null;
+              })}
+              {category.access_tiers.length === 0 && (
+                <span className="text-xs text-muted-foreground/50">No access tiers set</span>
+              )}
+            </div>
+
+            <p className="text-xs text-muted-foreground/50">
+              {category.module_count} module{category.module_count !== 1 ? 's' : ''} • 
+              slug: {category.slug}
+            </p>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={category.is_published}
+              onCheckedChange={() => onTogglePublished(category)}
+            />
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onManage(category.id)}
+            >
+              <ChevronRight className="h-4 w-4 mr-1" />
+              Manage
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onEdit(category.id)}
+            >
+              <Pencil className="h-4 w-4" strokeWidth={1.5} />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onDelete(category.id)}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" strokeWidth={1.5} />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminStandardPlaybook() {
   const navigate = useNavigate();
 
@@ -57,6 +192,17 @@ export default function AdminStandardPlaybook() {
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     fetchCategories();
@@ -83,6 +229,46 @@ export default function AdminStandardPlaybook() {
       toast.error('Error loading categories');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = categories.findIndex(c => c.id === active.id);
+    const newIndex = categories.findIndex(c => c.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Optimistically update local state
+    const newCategories = arrayMove(categories, oldIndex, newIndex);
+    setCategories(newCategories);
+
+    // Persist new order to database
+    try {
+      const updates = newCategories.map((cat, index) => ({
+        id: cat.id,
+        display_order: index,
+      }));
+
+      // Update each category's display_order
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('sp_categories')
+          .update({ display_order: update.display_order })
+          .eq('id', update.id);
+
+        if (error) throw error;
+      }
+
+      toast.success('Order saved');
+    } catch (err) {
+      console.error('Error saving order:', err);
+      toast.error('Failed to save order');
+      // Revert on error
+      fetchCategories();
     }
   };
 
@@ -177,95 +363,29 @@ export default function AdminStandardPlaybook() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {categories.map((category) => (
-            <Card
-              key={category.id}
-              className={`transition-opacity ${!category.is_published ? 'opacity-60' : ''}`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  {/* Drag Handle */}
-                  <div className="text-muted-foreground/40 cursor-grab">
-                    <GripVertical className="h-5 w-5" />
-                  </div>
-
-                  {/* Icon */}
-                  <div className="text-3xl w-12 text-center">
-                    {category.icon || '📚'}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium truncate">{category.name}</h3>
-                      {!category.is_published && (
-                        <Badge variant="outline" className="text-xs">Draft</Badge>
-                      )}
-                    </div>
-
-                    {/* Access Tiers */}
-                    <div className="flex flex-wrap gap-1 mb-1">
-                      {category.access_tiers.map(tier => {
-                        const tierInfo = TIER_LABELS[tier];
-                        return tierInfo ? (
-                          <span
-                            key={tier}
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${tierInfo.color}`}
-                          >
-                            {tierInfo.icon}
-                            {tierInfo.label}
-                          </span>
-                        ) : null;
-                      })}
-                      {category.access_tiers.length === 0 && (
-                        <span className="text-xs text-muted-foreground/50">No access tiers set</span>
-                      )}
-                    </div>
-
-                    <p className="text-xs text-muted-foreground/50">
-                      {category.module_count} module{category.module_count !== 1 ? 's' : ''} • 
-                      slug: {category.slug}
-                    </p>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={category.is_published}
-                      onCheckedChange={() => togglePublished(category)}
-                    />
-
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(`/admin/standard-playbook/category/${category.id}`)}
-                    >
-                      <ChevronRight className="h-4 w-4 mr-1" />
-                      Manage
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => navigate(`/admin/standard-playbook/category/${category.id}/edit`)}
-                    >
-                      <Pencil className="h-4 w-4" strokeWidth={1.5} />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteId(category.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" strokeWidth={1.5} />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={categories.map(c => c.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-3">
+              {categories.map((category) => (
+                <SortableCategory
+                  key={category.id}
+                  category={category}
+                  onTogglePublished={togglePublished}
+                  onManage={(id) => navigate(`/admin/standard-playbook/category/${id}`)}
+                  onEdit={(id) => navigate(`/admin/standard-playbook/category/${id}/edit`)}
+                  onDelete={setDeleteId}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       {/* Delete Confirmation */}
@@ -282,7 +402,7 @@ export default function AdminStandardPlaybook() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={deleteCategory}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive/90"
               disabled={deleting}
             >
               {deleting ? 'Deleting...' : 'Delete Category'}
