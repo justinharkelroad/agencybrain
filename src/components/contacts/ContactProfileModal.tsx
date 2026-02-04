@@ -680,11 +680,13 @@ export function ContactProfileModal({
         if (data?.error) throw new Error(data.error);
       } else {
         // Authenticated user path: direct Supabase update
+        // Auto-assign to current user
         const { error: updateError } = await supabase
           .from('lqs_households')
           .update({
             status: 'quoted',
             first_quote_date: today,
+            team_member_id: currentUserTeamMemberId || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', lqsHousehold.id);

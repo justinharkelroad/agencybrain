@@ -891,6 +891,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         }}
         teamMembers={teamMembers}
         staffSessionToken={isStaffPortal ? staffSessionToken : null}
+        currentTeamMemberId={currentTeamMemberId}
       />
 
       {/* Sale Detail Modal (for sold households) */}

@@ -47,6 +47,7 @@ interface LqsHouseholdDetailModalProps {
   onAssignLeadSource?: (householdId: string) => void;
   teamMembers?: { id: string; name: string }[];
   staffSessionToken?: string | null;
+  currentTeamMemberId?: string | null;
 }
 
 export function LqsHouseholdDetailModal({
@@ -56,6 +57,7 @@ export function LqsHouseholdDetailModal({
   onAssignLeadSource,
   teamMembers,
   staffSessionToken,
+  currentTeamMemberId,
 }: LqsHouseholdDetailModalProps) {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -462,12 +464,16 @@ export function LqsHouseholdDetailModal({
         if (data?.error) throw new Error(data.error);
       } else {
         // Authenticated user path: direct Supabase update
-        // Update household status
+        // Auto-assign to current user if they have a team_member_id
+        const assignToTeamMemberId = currentTeamMemberId || household.team_member_id || null;
+
+        // Update household status and assign to current user
         const { error: updateError } = await supabase
           .from('lqs_households')
           .update({
             status: 'quoted',
             first_quote_date: today,
+            team_member_id: assignToTeamMemberId,
             updated_at: new Date().toISOString(),
           })
           .eq('id', household.id);
@@ -480,7 +486,7 @@ export function LqsHouseholdDetailModal({
           .insert({
             household_id: household.id,
             agency_id: household.agency_id,
-            team_member_id: household.team_member_id || null,
+            team_member_id: assignToTeamMemberId,
             quote_date: today,
             product_type: 'Bundle',
             items_quoted: 1,
