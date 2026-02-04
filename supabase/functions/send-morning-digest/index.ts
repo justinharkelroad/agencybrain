@@ -60,6 +60,26 @@ interface TrainingCompletion {
   moduleTitle: string;
 }
 
+interface MorningDigestSections {
+  salesSnapshot: boolean;
+  activityMetrics: boolean;
+  callScoring: boolean;
+  atRiskPolicies: boolean;
+  renewalsDue: boolean;
+  sequenceTasks: boolean;
+  trainingCompletions: boolean;
+}
+
+const DEFAULT_SECTIONS: MorningDigestSections = {
+  salesSnapshot: true,
+  activityMetrics: true,
+  callScoring: true,
+  atRiskPolicies: true,
+  renewalsDue: true,
+  sequenceTasks: true,
+  trainingCompletions: true,
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -134,7 +154,7 @@ serve(async (req) => {
     // Fetch agencies with morning digest enabled (or specific agency if testing)
     let agencyQuery = supabase
       .from('agencies')
-      .select('id, name, morning_digest_enabled, timezone');
+      .select('id, name, morning_digest_enabled, morning_digest_sections, timezone');
 
     if (forceTest && testAgencyId) {
       agencyQuery = agencyQuery.eq('id', testAgencyId);
@@ -156,6 +176,7 @@ serve(async (req) => {
     for (const agency of agencies || []) {
       try {
         const timezone = agency.timezone || 'America/New_York';
+        const sections: MorningDigestSections = { ...DEFAULT_SECTIONS, ...(agency.morning_digest_sections || {}) };
 
         // Calculate local hour for this agency
         const offset = TIMEZONE_OFFSETS[timezone] || -5;
@@ -231,6 +252,7 @@ serve(async (req) => {
         const emailHtml = buildEmailHtml(
           agency.name,
           timezone,
+          sections,
           salesSnapshot,
           activityMetrics,
           callScoring,
@@ -623,6 +645,7 @@ async function fetchRecipients(
 function buildEmailHtml(
   agencyName: string,
   timezone: string,
+  sections: MorningDigestSections,
   sales: SalesSnapshot,
   activity: ActivityMetrics,
   callScoring: CallScoringSummary,
@@ -640,14 +663,22 @@ function buildEmailHtml(
     timeZone: timezone
   });
 
-  // Calculate if there are any attention items
+  // Calculate if there are any attention items (respecting section preferences)
   const totalAtRisk = atRisk.pendingCancelCount + atRisk.cancelCount;
   const totalOverdue = sequenceTasks.overdueTasks.reduce((sum, u) => sum + u.count, 0);
-  const hasAttentionItems = totalAtRisk > 0 || renewals.renewalCount > 0 || totalOverdue > 0;
+  const hasAttentionItems =
+    (sections.atRiskPolicies && totalAtRisk > 0) ||
+    (sections.renewalsDue && renewals.renewalCount > 0) ||
+    (sections.sequenceTasks && totalOverdue > 0);
 
-  // Calculate wins
+  // Calculate wins (respecting section preferences)
   const totalCompleted = sequenceTasks.completedYesterday.reduce((sum, u) => sum + u.count, 0);
-  const hasWins = trainingCompletions.length > 0 || totalCompleted > 0 || sequenceTasks.dueToday.length > 0;
+  const hasWins =
+    (sections.trainingCompletions && trainingCompletions.length > 0) ||
+    (sections.sequenceTasks && (totalCompleted > 0 || sequenceTasks.dueToday.length > 0));
+
+  // Check if any highlights sections are enabled
+  const hasHighlights = sections.salesSnapshot || sections.activityMetrics || sections.callScoring;
 
   return `<!DOCTYPE html>
 <html>
@@ -668,6 +699,7 @@ function buildEmailHtml(
     <!-- Body -->
     <div style="background: ${BRAND.colors.white}; padding: 24px; border: 1px solid #e5e7eb; border-top: none;">
 
+      ${hasHighlights ? `
       <!-- Yesterday's Highlights Section -->
       <h2 style="font-size: 14px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid ${BRAND.colors.lightBg};">
         Yesterday's Highlights
@@ -676,6 +708,7 @@ function buildEmailHtml(
       <!-- Three Column Stats -->
       <div style="display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
 
+        ${sections.salesSnapshot ? `
         <!-- Sales Card -->
         <div style="flex: 1; min-width: 180px; background: ${BRAND.colors.lightBg}; border-radius: 8px; padding: 16px;">
           <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">Sales</div>
@@ -686,7 +719,9 @@ function buildEmailHtml(
             ${sales.items} items &bull; ${sales.policies} policies &bull; ${sales.households} HH
           </div>
         </div>
+        ` : ''}
 
+        ${sections.activityMetrics ? `
         <!-- Activity Card -->
         <div style="flex: 1; min-width: 180px; background: ${BRAND.colors.lightBg}; border-radius: 8px; padding: 16px;">
           <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">Activity</div>
@@ -697,7 +732,9 @@ function buildEmailHtml(
             ${activity.talkMinutes} min talk &bull; ${activity.quotedHouseholds} quotes
           </div>
         </div>
+        ` : ''}
 
+        ${sections.callScoring ? `
         <!-- Call Scores Card -->
         <div style="flex: 1; min-width: 180px; background: ${BRAND.colors.lightBg}; border-radius: 8px; padding: 16px;">
           <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 8px;">Call Scores</div>
@@ -708,8 +745,10 @@ function buildEmailHtml(
             ${callScoring.callsScored} scored${callScoring.topPerformer ? ` &bull; Top: ${callScoring.topPerformer.name}` : ''}
           </div>
         </div>
+        ` : ''}
 
       </div>
+      ` : ''}
 
       ${hasAttentionItems ? `
       <!-- Needs Attention Section -->
@@ -718,8 +757,8 @@ function buildEmailHtml(
       </h2>
 
       <div style="background: #fef2f2; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid #ef4444;">
-        ${totalAtRisk > 0 ? `
-        <div style="margin-bottom: ${renewals.renewalCount > 0 || totalOverdue > 0 ? '12px' : '0'};">
+        ${sections.atRiskPolicies && totalAtRisk > 0 ? `
+        <div style="margin-bottom: ${(sections.renewalsDue && renewals.renewalCount > 0) || (sections.sequenceTasks && totalOverdue > 0) ? '12px' : '0'};">
           <strong style="color: #991b1b;">${totalAtRisk} ${totalAtRisk === 1 ? 'policy' : 'policies'} at risk of cancellation</strong>
           <div style="font-size: 13px; color: #7f1d1d; margin-top: 4px;">
             ${atRisk.premiumAtRisk > 0 ? `${formatCurrency(atRisk.premiumAtRisk)} premium at stake` : ''}
@@ -729,8 +768,8 @@ function buildEmailHtml(
         </div>
         ` : ''}
 
-        ${renewals.renewalCount > 0 ? `
-        <div style="margin-bottom: ${totalOverdue > 0 ? '12px' : '0'};">
+        ${sections.renewalsDue && renewals.renewalCount > 0 ? `
+        <div style="margin-bottom: ${sections.sequenceTasks && totalOverdue > 0 ? '12px' : '0'};">
           <strong style="color: #991b1b;">${renewals.renewalCount} ${renewals.renewalCount === 1 ? 'renewal' : 'renewals'} due this week</strong>
           <div style="font-size: 13px; color: #7f1d1d; margin-top: 4px;">
             ${formatCurrency(renewals.premiumAtStake)} premium up for renewal
@@ -738,7 +777,7 @@ function buildEmailHtml(
         </div>
         ` : ''}
 
-        ${totalOverdue > 0 ? `
+        ${sections.sequenceTasks && totalOverdue > 0 ? `
         <div>
           <strong style="color: #991b1b;">${totalOverdue} overdue sequence ${totalOverdue === 1 ? 'task' : 'tasks'}</strong>
           <div style="font-size: 13px; color: #7f1d1d; margin-top: 4px;">
@@ -756,8 +795,8 @@ function buildEmailHtml(
       </h2>
 
       <div style="background: #f0fdf4; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid ${BRAND.colors.green};">
-        ${trainingCompletions.length > 0 ? `
-        <div style="margin-bottom: ${totalCompleted > 0 || sequenceTasks.dueToday.length > 0 ? '12px' : '0'};">
+        ${sections.trainingCompletions && trainingCompletions.length > 0 ? `
+        <div style="margin-bottom: ${(sections.sequenceTasks && totalCompleted > 0) || (sections.sequenceTasks && sequenceTasks.dueToday.length > 0) ? '12px' : '0'};">
           <strong style="color: #166534;">Training Completed Yesterday</strong>
           <ul style="margin: 8px 0 0 0; padding-left: 20px; color: #15803d; font-size: 13px;">
             ${trainingCompletions.map(c => `<li>${c.staffName} completed "${c.lessonTitle}"</li>`).join('')}
@@ -765,8 +804,8 @@ function buildEmailHtml(
         </div>
         ` : ''}
 
-        ${totalCompleted > 0 ? `
-        <div style="margin-bottom: ${sequenceTasks.dueToday.length > 0 ? '12px' : '0'};">
+        ${sections.sequenceTasks && totalCompleted > 0 ? `
+        <div style="margin-bottom: ${sections.sequenceTasks && sequenceTasks.dueToday.length > 0 ? '12px' : '0'};">
           <strong style="color: #166534;">Sequence Tasks Completed: ${totalCompleted}</strong>
           <div style="font-size: 13px; color: #15803d; margin-top: 4px;">
             ${sequenceTasks.completedYesterday.map(u => `${u.name} (${u.count})`).join(', ')}
@@ -774,7 +813,7 @@ function buildEmailHtml(
         </div>
         ` : ''}
 
-        ${sequenceTasks.dueToday.length > 0 ? `
+        ${sections.sequenceTasks && sequenceTasks.dueToday.length > 0 ? `
         <div>
           <strong style="color: #166534;">Due Today</strong>
           <div style="font-size: 13px; color: #15803d; margin-top: 4px;">

@@ -47,6 +47,8 @@ export type Database = {
           owner_rollup_time: string | null
           phone: string | null
           reminder_times_json: Json | null
+          morning_digest_enabled: boolean | null
+          morning_digest_sections: Json | null
           sales_daily_summary_enabled: boolean | null
           sales_realtime_email_enabled: boolean | null
           slug: string | null
@@ -89,6 +91,8 @@ export type Database = {
           owner_rollup_time?: string | null
           phone?: string | null
           reminder_times_json?: Json | null
+          morning_digest_enabled?: boolean | null
+          morning_digest_sections?: Json | null
           sales_daily_summary_enabled?: boolean | null
           sales_realtime_email_enabled?: boolean | null
           slug?: string | null
@@ -131,6 +135,8 @@ export type Database = {
           owner_rollup_time?: string | null
           phone?: string | null
           reminder_times_json?: Json | null
+          morning_digest_enabled?: boolean | null
+          morning_digest_sections?: Json | null
           sales_daily_summary_enabled?: boolean | null
           sales_realtime_email_enabled?: boolean | null
           slug?: string | null

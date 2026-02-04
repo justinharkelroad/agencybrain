@@ -2,14 +2,45 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Mail, Clock, Loader2 } from "lucide-react";
+import { Mail, Clock, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface SalesEmailSettingsProps {
   agencyId: string;
 }
+
+interface MorningDigestSections {
+  salesSnapshot: boolean;
+  activityMetrics: boolean;
+  callScoring: boolean;
+  atRiskPolicies: boolean;
+  renewalsDue: boolean;
+  sequenceTasks: boolean;
+  trainingCompletions: boolean;
+}
+
+const DEFAULT_SECTIONS: MorningDigestSections = {
+  salesSnapshot: true,
+  activityMetrics: true,
+  callScoring: true,
+  atRiskPolicies: true,
+  renewalsDue: true,
+  sequenceTasks: true,
+  trainingCompletions: true,
+};
+
+const SECTION_LABELS: Record<keyof MorningDigestSections, { label: string; description: string }> = {
+  salesSnapshot: { label: "Sales Snapshot", description: "Yesterday's premium, items, policies, and households" },
+  activityMetrics: { label: "Activity Metrics", description: "Outbound calls, talk minutes, and quotes" },
+  callScoring: { label: "Call Scoring", description: "Calls scored, average score, and top performer" },
+  atRiskPolicies: { label: "At-Risk Policies", description: "Policies with pending cancellation dates" },
+  renewalsDue: { label: "Renewals Due", description: "Renewals coming up in the next 7 days" },
+  sequenceTasks: { label: "Sequence Tasks", description: "Completed, overdue, and due today tasks" },
+  trainingCompletions: { label: "Training Completions", description: "Sales Experience lessons completed" },
+};
 
 const TIMEZONE_OPTIONS = [
   { value: 'America/New_York', label: 'Eastern (New York)' },
@@ -26,6 +57,8 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
   const [dailySummaryEnabled, setDailySummaryEnabled] = useState(false);
   const [callScoringEnabled, setCallScoringEnabled] = useState(true);
   const [morningDigestEnabled, setMorningDigestEnabled] = useState(false);
+  const [morningDigestSections, setMorningDigestSections] = useState<MorningDigestSections>(DEFAULT_SECTIONS);
+  const [sectionsExpanded, setSectionsExpanded] = useState(false);
   const [timezone, setTimezone] = useState('America/New_York');
 
   useEffect(() => {
@@ -33,7 +66,7 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
       try {
         const { data, error } = await supabase
           .from('agencies')
-          .select('sales_realtime_email_enabled, sales_daily_summary_enabled, call_scoring_email_enabled, morning_digest_enabled, timezone')
+          .select('sales_realtime_email_enabled, sales_daily_summary_enabled, call_scoring_email_enabled, morning_digest_enabled, morning_digest_sections, timezone')
           .eq('id', agencyId)
           .single();
 
@@ -43,6 +76,7 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
         setDailySummaryEnabled(data?.sales_daily_summary_enabled ?? false);
         setCallScoringEnabled(data?.call_scoring_email_enabled ?? true);
         setMorningDigestEnabled(data?.morning_digest_enabled ?? false);
+        setMorningDigestSections({ ...DEFAULT_SECTIONS, ...(data?.morning_digest_sections as MorningDigestSections || {}) });
         setTimezone(data?.timezone || 'America/New_York');
       } catch (err) {
         console.error('Failed to load sales email settings:', err);
@@ -111,6 +145,29 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
     updateSetting('timezone', value);
   };
 
+  const handleSectionToggle = async (section: keyof MorningDigestSections, checked: boolean) => {
+    const newSections = { ...morningDigestSections, [section]: checked };
+    setMorningDigestSections(newSections);
+
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('agencies')
+        .update({ morning_digest_sections: newSections })
+        .eq('id', agencyId);
+
+      if (error) throw error;
+      toast.success('Setting updated');
+    } catch (err) {
+      console.error('Failed to update morning digest sections:', err);
+      toast.error('Failed to update setting');
+      // Revert on error
+      setMorningDigestSections({ ...morningDigestSections, [section]: !checked });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -177,18 +234,60 @@ export function SalesEmailSettings({ agencyId }: SalesEmailSettingsProps) {
         </div>
 
         {/* Morning Digest */}
-        <div className="flex items-start justify-between gap-4 p-4 bg-muted/30 rounded-lg">
-          <div className="space-y-1">
-            <Label className="text-base font-medium">Morning Digest</Label>
-            <p className="text-sm text-muted-foreground">
-              Send a daily briefing at 7:00 AM to owners and key employees with yesterday's highlights, at-risk policies, renewals due, and team progress.
-            </p>
+        <div className="p-4 bg-muted/30 rounded-lg space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <Label className="text-base font-medium">Morning Digest</Label>
+              <p className="text-sm text-muted-foreground">
+                Send a daily briefing at 7:00 AM to owners and key employees with yesterday's highlights, at-risk policies, renewals due, and team progress.
+              </p>
+            </div>
+            <Switch
+              checked={morningDigestEnabled}
+              onCheckedChange={handleMorningDigestToggle}
+              disabled={saving}
+            />
           </div>
-          <Switch
-            checked={morningDigestEnabled}
-            onCheckedChange={handleMorningDigestToggle}
-            disabled={saving}
-          />
+
+          {/* Section toggles - only show when morning digest is enabled */}
+          {morningDigestEnabled && (
+            <div className="pt-2 border-t border-border/50">
+              <button
+                type="button"
+                onClick={() => setSectionsExpanded(!sectionsExpanded)}
+                className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {sectionsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                Customize sections
+              </button>
+
+              {sectionsExpanded && (
+                <div className="mt-3 space-y-3 pl-6">
+                  {(Object.keys(SECTION_LABELS) as Array<keyof MorningDigestSections>).map((section) => (
+                    <div key={section} className="flex items-start gap-3">
+                      <Checkbox
+                        id={`section-${section}`}
+                        checked={morningDigestSections[section]}
+                        onCheckedChange={(checked) => handleSectionToggle(section, checked === true)}
+                        disabled={saving}
+                      />
+                      <div className="grid gap-0.5 leading-none">
+                        <label
+                          htmlFor={`section-${section}`}
+                          className="text-sm font-medium cursor-pointer"
+                        >
+                          {SECTION_LABELS[section].label}
+                        </label>
+                        <p className="text-xs text-muted-foreground">
+                          {SECTION_LABELS[section].description}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Timezone */}
