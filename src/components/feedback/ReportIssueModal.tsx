@@ -63,6 +63,21 @@ export function ReportIssueModal({ open, onOpenChange }: ReportIssueModalProps) 
     return null;
   };
 
+  // Convert file to base64 for sending to edge function
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        const result = reader.result as string;
+        // Remove data URL prefix (e.g., "data:image/png;base64,")
+        const base64 = result.split(",")[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+    });
+  };
+
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles = acceptedFiles.map((file) => ({
       file,
@@ -78,7 +93,7 @@ export function ReportIssueModal({ open, onOpenChange }: ReportIssueModalProps) 
       "application/pdf": [".pdf"],
       "text/plain": [".txt"],
     },
-    maxSize: 10 * 1024 * 1024, // 10MB
+    maxSize: 5 * 1024 * 1024, // 5MB (reduced for base64 edge function payload)
     maxFiles: 5 - pendingFiles.length,
     disabled: pendingFiles.length >= 5,
   });
@@ -87,36 +102,21 @@ export function ReportIssueModal({ open, onOpenChange }: ReportIssueModalProps) 
     setPendingFiles((prev) => prev.filter((f) => f.id !== id));
   };
 
-  const uploadFiles = async (): Promise<string[]> => {
+  // Convert pending files to base64 for edge function upload
+  const prepareFilesForUpload = async () => {
     if (pendingFiles.length === 0) return [];
 
-    const urls: string[] = [];
-    const userId = brainUser?.id || staffUser?.id || "anonymous";
-
-    for (let i = 0; i < pendingFiles.length; i++) {
-      const { file, id } = pendingFiles[i];
-      setUploadProgress(`Uploading file ${i + 1} of ${pendingFiles.length}...`);
-
-      const fileExt = file.name.split(".").pop();
-      const fileName = `support-tickets/${userId}/${Date.now()}-${id}.${fileExt}`;
-
-      const { error } = await supabase.storage
-        .from("uploads")
-        .upload(fileName, file);
-
-      if (error) {
-        console.error("Upload error:", error);
-        throw new Error(`Failed to upload ${file.name}`);
-      }
-
-      const { data: urlData } = supabase.storage
-        .from("uploads")
-        .getPublicUrl(fileName);
-
-      urls.push(urlData.publicUrl);
-    }
-
-    return urls;
+    setUploadProgress("Preparing files...");
+    
+    const files = await Promise.all(
+      pendingFiles.map(async ({ file }) => ({
+        name: file.name,
+        type: file.type,
+        data: await fileToBase64(file),
+      }))
+    );
+    
+    return files;
   };
 
   const handleSubmit = async () => {
@@ -143,18 +143,18 @@ export function ReportIssueModal({ open, onOpenChange }: ReportIssueModalProps) 
     setIsSubmitting(true);
 
     try {
-      // Upload files first
-      const attachmentUrls = await uploadFiles();
-      setUploadProgress(null);
+      // Prepare files as base64 for edge function upload
+      const files = await prepareFilesForUpload();
+      setUploadProgress("Submitting...");
 
       // Get browser info
       const browserInfo = `${navigator.userAgent} | ${window.innerWidth}x${window.innerHeight}`;
 
-      // Submit ticket via edge function
+      // Submit ticket via edge function (files uploaded server-side)
       const { data, error } = await supabase.functions.invoke("submit-support-ticket", {
         body: {
           description: description.trim(),
-          attachment_urls: attachmentUrls,
+          files, // Send files as base64 for server-side upload
           page_url: window.location.href,
           browser_info: browserInfo,
           ...submitterInfo,
