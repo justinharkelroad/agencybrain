@@ -158,7 +158,7 @@ export function useLqsProducerDetail(
 
         const { data, error } = await query;
         if (error) throw error;
-        householdIds = [...new Set((data || []).map(q => q.household_id))];
+        householdIds = [...new Set((data || []).map(q => q.household_id))] as string[];
       } else {
         // Get households where this team member closed sales
         let query = supabase
@@ -180,7 +180,7 @@ export function useLqsProducerDetail(
 
         const { data, error } = await query;
         if (error) throw error;
-        householdIds = [...new Set((data || []).map(s => s.household_id))];
+        householdIds = [...new Set((data || []).map(s => s.household_id))] as string[];
       }
 
       if (householdIds.length === 0) {
@@ -239,9 +239,9 @@ export function useLqsProducerDetail(
 
     if (!teamMemberMap || !leadSourceMap || !householdsRaw) return null;
 
-    const teamMemberName = teamMemberId === null
+    const teamMemberName: string = teamMemberId === null
       ? 'Unassigned'
-      : (teamMemberMap.get(teamMemberId) || 'Unknown');
+      : (teamMemberMap.get(teamMemberId) as string || 'Unknown');
 
     // Process households
     const households: ProducerHouseholdRow[] = householdsRaw.map((h: any) => {
@@ -277,7 +277,7 @@ export function useLqsProducerDetail(
         lastName: h.last_name,
         status: h.status,
         leadReceivedDate: h.lead_received_date,
-        leadSourceName: h.lead_source_id ? (leadSourceMap.get(h.lead_source_id) || 'Unknown') : 'Unattributed',
+        leadSourceName: h.lead_source_id ? (leadSourceMap.get(h.lead_source_id) as string || 'Unknown') : 'Unattributed',
         quotedPolicies,
         quotedItems,
         quotedPremiumCents,

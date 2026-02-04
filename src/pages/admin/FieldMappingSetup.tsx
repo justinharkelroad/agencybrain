@@ -23,7 +23,7 @@ export default function FieldMappingSetup() {
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold">Field Mapping Setup</h1>
+          <h1 className="text-3xl font-bold">Field Mapping Setup *</h1>
           <p className="text-muted-foreground mt-2">
             Configure field mappings and backfill data for proper dashboard and explorer functionality.
           </p>

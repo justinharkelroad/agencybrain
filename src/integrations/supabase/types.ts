@@ -39,6 +39,7 @@ export type Database = {
           email_from: string | null
           id: string
           logo_url: string | null
+          morning_digest_enabled: boolean | null
           name: string
           notifications_email_enabled: boolean | null
           notifications_lateness_enabled: boolean | null
@@ -46,7 +47,6 @@ export type Database = {
           owner_rollup_time: string | null
           phone: string | null
           reminder_times_json: Json | null
-          morning_digest_enabled: boolean | null
           sales_daily_summary_enabled: boolean | null
           sales_realtime_email_enabled: boolean | null
           slug: string | null
@@ -81,6 +81,7 @@ export type Database = {
           email_from?: string | null
           id?: string
           logo_url?: string | null
+          morning_digest_enabled?: boolean | null
           name: string
           notifications_email_enabled?: boolean | null
           notifications_lateness_enabled?: boolean | null
@@ -88,7 +89,6 @@ export type Database = {
           owner_rollup_time?: string | null
           phone?: string | null
           reminder_times_json?: Json | null
-          morning_digest_enabled?: boolean | null
           sales_daily_summary_enabled?: boolean | null
           sales_realtime_email_enabled?: boolean | null
           slug?: string | null
@@ -123,6 +123,7 @@ export type Database = {
           email_from?: string | null
           id?: string
           logo_url?: string | null
+          morning_digest_enabled?: boolean | null
           name?: string
           notifications_email_enabled?: boolean | null
           notifications_lateness_enabled?: boolean | null
@@ -130,7 +131,6 @@ export type Database = {
           owner_rollup_time?: string | null
           phone?: string | null
           reminder_times_json?: Json | null
-          morning_digest_enabled?: boolean | null
           sales_daily_summary_enabled?: boolean | null
           sales_realtime_email_enabled?: boolean | null
           slug?: string | null
@@ -282,6 +282,9 @@ export type Database = {
           dead_air_percent: number | null
           dead_air_seconds: number | null
           discovery_wins: Json | null
+          followup_generated_at: string | null
+          generated_email_template: string | null
+          generated_text_template: string | null
           gpt_cost: number | null
           gpt_input_tokens: number | null
           gpt_output_tokens: number | null
@@ -329,6 +332,9 @@ export type Database = {
           dead_air_percent?: number | null
           dead_air_seconds?: number | null
           discovery_wins?: Json | null
+          followup_generated_at?: string | null
+          generated_email_template?: string | null
+          generated_text_template?: string | null
           gpt_cost?: number | null
           gpt_input_tokens?: number | null
           gpt_output_tokens?: number | null
@@ -376,6 +382,9 @@ export type Database = {
           dead_air_percent?: number | null
           dead_air_seconds?: number | null
           discovery_wins?: Json | null
+          followup_generated_at?: string | null
+          generated_email_template?: string | null
+          generated_text_template?: string | null
           gpt_cost?: number | null
           gpt_input_tokens?: number | null
           gpt_output_tokens?: number | null
@@ -5037,6 +5046,7 @@ export type Database = {
           lead_source_id: string | null
           needs_attention: boolean
           notes: string | null
+          objection_id: string | null
           phone: string[] | null
           products_interested: string[] | null
           skip_metrics_increment: boolean
@@ -5062,6 +5072,7 @@ export type Database = {
           lead_source_id?: string | null
           needs_attention?: boolean
           notes?: string | null
+          objection_id?: string | null
           phone?: string[] | null
           products_interested?: string[] | null
           skip_metrics_increment?: boolean
@@ -5087,6 +5098,7 @@ export type Database = {
           lead_source_id?: string | null
           needs_attention?: boolean
           notes?: string | null
+          objection_id?: string | null
           phone?: string[] | null
           products_interested?: string[] | null
           skip_metrics_increment?: boolean
@@ -5126,10 +5138,55 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lqs_households_objection_id_fkey"
+            columns: ["objection_id"]
+            isOneToOne: false
+            referencedRelation: "lqs_objections"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lqs_households_team_member_id_fkey"
             columns: ["team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lqs_objections: {
+        Row: {
+          agency_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lqs_objections_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]
@@ -5573,6 +5630,7 @@ export type Database = {
           customer_email: string | null
           customer_name: string
           customer_phone: string | null
+          household_id: string | null
           id: string
           sale_id: string | null
           sequence_id: string
@@ -5593,6 +5651,7 @@ export type Database = {
           customer_email?: string | null
           customer_name: string
           customer_phone?: string | null
+          household_id?: string | null
           id?: string
           sale_id?: string | null
           sequence_id: string
@@ -5613,6 +5672,7 @@ export type Database = {
           customer_email?: string | null
           customer_name?: string
           customer_phone?: string | null
+          household_id?: string | null
           id?: string
           sale_id?: string | null
           sequence_id?: string
@@ -5654,6 +5714,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "agency_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_instances_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "lqs_households"
             referencedColumns: ["id"]
           },
           {
@@ -5778,8 +5845,11 @@ export type Database = {
           day_number: number
           description: string | null
           due_date: string
+          household_id: string | null
           id: string
-          instance_id: string
+          instance_id: string | null
+          is_adhoc: boolean
+          parent_task_id: string | null
           script_template: string | null
           status: Database["public"]["Enums"]["onboarding_task_status"]
           step_id: string | null
@@ -5800,8 +5870,11 @@ export type Database = {
           day_number: number
           description?: string | null
           due_date: string
+          household_id?: string | null
           id?: string
-          instance_id: string
+          instance_id?: string | null
+          is_adhoc?: boolean
+          parent_task_id?: string | null
           script_template?: string | null
           status?: Database["public"]["Enums"]["onboarding_task_status"]
           step_id?: string | null
@@ -5822,8 +5895,11 @@ export type Database = {
           day_number?: number
           description?: string | null
           due_date?: string
+          household_id?: string | null
           id?: string
-          instance_id?: string
+          instance_id?: string | null
+          is_adhoc?: boolean
+          parent_task_id?: string | null
           script_template?: string | null
           status?: Database["public"]["Enums"]["onboarding_task_status"]
           step_id?: string | null
@@ -5874,10 +5950,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "onboarding_tasks_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "lqs_households"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "onboarding_tasks_instance_id_fkey"
             columns: ["instance_id"]
             isOneToOne: false
             referencedRelation: "onboarding_instances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_tasks"
             referencedColumns: ["id"]
           },
           {
@@ -9753,6 +9843,7 @@ export type Database = {
           employment: Database["public"]["Enums"]["app_employment_type"]
           hybrid_team_assignments: string[] | null
           id: string
+          include_in_metrics: boolean
           name: string
           notes: string | null
           role: Database["public"]["Enums"]["app_member_role"]
@@ -9769,6 +9860,7 @@ export type Database = {
           employment: Database["public"]["Enums"]["app_employment_type"]
           hybrid_team_assignments?: string[] | null
           id?: string
+          include_in_metrics?: boolean
           name: string
           notes?: string | null
           role: Database["public"]["Enums"]["app_member_role"]
@@ -9785,6 +9877,7 @@ export type Database = {
           employment?: Database["public"]["Enums"]["app_employment_type"]
           hybrid_team_assignments?: string[] | null
           id?: string
+          include_in_metrics?: boolean
           name?: string
           notes?: string | null
           role?: Database["public"]["Enums"]["app_member_role"]
