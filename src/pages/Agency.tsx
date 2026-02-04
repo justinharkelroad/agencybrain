@@ -113,6 +113,7 @@ export default function Agency() {
     notes: "",
     hybridTeamAssignments: [] as string[],
     subProducerCode: "",
+    includeInMetrics: true,
   });
   const [editingMemberOriginalRole, setEditingMemberOriginalRole] = useState<Role | null>(null);
   const [editingMemberHasStaffUser, setEditingMemberHasStaffUser] = useState(false);
@@ -208,7 +209,7 @@ export default function Agency() {
 
           const { data: team, error: tErr } = await supabase
             .from("team_members")
-            .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,sub_producer_code,created_at")
+            .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,sub_producer_code,include_in_metrics,created_at")
             .eq("agency_id", aId)
             .order("created_at", { ascending: false });
           if (tErr) throw tErr;
@@ -248,7 +249,7 @@ export default function Agency() {
   const refreshData = async (aId: string) => {
     const { data: team, error: tErr } = await supabase
       .from("team_members")
-      .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,sub_producer_code,created_at")
+      .select("id,name,email,role,employment,status,notes,hybrid_team_assignments,sub_producer_code,include_in_metrics,created_at")
       .eq("agency_id", aId)
       .order("created_at", { ascending: false });
     if (!tErr) setMembers(team || []);
@@ -327,7 +328,7 @@ export default function Agency() {
 
   const startCreate = () => {
     setEditingId(null);
-    setMemberForm({ name: "", email: "", role: MEMBER_ROLES[0], employment: EMPLOYMENT_TYPES[0], status: MEMBER_STATUS[0], notes: "", hybridTeamAssignments: [], subProducerCode: "" });
+    setMemberForm({ name: "", email: "", role: MEMBER_ROLES[0], employment: EMPLOYMENT_TYPES[0], status: MEMBER_STATUS[0], notes: "", hybridTeamAssignments: [], subProducerCode: "", includeInMetrics: true });
     setEditingMemberOriginalRole(null);
     setEditingMemberHasStaffUser(false);
     setMemberDialogOpen(true);
@@ -343,7 +344,8 @@ export default function Agency() {
       status: m.status,
       notes: m.notes || "",
       hybridTeamAssignments: m.hybrid_team_assignments || [],
-      subProducerCode: m.sub_producer_code || ""
+      subProducerCode: m.sub_producer_code || "",
+      includeInMetrics: m.include_in_metrics ?? true
     });
     setEditingMemberOriginalRole(m.role);
     setEditingMemberHasStaffUser(staffByTeamMemberId.has(m.id));
@@ -362,7 +364,8 @@ export default function Agency() {
         status: memberForm.status,
         notes: memberForm.notes,
         hybrid_team_assignments: memberForm.role === 'Hybrid' ? memberForm.hybridTeamAssignments : null,
-        sub_producer_code: memberForm.subProducerCode || null
+        sub_producer_code: memberForm.subProducerCode || null,
+        include_in_metrics: memberForm.includeInMetrics
       };
       
       if (editingId) {
@@ -1162,6 +1165,19 @@ export default function Agency() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                    <Label className="sm:text-right" htmlFor="includeInMetrics">Include in Metrics</Label>
+                    <div className="col-span-1 sm:col-span-3 flex items-center gap-3">
+                      <Switch
+                        id="includeInMetrics"
+                        checked={memberForm.includeInMetrics}
+                        onCheckedChange={(checked) => setMemberForm((f) => ({ ...f, includeInMetrics: checked }))}
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        {memberForm.includeInMetrics ? "Included in dashboards and compliance tracking" : "Excluded from metrics (can still submit forms)"}
+                      </span>
+                    </div>
+                  </div>
                    <div className="grid grid-cols-1 sm:grid-cols-4 items-start gap-3">
                      <Label className="sm:text-right" htmlFor="notes">Notes</Label>
                      <Textarea id="notes" value={memberForm.notes} onChange={(e) => setMemberForm((f) => ({ ...f, notes: e.target.value }))} className="col-span-1 sm:col-span-3 min-h-[84px]" />
@@ -1211,11 +1227,16 @@ export default function Agency() {
                       <TableCell>{m.role}{m.role === 'Hybrid' && m.hybrid_team_assignments?.length > 0 && ` (${m.hybrid_team_assignments.join(', ')})`}</TableCell>
                       <TableCell>{m.employment}</TableCell>
                       <TableCell>
-                        {m.status === 'inactive' ? (
-                          <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">Inactive</Badge>
-                        ) : (
-                          <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">Active</Badge>
-                        )}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {m.status === 'inactive' ? (
+                            <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">Inactive</Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">Active</Badge>
+                          )}
+                          {m.include_in_metrics === false && (
+                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">Excluded from metrics</Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {staffUser ? (
