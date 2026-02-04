@@ -460,7 +460,7 @@ async function fetchRenewalsDue(
 ): Promise<RenewalsDue> {
   const { data, error } = await supabase
     .from('renewal_records')
-    .select('premium_cents')
+    .select('premium_new')
     .eq('agency_id', agencyId)
     .not('current_status', 'in', '(resolved,lost)')
     .gte('renewal_effective_date', todayStr)
@@ -472,7 +472,8 @@ async function fetchRenewalsDue(
   }
 
   const renewalCount = data?.length || 0;
-  const premiumAtStake = (data || []).reduce((sum: number, r: any) => sum + ((r.premium_cents || 0) / 100), 0);
+  // premium_new is already in dollars (not cents)
+  const premiumAtStake = (data || []).reduce((sum: number, r: any) => sum + (r.premium_new || 0), 0);
 
   return { renewalCount, premiumAtStake };
 }
