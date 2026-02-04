@@ -1,50 +1,77 @@
 
-# Fix: Sales Experience Assignment Constraint Bug
+# Fix: Report Issue Button File Upload Failures
 
-## Problem
-The database constraint `one_active_per_agency` is incorrectly defined as `UNIQUE (agency_id, status)`, which means each agency can only have ONE assignment per status value (one pending, one active, one cancelled, etc.).
+## Problem Summary
+Users (especially staff) encounter errors when trying to report bugs because:
+1. File upload path doesn't match storage policy requirements
+2. Staff users lack Supabase Auth, so storage policies reject their uploads
 
-This prevents:
-- Cancelling multiple assignments for the same agency
-- Having historical cancelled/completed records
+## Solution: Move File Uploads to Edge Function
 
-## Root Cause
-**Current constraint:**
-```sql
-CONSTRAINT one_active_per_agency UNIQUE (agency_id, status)
+Instead of uploading directly from the browser (which requires storage policies), upload files through the edge function using the service role.
+
+### Changes Required
+
+#### 1. Update `ReportIssueModal.tsx`
+- Instead of uploading to Supabase Storage directly, send files as base64 to the edge function
+- Remove direct `supabase.storage.upload()` calls
+- Convert pending files to base64 before submission
+
+```tsx
+// Convert files to base64 for sending to edge function
+const filesToUpload = await Promise.all(
+  pendingFiles.map(async ({ file }) => ({
+    name: file.name,
+    type: file.type,
+    data: await fileToBase64(file),
+  }))
+);
+
+// Send to edge function
+const { data, error } = await supabase.functions.invoke("submit-support-ticket", {
+  body: {
+    // ...existing fields
+    files: filesToUpload, // New: send files as base64
+  },
+});
 ```
 
-**Intended behavior:** Only allow one "in-progress" (pending/active/paused) assignment per agency at a time, while allowing unlimited cancelled/completed historical records.
+#### 2. Update `submit-support-ticket/index.ts` Edge Function
+- Accept base64 file data in request body
+- Upload files using service role (bypasses storage policies)
+- Return public URLs for attachments
 
-## Solution
-Replace the table constraint with a partial unique index that only enforces uniqueness for non-terminal statuses.
-
-### Database Migration
-
-```sql
--- Drop the incorrect constraint
-ALTER TABLE sales_experience_assignments 
-DROP CONSTRAINT IF EXISTS one_active_per_agency;
-
--- Create correct partial unique index
--- This allows only ONE assignment per agency that is pending, active, or paused
--- But allows unlimited cancelled or completed assignments (historical records)
-CREATE UNIQUE INDEX one_active_per_agency 
-ON sales_experience_assignments(agency_id) 
-WHERE status IN ('pending', 'active', 'paused');
+```ts
+// Upload files using service role
+if (files && files.length > 0) {
+  for (const file of files) {
+    const buffer = Uint8Array.from(atob(file.data), c => c.charCodeAt(0));
+    const filePath = `support-tickets/${Date.now()}-${file.name}`;
+    
+    await supabase.storage
+      .from("uploads")
+      .upload(filePath, buffer, { contentType: file.type });
+    
+    const { data } = supabase.storage.from("uploads").getPublicUrl(filePath);
+    attachmentUrls.push(data.publicUrl);
+  }
+}
 ```
 
-## What This Fixes
-- You can cancel the paused Example Insurance Agency assignment
-- You can have multiple historical cancelled/completed records per agency
-- Still enforces: only one "in-progress" assignment per agency at a time
+### Technical Details
 
-## Files Changed
-| File | Action |
-|------|--------|
-| New migration SQL | Create partial unique index to replace broken constraint |
+| Component | Change |
+|-----------|--------|
+| `ReportIssueModal.tsx` | Convert files to base64, remove direct storage calls |
+| `submit-support-ticket/index.ts` | Handle file uploads server-side with service role |
 
-## Impact
-- No frontend code changes needed
-- Only affects the database constraint logic
-- Existing data remains intact
+### Why This Works
+- Service role in edge functions bypasses all RLS and storage policies
+- Works for both brain users AND staff users
+- No storage policy changes needed
+- File size still limited by edge function payload (6MB default, increase if needed)
+
+### Alternative Considered
+Adding a permissive storage policy for `support-tickets/` folder was considered but rejected because:
+- Staff users still wouldn't work (no auth.uid)
+- Less secure than server-side upload with service role
