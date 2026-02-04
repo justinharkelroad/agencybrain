@@ -19,7 +19,7 @@ serve(async (req) => {
     // Parse request body
     const {
       description,
-      attachment_urls,
+      files, // New: base64 encoded files from client
       page_url,
       browser_info,
       submitter_name,
@@ -47,12 +47,59 @@ serve(async (req) => {
       );
     }
 
+    // Upload files using service role (bypasses storage policies)
+    const attachmentUrls: string[] = [];
+    if (files && Array.isArray(files) && files.length > 0) {
+      console.log(`Uploading ${files.length} files for support ticket`);
+      
+      for (const file of files) {
+        try {
+          // Decode base64 to binary
+          const binaryString = atob(file.data);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          
+          // Generate unique file path
+          const timestamp = Date.now();
+          const randomId = Math.random().toString(36).substring(2, 10);
+          const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+          const filePath = `support-tickets/${timestamp}-${randomId}-${sanitizedName}`;
+          
+          // Upload using service role
+          const { error: uploadError } = await supabase.storage
+            .from("uploads")
+            .upload(filePath, bytes, { 
+              contentType: file.type,
+              upsert: false 
+            });
+          
+          if (uploadError) {
+            console.error("File upload error:", uploadError);
+            continue; // Skip failed uploads but continue with others
+          }
+          
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from("uploads")
+            .getPublicUrl(filePath);
+          
+          attachmentUrls.push(urlData.publicUrl);
+          console.log(`Uploaded file: ${filePath}`);
+        } catch (fileError) {
+          console.error("Error processing file:", file.name, fileError);
+          // Continue with other files
+        }
+      }
+    }
+
     // Insert ticket into database
     const { data: ticket, error: insertError } = await supabase
       .from("support_tickets")
       .insert({
         description,
-        attachment_urls: attachment_urls || [],
+        attachment_urls: attachmentUrls,
         page_url,
         browser_info,
         submitter_name,
