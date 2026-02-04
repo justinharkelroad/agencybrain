@@ -487,7 +487,12 @@ async function fetchSequenceTasks(
   // Completed yesterday
   const { data: completedData } = await supabase
     .from('onboarding_tasks')
-    .select('assigned_to_staff_user_id, staff_user:staff_users!onboarding_tasks_assigned_to_staff_user_id_fkey(display_name)')
+    .select(`
+      assigned_to_staff_user_id,
+      assigned_to_user_id,
+      staff_user:staff_users!onboarding_tasks_assigned_to_staff_user_id_fkey(display_name),
+      profile:profiles!onboarding_tasks_assigned_to_user_id_fkey(full_name, email)
+    `)
     .eq('agency_id', agencyId)
     .eq('status', 'completed')
     .gte('completed_at', yesterdayStart)
@@ -495,7 +500,7 @@ async function fetchSequenceTasks(
 
   const completedByUser: Record<string, { name: string; count: number }> = {};
   for (const task of (completedData || []) as any[]) {
-    const name = task.staff_user?.display_name || 'Unknown';
+    const name = task.staff_user?.display_name || task.profile?.full_name || task.profile?.email || 'Unknown';
     if (!completedByUser[name]) {
       completedByUser[name] = { name, count: 0 };
     }
@@ -506,7 +511,14 @@ async function fetchSequenceTasks(
   // Overdue and due today
   const { data: pendingData } = await supabase
     .from('onboarding_tasks')
-    .select('status, due_date, assigned_to_staff_user_id, staff_user:staff_users!onboarding_tasks_assigned_to_staff_user_id_fkey(display_name)')
+    .select(`
+      status,
+      due_date,
+      assigned_to_staff_user_id,
+      assigned_to_user_id,
+      staff_user:staff_users!onboarding_tasks_assigned_to_staff_user_id_fkey(display_name),
+      profile:profiles!onboarding_tasks_assigned_to_user_id_fkey(full_name, email)
+    `)
     .eq('agency_id', agencyId)
     .in('status', ['overdue', 'due', 'pending']);
 
@@ -514,7 +526,7 @@ async function fetchSequenceTasks(
   const dueTodayByUser: Record<string, { name: string; count: number }> = {};
 
   for (const task of (pendingData || []) as any[]) {
-    const name = task.staff_user?.display_name || 'Unknown';
+    const name = task.staff_user?.display_name || task.profile?.full_name || task.profile?.email || 'Unknown';
 
     if (task.status === 'overdue') {
       if (!overdueByUser[name]) {
