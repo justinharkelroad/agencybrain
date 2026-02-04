@@ -144,7 +144,7 @@ export default function SalespersonDailyReport({
         }
 
         // Add dynamic metric columns
-        const rowRecord = row as Record<string, unknown>;
+        const rowRecord = row as unknown as Record<string, unknown>;
         visibleMetrics.forEach((m) => {
           const value = rowRecord[m.field];
           base[m.label] = typeof value === "number" ? value : 0;

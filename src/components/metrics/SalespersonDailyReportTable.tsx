@@ -67,8 +67,8 @@ export function SalespersonDailyReportTable({
         bVal = b.pass ? 1 : 0;
       } else {
         // For metric fields - check if it's a valid key
-        const aRecord = a as Record<string, unknown>;
-        const bRecord = b as Record<string, unknown>;
+        const aRecord = a as unknown as Record<string, unknown>;
+        const bRecord = b as unknown as Record<string, unknown>;
         aVal = (typeof aRecord[sortField] === "number" ? aRecord[sortField] : 0) as number;
         bVal = (typeof bRecord[sortField] === "number" ? bRecord[sortField] : 0) as number;
       }
@@ -190,7 +190,7 @@ export function SalespersonDailyReportTable({
                     <TableCell className="font-medium">{row.team_member_name}</TableCell>
                   )}
                   {visibleMetrics.map((metric) => {
-                    const rowRecord = row as Record<string, unknown>;
+                    const rowRecord = row as unknown as Record<string, unknown>;
                     const value = typeof rowRecord[metric.field] === "number"
                       ? (rowRecord[metric.field] as number).toLocaleString()
                       : 0;

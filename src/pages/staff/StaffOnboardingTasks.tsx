@@ -195,15 +195,25 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
       setShowCompleteDialog(true);
     } else {
       // For other tasks, complete immediately
-      handleComplete();
+      handleQuickComplete();
     }
   };
 
-  const handleComplete = async (notes?: string, followUp?: FollowUpData) => {
+  const handleQuickComplete = async () => {
     if (completing || isCompleting) return;
     setCompleting(true);
     try {
-      await onComplete(task.id, notes, followUp);
+      await onComplete(task.id);
+    } finally {
+      setCompleting(false);
+    }
+  };
+
+  const handleComplete = async (taskId: string, notes?: string, followUp?: FollowUpData) => {
+    if (completing || isCompleting) return;
+    setCompleting(true);
+    try {
+      await onComplete(taskId, notes, followUp);
     } finally {
       setCompleting(false);
     }
