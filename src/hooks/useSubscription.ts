@@ -55,10 +55,10 @@ function mapLegacyTierToStatus(membershipTier: string | null): SubscriptionStatu
 }
 
 export function useSubscription() {
-  const { user, membershipTier } = useAuth();
+  const { user, membershipTier, isKeyEmployee, keyEmployeeAgencyId } = useAuth();
 
   return useQuery({
-    queryKey: ["subscription", user?.id],
+    queryKey: ["subscription", user?.id, keyEmployeeAgencyId],
     enabled: !!user?.id,
     staleTime: 30000, // 30 seconds
     queryFn: async (): Promise<SubscriptionData> => {
@@ -69,7 +69,10 @@ export function useSubscription() {
         .eq('id', user!.id)
         .single();
 
-      if (profileError || !profile?.agency_id) {
+      // Determine agency_id: use profile.agency_id for owners, keyEmployeeAgencyId for key employees
+      const agencyId = profile?.agency_id || keyEmployeeAgencyId;
+
+      if (!agencyId) {
         return {
           status: 'none',
           subscription: null,
@@ -88,14 +91,14 @@ export function useSubscription() {
       const { data: agency } = await supabase
         .from('agencies')
         .select('subscription_status')
-        .eq('id', profile.agency_id)
+        .eq('id', agencyId)
         .single();
 
       let status = (agency?.subscription_status || 'none') as SubscriptionStatus;
 
       // BACKWARD COMPATIBILITY: Check for legacy membership_tier
       // If subscription_status is 'none' but user has a membership_tier, use the legacy tier
-      const legacyTier = profile.membership_tier || membershipTier;
+      const legacyTier = profile?.membership_tier || membershipTier;
       const isLegacyUser = (status === 'none' || !status) && !!legacyTier;
 
       if (isLegacyUser && legacyTier) {
@@ -106,7 +109,7 @@ export function useSubscription() {
       const { data: subscription } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('agency_id', profile.agency_id)
+        .eq('agency_id', agencyId)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
