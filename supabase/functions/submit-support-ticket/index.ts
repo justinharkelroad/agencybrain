@@ -122,8 +122,8 @@ serve(async (req) => {
     }
 
     // Build email content
-    const attachmentsList = attachment_urls?.length
-      ? attachment_urls.map((url: string, i: number) => `<li><a href="${url}" style="color: ${BRAND.colors.primary};">Attachment ${i + 1}</a></li>`).join("")
+    const attachmentsList = attachmentUrls?.length
+      ? attachmentUrls.map((url: string, i: number) => `<li><a href="${url}" style="color: ${BRAND.colors.primary};">Attachment ${i + 1}</a></li>`).join("")
       : "<li>None</li>";
 
     const bodyContent = `
