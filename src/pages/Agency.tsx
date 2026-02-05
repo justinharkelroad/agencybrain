@@ -23,6 +23,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import { PolicyTypeManager } from "@/components/PolicyTypeManager";
 import { BrokeredCarriersManager } from "@/components/settings/BrokeredCarriersManager";
+import { PriorInsuranceCompaniesManager } from "@/components/settings/PriorInsuranceCompaniesManager";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AgencyTemplatesManager } from "@/components/checklists/AgencyTemplatesManager";
 import { UploadsContent } from "@/components/UploadsContent";
 import { HelpButton } from '@/components/HelpButton';
@@ -1400,92 +1402,121 @@ export default function Agency() {
             <CardTitle>Agency Settings</CardTitle>
             <CardDescription>Configure settings for your agency</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-8">
-            {/* Lead Sources Section - Hide for Call Scoring tier */}
-            {!isCallScoringTier && (
-              <div>
-                <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
-                  Lead Sources
-                  <HelpButton videoKey="tool-lead-source-manager" />
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Manage the lead sources that appear when your team logs quoted households.
-                </p>
-                {agencyId && <LeadSourceManager agencyId={agencyId} />}
-              </div>
-            )}
-            
-            {/* Policy Types Section - Hide for Call Scoring tier */}
-            {!isCallScoringTier && (
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-medium mb-2 flex items-center gap-2">
-                  Policy Types
-                  <HelpButton videoKey="tool-policy-type-manager" />
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Manage the policy types that appear when your team logs quoted and sold policies.
-                </p>
-                {agencyId && <PolicyTypeManager agencyId={agencyId} />}
-              </div>
-            )}
+          <CardContent>
+            <Accordion type="multiple" className="w-full">
+              {/* Lead Sources Section - Hide for Call Scoring tier */}
+              {!isCallScoringTier && (
+                <AccordionItem value="lead-sources">
+                  <AccordionTrigger>
+                    <span className="flex items-center gap-2">
+                      Lead Sources
+                      <HelpButton videoKey="tool-lead-source-manager" />
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Manage the lead sources that appear when your team logs quoted households.
+                    </p>
+                    {agencyId && <LeadSourceManager agencyId={agencyId} />}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
 
-            {/* Brokered Carriers Section - Hide for Call Scoring tier */}
-            {!isCallScoringTier && (
-              <div className="border-t pt-6">
-                {agencyId && <BrokeredCarriersManager agencyId={agencyId} />}
-              </div>
-            )}
+              {/* Policy Types Section - Hide for Call Scoring tier */}
+              {!isCallScoringTier && (
+                <AccordionItem value="policy-types">
+                  <AccordionTrigger>
+                    <span className="flex items-center gap-2">
+                      Policy Types
+                      <HelpButton videoKey="tool-policy-type-manager" />
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Manage the policy types that appear when your team logs quoted and sold policies.
+                    </p>
+                    {agencyId && <PolicyTypeManager agencyId={agencyId} />}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
 
-            {/* Staff Call Recording Access Section - Always show */}
-            <div className={isCallScoringTier ? '' : 'border-t pt-6'}>
-              <h3 className="text-lg font-medium mb-2">Staff Call Recording Access</h3>
-              <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-                <div>
-                  <Label className="text-base font-medium">Allow Staff Uploads</Label>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Allow Sales, Service, and Hybrid team members to upload call recordings for scoring
+              {/* Brokered Carriers Section - Hide for Call Scoring tier */}
+              {!isCallScoringTier && (
+                <AccordionItem value="brokered-carriers">
+                  <AccordionTrigger>Brokered Carriers</AccordionTrigger>
+                  <AccordionContent>
+                    {agencyId && <BrokeredCarriersManager agencyId={agencyId} />}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
+              {/* Prior Insurance Companies Section - Hide for Call Scoring tier */}
+              {!isCallScoringTier && (
+                <AccordionItem value="prior-insurance">
+                  <AccordionTrigger>Prior Insurance Companies</AccordionTrigger>
+                  <AccordionContent>
+                    {agencyId && <PriorInsuranceCompaniesManager agencyId={agencyId} />}
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
+              {/* Staff Call Recording Access Section - Always show */}
+              <AccordionItem value="call-recording">
+                <AccordionTrigger>Staff Call Recording Access</AccordionTrigger>
+                <AccordionContent>
+                  <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+                    <div>
+                      <Label className="text-base font-medium">Allow Staff Uploads</Label>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Allow Sales, Service, and Hybrid team members to upload call recordings for scoring
+                      </p>
+                    </div>
+                    <Switch
+                      checked={staffCanUploadCalls}
+                      onCheckedChange={async (checked) => {
+                        if (!agencyId) return;
+                        setStaffCanUploadCalls(checked);
+                        const { error } = await supabase
+                          .from("agencies")
+                          .update({ staff_can_upload_calls: checked })
+                          .eq("id", agencyId);
+                        if (error) {
+                          console.error("Failed to update setting:", error);
+                          setStaffCanUploadCalls(!checked); // Revert on error
+                          toast.error("Failed to update setting");
+                        } else {
+                          toast.success(checked ? "Staff can now upload calls" : "Staff call uploads disabled");
+                        }
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Note: Managers and agency owners can always upload calls regardless of this setting.
                   </p>
-                </div>
-                <Switch
-                  checked={staffCanUploadCalls}
-                  onCheckedChange={async (checked) => {
-                    if (!agencyId) return;
-                    setStaffCanUploadCalls(checked);
-                    const { error } = await supabase
-                      .from("agencies")
-                      .update({ staff_can_upload_calls: checked })
-                      .eq("id", agencyId);
-                    if (error) {
-                      console.error("Failed to update setting:", error);
-                      setStaffCanUploadCalls(!checked); // Revert on error
-                      toast.error("Failed to update setting");
-                    } else {
-                      toast.success(checked ? "Staff can now upload calls" : "Staff call uploads disabled");
-                    }
-                  }}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Note: Managers and agency owners can always upload calls regardless of this setting.
-              </p>
-            </div>
+                </AccordionContent>
+              </AccordionItem>
 
-            {/* Sales Email Notifications - Show for admins or agencies with sales beta access */}
-            {(isAdmin || hasSalesAccess(agencyId)) && (
-              <div className="border-t pt-6">
-                <SalesEmailSettings agencyId={agencyId} />
-              </div>
-            )}
+              {/* Sales Email Notifications - Show for admins or agencies with sales beta access */}
+              {(isAdmin || hasSalesAccess(agencyId)) && (
+                <AccordionItem value="email-notifications">
+                  <AccordionTrigger>Sales Email Notifications</AccordionTrigger>
+                  <AccordionContent>
+                    <SalesEmailSettings agencyId={agencyId} />
+                  </AccordionContent>
+                </AccordionItem>
+              )}
 
-            {/* Phone System Integrations */}
-            <div className="border-t pt-6">
-              <h3 className="text-lg font-medium mb-2">Phone System Integrations</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Connect your phone system to automatically sync call logs and track team performance.
-              </p>
-              <RingCentralConnect />
-            </div>
-
+              {/* Phone System Integrations */}
+              <AccordionItem value="phone-integrations">
+                <AccordionTrigger>Phone System Integrations</AccordionTrigger>
+                <AccordionContent>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Connect your phone system to automatically sync call logs and track team performance.
+                  </p>
+                  <RingCentralConnect />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </CardContent>
         </Card>
       </TabsContent>

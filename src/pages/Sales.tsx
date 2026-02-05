@@ -76,6 +76,7 @@ export default function Sales() {
           customer_zip,
           lead_source_id,
           lead_source:lead_sources(name),
+          prior_insurance_company_id,
           brokered_carrier_id,
           team_member_id,
           sale_date,

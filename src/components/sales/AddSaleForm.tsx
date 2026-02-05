@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useLeadSources } from "@/hooks/useLeadSources";
 import { useBrokeredCarriers } from "@/hooks/useBrokeredCarriers";
+import { usePriorInsuranceCompanies } from "@/hooks/usePriorInsuranceCompanies";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,7 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, ExternalLink, Users } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, ExternalLink, Users } from "lucide-react";
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
@@ -77,6 +78,7 @@ type SaleForEdit = {
   customer_zip: string | null;
   lead_source_id: string | null;
   lead_source?: { name: string } | null;
+  prior_insurance_company_id: string | null;
   brokered_carrier_id: string | null;
   brokered_carrier?: { name: string } | null;
   team_member_id: string | null;
@@ -151,7 +153,7 @@ const detectBundleType = (
 };
 
 // Multi-item product types (uses canonical names)
-const MULTI_ITEM_PRODUCTS = ["Standard Auto", "Specialty Auto", "Boatowners"];
+const MULTI_ITEM_PRODUCTS = ["Standard Auto", "Specialty Auto", "Boatowners", "Motorcycle"];
 
 // Check if product allows multiple line items - uses canonical name if available
 const isMultiItemProduct = (productName: string, canonicalName?: string | null): boolean => {
@@ -171,6 +173,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
   const [customerPhone, setCustomerPhone] = useState("");
   const [customerZip, setCustomerZip] = useState("");
   const [leadSourceId, setLeadSourceId] = useState("");
+  const [priorInsuranceCompanyId, setPriorInsuranceCompanyId] = useState("");
   const [producerId, setProducerId] = useState("");
   const [saleDate, setSaleDate] = useState<Date | undefined>(todayLocal());
   const [policies, setPolicies] = useState<Policy[]>([]);
@@ -201,6 +204,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       setCustomerPhone(editSale.customer_phone || "");
       setCustomerZip(editSale.customer_zip || "");
       setLeadSourceId(editSale.lead_source_id || "");
+      setPriorInsuranceCompanyId(editSale.prior_insurance_company_id || "");
       setProducerId(editSale.team_member_id || "");
       setSaleDate(editSale.sale_date ? toLocalDate(new Date(editSale.sale_date + 'T12:00:00')) : todayLocal());
 
@@ -323,6 +327,9 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
 
   // Fetch brokered carriers
   const { activeCarriers: brokeredCarriers } = useBrokeredCarriers(profile?.agency_id || null);
+
+  // Fetch prior insurance companies
+  const { activeCompanies: priorInsuranceCompanies } = usePriorInsuranceCompanies(profile?.agency_id || null);
 
   // Calculate policy totals
   const calculatePolicyTotals = (policy: Policy) => {
@@ -657,6 +664,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         agency_id: profile.agency_id,
         team_member_id: finalTeamMemberId,
         lead_source_id: leadSourceId || null,
+        prior_insurance_company_id: priorInsuranceCompanyId || null,
         brokered_carrier_id: saleLevelBrokeredCarrierId,
         customer_name: customerName.trim(),
         customer_email: customerEmail.trim() || null,
@@ -907,6 +915,32 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                 </Select>
               )}
             </div>
+
+            {/* Prior Insurance Company - Optional */}
+            {priorInsuranceCompanies.length > 0 && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="priorInsurance" className="flex items-center gap-2">
+                  <Building className="h-4 w-4 text-muted-foreground" />
+                  Prior Insurance Company
+                </Label>
+                <Select
+                  value={priorInsuranceCompanyId || "__none__"}
+                  onValueChange={(val) => setPriorInsuranceCompanyId(val === "__none__" ? "" : val)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="None / Unknown" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">None / Unknown</SelectItem>
+                    {priorInsuranceCompanies.map((company) => (
+                      <SelectItem key={company.id} value={company.id}>
+                        {company.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Existing Customer Section */}
             <div className="space-y-3 sm:col-span-2">
