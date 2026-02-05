@@ -414,17 +414,11 @@ Deno.serve(async (req) => {
                           enabledKpis.has('policies_quoted') ||
                           enabledKpis.has('households_quoted');
 
-    // Also check if there's a target configured (fallback if scorecard_rules doesn't match)
-    const hasQuotedTarget = targetsMap['quoted_households'] !== undefined ||
-                            targetsMap['quoted_count'] !== undefined ||
-                            targetsMap['policies_quoted'] !== undefined ||
-                            targetsMap['households_quoted'] !== undefined;
-
-    // Add Quoted Households if:
-    // 1. It's enabled for agency, OR
-    // 2. There's a target configured, OR
-    // 3. There are tracked quotes in lqs_households (dashboard data exists)
-    const shouldAddQuoted = quotedEnabled || hasQuotedTarget || totalTrackedQuotes > 0;
+    // Only add Quoted Households if it's enabled in the role's scorecard_rules.
+    // Previously also checked targets table and tracked quotes, but targets are
+    // agency-wide (not role-scoped), which caused Service team members to get
+    // Quoted Households from Sales targets.
+    const shouldAddQuoted = quotedEnabled;
 
     if (!quotedInForm && shouldAddQuoted) {
       // Use MAX of metrics_daily and lqs_households for actual value
@@ -452,7 +446,6 @@ Deno.serve(async (req) => {
         trackedCount: totalTrackedQuotes,
         hasDiscrepancy,
         quotedEnabled,
-        hasQuotedTarget,
         totalTrackedQuotes,
         enabled_via: Array.from(enabledKpis).filter(k =>
           ['quoted_households', 'quoted_count', 'policies_quoted', 'households_quoted'].includes(k)
