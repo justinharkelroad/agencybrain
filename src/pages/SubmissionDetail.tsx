@@ -608,7 +608,22 @@ export default function SubmissionDetail() {
               )}
 
               {/* Render other form fields */}
-              {submission.payload_json && typeof submission.payload_json === 'object' ? (
+              {submission.payload_json && typeof submission.payload_json === 'object' ? (() => {
+                // Build label lookup from form schema KPIs and custom fields
+                const kpiLabelMap: Record<string, string> = {};
+                const schema = submission.form_templates?.schema_json;
+                if (schema?.kpis) {
+                  for (const kpi of schema.kpis) {
+                    if (kpi.key && kpi.label) kpiLabelMap[kpi.key] = kpi.label;
+                  }
+                }
+                if (schema?.customFields) {
+                  for (const field of schema.customFields) {
+                    if (field.key && field.label) kpiLabelMap[field.key] = field.label;
+                  }
+                }
+
+                return (
                 <div className="space-y-3">
                   {Object.entries(submission.payload_json).map(([key, value]) => {
                     // Skip quoted_details and soldDetails as we render them above
@@ -638,13 +653,16 @@ export default function SubmissionDetail() {
                       return null;
                     }
 
+                    // Resolve display label: form schema label > formatted key
+                    const displayLabel = kpiLabelMap[key] || key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim();
+
                     // For arrays (including UUID-keyed collections), render as a formatted list
                     if (Array.isArray(value) && value.length > 0) {
                       // Try to find a label from the schema for this collection
                       const schemaCollections = submission.form_templates?.schema_json?.collections || [];
                       const collection = schemaCollections.find((c: any) => c.id === key || c.key === key);
                       const collectionLabel = collection?.label ||
-                        (isUuidKey ? 'Details' : key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim());
+                        (isUuidKey ? 'Details' : displayLabel);
                       return (
                         <div key={key} className="border-b pb-2 last:border-b-0">
                           <span className="text-sm font-medium text-primary capitalize block mb-2">
@@ -680,7 +698,7 @@ export default function SubmissionDetail() {
                     return (
                       <div key={key} className="border-b pb-2 last:border-b-0">
                         <span className="text-sm text-muted-foreground capitalize">
-                          {key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}
+                          {displayLabel}
                         </span>
                         <p className="font-medium">
                           {typeof value === 'object' && value !== null
@@ -691,7 +709,8 @@ export default function SubmissionDetail() {
                     );
                   }).filter(Boolean)}
                 </div>
-              ) : !Array.isArray(submission?.payload_json?.quoted_details) || submission.payload_json.quoted_details.length === 0 ? (
+                );
+              })() : !Array.isArray(submission?.payload_json?.quoted_details) || submission.payload_json.quoted_details.length === 0 ? (
                 <p className="text-muted-foreground">No data available</p>
               ) : null}
 
