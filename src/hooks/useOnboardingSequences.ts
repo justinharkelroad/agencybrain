@@ -30,6 +30,9 @@ export interface OnboardingSequence {
   is_active: boolean;
   target_type: SequenceTargetType;
   custom_type_label: string | null; // Custom category name when target_type is 'other'
+  is_public: boolean;
+  source_sequence_id: string | null;
+  clone_count: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -521,6 +524,106 @@ export function useOnboardingSequences() {
     }
   };
 
+  const toggleSequencePublic = async (
+    sequenceId: string,
+    isPublic: boolean
+  ): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('onboarding_sequences')
+        .update({
+          is_public: isPublic,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', sequenceId);
+
+      if (error) throw error;
+
+      toast.success(isPublic ? 'Sequence shared to community!' : 'Sequence unshared');
+      await fetchSequences();
+      return true;
+    } catch (error: any) {
+      console.error('Error toggling sequence public status:', error);
+      toast.error('Failed to update sharing status');
+      return false;
+    }
+  };
+
+  const clonePublicSequence = async (
+    sourceSequenceId: string
+  ): Promise<OnboardingSequence | null> => {
+    if (!agencyId || !user?.id) {
+      toast.error('Not authorized');
+      return null;
+    }
+
+    try {
+      // Fetch the source sequence with steps
+      const { data: source, error: fetchError } = await supabase
+        .from('onboarding_sequences')
+        .select(`*, steps:onboarding_sequence_steps(*)`)
+        .eq('id', sourceSequenceId)
+        .eq('is_public', true)
+        .single();
+
+      if (fetchError || !source) {
+        toast.error('Source sequence not found or not public');
+        return null;
+      }
+
+      // Create new sequence as a clone
+      const { data: newSequence, error: seqError } = await supabase
+        .from('onboarding_sequences')
+        .insert({
+          agency_id: agencyId,
+          name: `${source.name} (Cloned)`,
+          description: source.description,
+          is_active: false, // Start inactive
+          target_type: source.target_type,
+          custom_type_label: source.custom_type_label,
+          is_public: false, // Clones are private by default
+          source_sequence_id: sourceSequenceId,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (seqError) throw seqError;
+
+      // Copy steps if any
+      if (source.steps && source.steps.length > 0) {
+        const newSteps = source.steps.map((step: SequenceStep) => ({
+          sequence_id: newSequence.id,
+          day_number: step.day_number,
+          action_type: step.action_type,
+          title: step.title,
+          description: step.description,
+          script_template: step.script_template,
+          sort_order: step.sort_order,
+        }));
+
+        const { error: stepsError } = await supabase
+          .from('onboarding_sequence_steps')
+          .insert(newSteps);
+
+        if (stepsError) throw stepsError;
+      }
+
+      // Increment clone_count on source sequence
+      await supabase.rpc('increment_sequence_clone_count', {
+        p_sequence_id: sourceSequenceId,
+      });
+
+      toast.success('Sequence cloned to your templates!');
+      await fetchSequences();
+      return newSequence;
+    } catch (error: any) {
+      console.error('Error cloning sequence:', error);
+      toast.error('Failed to clone sequence');
+      return null;
+    }
+  };
+
   return {
     sequences,
     loading,
@@ -531,7 +634,9 @@ export function useOnboardingSequences() {
     updateSequence,
     deleteSequence,
     toggleSequenceActive,
+    toggleSequencePublic,
     duplicateSequence,
+    clonePublicSequence,
     saveSequenceWithSteps,
     // Step operations
     addStep,
