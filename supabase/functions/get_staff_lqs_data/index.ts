@@ -277,10 +277,11 @@ serve(async (req) => {
       console.error('Error fetching team members:', teamMembersError);
     }
 
-    // Fetch global objections (not agency-scoped)
+    // Fetch objections scoped to this agency
     const { data: objections, error: objectionsError } = await supabase
       .from('lqs_objections')
       .select('id, name')
+      .eq('agency_id', agencyId)
       .eq('is_active', true)
       .order('sort_order')
       .order('name');
