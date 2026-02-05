@@ -29,6 +29,15 @@ export default function FlowView() {
   // Check if current user is the owner of this flow
   const isOwner = session?.user_id === user?.id;
 
+  // Update browser tab title
+  useEffect(() => {
+    if (template?.name) {
+      document.title = `${template.name} Flow | AgencyBrain`;
+    } else {
+      document.title = "View Flow | AgencyBrain";
+    }
+  }, [template?.name]);
+
   useEffect(() => {
     if (sessionId) {
       loadSession();

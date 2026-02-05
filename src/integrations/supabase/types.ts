@@ -8450,6 +8450,7 @@ export type Database = {
           counted_days: Json | null
           created_at: string
           id: string
+          is_default: boolean | null
           n_required: number | null
           recalc_past_on_change: boolean | null
           ring_metrics: string[] | null
@@ -8466,6 +8467,7 @@ export type Database = {
           counted_days?: Json | null
           created_at?: string
           id?: string
+          is_default?: boolean | null
           n_required?: number | null
           recalc_past_on_change?: boolean | null
           ring_metrics?: string[] | null
@@ -8482,6 +8484,7 @@ export type Database = {
           counted_days?: Json | null
           created_at?: string
           id?: string
+          is_default?: boolean | null
           n_required?: number | null
           recalc_past_on_change?: boolean | null
           ring_metrics?: string[] | null

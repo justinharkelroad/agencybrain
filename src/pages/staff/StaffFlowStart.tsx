@@ -37,6 +37,15 @@ export default function StaffFlowStart() {
   const [templateName, setTemplateName] = useState<string>('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Update browser tab title
+  useEffect(() => {
+    if (templateName) {
+      document.title = `Start ${templateName} | AgencyBrain`;
+    } else {
+      document.title = "Start Flow | AgencyBrain";
+    }
+  }, [templateName]);
+
   useEffect(() => {
     if (slug && sessionToken && !authLoading) {
       checkForDrafts();
