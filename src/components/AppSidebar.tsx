@@ -74,7 +74,7 @@ type AppSidebarProps = {
   onOpenROI?: (toolKey?: CalcKey) => void;
 };
 
-// Admin-only items (system-wide admin access) - 18 items total
+// Admin-only items (system-wide admin access) - 19 items total
 const adminOnlyItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
   { title: "Stan Chatbot", url: "/admin/chatbot", icon: Bot },
@@ -84,6 +84,7 @@ const adminOnlyItems = [
   { title: "Standard Playbook", url: "/admin/standard-playbook", icon: BookOpen },
   { title: "Flow Templates", url: "/admin/flows", icon: Sparkles },
   { title: "Call Scoring", url: "/admin/call-scoring/templates", icon: Phone },
+  { title: "Sequence Types", url: "/admin/sequence-types", icon: ListChecks },
   { title: "Focus Management", url: "/admin/focus-management", icon: Target },
   { title: "Admin Team", url: "/admin/team", icon: Users },
   { title: "Checklists", url: "/admin/checklists", icon: ListChecks },

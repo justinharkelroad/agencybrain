@@ -54,7 +54,7 @@ export default function SequenceBuilder() {
   };
 
   const handleSave = async (
-    sequenceData: { name: string; description: string; target_type: SequenceTargetType; is_active: boolean },
+    sequenceData: { name: string; description: string; target_type: SequenceTargetType; is_active: boolean; custom_type_label?: string },
     steps: StepFormData[]
   ) => {
     setSaving(true);
@@ -66,6 +66,7 @@ export default function SequenceBuilder() {
           description: sequenceData.description || undefined,
           target_type: sequenceData.target_type,
           is_active: sequenceData.is_active,
+          custom_type_label: sequenceData.custom_type_label,
         },
         steps.map(s => ({
           id: s.id,

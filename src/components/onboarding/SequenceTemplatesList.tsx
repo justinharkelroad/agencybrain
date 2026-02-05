@@ -48,7 +48,8 @@ interface SequenceTemplatesListProps {
   onToggleActive: (sequenceId: string, isActive: boolean) => Promise<void>;
 }
 
-const targetTypeLabels: Record<SequenceTargetType, string> = {
+// Default labels for known types (fallback)
+const defaultTargetTypeLabels: Record<string, string> = {
   onboarding: 'Onboarding',
   lead_nurturing: 'Lead Nurturing',
   requote: 'Re-quote',
@@ -56,13 +57,29 @@ const targetTypeLabels: Record<SequenceTargetType, string> = {
   other: 'Other',
 };
 
-const targetTypeColors: Record<SequenceTargetType, string> = {
+// Color palette for target types
+const targetTypeColors: Record<string, string> = {
   onboarding: 'bg-blue-500/10 text-blue-700 border-blue-500/20',
   lead_nurturing: 'bg-amber-500/10 text-amber-700 border-amber-500/20',
   requote: 'bg-purple-500/10 text-purple-700 border-purple-500/20',
   retention: 'bg-green-500/10 text-green-700 border-green-500/20',
   other: 'bg-gray-500/10 text-gray-700 border-gray-500/20',
 };
+
+// Get display label for a sequence type
+function getTypeLabel(sequence: OnboardingSequence): string {
+  // If it's 'other' and has a custom label, use that
+  if (sequence.target_type === 'other' && sequence.custom_type_label) {
+    return sequence.custom_type_label;
+  }
+  // Otherwise use the default label or fallback to the type key
+  return defaultTargetTypeLabels[sequence.target_type] || sequence.target_type;
+}
+
+// Get color classes for a sequence type
+function getTypeColorClasses(targetType: string): string {
+  return targetTypeColors[targetType] || targetTypeColors.other;
+}
 
 const actionIcons: Record<ActionType, React.ElementType> = {
   call: Phone,
@@ -235,9 +252,9 @@ export function SequenceTemplatesList({
                         <h3 className="font-medium truncate">{sequence.name}</h3>
                         <Badge
                           variant="outline"
-                          className={cn("text-xs shrink-0", targetTypeColors[sequence.target_type])}
+                          className={cn("text-xs shrink-0", getTypeColorClasses(sequence.target_type))}
                         >
-                          {targetTypeLabels[sequence.target_type]}
+                          {getTypeLabel(sequence)}
                         </Badge>
                         {!sequence.is_active && (
                           <Badge variant="secondary" className="text-xs shrink-0">
