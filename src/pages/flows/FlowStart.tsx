@@ -29,6 +29,15 @@ export default function FlowStart() {
   const [templateName, setTemplateName] = useState<string>('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Update browser tab title
+  useEffect(() => {
+    if (templateName) {
+      document.title = `Start ${templateName} | AgencyBrain`;
+    } else {
+      document.title = "Start Flow | AgencyBrain";
+    }
+  }, [templateName]);
+
   useEffect(() => {
     if (slug && user?.id) {
       checkForDrafts();

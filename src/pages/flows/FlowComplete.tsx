@@ -62,6 +62,11 @@ export default function FlowComplete() {
     }
   }, [stats, toast]);
 
+  // Update browser tab title
+  useEffect(() => {
+    document.title = "Flow Complete | AgencyBrain";
+  }, []);
+
   useEffect(() => {
     if (sessionId) {
       loadSession();

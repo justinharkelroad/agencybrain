@@ -127,6 +127,15 @@ export default function FlowSession() {
     }
   }, [currentQuestion?.id]);
 
+  // Update browser tab title
+  useEffect(() => {
+    if (template?.name) {
+      document.title = `${template.name} | AgencyBrain`;
+    } else {
+      document.title = "Flow Session | AgencyBrain";
+    }
+  }, [template?.name]);
+
   useEffect(() => {
     if (currentQuestion) {
       setCurrentValue(responses[currentQuestion.id] || '');
