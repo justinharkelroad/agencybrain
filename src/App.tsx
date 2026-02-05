@@ -137,6 +137,7 @@ import AdminExchangeTags from "./pages/admin/AdminExchangeTags";
 import AdminExchangeReports from "./pages/admin/AdminExchangeReports";
 import AdminExchangeAnalytics from "./pages/admin/AdminExchangeAnalytics";
 import AdminLqsObjections from "./pages/admin/AdminLqsObjections";
+import AdminSequenceTypes from "./pages/admin/AdminSequenceTypes";
 import CallScoring from "./pages/CallScoring";
 import Exchange from "./pages/Exchange";
 import ExchangeMessages from "./pages/ExchangeMessages";
@@ -839,6 +840,14 @@ const App = () => {
             <Route path="/admin/lqs-objections" element={
               <ProtectedRoute requireAdmin>
                 <AdminLqsObjections />
+              </ProtectedRoute>
+            } />
+            {/* Sequence Types Admin */}
+            <Route path="/admin/sequence-types" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminSequenceTypes />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/admin/training" element={
