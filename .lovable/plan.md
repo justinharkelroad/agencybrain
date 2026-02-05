@@ -1,77 +1,43 @@
 
-# Fix: Report Issue Button File Upload Failures
+# Fix: Browser Tab Title Not Updating on Flow Pages
 
-## Problem Summary
-Users (especially staff) encounter errors when trying to report bugs because:
-1. File upload path doesn't match storage policy requirements
-2. Staff users lack Supabase Auth, so storage policies reject their uploads
+## Problem
+When navigating to flow session pages (like `/flows/session/bible`), the browser tab title doesn't update - it remains whatever it was on the previous page (e.g., "Sequence Builder").
 
-## Solution: Move File Uploads to Edge Function
+## Root Cause
+The `FlowSession.tsx` page (and related flow pages) never call `document.title = ...`, unlike other pages in the app that do set it.
 
-Instead of uploading directly from the browser (which requires storage policies), upload files through the edge function using the service role.
+## Solution
+Add `document.title` updates to all flow-related pages that are missing them.
 
-### Changes Required
+## Files to Update
 
-#### 1. Update `ReportIssueModal.tsx`
-- Instead of uploading to Supabase Storage directly, send files as base64 to the edge function
-- Remove direct `supabase.storage.upload()` calls
-- Convert pending files to base64 before submission
+| File | New Title Format |
+|------|------------------|
+| `src/pages/flows/FlowSession.tsx` | `"{template.name} | AgencyBrain"` (e.g., "Bible \| AgencyBrain") |
+| `src/pages/flows/FlowsHub.tsx` | `"My Flows | AgencyBrain"` |
+| `src/pages/flows/FlowStart.tsx` | `"Start {template.name} | AgencyBrain"` |
+| `src/pages/flows/FlowComplete.tsx` | `"Flow Complete | AgencyBrain"` |
+| `src/pages/staff/StaffFlowSession.tsx` | `"{template.name} | AgencyBrain"` |
+| `src/pages/staff/StaffFlowStart.tsx` | `"Start {template.name} | AgencyBrain"` |
+
+## Implementation
+
+For `FlowSession.tsx`, add a `useEffect` that updates the title when the template loads:
 
 ```tsx
-// Convert files to base64 for sending to edge function
-const filesToUpload = await Promise.all(
-  pendingFiles.map(async ({ file }) => ({
-    name: file.name,
-    type: file.type,
-    data: await fileToBase64(file),
-  }))
-);
-
-// Send to edge function
-const { data, error } = await supabase.functions.invoke("submit-support-ticket", {
-  body: {
-    // ...existing fields
-    files: filesToUpload, // New: send files as base64
-  },
-});
-```
-
-#### 2. Update `submit-support-ticket/index.ts` Edge Function
-- Accept base64 file data in request body
-- Upload files using service role (bypasses storage policies)
-- Return public URLs for attachments
-
-```ts
-// Upload files using service role
-if (files && files.length > 0) {
-  for (const file of files) {
-    const buffer = Uint8Array.from(atob(file.data), c => c.charCodeAt(0));
-    const filePath = `support-tickets/${Date.now()}-${file.name}`;
-    
-    await supabase.storage
-      .from("uploads")
-      .upload(filePath, buffer, { contentType: file.type });
-    
-    const { data } = supabase.storage.from("uploads").getPublicUrl(filePath);
-    attachmentUrls.push(data.publicUrl);
+useEffect(() => {
+  if (template?.name) {
+    document.title = `${template.name} | AgencyBrain`;
+  } else {
+    document.title = "Flow Session | AgencyBrain";
   }
-}
+}, [template?.name]);
 ```
 
-### Technical Details
+Similar pattern for other pages, using the appropriate dynamic title based on the template or static text.
 
-| Component | Change |
-|-----------|--------|
-| `ReportIssueModal.tsx` | Convert files to base64, remove direct storage calls |
-| `submit-support-ticket/index.ts` | Handle file uploads server-side with service role |
-
-### Why This Works
-- Service role in edge functions bypasses all RLS and storage policies
-- Works for both brain users AND staff users
-- No storage policy changes needed
-- File size still limited by edge function payload (6MB default, increase if needed)
-
-### Alternative Considered
-Adding a permissive storage policy for `support-tickets/` folder was considered but rejected because:
-- Staff users still wouldn't work (no auth.uid)
-- Less secure than server-side upload with service role
+## Technical Notes
+- Title updates when `template` data loads from the database
+- Fallback title used while loading or if template is missing
+- Follows existing app pattern (e.g., `Agency.tsx` uses `"My Agency | AgencyBrain"`)
