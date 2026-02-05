@@ -228,7 +228,10 @@ serve(async (req) => {
       { premium: 0, items: 0, policies: 0, households: 0 }
     );
 
-    // 5. Get recipients (all active staff users with email)
+    // 5. Get recipients from all sources (deduplicated)
+    const recipientSet = new Set<string>();
+
+    // 5a. Active staff users
     const { data: staffUsers, error: staffError } = await supabase
       .from('staff_users')
       .select('id, email')
@@ -240,9 +243,53 @@ serve(async (req) => {
       console.error('[send-sale-notification] Staff users lookup failed:', staffError);
     }
 
-    const recipients = (staffUsers || [])
-      .filter(u => u.email)
-      .map(u => u.email as string);
+    for (const u of staffUsers || []) {
+      if (u.email) recipientSet.add(u.email.toLowerCase());
+    }
+
+    // 5b. All profiles linked to this agency (agency owner + any linked users)
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('agency_id', body.agency_id)
+      .not('email', 'is', null);
+
+    for (const p of profiles || []) {
+      if (p.email) recipientSet.add(p.email.toLowerCase());
+    }
+
+    // 5c. Key employees (managers with elevated access)
+    const { data: keyEmployees } = await supabase
+      .from('key_employees')
+      .select('user_id')
+      .eq('agency_id', body.agency_id);
+
+    if (keyEmployees && keyEmployees.length > 0) {
+      const userIds = keyEmployees.map((ke: any) => ke.user_id);
+      const { data: keProfiles } = await supabase
+        .from('profiles')
+        .select('email')
+        .in('id', userIds)
+        .not('email', 'is', null);
+
+      for (const p of keProfiles || []) {
+        if (p.email) recipientSet.add(p.email.toLowerCase());
+      }
+    }
+
+    // 5d. Managers from team_members
+    const { data: tmManagers } = await supabase
+      .from('team_members')
+      .select('id, email')
+      .eq('agency_id', body.agency_id)
+      .eq('role', 'Manager');
+
+    for (const m of tmManagers || []) {
+      if (m.email) recipientSet.add(m.email.toLowerCase());
+    }
+
+    const recipients = Array.from(recipientSet);
+    console.log(`[send-sale-notification] Resolved ${recipients.length} unique recipients from staff_users, profiles, key_employees, and managers`);
 
     if (recipients.length === 0) {
       console.log('[send-sale-notification] No recipients found');

@@ -281,7 +281,10 @@ serve(async (req) => {
           recipients = [testEmail];
           console.log(`[send-daily-sales-summary] TEST MODE: Sending ONLY to ${testEmail} (not to staff users)`);
         } else {
-          // Normal production mode: get all active staff users
+          // Normal production mode: collect recipients from all sources (deduplicated)
+          const recipientSet = new Set<string>();
+
+          // 1. Active staff users
           const { data: staffUsers } = await supabase
             .from('staff_users')
             .select('email')
@@ -289,9 +292,53 @@ serve(async (req) => {
             .eq('is_active', true)
             .not('email', 'is', null);
 
-          recipients = (staffUsers || [])
-            .filter(u => u.email)
-            .map(u => u.email as string);
+          for (const u of staffUsers || []) {
+            if (u.email) recipientSet.add(u.email.toLowerCase());
+          }
+
+          // 2. All profiles linked to this agency (agency owner + any linked users)
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('agency_id', agency.id)
+            .not('email', 'is', null);
+
+          for (const p of profiles || []) {
+            if (p.email) recipientSet.add(p.email.toLowerCase());
+          }
+
+          // 3. Key employees (managers with elevated access)
+          const { data: keyEmployees } = await supabase
+            .from('key_employees')
+            .select('user_id')
+            .eq('agency_id', agency.id);
+
+          if (keyEmployees && keyEmployees.length > 0) {
+            const userIds = keyEmployees.map((ke: any) => ke.user_id);
+            const { data: keProfiles } = await supabase
+              .from('profiles')
+              .select('email')
+              .in('id', userIds)
+              .not('email', 'is', null);
+
+            for (const p of keProfiles || []) {
+              if (p.email) recipientSet.add(p.email.toLowerCase());
+            }
+          }
+
+          // 4. Managers from team_members
+          const { data: managers } = await supabase
+            .from('team_members')
+            .select('id, email')
+            .eq('agency_id', agency.id)
+            .eq('role', 'Manager');
+
+          for (const m of managers || []) {
+            if (m.email) recipientSet.add(m.email.toLowerCase());
+          }
+
+          recipients = Array.from(recipientSet);
+          console.log(`[send-daily-sales-summary] Resolved ${recipients.length} unique recipients from staff_users, profiles, key_employees, and managers`);
         }
 
         if (recipients.length === 0) {
