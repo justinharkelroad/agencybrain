@@ -5,6 +5,7 @@ import type { OnboardingSequence, SequenceTargetType } from "./useOnboardingSequ
 export interface CommunitySequence extends Omit<OnboardingSequence, 'steps'> {
   agency_name: string | null;
   step_count: number;
+  clone_count: number; // Always present in community sequences
 }
 
 interface RawSequenceData {
@@ -59,6 +60,7 @@ export function useCommunitySequences(filters?: {
             ...sequenceData,
             agency_name: agency?.name ?? null,
             step_count: steps?.length ?? 0,
+            clone_count: seq.clone_count ?? 0, // Ensure clone_count has a default
           };
         })
         .filter((seq) => {
