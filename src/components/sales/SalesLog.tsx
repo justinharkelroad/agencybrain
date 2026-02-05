@@ -335,8 +335,8 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
                     mode="range"
                     selected={dateRange}
                     onSelect={(range) => {
-                      if (range?.from && range?.to) {
-                        setDateRange({ from: range.from, to: range.to });
+                      if (range?.from) {
+                        setDateRange({ from: range.from, to: range.to ?? range.from });
                       }
                     }}
                     numberOfMonths={2}
