@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,25 +27,23 @@ serve(async (req) => {
       );
     }
 
-    // Create a client with the user's JWT to verify their identity
+    // Extract token and validate user
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    // Get the authenticated user
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    // Use service client to validate the JWT token directly
+    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
+    const token = authHeader.replace('Bearer ', '');
+
+    // Get the authenticated user using the token directly
+    const { data: { user }, error: userError } = await serviceClient.auth.getUser(token);
     if (userError || !user) {
+      console.error('[admin-update-client-profile] Auth error:', userError);
       return new Response(
         JSON.stringify({ error: 'Invalid or expired token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Create service role client for privileged operations
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
     // Verify caller is an admin
     const { data: adminCheck } = await serviceClient

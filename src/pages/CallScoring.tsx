@@ -219,32 +219,37 @@ export default function CallScoring() {
   // Check access for staff users via RPC (wait for staff detection to complete)
   useEffect(() => {
     const checkStaffAccess = async () => {
+      // Skip if already checked to prevent infinite loops
+      if (accessChecked) return;
+
       // Wait for staff detection to complete
       if (!staffDataLoaded) return;
-      
+
       // If not a staff user, skip
       if (!isStaffUser || !staffAgencyId) return;
-      
+
       console.log('Checking staff access for agency:', staffAgencyId);
-      
+
       const { data: isEnabled, error } = await supabase
         .rpc('is_call_scoring_enabled', { p_agency_id: staffAgencyId });
-      
+
       console.log('Staff call scoring access:', isEnabled, error);
-      
+
       if (isEnabled) {
         setHasAccess(true);
         setAccessChecked(true);
       } else {
-        navigate('/staff/dashboard');
+        // Set checked BEFORE navigating to prevent re-checking
+        setAccessChecked(true);
         toast.error('Call Scoring is not enabled for your agency');
+        navigate('/staff/dashboard');
       }
     };
-    
+
     if (staffDataLoaded && isStaffUser) {
       checkStaffAccess();
     }
-  }, [staffDataLoaded, isStaffUser, staffAgencyId, navigate]);
+  }, [staffDataLoaded, isStaffUser, staffAgencyId, navigate, accessChecked]);
 
   // Staff data fetching function - extracted for reuse in polling
   // Uses edge function with server-side session validation and role-based access control
@@ -341,46 +346,52 @@ export default function CallScoring() {
   // Check access for regular users on mount
   useEffect(() => {
     const checkAccess = async () => {
+      // Skip if already checked to prevent infinite loops
+      if (accessChecked) return;
+
       // Skip if staff user (handled separately)
       if (isStaffUser) return;
       if (!user) return;
-      
+
       // Admins always have access
       if (isAdmin) {
         setHasAccess(true);
         setAccessChecked(true);
         return;
       }
-      
+
       // For non-admins, check if their agency has it enabled
       const { data: profile } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user.id)
         .single();
-      
+
       if (profile?.agency_id) {
         const { data: settings } = await supabase
           .from('agency_call_scoring_settings')
           .select('enabled')
           .eq('agency_id', profile.agency_id)
-          .single();
-        
+          .maybeSingle();
+
         if (settings?.enabled) {
           setHasAccess(true);
+          setAccessChecked(true);
         } else {
-          navigate('/');
+          // Set checked BEFORE navigating to prevent re-checking
+          setAccessChecked(true);
           toast.error('Call Scoring is not enabled for your agency');
+          navigate('/');
         }
       } else {
-        navigate('/');
+        setAccessChecked(true);
         toast.error('No agency found');
+        navigate('/');
       }
-      setAccessChecked(true);
     };
-    
+
     checkAccess();
-  }, [user, isAdmin, navigate, isStaffUser]);
+  }, [user, isAdmin, navigate, isStaffUser, accessChecked]);
 
   // Fetch data once access is confirmed (regular users only)
   useEffect(() => {
