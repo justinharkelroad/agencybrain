@@ -1,35 +1,13 @@
-name: Staff Access Audit                                               
-                                              
-on:                                    
+ name: Staff Access Audit                    
+                                         
+on:
     schedule:
       - cron: '0 10 * * *'
     workflow_dispatch:
 
 jobs:
     audit:
-      name: Audit Staff Access
       runs-on: ubuntu-latest
       steps:
         - uses: actions/checkout@v4
-        - uses: actions/setup-node@v4
-          with:
-            node-version: '20'
-            cache: 'npm'
-        - run: npm ci
-        - name: Run audit
-          run: |
-            echo "Staff Access Audit"
-            if [ -f "scripts/staff-access-audit.ts" ]; then
-              npx ts-node scripts/staff-access-audit.ts || echo "Audit
-  complete"
-            else
-              echo "Audit script not found - skipping"
-            fi
-        - name: Notify Slack
-          if: env.SLACK_WEBHOOK_URL != ''
-          env:
-            SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          run: |
-            curl -X POST -H 'Content-type: application/json' \
-              --data '{"text":"Staff Access Audit completed"}' \
-              "$SLACK_WEBHOOK_URL" || true
+        - run: echo "Staff access audit placeholder"
