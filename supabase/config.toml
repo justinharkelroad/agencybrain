@@ -491,3 +491,6 @@ verify_jwt = false
 
 [functions.send-morning-digest]
 verify_jwt = false
+
+[functions.ricochet-webhook]
+verify_jwt = false
