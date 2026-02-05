@@ -187,7 +187,7 @@ export function useOnboardingSequences() {
         .from('onboarding_instances')
         .select('id')
         .eq('sequence_id', sequenceId)
-        .in('status', ['active', 'paused'])
+        .eq('status', 'active')
         .limit(1);
 
       if (activeInstances && activeInstances.length > 0) {
