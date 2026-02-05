@@ -42,35 +42,51 @@ export function useSalesProcessBuilderAccess() {
   return useQuery({
     queryKey: ['sales-process-builder-access', user?.id],
     queryFn: async () => {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/standalone-sales-process`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ action: 'get' }),
+      // Double-check we have a valid token before making the call
+      if (!session?.access_token) {
+        return { hasAccess: false, salesProcess: null, session: null };
+      }
+
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/standalone-sales-process`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ action: 'get' }),
+          }
+        );
+
+        // Handle auth errors gracefully - don't throw, just return no access
+        if (response.status === 401 || response.status === 403) {
+          return { hasAccess: false, salesProcess: null, session: null };
         }
-      );
 
-      if (!response.ok) {
-        // Any error means no access
+        if (!response.ok) {
+          // Any other error means no access
+          return { hasAccess: false, salesProcess: null, session: null };
+        }
+
+        const data = await response.json();
+
+        // Check if response explicitly indicates no access
+        if (data.hasAccess === false) {
+          return { hasAccess: false, salesProcess: null, session: null };
+        }
+
+        return {
+          hasAccess: true,
+          salesProcess: data.sales_process as StandaloneSalesProcess | null,
+          session: data.session as SalesProcessSession | null,
+        };
+      } catch (error) {
+        // Network errors or other issues - return no access, don't throw
+        console.warn('Sales process builder access check failed:', error);
         return { hasAccess: false, salesProcess: null, session: null };
       }
-
-      const data = await response.json();
-
-      // Check if response explicitly indicates no access
-      if (data.hasAccess === false) {
-        return { hasAccess: false, salesProcess: null, session: null };
-      }
-
-      return {
-        hasAccess: true,
-        salesProcess: data.sales_process as StandaloneSalesProcess | null,
-        session: data.session as SalesProcessSession | null,
-      };
     },
     enabled: !!session?.access_token && !!user,
     staleTime: 60000,
