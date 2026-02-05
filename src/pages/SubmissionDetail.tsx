@@ -434,7 +434,7 @@ export default function SubmissionDetail() {
             
             <div>
               <span className="text-sm text-muted-foreground">Work Date</span>
-              <p className="font-medium">{format(parseISO(submission.work_date), 'PPP')}</p>
+              <p className="font-medium">{format(parseISO(submission.work_date || submission.submission_date || submission.submitted_at), 'PPP')}</p>
             </div>
             
             <div>

@@ -86,8 +86,8 @@ export function SubmissionsList({ staffAgencyId }: SubmissionsListProps) {
           bVal = (b.team_members?.name || "").toLowerCase();
           break;
         case "work_date":
-          aVal = new Date(a.work_date).getTime();
-          bVal = new Date(b.work_date).getTime();
+          aVal = new Date(a.work_date || a.submission_date || a.submitted_at).getTime();
+          bVal = new Date(b.work_date || b.submission_date || b.submitted_at).getTime();
           break;
         case "submitted_at":
           aVal = new Date(a.submitted_at).getTime();
@@ -295,10 +295,10 @@ export function SubmissionsList({ staffAgencyId }: SubmissionsListProps) {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            {format(parseISO(submission.work_date), "MMM d, yyyy")}
+                            {format(parseISO(submission.work_date || submission.submission_date || submission.submitted_at), "MMM d, yyyy")}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {format(parseISO(submission.work_date), "EEEE")}
+                            {format(parseISO(submission.work_date || submission.submission_date || submission.submitted_at), "EEEE")}
                           </div>
                         </TableCell>
                         <TableCell>
