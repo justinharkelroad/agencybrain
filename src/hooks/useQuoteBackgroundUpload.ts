@@ -263,15 +263,17 @@ async function processInBackground(
             }
           }
 
-          // EXPLICIT STATUS UPDATE: Don't rely solely on database trigger
-          // This ensures households are correctly marked as 'quoted' even when
-          // the trigger doesn't fire (e.g., during ignoreDuplicates upserts)
+          // EXPLICIT STATUS UPDATE: Always promote to 'quoted' after processing.
+          // When ignoreDuplicates skips all quotes (re-upload), the DB trigger
+          // won't fire, but the quotes still exist — so the household must be 'quoted'.
+          // Also handles the case where quotes were newly created.
+          const minQuoteDate = groupRecords.reduce((min, r) =>
+            r.quoteDate < min ? r.quoteDate : min,
+            groupRecords[0].quoteDate
+          );
+
           if (quotesCreatedInGroup > 0) {
-            const minQuoteDate = groupRecords.reduce((min, r) => 
-              r.quoteDate < min ? r.quoteDate : min, 
-              groupRecords[0].quoteDate
-            );
-            
+            // New quotes were inserted — unconditionally update status
             await supabase
               .from('lqs_households')
               .update({
@@ -280,6 +282,40 @@ async function processInBackground(
               })
               .eq('id', householdId)
               .eq('status', 'lead'); // Don't overwrite 'sold' status
+          } else {
+            // All quotes were duplicates (ignoreDuplicates skipped them).
+            // Verify quotes actually exist before promoting, to avoid
+            // promoting a ghost household that has zero quotes.
+            const { count } = await supabase
+              .from('lqs_quotes')
+              .select('id', { count: 'exact', head: true })
+              .eq('household_id', householdId);
+
+            if (count && count > 0) {
+              await supabase
+                .from('lqs_households')
+                .update({
+                  status: 'quoted',
+                  first_quote_date: minQuoteDate,
+                })
+                .eq('id', householdId)
+                .eq('status', 'lead');
+            } else if (householdResult === 'created') {
+              // Ghost household: newly created but has zero quotes.
+              // Clean it up to prevent orphaned records.
+              await supabase
+                .from('lqs_households')
+                .delete()
+                .eq('id', householdId);
+
+              return {
+                matchedTeamMemberId: teamMemberId,
+                householdResult: 'ghost_deleted' as 'created',
+                quotesCreatedInGroup: 0,
+                quotesUpdatedInGroup: 0,
+                needsAttention: false,
+              };
+            }
           }
 
           return {
