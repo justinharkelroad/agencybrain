@@ -275,13 +275,13 @@ export function SequenceTemplatesList({
                             Inactive
                           </Badge>
                         )}
-                        {sequence.is_public && (
+                        {sequence.is_public === true && (
                           <Badge variant="outline" className="text-xs shrink-0 bg-sky-500/10 text-sky-700 border-sky-500/20">
                             <Globe className="w-3 h-3 mr-1" />
                             Shared
                           </Badge>
                         )}
-                        {sequence.clone_count > 0 && (
+                        {(sequence.clone_count ?? 0) > 0 && (
                           <Badge variant="outline" className="text-xs shrink-0 bg-slate-500/10 text-slate-600 border-slate-500/20">
                             <Download className="w-3 h-3 mr-1" />
                             {sequence.clone_count}
@@ -348,9 +348,9 @@ export function SequenceTemplatesList({
                             Duplicate
                           </DropdownMenuItem>
                           {onTogglePublic && (
-                            <DropdownMenuItem onClick={() => handleTogglePublic(sequence.id, !sequence.is_public)}>
+                            <DropdownMenuItem onClick={() => handleTogglePublic(sequence.id, !(sequence.is_public ?? false))}>
                               <Globe className="w-4 h-4 mr-2" />
-                              {sequence.is_public ? 'Unshare' : 'Share to Community'}
+                              {sequence.is_public === true ? 'Unshare' : 'Share to Community'}
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />

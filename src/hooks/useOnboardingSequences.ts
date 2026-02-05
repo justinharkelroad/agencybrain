@@ -30,9 +30,9 @@ export interface OnboardingSequence {
   is_active: boolean;
   target_type: SequenceTargetType;
   custom_type_label: string | null; // Custom category name when target_type is 'other'
-  is_public: boolean;
-  source_sequence_id: string | null;
-  clone_count: number;
+  is_public?: boolean; // Optional until migration is deployed
+  source_sequence_id?: string | null; // Optional until migration is deployed
+  clone_count?: number; // Optional until migration is deployed
   created_by: string | null;
   created_at: string;
   updated_at: string;
