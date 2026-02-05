@@ -35,6 +35,8 @@ import {
   MoreHorizontal,
   Workflow,
   Loader2,
+  Globe,
+  Download,
 } from "lucide-react";
 import type { OnboardingSequence, SequenceTargetType, ActionType } from "@/hooks/useOnboardingSequences";
 
@@ -46,6 +48,7 @@ interface SequenceTemplatesListProps {
   onDuplicate: (sequenceId: string) => Promise<void>;
   onDelete: (sequenceId: string) => Promise<void>;
   onToggleActive: (sequenceId: string, isActive: boolean) => Promise<void>;
+  onTogglePublic?: (sequenceId: string, isPublic: boolean) => Promise<void>;
 }
 
 // Default labels for known types (fallback)
@@ -96,6 +99,7 @@ export function SequenceTemplatesList({
   onDuplicate,
   onDelete,
   onToggleActive,
+  onTogglePublic,
 }: SequenceTemplatesListProps) {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
@@ -135,6 +139,16 @@ export function SequenceTemplatesList({
     setActionLoading(sequenceId);
     try {
       await onToggleActive(sequenceId, isActive);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleTogglePublic = async (sequenceId: string, isPublic: boolean) => {
+    if (!onTogglePublic) return;
+    setActionLoading(sequenceId);
+    try {
+      await onTogglePublic(sequenceId, isPublic);
     } finally {
       setActionLoading(null);
     }
@@ -261,6 +275,18 @@ export function SequenceTemplatesList({
                             Inactive
                           </Badge>
                         )}
+                        {sequence.is_public === true && (
+                          <Badge variant="outline" className="text-xs shrink-0 bg-sky-500/10 text-sky-700 border-sky-500/20">
+                            <Globe className="w-3 h-3 mr-1" />
+                            Shared
+                          </Badge>
+                        )}
+                        {(sequence.clone_count ?? 0) > 0 && (
+                          <Badge variant="outline" className="text-xs shrink-0 bg-slate-500/10 text-slate-600 border-slate-500/20">
+                            <Download className="w-3 h-3 mr-1" />
+                            {sequence.clone_count}
+                          </Badge>
+                        )}
                       </div>
 
                       {sequence.description && (
@@ -321,6 +347,12 @@ export function SequenceTemplatesList({
                             <Copy className="w-4 h-4 mr-2" />
                             Duplicate
                           </DropdownMenuItem>
+                          {onTogglePublic && (
+                            <DropdownMenuItem onClick={() => handleTogglePublic(sequence.id, !(sequence.is_public ?? false))}>
+                              <Globe className="w-4 h-4 mr-2" />
+                              {sequence.is_public === true ? 'Unshare' : 'Share to Community'}
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onClick={() => confirmDelete(sequence.id)}

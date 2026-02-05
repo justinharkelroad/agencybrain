@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useOnboardingSequences, OnboardingSequence, SequenceTargetType } from "@/hooks/useOnboardingSequences";
 import { SequenceTemplatesList } from "@/components/onboarding/SequenceTemplatesList";
+import { CommunitySequencesList } from "@/components/onboarding/CommunitySequencesList";
 import { SequenceTemplateEditor } from "@/components/onboarding/SequenceTemplateEditor";
 import type { StepFormData } from "@/components/onboarding/SequenceStepEditor";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function SequenceBuilder() {
   const {
@@ -11,12 +13,16 @@ export default function SequenceBuilder() {
     duplicateSequence,
     deleteSequence,
     toggleSequenceActive,
+    toggleSequencePublic,
+    clonePublicSequence,
     saveSequenceWithSteps,
   } = useOnboardingSequences();
 
+  const [activeTab, setActiveTab] = useState<string>("my-templates");
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingSequence, setEditingSequence] = useState<OnboardingSequence | null>(null);
   const [saving, setSaving] = useState(false);
+  const [cloning, setCloning] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "Sequence Builder | My Agency Brain";
@@ -51,6 +57,21 @@ export default function SequenceBuilder() {
 
   const handleToggleActive = async (sequenceId: string, isActive: boolean) => {
     await toggleSequenceActive(sequenceId, isActive);
+  };
+
+  const handleTogglePublic = async (sequenceId: string, isPublic: boolean) => {
+    await toggleSequencePublic(sequenceId, isPublic);
+  };
+
+  const handleCloneFromCommunity = async (sequenceId: string) => {
+    setCloning(sequenceId);
+    try {
+      await clonePublicSequence(sequenceId);
+      // Switch to my templates tab after cloning
+      setActiveTab("my-templates");
+    } finally {
+      setCloning(null);
+    }
   };
 
   const handleSave = async (
@@ -93,15 +114,32 @@ export default function SequenceBuilder() {
         </p>
       </div>
 
-      <SequenceTemplatesList
-        sequences={sequences}
-        loading={loading}
-        onCreateNew={handleCreateNew}
-        onEdit={handleEdit}
-        onDuplicate={handleDuplicate}
-        onDelete={handleDelete}
-        onToggleActive={handleToggleActive}
-      />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="my-templates">My Templates</TabsTrigger>
+          <TabsTrigger value="community">Community Library</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="my-templates" className="mt-0">
+          <SequenceTemplatesList
+            sequences={sequences}
+            loading={loading}
+            onCreateNew={handleCreateNew}
+            onEdit={handleEdit}
+            onDuplicate={handleDuplicate}
+            onDelete={handleDelete}
+            onToggleActive={handleToggleActive}
+            onTogglePublic={handleTogglePublic}
+          />
+        </TabsContent>
+
+        <TabsContent value="community" className="mt-0">
+          <CommunitySequencesList
+            onClone={handleCloneFromCommunity}
+            cloning={cloning}
+          />
+        </TabsContent>
+      </Tabs>
 
       <SequenceTemplateEditor
         open={editorOpen}
