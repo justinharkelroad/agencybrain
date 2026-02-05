@@ -267,8 +267,13 @@ export default function Renewals() {
     const f = { ...filters };
     if (activeTab !== 'all') f.currentStatus = [activeTab as WorkflowStatus];
     if (searchQuery) f.search = searchQuery;
+    // Apply chart date filter server-side so pagination works correctly
+    if (chartDateFilter) {
+      f.dateRangeStart = chartDateFilter;
+      f.dateRangeEnd = chartDateFilter;
+    }
     return f;
-  }, [filters, activeTab, searchQuery]);
+  }, [filters, activeTab, searchQuery, chartDateFilter]);
 
   const { data: recordsData, isLoading: recordsLoading } = useRenewalRecords(context?.agencyId || null, effectiveFilters, currentPage, pageSize);
   const records = recordsData?.records || [];
@@ -331,14 +336,7 @@ export default function Renewals() {
   const filteredAndSortedRecords = useMemo(() => {
     let result = records || [];
 
-    // Chart date filter (specific date clicked)
-    if (chartDateFilter) {
-      result = result.filter(r => {
-        if (!r.renewal_effective_date) return false;
-        const recordDate = format(parseISO(r.renewal_effective_date), 'yyyy-MM-dd');
-        return recordDate === chartDateFilter;
-      });
-    }
+    // Note: chartDateFilter is now applied server-side in effectiveFilters
 
     // Chart day-of-week filter (day bar clicked)
     if (chartDayFilter !== null) {

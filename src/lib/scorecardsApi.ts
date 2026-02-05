@@ -3,7 +3,17 @@
  * Uses edge function for staff mode, direct Supabase for owner mode.
  */
 import { supabase } from '@/lib/supabaseClient';
-import { fetchWithAuth, hasStaffToken } from '@/lib/staffRequest';
+import { fetchWithAuth, hasStaffToken, getAuthContext } from '@/lib/staffRequest';
+
+/**
+ * Check if we should use staff mode for API calls.
+ * Returns true only if staff token exists AND no Supabase session.
+ * This ensures agency owners use direct Supabase even if a stale staff token exists.
+ */
+async function shouldUseStaffMode(): Promise<boolean> {
+  const context = await getAuthContext('auto');
+  return context.isStaff;
+}
 
 export interface FormTemplate {
   id: string;
@@ -75,18 +85,18 @@ async function callScorecardsApi(action: string, params: Record<string, any> = {
 // ==================== FORMS ====================
 
 export async function listForms(staffAgencyId?: string): Promise<FormTemplate[]> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('forms_list');
     return data.forms || [];
   }
-  
+
   // Owner mode - direct Supabase
   const { data, error } = await supabase
     .from('form_templates')
     .select('*')
     .eq('agency_id', staffAgencyId!)
     .order('created_at', { ascending: false });
-  
+
   if (error) throw error;
   return data || [];
 }
@@ -98,7 +108,7 @@ export async function createForm(params: {
   schema_json?: any;
   settings_json?: any;
 }): Promise<FormTemplate> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('form_create', params);
     return data.form;
   }
@@ -107,7 +117,7 @@ export async function createForm(params: {
 }
 
 export async function updateForm(formId: string, patch: Partial<FormTemplate>): Promise<FormTemplate> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('form_update', { formId, patch });
     return data.form;
   }
@@ -116,7 +126,7 @@ export async function updateForm(formId: string, patch: Partial<FormTemplate>): 
 }
 
 export async function toggleFormActive(formId: string, is_active: boolean, agencyId?: string): Promise<boolean> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     await callScorecardsApi('form_toggle_active', { formId, is_active });
     return true;
   }
@@ -132,7 +142,7 @@ export async function toggleFormActive(formId: string, is_active: boolean, agenc
 }
 
 export async function duplicateForm(sourceFormId: string, agencyId?: string): Promise<FormTemplate> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('form_duplicate', { sourceFormId });
     return data.form;
   }
@@ -191,7 +201,7 @@ export async function duplicateForm(sourceFormId: string, agencyId?: string): Pr
 // ==================== FORM LINKS ====================
 
 export async function getFormLink(formTemplateId: string): Promise<FormLink | null> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('form_link_get', { formTemplateId });
     return data.link;
   }
@@ -208,7 +218,7 @@ export async function getFormLink(formTemplateId: string): Promise<FormLink | nu
 }
 
 export async function createFormLink(formTemplateId: string): Promise<FormLink> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('form_link_create', { formTemplateId });
     return data.link;
   }
@@ -229,7 +239,7 @@ export async function createFormLink(formTemplateId: string): Promise<FormLink> 
 }
 
 export async function toggleFormLink(formTemplateId: string, enabled: boolean): Promise<boolean> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     await callScorecardsApi('form_link_toggle', { formTemplateId, enabled });
     return true;
   }
@@ -246,7 +256,7 @@ export async function toggleFormLink(formTemplateId: string, enabled: boolean): 
 // ==================== SCORECARD RULES ====================
 
 export async function getScorecardRules(role: string, agencyId?: string): Promise<ScorecardRules | null> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('scorecard_rules_get', { role });
     return data.rules;
   }
@@ -263,7 +273,7 @@ export async function getScorecardRules(role: string, agencyId?: string): Promis
 }
 
 export async function upsertScorecardRules(params: Omit<ScorecardRules, 'id' | 'agency_id'>): Promise<ScorecardRules> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('scorecard_rules_upsert', params);
     return data.rules;
   }
@@ -274,7 +284,7 @@ export async function upsertScorecardRules(params: Omit<ScorecardRules, 'id' | '
 // ==================== KPIs ====================
 
 export async function listKpis(role: string, agencyId?: string): Promise<KPIData[]> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('kpis_list', { role });
     return data.kpis || [];
   }
@@ -292,7 +302,7 @@ export async function listKpis(role: string, agencyId?: string): Promise<KPIData
 }
 
 export async function createKpi(params: { role: string; label?: string; type?: string }): Promise<KPIData> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('kpi_create', params);
     return data.kpi;
   }
@@ -301,7 +311,7 @@ export async function createKpi(params: { role: string; label?: string; type?: s
 }
 
 export async function updateKpiLabel(kpiId: string, label: string, agencyId?: string): Promise<KPIData> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('kpi_update_label', { kpiId, label });
     return data.kpi;
   }
@@ -318,7 +328,7 @@ export async function updateKpiLabel(kpiId: string, label: string, agencyId?: st
 }
 
 export async function deleteKpi(agencyId: string, kpi_key: string): Promise<any> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('kpi_delete', { kpi_key });
     return data;
   }
@@ -335,7 +345,7 @@ export async function deleteKpi(agencyId: string, kpi_key: string): Promise<any>
 // ==================== TARGETS ====================
 
 export async function getTargets(metricKeys?: string[], agencyId?: string): Promise<Target[]> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('targets_get', { metric_keys: metricKeys });
     return data.targets || [];
   }
@@ -356,7 +366,7 @@ export async function getTargets(metricKeys?: string[], agencyId?: string): Prom
 }
 
 export async function upsertTargets(targets: { metric_key: string; value_number: number }[], agencyId?: string): Promise<boolean> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     await callScorecardsApi('targets_upsert', { targets });
     return true;
   }
@@ -388,7 +398,7 @@ export async function upsertTargets(targets: { metric_key: string; value_number:
 // ==================== AGENCY GOALS ====================
 
 export async function getAgencyGoals(agencyId?: string): Promise<{ daily_quoted_households_target: number | null; daily_sold_items_target: number | null }> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('agency_goals_get');
     return data.goals;
   }
@@ -404,7 +414,7 @@ export async function getAgencyGoals(agencyId?: string): Promise<{ daily_quoted_
 }
 
 export async function updateAgencyGoals(goals: { daily_quoted_households_target: number; daily_sold_items_target: number }, agencyId?: string): Promise<boolean> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     await callScorecardsApi('agency_goals_update', goals);
     return true;
   }
@@ -425,7 +435,7 @@ export async function getTeamRingsData(role: string, date: string, agencyId?: st
   teamMetrics: any[];
   targets: Target[];
 }> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('team_rings_data', { role, date });
     return data;
   }
@@ -461,7 +471,7 @@ export async function getTeamRingsData(role: string, date: string, agencyId?: st
 // ==================== SUBMISSIONS ====================
 
 export async function listSubmissions(agencyId?: string, page = 0, pageSize = 50): Promise<{ submissions: any[]; metrics: any[] }> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('submissions_list', { page, pageSize });
     return data;
   }
@@ -500,7 +510,7 @@ export async function listSubmissions(agencyId?: string, page = 0, pageSize = 50
 // ==================== AGENCY PROFILE ====================
 
 export async function getAgencyProfile(agencyId?: string): Promise<{ id: string; name: string; slug: string } | null> {
-  if (hasStaffToken()) {
+  if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('agency_profile_get');
     return data.agency;
   }
