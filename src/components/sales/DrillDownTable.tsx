@@ -36,6 +36,7 @@ interface DrillDownTableProps {
   canEditAllSales?: boolean;
   currentTeamMemberId?: string;
   leadSources?: { id: string; name: string }[];
+  teamMemberId?: string;
 }
 
 interface SaleRecord {
@@ -81,6 +82,7 @@ export function DrillDownTable({
   canEditAllSales = false,
   currentTeamMemberId,
   leadSources = [],
+  teamMemberId,
 }: DrillDownTableProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -89,7 +91,7 @@ export function DrillDownTable({
   const [editSaleData, setEditSaleData] = useState<StaffSaleForEdit | null>(null);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["drill-down", agencyId, filter.type, filter.value, startDate, endDate, page, pageSize, staffSessionToken],
+    queryKey: ["drill-down", agencyId, filter.type, filter.value, startDate, endDate, page, pageSize, staffSessionToken, teamMemberId],
     queryFn: async (): Promise<DrillDownResponse> => {
       // Staff path - use edge function
       if (staffSessionToken) {
@@ -103,6 +105,7 @@ export function DrillDownTable({
             end_date: endDate,
             page,
             page_size: pageSize,
+            ...(teamMemberId ? { team_member_id: teamMemberId } : {}),
           }
         });
         if (error) throw error;
@@ -146,7 +149,9 @@ export function DrillDownTable({
           }
         }
       } else if (filter.type === 'bundle_type') {
-        if (filter.value === 'Monoline') {
+        if (filter.value === '__all__') {
+          // No bundle filter — show all bundles (used by bundle mix drill-down)
+        } else if (filter.value === 'Monoline') {
           query = query.is('bundle_type', null);
         } else {
           query = query.eq('bundle_type', filter.value);
@@ -180,6 +185,11 @@ export function DrillDownTable({
         query = query.in('id', saleIds);
       }
 
+      // Filter by specific team member (for bundle mix drill-down)
+      if (teamMemberId) {
+        query = query.eq('team_member_id', teamMemberId);
+      }
+
       // Apply pagination
       const { data: sales, count, error: queryError } = await query
         .range((page - 1) * pageSize, page * pageSize - 1);
@@ -205,7 +215,7 @@ export function DrillDownTable({
 
       return { data: records, total_count: count || 0 };
     },
-    enabled: !!agencyId && !!filter.value,
+    enabled: !!agencyId && (!!filter.value || !!teamMemberId),
   });
 
   const totalCount = data?.total_count || 0;
