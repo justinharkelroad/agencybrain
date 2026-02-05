@@ -3,7 +3,10 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
-export type SequenceTargetType = 'onboarding' | 'lead_nurturing' | 'requote' | 'retention' | 'other';
+// SequenceTargetType is now a TEXT column that can hold any string value
+// Default options: 'onboarding', 'lead_nurturing', 'requote', 'retention', 'other'
+// Custom types can be added via admin panel
+export type SequenceTargetType = string;
 export type ActionType = 'call' | 'text' | 'email' | 'other';
 
 export interface SequenceStep {
@@ -26,6 +29,7 @@ export interface OnboardingSequence {
   description: string | null;
   is_active: boolean;
   target_type: SequenceTargetType;
+  custom_type_label: string | null; // Custom category name when target_type is 'other'
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -37,6 +41,7 @@ export interface CreateSequenceInput {
   description?: string;
   is_active?: boolean;
   target_type: SequenceTargetType;
+  custom_type_label?: string; // Custom category name when target_type is 'other'
 }
 
 export interface UpdateSequenceInput {
@@ -44,6 +49,7 @@ export interface UpdateSequenceInput {
   description?: string;
   is_active?: boolean;
   target_type?: SequenceTargetType;
+  custom_type_label?: string | null; // Custom category name when target_type is 'other'
 }
 
 export interface CreateStepInput {
@@ -138,6 +144,7 @@ export function useOnboardingSequences() {
           description: input.description || null,
           is_active: input.is_active ?? true,
           target_type: input.target_type,
+          custom_type_label: input.custom_type_label || null,
           created_by: user.id,
         })
         .select()
@@ -260,6 +267,7 @@ export function useOnboardingSequences() {
           description: original.description,
           is_active: false, // Start inactive
           target_type: original.target_type,
+          custom_type_label: original.custom_type_label,
           created_by: user.id,
         })
         .select()
@@ -419,14 +427,16 @@ export function useOnboardingSequences() {
         if (updateError) throw updateError;
       } else {
         // Create new sequence
+        const createInput = sequenceData as CreateSequenceInput;
         const { data: newSequence, error: createError } = await supabase
           .from('onboarding_sequences')
           .insert({
             agency_id: agencyId,
-            name: (sequenceData as CreateSequenceInput).name,
+            name: createInput.name,
             description: sequenceData.description || null,
             is_active: sequenceData.is_active ?? true,
-            target_type: (sequenceData as CreateSequenceInput).target_type,
+            target_type: createInput.target_type,
+            custom_type_label: createInput.custom_type_label || null,
             created_by: user.id,
           })
           .select()

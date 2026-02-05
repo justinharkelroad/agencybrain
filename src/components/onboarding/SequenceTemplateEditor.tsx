@@ -37,19 +37,21 @@ import {
 } from "lucide-react";
 import { SequenceStepEditor, StepFormData } from "./SequenceStepEditor";
 import type { OnboardingSequence, SequenceTargetType, ActionType } from "@/hooks/useOnboardingSequences";
+import { useSequenceTypeOptions } from "@/hooks/useSequenceTypeOptions";
 
 interface SequenceTemplateEditorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sequence: OnboardingSequence | null;
   onSave: (
-    sequenceData: { name: string; description: string; target_type: SequenceTargetType; is_active: boolean },
+    sequenceData: { name: string; description: string; target_type: SequenceTargetType; is_active: boolean; custom_type_label?: string },
     steps: StepFormData[]
   ) => Promise<void>;
   saving?: boolean;
 }
 
-const targetTypeOptions = [
+// Fallback options in case the database fetch fails
+const fallbackTargetTypeOptions = [
   { value: 'onboarding', label: 'New Customer Onboarding', description: 'For newly sold policies' },
   { value: 'lead_nurturing', label: 'Lead Nurturing', description: 'For prospects not yet sold' },
   { value: 'requote', label: 'Re-quote Campaign', description: 'For upcoming renewals' },
@@ -81,8 +83,21 @@ export function SequenceTemplateEditor({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [targetType, setTargetType] = useState<SequenceTargetType>('onboarding');
+  const [customTypeLabel, setCustomTypeLabel] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [steps, setSteps] = useState<StepFormData[]>([]);
+
+  // Fetch dynamic sequence type options
+  const { data: typeOptionsData, isLoading: typeOptionsLoading } = useSequenceTypeOptions();
+
+  // Use fetched options or fallback
+  const targetTypeOptions = typeOptionsData?.length
+    ? typeOptionsData.map(opt => ({
+        value: opt.type_key,
+        label: opt.label,
+        description: opt.description || '',
+      }))
+    : fallbackTargetTypeOptions;
 
   // Step editor state
   const [stepEditorOpen, setStepEditorOpen] = useState(false);
@@ -97,6 +112,7 @@ export function SequenceTemplateEditor({
       setName(sequence?.name ?? '');
       setDescription(sequence?.description ?? '');
       setTargetType(sequence?.target_type ?? 'onboarding');
+      setCustomTypeLabel(sequence?.custom_type_label ?? '');
       setIsActive(sequence?.is_active ?? true);
       setSteps(
         sequence?.steps?.map(s => ({
@@ -115,7 +131,13 @@ export function SequenceTemplateEditor({
 
   const handleSave = async () => {
     await onSave(
-      { name, description, target_type: targetType, is_active: isActive },
+      {
+        name,
+        description,
+        target_type: targetType,
+        is_active: isActive,
+        custom_type_label: targetType === 'other' ? customTypeLabel : undefined,
+      },
       steps
     );
   };
@@ -189,7 +211,7 @@ export function SequenceTemplateEditor({
     setDraggedIndex(null);
   };
 
-  const isValid = name.trim() && steps.length > 0;
+  const isValid = name.trim() && steps.length > 0 && (targetType !== 'other' || customTypeLabel.trim());
 
   // Calculate total duration
   const totalDays = steps.length > 0 ? Math.max(...steps.map(s => s.day_number)) : 0;
@@ -257,6 +279,24 @@ export function SequenceTemplateEditor({
                   </Select>
                 </div>
               </div>
+
+              {/* Custom Category Name - shown when "Other" is selected */}
+              {targetType === 'other' && (
+                <div className="space-y-2">
+                  <Label htmlFor="custom-type-label">
+                    Custom Category Name <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="custom-type-label"
+                    value={customTypeLabel}
+                    onChange={(e) => setCustomTypeLabel(e.target.value)}
+                    placeholder="e.g., Cross-Sell Campaign"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter a custom name for this sequence category
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="sequence-description">Description</Label>
