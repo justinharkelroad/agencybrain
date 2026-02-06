@@ -65,6 +65,9 @@ import { LqsGoalsHeader } from '@/components/lqs/LqsGoalsHeader';
 import { LqsSameMonthConversion } from '@/components/lqs/LqsSameMonthConversion';
 import { LqsRoiSpendBubbleChart } from '@/components/lqs/LqsRoiSpendBubbleChart';
 import { LqsPerformanceTrendChart } from '@/components/lqs/LqsPerformanceTrendChart';
+import { LqsTimeToCloseAnalytics } from '@/components/lqs/LqsTimeToCloseAnalytics';
+import { LqsProducerLeadSourceCrossTab } from '@/components/lqs/LqsProducerLeadSourceCrossTab';
+import { LqsObjectionAnalysis } from '@/components/lqs/LqsObjectionAnalysis';
 import { differenceInDays } from 'date-fns';
 
 // Format currency from cents
@@ -852,6 +855,12 @@ export default function LqsRoiPage() {
         </Card>
       </div>
 
+      {/* Time to Close Analytics */}
+      <LqsTimeToCloseAnalytics
+        agencyId={agencyProfile?.agencyId ?? null}
+        dateRange={dateRange}
+      />
+
       {/* Charts Row: Bubble Chart + Trend Chart */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* ROI vs Spend Bubble Chart */}
@@ -878,8 +887,20 @@ export default function LqsRoiPage() {
         onProducerClick={handleProducerClick}
       />
 
+      {/* Producer x Lead Source Cross-Tab */}
+      <LqsProducerLeadSourceCrossTab
+        agencyId={agencyProfile?.agencyId ?? null}
+        dateRange={dateRange}
+      />
+
       {/* Same-Month Conversion Metric */}
       <LqsSameMonthConversion
+        agencyId={agencyProfile?.agencyId ?? null}
+        dateRange={dateRange}
+      />
+
+      {/* Objection Analysis */}
+      <LqsObjectionAnalysis
         agencyId={agencyProfile?.agencyId ?? null}
         dateRange={dateRange}
       />
