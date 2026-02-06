@@ -353,9 +353,6 @@ export function ApplySequenceModal({
             <p className="text-sm text-muted-foreground">
               Create sequences in the Sequence Builder first.
             </p>
-            <p className="text-xs text-muted-foreground/50 mt-4">
-              Debug: {isStaffContext ? 'staff context' : 'agency context'} | Token: {staffSessionToken ? 'present' : 'missing'}
-            </p>
           </div>
         ) : (
           <div className="space-y-4 py-4">

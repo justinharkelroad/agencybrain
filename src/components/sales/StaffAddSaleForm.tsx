@@ -490,6 +490,8 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
     onSuccess: () => {
       toast.success("Sale created successfully!");
       queryClient.invalidateQueries({ queryKey: ["staff-sales"] });
+      // Invalidate dashboard metrics so sold_items refreshes immediately
+      queryClient.invalidateQueries({ queryKey: ["dashboard-daily"] });
       // Invalidate promo widgets so progress refreshes immediately
       queryClient.invalidateQueries({ queryKey: ["admin-promo-goals-widget"] });
       queryClient.invalidateQueries({ queryKey: ["promo-goals"] });

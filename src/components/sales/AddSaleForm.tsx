@@ -787,6 +787,8 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       // Invalidate sale-for-edit so next edit fetch is fresh
       queryClient.invalidateQueries({ queryKey: ["sale-for-edit"] });
+      // Invalidate dashboard metrics so sold_items refreshes immediately
+      queryClient.invalidateQueries({ queryKey: ["dashboard-daily"] });
       // Invalidate promo widgets so progress refreshes immediately
       queryClient.invalidateQueries({ queryKey: ["admin-promo-goals-widget"] });
       queryClient.invalidateQueries({ queryKey: ["promo-goals"] });
