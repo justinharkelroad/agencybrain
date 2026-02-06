@@ -553,17 +553,64 @@ Provide your coaching feedback based on these results.`;
       // Continue without AI feedback - email will still be sent with stats
     }
 
-    // 9. Build recipient list
-    const recipients: string[] = [];
+    // 9. Build recipient list (deduplicated)
+    const recipientSet = new Set<string>();
 
     // Submitter email (use staff_users email if available, else team_members email)
     if (submitterEmail && !submitterEmail.includes('@staff.placeholder')) {
-      recipients.push(submitterEmail);
+      recipientSet.add(submitterEmail.toLowerCase());
     }
 
     // Agency owner email (from agencies.agency_email)
-    if (agency?.agency_email && !recipients.includes(agency.agency_email)) {
-      recipients.push(agency.agency_email);
+    if (agency?.agency_email) {
+      recipientSet.add(agency.agency_email.toLowerCase());
+    }
+
+    // Also include agency owner's profile email (may differ from agencies.agency_email)
+    if (formTemplate.agency_id) {
+      const { data: ownerProfiles } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('agency_id', formTemplate.agency_id)
+        .not('email', 'is', null);
+
+      ownerProfiles?.forEach(p => {
+        if (p.email) recipientSet.add(p.email.toLowerCase());
+      });
+
+      // Key employees (managers with elevated access)
+      const { data: keyEmployees } = await supabase
+        .from('key_employees')
+        .select('user_id')
+        .eq('agency_id', formTemplate.agency_id);
+
+      if (keyEmployees && keyEmployees.length > 0) {
+        const userIds = keyEmployees.map((ke: any) => ke.user_id);
+        const { data: keProfiles } = await supabase
+          .from('profiles')
+          .select('email')
+          .in('id', userIds)
+          .not('email', 'is', null);
+
+        keProfiles?.forEach(p => {
+          if (p.email) recipientSet.add(p.email.toLowerCase());
+        });
+      }
+
+      // Active staff users (their real emails are in staff_users table,
+      // not in team_members which has @staff.placeholder addresses)
+      const { data: agencyStaffUsers } = await supabase
+        .from('staff_users')
+        .select('email')
+        .eq('agency_id', formTemplate.agency_id)
+        .eq('is_active', true)
+        .not('email', 'is', null);
+
+      agencyStaffUsers?.forEach(u => {
+        if (u.email && !u.email.includes('@staff.placeholder')) {
+          recipientSet.add(u.email.toLowerCase());
+        }
+      });
     }
 
     // Additional recipients from settings
@@ -576,11 +623,13 @@ Provide your coaching feedback based on these results.`;
 
       additionalMembers?.forEach(m => {
         // Skip placeholder emails
-        if (m.email && !m.email.includes('@staff.placeholder') && !recipients.includes(m.email)) {
-          recipients.push(m.email);
+        if (m.email && !m.email.includes('@staff.placeholder')) {
+          recipientSet.add(m.email.toLowerCase());
         }
       });
     }
+
+    const recipients = Array.from(recipientSet);
 
     logStructured('info', 'recipients_resolved', { request_id: requestId, count: recipients.length, recipients });
 
@@ -613,21 +662,24 @@ Provide your coaching feedback based on these results.`;
       footerAgencyName: agency?.name,
     });
 
-    // 11. Send email via Resend
-    logStructured('info', 'sending_email', { request_id: requestId, recipient_count: recipients.length });
+    // 11. Send email via Resend batch API (individual email per recipient for proper tracking)
+    const subject = `📊 Daily Report: ${passedCount}/${totalCount} targets met - ${teamMember?.name || 'Team Member'}`;
+    const emailBatch = recipients.map(email => ({
+      from: BRAND.fromEmail,
+      to: email,
+      subject,
+      html: emailHtml,
+    }));
 
-    const emailResponse = await fetch('https://api.resend.com/emails', {
+    logStructured('info', 'sending_email', { request_id: requestId, recipient_count: recipients.length, recipients });
+
+    const emailResponse = await fetch('https://api.resend.com/emails/batch', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: BRAND.fromEmail,
-        to: recipients,
-        subject: `📊 Daily Report: ${passedCount}/${totalCount} targets met - ${teamMember?.name || 'Team Member'}`,
-        html: emailHtml,
-      }),
+      body: JSON.stringify(emailBatch),
     });
 
     const emailResult = await emailResponse.json();
@@ -643,7 +695,7 @@ Provide your coaching feedback based on these results.`;
 
     logStructured('info', 'feedback_complete', {
       request_id: requestId,
-      email_id: emailResult?.id,
+      email_ids: emailResult?.data?.map((e: { id: string }) => e.id),
       recipients,
       passed_count: passedCount,
       total_count: totalCount,
@@ -653,7 +705,7 @@ Provide your coaching feedback based on these results.`;
     return new Response(
       JSON.stringify({
         success: true,
-        emailId: emailResult?.id,
+        emailIds: emailResult?.data?.map((e: { id: string }) => e.id),
         recipients,
         passedCount,
         totalCount,

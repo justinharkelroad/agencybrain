@@ -489,6 +489,21 @@ Deno.serve(async (req) => {
           recipients.push(agency.agency_email);
         }
 
+        // Also include active staff users (their real emails are in staff_users,
+        // not in team_members which has @staff.placeholder addresses)
+        const { data: staffUsers } = await supabase
+          .from('staff_users')
+          .select('email')
+          .eq('agency_id', agency.id)
+          .eq('is_active', true)
+          .not('email', 'is', null);
+
+        staffUsers?.forEach(u => {
+          if (u.email && !u.email.includes('@staff.placeholder')) {
+            recipients.push(u.email);
+          }
+        });
+
         // Deduplicate
         const uniqueRecipients = [...new Set(recipients)];
 
@@ -613,20 +628,23 @@ Deno.serve(async (req) => {
           footerAgencyName: agency.name,
         });
 
-        // Send email
+        // Send email via batch API (individual email per recipient for proper tracking)
         try {
-          const emailResponse = await fetch('https://api.resend.com/emails', {
+          const subject = `\uD83D\uDCC8 Daily Summary: ${submittedCount}/${totalCount} submitted - ${form.name}`;
+          const emailBatch = uniqueRecipients.map(email => ({
+            from: BRAND.fromEmail,
+            to: email,
+            subject,
+            html: emailHtml,
+          }));
+
+          const emailResponse = await fetch('https://api.resend.com/emails/batch', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              from: BRAND.fromEmail,
-              to: uniqueRecipients,
-              subject: `\uD83D\uDCC8 Daily Summary: ${submittedCount}/${totalCount} submitted - ${form.name}`,
-              html: emailHtml,
-            }),
+            body: JSON.stringify(emailBatch),
           });
 
           const emailResult = await emailResponse.json();
@@ -642,14 +660,15 @@ Deno.serve(async (req) => {
               error: emailResult?.message || 'Email send failed',
             });
           } else {
-            logStructured('email_sent', { formId: form.id, emailId: emailResult.id, recipients: uniqueRecipients.length });
+            const emailIds = emailResult?.data?.map((e: { id: string }) => e.id) || [];
+            logStructured('email_sent', { formId: form.id, emailIds, recipients: uniqueRecipients.length });
             results.push({
               agency: agency.name,
               form: form.name,
               submittedCount,
               totalCount,
               recipients: uniqueRecipients.length,
-              emailId: emailResult.id,
+              emailIds,
             });
           }
         } catch (emailError) {
