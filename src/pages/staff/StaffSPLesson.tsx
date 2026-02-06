@@ -174,8 +174,10 @@ export default function StaffSPLesson() {
       }
 
       // Call edge function to save progress and send email
+      const sessionToken = localStorage.getItem('staff_session_token');
       const { data, error } = await supabase.functions.invoke('sp_staff_lesson_complete', {
         body: {
+          session_token: sessionToken,
           staff_user_id: user!.id,
           lesson_id: lesson!.id,
           quiz_score: mcScore,
