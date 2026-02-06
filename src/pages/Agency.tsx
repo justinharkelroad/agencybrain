@@ -32,6 +32,7 @@ import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
 import { MeetingFrameTab } from "@/components/agency/MeetingFrameTab";
 import { RingCentralConnect } from "@/components/RingCentralConnect";
+import { RingCentralReportUpload } from "@/components/RingCentralReportUpload";
 import { Core4Tab } from "@/components/agency/Core4Tab";
 import { EmailDeliveryNoticeButton, EmailDeliveryNoticeModal } from "@/components/EmailDeliveryNoticeModal";
 import { SalesEmailSettings } from "@/components/settings/SalesEmailSettings";
@@ -199,7 +200,7 @@ export default function Agency() {
         if (aId) {
           const { data: agency, error: aErr } = await supabase
             .from("agencies")
-            .select("id,name,agency_email,phone,logo_url,staff_can_upload_calls")
+            .select("id,name,agency_email,phone,logo_url,staff_can_upload_calls,rc_ingest_key")
             .eq("id", aId)
             .maybeSingle();
           if (aErr) throw aErr;
@@ -1518,6 +1519,11 @@ export default function Agency() {
                     Connect your phone system to automatically sync call logs and track team performance.
                   </p>
                   <RingCentralConnect />
+                  {agencyId && (
+                    <div className="mt-4">
+                      <RingCentralReportUpload agencyId={agencyId} />
+                    </div>
+                  )}
                 </AccordionContent>
               </AccordionItem>
             </Accordion>

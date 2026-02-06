@@ -494,3 +494,6 @@ verify_jwt = false
 
 [functions.ricochet-webhook]
 verify_jwt = false
+
+[functions.ringcentral-report-ingest]
+verify_jwt = false
