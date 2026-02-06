@@ -553,7 +553,7 @@ Provide your coaching feedback based on these results.`;
       // Continue without AI feedback - email will still be sent with stats
     }
 
-    // 9. Build recipient list (deduplicated)
+    // 9. Build recipient list: Submitter + Agency Owner + Additional Recipients (from settings)
     const recipientSet = new Set<string>();
 
     // Submitter email (use staff_users email if available, else team_members email)
@@ -566,53 +566,6 @@ Provide your coaching feedback based on these results.`;
       recipientSet.add(agency.agency_email.toLowerCase());
     }
 
-    // Also include agency owner's profile email (may differ from agencies.agency_email)
-    if (formTemplate.agency_id) {
-      const { data: ownerProfiles } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('agency_id', formTemplate.agency_id)
-        .not('email', 'is', null);
-
-      ownerProfiles?.forEach(p => {
-        if (p.email) recipientSet.add(p.email.toLowerCase());
-      });
-
-      // Key employees (managers with elevated access)
-      const { data: keyEmployees } = await supabase
-        .from('key_employees')
-        .select('user_id')
-        .eq('agency_id', formTemplate.agency_id);
-
-      if (keyEmployees && keyEmployees.length > 0) {
-        const userIds = keyEmployees.map((ke: any) => ke.user_id);
-        const { data: keProfiles } = await supabase
-          .from('profiles')
-          .select('email')
-          .in('id', userIds)
-          .not('email', 'is', null);
-
-        keProfiles?.forEach(p => {
-          if (p.email) recipientSet.add(p.email.toLowerCase());
-        });
-      }
-
-      // Active staff users (their real emails are in staff_users table,
-      // not in team_members which has @staff.placeholder addresses)
-      const { data: agencyStaffUsers } = await supabase
-        .from('staff_users')
-        .select('email')
-        .eq('agency_id', formTemplate.agency_id)
-        .eq('is_active', true)
-        .not('email', 'is', null);
-
-      agencyStaffUsers?.forEach(u => {
-        if (u.email && !u.email.includes('@staff.placeholder')) {
-          recipientSet.add(u.email.toLowerCase());
-        }
-      });
-    }
-
     // Additional recipients from settings
     const additionalIds = settings.additionalImmediateRecipients || [];
     if (additionalIds.length > 0) {
@@ -622,9 +575,22 @@ Provide your coaching feedback based on these results.`;
         .in('id', additionalIds);
 
       additionalMembers?.forEach(m => {
-        // Skip placeholder emails
         if (m.email && !m.email.includes('@staff.placeholder')) {
           recipientSet.add(m.email.toLowerCase());
+        }
+      });
+
+      // Also check staff_users for real emails (team_members may have @staff.placeholder)
+      const { data: additionalStaff } = await supabase
+        .from('staff_users')
+        .select('email, team_member_id')
+        .in('team_member_id', additionalIds)
+        .eq('is_active', true)
+        .not('email', 'is', null);
+
+      additionalStaff?.forEach(s => {
+        if (s.email && !s.email.includes('@staff.placeholder')) {
+          recipientSet.add(s.email.toLowerCase());
         }
       });
     }
