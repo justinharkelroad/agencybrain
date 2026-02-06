@@ -21,7 +21,7 @@ export type Database = {
           address_line2: string | null
           address_state: string | null
           address_zip: string | null
-          agency_email: string | null
+          agency_email: string
           agent_cell: string | null
           agent_name: string | null
           auto_reminders_enabled: boolean | null
@@ -40,12 +40,14 @@ export type Database = {
           id: string
           logo_url: string | null
           morning_digest_enabled: boolean | null
+          morning_digest_sections: Json | null
           name: string
           notifications_email_enabled: boolean | null
           notifications_lateness_enabled: boolean | null
           notifications_submissions_enabled: boolean | null
           owner_rollup_time: string | null
           phone: string | null
+          rc_ingest_key: string
           reminder_times_json: Json | null
           sales_daily_summary_enabled: boolean | null
           sales_realtime_email_enabled: boolean | null
@@ -63,7 +65,7 @@ export type Database = {
           address_line2?: string | null
           address_state?: string | null
           address_zip?: string | null
-          agency_email?: string | null
+          agency_email: string
           agent_cell?: string | null
           agent_name?: string | null
           auto_reminders_enabled?: boolean | null
@@ -82,12 +84,14 @@ export type Database = {
           id?: string
           logo_url?: string | null
           morning_digest_enabled?: boolean | null
+          morning_digest_sections?: Json | null
           name: string
           notifications_email_enabled?: boolean | null
           notifications_lateness_enabled?: boolean | null
           notifications_submissions_enabled?: boolean | null
           owner_rollup_time?: string | null
           phone?: string | null
+          rc_ingest_key?: string
           reminder_times_json?: Json | null
           sales_daily_summary_enabled?: boolean | null
           sales_realtime_email_enabled?: boolean | null
@@ -105,7 +109,7 @@ export type Database = {
           address_line2?: string | null
           address_state?: string | null
           address_zip?: string | null
-          agency_email?: string | null
+          agency_email?: string
           agent_cell?: string | null
           agent_name?: string | null
           auto_reminders_enabled?: boolean | null
@@ -124,12 +128,14 @@ export type Database = {
           id?: string
           logo_url?: string | null
           morning_digest_enabled?: boolean | null
+          morning_digest_sections?: Json | null
           name?: string
           notifications_email_enabled?: boolean | null
           notifications_lateness_enabled?: boolean | null
           notifications_submissions_enabled?: boolean | null
           owner_rollup_time?: string | null
           phone?: string | null
+          rc_ingest_key?: string
           reminder_times_json?: Json | null
           sales_daily_summary_enabled?: boolean | null
           sales_realtime_email_enabled?: boolean | null
@@ -5782,34 +5788,46 @@ export type Database = {
       onboarding_sequences: {
         Row: {
           agency_id: string
+          clone_count: number
           created_at: string
           created_by: string | null
+          custom_type_label: string | null
           description: string | null
           id: string
           is_active: boolean
+          is_public: boolean
           name: string
+          source_sequence_id: string | null
           target_type: Database["public"]["Enums"]["onboarding_sequence_target_type"]
           updated_at: string
         }
         Insert: {
           agency_id: string
+          clone_count?: number
           created_at?: string
           created_by?: string | null
+          custom_type_label?: string | null
           description?: string | null
           id?: string
           is_active?: boolean
+          is_public?: boolean
           name: string
+          source_sequence_id?: string | null
           target_type?: Database["public"]["Enums"]["onboarding_sequence_target_type"]
           updated_at?: string
         }
         Update: {
           agency_id?: string
+          clone_count?: number
           created_at?: string
           created_by?: string | null
+          custom_type_label?: string | null
           description?: string | null
           id?: string
           is_active?: boolean
+          is_public?: boolean
           name?: string
+          source_sequence_id?: string | null
           target_type?: Database["public"]["Enums"]["onboarding_sequence_target_type"]
           updated_at?: string
         }
@@ -5826,6 +5844,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_sequences_source_sequence_id_fkey"
+            columns: ["source_sequence_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_sequences"
             referencedColumns: ["id"]
           },
         ]
@@ -5850,6 +5875,7 @@ export type Database = {
           instance_id: string | null
           is_adhoc: boolean
           parent_task_id: string | null
+          sale_id: string | null
           script_template: string | null
           status: Database["public"]["Enums"]["onboarding_task_status"]
           step_id: string | null
@@ -5875,6 +5901,7 @@ export type Database = {
           instance_id?: string | null
           is_adhoc?: boolean
           parent_task_id?: string | null
+          sale_id?: string | null
           script_template?: string | null
           status?: Database["public"]["Enums"]["onboarding_task_status"]
           step_id?: string | null
@@ -5900,6 +5927,7 @@ export type Database = {
           instance_id?: string | null
           is_adhoc?: boolean
           parent_task_id?: string | null
+          sale_id?: string | null
           script_template?: string | null
           status?: Database["public"]["Enums"]["onboarding_task_status"]
           step_id?: string | null
@@ -5968,6 +5996,13 @@ export type Database = {
             columns: ["parent_task_id"]
             isOneToOne: false
             referencedRelation: "onboarding_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_tasks_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
             referencedColumns: ["id"]
           },
           {
@@ -6212,6 +6247,41 @@ export type Database = {
             columns: ["product_type_id"]
             isOneToOne: false
             referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prior_insurance_companies: {
+        Row: {
+          agency_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prior_insurance_companies_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]
@@ -7360,6 +7430,7 @@ export type Database = {
           is_vc_qualifying: boolean | null
           lead_source_id: string | null
           policy_number: string | null
+          prior_insurance_company_id: string | null
           sale_date: string | null
           source: string | null
           source_details: Json | null
@@ -7394,6 +7465,7 @@ export type Database = {
           is_vc_qualifying?: boolean | null
           lead_source_id?: string | null
           policy_number?: string | null
+          prior_insurance_company_id?: string | null
           sale_date?: string | null
           source?: string | null
           source_details?: Json | null
@@ -7428,6 +7500,7 @@ export type Database = {
           is_vc_qualifying?: boolean | null
           lead_source_id?: string | null
           policy_number?: string | null
+          prior_insurance_company_id?: string | null
           sale_date?: string | null
           source?: string | null
           source_details?: Json | null
@@ -7469,6 +7542,13 @@ export type Database = {
             columns: ["lead_source_id"]
             isOneToOne: false
             referencedRelation: "lead_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_prior_insurance_company_id_fkey"
+            columns: ["prior_insurance_company_id"]
+            isOneToOne: false
+            referencedRelation: "prior_insurance_companies"
             referencedColumns: ["id"]
           },
           {
@@ -12182,6 +12262,10 @@ export type Database = {
       }
       increment_metrics_quoted_count: {
         Args: { p_agency_id: string; p_date: string; p_team_member_id: string }
+        Returns: undefined
+      }
+      increment_sequence_clone_count: {
+        Args: { p_sequence_id: string }
         Returns: undefined
       }
       insert_contact_activity: {
