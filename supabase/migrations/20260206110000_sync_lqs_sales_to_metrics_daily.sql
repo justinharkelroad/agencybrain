@@ -13,6 +13,8 @@ DECLARE
   v_items INT;
   v_policies INT;
   v_premium BIGINT;
+  v_kpi_version_id uuid;
+  v_label text;
 BEGIN
   -- Determine affected team member + date
   IF TG_OP = 'DELETE' THEN
@@ -43,15 +45,38 @@ BEGIN
   -- Look up role
   SELECT role INTO v_role FROM team_members WHERE id = v_team_member_id;
 
+  -- Lookup kpi_version for CHECK constraint (required for new rows)
+  SELECT kv.id, kv.label INTO v_kpi_version_id, v_label
+  FROM kpi_versions kv
+  JOIN kpis k ON k.id = kv.kpi_id
+  WHERE k.agency_id = v_agency_id AND kv.valid_to IS NULL
+  ORDER BY kv.valid_from DESC LIMIT 1;
+
+  IF v_kpi_version_id IS NULL THEN
+    SELECT kv.id, kv.label INTO v_kpi_version_id, v_label
+    FROM forms_kpi_bindings fb
+    JOIN kpi_versions kv ON kv.id = fb.kpi_version_id
+    JOIN form_templates ft ON ft.id = fb.form_template_id
+    WHERE ft.agency_id = v_agency_id AND kv.valid_to IS NULL
+    ORDER BY fb.created_at DESC LIMIT 1;
+  END IF;
+
+  IF v_kpi_version_id IS NULL THEN
+    RAISE LOG 'sync_lqs_sales: No kpi_version for agency=%, skipping', v_agency_id;
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
   -- Upsert into metrics_daily
   INSERT INTO metrics_daily (
     agency_id, team_member_id, date, role,
-    sold_items, sold_policies, sold_premium_cents
+    sold_items, sold_policies, sold_premium_cents,
+    kpi_version_id, label_at_submit
   )
   VALUES (
     v_agency_id, v_team_member_id, v_sale_date,
     COALESCE(v_role, 'Sales'),
-    v_items, v_policies, v_premium
+    v_items, v_policies, v_premium,
+    v_kpi_version_id, v_label
   )
   ON CONFLICT (team_member_id, date) DO UPDATE SET
     sold_items         = GREATEST(metrics_daily.sold_items, EXCLUDED.sold_items),
@@ -69,23 +94,22 @@ CREATE TRIGGER trg_sync_lqs_sales_metrics
   FOR EACH ROW
   EXECUTE FUNCTION sync_lqs_sales_to_metrics_daily();
 
--- Part 3: Backfill existing sales
-INSERT INTO metrics_daily (agency_id, team_member_id, date, role,
-  sold_items, sold_policies, sold_premium_cents)
-SELECT
-  ls.agency_id,
-  ls.team_member_id,
-  ls.sale_date,
-  COALESCE(tm.role, 'Sales'),
-  SUM(ls.items_sold),
-  SUM(ls.policies_sold),
-  SUM(ls.premium_cents)
-FROM lqs_sales ls
-JOIN team_members tm ON tm.id = ls.team_member_id
-WHERE ls.team_member_id IS NOT NULL
-GROUP BY ls.agency_id, ls.team_member_id, ls.sale_date, tm.role
-ON CONFLICT (team_member_id, date) DO UPDATE SET
-  sold_items         = GREATEST(metrics_daily.sold_items, EXCLUDED.sold_items),
-  sold_policies      = GREATEST(metrics_daily.sold_policies, EXCLUDED.sold_policies),
-  sold_premium_cents = GREATEST(metrics_daily.sold_premium_cents, EXCLUDED.sold_premium_cents),
-  updated_at         = now();
+-- Part 3: Backfill existing sales (only updates existing metrics_daily rows;
+-- new rows require kpi_version_id which varies per agency)
+UPDATE metrics_daily md
+SET
+  sold_items         = GREATEST(md.sold_items, agg.total_items),
+  sold_policies      = GREATEST(md.sold_policies, agg.total_policies),
+  sold_premium_cents = GREATEST(md.sold_premium_cents, agg.total_premium),
+  updated_at         = now()
+FROM (
+  SELECT team_member_id, sale_date,
+    SUM(items_sold) as total_items,
+    SUM(policies_sold) as total_policies,
+    SUM(premium_cents) as total_premium
+  FROM lqs_sales
+  WHERE team_member_id IS NOT NULL
+  GROUP BY team_member_id, sale_date
+) agg
+WHERE agg.team_member_id = md.team_member_id
+  AND agg.sale_date = md.date;
