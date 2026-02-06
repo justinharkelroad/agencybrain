@@ -42,10 +42,11 @@ export function useLeadBackgroundUpload() {
     context: LeadUploadContext,
     sourceDisplayName: string
   ) => {
-    // Show immediate feedback
+    // Show immediate feedback with rough upfront estimate (~20s per batch of 50)
+    const estMinutes = Math.ceil(records.length / BATCH_SIZE * 20 / 60);
     toast({
       title: `Processing ${records.length} leads...`,
-      description: 'Upload in progress. Please keep this tab open.',
+      description: `Estimated time: ~${estMinutes} min. Please keep this tab open.`,
     });
 
     // Fire and forget - process in background
@@ -61,6 +62,14 @@ const RETRY_DELAY_MS = 200;
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function formatTimeRemaining(ms: number): string {
+  const seconds = Math.ceil(ms / 1000);
+  if (seconds >= 60) {
+    return `~${Math.ceil(seconds / 60)} min`;
+  }
+  return `~${seconds}s`;
 }
 
 /**
@@ -237,6 +246,7 @@ async function processInBackground(
   try {
     const totalRecords = records.length;
     const totalBatches = Math.ceil(totalRecords / BATCH_SIZE);
+    const uploadStartTime = Date.now();
 
     for (let i = 0; i < totalRecords; i += BATCH_SIZE) {
       const batch = records.slice(i, Math.min(i + BATCH_SIZE, totalRecords));
@@ -245,15 +255,17 @@ async function processInBackground(
 
       console.log(`[Lead Upload] Processing batch ${batchNumber}/${totalBatches}: records ${i + 1}-${endIdx}`);
 
-      // Progress toast for large uploads (every 100 records after the first 100)
-      if (totalRecords > 100 && i > 0 && i % 100 === 0) {
-        toast({
-          title: 'Processing leads...',
-          description: `${i} of ${totalRecords} processed`,
-        });
-      }
-
       const { created, updated, failed } = await processWithConcurrencyLimit(batch, context, today);
+
+      // Progress toast after every batch with time estimate
+      const elapsed = Date.now() - uploadStartTime;
+      const batchesRemaining = totalBatches - batchNumber;
+      const estRemaining = (elapsed / batchNumber) * batchesRemaining;
+      const timeStr = batchesRemaining > 0 ? ` — ${formatTimeRemaining(estRemaining)} remaining` : '';
+      toast({
+        title: 'Processing leads...',
+        description: `${endIdx} of ${totalRecords}${timeStr}`,
+      });
 
       leadsCreated += created;
       leadsUpdated += updated;
