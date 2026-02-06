@@ -76,7 +76,7 @@ serve(async (req) => {
       .from('agencies')
       .insert([{
         name: body.name.trim(),
-        agency_email: body.agency_email?.trim() || null,
+        agency_email: body.agency_email?.trim() || user.email,
         phone: body.phone?.trim() || null,
       }])
       .select('id')

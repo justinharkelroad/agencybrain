@@ -94,6 +94,7 @@ serve(async (req) => {
       .insert({
         name: agencyName,
         description: agencyDescription || null,
+        agency_email: email,
       })
       .select()
       .single();

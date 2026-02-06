@@ -284,10 +284,14 @@ export default function Agency() {
         toastHook({ title: "Name required", description: "Enter your agency name.", variant: "destructive" });
         return;
       }
+      if (!agencyEmail.trim()) {
+        toastHook({ title: "Email required", description: "Agency email is required for notifications.", variant: "destructive" });
+        return;
+      }
       if (agencyId) {
       const { error } = await supabase
           .from("agencies")
-          .update({ name: agencyName.trim(), agency_email: agencyEmail.trim() || null, phone: agencyPhone.trim() || null })
+          .update({ name: agencyName.trim(), agency_email: agencyEmail.trim(), phone: agencyPhone.trim() || null })
           .eq("id", agencyId);
         if (error) throw error;
         toastHook({ title: "Saved", description: "Agency updated" });
@@ -308,7 +312,7 @@ export default function Agency() {
             },
             body: JSON.stringify({
               name: agencyName.trim(),
-              agency_email: agencyEmail.trim() || null,
+              agency_email: agencyEmail.trim() || undefined,
               phone: agencyPhone.trim() || null,
             }),
           }
