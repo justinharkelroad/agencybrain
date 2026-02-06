@@ -1269,7 +1269,7 @@ export default function Agency() {
                                 className="bg-amber-500/10 text-amber-600 border-amber-500/20"
                               >
                                 <Clock className="h-3 w-3 mr-1" />
-                                Access Pending
+                                Deactivated
                               </Badge>
                               <Button 
                                 variant="ghost" 
@@ -1287,8 +1287,8 @@ export default function Agency() {
                             size="sm" 
                             onClick={() => openInviteModal(m)}
                           >
-                            <Send className="h-3 w-3 mr-1" />
-                            Access
+                            <Key className="h-3 w-3 mr-1" />
+                            Password Setup
                           </Button>
                         )}
                       </TableCell>
@@ -1616,6 +1616,7 @@ export default function Agency() {
                     {inviteMode === 'email' && <div className="w-2 h-2 rounded-full bg-primary" />}
                   </div>
                   <span className="font-medium">Send Email Access</span>
+                  <Badge variant="outline" className="ml-auto text-xs bg-destructive/10 text-destructive border-destructive/20">Not Recommended</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1 ml-6">
                   {selectedMember?.email 
