@@ -85,6 +85,112 @@ Edge functions auto-deploy to Supabase on push to `main`.
 - Migrations in `supabase/migrations/` are versioned and reversible
 - Never use duplicate migration timestamps — `supabase db push` will fail with a PK conflict on `schema_migrations`
 
+## Staff & Multi-Role Access Rules (MANDATORY — read before touching RLS, edge functions, or auth)
+
+This codebase has **four user types** with different auth mechanisms. Every RLS policy, edge function, and frontend component must account for all of them. These rules exist because production bugs have repeatedly occurred when new code only checks `profiles`.
+
+### User Types and Auth Mechanisms
+
+| User Type | Auth Method | ID Source | Agency Resolution |
+|-----------|------------|-----------|-------------------|
+| Admin | Supabase JWT | `auth.users.id` → `profiles.id` | `profiles.role = 'admin'` (all agencies) |
+| Agency Owner | Supabase JWT | `auth.users.id` → `profiles.id` | `profiles.agency_id` |
+| Key Employee | Supabase JWT | `auth.users.id` → `profiles.id` + `key_employees.user_id` | `key_employees.agency_id` |
+| Staff User | `x-staff-session` header OR `session_token` in body | `staff_users.id` (NOT in `auth.users`) | `staff_users.agency_id` |
+
+### Rule 1: ALWAYS use `has_agency_access()` in RLS policies
+
+Every RLS policy that checks agency membership **MUST** use `has_agency_access(auth.uid(), agency_id)`. This function already handles all four user types.
+
+```sql
+-- CORRECT:
+CREATE POLICY "my_table_select" ON my_table
+  FOR SELECT USING (has_agency_access(auth.uid(), agency_id));
+
+-- WRONG — blocks key employees and staff:
+CREATE POLICY "my_table_select" ON my_table
+  FOR SELECT USING (
+    agency_id IN (SELECT agency_id FROM profiles WHERE id = auth.uid())
+  );
+
+-- WRONG — same problem, different syntax:
+CREATE POLICY "my_table_select" ON my_table
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles p WHERE p.id = auth.uid() AND p.agency_id = my_table.agency_id)
+  );
+```
+
+**Why:** The `profiles` table only contains admins and agency owners. Key employees are in `key_employees`, and staff users are in `staff_users` with a `linked_profile_id`. Direct `profiles` checks silently exclude 2 of 4 user types.
+
+**NEVER** write `FROM profiles WHERE id = auth.uid()` in any RLS policy. If you see this pattern in existing code, it is a bug — fix it.
+
+### Rule 2: Edge functions MUST use `_shared/cors.ts` or include staff headers
+
+Every edge function **MUST** either:
+1. Import `corsHeaders` from `../_shared/cors.ts` (preferred), OR
+2. Include `x-staff-session, x-staff-session-token` in its inline `Access-Control-Allow-Headers`
+
+```typescript
+// CORRECT — import shared CORS:
+import { corsHeaders } from '../_shared/cors.ts';
+
+// CORRECT — inline with staff headers:
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session, x-staff-session-token',
+};
+
+// WRONG — missing staff session headers (browser preflight will reject):
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+```
+
+**Exception:** Functions that are genuinely pre-auth (e.g., `staff_request_password_reset`, `resolve_public_form`) and will never receive a staff session header may omit it, but prefer including it for consistency.
+
+### Rule 3: Edge functions that need auth MUST use `verifyRequest()` for dual-mode support
+
+Any edge function that checks who the caller is **MUST** use the `verifyRequest()` helper from `_shared/verifyRequest.ts`. This handles both JWT auth (owners/admins) and staff session auth in one call.
+
+```typescript
+// CORRECT:
+import { verifyRequest, isVerifyError } from '../_shared/verifyRequest.ts';
+const authResult = await verifyRequest(req);
+if (isVerifyError(authResult)) {
+  return new Response(JSON.stringify({ error: authResult.error }), { status: authResult.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+const { mode, agencyId, staffUserId, userId, isManager } = authResult;
+
+// WRONG — blocks all staff users:
+const { data: { user } } = await supabase.auth.getUser();
+```
+
+**Exception:** Admin-only functions (`admin-create-user`, `admin-delete-user`) may use JWT-only auth since staff should never call them. Staff-specific functions (`staff_add_quote`, `staff_submit_form`) that use `x-staff-session` header validation directly are also fine.
+
+### Rule 4: Frontend components MUST NOT use `useAuth().user.id` for staff-facing features
+
+Components rendered in the staff portal (`/staff/*`) must use `useStaffAuth()`, not `useAuth()`. The IDs come from different tables:
+
+- `useAuth().user.id` → `auth.users.id` (only for owners/admins)
+- `useStaffAuth().user.id` → `staff_users.id` (for staff)
+
+If a component needs to work in both portals, accept the user ID as a prop instead of calling either hook directly.
+
+### Rule 5: New tables with `user_id` columns MUST support staff
+
+When creating a table that tracks who performed an action:
+
+```sql
+-- CORRECT — dual reference pattern:
+created_by_user_id uuid REFERENCES auth.users(id),
+created_by_staff_id uuid REFERENCES staff_users(id),
+CONSTRAINT must_have_creator CHECK (created_by_user_id IS NOT NULL OR created_by_staff_id IS NOT NULL)
+
+-- WRONG — staff operations will get FK violations:
+user_id uuid NOT NULL REFERENCES auth.users(id)
+```
+
 ## metrics_daily Rules (MANDATORY — read before touching any metrics code)
 
 The `metrics_daily` table is written to by **multiple independent paths** (scorecard submissions, dashboard "Add Quote" button, call sync triggers, sales sync triggers). These rules exist because production bugs have occurred when they were violated.
