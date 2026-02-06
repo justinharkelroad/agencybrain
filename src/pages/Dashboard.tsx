@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useQueryClient } from '@tanstack/react-query';
 import SharedInsights from '@/components/client/SharedInsights';
 import PerformanceMetrics from '@/components/client/PerformanceMetrics';
 import MonthOverMonthTrends from '@/components/client/MonthOverMonthTrends';
@@ -29,6 +30,7 @@ import { Plus } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, signOut, isAdmin, membershipTier, isAgencyOwner, isKeyEmployee, hasTierAccess } = useAuth();
   const {
     canViewPerformanceMetrics,
@@ -239,7 +241,9 @@ const Dashboard = () => {
           teamMembers={teamMembers}
           objections={objections}
           currentTeamMemberId={null}
-          onSuccess={() => {}}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] });
+          }}
         />
       )}
     </div>

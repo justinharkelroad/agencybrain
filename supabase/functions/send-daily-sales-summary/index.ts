@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { shouldSendDailySummary, getDayName } from '../_shared/business-days.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,14 +20,25 @@ const BRAND = {
   fromEmail: 'Agency Brain <info@agencybrain.standardplaybook.com>',
 };
 
-// Timezone to hour offset map for common US timezones
-const TIMEZONE_OFFSETS: Record<string, number> = {
-  'America/New_York': -5,
-  'America/Chicago': -6,
-  'America/Denver': -7,
-  'America/Los_Angeles': -8,
-  'America/Phoenix': -7,
-};
+// DST-aware local hour using Intl (replaces hardcoded offsets)
+function getLocalHour(timezone: string): number {
+  try {
+    const hour = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date());
+    return parseInt(hour, 10);
+  } catch {
+    // Fallback for unknown timezone: assume Eastern
+    const fallbackHour = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date());
+    return parseInt(fallbackHour, 10);
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -78,28 +88,12 @@ serve(async (req) => {
     
     console.log('[send-daily-sales-summary] Starting daily summary check');
 
-    // Check if today is a valid day to send summary
-    // Skip Sunday (would report on Saturday) and Monday (would report on Sunday)
-    const now = new Date();
-    if (!forceTest && !shouldSendDailySummary(now)) {
-      const dayName = getDayName(now);
-      console.log(`[send-daily-sales-summary] Skipping - today is ${dayName}, yesterday was not a business day`);
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          skipped: true, 
-          reason: 'Yesterday was not a business day (weekend)',
-          today: dayName
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // NOTE: No global day-of-week check here. This function reports TODAY's sales
+    // (not yesterday's), so Monday is a valid business day. The per-agency
+    // localHour !== 19 check handles timing. The scheduler handles day-of-week.
 
-    // Get current UTC time
     const nowUtc = new Date();
-    const currentUtcHour = nowUtc.getUTCHours();
-    
-    console.log('[send-daily-sales-summary] Current UTC hour:', currentUtcHour);
+    console.log('[send-daily-sales-summary] Current UTC time:', nowUtc.toISOString());
 
     // Fetch agencies with daily summary enabled (or specific agency if testing)
     let agencyQuery = supabase
@@ -126,13 +120,9 @@ serve(async (req) => {
     for (const agency of agencies || []) {
       try {
         const timezone = agency.timezone || 'America/New_York';
-        
-        // Calculate local hour for this agency
-        // Note: This is a simplified calculation; DST not handled perfectly
-        const offset = TIMEZONE_OFFSETS[timezone] || -5;
-        let localHour = currentUtcHour + offset;
-        if (localHour < 0) localHour += 24;
-        if (localHour >= 24) localHour -= 24;
+
+        // Calculate local hour for this agency (DST-aware)
+        const localHour = getLocalHour(timezone);
 
         console.log(`[send-daily-sales-summary] Agency ${agency.name}: timezone=${timezone}, localHour=${localHour}`);
 

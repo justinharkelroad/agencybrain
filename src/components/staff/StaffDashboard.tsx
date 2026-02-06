@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format, subDays } from 'date-fns';
+import { useQueryClient } from '@tanstack/react-query';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -96,6 +97,7 @@ function CompactRing({
 
 export function StaffDashboard() {
   const { user, sessionToken } = useStaffAuth();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [hasSubmission, setHasSubmission] = useState(false);
   const [kpiData, setKpiData] = useState<KPIData[]>([]);
@@ -398,7 +400,9 @@ export function StaffDashboard() {
           teamMembers={teamMembers}
           objections={objections}
           currentTeamMemberId={user.team_member_id}
-          onSuccess={() => {}}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] });
+          }}
           staffSessionToken={sessionToken}
         />
       )}
