@@ -738,15 +738,12 @@ export default function LqsRoiPage() {
             icon={DollarSign}
             variant="success"
           />
-          {/* Quote Rate - hide in activity view */}
-          {!summary.isActivityView && (
-            <SummaryCard
-              title="Quote Rate"
-              value={summary.quoteRate !== null ? formatPercent(summary.quoteRate) : '—'}
-              icon={Percent}
-              tooltip="Percentage of total leads that received a quote"
-            />
-          )}
+          <SummaryCard
+            title="Quote Rate"
+            value={summary.quoteRate !== null ? formatPercent(summary.quoteRate) : '—'}
+            icon={Percent}
+            tooltip={summary.isActivityView ? "Quotes Created ÷ Leads Received" : "Percentage of total leads that received a quote"}
+          />
           <SummaryCard
             title="Close Rate"
             value={summary.closeRate !== null ? formatPercent(summary.closeRate) : '—'}

@@ -774,7 +774,10 @@ export function useLqsRoiAnalytics(
       };
     }).sort((a, b) => b.premiumCents - a.premiumCents);
 
-    // Calculate close rate for activity view: Sales Closed ÷ Quotes Created
+    // Calculate rates for activity view
+    const activityQuoteRate = leadsReceived.length > 0
+      ? (uniqueQuotedHouseholds.size / leadsReceived.length) * 100
+      : null;
     const activityCloseRate = uniqueQuotedHouseholds.size > 0
       ? (uniqueSoldHouseholds.size / uniqueQuotedHouseholds.size) * 100
       : null;
@@ -788,7 +791,7 @@ export function useLqsRoiAnalytics(
       salesClosed: uniqueSoldHouseholds.size,
       premiumSoldCents,
       commissionEarned,
-      quoteRate: null, // Not applicable in activity view - hide the card
+      quoteRate: activityQuoteRate, // Quotes Created ÷ Leads Received
       closeRate: activityCloseRate, // Sales Closed ÷ Quotes Created
       totalSpendCents,
       overallRoi,
