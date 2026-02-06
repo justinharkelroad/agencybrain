@@ -281,12 +281,13 @@ serve(async (req) => {
 
       // Create quote and sale records for each policy (this auto-updates household status via triggers)
       if (lqsHouseholdId) {
+        let lqsErrors = 0;
         for (const policy of body.policies) {
           const premiumCents = Math.round((policy.items.reduce((sum, i) => sum + i.premium, 0)) * 100);
           const itemsCount = policy.items.reduce((sum, i) => sum + i.item_count, 0);
 
           // Create quote (triggers status → 'quoted')
-          await supabase
+          const { error: quoteErr } = await supabase
             .from('lqs_quotes')
             .insert({
               household_id: lqsHouseholdId,
@@ -300,8 +301,13 @@ serve(async (req) => {
               source: 'manual',
             });
 
+          if (quoteErr) {
+            console.error('[create_staff_sale] Failed to create LQS quote:', quoteErr);
+            lqsErrors++;
+          }
+
           // Create sale (triggers status → 'sold')
-          await supabase
+          const { error: saleErr } = await supabase
             .from('lqs_sales')
             .insert({
               household_id: lqsHouseholdId,
@@ -315,8 +321,17 @@ serve(async (req) => {
               policy_number: policy.policy_number || null,
               source: 'sales_dashboard',
             });
+
+          if (saleErr) {
+            console.error('[create_staff_sale] Failed to create LQS sale:', saleErr);
+            lqsErrors++;
+          }
         }
-        console.log('[create_staff_sale] LQS quotes and sales created');
+        if (lqsErrors > 0) {
+          console.warn(`[create_staff_sale] LQS pipeline completed with ${lqsErrors} error(s)`);
+        } else {
+          console.log('[create_staff_sale] LQS quotes and sales created');
+        }
       }
     } catch (lqsErr) {
       console.warn('[create_staff_sale] LQS pipeline creation failed:', lqsErr);
