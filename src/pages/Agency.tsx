@@ -31,7 +31,6 @@ import { HelpButton } from '@/components/HelpButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
 import { MeetingFrameTab } from "@/components/agency/MeetingFrameTab";
-import { RingCentralConnect } from "@/components/RingCentralConnect";
 import { RingCentralReportUpload } from "@/components/RingCentralReportUpload";
 import { Core4Tab } from "@/components/agency/Core4Tab";
 import { EmailDeliveryNoticeButton, EmailDeliveryNoticeModal } from "@/components/EmailDeliveryNoticeModal";
@@ -1518,11 +1517,8 @@ export default function Agency() {
                   <p className="text-sm text-muted-foreground mb-4">
                     Connect your phone system to automatically sync call logs and track team performance.
                   </p>
-                  <RingCentralConnect />
                   {agencyId && (
-                    <div className="mt-4">
-                      <RingCentralReportUpload agencyId={agencyId} />
-                    </div>
+                    <RingCentralReportUpload agencyId={agencyId} />
                   )}
                 </AccordionContent>
               </AccordionItem>

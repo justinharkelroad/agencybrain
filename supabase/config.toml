@@ -387,15 +387,6 @@ verify_jwt = false
 [functions.challenge-verify-session]
 verify_jwt = false
 
-[functions.ringcentral-oauth-init]
-verify_jwt = true
-
-[functions.ringcentral-oauth-callback]
-verify_jwt = false
-
-[functions.ringcentral-sync-calls]
-verify_jwt = false
-
 [functions.analyze_staff_flow_session]
 verify_jwt = false
 
