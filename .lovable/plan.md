@@ -1,43 +1,49 @@
 
-# Fix: Browser Tab Title Not Updating on Flow Pages
 
-## Problem
-When navigating to flow session pages (like `/flows/session/bible`), the browser tab title doesn't update - it remains whatever it was on the previous page (e.g., "Sequence Builder").
+# Update Scorecard AI Coaching Prompt
 
-## Root Cause
-The `FlowSession.tsx` page (and related flow pages) never call `document.title = ...`, unlike other pages in the app that do set it.
+## What's Changing
+Replacing the current AI system prompt in the scorecard feedback email function with the new "Agency Brain Performance Coach" persona and output structure.
 
-## Solution
-Add `document.title` updates to all flow-related pages that are missing them.
+## Current State
+The prompt lives in `supabase/functions/send_submission_feedback/index.ts` and uses a supportive coaching tone with bullet-point feedback organized by Champion/Grinder/Alert tiers.
 
-## Files to Update
+## New Prompt
+The updated prompt will use a direct, visceral coaching tone with:
+- No excessive formatting (minimal bolding/asterisks)
+- "I" and "you" language (no "the data shows")
+- 150-word limit
+- Output: one-sentence tier headline, a "Pulse Check" on effort vs. results, and one "Hard Truth" or "Actionable Shift"
 
-| File | New Title Format |
-|------|------------------|
-| `src/pages/flows/FlowSession.tsx` | `"{template.name} | AgencyBrain"` (e.g., "Bible \| AgencyBrain") |
-| `src/pages/flows/FlowsHub.tsx` | `"My Flows | AgencyBrain"` |
-| `src/pages/flows/FlowStart.tsx` | `"Start {template.name} | AgencyBrain"` |
-| `src/pages/flows/FlowComplete.tsx` | `"Flow Complete | AgencyBrain"` |
-| `src/pages/staff/StaffFlowSession.tsx` | `"{template.name} | AgencyBrain"` |
-| `src/pages/staff/StaffFlowStart.tsx` | `"Start {template.name} | AgencyBrain"` |
+## Technical Details
 
-## Implementation
+**File:** `supabase/functions/send_submission_feedback/index.ts`
 
-For `FlowSession.tsx`, add a `useEffect` that updates the title when the template loads:
+The system prompt (currently in the `generateAIFeedback` function) will be replaced with:
 
-```tsx
-useEffect(() => {
-  if (template?.name) {
-    document.title = `${template.name} | AgencyBrain`;
-  } else {
-    document.title = "Flow Session | AgencyBrain";
-  }
-}, [template?.name]);
+```
+You are the Agency Brain, a high-stakes Performance Coach. Your tone is direct, visceral, and results-obsessed—think of a world-class athletic coach who cares about the person but refuses to accept a losing season.
+
+The Rules:
+- No Excessive Formatting: Avoid over-using bolding or asterisks. Keep it clean.
+- Lead with the Lead: Start with the "Tier" status as a headline.
+- Human Language: Use "I" and "you." Avoid "the data shows" or "however."
+- The 150-Word Wall: Keep it punchy.
+
+Step 1: Categorization
+- Champion (All Wins): They didn't just work; they dominated. High praise.
+- Grinder (Mixed/Near Miss): They are in the fight but losing the efficiency battle. Focus on the "Gap."
+- The Alert (Critical Misses): Radical honesty. If the numbers are this low, the activity isn't translating to income.
+
+Output Structure:
+- A one-sentence headline based on Tier.
+- A brief "Pulse Check" on the effort (calls) vs. results (quotes/sales).
+- One "Hard Truth" or "Actionable Shift" for tomorrow.
 ```
 
-Similar pattern for other pages, using the appropriate dynamic title based on the template or static text.
+The existing tier classification logic (Win >= target, Near Miss 80-99%, Miss 50-79%, Critical Miss < 50%) and the user message with metrics data remain unchanged -- only the system prompt personality and output format changes.
 
-## Technical Notes
-- Title updates when `template` data loads from the database
-- Fallback title used while loading or if template is missing
-- Follows existing app pattern (e.g., `Agency.tsx` uses `"My Agency | AgencyBrain"`)
+## Notes
+- This change is blocked by the 19 edge function build errors and 9 frontend errors listed above. Those must be fixed first (or simultaneously) for this to deploy.
+- No other files need to change -- the prompt is entirely contained in the one edge function.
+
