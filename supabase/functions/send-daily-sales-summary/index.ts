@@ -324,7 +324,9 @@ serve(async (req) => {
             .eq('role', 'Manager');
 
           for (const m of managers || []) {
-            if (m.email) recipientSet.add(m.email.toLowerCase());
+            if (m.email && !m.email.includes('@staff.placeholder')) {
+              recipientSet.add(m.email.toLowerCase());
+            }
           }
 
           recipients = Array.from(recipientSet);

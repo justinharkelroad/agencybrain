@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
       submittedCount: number;
       totalCount: number;
       recipients: number;
-      emailId?: string;
+      emailIds?: string[];
       error?: string;
     }> = [];
 
@@ -436,12 +436,12 @@ Deno.serve(async (req) => {
           ? Math.round(summaries.filter(s => s.submitted).reduce((sum, s) => sum + s.passRate, 0) / submittedCount)
           : 0;
 
-        // Build recipient list based on settings
-        const recipients: string[] = [];
+        // Build recipient list based on settings (use Set with lowercase for dedup)
+        const recipientSet = new Set<string>();
         const recipientSetting = settings.dailySummaryRecipients || 'all_team';
 
         if (recipientSetting === 'owner_only') {
-          if (agency.agency_email) recipients.push(agency.agency_email);
+          if (agency.agency_email) recipientSet.add(agency.agency_email.toLowerCase());
         } else if (recipientSetting === 'custom') {
           const customIds = settings.customSummaryRecipients || [];
           if (customIds.length > 0) {
@@ -451,7 +451,7 @@ Deno.serve(async (req) => {
               .in('id', customIds);
             customMembers?.forEach(m => {
               if (m.email && !m.email.includes('@staff.placeholder')) {
-                recipients.push(m.email);
+                recipientSet.add(m.email.toLowerCase());
               }
             });
           }
@@ -479,14 +479,14 @@ Deno.serve(async (req) => {
           const { data: roleMembers } = await membersQuery;
           roleMembers?.forEach(m => {
             if (m.email && !m.email.includes('@staff.placeholder')) {
-              recipients.push(m.email);
+              recipientSet.add(m.email.toLowerCase());
             }
           });
         }
 
         // Always include agency owner
-        if (agency.agency_email && !recipients.includes(agency.agency_email)) {
-          recipients.push(agency.agency_email);
+        if (agency.agency_email) {
+          recipientSet.add(agency.agency_email.toLowerCase());
         }
 
         // Also include active staff users (their real emails are in staff_users,
@@ -500,12 +500,11 @@ Deno.serve(async (req) => {
 
         staffUsers?.forEach(u => {
           if (u.email && !u.email.includes('@staff.placeholder')) {
-            recipients.push(u.email);
+            recipientSet.add(u.email.toLowerCase());
           }
         });
 
-        // Deduplicate
-        const uniqueRecipients = [...new Set(recipients)];
+        const uniqueRecipients = Array.from(recipientSet);
 
         logStructured('recipients_resolved', { formId: form.id, recipientCount: uniqueRecipients.length, setting: recipientSetting });
 
