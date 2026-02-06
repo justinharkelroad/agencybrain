@@ -77,6 +77,65 @@ Edge functions auto-deploy to Supabase on push to `main`.
 - Use `FOR SELECT` for read-only dashboard queries
 - Never use `SECURITY DEFINER` without explicit justification
 - Migrations in `supabase/migrations/` are versioned and reversible
+- Never use duplicate migration timestamps — `supabase db push` will fail with a PK conflict on `schema_migrations`
+
+## metrics_daily Rules (MANDATORY — read before touching any metrics code)
+
+The `metrics_daily` table is written to by **multiple independent paths** (scorecard submissions, dashboard "Add Quote" button, call sync triggers, sales sync triggers). These rules exist because production bugs have occurred when they were violated.
+
+### Rule 1: GREATEST() on quoted_count and sold_items
+
+Any function that writes to `metrics_daily` via `ON CONFLICT ... DO UPDATE` **MUST** use `GREATEST()` for `quoted_count` and `sold_items`:
+
+```sql
+-- CORRECT:
+quoted_count = GREATEST(COALESCE(metrics_daily.quoted_count, 0), EXCLUDED.quoted_count),
+sold_items   = GREATEST(COALESCE(metrics_daily.sold_items, 0), EXCLUDED.sold_items),
+
+-- WRONG — will overwrite trigger-incremented values back to 0:
+quoted_count = EXCLUDED.quoted_count,
+sold_items   = EXCLUDED.sold_items,
+```
+
+**Why:** The `lqs_households` trigger increments `quoted_count` when a quote is added from the dashboard. If a scorecard submission later runs `upsert_metrics_from_submission`, a plain `= EXCLUDED.quoted_count` overwrites the trigger's increment. `GREATEST()` preserves whichever value is higher.
+
+**Applies to:** `upsert_metrics_from_submission`, `sync_call_metrics_to_metrics_daily`, `sync_lqs_sales_to_metrics_daily`, and any future function that upserts into `metrics_daily`.
+
+### Rule 2: kpi_version_id and label_at_submit are required
+
+Every INSERT into `metrics_daily` **MUST** include `kpi_version_id` and `label_at_submit`. There is a CHECK constraint (`md_version_fields_nonnull`) that will reject rows without them.
+
+```sql
+-- Look up a valid kpi_version for the agency:
+SELECT kv.id, kv.label INTO v_kpi_version_id, v_label
+FROM kpi_versions kv
+JOIN kpis k ON k.id = kv.kpi_id
+WHERE k.agency_id = <agency_id> AND kv.valid_to IS NULL
+ORDER BY kv.valid_from DESC LIMIT 1;
+
+-- Fallback via form bindings if direct lookup fails:
+SELECT kv.id, kv.label INTO v_kpi_version_id, v_label
+FROM forms_kpi_bindings fb
+JOIN kpi_versions kv ON kv.id = fb.kpi_version_id
+JOIN form_templates ft ON ft.id = fb.form_template_id
+WHERE ft.agency_id = <agency_id> AND kv.valid_to IS NULL
+ORDER BY fb.created_at DESC LIMIT 1;
+```
+
+If no kpi_version is found, **skip the INSERT** and log a warning — do not insert with NULL values.
+
+### Rule 3: KPI extraction must handle ALL slugs, not just custom
+
+When extracting KPI values from form schemas in `upsert_metrics_from_submission`, the loop over `form_schema->'kpis'` must process **all** KPI types:
+
+- `custom_%` slugs → store in `custom_kpis` JSONB column
+- Standard slugs (`outbound_calls`, `quoted_households`, `items_sold`, etc.) → route to the corresponding column variable (`oc`, `qc`, `si`, etc.)
+
+**Never** add `IF v_selected_kpi_slug NOT LIKE 'custom_%' THEN CONTINUE;` — this silently drops standard KPIs that are mapped via `custom_kpi_*` field keys, causing them to extract as 0.
+
+### Rule 4: onSuccess callbacks must invalidate cache
+
+Any modal or form that writes data affecting `metrics_daily` (e.g., `AddQuoteModal`) **must** call `queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] })` in its `onSuccess` callback. Never use `onSuccess={() => {}}`.
 
 ## Testing
 
