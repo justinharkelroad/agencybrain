@@ -245,7 +245,43 @@ When extracting KPI values from form schemas in `upsert_metrics_from_submission`
 
 **Never** add `IF v_selected_kpi_slug NOT LIKE 'custom_%' THEN CONTINUE;` — this silently drops standard KPIs that are mapped via `custom_kpi_*` field keys, causing them to extract as 0.
 
-### Rule 4: onSuccess callbacks must invalidate cache
+### Rule 4: NEVER compute hits/pass from form payload values
+
+Any function that computes `hits`, `pass`, or `daily_score` **MUST** use the actual stored values in `metrics_daily`, NOT values extracted from the form payload. Form payload values are pre-GREATEST — the actual stored `quoted_count` and `sold_items` may be higher due to dashboard adds or sync triggers.
+
+```sql
+-- WRONG — computes hits from form payload, which may be 0 even though DB has 6:
+qc := _nz_int(s.p->'quoted_households');  -- form says 0
+-- ... later ...
+IF qc >= nreq THEN hits := hits + 1; END IF;  -- 0 >= 3 = false (WRONG)
+-- ... but GREATEST stores 6 in the DB:
+quoted_count = GREATEST(COALESCE(metrics_daily.quoted_count, 0), EXCLUDED.quoted_count)
+
+-- CORRECT — the AFTER trigger recalculates from stored values automatically.
+-- Do NOT try to compute hits/pass inline. The trigger handles it.
+```
+
+**Why:** `upsert_metrics_from_submission` applies `GREATEST()` in the ON CONFLICT clause, but it computed `hits`/`pass` *before* the upsert using the raw form values. If the DB already had `quoted_count=6` from dashboard adds and the form sent `0`, the DB correctly stored `6` but `pass` was calculated from `0`.
+
+**Current protection:** The AFTER trigger `trg_metrics_daily_recalc_hits_pass` on `metrics_daily` (migration `20260206120000`) automatically recalculates `hits`/`pass`/`daily_score` from stored values whenever metric columns change. This covers all write paths. **Do not remove or disable this trigger.**
+
+### Rule 5: Pass threshold MUST use `scorecard_rules.n_required`, NOT `array_length(selected_metrics)`
+
+When determining whether a team member passed, **ALWAYS** use `scorecard_rules.n_required` (default 2):
+
+```sql
+-- CORRECT — matches dashboard display:
+v_pass := (v_hits >= COALESCE(rules.n_required, 2));
+
+-- WRONG — requires ALL metrics to hit, but agencies configure n_required for a reason:
+v_pass := (v_hits >= array_length(rules.selected_metrics, 1));
+```
+
+**Why:** `upsert_metrics_from_submission` used `array_length(sel, 1)` which required ALL selected metrics to pass (e.g., 4/4). But the dashboard (`get_dashboard_daily`) uses `n_required` (e.g., 2). This caused the dashboard to show pass while the calendar showed fail for the same day. The `recalculate_metrics_hits_pass` function and trigger now correct this.
+
+**Applies to:** `recalculate_metrics_hits_pass`, `upsert_metrics_from_submission`, and any future function that computes `pass`.
+
+### Rule 6: onSuccess callbacks must invalidate cache
 
 Any modal or form that writes data affecting `metrics_daily` (e.g., `AddQuoteModal`) **must** call `queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] })` in its `onSuccess` callback. Never use `onSuccess={() => {}}`.
 
