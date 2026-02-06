@@ -53,7 +53,7 @@ export const useMarketingBuckets = () => {
     }
   };
 
-  const createBucket = async (bucket: { name: string; commission_rate_percent: number }): Promise<MarketingBucket | null> => {
+  const createBucket = async (bucket: { name: string }): Promise<MarketingBucket | null> => {
     if (!user?.id) return null;
 
     try {
@@ -76,7 +76,6 @@ export const useMarketingBuckets = () => {
         .from('marketing_buckets')
         .insert({
           name: bucket.name,
-          commission_rate_percent: bucket.commission_rate_percent,
           agency_id: profile.agency_id,
           order_index: maxOrder + 1,
           is_active: true

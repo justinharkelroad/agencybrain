@@ -15,7 +15,7 @@ interface MarketingBucketModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   bucket: MarketingBucket | null; // null = create mode
-  onSave: (data: { name: string; commission_rate_percent: number }) => Promise<boolean>;
+  onSave: (data: { name: string }) => Promise<boolean>;
   loading?: boolean;
 }
 
@@ -27,7 +27,6 @@ export const MarketingBucketModal = ({
   loading = false
 }: MarketingBucketModalProps) => {
   const [name, setName] = useState('');
-  const [commissionRate, setCommissionRate] = useState<number>(15);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,10 +36,8 @@ export const MarketingBucketModal = ({
     if (open) {
       if (bucket) {
         setName(bucket.name);
-        setCommissionRate(bucket.commission_rate_percent);
       } else {
         setName('');
-        setCommissionRate(15);
       }
       setError(null);
     }
@@ -54,18 +51,12 @@ export const MarketingBucketModal = ({
       return;
     }
 
-    if (commissionRate < 0 || commissionRate > 100) {
-      setError('Commission rate must be between 0 and 100');
-      return;
-    }
-
     setSaving(true);
     setError(null);
 
     try {
       const success = await onSave({
         name: name.trim(),
-        commission_rate_percent: commissionRate
       });
 
       if (success) {
@@ -100,28 +91,6 @@ export const MarketingBucketModal = ({
                 placeholder="e.g., Internet Leads"
                 disabled={saving || loading}
               />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="commission-rate">
-                Average Commission Rate (%)
-              </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="commission-rate"
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.5}
-                  value={commissionRate}
-                  onChange={(e) => setCommissionRate(parseFloat(e.target.value) || 0)}
-                  disabled={saving || loading}
-                  className="w-24"
-                />
-                <span className="text-muted-foreground text-sm">
-                  Used for ROI calculations
-                </span>
-              </div>
             </div>
 
             {error && (

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useMemo } from 'react';
-import { startOfMonth, endOfMonth, format, subDays, startOfQuarter, startOfYear, startOfDay, endOfDay } from 'date-fns';
+import { startOfMonth, endOfMonth, format, subDays, startOfQuarter, startOfYear, startOfDay, endOfDay, getDaysInMonth, parseISO, max as dateMax, min as dateMin, differenceInCalendarDays } from 'date-fns';
 
 export interface LeadSourceRoiRow {
   leadSourceId: string | null;
@@ -385,11 +385,26 @@ export function useLqsRoiAnalytics(
     // Create bucket name map
     const bucketNameMap = new Map(buckets.map(b => [b.id, b.name]));
 
-    // Aggregate spend by lead source
+    // Aggregate spend by lead source, pro-rating partial months when date range is set
     const spendBySource = new Map<string | null, number>();
     spendData.forEach(s => {
+      let spendCents = s.total_spend_cents || 0;
+
+      // Pro-rate for partial months when a date range is active
+      if (dateRange && s.month) {
+        const monthStart = startOfMonth(parseISO(s.month));
+        const monthEnd = endOfMonth(monthStart);
+        const daysInMonth = getDaysInMonth(monthStart);
+        // Calculate overlap between the date range and this month
+        const overlapStart = dateMax([monthStart, dateRange.start]);
+        const overlapEnd = dateMin([monthEnd, dateRange.end]);
+        const overlapDays = differenceInCalendarDays(overlapEnd, overlapStart) + 1;
+        if (overlapDays <= 0) return; // No overlap, skip
+        spendCents = Math.round(spendCents * (overlapDays / daysInMonth));
+      }
+
       const current = spendBySource.get(s.lead_source_id) || 0;
-      spendBySource.set(s.lead_source_id, current + (s.total_spend_cents || 0));
+      spendBySource.set(s.lead_source_id, current + spendCents);
     });
 
     const totalSpendCents = Array.from(spendBySource.values()).reduce((sum, val) => sum + val, 0);
@@ -774,10 +789,16 @@ export function useLqsRoiAnalytics(
       };
     }).sort((a, b) => b.premiumCents - a.premiumCents);
 
-    // Calculate rates for activity view
+    // Quote Rate uses same-cohort logic:
+    // Of leads received in this period, how many were also quoted in this period?
+    const leadsReceivedIds = new Set(leadsReceived.map(l => l.id));
+    const quotedLeadsInPeriod = new Set(
+      [...uniqueQuotedHouseholds].filter(id => leadsReceivedIds.has(id))
+    );
     const activityQuoteRate = leadsReceived.length > 0
-      ? (uniqueQuotedHouseholds.size / leadsReceived.length) * 100
+      ? (quotedLeadsInPeriod.size / leadsReceived.length) * 100
       : null;
+    // Close Rate: of households quoted in period, how many sold in period
     const activityCloseRate = uniqueQuotedHouseholds.size > 0
       ? (uniqueSoldHouseholds.size / uniqueQuotedHouseholds.size) * 100
       : null;
