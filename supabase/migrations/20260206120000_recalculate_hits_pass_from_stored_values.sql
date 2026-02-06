@@ -157,13 +157,10 @@ BEGIN
     END IF;
   END IF;
 
-  -- Determine pass: all selected metrics must be met
-  -- (matches upsert_metrics_from_submission logic)
-  IF array_length(sel, 1) IS NOT NULL AND array_length(sel, 1) > 0 THEN
-    v_pass := (v_hits >= array_length(sel, 1));
-  ELSE
-    v_pass := true;
-  END IF;
+  -- Determine pass: hits must meet n_required threshold
+  -- (matches get_dashboard_daily RPC logic, NOT upsert_metrics_from_submission
+  -- which incorrectly used array_length(sel,1) requiring ALL metrics)
+  v_pass := (v_hits >= COALESCE(rules.n_required, 2));
 
   -- Late override: late submissions fail unless lateCountsForPass is true
   IF COALESCE(m.is_late, false) = true AND v_allow_late = false THEN
