@@ -1235,7 +1235,7 @@ export default function Agency() {
                       <TableCell>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {m.status === 'inactive' ? (
-                            <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">Inactive</Badge>
+                            <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">Deactivated</Badge>
                           ) : (
                             <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">Active</Badge>
                           )}
