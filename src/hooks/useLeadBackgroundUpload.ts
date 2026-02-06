@@ -214,12 +214,10 @@ async function processInBackground(
 
     // Show completion toast
     if (errorCount === 0) {
-      const parts: string[] = [];
-      if (leadsCreated > 0) parts.push(`${leadsCreated} new leads added`);
-      if (leadsUpdated > 0) parts.push(`${leadsUpdated} matched existing households and were merged`);
+      const total = leadsCreated + leadsUpdated;
       toast({
         title: 'Lead Upload Complete!',
-        description: `${parts.join('. ')} → ${sourceDisplayName}`,
+        description: `${total} rows processed: ${leadsCreated} new leads created, ${leadsUpdated} already existed (merged). → ${sourceDisplayName}`,
       });
     } else {
       toast({
