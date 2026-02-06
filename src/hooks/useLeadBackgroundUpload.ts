@@ -213,16 +213,18 @@ async function processInBackground(
     queryClient.invalidateQueries({ queryKey: ['lqs-stats'] });
 
     // Show completion toast
-    const total = leadsCreated + leadsUpdated;
     if (errorCount === 0) {
+      const parts: string[] = [];
+      if (leadsCreated > 0) parts.push(`${leadsCreated} new leads added`);
+      if (leadsUpdated > 0) parts.push(`${leadsUpdated} matched existing households and were merged`);
       toast({
         title: 'Lead Upload Complete!',
-        description: `${total} leads processed (${leadsCreated} new, ${leadsUpdated} updated) → ${sourceDisplayName}`,
+        description: `${parts.join('. ')} → ${sourceDisplayName}`,
       });
     } else {
       toast({
         title: 'Upload completed with issues',
-        description: `${total} succeeded, ${errorCount} failed`,
+        description: `${leadsCreated} new, ${leadsUpdated} merged, ${errorCount} failed → ${sourceDisplayName}`,
         variant: 'destructive',
       });
     }
