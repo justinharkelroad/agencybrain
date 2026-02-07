@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Target, TrendingUp, AlertCircle, Pencil, DollarSign } from 'lucide-react';
+import { Target, TrendingUp, AlertCircle, Pencil, DollarSign, Info } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
@@ -52,12 +52,14 @@ function GoalMetric({
   target,
   format = 'number',
   icon: Icon,
+  tooltip,
 }: {
   label: string;
   current: number;
   target: number | null;
   format?: 'number' | 'currency';
   icon: React.ElementType;
+  tooltip?: string;
 }) {
   const hasTarget = target !== null && target > 0;
   const progress = hasTarget ? Math.min((current / target) * 100, 100) : 0;
@@ -75,6 +77,18 @@ function GoalMetric({
         <div className="flex items-center gap-2">
           <Icon className={cn('h-4 w-4', isAhead ? 'text-green-500' : 'text-muted-foreground')} />
           <span className="text-sm font-medium">{label}</span>
+          {tooltip && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-3.5 w-3.5 text-muted-foreground/60 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs max-w-[200px]">{tooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
         <TooltipProvider>
           <Tooltip>
@@ -317,6 +331,7 @@ export function LqsGoalsHeader({
             target={commissionTarget}
             format="currency"
             icon={DollarSign}
+            tooltip={`Written Premium × ${commissionRate}% commission rate`}
           />
         </div>
       </CardContent>
