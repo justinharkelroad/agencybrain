@@ -183,7 +183,7 @@ export const navigationConfig: NavEntry[] = [
         icon: Sparkles,
         type: 'link',
         url: '/coaching-insights',
-        access: { staff: false, manager: true, owner: true },
+        access: { staff: true, manager: true, owner: true },
         coachingInsightsAccess: true,
       },
       {

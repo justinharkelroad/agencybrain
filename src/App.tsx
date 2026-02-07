@@ -360,7 +360,7 @@ const App = () => {
             } />
             {/* Coaching Insights - Agency Owners and Managers */}
             <Route path="/coaching-insights" element={
-              <ProtectedRoute requireAgencyOwner>
+              <ProtectedRoute>
                 <SidebarLayout>
                   <CoachingInsightsPage />
                 </SidebarLayout>

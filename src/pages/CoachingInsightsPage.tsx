@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Sparkles, Loader2, PartyPopper } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
-import { useAgencyProfile } from '@/hooks/useAgencyProfile';
 import { useCoachingInsights } from '@/hooks/useCoachingInsights';
 import { InsightsSummaryBar } from '@/components/coaching/InsightsSummaryBar';
 import { TeamMemberInsightCard } from '@/components/coaching/TeamMemberInsightCard';
 import { HelpButton } from '@/components/HelpButton';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
+import { useAuth } from '@/lib/auth';
+import { hasCoachingInsightsAccess } from '@/lib/coachingInsightsAccess';
 import {
   Select,
   SelectContent,
@@ -16,31 +17,24 @@ import {
 } from '@/components/ui/select';
 import type { InsightSeverity } from '@/types/coaching';
 
-// Beta allowlist — only these agencies can access Coaching Insights
-const COACHING_INSIGHTS_AGENCY_IDS = new Set([
-  '16889dfb-81b2-4211-88c2-847e6b2c2cd0', // Test agency 1
-  '979e8713-c266-4b23-96a9-fabd34f1fc9e', // Harkelroad Family Insurance
-]);
-
 type RoleFilter = 'All' | 'Sales' | 'Service';
 type SeverityFilter = 'all' | InsightSeverity;
 
 export default function CoachingInsightsPage() {
   const { user } = useAuth();
-  const { data: agencyProfile, isLoading: profileLoading } = useAgencyProfile(user?.id, 'Manager');
-  const agencyId = agencyProfile?.agencyId ?? null;
+  const { agencyId, loading: permissionsLoading } = useUserPermissions();
 
-  const isAllowed = !agencyId || COACHING_INSIGHTS_AGENCY_IDS.has(agencyId);
+  const isAllowed = hasCoachingInsightsAccess(user?.email);
 
   const { data, isLoading: insightsLoading, error } = useCoachingInsights(isAllowed ? agencyId : null);
 
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('All');
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
 
-  const isLoading = profileLoading || insightsLoading;
+  const isLoading = permissionsLoading || insightsLoading;
 
-  // Gate: redirect non-allowed agencies once profile is loaded
-  if (!profileLoading && agencyId && !isAllowed) {
+  // Gate: redirect non-allowed agencies once role/agency info is loaded
+  if (!permissionsLoading && !isAllowed) {
     return <Navigate to="/dashboard" replace />;
   }
 

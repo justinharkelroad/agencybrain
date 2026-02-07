@@ -175,6 +175,13 @@ export default function CallScoring() {
   useEffect(() => {
     const detectStaffUser = async () => {
       console.log('=== CallScoring Staff Detection ===');
+      const authMode = localStorage.getItem('auth_mode');
+      if (authMode !== 'staff') {
+        console.log('Auth mode is not staff, using owner/admin mode');
+        setStaffDataLoaded(true);
+        return;
+      }
+
       const token = localStorage.getItem('staff_session_token');
       console.log('staff_session_token exists:', !!token);
       

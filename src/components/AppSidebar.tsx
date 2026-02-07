@@ -67,14 +67,9 @@ import { useSalesExperienceAccess } from "@/hooks/useSalesExperienceAccess";
 import { useSalesProcessBuilderAccess } from "@/hooks/useStandaloneSalesProcess";
 import { SidebarNavItem, SidebarFolder, SidebarSubFolder } from "@/components/sidebar";
 import type { CalcKey } from "@/components/ROIForecastersModal";
+import { hasCoachingInsightsAccess } from "@/lib/coachingInsightsAccess";
 
 const SIDEBAR_OPEN_FOLDER_KEY = 'sidebarOpenFolder';
-
-// Coaching Insights beta — agency allowlist
-const COACHING_INSIGHTS_AGENCY_IDS = new Set([
-  '16889dfb-81b2-4211-88c2-847e6b2c2cd0', // Test agency 1
-  '979e8713-c266-4b23-96a9-fabd34f1fc9e', // Harkelroad Family Insurance
-]);
 
 type AppSidebarProps = {
   onOpenROI?: (toolKey?: CalcKey) => void;
@@ -114,7 +109,7 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { data: salesProcessBuilderData, isError: salesProcessBuilderError } = useSalesProcessBuilderAccess();
   // If there's an error (like 403), treat as no access - don't crash the app
   const hasSalesProcessBuilderAccess = (!salesProcessBuilderError && salesProcessBuilderData?.hasAccess) ?? false;
-  const hasCoachingInsightsAccess = COACHING_INSIGHTS_AGENCY_IDS.has(agencyId ?? '');
+  const canAccessCoachingInsights = hasCoachingInsightsAccess(user?.email);
   const location = useLocation();
   const { data: subscription } = useSubscription();
 
@@ -317,7 +312,7 @@ const toggleFolder = useCallback((folderId: string) => {
       userEmail: user?.email,
       hasSalesExperienceAccess,
       hasSalesProcessBuilderAccess,
-      hasCoachingInsightsAccess,
+      hasCoachingInsightsAccess: canAccessCoachingInsights,
     });
     
     if (isCallScoringTier) {
@@ -362,7 +357,7 @@ const toggleFolder = useCallback((folderId: string) => {
     }
     
     return filtered;
-  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, hasSalesExperienceAccess, hasSalesProcessBuilderAccess, hasCoachingInsightsAccess]);
+  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, hasSalesExperienceAccess, hasSalesProcessBuilderAccess, canAccessCoachingInsights]);
 
 // Auto-expand folder containing active route
 useEffect(() => {
