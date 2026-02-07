@@ -82,6 +82,7 @@ import Contacts from "./pages/Contacts";
 import WinbackHQ from "./pages/WinbackHQ";
 import LqsRoadmapPage from "./pages/LqsRoadmapPage";
 import LqsRoiPage from "./pages/LqsRoiPage";
+import CoachingInsightsPage from "./pages/CoachingInsightsPage";
 import SubmissionDetail from "./pages/SubmissionDetail";
 import RepairExplorer from "./pages/RepairExplorer";
 import RunRepair from "./pages/RunRepair";
@@ -355,6 +356,14 @@ const App = () => {
             <Route path="/objection-manager" element={
               <ProtectedRoute>
                 <AdminLqsObjections />
+              </ProtectedRoute>
+            } />
+            {/* Coaching Insights - Agency Owners and Managers */}
+            <Route path="/coaching-insights" element={
+              <ProtectedRoute requireAgencyOwner>
+                <SidebarLayout>
+                  <CoachingInsightsPage />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             {/* Exchange Routes */}
