@@ -285,6 +285,61 @@ v_pass := (v_hits >= array_length(rules.selected_metrics, 1));
 
 Any modal or form that writes data affecting `metrics_daily` (e.g., `AddQuoteModal`) **must** call `queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] })` in its `onSuccess` callback. Never use `onSuccess={() => {}}`.
 
+## lqs_households Rules (MANDATORY — read before touching LQS data or writing cleanup migrations)
+
+The `lqs_households` table is the **single source of truth** for the LQS Roadmap pipeline (`lead` → `quoted` → `sold`). The Contacts page also derives lifecycle stages from this table. These two systems MUST stay in sync. These rules exist because a cleanup migration deleted legitimate data and broke the LQS Roadmap.
+
+### Rule 1: NEVER DELETE lqs_households rows in bulk without checking for linked contacts
+
+Any migration that deletes `lqs_households` rows **MUST** first verify those rows are not the only record keeping a contact visible in the LQS pipeline.
+
+```sql
+-- WRONG — deletes legitimate open leads, breaks LQS Roadmap:
+DELETE FROM lqs_households
+WHERE status = 'lead'
+  AND NOT EXISTS (SELECT 1 FROM lqs_quotes q WHERE q.household_id = lqs_households.id)
+  AND NOT EXISTS (SELECT 1 FROM lqs_sales s WHERE s.household_id = lqs_households.id);
+
+-- CORRECT — only delete if no linked contact depends on this record:
+DELETE FROM lqs_households h
+WHERE h.status = 'lead'
+  AND h.contact_id IS NULL                    -- No linked contact
+  AND NOT EXISTS (                             -- No contact matched by household_key
+    SELECT 1 FROM agency_contacts ac
+    WHERE ac.agency_id = h.agency_id AND ac.household_key = h.household_key
+  )
+  AND NOT EXISTS (SELECT 1 FROM lqs_quotes q WHERE q.household_id = h.id)
+  AND NOT EXISTS (SELECT 1 FROM lqs_sales s WHERE s.household_id = h.id);
+```
+
+**Why:** The Contacts page (`get_contacts_by_stage`) LEFT JOINs `lqs_households` on `household_key`. Contacts without a matching `lqs_households` row fall through to `ELSE 'open_lead'` and still appear as "Open Lead" on the Contacts page. But the LQS Roadmap counts `lqs_households.status = 'lead'` directly — if those rows are deleted, the Roadmap shows zero leads while the Contacts page still shows them. This happened in production (migration `20260205220000`, fixed by `20260207070000`).
+
+**Applies to:** Any migration or function that DELETEs from `lqs_households`.
+
+### Rule 2: Contacts and lqs_households must stay synchronized
+
+The two tables derive "Open Lead" status differently:
+
+| System | How it determines "Open Lead" |
+|--------|-------------------------------|
+| **Contacts page** (`get_contacts_by_stage`) | `lqs_households.status = 'lead'` OR no `lqs_households` row at all (ELSE fallback) |
+| **LQS Roadmap** (`useLqsData` hook) | `lqs_households.status = 'lead'` only |
+
+If a contact exists in `agency_contacts` but has **no** corresponding `lqs_households` row, it will show as "Open Lead" on the Contacts page but will be **invisible** on the LQS Roadmap.
+
+**Rule:** Any bulk operation on `lqs_households` (DELETE, status UPDATE) must consider the impact on both systems. If rows are removed, either:
+1. Ensure the contacts are no longer relevant (e.g., contact was also deleted), OR
+2. Re-create `lqs_households` rows for orphaned contacts
+
+### Rule 3: Cleanup migrations must be scoped, not sweeping
+
+When writing data cleanup migrations:
+
+- **Always scope** by specific `agency_id`, `created_at` range, or other identifying criteria — never clean "all rows matching a status"
+- **Always log** what will be affected with a dry-run count before the destructive operation
+- **Prefer UPDATE over DELETE** — marking records as inactive is safer than removing them
+- **Never assume** `status='lead'` with no quotes means "garbage data" — users can manually add leads via AddLeadModal that legitimately have no quotes yet
+
 ## Testing
 
 - **Vitest**: Unit tests with jsdom, setup in `src/tests/setup.ts`
