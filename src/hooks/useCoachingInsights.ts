@@ -61,14 +61,33 @@ export function useCoachingInsights(agencyId: string | null) {
     enabled: !!agencyId,
     staleTime: 60_000,
     queryFn: async (): Promise<TeamMemberRow[]> => {
-      const { data, error } = await supabase
+      const primary = await supabase
         .from('team_members')
         .select('id, name, role, status')
         .eq('agency_id', agencyId!)
         .eq('status', 'Active')
         .eq('include_in_metrics', true);
-      if (error) throw error;
-      return (data || []) as TeamMemberRow[];
+
+      if (!primary.error) {
+        return (primary.data || []) as TeamMemberRow[];
+      }
+
+      // Backward-compat fallback for environments missing include_in_metrics.
+      if (primary.error.code === '42703') {
+        const fallback = await supabase
+          .from('team_members')
+          .select('id, name, role, status')
+          .eq('agency_id', agencyId!)
+          .eq('status', 'Active');
+        if (fallback.error) {
+          console.warn('[coaching-insights] team_members fallback failed', fallback.error);
+          return [];
+        }
+        return (fallback.data || []) as TeamMemberRow[];
+      }
+
+      console.warn('[coaching-insights] team_members query failed', primary.error);
+      return [];
     },
   });
 
@@ -87,7 +106,10 @@ export function useCoachingInsights(agencyId: string | null) {
           .gte('date', sixtyDaysAgo)
           .lte('date', today)
           .range(from, from + PAGE_SIZE - 1);
-        if (error) throw error;
+        if (error) {
+          console.warn('[coaching-insights] metrics_daily query failed', error);
+          return [];
+        }
         if (!page || page.length === 0) break;
         allRows.push(...(page as MetricsDailyRow[]));
         if (page.length < PAGE_SIZE) break;
@@ -109,7 +131,10 @@ export function useCoachingInsights(agencyId: string | null) {
         .eq('agency_id', agencyId!)
         .not('team_member_id', 'is', null)
         .gte('created_at', sixtyDaysAgo);
-      if (hhError) throw hhError;
+      if (hhError) {
+        console.warn('[coaching-insights] lqs_households query failed', hhError);
+        return [];
+      }
       if (!households || households.length === 0) return [];
 
       const householdIds = households.map(h => h.id);
@@ -134,8 +159,14 @@ export function useCoachingInsights(agencyId: string | null) {
             .in('household_id', batch),
         ]);
 
-        if (quotesRes.error) throw quotesRes.error;
-        if (salesRes.error) throw salesRes.error;
+        if (quotesRes.error) {
+          console.warn('[coaching-insights] lqs_quotes query failed', quotesRes.error);
+          return [];
+        }
+        if (salesRes.error) {
+          console.warn('[coaching-insights] lqs_sales query failed', salesRes.error);
+          return [];
+        }
 
         for (const q of quotesRes.data || []) quotedHHSet.add(q.household_id);
         for (const s of salesRes.data || []) soldHHSet.add(s.household_id);
@@ -172,7 +203,10 @@ export function useCoachingInsights(agencyId: string | null) {
         .not('objection_id', 'is', null)
         .not('team_member_id', 'is', null)
         .gte('updated_at', thirtyDaysAgo);
-      if (error) throw error;
+      if (error) {
+        console.warn('[coaching-insights] objections query failed', error);
+        return [];
+      }
       if (!data || data.length === 0) return [];
 
       // Group by (team_member_id, objection_id)
@@ -204,7 +238,10 @@ export function useCoachingInsights(agencyId: string | null) {
         .from('targets')
         .select('metric_key, value_number, team_member_id')
         .eq('agency_id', agencyId!);
-      if (error) throw error;
+      if (error) {
+        console.warn('[coaching-insights] targets query failed', error);
+        return [];
+      }
       return (data || []) as TargetRow[];
     },
   });
@@ -220,7 +257,10 @@ export function useCoachingInsights(agencyId: string | null) {
         .select('thresholds')
         .eq('agency_id', agencyId!)
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        console.warn('[coaching-insights] thresholds query failed, using defaults', error);
+        return { ...DEFAULT_COACHING_THRESHOLDS };
+      }
       if (!data) return { ...DEFAULT_COACHING_THRESHOLDS };
       return { ...DEFAULT_COACHING_THRESHOLDS, ...(data.thresholds as Partial<CoachingThresholds>) };
     },
