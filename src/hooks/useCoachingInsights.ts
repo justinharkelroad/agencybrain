@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useMemo } from 'react';
 import { format, subDays } from 'date-fns';
 import { getCoachingSuggestion } from '@/components/coaching/coachingSuggestions';
-import type { CoachingInsight, InsightSeverity, TeamMemberInsights } from '@/types/coaching';
+import type { CoachingInsight, CoachingThresholds, InsightSeverity, TeamMemberInsights } from '@/types/coaching';
+import { DEFAULT_COACHING_THRESHOLDS } from '@/types/coaching';
 
 interface MetricsDailyRow {
   team_member_id: string;
@@ -208,6 +209,23 @@ export function useCoachingInsights(agencyId: string | null) {
     },
   });
 
+  // 6. Coaching thresholds
+  const thresholdsQuery = useQuery({
+    queryKey: ['coaching-thresholds', agencyId],
+    enabled: !!agencyId,
+    staleTime: 60_000,
+    queryFn: async (): Promise<CoachingThresholds> => {
+      const { data, error } = await supabase
+        .from('coaching_insight_settings')
+        .select('thresholds')
+        .eq('agency_id', agencyId!)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return { ...DEFAULT_COACHING_THRESHOLDS };
+      return { ...DEFAULT_COACHING_THRESHOLDS, ...(data.thresholds as Partial<CoachingThresholds>) };
+    },
+  });
+
   // Compute insights
   const result = useMemo(() => {
     const teamMembers = teamMembersQuery.data;
@@ -215,6 +233,7 @@ export function useCoachingInsights(agencyId: string | null) {
     const lqsCounts = lqsQuery.data;
     const objections = objectionsQuery.data;
     const targets = targetsQuery.data;
+    const thresholds = thresholdsQuery.data ?? DEFAULT_COACHING_THRESHOLDS;
 
     if (!teamMembers || !metrics) return null;
 
@@ -298,8 +317,8 @@ export function useCoachingInsights(agencyId: string | null) {
         if (benchmark && benchmark > 0) {
           const ratio = quoteRate / benchmark;
           let severity: InsightSeverity | null = null;
-          if (ratio < 0.5) severity = 'critical';
-          else if (ratio < 0.8) severity = 'warning';
+          if (ratio < thresholds.rateCriticalRatio) severity = 'critical';
+          else if (ratio < thresholds.rateWarningRatio) severity = 'warning';
 
           if (severity) {
             const ctx = { currentValue: quoteRate, benchmark, benchmarkSource, metricLabel: 'Quote Rate' };
@@ -334,8 +353,8 @@ export function useCoachingInsights(agencyId: string | null) {
         if (benchmark && benchmark > 0) {
           const ratio = closeRate / benchmark;
           let severity: InsightSeverity | null = null;
-          if (ratio < 0.5) severity = 'critical';
-          else if (ratio < 0.8) severity = 'warning';
+          if (ratio < thresholds.rateCriticalRatio) severity = 'critical';
+          else if (ratio < thresholds.rateWarningRatio) severity = 'warning';
 
           if (severity) {
             const ctx = { currentValue: closeRate, benchmark, benchmarkSource, metricLabel: 'Close Rate' };
@@ -361,8 +380,8 @@ export function useCoachingInsights(agencyId: string | null) {
         const memberObjections = objections.filter(o => o.team_member_id === memberId);
         for (const obj of memberObjections) {
           let severity: InsightSeverity | null = null;
-          if (obj.count >= 5) severity = 'critical';
-          else if (obj.count >= 3) severity = 'warning';
+          if (obj.count >= thresholds.objectionCriticalCount) severity = 'critical';
+          else if (obj.count >= thresholds.objectionWarningCount) severity = 'warning';
 
           if (severity) {
             const ctx = {
@@ -406,8 +425,8 @@ export function useCoachingInsights(agencyId: string | null) {
         if (benchmark && benchmark > 0) {
           const ratio = avgCalls / benchmark;
           let severity: InsightSeverity | null = null;
-          if (ratio < 0.5) severity = 'critical';
-          else if (ratio < 0.8) severity = 'warning';
+          if (ratio < thresholds.activityCriticalRatio) severity = 'critical';
+          else if (ratio < thresholds.activityWarningRatio) severity = 'warning';
 
           if (severity) {
             const ctx = { currentValue: avgCalls, benchmark, benchmarkSource, metricLabel: 'Outbound Calls' };
@@ -442,8 +461,8 @@ export function useCoachingInsights(agencyId: string | null) {
         if (benchmark && benchmark > 0) {
           const ratio = avgTalk / benchmark;
           let severity: InsightSeverity | null = null;
-          if (ratio < 0.5) severity = 'critical';
-          else if (ratio < 0.8) severity = 'warning';
+          if (ratio < thresholds.activityCriticalRatio) severity = 'critical';
+          else if (ratio < thresholds.activityWarningRatio) severity = 'warning';
 
           if (severity) {
             const ctx = { currentValue: avgTalk, benchmark, benchmarkSource, metricLabel: 'Talk Time' };
@@ -497,10 +516,10 @@ export function useCoachingInsights(agencyId: string | null) {
       }
 
       const latestPassRate = weekPassRates[3] ?? weekPassRates[2] ?? null;
-      if (latestPassRate !== null && decliningWeeks >= 2) {
+      if (latestPassRate !== null && decliningWeeks >= thresholds.passRateWarningWeeks) {
         let severity: InsightSeverity | null = null;
-        if (decliningWeeks >= 3 && latestPassRate < 40) severity = 'critical';
-        else if (decliningWeeks >= 2 && latestPassRate < 60) severity = 'warning';
+        if (decliningWeeks >= thresholds.passRateCriticalWeeks && latestPassRate < thresholds.passRateCriticalThreshold) severity = 'critical';
+        else if (decliningWeeks >= thresholds.passRateWarningWeeks && latestPassRate < thresholds.passRateWarningThreshold) severity = 'warning';
 
         if (severity) {
           const ctx = {
@@ -578,6 +597,7 @@ export function useCoachingInsights(agencyId: string | null) {
     lqsQuery.data,
     objectionsQuery.data,
     targetsQuery.data,
+    thresholdsQuery.data,
     thirtyDaysAgo,
   ]);
 
@@ -586,14 +606,16 @@ export function useCoachingInsights(agencyId: string | null) {
     metricsQuery.isLoading ||
     lqsQuery.isLoading ||
     objectionsQuery.isLoading ||
-    targetsQuery.isLoading;
+    targetsQuery.isLoading ||
+    thresholdsQuery.isLoading;
 
   const error =
     teamMembersQuery.error ||
     metricsQuery.error ||
     lqsQuery.error ||
     objectionsQuery.error ||
-    targetsQuery.error;
+    targetsQuery.error ||
+    thresholdsQuery.error;
 
   return {
     data: result,
@@ -605,6 +627,7 @@ export function useCoachingInsights(agencyId: string | null) {
       lqsQuery.refetch();
       objectionsQuery.refetch();
       targetsQuery.refetch();
+      thresholdsQuery.refetch();
     },
   };
 }
