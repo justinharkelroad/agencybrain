@@ -34,6 +34,7 @@ export type Database = {
           created_at: string
           daily_quoted_households_target: number | null
           daily_sold_items_target: number | null
+          daily_written_premium_target_cents: number | null
           default_commission_rate: number | null
           description: string | null
           email_from: string | null
@@ -78,6 +79,7 @@ export type Database = {
           created_at?: string
           daily_quoted_households_target?: number | null
           daily_sold_items_target?: number | null
+          daily_written_premium_target_cents?: number | null
           default_commission_rate?: number | null
           description?: string | null
           email_from?: string | null
@@ -122,6 +124,7 @@ export type Database = {
           created_at?: string
           daily_quoted_households_target?: number | null
           daily_sold_items_target?: number | null
+          daily_written_premium_target_cents?: number | null
           default_commission_rate?: number | null
           description?: string | null
           email_from?: string | null

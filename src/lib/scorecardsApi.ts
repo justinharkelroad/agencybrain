@@ -397,33 +397,33 @@ export async function upsertTargets(targets: { metric_key: string; value_number:
 
 // ==================== AGENCY GOALS ====================
 
-export async function getAgencyGoals(agencyId?: string): Promise<{ daily_quoted_households_target: number | null; daily_sold_items_target: number | null }> {
+export async function getAgencyGoals(agencyId?: string): Promise<{ daily_quoted_households_target: number | null; daily_sold_items_target: number | null; daily_written_premium_target_cents: number | null }> {
   if (await shouldUseStaffMode()) {
     const data = await callScorecardsApi('agency_goals_get');
     return data.goals;
   }
-  
+
   const { data, error } = await supabase
     .from('agencies')
-    .select('daily_quoted_households_target, daily_sold_items_target')
+    .select('daily_quoted_households_target, daily_sold_items_target, daily_written_premium_target_cents')
     .eq('id', agencyId!)
     .single();
-  
+
   if (error) throw error;
   return data;
 }
 
-export async function updateAgencyGoals(goals: { daily_quoted_households_target: number; daily_sold_items_target: number }, agencyId?: string): Promise<boolean> {
+export async function updateAgencyGoals(goals: { daily_quoted_households_target: number; daily_sold_items_target: number; daily_written_premium_target_cents?: number | null }, agencyId?: string): Promise<boolean> {
   if (await shouldUseStaffMode()) {
     await callScorecardsApi('agency_goals_update', goals);
     return true;
   }
-  
+
   const { error } = await supabase
     .from('agencies')
     .update(goals)
     .eq('id', agencyId!);
-  
+
   if (error) throw error;
   return true;
 }

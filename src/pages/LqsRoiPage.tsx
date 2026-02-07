@@ -451,7 +451,7 @@ export default function LqsRoiPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('agencies')
-        .select('daily_quoted_households_target, daily_sold_items_target')
+        .select('daily_quoted_households_target, daily_sold_items_target, daily_written_premium_target_cents')
         .eq('id', agencyProfile!.agencyId)
         .single();
 
@@ -459,6 +459,7 @@ export default function LqsRoiPage() {
       return {
         dailyQuotedHouseholdsTarget: data?.daily_quoted_households_target ?? null,
         dailySoldItemsTarget: data?.daily_sold_items_target ?? null,
+        dailyWrittenPremiumTargetCents: data?.daily_written_premium_target_cents ?? null,
       };
     },
   });
@@ -703,6 +704,11 @@ export default function LqsRoiPage() {
         agencyGoals={agencyGoalsQuery.data ?? null}
         daysInPeriod={daysInPeriod}
         isLoading={analyticsLoading || agencyGoalsQuery.isLoading}
+        commissionRate={parseFloat(commissionRate) || 0}
+        agencyId={agencyProfile?.agencyId ?? ''}
+        onGoalsUpdated={() => {
+          queryClient.invalidateQueries({ queryKey: ['lqs-agency-goals'] });
+        }}
       />
 
       {/* Summary Cards */}

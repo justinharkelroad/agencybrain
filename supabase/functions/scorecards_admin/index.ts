@@ -695,7 +695,7 @@ serve(async (req) => {
       case 'agency_goals_get': {
         const { data, error } = await supabase
           .from('agencies')
-          .select('daily_quoted_households_target, daily_sold_items_target')
+          .select('daily_quoted_households_target, daily_sold_items_target, daily_written_premium_target_cents')
           .eq('id', agencyId)
           .single();
 
@@ -705,14 +705,19 @@ serve(async (req) => {
       }
 
       case 'agency_goals_update': {
-        const { daily_quoted_households_target, daily_sold_items_target } = params;
+        const { daily_quoted_households_target, daily_sold_items_target, daily_written_premium_target_cents } = params;
+
+        const updatePayload: Record<string, unknown> = {
+          daily_quoted_households_target,
+          daily_sold_items_target,
+        };
+        if (daily_written_premium_target_cents !== undefined) {
+          updatePayload.daily_written_premium_target_cents = daily_written_premium_target_cents;
+        }
 
         const { error } = await supabase
           .from('agencies')
-          .update({
-            daily_quoted_households_target,
-            daily_sold_items_target,
-          })
+          .update(updatePayload)
           .eq('id', agencyId);
 
         if (error) throw error;

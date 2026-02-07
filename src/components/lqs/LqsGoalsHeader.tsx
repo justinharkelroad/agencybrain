@@ -1,13 +1,24 @@
-import { Target, TrendingUp, AlertCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Target, TrendingUp, AlertCircle, Pencil, DollarSign } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { updateAgencyGoals } from '@/lib/scorecardsApi';
 import { LqsRoiSummary } from '@/hooks/useLqsRoiAnalytics';
 
 interface LqsGoalsHeaderProps {
@@ -15,9 +26,13 @@ interface LqsGoalsHeaderProps {
   agencyGoals: {
     dailyQuotedHouseholdsTarget: number | null;
     dailySoldItemsTarget: number | null;
+    dailyWrittenPremiumTargetCents: number | null;
   } | null;
   daysInPeriod: number;
   isLoading?: boolean;
+  commissionRate: number;
+  agencyId: string;
+  onGoalsUpdated?: () => void;
 }
 
 // Format currency from cents
@@ -97,11 +112,142 @@ function GoalMetric({
   );
 }
 
+function EditGoalsPopover({
+  agencyGoals,
+  agencyId,
+  onGoalsUpdated,
+}: {
+  agencyGoals: LqsGoalsHeaderProps['agencyGoals'];
+  agencyId: string;
+  onGoalsUpdated?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [quotedTarget, setQuotedTarget] = useState(
+    agencyGoals?.dailyQuotedHouseholdsTarget ?? 0
+  );
+  const [soldTarget, setSoldTarget] = useState(
+    agencyGoals?.dailySoldItemsTarget ?? 0
+  );
+  const [premiumTarget, setPremiumTarget] = useState(
+    agencyGoals?.dailyWrittenPremiumTargetCents
+      ? (agencyGoals.dailyWrittenPremiumTargetCents / 100).toString()
+      : ''
+  );
+  const [saving, setSaving] = useState(false);
+
+  const handleOpen = (isOpen: boolean) => {
+    if (isOpen) {
+      // Reset to current values when opening
+      setQuotedTarget(agencyGoals?.dailyQuotedHouseholdsTarget ?? 0);
+      setSoldTarget(agencyGoals?.dailySoldItemsTarget ?? 0);
+      setPremiumTarget(
+        agencyGoals?.dailyWrittenPremiumTargetCents
+          ? (agencyGoals.dailyWrittenPremiumTargetCents / 100).toString()
+          : ''
+      );
+    }
+    setOpen(isOpen);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const premiumDollars = parseFloat(premiumTarget);
+      const premiumCents = !isNaN(premiumDollars) && premiumDollars > 0
+        ? Math.round(premiumDollars * 100)
+        : null;
+
+      await updateAgencyGoals({
+        daily_quoted_households_target: quotedTarget,
+        daily_sold_items_target: soldTarget,
+        daily_written_premium_target_cents: premiumCents,
+      }, agencyId);
+
+      toast.success('Goals updated');
+      setOpen(false);
+      onGoalsUpdated?.();
+    } catch (err) {
+      console.error('Failed to update goals:', err);
+      toast.error('Failed to save goals');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={handleOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-6 w-6">
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72" align="start">
+        <div className="space-y-4">
+          <h4 className="font-medium text-sm">Edit Daily Targets</h4>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label htmlFor="edit-quoted" className="text-xs">Daily Quoted Households</Label>
+              <Input
+                id="edit-quoted"
+                type="number"
+                min={0}
+                max={200}
+                value={quotedTarget === 0 ? '' : quotedTarget}
+                onChange={(e) => setQuotedTarget(parseInt(e.target.value) || 0)}
+                className="h-8"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit-sold" className="text-xs">Daily Sold Items</Label>
+              <Input
+                id="edit-sold"
+                type="number"
+                min={0}
+                max={200}
+                value={soldTarget === 0 ? '' : soldTarget}
+                onChange={(e) => setSoldTarget(parseInt(e.target.value) || 0)}
+                className="h-8"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit-premium" className="text-xs">Daily Written Premium ($)</Label>
+              <Input
+                id="edit-premium"
+                type="number"
+                min={0}
+                step={100}
+                placeholder="e.g. 5000"
+                value={premiumTarget}
+                onChange={(e) => setPremiumTarget(e.target.value)}
+                className="h-8"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Commission target auto-calculates from premium x rate.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function LqsGoalsHeader({
   summary,
   agencyGoals,
   daysInPeriod,
   isLoading,
+  commissionRate,
+  agencyId,
+  onGoalsUpdated,
 }: LqsGoalsHeaderProps) {
   if (isLoading || !summary) {
     return null;
@@ -116,14 +262,17 @@ export function LqsGoalsHeader({
     ? agencyGoals.dailySoldItemsTarget * daysInPeriod
     : null;
 
+  const writtenPremiumTarget = agencyGoals?.dailyWrittenPremiumTargetCents
+    ? agencyGoals.dailyWrittenPremiumTargetCents * daysInPeriod
+    : null;
+
+  const commissionTarget = writtenPremiumTarget !== null && commissionRate > 0
+    ? Math.round(writtenPremiumTarget * (commissionRate / 100))
+    : null;
+
   // Get current values based on view type
   const quotedHH = summary.isActivityView ? summary.quotesCreated : summary.quotedHouseholds;
   const soldItems = summary.isActivityView ? summary.salesClosed : summary.soldHouseholds;
-
-  // If no goals are set, don't show the header
-  if (!quotedHHTarget && !soldItemsTarget) {
-    return null;
-  }
 
   return (
     <Card className="bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20">
@@ -134,6 +283,13 @@ export function LqsGoalsHeader({
           <span className="text-xs text-muted-foreground">
             ({daysInPeriod} day{daysInPeriod !== 1 ? 's' : ''})
           </span>
+          {agencyId && (
+            <EditGoalsPopover
+              agencyGoals={agencyGoals}
+              agencyId={agencyId}
+              onGoalsUpdated={onGoalsUpdated}
+            />
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <GoalMetric
@@ -151,16 +307,16 @@ export function LqsGoalsHeader({
           <GoalMetric
             label="Written Premium"
             current={summary.premiumSoldCents}
-            target={null} // No premium target in agency settings yet
+            target={writtenPremiumTarget}
             format="currency"
-            icon={TrendingUp}
+            icon={DollarSign}
           />
           <GoalMetric
             label="Commission Earned"
             current={summary.commissionEarned}
-            target={null} // No commission target in agency settings yet
+            target={commissionTarget}
             format="currency"
-            icon={TrendingUp}
+            icon={DollarSign}
           />
         </div>
       </CardContent>
