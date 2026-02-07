@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { CallScorecard } from '@/components/CallScorecard';
 import { ServiceCallReportCard } from '@/components/call-scoring/ServiceCallReportCard';
 import { CallScoringAnalytics } from '@/components/CallScoringAnalytics';
+import { CoachingThresholdsSettings } from '@/components/coaching/CoachingThresholdsSettings';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
 
@@ -1379,7 +1380,7 @@ export default function CallScoring() {
 
       {/* Tabs - hide Analytics for staff users (except managers) */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className={`grid w-full max-w-md ${userRole === 'staff' && !isStaffManager ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        <TabsList className={`grid w-full max-w-lg ${userRole === 'staff' && !isStaffManager ? 'grid-cols-1' : 'grid-cols-3'}`}>
           <TabsTrigger value="upload" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
             {userRole === 'staff' ? 'My Calls' : 'Upload & Calls'}
@@ -1388,6 +1389,12 @@ export default function CallScoring() {
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Analytics
+            </TabsTrigger>
+          )}
+          {(userRole !== 'staff' || isStaffManager) && (
+            <TabsTrigger value="coaching" className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              Coaching
             </TabsTrigger>
           )}
         </TabsList>
@@ -1786,10 +1793,16 @@ export default function CallScoring() {
 
         {(userRole !== 'staff' || isStaffManager) && (
           <TabsContent value="analytics" className="mt-6">
-            <CallScoringAnalytics 
-              calls={analyticsCalls} 
-              teamMembers={teamMembers} 
+            <CallScoringAnalytics
+              calls={analyticsCalls}
+              teamMembers={teamMembers}
             />
+          </TabsContent>
+        )}
+
+        {(userRole !== 'staff' || isStaffManager) && (
+          <TabsContent value="coaching" className="mt-6">
+            {agencyId && <CoachingThresholdsSettings agencyId={agencyId} />}
           </TabsContent>
         )}
       </Tabs>

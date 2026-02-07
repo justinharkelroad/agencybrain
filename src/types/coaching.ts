@@ -35,3 +35,29 @@ export interface TeamMemberInsights {
   criticalCount: number;
   warningCount: number;
 }
+
+export interface CoachingThresholds {
+  activityWarningRatio: number;
+  activityCriticalRatio: number;
+  rateWarningRatio: number;
+  rateCriticalRatio: number;
+  objectionWarningCount: number;
+  objectionCriticalCount: number;
+  passRateWarningWeeks: number;
+  passRateWarningThreshold: number;
+  passRateCriticalWeeks: number;
+  passRateCriticalThreshold: number;
+}
+
+export const DEFAULT_COACHING_THRESHOLDS: CoachingThresholds = {
+  activityWarningRatio: 0.8,
+  activityCriticalRatio: 0.5,
+  rateWarningRatio: 0.8,
+  rateCriticalRatio: 0.5,
+  objectionWarningCount: 3,
+  objectionCriticalCount: 5,
+  passRateWarningWeeks: 2,
+  passRateWarningThreshold: 60,
+  passRateCriticalWeeks: 3,
+  passRateCriticalThreshold: 40,
+};
