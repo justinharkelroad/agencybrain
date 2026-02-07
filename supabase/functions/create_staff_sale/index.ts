@@ -50,6 +50,7 @@ interface CreateSaleRequest {
   vc_points: number;
   is_bundle: boolean;
   bundle_type: string | null;
+  is_one_call_close?: boolean;
 }
 
 serve(async (req) => {
@@ -320,6 +321,7 @@ serve(async (req) => {
               premium_cents: premiumCents,
               policy_number: policy.policy_number || null,
               source: 'sales_dashboard',
+              is_one_call_close: body.is_one_call_close ?? false,
             });
 
           if (saleErr) {
@@ -366,6 +368,7 @@ serve(async (req) => {
         bundle_type: body.bundle_type,
         source: body.source,
         source_details: body.source_details || null,
+        is_one_call_close: body.is_one_call_close ?? false,
       })
       .select('id')
       .single();

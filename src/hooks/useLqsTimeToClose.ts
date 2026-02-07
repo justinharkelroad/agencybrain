@@ -12,6 +12,8 @@ export interface TimeToCloseData {
     label: string;
     count: number;
     color: string;
+    min: number;
+    max: number;
   }>;
   bySource: Array<{
     sourceId: string | null;
@@ -32,10 +34,30 @@ export interface TimeToCloseData {
     sourceName: string;
     count: number;
   }>;
+  soldHouseholdsEnriched: FilteredHousehold[];
+  staleHouseholdsEnriched: FilteredHousehold[];
+  oneCallCloses: number;
+  oneCallCloseRate: number | null;
+  oneCallCloseHouseholdIds: Set<string>;
+}
+
+export interface FilteredHousehold {
+  id: string;
+  customerName: string;
+  status: string;
+  firstQuoteDate: string | null;
+  soldDate: string | null;
+  daysToClose: number | null;
+  leadSourceName: string;
+  producerName: string;
+  leadSourceId: string | null;
+  teamMemberId: string | null;
 }
 
 interface HouseholdRow {
   id: string;
+  first_name: string;
+  last_name: string;
   status: string;
   first_quote_date: string | null;
   sold_date: string | null;
@@ -136,7 +158,7 @@ export function useLqsTimeToClose(
       for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
         let query = supabase
           .from('lqs_households')
-          .select('id, status, first_quote_date, sold_date, lead_source_id')
+          .select('id, first_name, last_name, status, first_quote_date, sold_date, lead_source_id')
           .eq('agency_id', agencyId!)
           .eq('status', 'sold')
           .not('first_quote_date', 'is', null)
@@ -169,7 +191,7 @@ export function useLqsTimeToClose(
       for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
         const { data: page, error } = await supabase
           .from('lqs_households')
-          .select('id, status, first_quote_date, sold_date, lead_source_id')
+          .select('id, first_name, last_name, status, first_quote_date, sold_date, lead_source_id')
           .eq('agency_id', agencyId!)
           .neq('status', 'sold')
           .not('first_quote_date', 'is', null)
@@ -209,6 +231,30 @@ export function useLqsTimeToClose(
     },
   });
 
+  // Fetch one-call close household IDs from lqs_sales
+  const occQuery = useQuery({
+    queryKey: ['lqs-ttc-occ', agencyId, dateRange?.start?.toISOString(), dateRange?.end?.toISOString()],
+    enabled: !!agencyId,
+    staleTime: 30000,
+    queryFn: async (): Promise<Set<string>> => {
+      let query = supabase
+        .from('lqs_sales')
+        .select('household_id')
+        .eq('agency_id', agencyId!)
+        .eq('is_one_call_close', true);
+
+      if (dateRange) {
+        const startStr = format(dateRange.start, 'yyyy-MM-dd');
+        const endStr = format(dateRange.end, 'yyyy-MM-dd');
+        query = query.gte('sale_date', startStr).lte('sale_date', endStr);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return new Set((data || []).map(r => r.household_id));
+    },
+  });
+
   const data = useMemo<TimeToCloseData | null>(() => {
     const leadSources = leadSourcesQuery.data;
     const buckets = bucketsQuery.data;
@@ -216,8 +262,9 @@ export function useLqsTimeToClose(
     const soldHouseholds = soldHouseholdsQuery.data;
     const staleHouseholds = staleHouseholdsQuery.data;
     const quotes = quotesQuery.data;
+    const occHouseholdIds = occQuery.data;
 
-    if (!leadSources || !buckets || !teamMembers || !soldHouseholds || !staleHouseholds || !quotes) return null;
+    if (!leadSources || !buckets || !teamMembers || !soldHouseholds || !staleHouseholds || !quotes || !occHouseholdIds) return null;
 
     // Build lookup maps
     const sourceNameMap = new Map(leadSources.map(ls => [ls.id, ls.name]));
@@ -273,6 +320,8 @@ export function useLqsTimeToClose(
       label: b.label,
       count: daysList.filter(d => d >= b.min && d <= b.max).length,
       color: b.color,
+      min: b.min,
+      max: b.max,
     }));
 
     // By source breakdown
@@ -311,6 +360,33 @@ export function useLqsTimeToClose(
       }))
       .sort((a, b) => b.count - a.count);
 
+    // Build enriched household arrays for drill-down
+    function enrichHousehold(h: HouseholdRow): FilteredHousehold {
+      const days = h.first_quote_date && h.sold_date
+        ? differenceInCalendarDays(new Date(h.sold_date), new Date(h.first_quote_date))
+        : null;
+      const producerId = primaryProducerMap.get(h.id) ?? null;
+      return {
+        id: h.id,
+        customerName: `${h.first_name} ${h.last_name}`.trim() || 'Unknown',
+        status: h.status,
+        firstQuoteDate: h.first_quote_date,
+        soldDate: h.sold_date,
+        daysToClose: days !== null && days >= 0 ? days : null,
+        leadSourceName: getSourceDisplayName(h.lead_source_id),
+        producerName: producerId ? (teamMemberNameMap.get(producerId) || 'Unknown') : 'Unassigned',
+        leadSourceId: h.lead_source_id,
+        teamMemberId: producerId,
+      };
+    }
+
+    const enrichedSold = soldHouseholds.map(enrichHousehold);
+    const enrichedStale = staleHouseholds.map(enrichHousehold);
+
+    // One-call close stats
+    const oneCallCloseCount = enrichedSold.filter(h => occHouseholdIds.has(h.id)).length;
+    const oneCallCloseRate = daysList.length > 0 ? oneCallCloseCount / daysList.length : null;
+
     return {
       avgDays: daysList.length > 0 ? Math.round(daysList.reduce((a, b) => a + b, 0) / daysList.length) : 0,
       medianDays: Math.round(median(daysList)),
@@ -320,13 +396,18 @@ export function useLqsTimeToClose(
       bySource,
       byProducer,
       staleBySource,
+      soldHouseholdsEnriched: enrichedSold,
+      staleHouseholdsEnriched: enrichedStale,
+      oneCallCloses: oneCallCloseCount,
+      oneCallCloseRate,
+      oneCallCloseHouseholdIds: occHouseholdIds,
     };
-  }, [leadSourcesQuery.data, bucketsQuery.data, teamMembersQuery.data, soldHouseholdsQuery.data, staleHouseholdsQuery.data, quotesQuery.data]);
+  }, [leadSourcesQuery.data, bucketsQuery.data, teamMembersQuery.data, soldHouseholdsQuery.data, staleHouseholdsQuery.data, quotesQuery.data, occQuery.data]);
 
   const isLoading = leadSourcesQuery.isLoading || bucketsQuery.isLoading || teamMembersQuery.isLoading
-    || soldHouseholdsQuery.isLoading || staleHouseholdsQuery.isLoading || quotesQuery.isLoading;
+    || soldHouseholdsQuery.isLoading || staleHouseholdsQuery.isLoading || quotesQuery.isLoading || occQuery.isLoading;
   const error = leadSourcesQuery.error || bucketsQuery.error || teamMembersQuery.error
-    || soldHouseholdsQuery.error || staleHouseholdsQuery.error || quotesQuery.error;
+    || soldHouseholdsQuery.error || staleHouseholdsQuery.error || quotesQuery.error || occQuery.error;
 
   return { data, isLoading, error };
 }

@@ -43,6 +43,7 @@ interface LeaderboardEntry {
   points: number;
   policies: number;
   households: number;
+  one_call_closes: number;
 }
 
 interface Trends {
@@ -430,6 +431,7 @@ serve(async (req) => {
           total_premium,
           total_items,
           total_points,
+          is_one_call_close,
           brokered_carrier_id,
           sale_policies(id)
         `)
@@ -459,6 +461,7 @@ serve(async (req) => {
           points: 0,
           policies: 0,
           households: 0,
+          one_call_closes: 0,
           customerNames: new Set(),
         };
       }
@@ -470,7 +473,11 @@ serve(async (req) => {
           aggregated[tmId].items += sale.total_items || 0;
           aggregated[tmId].points += sale.total_points || 0;
           aggregated[tmId].policies += (sale.sale_policies as any[])?.length || 0;
-          
+
+          if ((sale as any).is_one_call_close) {
+            aggregated[tmId].one_call_closes += 1;
+          }
+
           // Track unique households
           const customerName = (sale as any).customer_name?.toLowerCase().trim();
           if (customerName) {
@@ -488,6 +495,7 @@ serve(async (req) => {
         points: entry.points,
         policies: entry.policies,
         households: entry.customerNames.size,
+        one_call_closes: entry.one_call_closes,
       }));
       console.log('Leaderboard entries:', leaderboard.length);
     }

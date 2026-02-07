@@ -31,6 +31,7 @@ interface LeaderboardEntry {
   points: number;
   policies: number;
   households: number;
+  one_call_closes: number;
 }
 
 interface SalesLeaderboardProps {
@@ -186,6 +187,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         .select(`
           team_member_id,
           customer_name,
+          is_one_call_close,
           sale_policies(id, policy_type_name, total_premium, total_items, total_points)
         `)
         .eq("agency_id", agencyId)
@@ -214,6 +216,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
           points: 0,
           policies: 0,
           households: 0,
+          one_call_closes: 0,
           customerNames: new Set(),
         };
       }
@@ -228,6 +231,10 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
           aggregated[sale.team_member_id].items += countable.items;
           aggregated[sale.team_member_id].points += countable.points;
           aggregated[sale.team_member_id].policies += countable.policyCount;
+
+          if (sale.is_one_call_close) {
+            aggregated[sale.team_member_id].one_call_closes += 1;
+          }
 
           // Track unique households (only if sale has countable policies)
           if (countable.policyCount > 0) {
@@ -248,6 +255,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         points: entry.points,
         policies: entry.policies,
         households: entry.customerNames.size,
+        one_call_closes: entry.one_call_closes,
       }));
     },
     enabled: !!agencyId || !!staffSessionToken,

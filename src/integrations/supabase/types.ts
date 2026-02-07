@@ -5270,6 +5270,7 @@ export type Database = {
           created_at: string
           household_id: string
           id: string
+          is_one_call_close: boolean
           items_sold: number
           linked_quote_id: string | null
           policies_sold: number
@@ -5286,6 +5287,7 @@ export type Database = {
           created_at?: string
           household_id: string
           id?: string
+          is_one_call_close?: boolean
           items_sold?: number
           linked_quote_id?: string | null
           policies_sold?: number
@@ -5302,6 +5304,7 @@ export type Database = {
           created_at?: string
           household_id?: string
           id?: string
+          is_one_call_close?: boolean
           items_sold?: number
           linked_quote_id?: string | null
           policies_sold?: number
@@ -7427,6 +7430,7 @@ export type Database = {
           expiration_date: string | null
           id: string
           is_bundle: boolean | null
+          is_one_call_close: boolean
           is_vc_qualifying: boolean | null
           lead_source_id: string | null
           policy_number: string | null
@@ -7462,6 +7466,7 @@ export type Database = {
           expiration_date?: string | null
           id?: string
           is_bundle?: boolean | null
+          is_one_call_close?: boolean
           is_vc_qualifying?: boolean | null
           lead_source_id?: string | null
           policy_number?: string | null
@@ -7497,6 +7502,7 @@ export type Database = {
           expiration_date?: string | null
           id?: string
           is_bundle?: boolean | null
+          is_one_call_close?: boolean
           is_vc_qualifying?: boolean | null
           lead_source_id?: string | null
           policy_number?: string | null

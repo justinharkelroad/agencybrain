@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, Phone } from "lucide-react";
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -119,6 +120,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
   const [leadSourceId, setLeadSourceId] = useState("");
   const [priorInsuranceCompanyId, setPriorInsuranceCompanyId] = useState("");
   const [saleDate, setSaleDate] = useState<Date | undefined>(todayLocal());
+  const [isOneCallClose, setIsOneCallClose] = useState(false);
   const [policies, setPolicies] = useState<Policy[]>([]);
 
   // Fetch brokered carriers
@@ -455,6 +457,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         vc_points: vcTotals.points,
         is_bundle: bundleInfo.isBundle,
         bundle_type: bundleInfo.bundleType,
+        is_one_call_close: isOneCallClose,
         policies: policies.map((policy) => {
           // For brokered policies, product_type_id is "brokered" - convert to null for DB
           const productTypeId = policy.product_type_id === "brokered" ? null : (policy.product_type_id || null);
@@ -513,6 +516,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
     setLeadSourceId("");
     setPriorInsuranceCompanyId("");
     setSaleDate(todayLocal());
+    setIsOneCallClose(false);
     setPolicies([]);
   };
 
@@ -1273,6 +1277,32 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                   <div className="text-2xl font-bold">{totals.points}</div>
                   <div className="text-sm text-muted-foreground">Total Points</div>
                 </div>
+              </div>
+
+              {/* One-Call Close Toggle */}
+              <div className={cn(
+                "p-4 rounded-lg border transition-colors",
+                isOneCallClose
+                  ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20"
+                  : "border-muted bg-muted/30"
+              )}>
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id="staffIsOneCallClose"
+                    checked={isOneCallClose}
+                    onCheckedChange={(checked) => setIsOneCallClose(checked === true)}
+                  />
+                  <Label
+                    htmlFor="staffIsOneCallClose"
+                    className="flex items-center gap-2 cursor-pointer font-medium"
+                  >
+                    <Phone className="h-4 w-4 text-green-600" />
+                    One-Call Close
+                  </Label>
+                </div>
+                <p className="mt-2 pl-7 text-sm text-muted-foreground">
+                  This sale closed on the first call with no follow-up required.
+                </p>
               </div>
             </CardContent>
           </Card>

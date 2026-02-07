@@ -27,7 +27,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, ExternalLink, Users } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, ExternalLink, Users, Phone } from "lucide-react";
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
@@ -87,6 +87,7 @@ type SaleForEdit = {
   bundle_type: string | null;
   existing_customer_products: string[] | null;
   brokered_counts_toward_bundling: boolean | null;
+  is_one_call_close?: boolean;
   sale_policies: {
     id: string;
     product_type_id: string | null;
@@ -185,6 +186,9 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
   // Brokered bundling state - when checked, brokered policies count toward bundling metrics
   const [brokeredCountsTowardBundling, setBrokeredCountsTowardBundling] = useState(false);
 
+  // One-call close state - manual toggle indicating deal closed on first call
+  const [isOneCallClose, setIsOneCallClose] = useState(false);
+
   // Apply sequence modal state
   const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
   const [newSaleData, setNewSaleData] = useState<{
@@ -220,6 +224,9 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
 
       // Restore brokered bundling state
       setBrokeredCountsTowardBundling(editSale.brokered_counts_toward_bundling || false);
+
+      // Restore one-call close state
+      setIsOneCallClose(editSale.is_one_call_close || false);
 
       // Map policies and items
       // For backward compatibility: if sale has brokered_carrier_id but policies don't,
@@ -684,6 +691,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         bundle_type: bundleInfo.bundleType,
         existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
         brokered_counts_toward_bundling: hasBrokeredPolicy && brokeredCountsTowardBundling,
+        is_one_call_close: isOneCallClose,
         source: "manual",
         created_by: user?.id,
       };
@@ -828,6 +836,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     setHasExistingPolicies(false);
     setExistingPolicyTypes([]);
     setBrokeredCountsTowardBundling(false);
+    setIsOneCallClose(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1730,6 +1739,32 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                   </p>
                 </div>
               )}
+
+              {/* One-Call Close Toggle */}
+              <div className={cn(
+                "p-4 rounded-lg border transition-colors",
+                isOneCallClose
+                  ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20"
+                  : "border-muted bg-muted/30"
+              )}>
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id="isOneCallClose"
+                    checked={isOneCallClose}
+                    onCheckedChange={(checked) => setIsOneCallClose(checked === true)}
+                  />
+                  <Label
+                    htmlFor="isOneCallClose"
+                    className="flex items-center gap-2 cursor-pointer font-medium"
+                  >
+                    <Phone className="h-4 w-4 text-green-600" />
+                    One-Call Close
+                  </Label>
+                </div>
+                <p className="mt-2 pl-7 text-sm text-muted-foreground">
+                  This sale closed on the first call with no follow-up required.
+                </p>
+              </div>
             </CardContent>
           </Card>
         )}
