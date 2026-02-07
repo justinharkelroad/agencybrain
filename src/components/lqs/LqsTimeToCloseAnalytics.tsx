@@ -205,6 +205,7 @@ export function LqsTimeToCloseAnalytics({ agencyId, dateRange }: LqsTimeToCloseA
                 className="fill-muted-foreground"
               />
               <RechartsTooltip
+                cursor={false}
                 contentStyle={{
                   backgroundColor: 'hsl(var(--popover))',
                   border: '1px solid hsl(var(--border))',
@@ -215,7 +216,7 @@ export function LqsTimeToCloseAnalytics({ agencyId, dateRange }: LqsTimeToCloseA
               />
               <Bar
                 dataKey="count"
-                radius={[4, 4, 0, 0]}
+                radius={[8, 8, 0, 0]}
                 cursor="pointer"
                 onClick={(_data: unknown, index: number) => {
                   const entry = data.distribution[index];

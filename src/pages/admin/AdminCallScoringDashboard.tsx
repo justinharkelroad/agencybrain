@@ -501,11 +501,12 @@ const AdminCallScoringDashboard = () => {
                       tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     />
                     <YAxis className="text-muted-foreground" tick={{ fontSize: 10 }} />
-                    <Tooltip 
+                    <Tooltip
+                      cursor={false}
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                       labelFormatter={(label) => new Date(label).toLocaleDateString()}
                     />
-                    <Bar dataKey="calls" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="calls" fill="hsl(var(--chart-2))" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

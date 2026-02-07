@@ -273,6 +273,7 @@ export function SalesBySourceChart({ agencyId, startDate, endDate, staffSessionT
                 width={95}
               />
               <Tooltip
+                cursor={false}
                 contentStyle={{
                   backgroundColor: 'hsl(222 47% 11%)',
                   border: '1px solid hsl(var(--border))',
@@ -283,9 +284,9 @@ export function SalesBySourceChart({ agencyId, startDate, endDate, staffSessionT
                 itemStyle={{ color: 'hsl(var(--muted-foreground))' }}
                 formatter={(value: number) => [formatValue(value), metric.charAt(0).toUpperCase() + metric.slice(1)]}
               />
-              <Bar 
-                dataKey={metric} 
-                radius={[8, 8, 8, 8]}
+              <Bar
+                dataKey={metric}
+                radius={[0, 8, 8, 0]}
                 onClick={handleBarClick}
                 cursor="pointer"
               >

@@ -277,10 +277,11 @@ export default function CallEfficiencyReportCard({
                     <XAxis type="number" stroke={COLORS.textSecondary} fontSize={12} />
                     <YAxis type="category" dataKey="name" stroke={COLORS.textSecondary} fontSize={12} width={75} />
                     <Tooltip
+                      cursor={false}
                       contentStyle={{ backgroundColor: COLORS.bgCard, border: `1px solid ${COLORS.borderColor}` }}
                       labelStyle={{ color: COLORS.textPrimary }}
                     />
-                    <Bar dataKey="calls" radius={[0, 4, 4, 0]}>
+                    <Bar dataKey="calls" radius={[0, 8, 8, 0]}>
                       {userChartData.map((entry, idx) => (
                         <Cell key={idx} fill={getRankColor(entry.rank)} />
                       ))}
@@ -398,10 +399,11 @@ export default function CallEfficiencyReportCard({
                   <XAxis dataKey="label" stroke={COLORS.textSecondary} fontSize={10} tickLine={false} />
                   <YAxis stroke={COLORS.textSecondary} fontSize={10} tickLine={false} axisLine={false} />
                   <Tooltip
+                    cursor={false}
                     contentStyle={{ backgroundColor: COLORS.bgCard, border: `1px solid ${COLORS.borderColor}` }}
                     labelStyle={{ color: COLORS.textPrimary }}
                   />
-                  <Bar dataKey="calls" fill={COLORS.cyan} radius={[2, 2, 0, 0]} />
+                  <Bar dataKey="calls" fill={COLORS.cyan} radius={[8, 8, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

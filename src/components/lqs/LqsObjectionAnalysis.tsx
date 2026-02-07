@@ -170,6 +170,7 @@ export function LqsObjectionAnalysis({ agencyId, dateRange }: LqsObjectionAnalys
                   className="fill-muted-foreground"
                 />
                 <RechartsTooltip
+                  cursor={false}
                   contentStyle={{
                     backgroundColor: 'hsl(var(--popover))',
                     border: '1px solid hsl(var(--border))',
@@ -186,8 +187,8 @@ export function LqsObjectionAnalysis({ agencyId, dateRange }: LqsObjectionAnalys
                     return item?.fullName || label;
                   }}
                 />
-                <Bar dataKey="count" fill="#f97316" fillOpacity={0.7} radius={[0, 4, 4, 0]} name="count" />
-                <Bar dataKey="soldDespite" fill="#22c55e" fillOpacity={0.7} radius={[0, 4, 4, 0]} name="soldDespite" />
+                <Bar dataKey="count" fill="#f97316" fillOpacity={0.7} radius={[0, 8, 8, 0]} name="count" />
+                <Bar dataKey="soldDespite" fill="#22c55e" fillOpacity={0.7} radius={[0, 8, 8, 0]} name="soldDespite" />
               </BarChart>
             </ResponsiveContainer>
             <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground mt-1">

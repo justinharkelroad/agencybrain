@@ -225,6 +225,7 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
                 tickFormatter={metric === "premium" ? (v) => `$${v}` : undefined}
               />
               <Tooltip
+                cursor={false}
                 contentStyle={{
                   backgroundColor: 'hsl(222 47% 11%)',
                   border: '1px solid hsl(var(--border))',
@@ -235,9 +236,9 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
                 itemStyle={{ color: 'hsl(var(--muted-foreground))' }}
                 formatter={(value: number) => [formatValue(value), metric.charAt(0).toUpperCase() + metric.slice(1)]}
               />
-              <Bar 
-                dataKey={metric} 
-                radius={[4, 4, 0, 0]}
+              <Bar
+                dataKey={metric}
+                radius={[8, 8, 0, 0]}
                 onClick={handleBarClick}
                 cursor="pointer"
               >
