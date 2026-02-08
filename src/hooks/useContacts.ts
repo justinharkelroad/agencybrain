@@ -1,12 +1,12 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { getStaffSessionToken } from '@/lib/cancel-audit-api';
+import { getStaffToken } from '@/lib/staffRequest';
 import type { Contact, ContactWithStatus, ContactFilters, LifecycleStage } from '@/types/contact';
 
 const PAGE_SIZE = 100;
 
 export function useContacts(agencyId: string | null, filters: ContactFilters = {}) {
-  const staffSessionToken = getStaffSessionToken();
+  const staffSessionToken = getStaffToken();
 
   return useInfiniteQuery({
     queryKey: ['contacts', agencyId, filters, !!staffSessionToken],
@@ -84,7 +84,7 @@ export function useContactSearch(agencyId: string | null, searchTerm: string) {
         p_offset: 0,
         p_sort_by: 'name',
         p_sort_direction: 'asc',
-        p_staff_session_token: getStaffSessionToken() || null,
+        p_staff_session_token: getStaffToken() || null,
       });
 
       if (error) throw error;
