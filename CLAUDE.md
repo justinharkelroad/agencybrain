@@ -635,3 +635,141 @@ Using Josh token against production:
 2. No RPC should rely on `p_agency_id` alone for authorization.
 3. Keep REVOKE/GRANT changes adjacent in the same migration transaction.
 4. Require cross-agency tamper test evidence in PR notes before marking auth/security work complete.
+
+## Monday Morning Access Runbook (2026-02-08)
+
+Use this exact sequence after deploy/publish to validate staff + owner access without breaking tenant isolation.
+
+### Scope
+
+- Primary risk domains: staff session auth, SECURITY DEFINER RPC auth, cross-agency isolation.
+- Priority UI modules: Winback HQ, Renewals, Cancel Audit, LQS Roadmap, Scorecard Submits, Coaching Insights.
+- Environment: production app + production Supabase project.
+
+### Prereqs
+
+1. Fresh owner JWT and/or staff session (do not reuse stale tokens).
+2. Two agency IDs available:
+- `OWN_AGENCY_ID` (caller agency)
+- `CROSS_AGENCY_ID` (different agency)
+3. Supabase API URL and anon key available in shell env.
+
+### Step 1: Confirm DB migrations are applied
+
+```bash
+cd /Users/justinsmacbook/Projects/agencybrain
+supabase migration list
+```
+
+Pass criteria:
+- New auth-hardening migrations appear on both local and remote lists.
+
+### Step 2: Token freshness check
+
+If RPC tests return `JWT expired` (`PGRST301`), refresh auth by signing in again and re-copy token before continuing.
+
+### Step 3: Core RPC cross-agency tamper tests (must pass)
+
+Set env vars:
+
+```bash
+URL="https://<PROJECT_REF>.supabase.co/rest/v1/rpc"
+APIKEY="<SUPABASE_ANON_KEY>"
+AUTH="<FRESH_JWT_ACCESS_TOKEN>"
+OWN_AGENCY_ID="<CALLER_AGENCY_UUID>"
+CROSS_AGENCY_ID="<OTHER_AGENCY_UUID>"
+```
+
+Run:
+
+```bash
+echo "---- check_feature_access cross (expect 401/403)"
+curl -i "$URL/check_feature_access" -H "apikey: $APIKEY" -H "Authorization: Bearer $AUTH" -H "Content-Type: application/json" -H "Accept: application/json" --data "{\"p_agency_id\":\"$CROSS_AGENCY_ID\",\"p_feature_key\":\"call_scoring\"}"
+
+echo "---- check_feature_access own (expect 200)"
+curl -i "$URL/check_feature_access" -H "apikey: $APIKEY" -H "Authorization: Bearer $AUTH" -H "Content-Type: application/json" -H "Accept: application/json" --data "{\"p_agency_id\":\"$OWN_AGENCY_ID\",\"p_feature_key\":\"call_scoring\"}"
+
+echo "---- check_call_scoring_access cross (expect 401/403)"
+curl -i "$URL/check_call_scoring_access" -H "apikey: $APIKEY" -H "Authorization: Bearer $AUTH" -H "Content-Type: application/json" -H "Accept: application/json" --data "{\"p_agency_id\":\"$CROSS_AGENCY_ID\"}"
+
+echo "---- check_call_scoring_access own (expect 200)"
+curl -i "$URL/check_call_scoring_access" -H "apikey: $APIKEY" -H "Authorization: Bearer $AUTH" -H "Content-Type: application/json" -H "Accept: application/json" --data "{\"p_agency_id\":\"$OWN_AGENCY_ID\"}"
+```
+
+Pass criteria:
+- Cross-agency calls: `401` or `403` with unauthorized message.
+- Own-agency calls: `200` with valid payload.
+
+### Step 4: Staff-focused RPC checks (must pass)
+
+Run same cross/own pattern for:
+- `get_contacts_by_stage`
+- `get_dashboard_daily`
+- `is_call_scoring_enabled`
+- `get_agency_settings`
+- `get_staff_call_scoring_data`
+
+Pass criteria:
+- Cross-agency denied.
+- Own-agency allowed.
+- No enum cast errors (especially `app_member_status` invalid input).
+
+### Step 5: UI smoke checks (staff account)
+
+Login as staff on production app and verify:
+1. `Contacts` loads rows.
+2. `Winback HQ` opens customer panel; adding note succeeds.
+3. `Renewals` opens records; activity save succeeds.
+4. `Cancel Audit` opens records; note save succeeds.
+5. `LQS Roadmap`:
+- lead source dropdown populates
+- assign lead source succeeds
+6. `Scorecard Submits` form submission succeeds.
+
+Pass criteria:
+- No blocking errors in UX.
+- Console may show non-blocking Radix accessibility warnings; treat as non-security noise unless functionality fails.
+
+### Step 6: UI smoke checks (owner/admin)
+
+1. Owner can use call scoring pages normally.
+2. Admin can access admin-only coaching threshold controls.
+3. Non-admin users cannot edit admin-only coaching thresholds.
+
+### Release Blockers (stop and rollback if any hit)
+
+1. Own-agency RPC returns unauthorized after token refresh.
+2. Cross-agency RPC returns 200.
+3. Staff cannot load priority pages (Contacts/LQS/Winback/Renewals/Cancel Audit).
+4. Staff note/activity writes fail with FK/auth errors.
+
+### Fast rollback procedure
+
+1. Identify the last known-good commit before the auth/access change.
+2. Revert offending commit(s):
+
+```bash
+git revert <bad_commit_sha>
+git push
+```
+
+3. If DB migration caused regression:
+- create follow-up migration restoring previous function body/policy/grants.
+- push migration:
+
+```bash
+supabase db push
+```
+
+4. Re-run Steps 3–6 and confirm pass before declaring incident resolved.
+
+### Evidence logging template (required)
+
+For each validation cycle, record:
+- Date/time
+- Caller identity (role + agency)
+- RPC tested
+- Cross result (status + message)
+- Own result (status + message)
+- UI module result (pass/fail + screenshot if fail)
+- Commit SHA + migration IDs included
