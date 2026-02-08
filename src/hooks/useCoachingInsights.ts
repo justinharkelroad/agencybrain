@@ -65,7 +65,7 @@ export function useCoachingInsights(agencyId: string | null) {
         .from('team_members')
         .select('id, name, role, status')
         .eq('agency_id', agencyId!)
-        .eq('status', 'Active')
+        .eq('status', 'active')
         .eq('include_in_metrics', true);
 
       if (!primary.error) {
@@ -78,7 +78,7 @@ export function useCoachingInsights(agencyId: string | null) {
           .from('team_members')
           .select('id, name, role, status')
           .eq('agency_id', agencyId!)
-          .eq('status', 'Active');
+          .eq('status', 'active');
         if (fallback.error) {
           console.warn('[coaching-insights] team_members fallback failed', fallback.error);
           return [];
