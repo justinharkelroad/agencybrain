@@ -14,6 +14,7 @@ import AdminCallScoringDashboard from './AdminCallScoringDashboard';
 import PromptBuilderWrapper from '@/components/admin/call-scoring/PromptBuilderWrapper';
 import FollowUpPromptSettings from '@/components/admin/call-scoring/FollowUpPromptSettings';
 import { FollowUpPromptConfig } from '@/components/admin/call-scoring/promptBuilderTypes';
+import { CoachingThresholdsSettings } from '@/components/coaching/CoachingThresholdsSettings';
 
 interface CallScoringTemplate {
   id: string;
@@ -172,9 +173,10 @@ function FollowUpPromptsTab({
 }
 
 export default function CallScoringTemplates() {
-  const [activeTab, setActiveTab] = useState<'templates' | 'analytics' | 'followup'>('templates');
+  const [activeTab, setActiveTab] = useState<'templates' | 'analytics' | 'followup' | 'coaching'>('templates');
   const [templates, setTemplates] = useState<CallScoringTemplate[]>([]);
   const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [selectedCoachingAgencyId, setSelectedCoachingAgencyId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<CallScoringTemplate | null>(null);
@@ -205,6 +207,12 @@ export default function CallScoringTemplates() {
     fetchTemplates();
     fetchAgencies();
   }, []);
+
+  useEffect(() => {
+    if (!selectedCoachingAgencyId && agencies.length > 0) {
+      setSelectedCoachingAgencyId(agencies[0].id);
+    }
+  }, [agencies, selectedCoachingAgencyId]);
 
   const fetchTemplates = async () => {
     setLoading(true);
@@ -542,6 +550,13 @@ export default function CallScoringTemplates() {
           <Sparkles className="h-4 w-4 mr-2" />
           Follow-Up Prompts
         </Button>
+        <Button
+          variant={activeTab === 'coaching' ? 'default' : 'outline'}
+          onClick={() => setActiveTab('coaching')}
+        >
+          <Building className="h-4 w-4 mr-2" />
+          Coaching Thresholds
+        </Button>
       </div>
 
       {activeTab === 'analytics' ? (
@@ -552,6 +567,41 @@ export default function CallScoringTemplates() {
           agencies={agencies}
           onRefresh={fetchTemplates}
         />
+      ) : activeTab === 'coaching' ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Coaching Insight Thresholds</CardTitle>
+            <CardDescription>
+              Admin-only controls for agency coaching insight trigger thresholds.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="max-w-md space-y-2">
+              <Label htmlFor="coaching-agency-select">Agency</Label>
+              <Select
+                value={selectedCoachingAgencyId}
+                onValueChange={setSelectedCoachingAgencyId}
+              >
+                <SelectTrigger id="coaching-agency-select">
+                  <SelectValue placeholder="Select an agency" />
+                </SelectTrigger>
+                <SelectContent>
+                  {agencies.map((agency) => (
+                    <SelectItem key={agency.id} value={agency.id}>
+                      {agency.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedCoachingAgencyId ? (
+              <CoachingThresholdsSettings agencyId={selectedCoachingAgencyId} />
+            ) : (
+              <p className="text-sm text-muted-foreground">Select an agency to edit thresholds.</p>
+            )}
+          </CardContent>
+        </Card>
       ) : (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
