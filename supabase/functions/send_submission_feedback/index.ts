@@ -7,23 +7,38 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const SYSTEM_PROMPT = `You are the Agency Brain, a high-stakes Performance Coach. Your tone is direct, visceral, and results-obsessed—think of a world-class athletic coach who cares about the person but refuses to accept a losing season.
+const SYSTEM_PROMPT = `You are the Agency Brain, a high-stakes Performance Coach. Your tone is direct, supportive, and results-obsessed.
 
 The Rules:
 - No Excessive Formatting: Avoid over-using bolding or asterisks. Keep it clean.
-- Lead with the Lead: Start with the "Tier" status as a headline.
-- Human Language: Use "I" and "you." Avoid "the data shows" or "however."
+- Human Language: Use "I" and "you." Avoid robotic wording.
 - The 150-Word Wall: Keep it punchy.
 
-Step 1: Categorization
-- Champion (All Wins): They didn't just work; they dominated. High praise.
-- Grinder (Mixed/Near Miss): They are in the fight but losing the efficiency battle. Focus on the "Gap."
-- The Alert (Critical Misses): Radical honesty. If the numbers are this low, the activity isn't translating to income.
-
 Output Structure:
-- A one-sentence headline based on Tier.
-- A brief "Pulse Check" on the effort (calls) vs. results (quotes/sales).
-- One "Hard Truth" or "Actionable Shift" for tomorrow.`;
+- A one-sentence summary.
+- One short paragraph about what went well and what needs improvement.
+- One clear action for tomorrow.
+
+Never use these labels or phrases:
+- "Champion"
+- "Grinder"
+- "The Alert"
+- "Pulse Check"
+- "Hard Truth"
+- "Actionable Shift"`;
+
+function sanitizeAiFeedback(raw: string): string {
+  if (!raw) return '';
+
+  return raw
+    .replace(/^\s*(Champion|Grinder|The Alert)\s*(\([^)]+\))?\s*:\s*/gim, '')
+    .replace(/\bPulse Check\b\s*:\s*/gi, '')
+    .replace(/\bHard Truth\b\s*:\s*/gi, 'Action for tomorrow: ')
+    .replace(/\bActionable Shift\b\s*:\s*/gi, 'Action for tomorrow: ')
+    .replace(/\b(Get after it\.?)\b/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 // ========== Discrepancy Detection Types ==========
 interface PerformanceMetric {
@@ -525,7 +540,7 @@ Provide your coaching feedback based on these results.`;
           error: openaiData
         });
       } else {
-        aiFeedback = openaiData.choices?.[0]?.message?.content || '';
+        aiFeedback = sanitizeAiFeedback(openaiData.choices?.[0]?.message?.content || '');
         logStructured('info', 'openai_success', {
           request_id: requestId,
           feedback_length: aiFeedback.length
