@@ -71,7 +71,7 @@ export const EmailComponents = {
   // AI Feedback section
   aiFeedback: (feedback: string) => feedback ? `
     <div style="background: ${BRAND.colors.lightBg}; padding: 16px; border-radius: 8px; border-left: 4px solid ${BRAND.colors.primary}; margin-top: 16px;">
-      <strong style="color: ${BRAND.colors.primary};">🧠 Agency Brain Coaching:</strong>
+      <strong style="color: ${BRAND.colors.primary};">Here is What The Data Shows Us...</strong>
       <div style="margin-top: 8px; white-space: pre-line; color: #334155;">${feedback}</div>
     </div>
   ` : '',
