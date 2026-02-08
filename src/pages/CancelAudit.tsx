@@ -743,7 +743,7 @@ const CancelAuditPage = () => {
               : (staffMemberId || undefined)
           }
           displayName={displayName}
-          staffSessionToken={location.pathname.startsWith('/staff') ? staffSessionToken : null}
+          staffSessionToken={staffSessionToken || null}
           onActivityLogged={() => {
             // Refresh the records when activity is logged
             refetch();

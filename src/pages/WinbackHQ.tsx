@@ -546,7 +546,7 @@ export default function WinbackHQ() {
           winbackHousehold={profileHouseholdId ? { id: profileHouseholdId } : undefined}
           teamMembers={teamMembers}
           currentUserTeamMemberId={currentUserTeamMemberId}
-          staffSessionToken={location.pathname.startsWith('/staff') ? staffSessionToken : null}
+          staffSessionToken={staffSessionToken || null}
           onActivityLogged={() => {
             // Refresh data when activity is logged
             if (agencyId) loadHouseholds(agencyId, teamMembers);

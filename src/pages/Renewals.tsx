@@ -905,7 +905,7 @@ export default function Renewals() {
           userId={context.userId || undefined}
           staffMemberId={context.staffMemberId || undefined}
           displayName={context.displayName}
-          staffSessionToken={location.pathname.startsWith('/staff') ? staffSessionToken : null}
+          staffSessionToken={staffSessionToken || null}
         />
       )}
     </div>

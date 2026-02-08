@@ -95,6 +95,7 @@ export function ContactProfileModal({
   const [hasMutated, setHasMutated] = useState(false);
   // State for Apply Sequence modal
   const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
+  const resolvedCreatedByStaffId = staffSessionToken ? (staffMemberId || null) : null;
 
   // Query client for cache invalidation
   const queryClient = useQueryClient();
@@ -159,7 +160,7 @@ export function ContactProfileModal({
       notes: data.notes,
       scheduledDate: data.scheduledDate,
       createdByUserId: userId,
-      createdByStaffId: staffMemberId,
+      createdByStaffId: resolvedCreatedByStaffId,
       createdByDisplayName: displayName,
     });
 
@@ -187,7 +188,7 @@ export function ContactProfileModal({
       sourceRecordId,
       subject,
       createdByUserId: userId,
-      createdByStaffId: staffMemberId,
+      createdByStaffId: resolvedCreatedByStaffId,
       createdByDisplayName: displayName,
     });
   };
@@ -204,7 +205,7 @@ export function ContactProfileModal({
       sourceRecordId,
       notes: inlineNote.trim(),
       createdByUserId: userId,
-      createdByStaffId: staffMemberId,
+      createdByStaffId: resolvedCreatedByStaffId,
       createdByDisplayName: displayName,
     });
 
@@ -639,7 +640,7 @@ export function ContactProfileModal({
         sourceModule: 'lqs',
         sourceRecordId: lqsHousehold?.id,
         createdByUserId: userId,
-        createdByStaffId: staffMemberId,
+        createdByStaffId: resolvedCreatedByStaffId,
         createdByDisplayName: displayName,
       });
 
@@ -733,7 +734,7 @@ export function ContactProfileModal({
             subject: 'Moved to Quoted',
             notes: 'Lead promoted to Quoted Household',
             created_by_user_id: userId || null,
-            created_by_staff_id: staffMemberId || null,
+            created_by_staff_id: resolvedCreatedByStaffId,
             created_by_display_name: displayName || null,
           }).catch(err => console.warn('Activity log failed:', err));
         }
