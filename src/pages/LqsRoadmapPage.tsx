@@ -28,7 +28,7 @@ import {
   HouseholdWithRelations
 } from '@/hooks/useLqsData';
 import { useLqsObjections } from '@/hooks/useLqsObjections';
-import { useStaffLqsData, useStaffLqsObjections } from '@/hooks/useStaffLqsData';
+import { useStaffLqsData, useStaffLqsObjections, useStaffLqsLeadSources } from '@/hooks/useStaffLqsData';
 import { LqsMetricTiles } from '@/components/lqs/LqsMetricTiles';
 import { LqsFilters } from '@/components/lqs/LqsFilters';
 import { LqsHouseholdTable } from '@/components/lqs/LqsHouseholdTable';
@@ -223,7 +223,9 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const isLoading = isStaffPortal ? staffDataLoading : agencyDataLoading;
   const refetch = isStaffPortal ? staffRefetch : agencyRefetch;
 
-  const { data: leadSources = [] } = useLqsLeadSources(isStaffPortal ? null : (agencyProfile?.agencyId ?? null));
+  const { data: agencyLeadSources = [] } = useLqsLeadSources(isStaffPortal ? null : (agencyProfile?.agencyId ?? null));
+  const { data: staffLeadSources = [] } = useStaffLqsLeadSources(isStaffPortal ? staffSessionToken : null);
+  const leadSources = isStaffPortal ? staffLeadSources : agencyLeadSources;
   // Use staff hook for objections in staff portal, regular hook otherwise
   const { data: staffObjections = [] } = useStaffLqsObjections(isStaffPortal ? staffSessionToken : null);
   const { data: agencyObjections = [] } = useLqsObjections(!isStaffPortal);
