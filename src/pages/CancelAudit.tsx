@@ -737,7 +737,11 @@ const CancelAuditPage = () => {
           currentStage="cancel_audit"
           cancelAuditRecord={profileRecord || undefined}
           userId={userId || undefined}
-          staffMemberId={staffMemberId || undefined}
+          staffMemberId={
+            location.pathname.startsWith('/staff')
+              ? (staffUser?.id || undefined) // contact_activities.created_by_staff_id references staff_users.id
+              : (staffMemberId || undefined)
+          }
           displayName={displayName}
           staffSessionToken={location.pathname.startsWith('/staff') ? staffSessionToken : null}
           onActivityLogged={() => {
