@@ -543,3 +543,95 @@ Tamper tests run against production (`wjqyccbytctqwceuhzhk`) showed:
 
 After any auth/RLS/RPC change, do not treat deployment as complete until cross-agency tamper tests are executed and logged with status codes for both deny/allow paths.
 
+## Security Hardening Report (2026-02-08) - Phase 2 + Edge Auth Standardization
+
+### Executive Summary
+
+Phase 2 was implemented and deployed to production to reduce cross-agency access risk in subscription/call-balance pathways while preserving normal same-agency access.  
+Result: tested deny/allow paths are behaving correctly in production (`403` cross-agency, `200` own-agency), and known coaching-insights loading failures caused by enum mismatch were fixed.
+
+### What Was Changed
+
+#### Database Migrations (Applied to Production)
+
+1. `supabase/migrations/20260208150000_fix_staff_call_scoring_enum_cast.sql`
+- Fixed enum-cast/status handling for staff call-scoring queries.
+- Removed error path `invalid input value for enum app_member_status`.
+
+2. `supabase/migrations/20260208153000_phase2_harden_subscription_call_balance_access.sql`
+- Hardened access checks for subscription and call-balance domains.
+- Updated RLS and/or function guardrails to consistently enforce agency-bound authorization.
+- Added explicit function execution boundaries for privileged service-role flows where required.
+
+#### Edge Function Auth Standardization (Committed + Pushed)
+
+Commit: `a2be58a4` on `main`
+
+Updated:
+- `supabase/functions/purchase-call-pack/index.ts`
+- `supabase/functions/save-report/index.ts`
+- `supabase/functions/roleplay-config/index.ts`
+
+Key changes:
+- Standardized request verification via shared `verifyRequest` utility.
+- Enforced clear deny-by-default behavior for invalid or missing auth context.
+- Removed inconsistent ad-hoc auth handling where possible.
+- Kept roleplay token access behavior compatible while tightening authenticated/staff session handling.
+
+### Production Validation Evidence
+
+#### Phase 1/2 Access Tamper Tests (Production RPC)
+
+Using Josh token against production:
+
+1. `check_feature_access`
+- Cross-agency (`HFI`): `403 unauthorized` (PASS)
+- Own-agency (`Josh agency`): `200` with expected access payload (PASS)
+
+2. `check_call_scoring_access`
+- Cross-agency (`HFI`): `403 unauthorized` (PASS)
+- Own-agency (`Josh agency`): `200` with expected scoring payload (PASS)
+
+3. Prior hardened call-scoring endpoints remained correct:
+- `check_and_reset_call_usage` cross `403`, own `200` (PASS)
+- `is_call_scoring_enabled` cross `403`, own `200` (PASS)
+- `get_agency_settings` cross `403`, own `200` (PASS)
+- `get_staff_call_scoring_data` cross `403`, own `200` (PASS)
+
+#### UI/Behavior Validation
+
+- Coaching Insights route loads for authorized owner account (PASS).
+- Call Scoring loads correctly after fixes (PASS).
+- Save-report flow validated working (PASS).
+- Coaching threshold editing remains restricted to admin Call Scoring context (PASS per intended model).
+
+### Why This Reduces Monday-Morning Access Risk
+
+1. Cross-agency access vectors in key subscription/call-balance RPCs now fail closed.
+2. Same-agency owner flows are still functional, reducing lockout/regression probability.
+3. Auth enforcement in selected edge functions now follows a shared verification model, reducing drift and one-off mistakes.
+4. Enum mismatch causing query failures/spinners was patched and deployed.
+
+### Remaining Risk Surface (Still Needs Follow-Through)
+
+1. Not every SECURITY DEFINER RPC in the codebase is covered by the same hardening pass yet.
+2. Lovable preview may still show noisy CORS/auth-bridge console errors unrelated to production data auth paths.
+3. Any future RPC added with `p_agency_id` and no caller validation can reintroduce cross-tenant risk.
+
+### Monday Morning Runbook
+
+1. Smoke login (owner, admin, staff) and verify dashboard + call scoring load.
+2. Execute deny/allow RPC tamper tests:
+- `check_feature_access` (cross deny, own allow)
+- `check_call_scoring_access` (cross deny, own allow)
+3. Confirm coaching insights page renders without enum/status errors.
+4. Confirm admin-only threshold controls are only visible in admin call-scoring area.
+5. If any 401 appears unexpectedly on own-agency tests, refresh JWT and rerun before escalation.
+6. If own-agency still fails after fresh JWT, treat as release blocker and rollback recent auth change set.
+
+### Operational Guardrails (Going Forward)
+
+1. Every new privileged RPC must include explicit caller verification path (`auth.uid()` and/or validated staff token).
+2. No RPC should rely on `p_agency_id` alone for authorization.
+3. Keep REVOKE/GRANT changes adjacent in the same migration transaction.
+4. Require cross-agency tamper test evidence in PR notes before marking auth/security work complete.
