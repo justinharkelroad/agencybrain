@@ -20,6 +20,19 @@ const BRAND = {
   fromEmail: 'Agency Brain <info@agencybrain.standardplaybook.com>',
 };
 
+function summarizePolicyTypes(policies: Array<{ policy_type?: string | null }> | null | undefined): string {
+  if (!policies || policies.length === 0) return '—';
+  const counts = new Map<string, number>();
+  for (const p of policies) {
+    const key = (p.policy_type || '').trim() || 'Unknown';
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([name, count]) => `${name} x${count}`)
+    .join(', ');
+}
+
 // DST-aware local hour using Intl (replaces hardcoded offsets)
 function getLocalHour(timezone: string): number {
   try {
@@ -177,6 +190,8 @@ serve(async (req) => {
             total_policies,
             total_points,
             created_at,
+            lead_source:lead_sources(name),
+            sale_policies(policy_type),
             team_member:team_members!sales_team_member_id_fkey(name)
           `)
           .eq('agency_id', agency.id)
@@ -365,10 +380,12 @@ serve(async (req) => {
               <td style="padding: 6px 12px; color: #6b7280;">${formatTime(s.created_at)}</td>
               <td style="padding: 6px 12px;">${(s.team_member as { name: string } | null)?.name || 'Unknown'}</td>
               <td style="padding: 6px 12px;">${s.customer_name}</td>
+              <td style="padding: 6px 12px;">${(s.lead_source as { name: string } | null)?.name || '—'}</td>
+              <td style="padding: 6px 12px;">${(s.total_policies || 0)} (${summarizePolicyTypes(s.sale_policies as Array<{ policy_type?: string | null }> | null)})</td>
               <td style="padding: 6px 12px; text-align: right;">${formatCurrency(s.total_premium || 0)}</td>
             </tr>
           `).join('')
-          : '<tr><td colspan="4" style="padding: 16px; text-align: center; color: #6b7280;">No sales recorded today</td></tr>';
+          : '<tr><td colspan="6" style="padding: 16px; text-align: center; color: #6b7280;">No sales recorded today</td></tr>';
 
         const emailHtml = `<!DOCTYPE html>
 <html>
@@ -380,8 +397,10 @@ serve(async (req) => {
   <div style="max-width: 700px; margin: 0 auto; padding: 20px;">
     
     <!-- Header -->
-    <div style="background: linear-gradient(135deg, ${BRAND.colors.primary}, ${BRAND.colors.secondary}); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
-      <img src="${BRAND.logo}" alt="${BRAND.name}" style="height: 40px; margin-bottom: 16px; display: block;">
+    <div style="background-color: ${BRAND.colors.secondary}; background: linear-gradient(135deg, ${BRAND.colors.primary}, ${BRAND.colors.secondary}); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
+      <div style="display: inline-block; padding: 8px 10px; background-color: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.28); border-radius: 8px; margin-bottom: 16px;">
+        <img src="${BRAND.logo}" alt="${BRAND.name}" style="height: 40px; display: block;">
+      </div>
       <h1 style="margin: 0; font-size: 24px;">📊 Daily Sales Summary</h1>
       <p style="margin: 8px 0 0 0; opacity: 0.9;">${todayFormatted}</p>
     </div>
@@ -443,6 +462,8 @@ serve(async (req) => {
             <th style="padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Time</th>
             <th style="padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Producer</th>
             <th style="padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Customer</th>
+            <th style="padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Lead Source</th>
+            <th style="padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Policies (Types)</th>
             <th style="padding: 8px 12px; text-align: right; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Premium</th>
           </tr>
         </thead>
