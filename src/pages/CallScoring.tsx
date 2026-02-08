@@ -237,9 +237,13 @@ export default function CallScoring() {
       if (!isStaffUser || !staffAgencyId) return;
 
       console.log('Checking staff access for agency:', staffAgencyId);
+      const sessionToken = localStorage.getItem('staff_session_token');
 
       const { data: isEnabled, error } = await supabase
-        .rpc('is_call_scoring_enabled', { p_agency_id: staffAgencyId });
+        .rpc('is_call_scoring_enabled', {
+          p_agency_id: staffAgencyId,
+          p_staff_session_token: sessionToken,
+        });
 
       console.log('Staff call scoring access:', isEnabled, error);
 
@@ -1134,9 +1138,11 @@ export default function CallScoring() {
       
       if (isStaffUser) {
         // Staff users: use RPC to bypass RLS
+        const sessionToken = localStorage.getItem('staff_session_token');
         const { data: rpcData, error } = await supabase.rpc('get_staff_call_status', {
           p_call_id: callId,
-          p_agency_id: originalAgencyId
+          p_agency_id: originalAgencyId,
+          p_staff_session_token: sessionToken,
         });
         
         if (!error && rpcData) {
@@ -1202,11 +1208,13 @@ export default function CallScoring() {
         let error = null;
 
         if (isStaffManager) {
+          const sessionToken = localStorage.getItem('staff_session_token');
           // Managers: try to view any agency call first (requires updated RPC)
           const result = await supabase.rpc('get_staff_call_details', {
             p_call_id: call.id,
             p_team_member_id: null,
-            p_agency_id: staffAgencyId
+            p_agency_id: staffAgencyId,
+            p_staff_session_token: sessionToken,
           });
           fullCall = result.data;
           error = result.error;
@@ -1216,16 +1224,19 @@ export default function CallScoring() {
             console.log('Manager agency-wide call failed, trying with own team_member_id...');
             const fallbackResult = await supabase.rpc('get_staff_call_details', {
               p_call_id: call.id,
-              p_team_member_id: staffTeamMemberId
+              p_team_member_id: staffTeamMemberId,
+              p_staff_session_token: sessionToken,
             });
             fullCall = fallbackResult.data;
             error = fallbackResult.error;
           }
         } else {
+          const sessionToken = localStorage.getItem('staff_session_token');
           // Regular staff: only view their own calls
           const result = await supabase.rpc('get_staff_call_details', {
             p_call_id: call.id,
-            p_team_member_id: staffTeamMemberId
+            p_team_member_id: staffTeamMemberId,
+            p_staff_session_token: sessionToken,
           });
           fullCall = result.data;
           error = result.error;
@@ -1335,11 +1346,13 @@ export default function CallScoring() {
 
     // Refresh calls list
     if (isStaffUser && staffAgencyId) {
+      const sessionToken = localStorage.getItem('staff_session_token');
       const { data: refreshData } = await supabase.rpc('get_staff_call_scoring_data', {
         p_agency_id: staffAgencyId,
         p_team_member_id: staffTeamMemberId,
         p_page: currentPage,
-        p_page_size: CALLS_PER_PAGE
+        p_page_size: CALLS_PER_PAGE,
+        p_staff_session_token: sessionToken,
       });
       if (refreshData) {
         setRecentCalls(refreshData.recent_calls || []);

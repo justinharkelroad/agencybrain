@@ -23,8 +23,10 @@ export function useStaffPermissions() {
       }
 
       try {
+        const sessionToken = localStorage.getItem('staff_session_token');
         const { data, error } = await supabase.rpc('get_agency_settings', {
-          p_agency_id: user.agency_id
+          p_agency_id: user.agency_id,
+          p_staff_session_token: sessionToken,
         });
 
         if (error) {

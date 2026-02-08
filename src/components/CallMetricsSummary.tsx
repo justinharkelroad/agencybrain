@@ -42,11 +42,14 @@ export function CallMetricsSummary({
     queryFn: async (): Promise<CallMetrics | null> => {
       // Staff portal users: use RPC functions
       if (isStaffUser && staffTeamMemberId) {
+        const sessionToken = localStorage.getItem('staff_session_token');
         if (teamMemberId) {
           // Get metrics for a specific team member
           const { data, error } = await supabase.rpc('get_staff_call_metrics', {
             p_team_member_id: teamMemberId,
-            p_date: targetDate,
+            p_start_date: targetDate,
+            p_end_date: targetDate,
+            p_staff_session_token: sessionToken,
           });
 
           if (error) throw error;
@@ -55,7 +58,9 @@ export function CallMetricsSummary({
           // Get aggregated metrics for entire agency
           const { data, error } = await supabase.rpc('get_agency_call_metrics', {
             p_team_member_id: staffTeamMemberId,
-            p_date: targetDate,
+            p_start_date: targetDate,
+            p_end_date: targetDate,
+            p_staff_session_token: sessionToken,
           });
 
           if (error) throw error;

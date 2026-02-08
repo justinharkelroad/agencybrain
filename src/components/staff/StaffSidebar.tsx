@@ -107,8 +107,10 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
       }, 5000);
 
       try {
+        const sessionToken = localStorage.getItem('staff_session_token');
         const { data: isEnabled, error } = await supabase.rpc('is_call_scoring_enabled', {
           p_agency_id: user.agency_id,
+          p_staff_session_token: sessionToken,
         });
 
         clearTimeout(timeoutId);
