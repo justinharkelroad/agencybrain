@@ -4,6 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Working Rules
 
+- **NEVER fabricate, assume, or invent information.** If you don't know something, say "I don't know." If you're uncertain, say "I'm not sure." Never state speculation as fact. Never invent explanations for data you haven't verified. This applies to all responses — code, data, debugging, and conversation.
 - **After fixing any production bug**, update this file with a rule that prevents the same class of bug from recurring. Include: what went wrong, the correct pattern (with code examples), and which files/functions the rule applies to.
 - **After creating or modifying a function** that writes to a table with constraints or triggers, check this file for existing rules about that table and follow them exactly.
 - **Never re-create a function from scratch** without first reading the current deployed version and preserving all protective patterns (GREATEST, COALESCE, exception handlers, required columns). Copy the existing function and modify it — do not write from memory.
@@ -354,3 +355,191 @@ Test locations:
 ## Path Aliases
 
 `@/*` maps to `./src/*` (configured in `tsconfig.json` and `vite.config.ts`)
+
+## 2026-02-08 Access Hardening Report (Production)
+
+This section documents a production security/access incident and the exact remediation applied on February 8, 2026.
+
+### Executive Summary
+
+A role/access audit confirmed that tenant-bound data RPCs had inconsistent caller verification across JWT users (owners/admins) and staff-session users. This created a real cross-agency exposure path in at least one RPC (`check_and_reset_call_usage`) and a reliability bug in staff-facing coaching endpoints.
+
+All identified high-priority issues in scope were patched and validated in production.
+
+### What Went Wrong
+
+1. **Dual auth models were not enforced consistently inside SECURITY DEFINER RPCs**
+- Architecture is intentional:
+  - JWT auth + RLS for owner/admin/key employee paths
+  - `staff_sessions` token model for staff portal paths
+- Some privileged RPCs accepted tenant IDs from input but did not always enforce caller/agency alignment with deny-by-default branching.
+
+2. **Cross-agency access hole in `check_and_reset_call_usage`**
+- A live tamper test using Josh's JWT + another agency UUID returned `HTTP 200` and usage payload.
+- Root cause: function signature/logic allowed agency_id-driven lookup without strict caller-to-agency authorization in the hardened model.
+
+3. **Enum mismatch caused runtime failures (`app_member_status`)**
+- Some app and SQL filters used `'Active'`/empty-string coercion against enum `app_member_status` (`'active'|'inactive'`).
+- This produced `22P02 invalid input value for enum app_member_status` errors in coaching/team-member paths.
+
+4. **UI ownership boundary regression**
+- Coaching thresholds editor was exposed on agency `Call Scoring` page.
+- Requirement is admin-only configuration under Admin Call Scoring.
+
+### Correct Pattern (Mandatory)
+
+#### Pattern A: Deny-by-default auth branching in privileged RPCs
+
+```sql
+IF auth.uid() IS NOT NULL THEN
+  -- JWT caller path: must pass has_agency_access(auth.uid(), p_agency_id)
+ELSIF p_staff_session_token IS NOT NULL THEN
+  -- Staff token path: must pass verify_staff_session(p_staff_session_token, p_agency_id)
+ELSE
+  RAISE EXCEPTION 'unauthorized' USING ERRCODE = '28000';
+END IF;
+```
+
+Never allow data return based only on `p_agency_id` input.
+
+#### Pattern B: Shared staff-session helper (no duplicated auth SQL)
+
+```sql
+CREATE OR REPLACE FUNCTION public.verify_staff_session(p_token text, p_agency_id uuid)
+RETURNS uuid ...
+```
+
+Use this helper inside every staff-capable SECURITY DEFINER RPC.
+
+#### Pattern C: Enum-safe comparisons
+
+For enum/text comparisons, always cast enum to text first:
+
+```sql
+lower(coalesce(tm.status::text, '')) = 'active'
+```
+
+And in Supabase JS, use exact enum value:
+
+```ts
+.eq('status', 'active')
+```
+
+Never use `'Active'` and never rely on `coalesce(enum_col, '')` without casting.
+
+#### Pattern D: Public execute grants must be explicit and adjacent
+
+When changing function privileges:
+
+```sql
+REVOKE EXECUTE ON FUNCTION ... FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ... TO authenticated;
+GRANT EXECUTE ON FUNCTION ... TO anon;
+```
+
+Keep REVOKE+GRANT adjacent in the same migration/transaction.
+
+### Production Fixes Applied
+
+#### Database migrations
+
+- `20260208143000_harden_staff_rpc_auth_phase1.sql`
+  - Added shared helper `public.verify_staff_session(text, uuid)`.
+  - Hardened RPCs with deny-by-default auth flow and staff-token support:
+    - `public.get_staff_call_scoring_data(...)`
+    - `public.get_staff_call_details(...)`
+    - `public.is_call_scoring_enabled(...)`
+    - `public.get_agency_settings(...)`
+    - `public.get_staff_call_status(...)`
+    - `public.get_staff_call_metrics(...)`
+    - `public.get_agency_call_metrics(...)`
+  - Applied explicit REVOKE/GRANT execute privileges for hardened signatures.
+
+- `20260208144500_harden_check_call_usage_auth.sql`
+  - Replaced `check_and_reset_call_usage` with strict auth validation:
+    - JWT path uses `has_agency_access`
+    - staff token path uses `verify_staff_session`
+    - else unauthorized
+
+- `20260208150000_fix_staff_call_scoring_enum_cast.sql`
+  - Fixed enum/text coercion in:
+    - `public.verify_staff_session(...)`
+    - `public.get_staff_call_scoring_data(...)`
+
+#### App/UI changes
+
+- `src/pages/CallScoring.tsx`
+  - Removed coaching-threshold editor from agency Call Scoring.
+  - Added legacy tab-state cleanup so old `coaching` tab state does not dead-end.
+
+- `src/pages/admin/CallScoringTemplates.tsx`
+  - Added admin-only `Coaching Thresholds` tab.
+  - Added agency selector + mounted `CoachingThresholdsSettings` there.
+
+- `src/hooks/useCoachingInsights.ts`
+  - Fixed enum value filters from `'Active'` to `'active'`.
+
+### Validation Evidence (Production)
+
+Tamper tests run against production (`wjqyccbytctqwceuhzhk`) showed:
+
+1. `check_and_reset_call_usage`
+- Cross-agency request: `403 unauthorized` (PASS)
+- Same-agency request: `200` with usage payload (PASS)
+
+2. `is_call_scoring_enabled`
+- Cross-agency: `403 unauthorized` (PASS)
+- Same-agency: `200 true` (PASS)
+
+3. `get_agency_settings`
+- Cross-agency: `403 unauthorized` (PASS)
+- Same-agency: `200` payload (PASS)
+
+4. `get_staff_call_scoring_data`
+- Cross-agency: `403 unauthorized` (PASS)
+- Same-agency: `200` payload (PASS)
+
+5. UI behavior checks
+- Agency owner can access Coaching Insights page (PASS)
+- Agency Call Scoring no longer exposes thresholds editor (PASS)
+- Admin Call Scoring exposes admin-only thresholds editor (PASS)
+
+### Residual Risks
+
+1. Remaining SECURITY DEFINER RPCs outside phase-1 may still contain inconsistent auth patterns.
+2. Lovable preview can show noisy auth-bridge/CORS console errors unrelated to data-path auth; treat as environment noise unless RPC responses fail.
+3. Manual SQL hotfixes are high risk unless immediately codified in migrations (done here).
+
+### Release Gate: Access-Safety Checklist (Mandatory before merge/deploy)
+
+1. For each changed privileged RPC, run a two-sided test:
+- same caller + same agency => expect 200
+- same caller + different agency => expect 401/403
+
+2. Verify no enum literal mismatches:
+- `app_member_status` must be `'active'|'inactive'` only
+
+3. Verify function privilege changes:
+- REVOKE and GRANT present and adjacent
+
+4. Verify staff+JWT parity:
+- JWT caller works
+- staff token caller works
+- unauthenticated caller denied
+
+5. Verify UI role boundaries:
+- Admin-only settings do not appear on owner/staff pages
+
+### Applies To (Do Not Ignore)
+
+- SQL functions in `supabase/migrations/*` that define or modify SECURITY DEFINER RPCs.
+- App hooks/components that query `team_members.status`:
+  - `src/hooks/useCoachingInsights.ts`
+- Call-scoring/coaching access surfaces:
+  - `src/pages/CallScoring.tsx`
+  - `src/pages/admin/CallScoringTemplates.tsx`
+
+### Non-Negotiable Rule Added
+
+After any auth/RLS/RPC change, do not treat deployment as complete until cross-agency tamper tests are executed and logged with status codes for both deny/allow paths.
+
