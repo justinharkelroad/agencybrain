@@ -62,6 +62,13 @@ serve(async (req) => {
       );
     }
 
+    // Load agency dashboard toggle + slug for staff dashboard rendering.
+    const { data: agencyData } = await supabase
+      .from('agencies')
+      .select('slug, dashboard_call_metrics_enabled')
+      .eq('id', staffUser.agency_id)
+      .maybeSingle();
+
     // Get team member's role
     const { data: teamMember } = await supabase
       .from('team_members')
@@ -153,7 +160,9 @@ serve(async (req) => {
         submissionSchema,
         formTemplateSchema: formTemplate?.schema_json,
         targets: targetsMap,
-        role
+        role,
+        agency_slug: agencyData?.slug || null,
+        dashboard_call_metrics_enabled: agencyData?.dashboard_call_metrics_enabled ?? false,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -94,7 +94,11 @@ export function useStaffAuth() {
 
     try {
       const { data, error } = await supabase.functions.invoke('staff_login', {
-        body: { username, password, agency_slug: agencySlug }
+        body: {
+          username: username?.trim(),
+          password,
+          agency_slug: agencySlug?.trim() || undefined,
+        }
       });
 
       if (error || !data?.success) {

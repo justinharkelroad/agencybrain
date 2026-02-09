@@ -488,3 +488,6 @@ verify_jwt = false
 
 [functions.ringcentral-report-ingest]
 verify_jwt = false
+
+[functions.get_metrics_snapshot]
+verify_jwt = false

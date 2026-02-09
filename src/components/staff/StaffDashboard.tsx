@@ -12,6 +12,7 @@ import { StaffFocusTargets } from './StaffFocusTargets';
 import { StaffTeamOverview } from './StaffTeamOverview';
 import { StaffRoleplaySessions } from './StaffRoleplaySessions';
 import { AgencyDailyGoals } from '@/components/dashboard/AgencyDailyGoals';
+import { MetricsSnapshotPanel } from '@/components/metrics/MetricsSnapshotPanel';
 import { StaffCore4Card } from './StaffCore4Card';
 import { StaffCore4MonthlyMissions } from './StaffCore4MonthlyMissions';
 import { StaffSalesSummary } from './StaffSalesSummary';
@@ -19,6 +20,7 @@ import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { ChallengeDashboardWidget } from '@/components/challenge/ChallengeDashboardWidget';
+import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
 interface KPIData {
   key: string;
   slug: string;
@@ -27,6 +29,20 @@ interface KPIData {
   target: number;
   passed: boolean;
   progress: number;
+}
+
+interface SchemaKpi {
+  key: string;
+  selectedKpiSlug?: string;
+  label: string;
+  target?: { goal?: number };
+}
+
+interface LeadSourceRow {
+  id: string;
+  name: string;
+  is_self_generated?: boolean | null;
+  bucket?: { id: string; name: string } | null;
 }
 
 function getPreviousBusinessDay(): Date {
@@ -104,6 +120,8 @@ export function StaffDashboard() {
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
+  const [dashboardCallMetricsEnabled, setDashboardCallMetricsEnabled] = useState(false);
+  const [agencySlug, setAgencySlug] = useState<string | null>(null);
 
   // Fetch objections for quote modal (via edge function for staff users)
   const { data: objections = [] } = useStaffLqsObjections(sessionToken);
@@ -141,7 +159,17 @@ export function StaffDashboard() {
           return;
         }
 
-        const { submission, submissionSchema, formTemplateSchema, targets: targetsMap } = data;
+        const {
+          submission,
+          submissionSchema,
+          formTemplateSchema,
+          targets: targetsMap,
+          dashboard_call_metrics_enabled,
+          agency_slug,
+        } = data;
+
+        setDashboardCallMetricsEnabled(Boolean(dashboard_call_metrics_enabled));
+        setAgencySlug(agency_slug || null);
 
         const hasData = !!submission;
         setHasSubmission(hasData);
@@ -154,7 +182,7 @@ export function StaffDashboard() {
         const kpis = schema?.kpis || [];
         const payload = hasData ? (submission.payload_json || {}) : {};
 
-        const kpiResults: KPIData[] = kpis.map((kpi: any) => {
+        const kpiResults: KPIData[] = (kpis as SchemaKpi[]).map((kpi) => {
           const actual = hasData ? (Number(payload[kpi.selectedKpiSlug]) || Number(payload[kpi.key]) || 0) : 0;
           const target = kpi.target?.goal ?? targetsMap[kpi.selectedKpiSlug] ?? targetsMap[kpi.key] ?? 0;
           const progress = target > 0 ? Math.min(actual / target, 1) : 0;
@@ -199,7 +227,7 @@ export function StaffDashboard() {
         }
         
         if (data?.lead_sources) {
-          setLeadSources(data.lead_sources.map((s: any) => ({
+          setLeadSources((data.lead_sources as LeadSourceRow[]).map((s) => ({
             ...s,
             is_self_generated: s.is_self_generated ?? false,
             bucket: s.bucket ?? null
@@ -249,6 +277,15 @@ export function StaffDashboard() {
         />
       )}
 
+      {/* RingCentral call rings (same agency toggle behavior as owner dashboard) */}
+      {user?.agency_id && agencySlug && dashboardCallMetricsEnabled && (
+        <AgencyMetricRings
+          agencyId={user.agency_id}
+          agencySlug={agencySlug}
+          canFilterByMember={false}
+        />
+      )}
+
       {/* The Challenge Widget */}
       <ChallengeDashboardWidget />
 
@@ -261,6 +298,17 @@ export function StaffDashboard() {
             date={previousBusinessDayStr}
           />
         </div>
+      )}
+
+      {/* Locked personal metrics snapshot */}
+      {user?.team_member_id && (
+        <MetricsSnapshotPanel
+          date={previousBusinessDayStr}
+          role={(user?.role === 'Service' ? 'Service' : 'Sales')}
+          prefer="staff"
+          teamMemberId={user.team_member_id}
+          title="My Locked Metrics Snapshot"
+        />
       )}
 
       {/* Previous Day Performance Card */}
