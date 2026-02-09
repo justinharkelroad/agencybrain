@@ -99,7 +99,7 @@ const detectBundleType = (policies: Policy[]): { isBundle: boolean; bundleType: 
 };
 
 // Multi-item product types (uses canonical names)
-const MULTI_ITEM_PRODUCTS = ["Standard Auto", "Specialty Auto", "Boatowners", "Motorcycle"];
+const MULTI_ITEM_PRODUCTS = ["Standard Auto", "Non-Standard Auto", "Specialty Auto", "Boatowners", "Motorcycle"];
 
 // Check if product allows multiple line items - uses canonical name if available
 const isMultiItemProduct = (productName: string, canonicalName?: string | null): boolean => {
