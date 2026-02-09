@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Upload, Loader2, CheckCircle, Copy, FileSpreadsheet, Clock, Mail, ChevronDown, ChevronRight, AlertCircle, XCircle } from 'lucide-react';
+import { HelpButton } from '@/components/HelpButton';
 
 interface UploadResult {
   success: boolean;
@@ -226,14 +227,15 @@ export function RingCentralReportUpload({ agencyId }: RingCentralReportUploadPro
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-3">
+        <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
             <FileSpreadsheet className="h-5 w-5 text-blue-500" />
           </div>
-          <div>
+          <div className="flex-1">
             <CardTitle className="text-base">RingCentral Report Upload</CardTitle>
             <CardDescription>Upload the Calls and Users reports from RingCentral</CardDescription>
           </div>
+          <HelpButton videoKey="Ringcentral_automation" />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
