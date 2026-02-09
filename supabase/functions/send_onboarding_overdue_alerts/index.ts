@@ -189,7 +189,7 @@ serve(async (req) => {
           staff_user_id: staff.id,
           email: staff.email,
           display_name: staff.display_name || staff.username,
-          agency_name: (staff.agency as { name: string })?.name || 'Your Agency',
+          agency_name: ((staff.agency as unknown as Array<{ name: string }> | null)?.[0])?.name || 'Your Agency',
           tasks,
         });
       }

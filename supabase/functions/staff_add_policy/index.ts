@@ -126,7 +126,7 @@ serve(async (req) => {
         .eq('id', body.team_member_id)
         .maybeSingle();
 
-      if (teamMember?.agency_id === staffUser.agency_id) {
+      if (teamMember && teamMember.agency_id === staffUser.agency_id) {
         teamMemberId = teamMember.id;
       }
     }

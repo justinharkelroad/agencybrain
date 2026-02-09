@@ -210,7 +210,7 @@ serve(async (req) => {
 
       const emailResult = await emailResponse.json();
       results.email = emailResult.content?.[0]?.text || '';
-      console.log('Email template generated:', results.email.substring(0, 100));
+      console.log('Email template generated:', results.email?.substring(0, 100));
     } else if (generateEmail && !emailEnabled) {
       console.log('Email template disabled in config');
     }
