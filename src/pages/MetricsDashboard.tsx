@@ -310,12 +310,12 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
         )}
 
         {/* Locked snapshot (canonical source) */}
-        {agencyId && (
+        {!isStaffMode && agencyId && (
           <MetricsSnapshotPanel
             date={format(selectedDate, "yyyy-MM-dd")}
             role={role}
-            prefer={isStaffMode ? "staff" : "supabase"}
-            title={isStaffMode ? "My Locked Metrics Snapshot" : "Team Locked Metrics Snapshot"}
+            prefer="supabase"
+            title="Team Locked Metrics Snapshot"
           />
         )}
 
