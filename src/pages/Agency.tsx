@@ -45,6 +45,49 @@ type Role = (typeof MEMBER_ROLES)[number];
 type Employment = (typeof EMPLOYMENT_TYPES)[number];
 type MemberStatus = (typeof MEMBER_STATUS)[number];
 
+function DashboardCallMetricsToggle({ agencyId }: { agencyId: string }) {
+  const [enabled, setEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from('agencies')
+      .select('dashboard_call_metrics_enabled')
+      .eq('id', agencyId)
+      .single()
+      .then(({ data }) => {
+        setEnabled((data as any)?.dashboard_call_metrics_enabled ?? false);
+        setLoading(false);
+      });
+  }, [agencyId]);
+
+  const handleToggle = async (value: boolean) => {
+    setEnabled(value);
+    const { error } = await supabase
+      .from('agencies')
+      .update({ dashboard_call_metrics_enabled: value } as any)
+      .eq('id', agencyId);
+    if (error) {
+      setEnabled(!value);
+      toast.error('Failed to update setting');
+    } else {
+      toast.success(value ? 'Call metrics dashboard enabled' : 'Call metrics dashboard disabled');
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <div className="flex items-center justify-between rounded-lg border p-4 mb-4">
+      <div className="space-y-0.5">
+        <Label htmlFor="dashboard-call-metrics" className="text-sm font-medium">Show Call Metrics on Dashboard</Label>
+        <p className="text-xs text-muted-foreground">Display call metric rings and accordion layout on the main dashboard</p>
+      </div>
+      <Switch id="dashboard-call-metrics" checked={enabled} onCheckedChange={handleToggle} />
+    </div>
+  );
+}
+
 interface StaffUser {
   id: string;
   username: string;
@@ -1659,6 +1702,9 @@ export default function Agency() {
                   <p className="text-sm text-muted-foreground mb-4">
                     Connect your phone system to automatically sync call logs and track team performance.
                   </p>
+                  {agencyId && (
+                    <DashboardCallMetricsToggle agencyId={agencyId} />
+                  )}
                   {agencyId && (
                     <RingCentralReportUpload agencyId={agencyId} />
                   )}

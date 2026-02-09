@@ -24,7 +24,6 @@ import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { RenewalSummaryWidget } from '@/components/dashboard/RenewalSummaryWidget';
 import { SalesDashboardWidget } from '@/components/sales/SalesDashboardWidget';
 import { hasSalesAccess } from '@/lib/salesBetaAccess';
-import { hasDashboardRedesign } from '@/lib/dashboardRedesignAccess';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { useLqsObjections } from '@/hooks/useLqsObjections';
 import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
@@ -53,6 +52,7 @@ const Dashboard = () => {
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
+  const [dashboardCallMetricsEnabled, setDashboardCallMetricsEnabled] = useState(false);
 
   // Fetch objections for quote modal
   const { data: objections = [] } = useLqsObjections();
@@ -79,12 +79,13 @@ const Dashboard = () => {
         setAgencyId(profile.agency_id);
         const { data: agency, error: agencyError } = await supabase
           .from('agencies')
-          .select('name, slug')
+          .select('name, slug, dashboard_call_metrics_enabled')
           .eq('id', profile.agency_id)
           .maybeSingle();
         if (!agencyError) {
           setAgencyName(agency?.name || null);
           setAgencySlug(agency?.slug || null);
+          setDashboardCallMetricsEnabled((agency as any)?.dashboard_call_metrics_enabled ?? false);
         }
       } else {
         setAgencyName(null);
@@ -185,7 +186,7 @@ const Dashboard = () => {
           </div>
         </div>
         <PeriodRefreshProvider>
-          {hasDashboardRedesign(agencyId) ? (
+          {dashboardCallMetricsEnabled ? (
             <>
               {/* Agency-wide metric rings */}
               {agencySlug && agencyId && (
