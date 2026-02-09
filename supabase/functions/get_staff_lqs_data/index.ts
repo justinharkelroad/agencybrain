@@ -90,6 +90,14 @@ interface LqsMetrics {
   soldNeedsAttention: number;
 }
 
+interface CancelAuditRecordLite {
+  contact_id: string | null;
+  household_key: string | null;
+  cancel_status: string | null;
+  updated_at: string | null;
+  created_at: string | null;
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -253,6 +261,59 @@ serve(async (req) => {
     const households = allHouseholds;
     console.log('Fetched households:', households.length);
 
+    // Exclude lead households tied to contacts/households whose latest cancel status is cancel/cancelled/lost.
+    // If the latest status is saved, keep the household.
+    const { data: cancelAuditRows, error: cancelAuditError } = await supabase
+      .from('cancel_audit_records')
+      .select('contact_id, household_key, cancel_status, updated_at, created_at')
+      .eq('agency_id', agencyId);
+
+    if (cancelAuditError) {
+      console.error('Error fetching cancel audit rows:', cancelAuditError);
+      return new Response(JSON.stringify({ error: 'Failed to fetch cancel audit data', details: cancelAuditError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const latestByIdentity = new Map<string, { status: string; ts: number }>();
+    const canceledStatuses = new Set(['cancel', 'cancelled', 'lost']);
+
+    (cancelAuditRows as CancelAuditRecordLite[] | null)?.forEach((row) => {
+      const rawStatus = (row.cancel_status || '').trim().toLowerCase();
+      if (!rawStatus) return;
+      const ts = Date.parse(row.updated_at || row.created_at || '');
+      const safeTs = Number.isNaN(ts) ? 0 : ts;
+
+      const keys: string[] = [];
+      if (row.contact_id) keys.push(`contact:${row.contact_id}`);
+      if (row.household_key) keys.push(`household:${row.household_key}`);
+      if (keys.length === 0) return;
+
+      keys.forEach((key) => {
+        const existing = latestByIdentity.get(key);
+        if (!existing || safeTs >= existing.ts) {
+          latestByIdentity.set(key, { status: rawStatus, ts: safeTs });
+        }
+      });
+    });
+
+    const canceledLeadKeys = new Set<string>();
+    latestByIdentity.forEach((value, key) => {
+      if (canceledStatuses.has(value.status)) {
+        canceledLeadKeys.add(key);
+      }
+    });
+
+    const filteredHouseholds = households.filter((h) => {
+      if (h.status !== 'lead') return true;
+      const contactKey = h.contact_id ? `contact:${h.contact_id}` : null;
+      const householdKey = h.household_key ? `household:${h.household_key}` : null;
+      if (contactKey && canceledLeadKeys.has(contactKey)) return false;
+      if (householdKey && canceledLeadKeys.has(householdKey)) return false;
+      return true;
+    });
+
     // Fetch lead sources for the agency
     const { data: leadSources, error: leadSourcesError } = await supabase
       .from('lead_sources')
@@ -291,7 +352,7 @@ serve(async (req) => {
     }
 
     // Calculate metrics
-    const householdList = (households || []) as LqsHousehold[];
+    const householdList = (filteredHouseholds || []) as LqsHousehold[];
 
     const leadsCount = householdList.filter(h => h.status === 'lead').length;
     const quotedCount = householdList.filter(h => h.status === 'quoted').length;
