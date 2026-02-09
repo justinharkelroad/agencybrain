@@ -94,17 +94,15 @@ export function RingCentralReportUpload({ agencyId }: RingCentralReportUploadPro
   };
 
   const fetchIngestLogs = async () => {
-    try {
-      const { data } = await supabase
-        .from('email_ingest_logs' as any)
-        .select('id, sender, subject, status, attachment_count, files_processed, processing_results, error_message, processing_duration_ms, created_at')
-        .eq('agency_id', agencyId)
-        .order('created_at', { ascending: false })
-        .limit(20);
+    const { data, error } = await supabase
+      .from('email_ingest_logs' as any)
+      .select('id, sender, subject, status, attachment_count, files_processed, processing_results, error_message, processing_duration_ms, created_at')
+      .eq('agency_id', agencyId)
+      .order('created_at', { ascending: false })
+      .limit(20);
 
-      setIngestLogs((data as any as IngestLog[]) || []);
-    } catch (err) {
-      // Table may not exist yet
+    if (!error && data) {
+      setIngestLogs(data as any as IngestLog[]);
     }
   };
 

@@ -52,7 +52,7 @@ function DashboardCallMetricsToggle({ agencyId }: { agencyId: string }) {
   useEffect(() => {
     supabase
       .from('agencies')
-      .select('dashboard_call_metrics_enabled')
+      .select('*')
       .eq('id', agencyId)
       .single()
       .then(({ data }) => {
