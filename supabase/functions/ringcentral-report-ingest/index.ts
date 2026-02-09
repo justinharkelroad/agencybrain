@@ -218,8 +218,8 @@ async function processXlsxBuffer(
 
         const fromName = extractCallerName(String(getCol(row, "From Name", "From Nam") || ""));
         const toName = extractCallerName(String(getCol(row, "To Name") || ""));
-        const fromNumber = String(getCol(row, "From Number", "From Num", "From Numb") || "").trim();
-        const toNumber = String(getCol(row, "To Number", "To Numbe") || "").trim();
+        const fromNumber = normalizePhone(String(getCol(row, "From Number", "From Num", "From Numb") || ""));
+        const toNumber = normalizePhone(String(getCol(row, "To Number", "To Numbe") || ""));
         const result = String(getCol(row, "Result", "result") || "").trim();
         const callLength = getCol(row, "Call Length", "Call Lengt");
         const callStartTime = getCol(row, "Call Start Time", "Call Start", "Call Start Ti");
