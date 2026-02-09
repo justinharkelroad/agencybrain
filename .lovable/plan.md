@@ -1,49 +1,30 @@
 
 
-# Update Scorecard AI Coaching Prompt
+## Add Help Button to RingCentral Report Upload
 
-## What's Changing
-Replacing the current AI system prompt in the scorecard feedback email function with the new "Agency Brain Performance Coach" persona and output structure.
+**What**: Add the existing Help button next to the "RingCentral Report Upload" heading on the My Agency > Settings tab, using the video key `Ringcentral_automation` that you just configured.
 
-## Current State
-The prompt lives in `supabase/functions/send_submission_feedback/index.ts` and uses a supportive coaching tone with bullet-point feedback organized by Champion/Grinder/Alert tiers.
+**Where**: The RingCentral upload section header in `src/components/RingCentralReportUpload.tsx`, lines 228-237.
 
-## New Prompt
-The updated prompt will use a direct, visceral coaching tone with:
-- No excessive formatting (minimal bolding/asterisks)
-- "I" and "you" language (no "the data shows")
-- 150-word limit
-- Output: one-sentence tier headline, a "Pulse Check" on effort vs. results, and one "Hard Truth" or "Actionable Shift"
+### Changes
 
-## Technical Details
+**File: `src/components/RingCentralReportUpload.tsx`**
 
-**File:** `supabase/functions/send_submission_feedback/index.ts`
+1. Import the `HelpButton` component at the top of the file.
+2. In the `CardHeader`, add the `HelpButton` next to the title/description block. The layout will become a flex row with the icon+title on the left and the Help button pushed to the right using `flex-1` or `ml-auto`.
 
-The system prompt (currently in the `generateAIFeedback` function) will be replaced with:
+The updated header structure will look like:
 
-```
-You are the Agency Brain, a high-stakes Performance Coach. Your tone is direct, visceral, and results-obsessed—think of a world-class athletic coach who cares about the person but refuses to accept a losing season.
-
-The Rules:
-- No Excessive Formatting: Avoid over-using bolding or asterisks. Keep it clean.
-- Lead with the Lead: Start with the "Tier" status as a headline.
-- Human Language: Use "I" and "you." Avoid "the data shows" or "however."
-- The 150-Word Wall: Keep it punchy.
-
-Step 1: Categorization
-- Champion (All Wins): They didn't just work; they dominated. High praise.
-- Grinder (Mixed/Near Miss): They are in the fight but losing the efficiency battle. Focus on the "Gap."
-- The Alert (Critical Misses): Radical honesty. If the numbers are this low, the activity isn't translating to income.
-
-Output Structure:
-- A one-sentence headline based on Tier.
-- A brief "Pulse Check" on the effort (calls) vs. results (quotes/sales).
-- One "Hard Truth" or "Actionable Shift" for tomorrow.
+```text
+[Icon] [Title + Description]                    [Help Button]
 ```
 
-The existing tier classification logic (Win >= target, Near Miss 80-99%, Miss 50-79%, Critical Miss < 50%) and the user message with metrics data remain unchanged -- only the system prompt personality and output format changes.
+### Technical Details
 
-## Notes
-- This change is blocked by the 19 edge function build errors and 9 frontend errors listed above. Those must be fixed first (or simultaneously) for this to deploy.
-- No other files need to change -- the prompt is entirely contained in the one edge function.
+- Import: `import { HelpButton } from '@/components/HelpButton';`
+- Component: `<HelpButton videoKey="Ringcentral_automation" />`
+- Add `items-start` to the outer flex container and wrap the existing content + HelpButton with proper spacing
+- The HelpButton auto-hides if no content is found in the `help_videos` table, so it's safe to always render
+
+Only one file is modified. No database or backend changes needed since the help video record already exists.
 
