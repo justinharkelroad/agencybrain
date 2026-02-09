@@ -2333,6 +2333,38 @@ export type Database = {
           },
         ]
       }
+      coaching_insight_settings: {
+        Row: {
+          agency_id: string
+          created_at: string
+          id: string
+          thresholds: Json
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          id?: string
+          thresholds?: Json
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          id?: string
+          thresholds?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coaching_insight_settings_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       column_mappings: {
         Row: {
           category: string
@@ -3290,6 +3322,68 @@ export type Database = {
             columns: ["dictionary_id"]
             isOneToOne: false
             referencedRelation: "dictionaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_ingest_logs: {
+        Row: {
+          agency_id: string | null
+          attachment_count: number | null
+          created_at: string | null
+          error_message: string | null
+          files_processed: number | null
+          id: string
+          message_id: string | null
+          processed_at: string | null
+          processing_duration_ms: number | null
+          processing_results: Json | null
+          received_at: string | null
+          recipient: string
+          sender: string | null
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          agency_id?: string | null
+          attachment_count?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          files_processed?: number | null
+          id?: string
+          message_id?: string | null
+          processed_at?: string | null
+          processing_duration_ms?: number | null
+          processing_results?: Json | null
+          received_at?: string | null
+          recipient: string
+          sender?: string | null
+          status: string
+          subject?: string | null
+        }
+        Update: {
+          agency_id?: string | null
+          attachment_count?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          files_processed?: number | null
+          id?: string
+          message_id?: string | null
+          processed_at?: string | null
+          processing_duration_ms?: number | null
+          processing_results?: Json | null
+          received_at?: string | null
+          recipient?: string
+          sender?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_ingest_logs_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]
@@ -11786,8 +11880,12 @@ export type Database = {
         Returns: string
       }
       calculate_data_completeness: { Args: { data: Json }; Returns: number }
-      check_and_reset_call_usage: {
+      can_manage_coaching_insight_settings: {
         Args: { p_agency_id: string }
+        Returns: boolean
+      }
+      check_and_reset_call_usage: {
+        Args: { p_agency_id: string; p_staff_session_token?: string }
         Returns: {
           calls_limit: number
           calls_used: number
@@ -11912,6 +12010,7 @@ export type Database = {
       get_agency_call_metrics: {
         Args: {
           p_end_date?: string
+          p_staff_session_token?: string
           p_start_date?: string
           p_team_member_id: string
         }
@@ -11949,7 +12048,10 @@ export type Database = {
           updated_at: string
         }[]
       }
-      get_agency_settings: { Args: { p_agency_id: string }; Returns: Json }
+      get_agency_settings: {
+        Args: { p_agency_id: string; p_staff_session_token?: string }
+        Returns: Json
+      }
       get_agency_voip_status: {
         Args: { p_team_member_id: string }
         Returns: {
@@ -12030,6 +12132,7 @@ export type Database = {
           p_search?: string
           p_sort_by?: string
           p_sort_direction?: string
+          p_staff_session_token?: string
           p_stage?: string
         }
         Returns: {
@@ -12087,6 +12190,7 @@ export type Database = {
               p_agency_slug: string
               p_end: string
               p_role: string
+              p_staff_session_token?: string
               p_start: string
             }
             Returns: {
@@ -12125,6 +12229,7 @@ export type Database = {
         Args: {
           p_agency_id?: string
           p_call_id: string
+          p_staff_session_token?: string
           p_team_member_id?: string
         }
         Returns: Json
@@ -12132,6 +12237,7 @@ export type Database = {
       get_staff_call_metrics: {
         Args: {
           p_end_date?: string
+          p_staff_session_token?: string
           p_start_date?: string
           p_team_member_id: string
         }
@@ -12155,12 +12261,17 @@ export type Database = {
               p_agency_id: string
               p_page?: number
               p_page_size?: number
+              p_staff_session_token?: string
               p_team_member_id?: string
             }
             Returns: Json
           }
       get_staff_call_status: {
-        Args: { p_agency_id: string; p_call_id: string }
+        Args: {
+          p_agency_id: string
+          p_call_id: string
+          p_staff_session_token?: string
+        }
         Returns: Json
       }
       get_staff_challenge_access_grant: {
@@ -12304,7 +12415,7 @@ export type Database = {
         Returns: boolean
       }
       is_call_scoring_enabled: {
-        Args: { p_agency_id: string }
+        Args: { p_agency_id: string; p_staff_session_token?: string }
         Returns: boolean
       }
       is_challenge_lesson_unlocked: {
@@ -12400,6 +12511,10 @@ export type Database = {
           updated_count: number
         }[]
       }
+      recalculate_metrics_hits_pass: {
+        Args: { p_date: string; p_team_member_id: string }
+        Returns: undefined
+      }
       recalculate_winback_household_aggregates: {
         Args: { p_household_id: string }
         Returns: undefined
@@ -12417,7 +12532,7 @@ export type Database = {
         Returns: undefined
       }
       search_exchange_users: {
-        Args: { current_user_id: string; search_term: string }
+        Args: { current_user_id?: string; search_term: string }
         Returns: {
           agency_name: string
           email: string
@@ -12549,6 +12664,10 @@ export type Database = {
       validate_kpi_deletion: {
         Args: { p_agency_id: string; p_kpi_key: string }
         Returns: Json
+      }
+      verify_staff_session: {
+        Args: { p_agency_id: string; p_token: string }
+        Returns: string
       }
     }
     Enums: {
