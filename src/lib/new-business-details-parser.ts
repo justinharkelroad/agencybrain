@@ -711,10 +711,10 @@ export function parseNewBusinessDetails(file: ArrayBuffer): NewBusinessParseResu
       let subProducerName: string | null = null;
 
       if (subProducerRaw) {
-        // Code is typically a 3-digit number like "775", "009"
-        if (/^\d+$/.test(subProducerRaw)) {
-          subProducerCode = subProducerRaw;
-        }
+        // Accept plain numeric codes and mixed formats like "775 - J SMITH"
+        const directCodeMatch = subProducerRaw.match(/^(\d{2,6})\b/);
+        const embeddedCodeMatch = subProducerRaw.match(/\b(\d{2,6})\b/);
+        subProducerCode = directCodeMatch?.[1] || embeddedCodeMatch?.[1] || null;
       }
 
       // Get name from separate column if available

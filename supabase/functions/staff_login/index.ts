@@ -100,25 +100,61 @@ Deno.serve(async (req) => {
       agencyId = agency.id;
     }
 
-    // Find staff user by username OR email (and optionally agency)
-    let query = supabase
-      .from('staff_users')
-      .select('*')
-      .or(`username.eq.${username},email.ilike.${username}`)
-      .eq('is_active', true);
+    // Find staff user.
+    // If input looks like an email, prefer exact email lookup to avoid ambiguity.
+    // If input is username and agency code is omitted, detect ambiguous matches across agencies.
+    const loginInput = String(username).trim();
+    const isEmailLogin = loginInput.includes('@');
+    let staffUser: any = null;
 
-    if (agencyId) {
-      query = query.eq('agency_id', agencyId);
-    }
+    if (isEmailLogin) {
+      let emailQuery = supabase
+        .from('staff_users')
+        .select('*')
+        .eq('email', loginInput)
+        .eq('is_active', true);
 
-    const { data: staffUser, error: userError } = await query.single();
+      if (agencyId) {
+        emailQuery = emailQuery.eq('agency_id', agencyId);
+      }
 
-    if (userError || !staffUser) {
-      console.log('User not found:', username);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Invalid username or password. Please try again.' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const { data: byEmail, error: byEmailError } = await emailQuery.maybeSingle();
+      if (byEmailError || !byEmail) {
+        console.log('User not found by email:', loginInput);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Invalid username or password. Please try again.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      staffUser = byEmail;
+    } else {
+      let usernameQuery = supabase
+        .from('staff_users')
+        .select('*')
+        .eq('username', loginInput)
+        .eq('is_active', true);
+
+      if (agencyId) {
+        usernameQuery = usernameQuery.eq('agency_id', agencyId);
+      }
+
+      const { data: byUsername, error: byUsernameError } = await usernameQuery.limit(2);
+      if (byUsernameError || !byUsername || byUsername.length === 0) {
+        console.log('User not found by username:', loginInput);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Invalid username or password. Please try again.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!agencyId && byUsername.length > 1) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Multiple staff accounts found for this username. Enter your agency code.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      staffUser = byUsername[0];
     }
 
     // Verify password using PBKDF2

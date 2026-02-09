@@ -482,6 +482,7 @@ export function analyzeSubProducers(
   let firstTermKept = 0;
 
   for (const tx of nbTransactions) {
+    const isChargeback = (tx.writtenPremium || 0) < 0;
     const businessType = (tx.businessType || '').trim().toLowerCase();
     const transType = (tx.transType || '').trim().toLowerCase();
     const isFirstTermByType = businessType === 'new business' || businessType === 'new';
@@ -489,14 +490,17 @@ export function analyzeSubProducers(
     const isFirstTermByTrans = transType.includes('first term') && !transType.includes('first renewal');
     const isRenewal = businessType.includes('renewal');
 
-    // Skip if it's a renewal (unless explicitly marked as first-term, which "First Renewal" is not)
-    if (isRenewal && !isFirstTermByTrans) {
-      firstTermSkipped++;
-      continue;
-    }
-    if (!isFirstTermByType && !isFirstTermByTrans && !isFirstTerm(tx)) {
-      firstTermSkipped++;
-      continue;
+    // Always keep negative rows as chargeback candidates; rule logic decides eligibility later.
+    if (!isChargeback) {
+      // Skip if it's a renewal (unless explicitly marked as first-term, which "First Renewal" is not)
+      if (isRenewal && !isFirstTermByTrans) {
+        firstTermSkipped++;
+        continue;
+      }
+      if (!isFirstTermByType && !isFirstTermByTrans && !isFirstTerm(tx)) {
+        firstTermSkipped++;
+        continue;
+      }
     }
     firstTermKept++;
 

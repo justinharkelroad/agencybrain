@@ -257,7 +257,7 @@ export function useSyncSalesToLqs(agencyId: string | null) {
               policies_sold: 1,
               premium_cents: Math.round(record.writtenPremium * 100),
               policy_number: record.policyNumber,
-              source: "new_business_report" as const,
+              source: "allstate_report" as const,
             };
           })
           .filter((s): s is NonNullable<typeof s> => s !== null);

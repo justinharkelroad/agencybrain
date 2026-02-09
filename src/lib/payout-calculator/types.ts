@@ -42,6 +42,25 @@ export interface SubProducerPerformance {
   // Breakdowns for advanced compensation calculation
   byBundleType: BundleTypeBreakdown[];
   byProduct: ProductBreakdown[];
+
+  // Detailed chargeback inclusion/exclusion audit (Phase 4)
+  chargebackDetails?: ChargebackDetail[];
+
+  // Rule-eligible chargeback allocation by segment
+  chargebackByBundle?: Array<{
+    bundleType: string;
+    totalPremium: number;
+    totalCount: number;
+    eligiblePremium: number;
+    eligibleCount: number;
+  }>;
+  chargebackByProduct?: Array<{
+    product: string;
+    totalPremium: number;
+    totalCount: number;
+    eligiblePremium: number;
+    eligibleCount: number;
+  }>;
 }
 
 export interface TierMatch {

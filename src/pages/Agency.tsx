@@ -119,6 +119,8 @@ export default function Agency() {
   });
   const [editingMemberOriginalRole, setEditingMemberOriginalRole] = useState<Role | null>(null);
   const [editingMemberHasStaffUser, setEditingMemberHasStaffUser] = useState(false);
+  const [memberLoginUsername, setMemberLoginUsername] = useState("");
+  const [memberLoginUsernameOriginal, setMemberLoginUsernameOriginal] = useState("");
 
   // Staff Invite dialog state
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -126,6 +128,12 @@ export default function Agency() {
   const [manageLoginDialogOpen, setManageLoginDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [selectedStaffUser, setSelectedStaffUser] = useState<StaffUser | null>(null);
+  const [usernameDialogOpen, setUsernameDialogOpen] = useState(false);
+  const [usernameDialogStaffUser, setUsernameDialogStaffUser] = useState<StaffUser | null>(null);
+  const [usernameDialogValue, setUsernameDialogValue] = useState("");
+  const [usernameDialogSaving, setUsernameDialogSaving] = useState(false);
+  const [editableUsername, setEditableUsername] = useState("");
+  const [savingUsername, setSavingUsername] = useState(false);
 
   // Manual password creation state
   const [inviteMode, setInviteMode] = useState<'email' | 'manual'>('manual');
@@ -337,10 +345,13 @@ export default function Agency() {
     setMemberForm({ name: "", email: "", role: MEMBER_ROLES[0], employment: EMPLOYMENT_TYPES[0], status: MEMBER_STATUS[0], notes: "", hybridTeamAssignments: [], subProducerCode: "", includeInMetrics: true });
     setEditingMemberOriginalRole(null);
     setEditingMemberHasStaffUser(false);
+    setMemberLoginUsername("");
+    setMemberLoginUsernameOriginal("");
     setMemberDialogOpen(true);
   };
 
   const startEdit = (m: any) => {
+    const linkedStaffUser = staffByTeamMemberId.get(m.id);
     setEditingId(m.id);
     setMemberForm({
       name: m.name,
@@ -355,6 +366,8 @@ export default function Agency() {
     });
     setEditingMemberOriginalRole(m.role);
     setEditingMemberHasStaffUser(staffByTeamMemberId.has(m.id));
+    setMemberLoginUsername(linkedStaffUser?.username || "");
+    setMemberLoginUsernameOriginal(linkedStaffUser?.username || "");
     setMemberDialogOpen(true);
   };
 
@@ -379,13 +392,29 @@ export default function Agency() {
         if (error) throw error;
         
         // Sync email to linked staff_users record
-        const { error: staffError } = await supabase
-          .from("staff_users")
-          .update({ email: memberForm.email })
-          .eq("team_member_id", editingId);
-        
-        if (staffError) {
-          console.error("Failed to sync email to staff_users:", staffError);
+        const linkedStaffUser = staffByTeamMemberId.get(editingId);
+        if (linkedStaffUser) {
+          const staffUpdate: Record<string, unknown> = {
+            email: memberForm.email
+          };
+
+          const trimmedUsername = memberLoginUsername.trim();
+          if (trimmedUsername && trimmedUsername !== memberLoginUsernameOriginal) {
+            staffUpdate.username = trimmedUsername;
+          }
+
+          const { error: staffError } = await supabase
+            .from("staff_users")
+            .update(staffUpdate)
+            .eq("id", linkedStaffUser.id);
+
+          if (staffError) {
+            if ((staffError as any)?.code === "23505") {
+              throw new Error("This username is already taken. Please choose a different one.");
+            }
+            console.error("Failed to sync email/username to staff_users:", staffError);
+            throw staffError;
+          }
         }
       } else {
         const { error } = await supabase.from("team_members").insert([{ agency_id: agencyId, ...updateData }]);
@@ -638,7 +667,97 @@ export default function Agency() {
   const openManageLoginModal = (member: any, staffUser: StaffUser) => {
     setSelectedMember(member);
     setSelectedStaffUser(staffUser);
+    setEditableUsername(staffUser.username || "");
     setManageLoginDialogOpen(true);
+  };
+
+  const handleSaveUsername = async () => {
+    try {
+      if (!selectedStaffUser || !agencyId) return;
+
+      const trimmedUsername = editableUsername.trim();
+      if (!trimmedUsername) {
+        toast.error("Username is required");
+        return;
+      }
+
+      if (trimmedUsername === selectedStaffUser.username) {
+        toast("Username is unchanged");
+        return;
+      }
+
+      setSavingUsername(true);
+
+      const { error } = await supabase
+        .from("staff_users")
+        .update({ username: trimmedUsername })
+        .eq("id", selectedStaffUser.id);
+
+      if (error) {
+        if ((error as any)?.code === "23505") {
+          toast.error("This username is already taken. Please choose a different one.");
+          return;
+        }
+        throw error;
+      }
+
+      setSelectedStaffUser({ ...selectedStaffUser, username: trimmedUsername });
+      toast.success("Username updated");
+      await refreshData(agencyId);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Failed to update username");
+    } finally {
+      setSavingUsername(false);
+    }
+  };
+
+  const openUsernameDialog = (staffUser: StaffUser) => {
+    setUsernameDialogStaffUser(staffUser);
+    setUsernameDialogValue(staffUser.username || "");
+    setUsernameDialogOpen(true);
+  };
+
+  const handleSaveUsernameFromTable = async () => {
+    try {
+      if (!usernameDialogStaffUser || !agencyId) return;
+
+      const trimmedUsername = usernameDialogValue.trim();
+      if (!trimmedUsername) {
+        toast.error("Username is required");
+        return;
+      }
+
+      if (trimmedUsername === usernameDialogStaffUser.username) {
+        setUsernameDialogOpen(false);
+        return;
+      }
+
+      setUsernameDialogSaving(true);
+
+      const { error } = await supabase
+        .from("staff_users")
+        .update({ username: trimmedUsername })
+        .eq("id", usernameDialogStaffUser.id);
+
+      if (error) {
+        if ((error as any)?.code === "23505") {
+          toast.error("This username is already taken. Please choose a different one.");
+          return;
+        }
+        throw error;
+      }
+
+      toast.success("Username updated");
+      setUsernameDialogOpen(false);
+      setUsernameDialogStaffUser(null);
+      await refreshData(agencyId);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Failed to update username");
+    } finally {
+      setUsernameDialogSaving(false);
+    }
   };
 
   const handleSendInvite = async () => {
@@ -1085,6 +1204,18 @@ export default function Agency() {
                     <Label className="sm:text-right" htmlFor="email">Email</Label>
                     <Input id="email" type="email" value={memberForm.email} onChange={(e) => setMemberForm((f) => ({ ...f, email: e.target.value }))} className="col-span-1 sm:col-span-3" />
                   </div>
+                  {editingMemberHasStaffUser && (
+                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                      <Label className="sm:text-right" htmlFor="member-username">Username</Label>
+                      <Input
+                        id="member-username"
+                        value={memberLoginUsername}
+                        onChange={(e) => setMemberLoginUsername(e.target.value)}
+                        className="col-span-1 sm:col-span-3"
+                        placeholder="Staff portal username"
+                      />
+                    </div>
+                  )}
                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
                      <Label className="sm:text-right">Role</Label>
                      <Select value={memberForm.role} onValueChange={(v) => setMemberForm((f) => ({ ...f, role: v as Role }))}>
@@ -1299,6 +1430,17 @@ export default function Agency() {
                               <ArrowRight className="h-4 w-4" />
                             </Button>
                           </Link>
+                          {staffUser && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="rounded-full"
+                              aria-label="Edit Username"
+                              onClick={() => openUsernameDialog(staffUser)}
+                            >
+                              <Key className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button variant="secondary" size="icon" className="rounded-full" aria-label="Edit" onClick={() => startEdit(m)}>
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -1823,6 +1965,31 @@ export default function Agency() {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor="edit-staff-username">Username</Label>
+            <div className="flex gap-2">
+              <Input
+                id="edit-staff-username"
+                value={editableUsername}
+                onChange={(e) => setEditableUsername(e.target.value)}
+                placeholder="Enter username"
+              />
+              <Button
+                variant="outline"
+                onClick={handleSaveUsername}
+                disabled={savingUsername || !editableUsername.trim() || editableUsername.trim() === (selectedStaffUser?.username || "")}
+              >
+                {savingUsername ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </Button>
+            </div>
+          </div>
           <div className="flex justify-between items-center">
             <span className="text-muted-foreground">Status</span>
             <Badge 
@@ -1894,6 +2061,43 @@ export default function Agency() {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setManageLoginDialogOpen(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Quick Edit Username Dialog */}
+    <Dialog open={usernameDialogOpen} onOpenChange={setUsernameDialogOpen}>
+      <DialogContent className="glass-surface max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Username</DialogTitle>
+          <DialogDescription>
+            Update staff login username for {selectedMember?.name || usernameDialogStaffUser?.email || "staff user"}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 py-2">
+          <Label htmlFor="table-username-edit">Username</Label>
+          <Input
+            id="table-username-edit"
+            value={usernameDialogValue}
+            onChange={(e) => setUsernameDialogValue(e.target.value)}
+            placeholder="Enter username"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setUsernameDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleSaveUsernameFromTable}
+            disabled={usernameDialogSaving || !usernameDialogValue.trim() || usernameDialogValue.trim() === (usernameDialogStaffUser?.username || "")}
+          >
+            {usernameDialogSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Username"
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

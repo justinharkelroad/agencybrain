@@ -78,6 +78,18 @@ function parseTransactionDate(dateStr: string): Date | null {
   }
 }
 
+function normalizeBundleTypeKey(bundleType: string): string {
+  const normalized = (bundleType || '').trim().toLowerCase();
+  if (!normalized || normalized === 'mono' || normalized === 'mono line' || normalized === 'monoline') return 'monoline';
+  if (normalized === 'bundled' || normalized === 'standard' || normalized === 'std' || normalized === 'standard bundle') return 'standard';
+  if (normalized === 'preferred' || normalized === 'pref' || normalized === 'preferred bundle') return 'preferred';
+  return normalized;
+}
+
+function normalizeProductKey(product: string): string {
+  return (product || '').trim().toLowerCase();
+}
+
 /**
  * Filter chargebacks based on the 3-month rule (90 days)
  * Only includes chargebacks where the policy was in force for less than 90 days
@@ -143,7 +155,7 @@ export function filterChargebacksByRule(
   statementYear: number,
   productTermMonths: Map<string, number> // product type name -> term months
 ): ChargebackFilterResult {
-  const statementDate = new Date(statementYear, statementMonth - 1, 28);
+  const statementDate = new Date(statementYear, statementMonth, 0);
 
   const result: ChargebackFilterResult = {
     eligibleChargebacks: [],
@@ -197,19 +209,27 @@ export function filterChargebacksByRule(
     );
 
     let termMonths: number;
-    let maxDays: number;
+    let termEndDate: Date;
 
     if (chargebackRule === 'three_month') {
       termMonths = 3;
-      maxDays = 90;
+      termEndDate = new Date(
+        effectiveDate.getFullYear(),
+        effectiveDate.getMonth() + 3,
+        0
+      );
     } else {
       // Full term - lookup by product type
       termMonths = productTermMonths.get(productType) ||
         (productType.includes('auto') && !productType.includes('specialty') ? 6 : 12);
-      maxDays = termMonths * 30;
+      termEndDate = new Date(
+        effectiveDate.getFullYear(),
+        effectiveDate.getMonth() + termMonths,
+        0
+      );
     }
 
-    const included = daysInForce < maxDays;
+    const included = statementDate <= termEndDate;
 
     if (included) {
       result.eligibleChargebacks.push(cb);
@@ -563,7 +583,8 @@ export function checkSelfGenRequirement(
 export function calculateSelfGenKicker(
   performance: SubProducerPerformance,
   modifiers: CommissionModifiers | null,
-  selfGenItems: number
+  selfGenItems: number,
+  selfGenMetrics?: SelfGenMetrics
 ): number {
   if (!modifiers?.self_gen_kicker?.enabled) {
     return 0;
@@ -583,12 +604,14 @@ export function calculateSelfGenKicker(
       count = selfGenItems;
       break;
     case 'per_policy':
-      // Approximate: use self-gen ratio on policies
-      count = Math.round((selfGenPercent / 100) * performance.writtenPolicies);
+      // Use exact policy count from sales metrics when available
+      count = selfGenMetrics?.selfGenPolicies ??
+        Math.round((selfGenPercent / 100) * performance.writtenPolicies);
       break;
     case 'per_household':
-      // Approximate: use self-gen ratio on households
-      count = Math.round((selfGenPercent / 100) * performance.writtenHouseholds);
+      // Use exact household count from sales metrics when available
+      count = selfGenMetrics?.selfGenHouseholds ??
+        Math.round((selfGenPercent / 100) * performance.writtenHouseholds);
       break;
   }
 
@@ -750,14 +773,9 @@ export function calculateCommissionWithBundleConfigs(
   // Fallback tier rate for bundle types without explicit config
   const fallbackTierRate = tierMatch?.commissionValue || 0;
 
-  // Calculate effective chargeback count based on rule
-  let effectiveChargebackCount = 0;
-  if (chargebackRule === 'full') {
-    effectiveChargebackCount = performance.chargebackCount;
-  } else if (chargebackRule === 'three_month') {
-    effectiveChargebackCount = performance.eligibleChargebackCount;
-  }
-  // 'none' rule = 0 chargebacks
+  const bundleChargebackMap = new Map(
+    (performance.chargebackByBundle || []).map((b) => [normalizeBundleTypeKey(b.bundleType), b])
+  );
 
   // Process each bundle type
   for (const bundleData of performance.byBundleType) {
@@ -778,30 +796,48 @@ export function calculateCommissionWithBundleConfigs(
     }
 
     if (effectiveRate <= 0) {
+      const bundleChargeback = bundleChargebackMap.get(bundleType);
+      const premiumRatio = bundleChargeback && bundleChargeback.totalPremium > 0
+        ? bundleChargeback.eligiblePremium / bundleChargeback.totalPremium
+        : 0;
+      const countRatio = bundleChargeback && bundleChargeback.totalCount > 0
+        ? bundleChargeback.eligibleCount / bundleChargeback.totalCount
+        : 0;
+      const effectivePremium = Math.max(0, bundleData.premiumWritten - (bundleData.premiumChargebacks * premiumRatio));
+      const effectiveItems = Math.max(0, bundleData.creditCount - Math.round(bundleData.chargebackCount * countRatio));
       breakdown.push({
         bundleType: bundleData.bundleType,
-        premium: bundleData.premiumWritten,
-        items: bundleData.creditCount,
+        premium: effectivePremium,
+        items: effectiveItems,
         commission: 0
       });
       continue;
     }
 
-    // Calculate commission on credits (premiumWritten), not net
+    const bundleChargeback = bundleChargebackMap.get(bundleType);
+    const premiumRatio = bundleChargeback && bundleChargeback.totalPremium > 0
+      ? bundleChargeback.eligiblePremium / bundleChargeback.totalPremium
+      : 0;
+    const countRatio = bundleChargeback && bundleChargeback.totalCount > 0
+      ? bundleChargeback.eligibleCount / bundleChargeback.totalCount
+      : 0;
+    const effectivePremium = Math.max(0, bundleData.premiumWritten - (bundleData.premiumChargebacks * premiumRatio));
+    const effectiveItems = Math.max(0, bundleData.creditCount - Math.round(bundleData.chargebackCount * countRatio));
+
     const commission = calculateSegmentCommission(
-      bundleData.premiumWritten,
-      bundleData.creditCount,
+      effectivePremium,
+      effectiveItems,
       payoutType,
       effectiveRate,
-      0 // Chargebacks handled separately at the total level
+      0
     );
 
-    console.log(`[calculateCommissionWithBundleConfigs] ${bundleType}: creditPremium=${bundleData.premiumWritten}, rate=${effectiveRate}%, commission=${commission}`);
+    console.log(`[calculateCommissionWithBundleConfigs] ${bundleType}: premium=${effectivePremium}, items=${effectiveItems}, rate=${effectiveRate}%, commission=${commission}`);
 
     breakdown.push({
       bundleType: bundleData.bundleType,
-      premium: bundleData.premiumWritten,
-      items: bundleData.creditCount,
+      premium: effectivePremium,
+      items: effectiveItems,
       commission
     });
 
@@ -826,13 +862,9 @@ export function calculateCommissionWithProductRates(
   const breakdown: Array<{ product: string; premium: number; items: number; commission: number }> = [];
   let totalCommission = 0;
 
-  // Calculate effective chargeback count based on rule
-  let effectiveChargebackCount = 0;
-  if (chargebackRule === 'full') {
-    effectiveChargebackCount = performance.chargebackCount;
-  } else if (chargebackRule === 'three_month') {
-    effectiveChargebackCount = performance.eligibleChargebackCount;
-  }
+  const productChargebackMap = new Map(
+    (performance.chargebackByProduct || []).map((p) => [normalizeProductKey(p.product), p])
+  );
 
   // Process each product
   for (const productData of performance.byProduct) {
@@ -841,33 +873,46 @@ export function calculateCommissionWithProductRates(
 
     if (!config) {
       // No rate configured for this product, skip it
+      const productChargeback = productChargebackMap.get(normalizeProductKey(productName));
+      const premiumRatio = productChargeback && productChargeback.totalPremium > 0
+        ? productChargeback.eligiblePremium / productChargeback.totalPremium
+        : 0;
+      const countRatio = productChargeback && productChargeback.totalCount > 0
+        ? productChargeback.eligibleCount / productChargeback.totalCount
+        : 0;
+      const effectivePremium = Math.max(0, productData.premiumWritten - (productData.premiumChargebacks * premiumRatio));
+      const effectiveItems = Math.max(0, productData.creditCount - Math.round(productData.chargebackCount * countRatio));
       breakdown.push({
         product: productName,
-        premium: productData.netPremium,
-        items: productData.itemsIssued,
+        premium: effectivePremium,
+        items: effectiveItems,
         commission: 0
       });
       continue;
     }
 
-    // Proportional chargebacks for this product
-    const totalItems = performance.issuedItems || 1;
-    const productChargebacks = Math.round(
-      (productData.itemsIssued / totalItems) * effectiveChargebackCount
-    );
+    const productChargeback = productChargebackMap.get(normalizeProductKey(productName));
+    const premiumRatio = productChargeback && productChargeback.totalPremium > 0
+      ? productChargeback.eligiblePremium / productChargeback.totalPremium
+      : 0;
+    const countRatio = productChargeback && productChargeback.totalCount > 0
+      ? productChargeback.eligibleCount / productChargeback.totalCount
+      : 0;
+    const effectivePremium = Math.max(0, productData.premiumWritten - (productData.premiumChargebacks * premiumRatio));
+    const effectiveItems = Math.max(0, productData.creditCount - Math.round(productData.chargebackCount * countRatio));
 
     const commission = calculateSegmentCommission(
-      productData.netPremium,
-      productData.itemsIssued,
+      effectivePremium,
+      effectiveItems,
       config.payout_type,
       config.rate,
-      productChargebacks
+      0
     );
 
     breakdown.push({
       product: productName,
-      premium: productData.netPremium,
-      items: productData.itemsIssued,
+      premium: effectivePremium,
+      items: effectiveItems,
       commission
     });
 
@@ -887,23 +932,91 @@ export function convertToPerformance(
   teamMemberName: string | null,
   chargebackRule: string,
   periodMonth: number,
-  periodYear: number
+  periodYear: number,
+  productTermMonths: Map<string, number>
 ): SubProducerPerformance {
-  // Apply 3-month rule filtering if applicable
+  // Apply chargeback rule filtering
   let eligibleChargebackPremium = metrics.premiumChargebacks;
   let eligibleChargebackCount = metrics.chargebackCount;
   let excludedChargebackCount = 0;
-  
-  if (chargebackRule === 'three_month' && metrics.chargebackTransactions?.length > 0) {
-    const filtered = filterChargebacksByThreeMonthRule(
+
+  let chargebackDetails: ChargebackDetail[] = [];
+  let chargebackByBundle: Array<{
+    bundleType: string;
+    totalPremium: number;
+    totalCount: number;
+    eligiblePremium: number;
+    eligibleCount: number;
+  }> = [];
+  let chargebackByProduct: Array<{
+    product: string;
+    totalPremium: number;
+    totalCount: number;
+    eligiblePremium: number;
+    eligibleCount: number;
+  }> = [];
+
+  const normalizedRule = chargebackRule === 'none' || chargebackRule === 'three_month' || chargebackRule === 'full'
+    ? chargebackRule
+    : 'three_month';
+
+  if (metrics.chargebackTransactions?.length > 0) {
+    const filtered = filterChargebacksByRule(
       metrics.chargebackTransactions,
+      normalizedRule,
       periodMonth,
-      periodYear
+      periodYear,
+      productTermMonths
     );
     eligibleChargebackPremium = filtered.eligiblePremium;
     eligibleChargebackCount = filtered.eligibleChargebacks.length;
     excludedChargebackCount = filtered.excludedChargebacks.length;
-  } else if (chargebackRule === 'none') {
+    chargebackDetails = filtered.details;
+
+    const bundleTotals = new Map<string, { totalPremium: number; totalCount: number; eligiblePremium: number; eligibleCount: number }>();
+    const productTotals = new Map<string, { totalPremium: number; totalCount: number; eligiblePremium: number; eligibleCount: number }>();
+    const eligibleSet = new Set(filtered.eligibleChargebacks);
+
+    for (const tx of metrics.chargebackTransactions) {
+      const bundleKey = normalizeBundleTypeKey(tx.bundleType || 'monoline');
+      const productKey = normalizeProductKey(tx.product || 'other');
+      const premium = Math.abs(tx.premium || 0);
+      const isEligible = eligibleSet.has(tx);
+
+      if (!bundleTotals.has(bundleKey)) {
+        bundleTotals.set(bundleKey, { totalPremium: 0, totalCount: 0, eligiblePremium: 0, eligibleCount: 0 });
+      }
+      if (!productTotals.has(productKey)) {
+        productTotals.set(productKey, { totalPremium: 0, totalCount: 0, eligiblePremium: 0, eligibleCount: 0 });
+      }
+
+      const bundleEntry = bundleTotals.get(bundleKey)!;
+      bundleEntry.totalPremium += premium;
+      bundleEntry.totalCount += 1;
+      if (isEligible) {
+        bundleEntry.eligiblePremium += premium;
+        bundleEntry.eligibleCount += 1;
+      }
+
+      const productEntry = productTotals.get(productKey)!;
+      productEntry.totalPremium += premium;
+      productEntry.totalCount += 1;
+      if (isEligible) {
+        productEntry.eligiblePremium += premium;
+        productEntry.eligibleCount += 1;
+      }
+    }
+
+    chargebackByBundle = Array.from(bundleTotals.entries()).map(([bundleType, totals]) => ({
+      bundleType,
+      ...totals,
+    }));
+    chargebackByProduct = Array.from(productTotals.entries()).map(([product, totals]) => ({
+      product,
+      ...totals,
+    }));
+  } else if (normalizedRule === 'none') {
+    // No per-transaction data available: exclude all aggregated chargebacks
     eligibleChargebackPremium = 0;
     eligibleChargebackCount = 0;
     excludedChargebackCount = metrics.chargebackCount;
@@ -949,6 +1062,9 @@ export function convertToPerformance(
     // Breakdowns for advanced compensation calculation
     byBundleType: metrics.byBundleType || [],
     byProduct: metrics.byProduct || [],
+    chargebackDetails,
+    chargebackByBundle,
+    chargebackByProduct,
   };
 }
 
@@ -1294,7 +1410,12 @@ export function calculateMemberPayout(
   }
 
   // Calculate legacy self-gen kicker bonus (backward compatibility)
-  const selfGenKickerAmount = calculateSelfGenKicker(performance, plan.commission_modifiers, selfGenItems);
+  const selfGenKickerAmount = calculateSelfGenKicker(
+    performance,
+    plan.commission_modifiers,
+    selfGenItems,
+    selfGenMetrics
+  );
 
   // Calculate brokered commission (Phase 5)
   const brokeredCommission = calculateBrokeredCommission(brokeredMetrics, plan);
@@ -1419,6 +1540,9 @@ export function calculateMemberPayout(
     // Brokered commission (Phase 5)
     brokeredCommission: brokeredCommission > 0 ? brokeredCommission : undefined,
 
+    // Chargeback details (Phase 4)
+    chargebackDetails: performance.chargebackDetails,
+
     // Calculation snapshot for audit (Phase 8)
     calculationSnapshot,
 
@@ -1468,6 +1592,24 @@ export async function calculateAllPayouts(
   
   const payouts: PayoutCalculation[] = [];
   const warnings: string[] = [];
+
+  // Product term months are needed for full-term chargeback rules
+  const productTermMonths = new Map<string, number>();
+  const { data: productTypes, error: productTypesError } = await supabase
+    .from("product_types")
+    .select("name, term_months")
+    .eq("agency_id", agencyId);
+
+  if (productTypesError) {
+    warnings.push(`Could not load product term months: ${productTypesError.message}`);
+  } else {
+    for (const productType of productTypes || []) {
+      const key = String(productType.name || '').trim().toLowerCase();
+      if (key) {
+        productTermMonths.set(key, productType.term_months || 12);
+      }
+    }
+  }
   
   // Create lookup maps
   const memberByCode = new Map<string, TeamMember>();
@@ -1547,7 +1689,8 @@ export async function calculateAllPayouts(
         teamMember.name,
         plan.chargeback_rule,
         periodMonth,
-        periodYear
+        periodYear,
+        productTermMonths
       );
 
       // Apply manual overrides if present (for testing compensation calculations)
