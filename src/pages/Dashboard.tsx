@@ -79,13 +79,23 @@ const Dashboard = () => {
         setAgencyId(profile.agency_id);
         const { data: agency, error: agencyError } = await supabase
           .from('agencies')
-          .select('name, slug, dashboard_call_metrics_enabled')
+          .select('name, slug')
           .eq('id', profile.agency_id)
           .maybeSingle();
         if (!agencyError) {
           setAgencyName(agency?.name || null);
           setAgencySlug(agency?.slug || null);
-          setDashboardCallMetricsEnabled((agency as any)?.dashboard_call_metrics_enabled ?? false);
+        }
+        // Fetch toggle separately so a missing column doesn't break the dashboard
+        try {
+          const { data: flags } = await supabase
+            .from('agencies')
+            .select('dashboard_call_metrics_enabled' as any)
+            .eq('id', profile.agency_id)
+            .maybeSingle();
+          setDashboardCallMetricsEnabled((flags as any)?.dashboard_call_metrics_enabled ?? false);
+        } catch {
+          // Column may not exist yet — default to off
         }
       } else {
         setAgencyName(null);
