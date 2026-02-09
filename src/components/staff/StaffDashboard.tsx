@@ -12,7 +12,6 @@ import { StaffFocusTargets } from './StaffFocusTargets';
 import { StaffTeamOverview } from './StaffTeamOverview';
 import { StaffRoleplaySessions } from './StaffRoleplaySessions';
 import { AgencyDailyGoals } from '@/components/dashboard/AgencyDailyGoals';
-import { MetricsSnapshotPanel } from '@/components/metrics/MetricsSnapshotPanel';
 import { StaffCore4Card } from './StaffCore4Card';
 import { StaffCore4MonthlyMissions } from './StaffCore4MonthlyMissions';
 import { StaffSalesSummary } from './StaffSalesSummary';
@@ -298,17 +297,6 @@ export function StaffDashboard() {
             date={previousBusinessDayStr}
           />
         </div>
-      )}
-
-      {/* Locked personal metrics snapshot */}
-      {user?.team_member_id && (
-        <MetricsSnapshotPanel
-          date={previousBusinessDayStr}
-          role={(user?.role === 'Service' ? 'Service' : 'Sales')}
-          prefer="staff"
-          teamMemberId={user.team_member_id}
-          title="My Locked Metrics Snapshot"
-        />
       )}
 
       {/* Previous Day Performance Card */}
