@@ -301,7 +301,7 @@ export default function TeamPerformanceRings({
 
           return {
             id: member.team_member_id,
-            name: member.team_member_name,
+            name: member.team_member_name || member.rep_name || 'Team Member',
             metrics: memberMetrics,
             passes,
             hitsCount,
