@@ -47,43 +47,97 @@ type MemberStatus = (typeof MEMBER_STATUS)[number];
 
 function DashboardCallMetricsToggle({ agencyId }: { agencyId: string }) {
   const [enabled, setEnabled] = useState(false);
+  const [mode, setMode] = useState<'off' | 'shadow' | 'on'>('off');
   const [loading, setLoading] = useState(true);
+  const [savingMode, setSavingMode] = useState(false);
 
   useEffect(() => {
     supabase
       .from('agencies')
-      .select('*')
+      .select('dashboard_call_metrics_enabled, call_metrics_mode')
       .eq('id', agencyId)
       .single()
       .then(({ data }) => {
-        setEnabled((data as any)?.dashboard_call_metrics_enabled ?? false);
+        const nextEnabled = (data as any)?.dashboard_call_metrics_enabled ?? false;
+        const nextMode = ((data as any)?.call_metrics_mode as 'off' | 'shadow' | 'on' | null) || (nextEnabled ? 'shadow' : 'off');
+        setEnabled(nextEnabled);
+        setMode(nextMode);
         setLoading(false);
       });
   }, [agencyId]);
 
-  const handleToggle = async (value: boolean) => {
-    setEnabled(value);
+  const updateMode = async (nextMode: 'off' | 'shadow' | 'on') => {
+    setSavingMode(true);
+    const prevMode = mode;
+    const prevEnabled = enabled;
+    setMode(nextMode);
+    setEnabled(nextMode !== 'off');
+
     const { error } = await supabase
       .from('agencies')
-      .update({ dashboard_call_metrics_enabled: value } as any)
+      .update({ call_metrics_mode: nextMode } as any)
       .eq('id', agencyId);
+
+    setSavingMode(false);
     if (error) {
-      setEnabled(!value);
-      toast.error('Failed to update setting');
-    } else {
-      toast.success(value ? 'Call metrics dashboard enabled' : 'Call metrics dashboard disabled');
+      setMode(prevMode);
+      setEnabled(prevEnabled);
+      toast.error('Failed to update call metrics mode');
+      return;
     }
+
+    if (nextMode === 'off') {
+      toast.success('Call metrics mode set to Off (manual only)');
+    } else if (nextMode === 'shadow') {
+      toast.success('Call metrics mode set to Shadow (manual scoring + auto visibility)');
+    } else {
+      toast.success('Call metrics mode set to On (auto call metrics enabled)');
+    }
+  };
+
+  const handleToggle = async (value: boolean) => {
+    const targetMode: 'off' | 'shadow' | 'on' = value ? (mode === 'on' ? 'on' : 'shadow') : 'off';
+    await updateMode(targetMode);
   };
 
   if (loading) return null;
 
   return (
-    <div className="flex items-center justify-between rounded-lg border p-4 mb-4">
-      <div className="space-y-0.5">
-        <Label htmlFor="dashboard-call-metrics" className="text-sm font-medium">Show Call Metrics on Dashboard</Label>
-        <p className="text-xs text-muted-foreground">Display call metric rings and accordion layout on the main dashboard</p>
+    <div className="rounded-lg border p-4 mb-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label htmlFor="dashboard-call-metrics" className="text-sm font-medium">Show Call Metrics on Dashboard</Label>
+          <p className="text-xs text-muted-foreground">Display call metric rings and accordion layout on the main dashboard</p>
+        </div>
+        <Switch
+          id="dashboard-call-metrics"
+          checked={enabled}
+          onCheckedChange={handleToggle}
+          disabled={savingMode}
+        />
       </div>
-      <Switch id="dashboard-call-metrics" checked={enabled} onCheckedChange={handleToggle} />
+
+      <div className="space-y-2">
+        <Label htmlFor="call-metrics-mode" className="text-sm font-medium">Call Metrics Data Mode</Label>
+        <Select
+          value={mode}
+          onValueChange={(value) => updateMode(value as 'off' | 'shadow' | 'on')}
+          disabled={savingMode}
+        >
+          <SelectTrigger id="call-metrics-mode" className="w-full md:w-[360px]">
+            <SelectValue placeholder="Select mode" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="off">Off (Manual Scorecard Only)</SelectItem>
+            <SelectItem value="shadow">Shadow (Manual Scoring + Auto Visibility)</SelectItem>
+            <SelectItem value="on">On (Use Auto Call Metrics)</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Off keeps calls/talk from scorecard submissions only. Shadow keeps scoring manual while still surfacing auto call data for comparison.
+          On lets RingCentral/Ricochet call metrics drive outbound calls and talk time.
+        </p>
+      </div>
     </div>
   );
 }
