@@ -51,6 +51,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 import type { QuoteUploadResult, SalesUploadResult, PendingSaleReview } from '@/types/lqs';
 import { SalesReviewModal, ReviewResult } from '@/components/lqs/SalesReviewModal';
+import { filterCountableQuotes, filterCountableSales } from '@/lib/lqs-constants';
 
 type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'needs-attention' | 'missing-zip';
 type ViewMode = 'overview' | 'detail';
@@ -233,11 +234,33 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const assignMutation = useAssignLeadSource();
   const bulkAssignMutation = useBulkAssignLeadSource();
 
+  // Derive effective status from activity so stale household.status values don't misbucket records.
+  const effectiveHouseholds = useMemo(() => {
+    return (data?.households || []).map((h) => {
+      const hasSales = filterCountableSales(h.sales || []).length > 0;
+      const hasQuotes = filterCountableQuotes(h.quotes || []).length > 0;
+
+      let effectiveStatus = h.status;
+      if (hasSales) {
+        effectiveStatus = 'sold';
+      } else if (hasQuotes) {
+        effectiveStatus = 'quoted';
+      } else {
+        effectiveStatus = 'lead';
+      }
+
+      return {
+        ...h,
+        status: effectiveStatus,
+      };
+    });
+  }, [data?.households]);
+
   // Filter by bucket and personal view mode
   const bucketFilteredHouseholds = useMemo(() => {
-    if (!data?.households) return [];
+    if (!effectiveHouseholds.length) return [];
     
-    let filtered = data.households;
+    let filtered = effectiveHouseholds;
 
     // Filter by bucket (status)
     if (viewMode === 'detail') {
@@ -255,12 +278,16 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
     }
 
     // Filter by personal data if "My Numbers" selected
-    if (dataViewMode === 'personal' && currentTeamMemberId) {
+    if (dataViewMode === 'personal') {
+      if (!currentTeamMemberId) {
+        // Avoid falling back to agency-wide data when a user has no team member mapping.
+        return [];
+      }
       filtered = filtered.filter(h => h.team_member_id === currentTeamMemberId);
     }
 
     return filtered;
-  }, [data?.households, viewMode, activeBucket, dataViewMode, currentTeamMemberId]);
+  }, [effectiveHouseholds, viewMode, activeBucket, dataViewMode, currentTeamMemberId]);
 
   // Filter households based on active tab and lead source
   const filteredHouseholds = useMemo(() => {
@@ -381,13 +408,13 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   }, []);
 
   const handleAssignLeadSource = useCallback((householdId: string) => {
-    const household = data?.households.find(h => h.id === householdId);
+    const household = effectiveHouseholds.find(h => h.id === householdId);
     if (household) {
       setSelectedHousehold(household);
       setBulkAssignIds([]);
       setAssignModalOpen(true);
     }
-  }, [data?.households]);
+  }, [effectiveHouseholds]);
 
   const handleBulkAssign = useCallback((householdIds: string[]) => {
     setBulkAssignIds(householdIds);
@@ -520,11 +547,15 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
 
   // Bucket counts for selector
   const bucketCounts = useMemo(() => {
-    let households = data?.households || [];
+    let households = effectiveHouseholds;
     
     // Apply personal filter if needed
-    if (dataViewMode === 'personal' && currentTeamMemberId) {
-      households = households.filter(h => h.team_member_id === currentTeamMemberId);
+    if (dataViewMode === 'personal') {
+      if (!currentTeamMemberId) {
+        households = [];
+      } else {
+        households = households.filter(h => h.team_member_id === currentTeamMemberId);
+      }
     }
 
     return {
@@ -532,7 +563,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
       quoted: households.filter(h => h.status === 'quoted').length,
       sold: households.filter(h => h.status === 'sold').length,
     };
-  }, [data?.households, dataViewMode, currentTeamMemberId]);
+  }, [effectiveHouseholds, dataViewMode, currentTeamMemberId]);
 
   // Needs attention count for current bucket (for tab badge)
   const needsAttentionCount = useMemo(() => {
