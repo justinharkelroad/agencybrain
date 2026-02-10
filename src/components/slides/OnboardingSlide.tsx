@@ -42,7 +42,7 @@ export function OnboardingSlide({ category, questions }: OnboardingSlideProps) {
       <FloatingQuestions questions={questions} />
 
       {/* Centered headline */}
-      <div className="flex-1 flex items-center justify-center z-10">
+      <div className="flex-1 flex items-center justify-center z-20">
         <div className="text-center px-4">
           <h1
             className="text-2xl md:text-4xl font-semibold tracking-widest uppercase mb-2"
