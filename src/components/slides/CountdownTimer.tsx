@@ -43,7 +43,7 @@ export function CountdownTimer() {
 
       <button
         onClick={toggle}
-        className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-[var(--marketing-text)]"
+        className="relative z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-[var(--marketing-text)] cursor-pointer"
         aria-label={running ? 'Pause' : 'Play'}
       >
         {running ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
@@ -51,7 +51,7 @@ export function CountdownTimer() {
 
       <button
         onClick={reset}
-        className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-[var(--marketing-text)]"
+        className="relative z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-[var(--marketing-text)] cursor-pointer"
         aria-label="Reset"
       >
         <RotateCcw className="w-5 h-5" />
