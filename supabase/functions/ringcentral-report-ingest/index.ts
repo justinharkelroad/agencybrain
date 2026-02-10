@@ -91,14 +91,24 @@ function getCol(row: Record<string, unknown>, ...names: string[]): unknown {
 interface AgencyLookups {
   agencyId: string;
   teamByName: Map<string, string>;
-  householdByPhone: Map<string, string>;
+  householdByPhone: Map<string, {
+    householdId: string;
+    contactId: string | null;
+    firstName: string;
+    lastName: string;
+    zipCode: string;
+    email: string | null;
+  }>;
   contactByPhone: Map<string, string>;
 }
 
 async function loadAgencyLookups(supabase: SupabaseClient, agencyId: string): Promise<AgencyLookups> {
   const [teamResult, householdsResult, contactsResult] = await Promise.all([
     supabase.from("team_members").select("id, name, email").eq("agency_id", agencyId),
-    supabase.from("lqs_households").select("id, phone").eq("agency_id", agencyId).not("phone", "is", null),
+    supabase.from("lqs_households")
+      .select("id, phone, contact_id, first_name, last_name, zip_code, email")
+      .eq("agency_id", agencyId)
+      .not("phone", "is", null),
     supabase.from("agency_contacts").select("id, phones").eq("agency_id", agencyId),
   ]);
 
@@ -107,10 +117,26 @@ async function loadAgencyLookups(supabase: SupabaseClient, agencyId: string): Pr
     if (tm.name) teamByName.set(tm.name.toLowerCase(), tm.id);
   }
 
-  const householdByPhone = new Map<string, string>();
+  const householdByPhone = new Map<string, {
+    householdId: string;
+    contactId: string | null;
+    firstName: string;
+    lastName: string;
+    zipCode: string;
+    email: string | null;
+  }>();
   for (const h of (householdsResult.data || [])) {
     const norm = normalizePhone(h.phone);
-    if (norm) householdByPhone.set(norm, h.id);
+    if (norm) {
+      householdByPhone.set(norm, {
+        householdId: h.id,
+        contactId: h.contact_id || null,
+        firstName: h.first_name || "",
+        lastName: h.last_name || "",
+        zipCode: h.zip_code || "",
+        email: h.email || null,
+      });
+    }
   }
 
   const contactByPhone = new Map<string, string>();
@@ -262,14 +288,17 @@ async function processXlsxBuffer(
         const normalizedProspectPhone = normalizePhone(prospectPhone);
 
         let matchedProspectId: string | null = null;
+        let matchedProspectContactId: string | null = null;
         if (normalizedProspectPhone) {
-          matchedProspectId = lookups.householdByPhone.get(normalizedProspectPhone) || null;
+          const household = lookups.householdByPhone.get(normalizedProspectPhone);
+          matchedProspectId = household?.householdId || null;
+          matchedProspectContactId = household?.contactId || null;
           if (matchedProspectId) prospectsMatched++;
         }
 
         let matchedContactId: string | null = null;
         if (normalizedProspectPhone) {
-          matchedContactId = lookups.contactByPhone.get(normalizedProspectPhone) || null;
+          matchedContactId = lookups.contactByPhone.get(normalizedProspectPhone) || matchedProspectContactId || null;
         }
 
         let callStartedAt: string | null = null;
@@ -359,8 +388,61 @@ async function processXlsxBuffer(
 
     // ── Phase 4: Batch insert contact_activities (chunks of 500) ──
 
+    const unresolvedByPhone = new Map<string, string>(); // phone -> householdId
+    for (const call of newCalls) {
+      if (!call.matchedContactId && call.matchedProspectId && call.normalizedProspectPhone) {
+        unresolvedByPhone.set(call.normalizedProspectPhone, call.matchedProspectId);
+      }
+    }
+
+    if (unresolvedByPhone.size > 0) {
+      for (const [phone, householdId] of unresolvedByPhone.entries()) {
+        const household = lookups.householdByPhone.get(phone);
+        if (!household) continue;
+
+        try {
+          const { data: contactId, error: contactError } = await supabase.rpc("find_or_create_contact", {
+            p_agency_id: agencyId,
+            p_first_name: household.firstName || "UNKNOWN",
+            p_last_name: household.lastName || "UNKNOWN",
+            p_zip_code: household.zipCode || null,
+            p_phone: phone,
+            p_email: household.email || null,
+            p_street_address: null,
+            p_city: null,
+            p_state: null,
+          });
+
+          if (contactError || !contactId) {
+            console.error("[ringcentral-report-ingest] Contact resolve error:", contactError);
+            continue;
+          }
+
+          lookups.contactByPhone.set(phone, contactId as string);
+          lookups.householdByPhone.set(phone, {
+            ...household,
+            contactId: contactId as string,
+          });
+
+          const { error: householdUpdateError } = await supabase
+            .from("lqs_households")
+            .update({ contact_id: contactId as string })
+            .eq("id", householdId)
+            .is("contact_id", null);
+          if (householdUpdateError) {
+            console.error("[ringcentral-report-ingest] Household contact link update error:", householdUpdateError);
+          }
+        } catch (resolveError) {
+          console.error("[ringcentral-report-ingest] Contact resolve exception:", resolveError);
+        }
+      }
+    }
+
     const activities: Record<string, unknown>[] = [];
     for (const call of newCalls) {
+      if (!call.matchedContactId && call.normalizedProspectPhone) {
+        call.matchedContactId = lookups.contactByPhone.get(call.normalizedProspectPhone) || null;
+      }
       if (!call.matchedContactId) continue;
       const callEventId = insertedCallMap.get(call.sessionId);
       if (!callEventId) continue;
