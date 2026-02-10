@@ -14,15 +14,14 @@ interface ActiveQuestion {
 
 // Predefined zones to avoid center headline area
 // Zones positioned well away from the center headline (center ~30-70% x, ~35-65% y)
+// Zones strictly outside the center headline area (center ~20-80% x, ~25-75% y is excluded)
 const ZONES = [
-  { xMin: 3, xMax: 28, yMin: 5, yMax: 25 },    // top-left
-  { xMin: 65, xMax: 90, yMin: 5, yMax: 25 },   // top-right
-  { xMin: 3, xMax: 25, yMin: 70, yMax: 88 },   // bottom-left
-  { xMin: 65, xMax: 92, yMin: 70, yMax: 88 },   // bottom-right
-  { xMin: 2, xMax: 22, yMin: 35, yMax: 60 },   // mid-left
-  { xMin: 72, xMax: 92, yMin: 35, yMax: 60 },   // mid-right
-  { xMin: 25, xMax: 70, yMin: 80, yMax: 92 },   // bottom-center
-  { xMin: 25, xMax: 70, yMin: 3, yMax: 15 },    // top-center
+  { xMin: 2, xMax: 18, yMin: 3, yMax: 20 },    // top-left corner
+  { xMin: 75, xMax: 95, yMin: 3, yMax: 20 },   // top-right corner
+  { xMin: 2, xMax: 18, yMin: 78, yMax: 95 },   // bottom-left corner
+  { xMin: 75, xMax: 95, yMin: 78, yMax: 95 },   // bottom-right corner
+  { xMin: 1, xMax: 16, yMin: 30, yMax: 65 },   // far-left edge
+  { xMin: 80, xMax: 97, yMin: 30, yMax: 65 },   // far-right edge
 ];
 
 function randomInZone(zone: (typeof ZONES)[number]) {
