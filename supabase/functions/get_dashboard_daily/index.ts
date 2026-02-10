@@ -184,6 +184,7 @@ serve(async (req) => {
     }
 
     // Transform view data to match expected interface and enforce call metrics mode.
+    // In non-on modes, call fields should only come from actual submitted scorecards.
     const rows: DashboardDailyRow[] = (data || []).map((row) => {
       const fact = row.team_member_id ? factsByTeamMember.get(row.team_member_id) : undefined;
       const mode = fact?.call_metrics_mode || 'off';
@@ -191,8 +192,13 @@ serve(async (req) => {
       const manualTalk = fact?.talk_minutes_manual || 0;
       const autoOutbound = fact?.outbound_calls_auto || 0;
       const autoTalk = fact?.talk_minutes_auto || 0;
-      const outboundCalls = mode === 'on' ? Math.max(autoOutbound, manualOutbound) : manualOutbound;
-      const talkMinutes = mode === 'on' ? Math.max(autoTalk, manualTalk) : manualTalk;
+      const hasSubmittedScorecard = Boolean(row.final_submission_id);
+      const outboundCalls = mode === 'on'
+        ? Math.max(autoOutbound, manualOutbound)
+        : (hasSubmittedScorecard ? manualOutbound : 0);
+      const talkMinutes = mode === 'on'
+        ? Math.max(autoTalk, manualTalk)
+        : (hasSubmittedScorecard ? manualTalk : 0);
 
       return {
         team_member_id: row.team_member_id,
