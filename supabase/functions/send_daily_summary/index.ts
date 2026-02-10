@@ -302,14 +302,40 @@ Deno.serve(async (req) => {
         const enabledKpis = new Set<string>(scorecardRules?.selected_metrics || []);
         const summaries: SubmissionSummary[] = [];
         const kpis = form.schema_json?.kpis || [];
+        const submittedTeamMemberIds = new Set<string>();
+
+        if ((teamMembers || []).length > 0) {
+          const memberIds = (teamMembers || []).map((member) => member.id);
+          const { data: submittedRows, error: submittedRowsError } = await supabase
+            .from('metrics_daily')
+            .select('team_member_id')
+            .eq('agency_id', agency.id)
+            .eq('date', yesterdayStr)
+            .in('team_member_id', memberIds);
+
+          if (submittedRowsError) {
+            logStructured('submitted_rows_fetch_error', {
+              agencyId: agency.id,
+              formId: form.id,
+              date: yesterdayStr,
+              error: submittedRowsError.message,
+            });
+          } else {
+            (submittedRows || []).forEach((row) => {
+              if (row.team_member_id) {
+                submittedTeamMemberIds.add(row.team_member_id);
+              }
+            });
+          }
+        }
 
         for (const member of teamMembers || []) {
           const snapshotRow = snapshotByMember.get(member.id);
+          const didSubmit = submittedTeamMemberIds.has(member.id);
 
           if (snapshotRow) {
             const metricPayload = (snapshotRow.metric_payload || {}) as Record<string, unknown>;
             const targetPayload = (snapshotRow.target_payload || {}) as Record<string, unknown>;
-            const sourcePayload = (snapshotRow.source_payload || {}) as Record<string, unknown>;
 
             const memberKpis: Array<{ metric: string; actual: number; target: number; passed: boolean }> =
               kpis.map((kpi: { selectedKpiSlug?: string; key?: string; label?: string; target?: { goal?: number } }) => {
@@ -381,7 +407,7 @@ Deno.serve(async (req) => {
             summaries.push({
               teamMemberId: member.id,
               teamMemberName: member.name,
-              submitted: Boolean(sourcePayload.has_metrics_daily),
+              submitted: didSubmit,
               passRate,
               kpis: memberKpis,
             });
@@ -389,7 +415,7 @@ Deno.serve(async (req) => {
             summaries.push({
               teamMemberId: member.id,
               teamMemberName: member.name,
-              submitted: false,
+              submitted: didSubmit,
               passRate: 0,
               kpis: [],
             });
