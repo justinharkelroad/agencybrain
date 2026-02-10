@@ -22,7 +22,7 @@ export interface MetricsSnapshotRow {
 }
 
 interface MetricsSnapshotResponse {
-  snapshot: MetricsSnapshotInfo;
+  snapshot: MetricsSnapshotInfo | null;
   scope: {
     mode: 'staff' | 'supabase';
     teamView: boolean;

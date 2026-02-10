@@ -74,9 +74,22 @@ Deno.serve(async (req) => {
     }
 
     if (!snapshot) {
+      const canViewTeam = authResult.mode === 'supabase' || Boolean(authResult.isManager);
+      const staffMemberId = authResult.staffMemberId || null;
+
       return new Response(
-        JSON.stringify({ error: 'No locked snapshot found for this date.' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        JSON.stringify({
+          snapshot: null,
+          scope: {
+            mode: authResult.mode,
+            teamView: canViewTeam,
+            roleFilter: roleFilter || null,
+            teamMemberFilter: canViewTeam ? (teamMemberFilter || null) : staffMemberId,
+          },
+          rows: [],
+          message: 'No locked snapshot found for this date.',
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
