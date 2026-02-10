@@ -93,15 +93,6 @@ export default function StaffSPCategory() {
       setCategory(data.category);
       setModules(data.modules || []);
 
-      // Auto-expand first incomplete module
-      const firstIncomplete = (data.modules || []).find((m: SPModule) =>
-        m.lessons.some((l: SPLesson) => !l.completed)
-      );
-      if (firstIncomplete) {
-        setExpandedModules(new Set([firstIncomplete.id]));
-      } else if (data.modules?.length > 0) {
-        setExpandedModules(new Set([data.modules[0].id]));
-      }
     } catch (err) {
       console.error('Error fetching category:', err);
       navigate('/staff/training/standard');
