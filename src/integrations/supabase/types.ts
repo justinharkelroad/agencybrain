@@ -25,6 +25,7 @@ export type Database = {
           agent_cell: string | null
           agent_name: string | null
           auto_reminders_enabled: boolean | null
+          call_metrics_mode: string
           call_scoring_email_enabled: boolean | null
           cc_owner_on_reminders: boolean | null
           contest_board_enabled: boolean
@@ -35,6 +36,7 @@ export type Database = {
           daily_quoted_households_target: number | null
           daily_sold_items_target: number | null
           daily_written_premium_target_cents: number | null
+          dashboard_call_metrics_enabled: boolean | null
           default_commission_rate: number | null
           description: string | null
           email_from: string | null
@@ -70,6 +72,7 @@ export type Database = {
           agent_cell?: string | null
           agent_name?: string | null
           auto_reminders_enabled?: boolean | null
+          call_metrics_mode?: string
           call_scoring_email_enabled?: boolean | null
           cc_owner_on_reminders?: boolean | null
           contest_board_enabled?: boolean
@@ -80,6 +83,7 @@ export type Database = {
           daily_quoted_households_target?: number | null
           daily_sold_items_target?: number | null
           daily_written_premium_target_cents?: number | null
+          dashboard_call_metrics_enabled?: boolean | null
           default_commission_rate?: number | null
           description?: string | null
           email_from?: string | null
@@ -115,6 +119,7 @@ export type Database = {
           agent_cell?: string | null
           agent_name?: string | null
           auto_reminders_enabled?: boolean | null
+          call_metrics_mode?: string
           call_scoring_email_enabled?: boolean | null
           cc_owner_on_reminders?: boolean | null
           contest_board_enabled?: boolean
@@ -125,6 +130,7 @@ export type Database = {
           daily_quoted_households_target?: number | null
           daily_sold_items_target?: number | null
           daily_written_premium_target_cents?: number | null
+          dashboard_call_metrics_enabled?: boolean | null
           default_commission_rate?: number | null
           description?: string | null
           email_from?: string | null
@@ -5718,6 +5724,205 @@ export type Database = {
             columns: ["kpi_version_id"]
             isOneToOne: false
             referencedRelation: "kpi_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metrics_daily_facts: {
+        Row: {
+          agency_id: string
+          call_data_status: string
+          call_metrics_mode: string
+          created_at: string
+          date: string
+          id: string
+          inbound_calls_auto: number
+          items_sold: number
+          last_recomputed_at: string
+          outbound_calls_auto: number
+          outbound_calls_manual: number
+          quoted_households: number
+          role: Database["public"]["Enums"]["app_member_role"] | null
+          source_flags: Json
+          talk_minutes_auto: number
+          talk_minutes_manual: number
+          team_member_id: string
+          total_calls_auto: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          call_data_status?: string
+          call_metrics_mode?: string
+          created_at?: string
+          date: string
+          id?: string
+          inbound_calls_auto?: number
+          items_sold?: number
+          last_recomputed_at?: string
+          outbound_calls_auto?: number
+          outbound_calls_manual?: number
+          quoted_households?: number
+          role?: Database["public"]["Enums"]["app_member_role"] | null
+          source_flags?: Json
+          talk_minutes_auto?: number
+          talk_minutes_manual?: number
+          team_member_id: string
+          total_calls_auto?: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          call_data_status?: string
+          call_metrics_mode?: string
+          created_at?: string
+          date?: string
+          id?: string
+          inbound_calls_auto?: number
+          items_sold?: number
+          last_recomputed_at?: string
+          outbound_calls_auto?: number
+          outbound_calls_manual?: number
+          quoted_households?: number
+          role?: Database["public"]["Enums"]["app_member_role"] | null
+          source_flags?: Json
+          talk_minutes_auto?: number
+          talk_minutes_manual?: number
+          team_member_id?: string
+          total_calls_auto?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrics_daily_facts_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrics_daily_facts_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metrics_daily_snapshot_rows: {
+        Row: {
+          agency_id: string
+          attainment_payload: Json
+          created_at: string
+          id: string
+          metric_payload: Json
+          role: Database["public"]["Enums"]["app_member_role"] | null
+          snapshot_id: string
+          source_payload: Json
+          status_payload: Json
+          target_payload: Json
+          team_member_id: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          attainment_payload?: Json
+          created_at?: string
+          id?: string
+          metric_payload?: Json
+          role?: Database["public"]["Enums"]["app_member_role"] | null
+          snapshot_id: string
+          source_payload?: Json
+          status_payload?: Json
+          target_payload?: Json
+          team_member_id: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          attainment_payload?: Json
+          created_at?: string
+          id?: string
+          metric_payload?: Json
+          role?: Database["public"]["Enums"]["app_member_role"] | null
+          snapshot_id?: string
+          source_payload?: Json
+          status_payload?: Json
+          target_payload?: Json
+          team_member_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrics_daily_snapshot_rows_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrics_daily_snapshot_rows_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "metrics_daily_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrics_daily_snapshot_rows_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metrics_daily_snapshots: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          lock_type: string
+          snapshot_date: string
+          status: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lock_type?: string
+          snapshot_date: string
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lock_type?: string
+          snapshot_date?: string
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrics_daily_snapshots_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrics_daily_snapshots_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -11969,6 +12174,15 @@ export type Database = {
         Args: { p_agency_id: string }
         Returns: undefined
       }
+      create_metrics_daily_snapshot: {
+        Args: {
+          p_agency_id: string
+          p_created_by?: string
+          p_lock_type?: string
+          p_snapshot_date: string
+        }
+        Returns: string
+      }
       delete_kpi_transaction: {
         Args: { p_actor_id: string; p_agency_id: string; p_kpi_key: string }
         Returns: Json
@@ -12519,9 +12733,21 @@ export type Database = {
         Args: { p_household_id: string }
         Returns: undefined
       }
+      recompute_metrics_daily_fact: {
+        Args: { p_agency_id: string; p_date: string; p_team_member_id: string }
+        Returns: undefined
+      }
       recompute_streaks_for_member: {
         Args: { p_end: string; p_member: string; p_start: string }
         Returns: undefined
+      }
+      refresh_metrics_daily_facts: {
+        Args: {
+          p_agency_id?: string
+          p_end_date?: string
+          p_start_date?: string
+        }
+        Returns: number
       }
       reset_subscription_calls: {
         Args: {
