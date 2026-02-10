@@ -18,7 +18,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings, Target, AlertTriangle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings, Target, AlertTriangle, CircleHelp } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import { PolicyTypeManager } from "@/components/PolicyTypeManager";
@@ -103,42 +104,94 @@ function DashboardCallMetricsToggle({ agencyId }: { agencyId: string }) {
   if (loading) return null;
 
   return (
-    <div className="rounded-lg border p-4 mb-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="space-y-0.5">
-          <Label htmlFor="dashboard-call-metrics" className="text-sm font-medium">Show Call Metrics on Dashboard</Label>
-          <p className="text-xs text-muted-foreground">Display call metric rings and accordion layout on the main dashboard</p>
+    <TooltipProvider delayDuration={200}>
+      <div className="rounded-lg border p-4 mb-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <Label htmlFor="dashboard-call-metrics" className="text-sm font-medium">Show Call Metrics on Dashboard</Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="Show Call Metrics help">
+                    <CircleHelp className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-xs">
+                  Controls whether call-metric rings are visible on dashboard pages. This is display-only and separate from call data mode.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <p className="text-xs text-muted-foreground">Display call metric rings and accordion layout on the main dashboard</p>
+          </div>
+          <Switch
+            id="dashboard-call-metrics"
+            checked={enabled}
+            onCheckedChange={handleToggle}
+            disabled={savingMode}
+          />
         </div>
-        <Switch
-          id="dashboard-call-metrics"
-          checked={enabled}
-          onCheckedChange={handleToggle}
-          disabled={savingMode}
-        />
-      </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="call-metrics-mode" className="text-sm font-medium">Call Metrics Data Mode</Label>
-        <Select
-          value={mode}
-          onValueChange={(value) => updateMode(value as 'off' | 'shadow' | 'on')}
-          disabled={savingMode}
-        >
-          <SelectTrigger id="call-metrics-mode" className="w-full md:w-[360px]">
-            <SelectValue placeholder="Select mode" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="off">Off (Manual Scorecard Only)</SelectItem>
-            <SelectItem value="shadow">Shadow (Manual Scoring + Auto Visibility)</SelectItem>
-            <SelectItem value="on">On (Use Auto Call Metrics)</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">
-          Off keeps calls/talk from scorecard submissions only. Shadow keeps scoring manual while still surfacing auto call data for comparison.
-          On lets RingCentral/Ricochet call metrics drive outbound calls and talk time.
-        </p>
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="call-metrics-mode" className="text-sm font-medium">Call Metrics Data Mode</Label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="Call Metrics Data Mode help">
+                  <CircleHelp className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs text-xs">
+                Choose how call data is used for daily metrics and pass/fail scoring.
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <Select
+            value={mode}
+            onValueChange={(value) => updateMode(value as 'off' | 'shadow' | 'on')}
+            disabled={savingMode}
+          >
+            <SelectTrigger id="call-metrics-mode" className="w-full md:w-[360px]">
+              <SelectValue placeholder="Select mode" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="off">Off (Manual Scorecard Only)</SelectItem>
+              <SelectItem value="shadow">Shadow (Manual Scoring + Auto Visibility)</SelectItem>
+              <SelectItem value="on">On (Use Auto Call Metrics)</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="cursor-help">Off</Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                Stable/manual mode. Uses scorecard-submitted calls and talk time for dashboard scoring.
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="cursor-help">Shadow</Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                Safe rollout mode. Keep manual scoring, while validating imported phone data before full automation.
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="cursor-help">On</Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                Automation mode. RingCentral/Ricochet call data drives outbound calls and talk time metrics.
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Off keeps calls/talk from scorecard submissions only. Shadow keeps scoring manual while still surfacing auto call data for comparison.
+            On lets RingCentral/Ricochet call metrics drive outbound calls and talk time.
+          </p>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
 
