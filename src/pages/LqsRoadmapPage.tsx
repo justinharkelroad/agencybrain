@@ -234,9 +234,60 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const assignMutation = useAssignLeadSource();
   const bulkAssignMutation = useBulkAssignLeadSource();
 
+  const statusRank = useCallback((status: string | null | undefined): number => {
+    const normalized = (status || '').toLowerCase();
+    if (normalized === 'sold') return 2;
+    if (normalized === 'quoted') return 1;
+    return 0;
+  }, []);
+
+  const normalizeNameToken = useCallback((value: string | null | undefined): string =>
+    (value || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9 ]+/g, ' ')
+      .replace(/\s+/g, ' '), []);
+
+  const normalizePhoneToken = useCallback((value: string | null | undefined): string =>
+    (value || '').replace(/\D+/g, ''), []);
+
+  const identitySignalsForHousehold = useCallback((h: HouseholdWithRelations): string[] => {
+    const signals: string[] = [];
+
+    const first = normalizeNameToken(h.first_name);
+    const last = normalizeNameToken(h.last_name);
+    const zip = (h.zip_code || '').trim();
+    if (first && last && zip) {
+      signals.push(`person:${last}|${first}|${zip}`);
+    }
+
+    if (h.household_key) {
+      signals.push(`household:${h.household_key.toUpperCase()}`);
+    }
+
+    if (h.email) {
+      signals.push(`email:${h.email.trim().toLowerCase()}`);
+    }
+
+    const phones = Array.isArray(h.phone) ? h.phone : [];
+    phones.forEach((p) => {
+      const normalized = normalizePhoneToken(p);
+      if (normalized) signals.push(`phone:${normalized}`);
+    });
+
+    if (h.contact_id) {
+      signals.push(`contact:${h.contact_id}`);
+    }
+
+    return signals;
+  }, [normalizeNameToken, normalizePhoneToken]);
+
   // Derive effective status from activity so stale household.status values don't misbucket records.
   const effectiveHouseholds = useMemo(() => {
-    return (data?.households || []).map((h) => {
+    const households = data?.households || [];
+
+    // First pass: infer status from activity on each row.
+    const activityInferred = households.map((h) => {
       const hasSales = filterCountableSales(h.sales || []).length > 0;
       const hasQuotes = filterCountableQuotes(h.quotes || []).length > 0;
 
@@ -245,8 +296,6 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         effectiveStatus = 'sold';
       } else if (hasQuotes) {
         effectiveStatus = 'quoted';
-      } else {
-        effectiveStatus = 'lead';
       }
 
       return {
@@ -254,7 +303,35 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         status: effectiveStatus,
       };
     });
-  }, [data?.households]);
+
+    // Second pass: normalize by identity so a person with any quoted/sold record
+    // does not appear as an open lead in another duplicate/stale row.
+    const maxStatusBySignal = new Map<string, string>();
+    activityInferred.forEach((h) => {
+      identitySignalsForHousehold(h).forEach((signal) => {
+        const existing = maxStatusBySignal.get(signal) || 'lead';
+        if (statusRank(h.status) > statusRank(existing)) {
+          maxStatusBySignal.set(signal, h.status);
+        } else if (!maxStatusBySignal.has(signal)) {
+          maxStatusBySignal.set(signal, existing);
+        }
+      });
+    });
+
+    return activityInferred.map((h) => {
+      let identityStatus = h.status;
+      identitySignalsForHousehold(h).forEach((signal) => {
+        const signalStatus = maxStatusBySignal.get(signal);
+        if (signalStatus && statusRank(signalStatus) > statusRank(identityStatus)) {
+          identityStatus = signalStatus;
+        }
+      });
+      return {
+        ...h,
+        status: identityStatus,
+      };
+    });
+  }, [data?.households, identitySignalsForHousehold, statusRank]);
 
   // Filter by bucket and personal view mode
   const bucketFilteredHouseholds = useMemo(() => {
