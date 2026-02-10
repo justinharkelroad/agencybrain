@@ -34,7 +34,7 @@ export function OnboardingSlide({ category, questions }: OnboardingSlideProps) {
       </div>
 
       {/* Timer - top right */}
-      <div className="absolute top-6 right-8 z-20">
+      <div className="absolute top-6 right-8 z-30 pointer-events-auto">
         <CountdownTimer />
       </div>
 
