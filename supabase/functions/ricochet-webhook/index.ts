@@ -14,6 +14,23 @@ interface RicochetPayload {
 }
 
 /**
+ * Validate and sanitize a timestamp string for PostgreSQL timestamptz.
+ * Returns the original string if valid, or the fallback value if invalid/missing.
+ * Catches garbage values like "-0001-11-30" that Ricochet may send for null dates.
+ */
+function safeTimestamp(value: string | null | undefined, fallback: string | null): string | null {
+  if (!value || typeof value !== "string" || value.trim() === "") return fallback;
+  const d = new Date(value);
+  // Invalid date, or year out of reasonable range (postgres timestamptz supports 4713 BC–294276 AD
+  // but call data should never predate ~2000)
+  if (isNaN(d.getTime()) || d.getFullYear() < 2000 || d.getFullYear() > 2100) {
+    console.warn(`[ricochet-webhook] Invalid timestamp rejected: "${value}"`);
+    return fallback;
+  }
+  return value;
+}
+
+/**
  * Normalize phone number: strip non-digits, remove leading 1 if 11 digits
  */
 function normalizePhone(phone: string | null | undefined): string | null {
@@ -286,6 +303,10 @@ Deno.serve(async (req) => {
     // Determine direction
     const direction = payload.outbound ? "Outbound" : "Inbound";
 
+    // Validate timestamps — fall back to now() for created_at if Ricochet sends garbage like "-0001-11-30"
+    const now = new Date().toISOString();
+    const callStartedAt = safeTimestamp(payload.created_at, now) ?? now;
+
     // Insert call event
     const { data: insertedCall, error: insertError } = await supabase
       .from("call_events")
@@ -297,7 +318,7 @@ Deno.serve(async (req) => {
         from_number: payload.phone,
         to_number: payload.to,
         duration_seconds: payload.Duration || 0,
-        call_started_at: payload.created_at,
+        call_started_at: callStartedAt,
         call_ended_at: null,
         result: "completed",
         extension_name: userName,
@@ -339,7 +360,7 @@ Deno.serve(async (req) => {
           direction,
           payload.Duration || 0,
           payload.id,
-          payload.created_at
+          callStartedAt
         );
         console.log(`[ricochet-webhook] Added contact activity for prospect: ${matchedProspectId}`);
       } catch (err) {
