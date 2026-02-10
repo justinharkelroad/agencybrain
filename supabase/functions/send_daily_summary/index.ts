@@ -32,6 +32,24 @@ function logStructured(event: string, data: Record<string, unknown>) {
   console.log(JSON.stringify({ event, ...data, timestamp: new Date().toISOString() }));
 }
 
+function getLocalHour(timezone: string): number {
+  try {
+    const hour = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date());
+    return parseInt(hour, 10);
+  } catch {
+    const fallbackHour = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date());
+    return parseInt(fallbackHour, 10);
+  }
+}
+
 const QUOTED_ALIASES = ['quoted_households', 'quoted_count', 'policies_quoted', 'items_quoted', 'households_quoted'];
 const SOLD_ALIASES = ['items_sold', 'sold_items', 'sold_count'];
 
@@ -150,7 +168,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { agencyId } = await req.json().catch(() => ({}));
+    const { agencyId, forceSend } = await req.json().catch(() => ({}));
 
     const now = new Date();
     if (!shouldSendDailySummary(now)) {
@@ -206,6 +224,20 @@ Deno.serve(async (req) => {
 
     for (const agency of agencies || []) {
       logStructured('processing_agency', { agencyId: agency.id, agencyName: agency.name });
+
+      const timezone = agency.timezone || 'America/New_York';
+      const localHour = getLocalHour(timezone);
+
+      if (!forceSend && localHour !== 10) {
+        logStructured('skipping_agency_for_hour', {
+          agencyId: agency.id,
+          agencyName: agency.name,
+          timezone,
+          localHour,
+          requiredHour: 10,
+        });
+        continue;
+      }
 
       let snapshotId: string | null = null;
       let snapshotVersion = 0;
