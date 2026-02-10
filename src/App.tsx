@@ -41,6 +41,9 @@ import OnboardingTasksPrototype from "./pages/prototype/OnboardingTasksPrototype
 import SequenceBuilderPrototype from "./pages/prototype/SequenceBuilderPrototype";
 import SubscriptionPreview from "./pages/SubscriptionPreview";
 import TestCheckout from "./pages/TestCheckout";
+import SlidesProspects from "./pages/slides/SlidesProspects";
+import SlidesCustomers from "./pages/slides/SlidesCustomers";
+import SlidesTeamMembers from "./pages/slides/SlidesTeamMembers";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
@@ -258,6 +261,10 @@ const App = () => {
             <Route path="/prototype/sequence-builder" element={<SequenceBuilderPrototype />} />
             <Route path="/preview/subscription" element={<SubscriptionPreview />} />
             <Route path="/test/checkout" element={<TestCheckout />} />
+            {/* Onboarding Discovery Slide Decks */}
+            <Route path="/slides/prospects" element={<SlidesProspects />} />
+            <Route path="/slides/customers" element={<SlidesCustomers />} />
+            <Route path="/slides/team-members" element={<SlidesTeamMembers />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <SidebarLayout>
