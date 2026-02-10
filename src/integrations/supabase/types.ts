@@ -6510,6 +6510,7 @@ export type Database = {
       }
       policy_types: {
         Row: {
+          allow_multiple_items: boolean
           agency_id: string
           created_at: string
           id: string
@@ -6520,6 +6521,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          allow_multiple_items?: boolean
           agency_id: string
           created_at?: string
           id?: string
@@ -6530,6 +6532,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          allow_multiple_items?: boolean
           agency_id?: string
           created_at?: string
           id?: string

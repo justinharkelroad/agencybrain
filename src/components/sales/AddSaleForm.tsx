@@ -35,6 +35,7 @@ import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
 type ProductType = {
   id: string;
   name: string;
+  allow_multiple_items: boolean;
   category: string;
   default_points: number | null;
   is_vc_item: boolean | null;
@@ -60,6 +61,7 @@ type Policy = {
   id: string;
   product_type_id: string;
   policy_type_name: string;
+  allow_multiple_items?: boolean;
   canonical_name: string | null; // From linked product_types, used for bundle detection
   policy_number: string;
   effective_date: Date | undefined;
@@ -154,12 +156,26 @@ const detectBundleType = (
 };
 
 // Multi-item product types (uses canonical names)
-const MULTI_ITEM_PRODUCTS = ["Standard Auto", "Non-Standard Auto", "Specialty Auto", "Boatowners", "Motorcycle"];
+const DEFAULT_MULTI_ITEM_PRODUCTS = [
+  "Standard Auto",
+  "Non-Standard Auto",
+  "Specialty Auto",
+  "Boatowners",
+  "Motorcycle",
+  "Off-Road Vehicle",
+];
 
 // Check if product allows multiple line items - uses canonical name if available
-const isMultiItemProduct = (productName: string, canonicalName?: string | null): boolean => {
+const isMultiItemProduct = (
+  productName: string,
+  canonicalName?: string | null,
+  allowMultipleItems?: boolean
+): boolean => {
+  if (typeof allowMultipleItems === "boolean") {
+    return allowMultipleItems;
+  }
   const nameToCheck = canonicalName || productName;
-  return MULTI_ITEM_PRODUCTS.some(
+  return DEFAULT_MULTI_ITEM_PRODUCTS.some(
     (name) => nameToCheck.toLowerCase() === name.toLowerCase()
   );
 };
@@ -289,6 +305,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         .select(`
           id,
           name,
+          allow_multiple_items,
           product_type:product_types(
             name,
             category,
@@ -303,6 +320,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       return (data || []).map(pt => ({
         id: pt.id,
         name: pt.name,
+        allow_multiple_items: pt.allow_multiple_items ?? false,
         category: (pt.product_type as any)?.category || 'General',
         default_points: (pt.product_type as any)?.default_points ?? 0,
         is_vc_item: (pt.product_type as any)?.is_vc_item ?? false,
@@ -387,6 +405,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         id: crypto.randomUUID(),
         product_type_id: "",
         policy_type_name: "",
+        allow_multiple_items: undefined,
         canonical_name: null,
         policy_number: "",
         effective_date: toLocalDate(saleDate) || todayLocal(),
@@ -427,6 +446,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
           if (value === "brokered") {
             updated.is_vc_qualifying = false;
             updated.isBrokered = true;
+            updated.allow_multiple_items = false;
             updated.canonical_name = null; // Brokered has no canonical product type
             // Auto-create a line item for brokered business if none exists
             if (p.lineItems.length === 0) {
@@ -448,12 +468,13 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
             const product = productTypes.find((pt) => pt.id === value);
             if (product) {
               updated.policy_type_name = product.name;
+              updated.allow_multiple_items = product.allow_multiple_items;
               updated.canonical_name = product.canonical_name; // For bundle detection
               updated.is_vc_qualifying = product.is_vc_item || false;
 
               // For single-item products, auto-create/update a single line item
               // Use canonical_name for accurate multi-item detection
-              if (!isMultiItemProduct(product.name, product.canonical_name)) {
+              if (!isMultiItemProduct(product.name, product.canonical_name, product.allow_multiple_items)) {
                 // Keep existing premium if there's already a line item, otherwise start at 0
                 const existingPremium = p.lineItems.length > 0 ? p.lineItems[0].premium : 0;
                 updated.lineItems = [
@@ -470,7 +491,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
               } else {
                 // For multi-item products, clear line items if switching from single-item
                 // but only if there's exactly one auto-created item with same product
-                if (p.lineItems.length === 1 && !isMultiItemProduct(p.policy_type_name, p.canonical_name) && p.policy_type_name) {
+                if (p.lineItems.length === 1 && !isMultiItemProduct(p.policy_type_name, p.canonical_name, p.allow_multiple_items) && p.policy_type_name) {
                   updated.lineItems = [];
                 }
               }
@@ -1365,7 +1386,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                             </div>
 
                             {/* Conditional rendering based on product type */}
-                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name) ? (
+                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name, policy.allow_multiple_items) ? (
                               /* Multi-item products: Full line items interface */
                               <>
                                 {/* Line Items Header */}
@@ -1640,7 +1661,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                             )}
 
                             {/* Policy Subtotals - only show for multi-item products with items */}
-                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name) && policy.lineItems.length > 0 && (
+                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name, policy.allow_multiple_items) && policy.lineItems.length > 0 && (
                               <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg mt-4">
                                 <div className="text-center">
                                   <div className="font-semibold">{policyTotals.items}</div>

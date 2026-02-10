@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -44,7 +45,8 @@ import {
   Package,
   Car,
   Home,
-  AlertTriangle
+  AlertTriangle,
+  Users
 } from "lucide-react";
 import { cn, todayLocal, formatPhoneNumber } from "@/lib/utils";
 
@@ -76,6 +78,7 @@ interface StagedPolicy {
 interface ProductType {
   id: string;
   name: string;
+  allow_multiple_items: boolean;
   category: string;
   default_points: number | null;
   is_vc_item: boolean | null;
@@ -101,6 +104,38 @@ interface PdfUploadFormProps {
 // Auto products for Preferred Bundle detection
 const AUTO_PRODUCTS = ['Standard Auto', 'Non-Standard Auto', 'Specialty Auto'];
 const HOME_PRODUCTS = ['Homeowners', 'North Light Homeowners', 'Condo', 'North Light Condo'];
+const DEFAULT_MULTI_ITEM_PRODUCTS = [
+  'Standard Auto',
+  'Non-Standard Auto',
+  'Specialty Auto',
+  'Boatowners',
+  'Motorcycle',
+  'Off-Road Vehicle',
+];
+
+const detectBundleType = (
+  policyProductNames: string[],
+  existingTypes: string[] = []
+): { isBundle: boolean; bundleType: string | null } => {
+  const hasAuto = policyProductNames.some(name =>
+    AUTO_PRODUCTS.some(auto => name.toLowerCase() === auto.toLowerCase())
+  ) || existingTypes.includes('auto');
+
+  const hasHome = policyProductNames.some(name =>
+    HOME_PRODUCTS.some(home => name.toLowerCase() === home.toLowerCase())
+  ) || existingTypes.includes('home');
+
+  if (hasAuto && hasHome) {
+    return { isBundle: true, bundleType: 'Preferred' };
+  }
+
+  const totalPolicies = policyProductNames.filter(Boolean).length + existingTypes.length;
+  if (totalPolicies > 1) {
+    return { isBundle: true, bundleType: 'Standard' };
+  }
+
+  return { isBundle: false, bundleType: null };
+};
 
 // Product type mapping for normalization
 const PRODUCT_TYPE_MAPPING: Record<string, string> = {
@@ -144,6 +179,17 @@ function matchProductType(extracted: string, productTypes: ProductType[]): Produ
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 9);
+}
+
+function isMultiItemProduct(productType?: ProductType | null): boolean {
+  if (!productType) return false;
+  if (typeof productType.allow_multiple_items === 'boolean') {
+    return productType.allow_multiple_items;
+  }
+  const nameToCheck = productType.canonical_name || productType.name;
+  return DEFAULT_MULTI_ITEM_PRODUCTS.some(
+    (name) => nameToCheck.toLowerCase() === name.toLowerCase()
+  );
 }
 
 export function PdfUploadForm({
@@ -193,6 +239,8 @@ export function PdfUploadForm({
   const [customerZip, setCustomerZip] = useState('');
   const [producerId, setProducerId] = useState('');
   const [leadSourceId, setLeadSourceId] = useState('');
+  const [hasExistingPolicies, setHasExistingPolicies] = useState(false);
+  const [existingPolicyTypes, setExistingPolicyTypes] = useState<string[]>([]);
 
   // Edit modal state
   const [editingPolicy, setEditingPolicy] = useState<StagedPolicy | null>(null);
@@ -221,6 +269,7 @@ export function PdfUploadForm({
         .select(`
           id,
           name,
+          allow_multiple_items,
           product_type:product_types(
             name,
             category,
@@ -235,6 +284,7 @@ export function PdfUploadForm({
       return (data || []).map(pt => ({
         id: pt.id,
         name: pt.name,
+        allow_multiple_items: pt.allow_multiple_items ?? false,
         category: (pt.product_type as any)?.category || 'General',
         default_points: (pt.product_type as any)?.default_points ?? 0,
         is_vc_item: (pt.product_type as any)?.is_vc_item ?? false,
@@ -263,6 +313,7 @@ export function PdfUploadForm({
   // Add policy to staged list
   const addPolicyToStaged = (data: ExtractedSaleData, filename: string) => {
     const matched = matchProductType(data.productType, productTypes);
+    const supportsMultipleItems = isMultiItemProduct(matched);
     
     const newPolicy: StagedPolicy = {
       id: generateId(),
@@ -271,7 +322,7 @@ export function PdfUploadForm({
       policyNumber: data.policyNumber || '',
       effectiveDate: data.effectiveDate ? new Date(data.effectiveDate) : undefined,
       premium: data.premium || 0,
-      itemCount: data.itemCount || 1,
+      itemCount: supportsMultipleItems ? (data.itemCount || 1) : 1,
       vehicles: data.vehicles,
       confidence: data.confidence,
       filename,
@@ -367,21 +418,11 @@ export function PdfUploadForm({
         return sum + ((pt?.default_points || 0) * p.itemCount);
       }, 0);
 
-      // Detect bundle type
       const productNames = stagedPolicies.map(p => p.productTypeName);
-      const hasAuto = productNames.some(name => 
-        AUTO_PRODUCTS.some(a => a.toLowerCase() === name.toLowerCase())
+      const bundleInfo = detectBundleType(
+        productNames,
+        hasExistingPolicies ? existingPolicyTypes : []
       );
-      const hasHome = productNames.some(name => 
-        HOME_PRODUCTS.some(h => h.toLowerCase() === name.toLowerCase())
-      );
-      const isBundle = stagedPolicies.length > 1;
-      let bundleType = null;
-      if (hasAuto && hasHome) {
-        bundleType = 'preferred_bundle';
-      } else if (isBundle) {
-        bundleType = 'multi_policy';
-      }
 
       // Check if any policy is VC qualifying
       const isVcQualifying = stagedPolicies.some(p => {
@@ -451,8 +492,9 @@ export function PdfUploadForm({
         vc_items: vcItems,
         vc_premium: vcPremium,
         vc_points: vcPoints,
-        is_bundle: isBundle,
-        bundle_type: bundleType,
+        is_bundle: bundleInfo.isBundle,
+        bundle_type: bundleInfo.bundleType,
+        existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
         policies: policiesPayload
       };
 
@@ -489,8 +531,9 @@ export function PdfUploadForm({
             vc_items: vcItems,
             vc_premium: vcPremium,
             vc_points: vcPoints,
-            is_bundle: isBundle,
-            bundle_type: bundleType,
+            is_bundle: bundleInfo.isBundle,
+            bundle_type: bundleInfo.bundleType,
+            existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
             source: 'pdf_upload',
             source_details: {
               filenames: stagedPolicies.map(p => p.filename),
@@ -584,6 +627,8 @@ export function PdfUploadForm({
     setCustomerZip('');
     setProducerId('');
     setLeadSourceId('');
+    setHasExistingPolicies(false);
+    setExistingPolicyTypes([]);
     setShowUploadDropzone(false);
     setEditingPolicy(null);
     setEditModalOpen(false);
@@ -642,6 +687,7 @@ export function PdfUploadForm({
     if (!editingPolicy) return;
 
     const pt = productTypes.find(t => t.id === editProductTypeId);
+    const supportsMultipleItems = isMultiItemProduct(pt);
     const existingIndex = stagedPolicies.findIndex(p => p.id === editingPolicy.id);
     
     const updatedPolicy: StagedPolicy = {
@@ -651,7 +697,7 @@ export function PdfUploadForm({
       policyNumber: editPolicyNumber,
       effectiveDate: editEffectiveDate,
       premium: parseFloat(editPremium) || 0,
-      itemCount: editItemCount,
+      itemCount: supportsMultipleItems ? editItemCount : 1,
     };
     
     if (existingIndex >= 0) {
@@ -713,20 +759,22 @@ export function PdfUploadForm({
     disabled: uploadState === 'uploading'
   });
 
-  // Calculate bundle info
   const productNames = stagedPolicies.map(p => p.productTypeName);
-  const hasAuto = productNames.some(name => 
-    AUTO_PRODUCTS.some(a => a.toLowerCase() === name.toLowerCase())
+  const selectedEditProductType = productTypes.find((pt) => pt.id === editProductTypeId);
+  const canEditMultipleItems = isMultiItemProduct(selectedEditProductType);
+  const bundleInfo = detectBundleType(
+    productNames,
+    hasExistingPolicies ? existingPolicyTypes : []
   );
-  const hasHome = productNames.some(name => 
-    HOME_PRODUCTS.some(h => h.toLowerCase() === name.toLowerCase())
-  );
-  const isBundle = stagedPolicies.length > 1;
-  const bundleLabel = hasAuto && hasHome 
-    ? `Bundle: ${productNames.join(' + ')}`
-    : isBundle 
-      ? `Multi-Policy: ${productNames.join(' + ')}`
-      : null;
+
+  useEffect(() => {
+    if (selectedEditProductType && !canEditMultipleItems && editItemCount !== 1) {
+      setEditItemCount(1);
+    }
+  }, [selectedEditProductType, canEditMultipleItems, editItemCount]);
+  const bundleLabel = bundleInfo.bundleType
+    ? `${bundleInfo.bundleType} Bundle: ${productNames.join(' + ')}`
+    : null;
 
   const totalPremium = stagedPolicies.reduce((sum, p) => sum + (p.premium || 0), 0);
   const totalItems = stagedPolicies.reduce((sum, p) => sum + (p.itemCount || 0), 0);
@@ -860,6 +908,76 @@ export function PdfUploadForm({
               maxLength={10}
               required
             />
+          </div>
+          <div className="space-y-3 sm:col-span-2">
+            <div className={cn(
+              "p-4 rounded-lg border transition-colors",
+              hasExistingPolicies
+                ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20"
+                : "border-muted bg-muted/30"
+            )}>
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="hasExistingPolicies"
+                  checked={hasExistingPolicies}
+                  onCheckedChange={(checked) => {
+                    setHasExistingPolicies(checked === true);
+                    if (!checked) {
+                      setExistingPolicyTypes([]);
+                    }
+                  }}
+                />
+                <Label
+                  htmlFor="hasExistingPolicies"
+                  className="flex items-center gap-2 cursor-pointer font-medium"
+                >
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  Customer has existing policies with us
+                </Label>
+              </div>
+
+              {hasExistingPolicies && (
+                <div className="mt-4 pl-7 space-y-3">
+                  <Label className="text-sm text-muted-foreground">
+                    What products do they already have?
+                  </Label>
+                  <div className="flex flex-wrap gap-4">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="existingAuto"
+                        checked={existingPolicyTypes.includes('auto')}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setExistingPolicyTypes([...existingPolicyTypes, 'auto']);
+                          } else {
+                            setExistingPolicyTypes(existingPolicyTypes.filter(t => t !== 'auto'));
+                          }
+                        }}
+                      />
+                      <Label htmlFor="existingAuto" className="cursor-pointer">
+                        Auto
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="existingHome"
+                        checked={existingPolicyTypes.includes('home')}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setExistingPolicyTypes([...existingPolicyTypes, 'home']);
+                          } else {
+                            setExistingPolicyTypes(existingPolicyTypes.filter(t => t !== 'home'));
+                          }
+                        }}
+                      />
+                      <Label htmlFor="existingHome" className="cursor-pointer">
+                        Home/Property
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="leadSource">
@@ -1192,7 +1310,13 @@ export function PdfUploadForm({
                   min="1"
                   value={editItemCount}
                   onChange={(e) => setEditItemCount(parseInt(e.target.value) || 1)}
+                  disabled={!!selectedEditProductType && !canEditMultipleItems}
                 />
+                {!!selectedEditProductType && !canEditMultipleItems && (
+                  <p className="text-xs text-muted-foreground">
+                    This policy type is configured as single-item in Admin settings.
+                  </p>
+                )}
               </div>
             </div>
           </div>

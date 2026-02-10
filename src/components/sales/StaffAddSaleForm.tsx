@@ -32,6 +32,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 type ProductType = {
   id: string;
   name: string;
+  allow_multiple_items: boolean;
   category: string;
   default_points: number | null;
   is_vc_item: boolean | null;
@@ -52,6 +53,7 @@ type Policy = {
   id: string;
   product_type_id: string;
   policy_type_name: string;
+  allow_multiple_items?: boolean;
   canonical_name: string | null; // From linked product_types, used for bundle detection
   policy_number: string;
   effective_date: Date | undefined;
@@ -99,12 +101,26 @@ const detectBundleType = (policies: Policy[]): { isBundle: boolean; bundleType: 
 };
 
 // Multi-item product types (uses canonical names)
-const MULTI_ITEM_PRODUCTS = ["Standard Auto", "Non-Standard Auto", "Specialty Auto", "Boatowners", "Motorcycle"];
+const DEFAULT_MULTI_ITEM_PRODUCTS = [
+  "Standard Auto",
+  "Non-Standard Auto",
+  "Specialty Auto",
+  "Boatowners",
+  "Motorcycle",
+  "Off-Road Vehicle",
+];
 
 // Check if product allows multiple line items - uses canonical name if available
-const isMultiItemProduct = (productName: string, canonicalName?: string | null): boolean => {
+const isMultiItemProduct = (
+  productName: string,
+  canonicalName?: string | null,
+  allowMultipleItems?: boolean
+): boolean => {
+  if (typeof allowMultipleItems === "boolean") {
+    return allowMultipleItems;
+  }
   const nameToCheck = canonicalName || productName;
-  return MULTI_ITEM_PRODUCTS.some(
+  return DEFAULT_MULTI_ITEM_PRODUCTS.some(
     (name) => nameToCheck.toLowerCase() === name.toLowerCase()
   );
 };
@@ -138,6 +154,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         .select(`
           id,
           name,
+          allow_multiple_items,
           product_type:product_types(
             name,
             category,
@@ -152,6 +169,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       return (data || []).map(pt => ({
         id: pt.id,
         name: pt.name,
+        allow_multiple_items: pt.allow_multiple_items ?? false,
         category: (pt.product_type as any)?.category || 'General',
         default_points: (pt.product_type as any)?.default_points ?? 0,
         is_vc_item: (pt.product_type as any)?.is_vc_item ?? false,
@@ -187,6 +205,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         id: crypto.randomUUID(),
         product_type_id: "",
         policy_type_name: "",
+        allow_multiple_items: undefined,
         canonical_name: null,
         policy_number: "",
         effective_date: toLocalDate(saleDate),
@@ -227,6 +246,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
           if (value === "brokered") {
             updated.is_vc_qualifying = false;
             updated.isBrokered = true;
+            updated.allow_multiple_items = false;
             updated.canonical_name = null; // Brokered has no canonical product type
             // Auto-create a line item for brokered business if none exists
             if (p.lineItems.length === 0) {
@@ -252,12 +272,13 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
             const defaultPoints = selectedProduct.default_points || 0;
 
             updated.policy_type_name = selectedProduct.name;
+            updated.allow_multiple_items = selectedProduct.allow_multiple_items;
             updated.canonical_name = selectedProduct.canonical_name; // For bundle detection
             updated.is_vc_qualifying = isVc;
 
             // For non-multi-item products, auto-create a single line item
             // Use canonical_name for accurate multi-item detection
-            if (!isMultiItemProduct(selectedProduct.name, selectedProduct.canonical_name)) {
+            if (!isMultiItemProduct(selectedProduct.name, selectedProduct.canonical_name, selectedProduct.allow_multiple_items)) {
               // Create or update single line item
               updated.lineItems = [{
                 id: p.lineItems[0]?.id || crypto.randomUUID(),
@@ -942,7 +963,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                             </div>
 
                             {/* Line Items for multi-item products */}
-                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name) ? (
+                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name, policy.allow_multiple_items) ? (
                               <>
                                 <div className="flex items-center justify-between mt-4">
                                   <Label className="text-sm font-medium">Line Items</Label>
@@ -1210,7 +1231,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                             )}
 
                             {/* Policy Subtotals */}
-                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name) && policy.lineItems.length > 0 && (
+                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name, policy.allow_multiple_items) && policy.lineItems.length > 0 && (
                               <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg mt-4">
                                 <div className="text-center">
                                   <div className="font-semibold">{policyTotals.items}</div>

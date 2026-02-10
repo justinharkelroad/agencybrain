@@ -50,6 +50,7 @@ interface CreateSaleRequest {
   vc_points: number;
   is_bundle: boolean;
   bundle_type: string | null;
+  existing_customer_products?: string[];
   is_one_call_close?: boolean;
 }
 
@@ -366,6 +367,7 @@ serve(async (req) => {
         vc_points: body.vc_points,
         is_bundle: body.is_bundle,
         bundle_type: body.bundle_type,
+        existing_customer_products: body.existing_customer_products ?? [],
         source: body.source,
         source_details: body.source_details || null,
         is_one_call_close: body.is_one_call_close ?? false,
