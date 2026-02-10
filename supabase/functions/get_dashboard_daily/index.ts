@@ -36,6 +36,12 @@ interface MetricsDailyFactRow {
   talk_minutes_auto: number | null;
 }
 
+interface CallMetricsDailyRow {
+  team_member_id: string | null;
+  outbound_calls: number | null;
+  total_talk_seconds: number | null;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -158,12 +164,30 @@ serve(async (req) => {
       );
     }
 
+    const { data: agencyModeData, error: agencyModeError } = await supabase
+      .from('agencies')
+      .select('call_metrics_mode')
+      .eq('id', agencyId)
+      .single();
+
+    if (agencyModeError) {
+      console.error('Dashboard daily agency mode query error:', agencyModeError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch agency call metrics mode' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const agencyCallMetricsMode = (agencyModeData?.call_metrics_mode || 'off') as 'off' | 'shadow' | 'on';
+
     const { data: factsData, error: factsError } = await supabase
       .from('metrics_daily_facts')
       .select('team_member_id, call_metrics_mode, outbound_calls_manual, talk_minutes_manual, outbound_calls_auto, talk_minutes_auto')
       .eq('agency_id', agencyId)
-      .eq('date', workDate)
-      .or(`role.eq.${role},role.eq.Hybrid`);
+      .eq('date', workDate);
 
     if (factsError) {
       console.error('Dashboard daily facts query error:', factsError);
@@ -183,15 +207,42 @@ serve(async (req) => {
       }
     }
 
+    const { data: callDailyData, error: callDailyError } = await supabase
+      .from('call_metrics_daily')
+      .select('team_member_id, outbound_calls, total_talk_seconds')
+      .eq('agency_id', agencyId)
+      .eq('date', workDate);
+
+    if (callDailyError) {
+      console.error('Dashboard daily call_metrics_daily query error:', callDailyError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch call metrics daily data' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const callDailyByTeamMember = new Map<string, { outbound: number; talkMinutes: number }>();
+    for (const callRow of (callDailyData || []) as CallMetricsDailyRow[]) {
+      if (!callRow.team_member_id) continue;
+      callDailyByTeamMember.set(callRow.team_member_id, {
+        outbound: callRow.outbound_calls || 0,
+        talkMinutes: Math.round((callRow.total_talk_seconds || 0) / 60),
+      });
+    }
+
     // Transform view data to match expected interface and enforce call metrics mode.
     // In non-on modes, call fields should only come from actual submitted scorecards.
     const rows: DashboardDailyRow[] = (data || []).map((row) => {
       const fact = row.team_member_id ? factsByTeamMember.get(row.team_member_id) : undefined;
-      const mode = fact?.call_metrics_mode || 'off';
+      const mode = agencyCallMetricsMode;
       const manualOutbound = fact?.outbound_calls_manual || 0;
       const manualTalk = fact?.talk_minutes_manual || 0;
-      const autoOutbound = fact?.outbound_calls_auto || 0;
-      const autoTalk = fact?.talk_minutes_auto || 0;
+      const callDaily = row.team_member_id ? callDailyByTeamMember.get(row.team_member_id) : undefined;
+      const autoOutbound = callDaily?.outbound ?? fact?.outbound_calls_auto ?? 0;
+      const autoTalk = callDaily?.talkMinutes ?? fact?.talk_minutes_auto ?? 0;
       const hasSubmittedScorecard = Boolean(row.final_submission_id);
       const outboundCalls = mode === 'on'
         ? Math.max(autoOutbound, manualOutbound)
