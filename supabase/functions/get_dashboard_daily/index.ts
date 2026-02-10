@@ -27,6 +27,15 @@ interface DashboardDailyRow {
   status: string | null;
 }
 
+interface MetricsDailyFactRow {
+  team_member_id: string | null;
+  call_metrics_mode: string | null;
+  outbound_calls_manual: number | null;
+  talk_minutes_manual: number | null;
+  outbound_calls_auto: number | null;
+  talk_minutes_auto: number | null;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -127,15 +136,15 @@ serve(async (req) => {
       agencyId = agency.id;
     }
 
-    // Query vw_metrics_with_team view directly, filtering by role
-    // Include the selected role, Hybrid (hybrid team members appear in both tabs),
-    // and Manager (managers have scorecard form access parity with Hybrid)
+    // Query vw_metrics_with_team view directly, filtering by role.
+    // Include selected role + Hybrid only. Including Manager here can cause
+    // enum/view mismatch errors in some environments and trigger 500s.
     const { data, error } = await supabase
       .from('vw_metrics_with_team')
       .select('*')
       .eq('agency_id', agencyId)
       .eq('date', workDate)
-      .or(`role.eq.${role},role.eq.Hybrid,role.eq.Manager`)
+      .or(`role.eq.${role},role.eq.Hybrid`)
       .order('rep_name', { ascending: true, nullsFirst: false });
 
     if (error) {
@@ -149,25 +158,61 @@ serve(async (req) => {
       );
     }
 
-    // Transform view data to match expected interface
-    const rows: DashboardDailyRow[] = (data || []).map(row => ({
-      team_member_id: row.team_member_id,
-      rep_name: row.rep_name || 'Unassigned',
-      work_date: row.date,
-      outbound_calls: row.outbound_calls || 0,
-      talk_minutes: row.talk_minutes || 0,
-      quoted_count: row.quoted_households || row.quoted_count || 0,
-      sold_items: row.items_sold || row.sold_items || 0,
-      sold_policies: row.sold_policies || 0,
-      sold_premium_cents: row.sold_premium_cents || 0,
-      cross_sells_uncovered: row.cross_sells_uncovered || 0,
-      mini_reviews: row.mini_reviews || 0,
-      pass: row.pass || false,
-      hits: row.hits || 0,
-      daily_score: row.daily_score || 0,
-      is_late: row.is_late || false,
-      status: row.status || 'final'
-    }));
+    const { data: factsData, error: factsError } = await supabase
+      .from('metrics_daily_facts')
+      .select('team_member_id, call_metrics_mode, outbound_calls_manual, talk_minutes_manual, outbound_calls_auto, talk_minutes_auto')
+      .eq('agency_id', agencyId)
+      .eq('date', workDate)
+      .or(`role.eq.${role},role.eq.Hybrid`);
+
+    if (factsError) {
+      console.error('Dashboard daily facts query error:', factsError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch dashboard facts data' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const factsByTeamMember = new Map<string, MetricsDailyFactRow>();
+    for (const fact of (factsData || []) as MetricsDailyFactRow[]) {
+      if (fact.team_member_id) {
+        factsByTeamMember.set(fact.team_member_id, fact);
+      }
+    }
+
+    // Transform view data to match expected interface and enforce call metrics mode.
+    const rows: DashboardDailyRow[] = (data || []).map((row) => {
+      const fact = row.team_member_id ? factsByTeamMember.get(row.team_member_id) : undefined;
+      const mode = fact?.call_metrics_mode || 'off';
+      const manualOutbound = fact?.outbound_calls_manual || 0;
+      const manualTalk = fact?.talk_minutes_manual || 0;
+      const autoOutbound = fact?.outbound_calls_auto || 0;
+      const autoTalk = fact?.talk_minutes_auto || 0;
+      const outboundCalls = mode === 'on' ? Math.max(autoOutbound, manualOutbound) : manualOutbound;
+      const talkMinutes = mode === 'on' ? Math.max(autoTalk, manualTalk) : manualTalk;
+
+      return {
+        team_member_id: row.team_member_id,
+        rep_name: row.rep_name || 'Unassigned',
+        work_date: row.date,
+        outbound_calls: outboundCalls,
+        talk_minutes: talkMinutes,
+        quoted_count: row.quoted_households || row.quoted_count || 0,
+        sold_items: row.items_sold || row.sold_items || 0,
+        sold_policies: row.sold_policies || 0,
+        sold_premium_cents: row.sold_premium_cents || 0,
+        cross_sells_uncovered: row.cross_sells_uncovered || 0,
+        mini_reviews: row.mini_reviews || 0,
+        pass: row.pass || false,
+        hits: row.hits || 0,
+        daily_score: row.daily_score || 0,
+        is_late: row.is_late || false,
+        status: row.status || 'final'
+      };
+    });
 
     console.log(`Dashboard daily [${authResult.mode}]: Found ${rows.length} rows for agency ${agencySlug || agencyId} on ${workDate} with role ${role}`);
 
