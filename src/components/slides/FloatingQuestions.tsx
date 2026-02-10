@@ -13,15 +13,16 @@ interface ActiveQuestion {
 }
 
 // Predefined zones to avoid center headline area
+// Zones positioned well away from the center headline (center ~30-70% x, ~35-65% y)
 const ZONES = [
-  { xMin: 5, xMax: 35, yMin: 8, yMax: 30 },   // top-left
-  { xMin: 55, xMax: 90, yMin: 8, yMax: 30 },   // top-right
-  { xMin: 3, xMax: 30, yMin: 55, yMax: 80 },   // bottom-left
-  { xMin: 60, xMax: 92, yMin: 55, yMax: 80 },   // bottom-right
-  { xMin: 5, xMax: 40, yMin: 35, yMax: 55 },   // mid-left
-  { xMin: 55, xMax: 92, yMin: 35, yMax: 55 },   // mid-right
-  { xMin: 20, xMax: 75, yMin: 75, yMax: 90 },   // bottom-center
-  { xMin: 20, xMax: 75, yMin: 5, yMax: 18 },    // top-center
+  { xMin: 3, xMax: 28, yMin: 5, yMax: 25 },    // top-left
+  { xMin: 65, xMax: 90, yMin: 5, yMax: 25 },   // top-right
+  { xMin: 3, xMax: 25, yMin: 70, yMax: 88 },   // bottom-left
+  { xMin: 65, xMax: 92, yMin: 70, yMax: 88 },   // bottom-right
+  { xMin: 2, xMax: 22, yMin: 35, yMax: 60 },   // mid-left
+  { xMin: 72, xMax: 92, yMin: 35, yMax: 60 },   // mid-right
+  { xMin: 25, xMax: 70, yMin: 80, yMax: 92 },   // bottom-center
+  { xMin: 25, xMax: 70, yMin: 3, yMax: 15 },    // top-center
 ];
 
 function randomInZone(zone: (typeof ZONES)[number]) {
@@ -95,11 +96,13 @@ export function FloatingQuestions({ questions }: FloatingQuestionsProps) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.8, ease: 'easeInOut' }}
-            className="absolute max-w-xs md:max-w-sm text-sm md:text-base italic"
+            className="absolute max-w-[250px] md:max-w-xs text-sm md:text-base italic rounded-lg px-3 py-2"
             style={{
               left: `${q.x}%`,
               top: `${q.y}%`,
               color: 'var(--marketing-text-muted)',
+              background: 'rgba(11, 15, 20, 0.75)',
+              border: '1px solid rgba(148, 163, 184, 0.15)',
               textShadow: '0 0 20px rgba(154, 52, 18, 0.3)',
             }}
           >
