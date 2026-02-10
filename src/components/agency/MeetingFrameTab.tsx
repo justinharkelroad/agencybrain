@@ -24,6 +24,7 @@ import { fetchWithAuth } from '@/lib/staffRequest';
 import { useAgencyKpisWithConfig } from '@/hooks/useAgencyKpisWithConfig';
 import { useUniversalDataProtection } from '@/hooks/useUniversalDataProtection';
 import { UniversalDataProtectionService } from '@/lib/universalDataProtection';
+import { enableMeetingFrameModeAware } from '@/lib/featureFlags';
 
 interface MeetingFrameTabProps {
   agencyId: string;
@@ -95,6 +96,18 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const invokeWithStaff = async (action: string, params: Record<string, unknown> = {}) => {
     const response = await fetchWithAuth('scorecards_admin', {
       method: 'POST',
+      body: { action, ...params },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || 'Request failed');
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
+  const invokeAdminAction = async (action: string, params: Record<string, unknown> = {}) => {
+    const response = await fetchWithAuth('scorecards_admin', {
+      method: 'POST',
+      prefer: isStaffMode ? 'staff' : 'supabase',
       body: { action, ...params },
     });
     const data = await response.json();
@@ -416,7 +429,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
         : displayKpis;
 
       // Aggregate KPI totals using getMetricValue for each KPI
-      const totals: KPITotal[] = kpisToShow.map((kpi) => {
+      let totals: KPITotal[] = kpisToShow.map((kpi) => {
         let total = 0;
         metricsData.forEach((row) => {
           total += getMetricValue(row, kpi.key);
@@ -430,6 +443,33 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
           type: kpi.type,
         };
       });
+
+      // Optional Phase 4 path: align Meeting Frame call fields to mode-aware logic.
+      // Keep all other KPI/custom KPI totals sourced from metrics_daily to avoid regressions.
+      if (enableMeetingFrameModeAware) {
+        try {
+          const modeAware = await invokeAdminAction('meeting_frame_mode_aware_call_totals', {
+            team_member_id: selectedMember,
+            start_date: startStr,
+            end_date: endStr,
+          });
+
+          const modeAwareOutbound = Number(modeAware?.call_totals?.outbound_calls ?? 0);
+          const modeAwareTalk = Number(modeAware?.call_totals?.talk_minutes ?? 0);
+
+          totals = totals.map((kpi) => {
+            if (kpi.key === 'outbound_calls') {
+              return { ...kpi, total: modeAwareOutbound };
+            }
+            if (kpi.key === 'talk_minutes') {
+              return { ...kpi, total: modeAwareTalk };
+            }
+            return kpi;
+          });
+        } catch (modeAwareError) {
+          console.error('Meeting frame mode-aware call totals error:', modeAwareError);
+        }
+      }
 
       // Show KPIs from submitted forms (filtered for Hybrid, all for other roles)
       setKpiTotals(totals);
@@ -667,6 +707,9 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
           <h2 className="text-2xl font-bold text-foreground">Meeting Frame</h2>
           <p className="text-muted-foreground">
             Generate a comprehensive performance snapshot for 1:1 meetings
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Data source: Meeting Frame uses scorecard metrics storage. Call metrics can be aligned to mode-aware logic via feature flag rollout.
           </p>
         </div>
 
