@@ -49,7 +49,7 @@ import { findOrCreateContact } from '@/hooks/useContacts';
 import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
-import type { QuoteUploadResult, SalesUploadResult, PendingSaleReview } from '@/types/lqs';
+import type { QuoteUploadResult, SalesUploadResult, PendingSaleReview, LeadStatus } from '@/types/lqs';
 import { SalesReviewModal, ReviewResult } from '@/components/lqs/SalesReviewModal';
 import { filterCountableQuotes, filterCountableSales } from '@/lib/lqs-constants';
 
@@ -319,7 +319,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
     });
 
     return activityInferred.map((h) => {
-      let identityStatus = h.status;
+      let identityStatus: string = h.status;
       identitySignalsForHousehold(h).forEach((signal) => {
         const signalStatus = maxStatusBySignal.get(signal);
         if (signalStatus && statusRank(signalStatus) > statusRank(identityStatus)) {
@@ -328,7 +328,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
       });
       return {
         ...h,
-        status: identityStatus,
+        status: identityStatus as LeadStatus,
       };
     });
   }, [data?.households, identitySignalsForHousehold, statusRank]);
