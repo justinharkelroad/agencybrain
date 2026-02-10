@@ -290,6 +290,13 @@ export function RingCentralReportUpload({ agencyId }: RingCentralReportUploadPro
           )}
         </div>
 
+        <div className="rounded-md border border-muted-foreground/20 bg-muted/30 p-3">
+          <p className="text-xs text-muted-foreground">
+            Manual Upload (Optional): Use this if you do not connect email ingest, or for one-off corrections.
+            Best for daily reports. Monthly/range files are not split into full day-by-day scorecard backfill automatically.
+          </p>
+        </div>
+
         {/* Calls Result */}
         {callsResult && (
           <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
