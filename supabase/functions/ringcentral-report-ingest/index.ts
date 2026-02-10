@@ -202,10 +202,35 @@ async function processXlsxBuffer(
   let prospectsMatched = 0;
   let contactActivitiesInserted = 0;
 
+  const DEDUP_CHUNK = 1000; // Must stay ≤ PostgREST default max-rows (1000)
+  const INSERT_CHUNK = 500;
+
   if (hasCalls) {
     const callsSheet = workbook.Sheets["Calls"];
     const callsData = XLSX.utils.sheet_to_json(callsSheet, { raw: true }) as Record<string, unknown>[];
     console.log(`[ringcentral-report-ingest] Processing ${callsData.length} call rows`);
+
+    // ── Phase 1: Parse all rows in-memory (zero DB calls) ──
+
+    interface ParsedCall {
+      sessionId: string;
+      direction: "inbound" | "outbound";
+      agentName: string | null;
+      fromNumber: string | null;
+      toNumber: string | null;
+      result: string;
+      durationSeconds: number;
+      callStartedAt: string | null;
+      matchedTeamMemberId: string | null;
+      matchedProspectId: string | null;
+      matchedContactId: string | null;
+      normalizedProspectPhone: string | null;
+      raw: Record<string, unknown>;
+    }
+
+    const parsedCalls: ParsedCall[] = [];
+    const allSessionIds: string[] = [];
+    const seenSessionIds = new Set<string>(); // Dedup within the same file
 
     for (const row of callsData) {
       try {
@@ -215,6 +240,10 @@ async function processXlsxBuffer(
 
         const sessionId = String(getCol(row, "Session Id", "Session ID", "session_id") || "").trim();
         if (!sessionId) continue;
+
+        // Skip in-file duplicates (keep first occurrence, same as original per-row behavior)
+        if (seenSessionIds.has(sessionId)) { callsSkippedDuplicate++; continue; }
+        seenSessionIds.add(sessionId);
 
         const fromName = extractCallerName(String(getCol(row, "From Name", "From Nam") || ""));
         const toName = extractCallerName(String(getCol(row, "To Name") || ""));
@@ -243,12 +272,6 @@ async function processXlsxBuffer(
           matchedContactId = lookups.contactByPhone.get(normalizedProspectPhone) || null;
         }
 
-        const { data: existing } = await supabase
-          .from("call_events").select("id")
-          .eq("provider", "ringcentral").eq("external_call_id", sessionId)
-          .maybeSingle();
-        if (existing) { callsSkippedDuplicate++; continue; }
-
         let callStartedAt: string | null = null;
         if (callStartTime) {
           if (typeof callStartTime === "number") {
@@ -264,48 +287,109 @@ async function processXlsxBuffer(
 
         const durationSeconds = parseDuration(callLength);
 
-        const { data: insertedCall, error: insertError } = await supabase
-          .from("call_events")
-          .insert({
-            agency_id: agencyId, provider: "ringcentral", external_call_id: sessionId,
-            direction: dirLower, from_number: fromNumber || null, to_number: toNumber || null,
-            duration_seconds: durationSeconds, call_started_at: callStartedAt, call_ended_at: null,
-            result: result || null, extension_name: agentName,
-            matched_team_member_id: matchedTeamMemberId, matched_prospect_id: matchedProspectId,
-            raw_payload: row,
-          })
-          .select("id").single();
-
-        if (insertError) {
-          console.error(`[ringcentral-report-ingest] Insert error for session ${sessionId}:`, insertError);
-          rowErrors++;
-          continue;
-        }
-
-        callsProcessed++;
-
-        if (matchedContactId && insertedCall?.id) {
-          try {
-            const activityType = dirLower === "outbound" ? "call_outbound" : "call_inbound";
-            await supabase.from("contact_activities").insert({
-              agency_id: agencyId, contact_id: matchedContactId, source_module: "phone_system",
-              activity_type: activityType, phone_number: normalizedProspectPhone,
-              call_direction: dirLower, call_duration_seconds: durationSeconds,
-              subject: `${direction} Call`,
-              notes: `${dirLower} call - ${durationSeconds}s via RingCentral report`,
-              call_event_id: insertedCall.id,
-            });
-            contactActivitiesInserted++;
-          } catch (caErr) {
-            console.error(`[ringcentral-report-ingest] Contact activity insert error:`, caErr);
-          }
-        }
+        parsedCalls.push({
+          sessionId, direction: dirLower, agentName,
+          fromNumber: fromNumber || null, toNumber: toNumber || null,
+          result, durationSeconds, callStartedAt,
+          matchedTeamMemberId, matchedProspectId,
+          matchedContactId, normalizedProspectPhone,
+          raw: row,
+        });
+        allSessionIds.push(sessionId);
       } catch (rowErr) {
-        console.error(`[ringcentral-report-ingest] Row processing error:`, rowErr);
+        console.error(`[ringcentral-report-ingest] Row parse error:`, rowErr);
         rowErrors++;
       }
     }
+
+    console.log(`[ringcentral-report-ingest] Parsed ${parsedCalls.length} valid calls, ${callsSkippedInternal} internal skipped`);
+
+    // ── Phase 2: Batch dedup check (chunks of 1000) ──
+
+    const existingIds = new Set<string>();
+    for (let i = 0; i < allSessionIds.length; i += DEDUP_CHUNK) {
+      const chunk = allSessionIds.slice(i, i + DEDUP_CHUNK);
+      const { data } = await supabase
+        .from("call_events")
+        .select("external_call_id")
+        .eq("provider", "ringcentral")
+        .eq("agency_id", agencyId)
+        .in("external_call_id", chunk);
+      if (data) {
+        for (const row of data) existingIds.add(row.external_call_id);
+      }
+    }
+
+    const newCalls = parsedCalls.filter(c => !existingIds.has(c.sessionId));
+    callsSkippedDuplicate += parsedCalls.length - newCalls.length;
+    console.log(`[ringcentral-report-ingest] Dedup: ${callsSkippedDuplicate} duplicates, ${newCalls.length} new calls to insert`);
+
+    // ── Phase 3: Batch insert call_events (chunks of 500) ──
+
+    const insertedCallMap = new Map<string, string>(); // sessionId → call_event.id
+
+    for (let i = 0; i < newCalls.length; i += INSERT_CHUNK) {
+      const chunk = newCalls.slice(i, i + INSERT_CHUNK);
+      const rows = chunk.map(c => ({
+        agency_id: agencyId, provider: "ringcentral", external_call_id: c.sessionId,
+        direction: c.direction, from_number: c.fromNumber, to_number: c.toNumber,
+        duration_seconds: c.durationSeconds, call_started_at: c.callStartedAt, call_ended_at: null,
+        result: c.result || null, extension_name: c.agentName,
+        matched_team_member_id: c.matchedTeamMemberId, matched_prospect_id: c.matchedProspectId,
+        raw_payload: c.raw,
+      }));
+
+      const { data, error: insertError } = await supabase
+        .from("call_events")
+        .insert(rows)
+        .select("id, external_call_id");
+
+      if (insertError) {
+        console.error(`[ringcentral-report-ingest] Batch insert error (chunk ${i / INSERT_CHUNK + 1}):`, insertError);
+        rowErrors += chunk.length;
+      } else if (data) {
+        callsProcessed += data.length;
+        for (const row of data) {
+          insertedCallMap.set(row.external_call_id, row.id);
+        }
+      }
+    }
+
+    console.log(`[ringcentral-report-ingest] Inserted ${callsProcessed} call_events`);
+
+    // ── Phase 4: Batch insert contact_activities (chunks of 500) ──
+
+    const activities: Record<string, unknown>[] = [];
+    for (const call of newCalls) {
+      if (!call.matchedContactId) continue;
+      const callEventId = insertedCallMap.get(call.sessionId);
+      if (!callEventId) continue;
+
+      activities.push({
+        agency_id: agencyId, contact_id: call.matchedContactId, source_module: "phone_system",
+        activity_type: call.direction === "outbound" ? "call_outbound" : "call_inbound",
+        phone_number: call.normalizedProspectPhone,
+        call_direction: call.direction, call_duration_seconds: call.durationSeconds,
+        subject: `${call.direction === "outbound" ? "Outbound" : "Inbound"} Call`,
+        notes: `${call.direction} call - ${call.durationSeconds}s via RingCentral report`,
+        call_event_id: callEventId,
+      });
+    }
+
+    for (let i = 0; i < activities.length; i += INSERT_CHUNK) {
+      const chunk = activities.slice(i, i + INSERT_CHUNK);
+      const { error: actError } = await supabase.from("contact_activities").insert(chunk);
+      if (actError) {
+        console.error(`[ringcentral-report-ingest] Batch activity insert error (chunk ${i / INSERT_CHUNK + 1}):`, actError);
+      } else {
+        contactActivitiesInserted += chunk.length;
+      }
+    }
+
+    console.log(`[ringcentral-report-ingest] Inserted ${contactActivitiesInserted} contact_activities`);
   }
+
+  // ── Users sheet: batch upsert call_metrics_daily ──
 
   let metricsUpserted = 0;
   if (hasUsers) {
@@ -313,6 +397,7 @@ async function processXlsxBuffer(
     const usersData = XLSX.utils.sheet_to_json(usersSheet, { raw: true }) as Record<string, unknown>[];
     console.log(`[ringcentral-report-ingest] Processing ${usersData.length} user rows`);
 
+    const metricsRows: Record<string, unknown>[] = [];
     for (const row of usersData) {
       try {
         const userName = String(getCol(row, "Name", "name") || "").trim();
@@ -326,24 +411,30 @@ async function processXlsxBuffer(
         const outboundCalls = Number(getCol(row, "# Outbound", "# Outboun", "# Outbou", "Outbound Calls", "outbound_calls") || 0);
         const totalCalls = Number(getCol(row, "Total Calls", "total_calls") || (inboundCalls + outboundCalls));
 
-        const { error: upsertError } = await supabase
-          .from("call_metrics_daily")
-          .upsert({
-            agency_id: agencyId, team_member_id: teamMemberId, date: reportDate,
-            total_calls: totalCalls, inbound_calls: inboundCalls, outbound_calls: outboundCalls,
-            answered_calls: 0, missed_calls: 0, total_talk_seconds: totalHandleSeconds,
-            last_calculated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-          }, { onConflict: "agency_id,team_member_id,date" });
-
-        if (upsertError) {
-          console.error(`[ringcentral-report-ingest] Metrics upsert error for ${userName}:`, upsertError);
-        } else {
-          metricsUpserted++;
-        }
+        metricsRows.push({
+          agency_id: agencyId, team_member_id: teamMemberId, date: reportDate,
+          total_calls: totalCalls, inbound_calls: inboundCalls, outbound_calls: outboundCalls,
+          answered_calls: 0, missed_calls: 0, total_talk_seconds: totalHandleSeconds,
+          last_calculated_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+        });
       } catch (userErr) {
-        console.error(`[ringcentral-report-ingest] User row error:`, userErr);
+        console.error(`[ringcentral-report-ingest] User row parse error:`, userErr);
       }
     }
+
+    if (metricsRows.length > 0) {
+      const { error: upsertError } = await supabase
+        .from("call_metrics_daily")
+        .upsert(metricsRows, { onConflict: "agency_id,team_member_id,date" });
+
+      if (upsertError) {
+        console.error(`[ringcentral-report-ingest] Batch metrics upsert error:`, upsertError);
+      } else {
+        metricsUpserted = metricsRows.length;
+      }
+    }
+
+    console.log(`[ringcentral-report-ingest] Upserted ${metricsUpserted} call_metrics_daily rows`);
   }
 
   return {
