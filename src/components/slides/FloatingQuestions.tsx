@@ -16,12 +16,12 @@ interface ActiveQuestion {
 // Zones positioned well away from the center headline (center ~30-70% x, ~35-65% y)
 // Zones strictly outside the center headline area (center ~20-80% x, ~25-75% y is excluded)
 const ZONES = [
-  { xMin: 2, xMax: 18, yMin: 3, yMax: 20 },    // top-left corner
-  { xMin: 75, xMax: 95, yMin: 3, yMax: 20 },   // top-right corner
-  { xMin: 2, xMax: 18, yMin: 78, yMax: 95 },   // bottom-left corner
-  { xMin: 75, xMax: 95, yMin: 78, yMax: 95 },   // bottom-right corner
-  { xMin: 1, xMax: 16, yMin: 30, yMax: 65 },   // far-left edge
-  { xMin: 80, xMax: 97, yMin: 30, yMax: 65 },   // far-right edge
+  { xMin: 1, xMax: 12, yMin: 3, yMax: 18 },    // top-left corner
+  { xMin: 78, xMax: 88, yMin: 3, yMax: 18 },   // top-right corner
+  { xMin: 1, xMax: 12, yMin: 80, yMax: 95 },   // bottom-left corner
+  { xMin: 78, xMax: 88, yMin: 80, yMax: 95 },  // bottom-right corner
+  { xMin: 1, xMax: 10, yMin: 30, yMax: 65 },   // far-left edge
+  { xMin: 82, xMax: 90, yMin: 30, yMax: 65 },  // far-right edge
 ];
 
 function randomInZone(zone: (typeof ZONES)[number]) {
@@ -95,7 +95,7 @@ export function FloatingQuestions({ questions }: FloatingQuestionsProps) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.8, ease: 'easeInOut' }}
-            className="absolute max-w-[250px] md:max-w-xs text-sm md:text-base italic rounded-lg px-3 py-2"
+            className="absolute max-w-[200px] md:max-w-[220px] text-xs md:text-sm italic rounded-lg px-3 py-2"
             style={{
               left: `${q.x}%`,
               top: `${q.y}%`,
