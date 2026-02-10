@@ -58,7 +58,13 @@ function DashboardCallMetricsToggle({ agencyId }: { agencyId: string }) {
       .select('dashboard_call_metrics_enabled, call_metrics_mode')
       .eq('id', agencyId)
       .single()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) {
+          toast.error('Failed to load call metrics settings');
+          setLoading(false);
+          return;
+        }
+
         const nextEnabled = (data as any)?.dashboard_call_metrics_enabled ?? false;
         const nextMode = ((data as any)?.call_metrics_mode as 'off' | 'shadow' | 'on' | null) || (nextEnabled ? 'shadow' : 'off');
         setEnabled(nextEnabled);

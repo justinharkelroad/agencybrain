@@ -242,7 +242,8 @@ export default function TeamPerformanceRings({
           });
         
         setRingMetrics(normalizedMetrics);
-        setNRequired(rules?.n_required || 2);
+        const requiredHits = rules?.n_required || 2;
+        setNRequired(requiredHits);
 
         // Role-based default targets and metrics (use STANDARD UI keys)
         const getDefaultTarget = (metricKey: string) => {
@@ -296,8 +297,8 @@ export default function TeamPerformanceRings({
             metric.target > 0 && metric.actual >= metric.target
           ).length;
 
-          // Determine if member passes based on n_required
-          const passes = hitsCount >= nRequired;
+          // Determine if member passes based on the current rules value fetched in this request
+          const passes = hitsCount >= requiredHits;
 
           return {
             id: member.team_member_id,
@@ -305,7 +306,7 @@ export default function TeamPerformanceRings({
             metrics: memberMetrics,
             passes,
             hitsCount,
-            requiredHits: nRequired
+            requiredHits
           };
         });
 
