@@ -76,7 +76,6 @@ import Health from "./pages/Health";
 import Landing from "./pages/Landing";
 import LandingPagePreview from "./pages/LandingPage";
 import MarketingLanding from "./pages/MarketingLanding";
-import SnapshotPlanner from "./pages/SnapshotPlanner";
 import GrowthCenter from "./pages/GrowthCenter";
 import CancelAudit from "./pages/CancelAudit";
 import Renewals from "./pages/Renewals";
@@ -1040,7 +1039,7 @@ const App = () => {
             <Route path="/bonus-grid" element={
               <ProtectedRoute>
                 <SidebarLayout>
-                  <Navigate to="/growth-center?tab=bonus" replace />
+                  <Navigate to="/growth-center" replace />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
@@ -1054,7 +1053,7 @@ const App = () => {
             <Route path="/snapshot-planner" element={
               <ProtectedRoute>
                 <SidebarLayout>
-                  <SnapshotPlanner />
+                  <Navigate to="/growth-center" replace />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
