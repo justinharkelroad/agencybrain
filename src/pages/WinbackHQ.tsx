@@ -8,7 +8,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw, Upload, Users, Calendar, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { RefreshCw, Upload, Users, Calendar, AlertCircle, CheckCircle, Clock, Trash2, X, Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { DateRange } from 'react-day-picker';
 import {
   WinbackUploadModal,
@@ -20,6 +31,7 @@ import {
   WinbackActivityStats,
   WinbackActivitySummary,
   TerminationAnalytics,
+  WinbackUploadHistory,
 } from '@/components/winback';
 import { ContactProfileModal } from '@/components/contacts';
 import type { WinbackStatus, QuickDateFilter } from '@/components/winback/WinbackFilters';
@@ -88,6 +100,9 @@ export default function WinbackHQ() {
   const [profileContactId, setProfileContactId] = useState<string | null>(null);
   const [profileHouseholdId, setProfileHouseholdId] = useState<string | null>(null);
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   // Handler for viewing profile - finds the household to pass to modal
   const handleViewProfile = (contactId: string) => {
     const household = households.find(h => h.contact_id === contactId);
@@ -269,8 +284,27 @@ export default function WinbackHQ() {
 
   const handleModalUpdate = async () => {
     if (agencyId) {
+      setSelectedIds(new Set());
       await loadStats(agencyId);
       await loadHouseholds(agencyId, teamMembers);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      await winbackApi.bulkDeleteHouseholds(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      if (agencyId) {
+        await loadStats(agencyId);
+        await loadHouseholds(agencyId, teamMembers);
+      }
+      toast.success(`${selectedIds.size} household(s) deleted`);
+    } catch (err: any) {
+      toast.error('Failed to delete households', { description: err?.message });
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -423,13 +457,16 @@ export default function WinbackHQ() {
             <WinbackActivitySummary agencyId={agencyId} />
           )}
 
-          {/* Settings (collapsible) */}
+          {/* Settings & Upload History (collapsible) */}
           {agencyId && (
-            <WinbackSettings
-              agencyId={agencyId}
-              contactDaysBefore={contactDaysBefore}
-              onSettingsChange={(days) => setContactDaysBefore(days)}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <WinbackSettings
+                agencyId={agencyId}
+                contactDaysBefore={contactDaysBefore}
+                onSettingsChange={(days) => setContactDaysBefore(days)}
+              />
+              <WinbackUploadHistory agencyId={agencyId} />
+            </div>
           )}
 
           {/* Household Tabs */}
@@ -472,6 +509,8 @@ export default function WinbackHQ() {
                 onSort={handleSort}
                 onRowClick={handleRowClick}
                 onViewProfile={handleViewProfile}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
               />
 
               <WinbackPagination
@@ -492,6 +531,8 @@ export default function WinbackHQ() {
                 onSort={handleSort}
                 onRowClick={handleRowClick}
                 onViewProfile={handleViewProfile}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
               />
 
               <WinbackPagination
@@ -552,6 +593,44 @@ export default function WinbackHQ() {
             if (agencyId) loadHouseholds(agencyId, teamMembers);
           }}
         />
+      )}
+
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-card border border-border shadow-lg rounded-lg px-4 py-3">
+          <span className="text-sm font-medium text-foreground">
+            {selectedIds.size} selected
+          </span>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="destructive" disabled={bulkDeleting}>
+                {bulkDeleting ? (
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                ) : (
+                  <Trash2 className="h-3 w-3 mr-1" />
+                )}
+                Delete Selected
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {selectedIds.size} household{selectedIds.size > 1 ? 's' : ''}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete the selected households and all associated policies and activities. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       )}
     </div>
   );

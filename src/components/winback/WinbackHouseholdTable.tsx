@@ -1,5 +1,6 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import { WinbackStatusBadge, WinbackStatusType } from './WinbackStatusBadge';
 import { Phone, Mail, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { format, isBefore, startOfDay } from 'date-fns';
@@ -41,6 +42,8 @@ interface WinbackHouseholdTableProps {
   onSort: (column: SortColumn) => void;
   onRowClick: (household: Household) => void;
   onViewProfile?: (contactId: string) => void;
+  selectedIds?: Set<string>;
+  onSelectionChange?: (ids: Set<string>) => void;
 }
 
 function SortHeader({
@@ -108,8 +111,34 @@ export function WinbackHouseholdTable({
   onSort,
   onRowClick,
   onViewProfile,
+  selectedIds,
+  onSelectionChange,
 }: WinbackHouseholdTableProps) {
   const today = startOfDay(new Date());
+  const hasSelection = selectedIds !== undefined && onSelectionChange !== undefined;
+  const allOnPageSelected = hasSelection && households.length > 0 && households.every(h => selectedIds!.has(h.id));
+  const someOnPageSelected = hasSelection && households.some(h => selectedIds!.has(h.id));
+
+  const toggleAll = () => {
+    if (!onSelectionChange || !selectedIds) return;
+    if (allOnPageSelected) {
+      const next = new Set(selectedIds);
+      households.forEach(h => next.delete(h.id));
+      onSelectionChange(next);
+    } else {
+      const next = new Set(selectedIds);
+      households.forEach(h => next.add(h.id));
+      onSelectionChange(next);
+    }
+  };
+
+  const toggleOne = (id: string) => {
+    if (!onSelectionChange || !selectedIds) return;
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onSelectionChange(next);
+  };
 
   if (loading) {
     return (
@@ -135,6 +164,20 @@ export function WinbackHouseholdTable({
       <Table>
         <TableHeader>
           <TableRow>
+            {hasSelection && (
+              <TableHead className="w-10">
+                <Checkbox
+                  checked={allOnPageSelected}
+                  ref={(el) => {
+                    if (el) {
+                      (el as any).indeterminate = someOnPageSelected && !allOnPageSelected;
+                    }
+                  }}
+                  onCheckedChange={toggleAll}
+                  aria-label="Select all on page"
+                />
+              </TableHead>
+            )}
             <SortHeader
               column="name"
               currentColumn={sortColumn}
@@ -198,9 +241,21 @@ export function WinbackHouseholdTable({
             return (
               <TableRow
                 key={household.id}
-                className="cursor-pointer hover:bg-muted/50"
+                className={cn(
+                  "cursor-pointer hover:bg-muted/50",
+                  hasSelection && selectedIds!.has(household.id) && "bg-primary/5"
+                )}
                 onClick={() => onRowClick(household)}
               >
+                {hasSelection && (
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds!.has(household.id)}
+                      onCheckedChange={() => toggleOne(household.id)}
+                      aria-label={`Select ${household.first_name} ${household.last_name}`}
+                    />
+                  </TableCell>
+                )}
                 <TableCell className="font-medium">
                   {household.contact_id && onViewProfile ? (
                     <button
