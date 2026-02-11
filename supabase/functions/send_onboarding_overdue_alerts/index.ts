@@ -153,7 +153,7 @@ serve(async (req) => {
         due_date: task.due_date,
         day_number: task.day_number,
         action_type: task.action_type,
-        instance: task.instance as { customer_name: string; customer_phone: string | null },
+        instance: (Array.isArray(task.instance) ? task.instance[0] : task.instance) as { customer_name: string; customer_phone: string | null },
       });
     }
 

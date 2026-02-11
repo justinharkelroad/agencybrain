@@ -950,6 +950,255 @@ export type Database = {
           },
         ]
       }
+      business_metrics_reports: {
+        Row: {
+          agency_id: string
+          agent_code: string | null
+          agent_name: string | null
+          bonus_projection_cents: number | null
+          carrier_schema_id: string
+          created_at: string | null
+          file_path: string
+          id: string
+          is_baseline: boolean | null
+          original_filename: string
+          parse_error: string | null
+          parse_status: string
+          parsed_data: Json | null
+          report_month: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          agent_code?: string | null
+          agent_name?: string | null
+          bonus_projection_cents?: number | null
+          carrier_schema_id: string
+          created_at?: string | null
+          file_path: string
+          id?: string
+          is_baseline?: boolean | null
+          original_filename: string
+          parse_error?: string | null
+          parse_status?: string
+          parsed_data?: Json | null
+          report_month: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          agent_code?: string | null
+          agent_name?: string | null
+          bonus_projection_cents?: number | null
+          carrier_schema_id?: string
+          created_at?: string | null
+          file_path?: string
+          id?: string
+          is_baseline?: boolean | null
+          original_filename?: string
+          parse_error?: string | null
+          parse_status?: string
+          parsed_data?: Json | null
+          report_month?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_metrics_reports_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_metrics_reports_carrier_schema_id_fkey"
+            columns: ["carrier_schema_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_schemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_metrics_snapshots: {
+        Row: {
+          adj_earned_premium_12mm: number | null
+          adj_paid_losses_12mm: number | null
+          agency_id: string
+          bonus_projection_cents: number | null
+          capped_items_new: number | null
+          capped_items_pye: number | null
+          capped_items_renewal: number | null
+          capped_items_total: number | null
+          capped_items_variance_pye: number | null
+          created_at: string | null
+          ho_premium_current: number | null
+          ho_retention: number | null
+          ho_retention_py_var: number | null
+          id: string
+          loss_ratio_12mm: number | null
+          loss_ratio_24mm: number | null
+          motor_club_items_current: number | null
+          motor_club_items_pye: number | null
+          motor_club_items_variance: number | null
+          motor_club_retention: number | null
+          net_retention: number | null
+          pif_current: number | null
+          pif_pye: number | null
+          pif_variance_pye: number | null
+          premium_12mm_earned: number | null
+          premium_12mm_written: number | null
+          premium_current_month_new: number | null
+          premium_current_month_renewal: number | null
+          premium_current_month_total: number | null
+          premium_pct_variance_py: number | null
+          premium_pct_variance_py_ytd: number | null
+          premium_prior_year_ytd: number | null
+          premium_py_same_month: number | null
+          premium_ytd_total: number | null
+          report_id: string
+          report_month: string
+          retention_0_2_years: number | null
+          retention_2_5_years: number | null
+          retention_2_plus_years: number | null
+          retention_5_plus_years: number | null
+          retention_condo: number | null
+          retention_current: number | null
+          retention_homeowners: number | null
+          retention_other_special: number | null
+          retention_point_variance_py: number | null
+          retention_prior_year: number | null
+          retention_renters: number | null
+          retention_std_auto: number | null
+          std_auto_new_items: number | null
+          std_auto_retention: number | null
+          std_auto_retention_py_var: number | null
+        }
+        Insert: {
+          adj_earned_premium_12mm?: number | null
+          adj_paid_losses_12mm?: number | null
+          agency_id: string
+          bonus_projection_cents?: number | null
+          capped_items_new?: number | null
+          capped_items_pye?: number | null
+          capped_items_renewal?: number | null
+          capped_items_total?: number | null
+          capped_items_variance_pye?: number | null
+          created_at?: string | null
+          ho_premium_current?: number | null
+          ho_retention?: number | null
+          ho_retention_py_var?: number | null
+          id?: string
+          loss_ratio_12mm?: number | null
+          loss_ratio_24mm?: number | null
+          motor_club_items_current?: number | null
+          motor_club_items_pye?: number | null
+          motor_club_items_variance?: number | null
+          motor_club_retention?: number | null
+          net_retention?: number | null
+          pif_current?: number | null
+          pif_pye?: number | null
+          pif_variance_pye?: number | null
+          premium_12mm_earned?: number | null
+          premium_12mm_written?: number | null
+          premium_current_month_new?: number | null
+          premium_current_month_renewal?: number | null
+          premium_current_month_total?: number | null
+          premium_pct_variance_py?: number | null
+          premium_pct_variance_py_ytd?: number | null
+          premium_prior_year_ytd?: number | null
+          premium_py_same_month?: number | null
+          premium_ytd_total?: number | null
+          report_id: string
+          report_month: string
+          retention_0_2_years?: number | null
+          retention_2_5_years?: number | null
+          retention_2_plus_years?: number | null
+          retention_5_plus_years?: number | null
+          retention_condo?: number | null
+          retention_current?: number | null
+          retention_homeowners?: number | null
+          retention_other_special?: number | null
+          retention_point_variance_py?: number | null
+          retention_prior_year?: number | null
+          retention_renters?: number | null
+          retention_std_auto?: number | null
+          std_auto_new_items?: number | null
+          std_auto_retention?: number | null
+          std_auto_retention_py_var?: number | null
+        }
+        Update: {
+          adj_earned_premium_12mm?: number | null
+          adj_paid_losses_12mm?: number | null
+          agency_id?: string
+          bonus_projection_cents?: number | null
+          capped_items_new?: number | null
+          capped_items_pye?: number | null
+          capped_items_renewal?: number | null
+          capped_items_total?: number | null
+          capped_items_variance_pye?: number | null
+          created_at?: string | null
+          ho_premium_current?: number | null
+          ho_retention?: number | null
+          ho_retention_py_var?: number | null
+          id?: string
+          loss_ratio_12mm?: number | null
+          loss_ratio_24mm?: number | null
+          motor_club_items_current?: number | null
+          motor_club_items_pye?: number | null
+          motor_club_items_variance?: number | null
+          motor_club_retention?: number | null
+          net_retention?: number | null
+          pif_current?: number | null
+          pif_pye?: number | null
+          pif_variance_pye?: number | null
+          premium_12mm_earned?: number | null
+          premium_12mm_written?: number | null
+          premium_current_month_new?: number | null
+          premium_current_month_renewal?: number | null
+          premium_current_month_total?: number | null
+          premium_pct_variance_py?: number | null
+          premium_pct_variance_py_ytd?: number | null
+          premium_prior_year_ytd?: number | null
+          premium_py_same_month?: number | null
+          premium_ytd_total?: number | null
+          report_id?: string
+          report_month?: string
+          retention_0_2_years?: number | null
+          retention_2_5_years?: number | null
+          retention_2_plus_years?: number | null
+          retention_5_plus_years?: number | null
+          retention_condo?: number | null
+          retention_current?: number | null
+          retention_homeowners?: number | null
+          retention_other_special?: number | null
+          retention_point_variance_py?: number | null
+          retention_prior_year?: number | null
+          retention_renters?: number | null
+          retention_std_auto?: number | null
+          std_auto_new_items?: number | null
+          std_auto_retention?: number | null
+          std_auto_retention_py_var?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_metrics_snapshots_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_metrics_snapshots_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: true
+            referencedRelation: "business_metrics_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_events: {
         Row: {
           agency_id: string
@@ -1553,6 +1802,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      carrier_schemas: {
+        Row: {
+          carrier_name: string
+          created_at: string | null
+          display_name: string
+          field_map: Json
+          id: string
+          is_active: boolean | null
+          schema_key: string
+          updated_at: string | null
+          version: string
+        }
+        Insert: {
+          carrier_name: string
+          created_at?: string | null
+          display_name: string
+          field_map: Json
+          id?: string
+          is_active?: boolean | null
+          schema_key: string
+          updated_at?: string | null
+          version?: string
+        }
+        Update: {
+          carrier_name?: string
+          created_at?: string | null
+          display_name?: string
+          field_map?: Json
+          id?: string
+          is_active?: boolean | null
+          schema_key?: string
+          updated_at?: string | null
+          version?: string
+        }
+        Relationships: []
       }
       challenge_assignments: {
         Row: {
@@ -4544,6 +4829,56 @@ export type Database = {
             columns: ["kpi_version_id"]
             isOneToOne: false
             referencedRelation: "kpi_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gic_analyses: {
+        Row: {
+          agency_id: string
+          analysis_result: string
+          analysis_type: string
+          conversation: Json | null
+          created_at: string | null
+          id: string
+          included_lqs_data: boolean | null
+          included_scorecard_data: boolean | null
+          model_used: string
+          report_ids: string[]
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          analysis_result: string
+          analysis_type: string
+          conversation?: Json | null
+          created_at?: string | null
+          id?: string
+          included_lqs_data?: boolean | null
+          included_scorecard_data?: boolean | null
+          model_used: string
+          report_ids: string[]
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          analysis_result?: string
+          analysis_type?: string
+          conversation?: Json | null
+          created_at?: string | null
+          id?: string
+          included_lqs_data?: boolean | null
+          included_scorecard_data?: boolean | null
+          model_used?: string
+          report_ids?: string[]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gic_analyses_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]

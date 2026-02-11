@@ -36,7 +36,7 @@ function buildSupabaseMock(options?: {
   });
   const updateSelect = vi.fn(() => ({ single: updateSingle }));
   const updateEq = vi.fn(() => ({ select: updateSelect }));
-  const reportUpdate = vi.fn(() => ({ eq: updateEq }));
+  const reportUpdate = vi.fn((_payload?: Record<string, unknown>) => ({ eq: updateEq }));
 
   const insertSingle = vi.fn().mockResolvedValue({
     data: { id: 'report-inserted-1' },

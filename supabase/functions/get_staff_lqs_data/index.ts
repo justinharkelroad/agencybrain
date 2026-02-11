@@ -252,7 +252,7 @@ serve(async (req) => {
 
       if (!page || page.length === 0) break;
 
-      allHouseholds.push(...(page as LqsHousehold[]));
+      allHouseholds.push(...(page as unknown as LqsHousehold[]));
 
       // If we got less than PAGE_SIZE, we've reached the end
       if (page.length < PAGE_SIZE) break;
