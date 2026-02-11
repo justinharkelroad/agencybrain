@@ -363,7 +363,7 @@ export function ROIForecastersModal({ open, onOpenChange, initialTool = null }: 
   const handlePick = (k: CalcKey) => {
     if (k === "allstate_bonus_grid") {
       onOpenChange(false);
-      navigate("/bonus-grid");
+      navigate("/growth-center");
       return;
     }
     setMode(k);

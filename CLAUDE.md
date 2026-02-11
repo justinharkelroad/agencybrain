@@ -781,7 +781,7 @@ Source of truth:
 
 Scope:
 - Build `Growth Center` for `1:1 Coaching` agencies only.
-- Include upload + parse pipeline, analytics tabs, Bonus Grid integration, and AI diagnostics.
+- Include upload + parse pipeline, analytics tabs, and AI diagnostics.
 - Preserve existing AgencyBrain patterns for routing, sidebar access control, hooks, and Supabase edge function conventions.
 
 Execution order (mandatory):
@@ -792,7 +792,7 @@ Execution order (mandatory):
 5. Phase 5: Trend charts + month-over-month detail table
 6. Phase 6: Retention deep-dive tab
 7. Phase 7: Premium + Loss Ratio tabs
-8. Phase 8: Bonus Planner tab (embed existing Bonus Grid + Snapshot Planner)
+8. Phase 8: Bonus Planner tab (retired by product decision; legacy Bonus Grid not embedded)
 9. Phase 9: AI diagnostic engine + UI analysis panel
 10. Phase 10: Upload dialog polish/details
 11. Phase 11: Empty/error/loading states
@@ -828,9 +828,9 @@ Phase deliverables:
 - Phase 7:
   - Add premium/loss ratio detail tabs and alerting rules (>50% 12MM loss ratio).
 - Phase 8:
-  - Embed existing `BonusGrid` (do not rewrite internals).
-  - Add `Auto-Fill from Report` mapping from latest parsed snapshot.
-  - Redirect `/bonus-grid` to `/growth-center?tab=bonus`.
+  - Retired by product decision.
+  - Growth Center does not embed legacy Bonus Grid/Snapshot Planner.
+  - Legacy `/bonus-grid` and `/snapshot-planner` routes redirect to `/growth-center`.
 - Phase 9:
   - Add `supabase/functions/analyze_growth_metrics/index.ts`.
   - Use Anthropic Claude Sonnet 4 model and structured analyst prompt.
@@ -851,7 +851,7 @@ Critical implementation rules:
   - Dollars: strip symbols/commas, handle negatives in parentheses, store cents.
   - Percentages: strip `%`, normalize to decimal.
   - Empty markers (`--`, `N/A`, blank) -> `null`.
-- Preserve existing Bonus Grid logic; integration must be additive only.
+- Preserve existing Bonus Grid logic outside Growth Center; no integration required.
 
 Verification gates (must pass before next phase):
 - Phase 1: All schema objects created; `allstate_bm` row present with valid field map.
@@ -860,12 +860,12 @@ Verification gates (must pass before next phase):
 - Phase 4: KPI cards render from snapshot data with correct formatting.
 - Phase 5: All chart modes render with month-over-month data.
 - Phases 6-7: Deep-dive tabs show LOB metrics and correct sorting/polarity.
-- Phase 8: Bonus Grid visible in tab; auto-fill writes expected values and remains editable.
+- Phase 8: Legacy bonus-grid workflow removed from Growth Center.
 - Phase 9: AI analysis returns structured output with numeric grounding.
 - Phases 10-11: UX handles replace, parse errors, loading, and zero-data paths gracefully.
 
 Definition of done:
 - End-to-end flow works for at least one Allstate monthly report:
-  - upload -> parse -> overview/trends/deep dives -> bonus autofill -> AI analysis.
+  - upload -> parse -> overview/trends/deep dives -> AI analysis.
 - Access control, RLS behavior, and route/sidebar gating verified for target membership.
 - No regressions to existing Bonus Grid or staff/admin portal behavior.
