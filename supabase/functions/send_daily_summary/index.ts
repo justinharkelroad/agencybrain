@@ -112,7 +112,7 @@ function getTargetValue(targetsMap: Record<string, number>, kpiSlug: string, kpi
 }
 
 async function resolveLockedSnapshotId(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   agencyId: string,
   snapshotDate: string,
 ): Promise<{ id: string; version: number } | null> {
@@ -131,7 +131,7 @@ async function resolveLockedSnapshotId(
   }
 
   if (existing) {
-    return existing;
+    return existing as { id: string; version: number };
   }
 
   const { error: createError } = await supabase.rpc('create_metrics_daily_snapshot', {
@@ -159,7 +159,7 @@ async function resolveLockedSnapshotId(
     throw new Error(`snapshot_post_create_lookup_failed: ${createdError.message}`);
   }
 
-  return created;
+  return created as { id: string; version: number } | null;
 }
 
 Deno.serve(async (req) => {
