@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Bot, ChevronDown, ChevronUp, FileSpreadsheet, Loader2, RefreshCcw, Trash2, TrendingUp, Upload } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,10 @@ import { GCComparisonTable } from '@/components/growth-center/GCComparisonTable'
 import { GCRetentionTab } from '@/components/growth-center/GCRetentionTab';
 import { GCPremiumTab } from '@/components/growth-center/GCPremiumTab';
 import { GCLossRatioTab } from '@/components/growth-center/GCLossRatioTab';
+import { getBonusGridState, saveBonusGridState } from '@/lib/bonusGridState';
+import type { CellAddr } from '@/bonus_grid_web_spec/computeWithRounding';
+import BonusGrid from './BonusGrid';
+import SnapshotPlanner from './SnapshotPlanner';
 
 function currencyFromCents(value: number | null | undefined): string {
   if (value === null || value === undefined) {
@@ -82,9 +86,12 @@ function sortByReportMonthDesc<T extends { report_month: string }>(rows: T[]): T
   return [...rows].sort((a, b) => b.report_month.localeCompare(a.report_month));
 }
 
+const BONUS_AUTOFILL_DISMISS_KEY = 'growth-center:bonus-autofill-dismissed-report-id:v1';
+
 export default function GrowthCenter() {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { membershipTier, tierLoading, isAdmin } = useAuth();
   const [selectedCarrierSchemaKey, setSelectedCarrierSchemaKey] = useState<string>('');
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -102,6 +109,7 @@ export default function GrowthCenter() {
   } | null>(null);
   const [uploadPrefillReportMonth, setUploadPrefillReportMonth] = useState<string | null>(null);
   const [uploadPrefillCarrierSchemaKey, setUploadPrefillCarrierSchemaKey] = useState<string | null>(null);
+  const [autofillDismissedReportId, setAutofillDismissedReportId] = useState<string | null>(null);
 
   const carrierSchemasQuery = useCarrierSchemas();
   const selectedCarrier = useMemo(
@@ -151,6 +159,32 @@ export default function GrowthCenter() {
     [carrierSnapshots]
   );
   const latestSnapshot = sortedCarrierSnapshots[sortedCarrierSnapshots.length - 1] ?? null;
+  const latestParsedReport = useMemo(() => {
+    const parsedReports = reportsQuery.reports.filter((report) => report.parse_status === 'parsed');
+    return sortByReportMonthDesc(parsedReports)[0] ?? null;
+  }, [reportsQuery.reports]);
+  const showBonusAutofillBanner = Boolean(
+    latestParsedReport &&
+    latestSnapshot &&
+    latestParsedReport.id === latestSnapshot.report_id &&
+    autofillDismissedReportId !== latestParsedReport.id
+  );
+
+  useEffect(() => {
+    const requestedTab = searchParams.get('tab');
+    if (requestedTab === 'bonus') {
+      setActiveTab('bonus-planner');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    try {
+      const dismissed = localStorage.getItem(BONUS_AUTOFILL_DISMISS_KEY);
+      setAutofillDismissedReportId(dismissed);
+    } catch {
+      setAutofillDismissedReportId(null);
+    }
+  }, []);
 
   const handleUpload = async (input: Parameters<typeof reportsQuery.createReport>[0]) => {
     await reportsQuery.createReport(input);
@@ -195,6 +229,111 @@ export default function GrowthCenter() {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleDismissBonusAutofill = () => {
+    if (!latestParsedReport) return;
+    try {
+      localStorage.setItem(BONUS_AUTOFILL_DISMISS_KEY, latestParsedReport.id);
+    } catch {
+      // no-op
+    }
+    setAutofillDismissedReportId(latestParsedReport.id);
+  };
+
+  const distributeWholeNumberTotal = (
+    target: Record<CellAddr, number | string>,
+    cells: CellAddr[],
+    total: number | null | undefined
+  ) => {
+    if (!Number.isFinite(total ?? NaN) || !total || total <= 0) return;
+
+    const desired = Math.max(0, Math.round(total));
+    const existing = cells.map((cell) => {
+      const raw = Number(target[cell] ?? 0);
+      return Number.isFinite(raw) && raw > 0 ? raw : 0;
+    });
+    const existingSum = existing.reduce((sum, value) => sum + value, 0);
+
+    if (existingSum > 0) {
+      let allocated = 0;
+      cells.forEach((cell, index) => {
+        if (index === cells.length - 1) {
+          target[cell] = desired - allocated;
+          return;
+        }
+        const value = Math.round((existing[index] / existingSum) * desired);
+        target[cell] = value;
+        allocated += value;
+      });
+      return;
+    }
+
+    target[cells[0]] = desired;
+    for (let index = 1; index < cells.length; index += 1) {
+      target[cells[index]] = 0;
+    }
+  };
+
+  const handleAutoFillBonusGrid = async () => {
+    if (!latestSnapshot) {
+      toast({
+        title: 'Auto-fill unavailable',
+        description: 'No parsed report snapshot is available yet.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const current = (await getBonusGridState()) ?? {};
+    const next: Record<CellAddr, number | string> = { ...(current as Record<CellAddr, number | string>) };
+
+    const baselineItemCells = Array.from({ length: 15 }, (_, index) => `Sheet1!C${9 + index}` as CellAddr);
+    const baselineRetentionCells = Array.from({ length: 15 }, (_, index) => `Sheet1!F${9 + index}` as CellAddr);
+    const baselineLossCells = Array.from({ length: 15 }, (_, index) => `Sheet1!G${9 + index}` as CellAddr);
+    const newBusinessItemCells = Array.from({ length: 15 }, (_, index) => `Sheet1!K${9 + index}` as CellAddr);
+
+    distributeWholeNumberTotal(next, baselineItemCells, latestSnapshot.capped_items_pye);
+    distributeWholeNumberTotal(next, newBusinessItemCells, latestSnapshot.capped_items_new);
+
+    if (Number.isFinite(latestSnapshot.retention_current ?? NaN) && latestSnapshot.retention_current !== null) {
+      const retentionPct = Number((latestSnapshot.retention_current * 100).toFixed(2));
+      baselineRetentionCells.forEach((cell) => {
+        next[cell] = retentionPct;
+      });
+      next['Sheet1!D34'] = retentionPct;
+    }
+
+    if (Number.isFinite(latestSnapshot.loss_ratio_12mm ?? NaN) && latestSnapshot.loss_ratio_12mm !== null) {
+      const lossRatioPct = Number((latestSnapshot.loss_ratio_12mm * 100).toFixed(2));
+      baselineLossCells.forEach((cell) => {
+        next[cell] = lossRatioPct;
+      });
+    }
+
+    if (Number.isFinite(latestSnapshot.premium_ytd_total ?? NaN) && latestSnapshot.premium_ytd_total !== null) {
+      next['Sheet1!D33'] = Number((latestSnapshot.premium_ytd_total / 100).toFixed(2));
+    }
+
+    if (Number.isFinite(latestSnapshot.capped_items_variance_pye ?? NaN) && latestSnapshot.capped_items_variance_pye !== null) {
+      next['Sheet1!C38'] = Math.round(latestSnapshot.capped_items_variance_pye);
+    }
+
+    const saveResult = await saveBonusGridState(next as Record<CellAddr, unknown>);
+    if (!saveResult.success) {
+      toast({
+        title: 'Auto-fill failed',
+        description: saveResult.error ?? 'Could not save auto-filled values.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    toast({
+      title: 'Bonus Grid updated',
+      description: `Auto-filled from ${monthLabelFromDateString(latestSnapshot.report_month)} report.`,
+    });
+    handleDismissBonusAutofill();
   };
 
   const isLoading = carrierSchemasQuery.isLoading || reportsQuery.isLoading || snapshotsQuery.isLoading || tierLoading;
@@ -673,14 +812,50 @@ export default function GrowthCenter() {
             </TabsContent>
 
             <TabsContent value="bonus-planner" className="mt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Bonus Planner</CardTitle>
-                  <CardDescription>
-                    Bonus Grid embed and auto-fill mapping from latest report are planned in Phase 8.
-                  </CardDescription>
-                </CardHeader>
-              </Card>
+              <div className="space-y-4">
+                {showBonusAutofillBanner ? (
+                  <Card className="border-primary/20 bg-primary/5">
+                    <CardHeader>
+                      <CardTitle className="text-base">Auto-fill available</CardTitle>
+                      <CardDescription>
+                        Your {monthLabelFromDateString(latestSnapshot!.report_month)} business metrics report can auto-populate key Bonus Grid inputs.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-wrap gap-2">
+                      <Button onClick={handleAutoFillBonusGrid}>
+                        Auto-Fill from {new Date(`${latestSnapshot!.report_month}T00:00:00Z`).toLocaleDateString('en-US', { month: 'long', timeZone: 'UTC' })} Report
+                      </Button>
+                      <Button variant="ghost" onClick={handleDismissBonusAutofill}>
+                        Dismiss
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ) : null}
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Bonus Grid</CardTitle>
+                    <CardDescription>
+                      Embedded bonus planning grid. Values remain editable after auto-fill.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <BonusGrid embedded />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Snapshot Planner</CardTitle>
+                    <CardDescription>
+                      Project rest-of-year targets using the current saved Bonus Grid.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <SnapshotPlanner embedded />
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           </Tabs>
         )}

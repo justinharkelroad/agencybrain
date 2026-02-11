@@ -32,7 +32,11 @@ const MONTHS = [
   { value: 12, label: "December" },
 ];
 
-export default function SnapshotPlannerPage() {
+interface SnapshotPlannerPageProps {
+  embedded?: boolean;
+}
+
+export default function SnapshotPlannerPage({ embedded = false }: SnapshotPlannerPageProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -207,54 +211,58 @@ export default function SnapshotPlannerPage() {
   const ytdTotal = royResult ? parseInt(ytdItemsInput) : null;
   
   return (
-    <main className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* Navigation Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate('/bonus-grid')}>
-            <ArrowLeft className="h-4 w-4" />
-            Back to Bonus Grid
-          </Button>
-          <Breadcrumb>
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/dashboard">Dashboard</Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>
-                  <Link to="/bonus-grid">Bonus Grid</Link>
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Snapshot Planner</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+    <main className={embedded ? "space-y-6" : "p-6 max-w-7xl mx-auto space-y-6"}>
+      {!embedded ? (
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" className="gap-2" onClick={() => navigate('/bonus-grid')}>
+              <ArrowLeft className="h-4 w-4" />
+              Back to Bonus Grid
+            </Button>
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to="/dashboard">Dashboard</Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink asChild>
+                    <Link to="/bonus-grid">Bonus Grid</Link>
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Snapshot Planner</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
         </div>
-      </div>
+      ) : (
+        <h3 className="text-lg font-medium">Snapshot Planner</h3>
+      )}
 
-      {/* Header */}
-      <div className="relative rounded-lg border border-border bg-card p-6">
-        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/20 via-transparent to-accent/20 blur-xl -z-10"></div>
-        
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent">
-              Snapshot Planner
-            </h1>
-            <p className="text-muted-foreground">Calculate rest-of-year targets based on current month performance</p>
-          </div>
+      {!embedded ? (
+        <div className="relative rounded-lg border border-border bg-card p-6">
+          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/20 via-transparent to-accent/20 blur-xl -z-10"></div>
           
-          <div className="text-right">
-            <Target className="h-12 w-12 text-primary mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">ROY Planning</p>
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent">
+                Snapshot Planner
+              </h1>
+              <p className="text-muted-foreground">Calculate rest-of-year targets based on current month performance</p>
+            </div>
+            
+            <div className="text-right">
+              <Target className="h-12 w-12 text-primary mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">ROY Planning</p>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       {/* Warning if grid not ready */}
       {!gridValidation.isValid && (
