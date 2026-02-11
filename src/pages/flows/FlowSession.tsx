@@ -137,13 +137,13 @@ export default function FlowSession() {
   }, [template?.name]);
 
   useEffect(() => {
-    if (currentQuestion) {
+    if (currentQuestion && !isTyping) {
       setCurrentValue(responses[currentQuestion.id] || '');
       setShowChallenge(false);
       setChallengeText('');
       setShowCurrentQuestion(true);
     }
-  }, [currentQuestion?.id, responses]);
+  }, [currentQuestion?.id, responses, isTyping]);
 
   // Auto-scroll to current question bubble (center it so footer doesn't cover it)
   const scrollToCurrentQuestion = useCallback(() => {
@@ -318,8 +318,9 @@ export default function FlowSession() {
 
     console.log('[FlowSession] Saving response:', currentQuestion.id, valueToSubmit);
     
-    // Save immediately
+    // Save immediately and clear input
     forceScrollRef.current = true;
+    setCurrentValue('');
     await saveResponse(currentQuestion.id, valueToSubmit);
     setAnsweredQuestions(prev => new Set(prev).add(currentQuestion.id));
 

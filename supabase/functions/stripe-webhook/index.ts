@@ -38,9 +38,10 @@ serve(async (req) => {
         signature,
         webhookSecret
       )
-    } catch (err) {
-      console.error('Webhook signature verification failed:', err.message)
-      return new Response(`Webhook Error: ${err.message}`, { status: 400 })
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      console.error('Webhook signature verification failed:', errMsg)
+      return new Response(`Webhook Error: ${errMsg}`, { status: 400 })
     }
 
     console.log(`Processing webhook event: ${event.type}`)

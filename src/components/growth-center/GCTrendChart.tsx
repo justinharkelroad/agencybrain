@@ -116,9 +116,7 @@ export function GCTrendChart({ snapshots }: GCTrendChartProps) {
                   strokeWidth={2}
                 />
               </AreaChart>
-            ) : null}
-
-            {view === 'retention' ? (
+            ) : view === 'retention' ? (
               <ComposedChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
@@ -134,9 +132,7 @@ export function GCTrendChart({ snapshots }: GCTrendChartProps) {
                 <Line yAxisId="left" type="monotone" dataKey="retentionCurrent" name="Retention" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={{ r: 3 }} />
                 <Line yAxisId="right" type="monotone" dataKey="retentionVariancePy" name="PY Variance" stroke="hsl(var(--chart-2))" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 3 }} />
               </ComposedChart>
-            ) : null}
-
-            {view === 'premium' ? (
+            ) : view === 'premium' ? (
               <ComposedChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
@@ -166,9 +162,7 @@ export function GCTrendChart({ snapshots }: GCTrendChartProps) {
                 <Bar yAxisId="left" dataKey="premiumRenewal" name="Renewal Premium" stackId="premium" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
                 <Line yAxisId="right" type="monotone" dataKey="premiumVarianceYtd" name="YTD Variance" stroke="hsl(var(--chart-3))" strokeWidth={2} dot={{ r: 3 }} />
               </ComposedChart>
-            ) : null}
-
-            {view === 'loss-ratio' ? (
+            ) : (
               <ComposedChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
@@ -179,7 +173,7 @@ export function GCTrendChart({ snapshots }: GCTrendChartProps) {
                 <Area type="monotone" dataKey="lossRatio12" name="12MM" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.08} strokeWidth={2} />
                 <Line type="monotone" dataKey="lossRatio24" name="24MM" stroke="hsl(var(--chart-2))" strokeWidth={2} strokeDasharray="5 5" dot={{ r: 2 }} />
               </ComposedChart>
-            ) : null}
+            )}
           </ResponsiveContainer>
         </div>
       </CardContent>
