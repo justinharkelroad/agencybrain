@@ -479,6 +479,12 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    if (reportIds.length > 3) {
+      return new Response(JSON.stringify({ error: "Select up to 3 reports per analysis run." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const analysisType = body.analysis_type ?? "monthly";
     const includeLqs = Boolean(body.include_lqs_data);

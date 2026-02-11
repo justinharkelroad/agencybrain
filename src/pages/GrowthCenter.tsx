@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { isStrictlyOneOnOne } from '@/utils/tierAccess';
@@ -93,6 +94,7 @@ export default function GrowthCenter() {
   const [includeLqsData, setIncludeLqsData] = useState(true);
   const [includeScorecardData, setIncludeScorecardData] = useState(true);
   const [customQuestion, setCustomQuestion] = useState('');
+  const [analysisPage, setAnalysisPage] = useState(1);
   const [uploadPrefillReportMonth, setUploadPrefillReportMonth] = useState<string | null>(null);
   const [uploadPrefillCarrierSchemaKey, setUploadPrefillCarrierSchemaKey] = useState<string | null>(null);
 
@@ -197,6 +199,7 @@ export default function GrowthCenter() {
     [reportsQuery.reports]
   );
   const latestAnalysis = analysisQuery.analyses[0] ?? null;
+  const ANALYSIS_PAGE_SIZE = 6;
 
   useEffect(() => {
     const validIds = new Set(analysisEligibleReports.map((report) => report.id));
@@ -219,7 +222,22 @@ export default function GrowthCenter() {
     }
   }, [analysisEligibleReports, selectedReportIds]);
 
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(analysisEligibleReports.length / ANALYSIS_PAGE_SIZE));
+    if (analysisPage > totalPages) {
+      setAnalysisPage(totalPages);
+    }
+  }, [analysisEligibleReports.length, analysisPage]);
+
   const handleToggleReport = (reportId: string, checked: boolean) => {
+    if (checked && !selectedReportIds.includes(reportId) && selectedReportIds.length >= 3) {
+      toast({
+        title: 'Maximum reached',
+        description: 'You can analyze up to 3 reports (one quarter) at a time.',
+      });
+      return;
+    }
+
     setSelectedReportIds((prev) => {
       if (checked) {
         return prev.includes(reportId) ? prev : [...prev, reportId];
@@ -233,6 +251,14 @@ export default function GrowthCenter() {
       toast({
         title: 'Select reports',
         description: 'Choose at least one report for analysis.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (selectedReportIds.length > 3) {
+      toast({
+        title: 'Too many reports selected',
+        description: 'Please select at most 3 reports.',
         variant: 'destructive',
       });
       return;
@@ -259,6 +285,10 @@ export default function GrowthCenter() {
       });
     }
   };
+
+  const analysisTotalPages = Math.max(1, Math.ceil(analysisEligibleReports.length / ANALYSIS_PAGE_SIZE));
+  const analysisPageStart = (analysisPage - 1) * ANALYSIS_PAGE_SIZE;
+  const visibleAnalysisReports = analysisEligibleReports.slice(analysisPageStart, analysisPageStart + ANALYSIS_PAGE_SIZE);
 
   return (
     <div className="min-h-screen bg-background">
@@ -467,28 +497,68 @@ export default function GrowthCenter() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">Reports to compare</div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {analysisEligibleReports.slice(0, 6).map((report) => (
-                        <label key={report.id} className="flex items-center gap-2 text-sm border rounded-md px-3 py-2">
-                          <Checkbox
-                            checked={selectedReportIds.includes(report.id)}
-                            onCheckedChange={(checked) => handleToggleReport(report.id, Boolean(checked))}
-                          />
-                          <span>{monthLabelFromDateString(report.report_month)}</span>
-                          <Badge variant="secondary" className="ml-auto">
-                            {report.parse_status}
-                          </Badge>
-                        </label>
-                      ))}
-                    </div>
-                    {analysisEligibleReports.length === 0 ? (
-                      <div className="text-sm text-muted-foreground">
-                        No parsed reports available yet. Upload and parse at least one report to run analysis.
-                      </div>
-                    ) : null}
-                  </div>
+                  <Accordion type="single" collapsible defaultValue="reports-picker" className="w-full">
+                    <AccordionItem value="reports-picker" className="border rounded-md px-3">
+                      <AccordionTrigger className="py-3 hover:no-underline">
+                        <div className="text-left">
+                          <div className="text-sm font-medium">Reports to compare</div>
+                          <div className="text-xs text-muted-foreground">
+                            Selected {selectedReportIds.length}/3
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-3">
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {visibleAnalysisReports.map((report) => (
+                              <label key={report.id} className="flex items-center gap-2 text-sm border rounded-md px-3 py-2">
+                                <Checkbox
+                                  checked={selectedReportIds.includes(report.id)}
+                                  onCheckedChange={(checked) => handleToggleReport(report.id, Boolean(checked))}
+                                />
+                                <span>{monthLabelFromDateString(report.report_month)}</span>
+                                <Badge variant="secondary" className="ml-auto">
+                                  {report.parse_status}
+                                </Badge>
+                              </label>
+                            ))}
+                          </div>
+
+                          {analysisEligibleReports.length > ANALYSIS_PAGE_SIZE ? (
+                            <div className="flex items-center justify-between">
+                              <div className="text-xs text-muted-foreground">
+                                Page {analysisPage} of {analysisTotalPages}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setAnalysisPage((p) => Math.max(1, p - 1))}
+                                  disabled={analysisPage === 1}
+                                >
+                                  Previous
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setAnalysisPage((p) => Math.min(analysisTotalPages, p + 1))}
+                                  disabled={analysisPage === analysisTotalPages}
+                                >
+                                  Next
+                                </Button>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {analysisEligibleReports.length === 0 ? (
+                            <div className="text-sm text-muted-foreground">
+                              No parsed reports available yet. Upload and parse at least one report to run analysis.
+                            </div>
+                          ) : null}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
 
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <label className="flex items-center gap-2 text-sm">
