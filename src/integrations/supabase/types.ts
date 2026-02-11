@@ -6510,8 +6510,8 @@ export type Database = {
       }
       policy_types: {
         Row: {
-          allow_multiple_items: boolean
           agency_id: string
+          allow_multiple_items: boolean
           created_at: string
           id: string
           is_active: boolean
@@ -6521,8 +6521,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          allow_multiple_items?: boolean
           agency_id: string
+          allow_multiple_items?: boolean
           created_at?: string
           id?: string
           is_active?: boolean
@@ -6532,8 +6532,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          allow_multiple_items?: boolean
           agency_id?: string
+          allow_multiple_items?: boolean
           created_at?: string
           id?: string
           is_active?: boolean

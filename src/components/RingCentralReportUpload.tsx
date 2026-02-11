@@ -230,7 +230,7 @@ export function RingCentralReportUpload({ agencyId }: RingCentralReportUploadPro
             <FileSpreadsheet className="h-5 w-5 text-blue-500" />
           </div>
           <div className="flex-1">
-            <CardTitle className="text-base">RingCentral Report Upload</CardTitle>
+            <CardTitle className="text-base">RingCentral Report Upload <span className="text-xs font-normal text-muted-foreground">(Optional if not connecting automation)</span></CardTitle>
             <CardDescription>Upload the Calls and Users reports from RingCentral</CardDescription>
           </div>
           <HelpButton videoKey="Ringcentral_automation" />
