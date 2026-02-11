@@ -27,6 +27,12 @@ interface QuizQuestion {
   correct_index: number;
 }
 
+interface LessonDocument {
+  id: string;
+  url: string;
+  name: string;
+}
+
 interface SPLesson {
   id: string;
   module_id: string;
@@ -37,6 +43,7 @@ interface SPLesson {
   content_html: string | null;
   document_url: string | null;
   document_name: string | null;
+  documents_json: LessonDocument[] | null;
   has_quiz: boolean;
   estimated_minutes: number;
   thumbnail_url: string | null;
@@ -315,22 +322,40 @@ export default function StaffSPLesson() {
         </Card>
       )}
 
-      {/* Document Download */}
-      {lesson.document_url && (
-        <Card className="mb-6">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Download className="h-5 w-5 text-muted-foreground" />
-              <span>{lesson.document_name || 'Download Resource'}</span>
-            </div>
-            <Button variant="outline" asChild>
-              <a href={lesson.document_url} target="_blank" rel="noopener noreferrer">
-                Download
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Document Downloads */}
+      {(() => {
+        const documents: LessonDocument[] = lesson.documents_json?.length
+          ? lesson.documents_json
+          : lesson.document_url
+            ? [{ id: 'legacy', url: lesson.document_url, name: lesson.document_name || 'Download Resource' }]
+            : [];
+
+        const normalizeUrl = (url: string) => {
+          if (!url) return url;
+          if (url.startsWith('http://') || url.startsWith('https://')) return url;
+          return `https://${url}`;
+        };
+
+        return documents.length > 0 && (
+          <Card className="mb-6">
+            <CardContent className="p-4 space-y-3">
+              {documents.map((doc, index) => (
+                <div key={doc.id || index} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Download className="h-5 w-5 text-muted-foreground" />
+                    <span>{doc.name || 'Download Resource'}</span>
+                  </div>
+                  <Button variant="outline" asChild>
+                    <a href={normalizeUrl(doc.url)} target="_blank" rel="noopener noreferrer">
+                      Download
+                    </a>
+                  </Button>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Quiz Section */}
       {lesson.has_quiz && !completed && (
