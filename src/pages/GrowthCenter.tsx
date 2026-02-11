@@ -95,6 +95,7 @@ export default function GrowthCenter() {
   const [customQuestion, setCustomQuestion] = useState('');
   const [analysisPage, setAnalysisPage] = useState(1);
   const [reportsPickerOpen, setReportsPickerOpen] = useState(true);
+  const [uploadedReportsOpen, setUploadedReportsOpen] = useState(false);
   const [lastRunDataUsage, setLastRunDataUsage] = useState<{
     quoting: 'included' | 'not_found' | 'off';
     scorecard: 'included' | 'not_found' | 'off';
@@ -204,6 +205,13 @@ export default function GrowthCenter() {
   );
   const latestAnalysis = analysisQuery.analyses[0] ?? null;
   const ANALYSIS_PAGE_SIZE = 6;
+  const latestSavedDataUsage = useMemo(() => {
+    if (!latestAnalysis) return null;
+    return {
+      quoting: latestAnalysis.included_lqs_data ? 'included' : 'not_found',
+      scorecard: latestAnalysis.included_scorecard_data ? 'included' : 'not_found',
+    };
+  }, [latestAnalysis]);
 
   useEffect(() => {
     const validIds = new Set(analysisEligibleReports.map((report) => report.id));
@@ -443,58 +451,72 @@ export default function GrowthCenter() {
 
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium">Uploaded Reports</CardTitle>
-                  <CardDescription>
-                    Verify months before analysis. Replace overwrites the same month and carrier.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {reportsQuery.reports.map((report) => (
-                    <div key={report.id} className="border rounded-md px-3 py-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{monthLabelFromDateString(report.report_month)}</span>
-                          <Badge variant={report.parse_status === 'parsed' ? 'secondary' : report.parse_status === 'error' ? 'destructive' : 'outline'}>
-                            {report.parse_status}
-                          </Badge>
-                        </div>
-                        <div className="text-sm text-muted-foreground">{report.original_filename}</div>
-                        <div className="text-xs text-muted-foreground">
-                          Uploaded: {uploadedAtLabel(report.updated_at)}
-                        </div>
-                        {report.parse_error ? (
-                          <div className="text-xs text-red-400">{report.parse_error}</div>
-                        ) : null}
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            openUploadDialog({
-                              reportMonth: yearMonthFromReportDate(report.report_month),
-                              carrierSchemaKey: selectedCarrierSchemaKey,
-                            })
-                          }
-                        >
-                          <RefreshCcw className="h-3.5 w-3.5 mr-1.5" />
-                          Replace
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-red-400 border-red-500/40 hover:text-red-300"
-                          onClick={() => handleDeleteReport(report.id, report.report_month, report.original_filename)}
-                          disabled={reportsQuery.isDeletingReport}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                          Delete
-                        </Button>
-                      </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-sm font-medium">Uploaded Reports</CardTitle>
+                      <CardDescription>
+                        Verify months before analysis. Replace overwrites the same month and carrier.
+                      </CardDescription>
                     </div>
-                  ))}
-                </CardContent>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setUploadedReportsOpen((open) => !open)}
+                    >
+                      {uploadedReportsOpen ? <ChevronUp className="h-4 w-4 mr-1.5" /> : <ChevronDown className="h-4 w-4 mr-1.5" />}
+                      {uploadedReportsOpen ? 'Hide uploads' : `Show uploads (${reportsQuery.reports.length})`}
+                    </Button>
+                  </div>
+                </CardHeader>
+                {uploadedReportsOpen ? (
+                  <CardContent className="space-y-2">
+                    {reportsQuery.reports.map((report) => (
+                      <div key={report.id} className="border rounded-md px-3 py-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{monthLabelFromDateString(report.report_month)}</span>
+                            <Badge variant={report.parse_status === 'parsed' ? 'secondary' : report.parse_status === 'error' ? 'destructive' : 'outline'}>
+                              {report.parse_status}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground">{report.original_filename}</div>
+                          <div className="text-xs text-muted-foreground">
+                            Uploaded: {uploadedAtLabel(report.updated_at)}
+                          </div>
+                          {report.parse_error ? (
+                            <div className="text-xs text-red-400">{report.parse_error}</div>
+                          ) : null}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              openUploadDialog({
+                                reportMonth: yearMonthFromReportDate(report.report_month),
+                                carrierSchemaKey: selectedCarrierSchemaKey,
+                              })
+                            }
+                          >
+                            <RefreshCcw className="h-3.5 w-3.5 mr-1.5" />
+                            Replace
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-red-400 border-red-500/40 hover:text-red-300"
+                            onClick={() => handleDeleteReport(report.id, report.report_month, report.original_filename)}
+                            disabled={reportsQuery.isDeletingReport}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                ) : null}
               </Card>
 
               <GCTrendChart snapshots={sortedCarrierSnapshots} />
@@ -591,9 +613,17 @@ export default function GrowthCenter() {
                       Include scorecard data
                     </label>
                   </div>
+                  <div className="text-xs text-muted-foreground border rounded-md px-3 py-2">
+                    Toggle behavior: when enabled, these datasets are queried for the selected report-month range and added to the AI prompt only if matching rows are found.
+                  </div>
                   {lastRunDataUsage ? (
                     <div className="text-xs text-muted-foreground border rounded-md px-3 py-2">
                       Last run data usage: quoting {lastRunDataUsage.quoting.replace('_', ' ')}, scorecard {lastRunDataUsage.scorecard.replace('_', ' ')}.
+                    </div>
+                  ) : null}
+                  {!lastRunDataUsage && latestSavedDataUsage ? (
+                    <div className="text-xs text-muted-foreground border rounded-md px-3 py-2">
+                      Last saved analysis usage: quoting {latestSavedDataUsage.quoting.replace('_', ' ')}, scorecard {latestSavedDataUsage.scorecard.replace('_', ' ')}.
                     </div>
                   ) : null}
 
