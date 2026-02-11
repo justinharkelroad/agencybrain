@@ -51,6 +51,54 @@ async function fetchReports(agencyId: string, carrierSchemaId?: string | null): 
   return (data ?? []) as BusinessMetricsReport[];
 }
 
+export async function deleteBusinessMetricsReport(params: {
+  agencyId: string;
+  reportId: string;
+  supabaseClient?: SupabaseLike;
+}): Promise<void> {
+  const { agencyId, reportId } = params;
+  const supabaseClient = params.supabaseClient ?? supabase;
+
+  const { data: reportRow, error: reportError } = await supabaseClient
+    .from('business_metrics_reports' as never)
+    .select('id, agency_id, file_path')
+    .eq('id', reportId)
+    .maybeSingle();
+
+  if (reportError) {
+    throw reportError;
+  }
+
+  if (!reportRow || reportRow.agency_id !== agencyId) {
+    throw new Error('Report not found or access denied.');
+  }
+
+  const { error: deleteSnapshotsError } = await supabaseClient
+    .from('business_metrics_snapshots' as never)
+    .delete()
+    .eq('report_id', reportId);
+  if (deleteSnapshotsError) {
+    throw deleteSnapshotsError;
+  }
+
+  const { error: deleteReportError } = await supabaseClient
+    .from('business_metrics_reports' as never)
+    .delete()
+    .eq('id', reportId);
+  if (deleteReportError) {
+    throw deleteReportError;
+  }
+
+  if (reportRow.file_path) {
+    const { error: removeFileError } = await supabaseClient.storage
+      .from(GROWTH_REPORTS_BUCKET)
+      .remove([reportRow.file_path]);
+    if (removeFileError) {
+      throw removeFileError;
+    }
+  }
+}
+
 export async function createBusinessMetricsReport(params: {
   agencyId: string;
   userId: string;
@@ -217,6 +265,24 @@ export function useBusinessMetricsReports(carrierSchemaId?: string | null) {
     },
   });
 
+  const deleteReportMutation = useMutation({
+    mutationFn: async (reportId: string) => {
+      if (!agencyId) {
+        throw new Error('Missing agency context.');
+      }
+
+      await deleteBusinessMetricsReport({
+        agencyId,
+        reportId,
+      });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['growth-center', 'reports'] });
+      queryClient.invalidateQueries({ queryKey: ['growth-center', 'snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['growth-center', 'analyses'] });
+    },
+  });
+
   const latestReport = useMemo(
     () => reportsQuery.data?.[0] ?? null,
     [reportsQuery.data]
@@ -229,5 +295,8 @@ export function useBusinessMetricsReports(carrierSchemaId?: string | null) {
     createReport: createReportMutation.mutateAsync,
     isCreatingReport: createReportMutation.isPending,
     createReportError: createReportMutation.error,
+    deleteReport: deleteReportMutation.mutateAsync,
+    isDeletingReport: deleteReportMutation.isPending,
+    deleteReportError: deleteReportMutation.error,
   };
 }

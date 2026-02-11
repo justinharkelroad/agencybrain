@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bot, FileSpreadsheet, Loader2, TrendingUp, Upload } from 'lucide-react';
+import { Bot, FileSpreadsheet, Loader2, RefreshCcw, Trash2, TrendingUp, Upload } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -58,6 +58,22 @@ function monthLabelFromYearMonth(value: string): string {
   return monthLabelFromDateString(`${value}-01`);
 }
 
+function yearMonthFromReportDate(value: string): string {
+  return value.slice(0, 7);
+}
+
+function uploadedAtLabel(value: string): string {
+  const d = new Date(value);
+  if (!Number.isFinite(d.getTime())) return value;
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 function sortByReportMonthAsc<T extends { report_month: string }>(rows: T[]): T[] {
   return [...rows].sort((a, b) => a.report_month.localeCompare(b.report_month));
 }
@@ -77,6 +93,8 @@ export default function GrowthCenter() {
   const [includeLqsData, setIncludeLqsData] = useState(true);
   const [includeScorecardData, setIncludeScorecardData] = useState(true);
   const [customQuestion, setCustomQuestion] = useState('');
+  const [uploadPrefillReportMonth, setUploadPrefillReportMonth] = useState<string | null>(null);
+  const [uploadPrefillCarrierSchemaKey, setUploadPrefillCarrierSchemaKey] = useState<string | null>(null);
 
   const carrierSchemasQuery = useCarrierSchemas();
   const selectedCarrier = useMemo(
@@ -133,6 +151,43 @@ export default function GrowthCenter() {
       title: 'Report uploaded',
       description: `${monthLabelFromYearMonth(input.reportMonth)} report uploaded and parsed.`,
     });
+  };
+
+  const openUploadDialog = (opts?: { reportMonth?: string; carrierSchemaKey?: string }) => {
+    setUploadPrefillReportMonth(opts?.reportMonth ?? null);
+    setUploadPrefillCarrierSchemaKey(opts?.carrierSchemaKey ?? selectedCarrierSchemaKey ?? null);
+    setUploadOpen(true);
+  };
+
+  const handleUploadDialogOpenChange = (nextOpen: boolean) => {
+    setUploadOpen(nextOpen);
+    if (!nextOpen) {
+      setUploadPrefillReportMonth(null);
+      setUploadPrefillCarrierSchemaKey(null);
+    }
+  };
+
+  const handleDeleteReport = async (reportId: string, reportMonth: string, filename: string) => {
+    const confirmed = window.confirm(
+      `Delete ${filename} (${monthLabelFromDateString(reportMonth)})? This removes parsed data and trends for that month.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await reportsQuery.deleteReport(reportId);
+      toast({
+        title: 'Report deleted',
+        description: `${monthLabelFromDateString(reportMonth)} was removed.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Delete failed',
+        description: error instanceof Error ? error.message : 'Could not delete report.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const isLoading = carrierSchemasQuery.isLoading || reportsQuery.isLoading || snapshotsQuery.isLoading || tierLoading;
@@ -231,7 +286,7 @@ export default function GrowthCenter() {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={() => setUploadOpen(true)}>
+            <Button onClick={() => openUploadDialog()}>
               <Upload className="h-4 w-4 mr-2" />
               Upload Report
             </Button>
@@ -286,7 +341,7 @@ export default function GrowthCenter() {
               <p className="text-sm text-muted-foreground/70 mb-6 max-w-md mx-auto">
                 Upload your first Business Metrics report to start tracking growth trajectory.
               </p>
-              <Button onClick={() => setUploadOpen(true)}>
+              <Button onClick={() => openUploadDialog()}>
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Your First Report
               </Button>
@@ -341,6 +396,62 @@ export default function GrowthCenter() {
                   </CardContent>
                 </Card>
               </div>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium">Uploaded Reports</CardTitle>
+                  <CardDescription>
+                    Verify months before analysis. Replace overwrites the same month and carrier.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {reportsQuery.reports.map((report) => (
+                    <div key={report.id} className="border rounded-md px-3 py-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{monthLabelFromDateString(report.report_month)}</span>
+                          <Badge variant={report.parse_status === 'parsed' ? 'secondary' : report.parse_status === 'error' ? 'destructive' : 'outline'}>
+                            {report.parse_status}
+                          </Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground">{report.original_filename}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Uploaded: {uploadedAtLabel(report.updated_at)}
+                        </div>
+                        {report.parse_error ? (
+                          <div className="text-xs text-red-400">{report.parse_error}</div>
+                        ) : null}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            openUploadDialog({
+                              reportMonth: yearMonthFromReportDate(report.report_month),
+                              carrierSchemaKey: selectedCarrierSchemaKey,
+                            })
+                          }
+                        >
+                          <RefreshCcw className="h-3.5 w-3.5 mr-1.5" />
+                          Replace
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-red-400 border-red-500/40 hover:text-red-300"
+                          onClick={() => handleDeleteReport(report.id, report.report_month, report.original_filename)}
+                          disabled={reportsQuery.isDeletingReport}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
 
               <GCTrendChart snapshots={sortedCarrierSnapshots} />
               <GCComparisonTable snapshots={sortedCarrierSnapshots} />
@@ -451,10 +562,12 @@ export default function GrowthCenter() {
 
       <GCUploadDialog
         open={uploadOpen}
-        onOpenChange={setUploadOpen}
+        onOpenChange={handleUploadDialogOpenChange}
         carrierSchemas={carrierSchemasQuery.data ?? []}
         reports={reportsQuery.reports}
         defaultCarrierSchemaKey={selectedCarrierSchemaKey}
+        prefillReportMonth={uploadPrefillReportMonth}
+        prefillCarrierSchemaKey={uploadPrefillCarrierSchemaKey}
         onSubmit={handleUpload}
         isSubmitting={reportsQuery.isCreatingReport}
       />
