@@ -9,6 +9,8 @@ import type {
 } from '@/lib/growth-center/types';
 
 const GROWTH_REPORTS_BUCKET = 'business-metrics';
+const MIN_REPORT_YEAR = 2000;
+const MAX_REPORT_YEAR = 2100;
 
 type FunctionErrorContext = {
   json?: () => Promise<{ error?: string }>;
@@ -21,6 +23,19 @@ function getFunctionErrorMessage(error: unknown): string {
 
 function monthToDate(month: string): string {
   return `${month}-01`;
+}
+
+function assertValidReportMonth(month: string): void {
+  const normalized = month.trim();
+  const match = normalized.match(/^(\d{4})-(0[1-9]|1[0-2])$/);
+  if (!match) {
+    throw new Error('Report month must be in YYYY-MM format.');
+  }
+
+  const year = Number(match[1]);
+  if (!Number.isFinite(year) || year < MIN_REPORT_YEAR || year > MAX_REPORT_YEAR) {
+    throw new Error(`Report month year must be between ${MIN_REPORT_YEAR} and ${MAX_REPORT_YEAR}.`);
+  }
 }
 
 function centsFromDollars(value?: number | null): number | null {
@@ -111,6 +126,7 @@ export async function createBusinessMetricsReport(params: {
   if (!input.file.name.toLowerCase().endsWith('.xlsx')) {
     throw new Error('Only .xlsx files are supported.');
   }
+  assertValidReportMonth(input.reportMonth);
 
   const reportMonthDate = monthToDate(input.reportMonth);
   const fileExt = input.file.name.split('.').pop() ?? 'xlsx';

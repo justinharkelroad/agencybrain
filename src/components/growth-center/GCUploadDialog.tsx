@@ -61,6 +61,8 @@ const MONTH_NAME_TO_NUMBER: Record<string, string> = {
   dec: '12',
   december: '12',
 };
+const MIN_REPORT_YEAR = 2000;
+const MAX_REPORT_YEAR = 2100;
 
 function currentMonthValue(): string {
   const now = new Date();
@@ -72,9 +74,12 @@ function currentMonthValue(): string {
 function normalizeToYearMonth(value: string | null | undefined): string | null {
   if (!value) return null;
   const yearMonth = value.slice(0, 7);
-  if (!/^\d{4}-\d{2}$/.test(yearMonth)) return null;
+  const match = yearMonth.match(/^(\d{4})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
   const month = Number(yearMonth.slice(5, 7));
   if (month < 1 || month > 12) return null;
+  if (year < MIN_REPORT_YEAR || year > MAX_REPORT_YEAR) return null;
   return yearMonth;
 }
 
@@ -163,19 +168,21 @@ export function GCUploadDialog({
     const yearSet = new Set<number>();
     const currentYear = new Date().getFullYear();
 
-    yearSet.add(currentYear - 1);
-    yearSet.add(currentYear);
-    yearSet.add(currentYear + 1);
+    for (const candidate of [currentYear - 1, currentYear, currentYear + 1]) {
+      if (candidate >= MIN_REPORT_YEAR && candidate <= MAX_REPORT_YEAR) {
+        yearSet.add(candidate);
+      }
+    }
 
     for (const report of reports) {
       const year = Number(report.report_month.slice(0, 4));
-      if (Number.isFinite(year)) {
+      if (Number.isFinite(year) && year >= MIN_REPORT_YEAR && year <= MAX_REPORT_YEAR) {
         yearSet.add(year);
       }
     }
 
     const prefillYear = Number(effectivePrefillMonth.slice(0, 4));
-    if (Number.isFinite(prefillYear)) {
+    if (Number.isFinite(prefillYear) && prefillYear >= MIN_REPORT_YEAR && prefillYear <= MAX_REPORT_YEAR) {
       yearSet.add(prefillYear);
     }
 
