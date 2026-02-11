@@ -15,6 +15,10 @@ interface AnalysisResponse {
   reports_analyzed?: number;
   included_lqs_data?: boolean;
   included_scorecard_data?: boolean;
+  quoting_months_found?: number;
+  scorecard_months_found?: number;
+  requested_lqs_data?: boolean;
+  requested_scorecard_data?: boolean;
   is_follow_up: boolean;
 }
 

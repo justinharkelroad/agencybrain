@@ -708,6 +708,10 @@ serve(async (req) => {
         reports_analyzed: validReports.length,
         included_lqs_data: quotingByMonth != null,
         included_scorecard_data: scorecardByMonth != null,
+        quoting_months_found: quotingByMonth?.length ?? 0,
+        scorecard_months_found: scorecardByMonth?.length ?? 0,
+        requested_lqs_data: includeLqs,
+        requested_scorecard_data: includeScorecard,
         is_follow_up: false,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

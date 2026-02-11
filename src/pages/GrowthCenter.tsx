@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Bot, FileSpreadsheet, Loader2, RefreshCcw, Trash2, TrendingUp, Upload } from 'lucide-react';
+import { Bot, ChevronDown, ChevronUp, FileSpreadsheet, Loader2, RefreshCcw, Trash2, TrendingUp, Upload } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/lib/auth';
 import { isStrictlyOneOnOne } from '@/utils/tierAccess';
@@ -95,6 +94,11 @@ export default function GrowthCenter() {
   const [includeScorecardData, setIncludeScorecardData] = useState(true);
   const [customQuestion, setCustomQuestion] = useState('');
   const [analysisPage, setAnalysisPage] = useState(1);
+  const [reportsPickerOpen, setReportsPickerOpen] = useState(true);
+  const [lastRunDataUsage, setLastRunDataUsage] = useState<{
+    quoting: 'included' | 'not_found' | 'off';
+    scorecard: 'included' | 'not_found' | 'off';
+  } | null>(null);
   const [uploadPrefillReportMonth, setUploadPrefillReportMonth] = useState<string | null>(null);
   const [uploadPrefillCarrierSchemaKey, setUploadPrefillCarrierSchemaKey] = useState<string | null>(null);
 
@@ -265,7 +269,7 @@ export default function GrowthCenter() {
     }
 
     try {
-      await analysisQuery.runAnalysis({
+      const result = await analysisQuery.runAnalysis({
         reportIds: selectedReportIds,
         analysisType: 'monthly',
         includeLqsData,
@@ -273,9 +277,19 @@ export default function GrowthCenter() {
         customQuestion: customQuestion.trim() || undefined,
       });
 
+      const quotingStatus: 'included' | 'not_found' | 'off' =
+        includeLqsData ? (result.included_lqs_data ? 'included' : 'not_found') : 'off';
+      const scorecardStatus: 'included' | 'not_found' | 'off' =
+        includeScorecardData ? (result.included_scorecard_data ? 'included' : 'not_found') : 'off';
+
+      setLastRunDataUsage({
+        quoting: quotingStatus,
+        scorecard: scorecardStatus,
+      });
+
       toast({
         title: 'Analysis complete',
-        description: 'Growth analysis was generated and saved.',
+        description: `Growth analysis generated. Quoting: ${quotingStatus.replace('_', ' ')}. Scorecard: ${scorecardStatus.replace('_', ' ')}.`,
       });
     } catch (error) {
       toast({
@@ -497,68 +511,75 @@ export default function GrowthCenter() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <Accordion type="single" collapsible defaultValue="reports-picker" className="w-full">
-                    <AccordionItem value="reports-picker" className="border rounded-md px-3">
-                      <AccordionTrigger className="py-3 hover:no-underline">
-                        <div className="text-left">
-                          <div className="text-sm font-medium">Reports to compare</div>
-                          <div className="text-xs text-muted-foreground">
-                            Selected {selectedReportIds.length}/3
-                          </div>
+                  <div className="border rounded-md px-3 py-3 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-left">
+                        <div className="text-sm font-medium">Reports to compare</div>
+                        <div className="text-xs text-muted-foreground">
+                          Selected {selectedReportIds.length}/3
                         </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-3">
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {visibleAnalysisReports.map((report) => (
-                              <label key={report.id} className="flex items-center gap-2 text-sm border rounded-md px-3 py-2">
-                                <Checkbox
-                                  checked={selectedReportIds.includes(report.id)}
-                                  onCheckedChange={(checked) => handleToggleReport(report.id, Boolean(checked))}
-                                />
-                                <span>{monthLabelFromDateString(report.report_month)}</span>
-                                <Badge variant="secondary" className="ml-auto">
-                                  {report.parse_status}
-                                </Badge>
-                              </label>
-                            ))}
-                          </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setReportsPickerOpen((open) => !open)}
+                      >
+                        {reportsPickerOpen ? <ChevronUp className="h-4 w-4 mr-1.5" /> : <ChevronDown className="h-4 w-4 mr-1.5" />}
+                        {reportsPickerOpen ? 'Hide selector' : 'Show selector'}
+                      </Button>
+                    </div>
 
-                          {analysisEligibleReports.length > ANALYSIS_PAGE_SIZE ? (
-                            <div className="flex items-center justify-between">
-                              <div className="text-xs text-muted-foreground">
-                                Page {analysisPage} of {analysisTotalPages}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setAnalysisPage((p) => Math.max(1, p - 1))}
-                                  disabled={analysisPage === 1}
-                                >
-                                  Previous
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => setAnalysisPage((p) => Math.min(analysisTotalPages, p + 1))}
-                                  disabled={analysisPage === analysisTotalPages}
-                                >
-                                  Next
-                                </Button>
-                              </div>
-                            </div>
-                          ) : null}
-
-                          {analysisEligibleReports.length === 0 ? (
-                            <div className="text-sm text-muted-foreground">
-                              No parsed reports available yet. Upload and parse at least one report to run analysis.
-                            </div>
-                          ) : null}
+                    {reportsPickerOpen ? (
+                      <div className="space-y-3">
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {visibleAnalysisReports.map((report) => (
+                            <label key={report.id} className="flex items-center gap-2 text-sm border rounded-md px-3 py-2">
+                              <Checkbox
+                                checked={selectedReportIds.includes(report.id)}
+                                onCheckedChange={(checked) => handleToggleReport(report.id, Boolean(checked))}
+                              />
+                              <span>{monthLabelFromDateString(report.report_month)}</span>
+                              <Badge variant="secondary" className="ml-auto">
+                                {report.parse_status}
+                              </Badge>
+                            </label>
+                          ))}
                         </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
+
+                        {analysisEligibleReports.length > ANALYSIS_PAGE_SIZE ? (
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs text-muted-foreground">
+                              Page {analysisPage} of {analysisTotalPages}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setAnalysisPage((p) => Math.max(1, p - 1))}
+                                disabled={analysisPage === 1}
+                              >
+                                Previous
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setAnalysisPage((p) => Math.min(analysisTotalPages, p + 1))}
+                                disabled={analysisPage === analysisTotalPages}
+                              >
+                                Next
+                              </Button>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        {analysisEligibleReports.length === 0 ? (
+                          <div className="text-sm text-muted-foreground">
+                            No parsed reports available yet. Upload and parse at least one report to run analysis.
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
 
                   <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                     <label className="flex items-center gap-2 text-sm">
@@ -570,6 +591,11 @@ export default function GrowthCenter() {
                       Include scorecard data
                     </label>
                   </div>
+                  {lastRunDataUsage ? (
+                    <div className="text-xs text-muted-foreground border rounded-md px-3 py-2">
+                      Last run data usage: quoting {lastRunDataUsage.quoting.replace('_', ' ')}, scorecard {lastRunDataUsage.scorecard.replace('_', ' ')}.
+                    </div>
+                  ) : null}
 
                   <Input
                     placeholder="Optional focus question for this analysis..."
