@@ -43,46 +43,61 @@ function normalizePhone(phone: string | null | undefined): string | null {
 }
 
 /**
- * Match team member by name (case-insensitive) or email
+ * Match team member by email (case-insensitive) or name, returning id + name
  */
 async function matchTeamMember(
   supabase: SupabaseClient,
   agencyId: string,
   userName: string | null,
   userEmail: string | null
-): Promise<string | null> {
-  if (!userName && !userEmail) return null;
+): Promise<{ id: string; name: string } | null> {
+  const trimmedEmail = userEmail?.trim() || null;
+  const trimmedName = userName?.trim() || null;
 
-  // Try matching by name first (case-insensitive)
-  if (userName) {
-    const { data: byName } = await supabase
-      .from("team_members")
-      .select("id")
-      .eq("agency_id", agencyId)
-      .ilike("name", userName)
-      .limit(1)
-      .single();
-
-    if (byName?.id) {
-      return byName.id;
-    }
+  if (!trimmedName && !trimmedEmail) {
+    console.log(`[ricochet-webhook] matchTeamMember: no name or email provided`);
+    return null;
   }
 
-  // Fallback: try matching by email
-  if (userEmail) {
-    const { data: byEmail } = await supabase
+  // Try matching by email first (most reliable identifier)
+  if (trimmedEmail) {
+    const { data: byEmail, error: emailErr } = await supabase
       .from("team_members")
-      .select("id")
+      .select("id, name")
       .eq("agency_id", agencyId)
-      .ilike("email", userEmail)
+      .ilike("email", trimmedEmail)
       .limit(1)
-      .single();
+      .maybeSingle();
 
+    if (emailErr) {
+      console.error(`[ricochet-webhook] matchTeamMember email query error:`, emailErr.message);
+    }
     if (byEmail?.id) {
-      return byEmail.id;
+      console.log(`[ricochet-webhook] Matched team member by email: ${trimmedEmail} -> ${byEmail.id}`);
+      return { id: byEmail.id, name: byEmail.name };
     }
   }
 
+  // Fallback: try matching by name (case-insensitive)
+  if (trimmedName) {
+    const { data: byName, error: nameErr } = await supabase
+      .from("team_members")
+      .select("id, name")
+      .eq("agency_id", agencyId)
+      .ilike("name", trimmedName)
+      .limit(1)
+      .maybeSingle();
+
+    if (nameErr) {
+      console.error(`[ricochet-webhook] matchTeamMember name query error:`, nameErr.message);
+    }
+    if (byName?.id) {
+      console.log(`[ricochet-webhook] Matched team member by name: ${trimmedName} -> ${byName.id}`);
+      return { id: byName.id, name: byName.name };
+    }
+  }
+
+  console.warn(`[ricochet-webhook] No team member match for agency=${agencyId} email=${trimmedEmail} name=${trimmedName}`);
   return null;
 }
 
@@ -244,7 +259,8 @@ Deno.serve(async (req) => {
     // Match team member
     const userName = payload["User's name"] || null;
     const userEmail = payload["User's email"] || null;
-    const matchedTeamMemberId = await matchTeamMember(supabase, agencyId, userName, userEmail);
+    const matchedMember = await matchTeamMember(supabase, agencyId, userName, userEmail);
+    const matchedTeamMemberId = matchedMember?.id ?? null;
 
     // Match prospect
     const { prospectId: matchedProspectId } = await matchProspect(
@@ -275,7 +291,7 @@ Deno.serve(async (req) => {
         call_started_at: callStartedAt,
         call_ended_at: null,
         result: "completed",
-        extension_name: userName,
+        extension_name: matchedMember?.name ?? userName,
         matched_team_member_id: matchedTeamMemberId,
         matched_prospect_id: matchedProspectId,
         raw_payload: payload,
