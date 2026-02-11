@@ -9,3 +9,4 @@ export { WinbackActivityLog } from './WinbackActivityLog';
 export { WinbackActivityStats } from './WinbackActivityStats';
 export { WinbackActivitySummary } from './WinbackActivitySummary';
 export { TerminationAnalytics } from './TerminationAnalytics';
+export { WinbackUploadHistory } from './WinbackUploadHistory';

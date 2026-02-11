@@ -311,8 +311,8 @@ async function processInBackground(
       });
     }
 
-    // Record the upload
-    await supabase.from('winback_uploads').insert({
+    // Record the upload and get its ID
+    const { data: uploadRecord } = await supabase.from('winback_uploads').insert({
       agency_id: agencyId,
       uploaded_by_user_id: userId || null,
       filename,
@@ -321,7 +321,30 @@ async function processInBackground(
       records_new_policies: stats.newPolicies,
       records_updated: stats.updated,
       records_skipped: stats.skipped,
-    });
+    }).select('id').single();
+
+    // Stamp last_upload_id on all processed households
+    if (uploadRecord?.id) {
+      const allHouseholdIds: string[] = [];
+      for (const [, groupRecords] of householdGroups) {
+        const firstRecord = groupRecords[0];
+        const { data: hh } = await supabase
+          .from('winback_households')
+          .select('id')
+          .eq('agency_id', agencyId)
+          .ilike('first_name', firstRecord.firstName)
+          .ilike('last_name', firstRecord.lastName)
+          .filter('zip_code', 'like', `${firstRecord.zipCode.substring(0, 5)}%`)
+          .maybeSingle();
+        if (hh) allHouseholdIds.push(hh.id);
+      }
+      if (allHouseholdIds.length > 0) {
+        await supabase
+          .from('winback_households')
+          .update({ last_upload_id: uploadRecord.id })
+          .in('id', allHouseholdIds);
+      }
+    }
 
     // Invalidate queries
     invalidateWinbackQueries(queryClient);

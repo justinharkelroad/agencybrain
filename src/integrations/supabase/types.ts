@@ -11858,6 +11858,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          last_upload_id: string | null
           notes: string | null
           phone: string | null
           policy_count: number | null
@@ -11880,6 +11881,7 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          last_upload_id?: string | null
           notes?: string | null
           phone?: string | null
           policy_count?: number | null
@@ -11902,6 +11904,7 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          last_upload_id?: string | null
           notes?: string | null
           phone?: string | null
           policy_count?: number | null
@@ -11932,6 +11935,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "agency_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winback_households_last_upload_id_fkey"
+            columns: ["last_upload_id"]
+            isOneToOne: false
+            referencedRelation: "winback_uploads"
             referencedColumns: ["id"]
           },
         ]

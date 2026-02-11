@@ -814,6 +814,115 @@ export async function uploadTerminations(
   throw new Error('Use WinbackUploadModal direct implementation for non-staff users');
 }
 
+// ============ List Uploads ============
+
+export async function listUploads(agencyId: string): Promise<any[]> {
+  if (isStaffUser()) {
+    const result = await callStaffWinback<{ uploads: any[] }>('list_uploads', {});
+    return result.uploads;
+  }
+
+  const { data, error } = await supabase
+    .from('winback_uploads')
+    .select('*')
+    .eq('agency_id', agencyId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (error) throw error;
+  return data || [];
+}
+
+// ============ Delete Upload ============
+
+export async function deleteUpload(uploadId: string, agencyId: string): Promise<void> {
+  if (isStaffUser()) {
+    await callStaffWinback('delete_upload', { uploadId });
+    return;
+  }
+
+  // Find all households linked to this upload
+  const { data: households, error: fetchError } = await supabase
+    .from('winback_households')
+    .select('id')
+    .eq('last_upload_id', uploadId);
+
+  if (fetchError) throw fetchError;
+
+  const householdIds = (households || []).map(h => h.id);
+
+  if (householdIds.length > 0) {
+    // Delete policies
+    await supabase
+      .from('winback_policies')
+      .delete()
+      .in('household_id', householdIds);
+
+    // Delete activities
+    await supabase
+      .from('winback_activities')
+      .delete()
+      .in('household_id', householdIds);
+
+    // Clear renewal_records references
+    await supabase
+      .from('renewal_records')
+      .update({ winback_household_id: null, sent_to_winback_at: null })
+      .in('winback_household_id', householdIds);
+
+    // Delete households
+    await supabase
+      .from('winback_households')
+      .delete()
+      .in('id', householdIds);
+  }
+
+  // Delete the upload record
+  const { error } = await supabase
+    .from('winback_uploads')
+    .delete()
+    .eq('id', uploadId);
+
+  if (error) throw error;
+}
+
+// ============ Bulk Delete Households ============
+
+export async function bulkDeleteHouseholds(householdIds: string[]): Promise<void> {
+  if (isStaffUser()) {
+    await callStaffWinback('bulk_delete_households', { householdIds });
+    return;
+  }
+
+  if (householdIds.length === 0) return;
+
+  // Delete policies
+  await supabase
+    .from('winback_policies')
+    .delete()
+    .in('household_id', householdIds);
+
+  // Delete activities
+  await supabase
+    .from('winback_activities')
+    .delete()
+    .in('household_id', householdIds);
+
+  // Clear renewal_records references
+  await supabase
+    .from('renewal_records')
+    .update({ winback_household_id: null, sent_to_winback_at: null })
+    .in('winback_household_id', householdIds);
+
+  // Delete households
+  const { error } = await supabase
+    .from('winback_households')
+    .delete()
+    .in('id', householdIds);
+
+  if (error) throw error;
+}
+
 // ============ Termination Analytics ============
 
 export interface TerminationTeamMember {
