@@ -333,10 +333,12 @@ export default function StaffSalesLesson() {
               {lesson.video_platform === 'vimeo' ? (
                 <iframe
                   src={(() => {
-                    const vimeoMatch = lesson.video_url?.match(/vimeo\.com\/(\d+)/);
-                    return vimeoMatch 
-                      ? `https://player.vimeo.com/video/${vimeoMatch[1]}`
-                      : lesson.video_url || '';
+                    const vimeoMatch = lesson.video_url?.match(/vimeo\.com\/(\d+)(?:\/([a-zA-Z0-9]+))?/);
+                    if (vimeoMatch) {
+                      const hash = vimeoMatch[2] ? `?h=${vimeoMatch[2]}` : '';
+                      return `https://player.vimeo.com/video/${vimeoMatch[1]}${hash}`;
+                    }
+                    return lesson.video_url || '';
                   })()}
                   className="w-full h-full"
                   allow="autoplay; fullscreen; picture-in-picture"

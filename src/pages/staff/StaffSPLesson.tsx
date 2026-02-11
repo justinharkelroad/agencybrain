@@ -135,6 +135,13 @@ export default function StaffSPLesson() {
       return `https://www.youtube.com/embed/${ytMatch[1]}`;
     }
 
+    // Vimeo (capture optional privacy hash for private videos)
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)(?:\/([a-zA-Z0-9]+))?/);
+    if (vimeoMatch) {
+      const hash = vimeoMatch[2] ? `?h=${vimeoMatch[2]}` : '';
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}${hash}`;
+    }
+
     const loomMatch = url.match(/loom\.com\/share\/([^?\s]+)/);
     if (loomMatch) {
       return `https://www.loom.com/embed/${loomMatch[1]}`;

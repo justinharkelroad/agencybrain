@@ -35,10 +35,10 @@ export function VideoEmbed({ url, platform, className = '' }: VideoEmbedProps) {
     }
 
     case 'vimeo': {
-      // Extract video ID and convert to embed URL
-      const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-      const embedUrl = vimeoMatch 
-        ? `https://player.vimeo.com/video/${vimeoMatch[1]}`
+      // Extract video ID and optional privacy hash, convert to embed URL
+      const vimeoMatch = url.match(/vimeo\.com\/(\d+)(?:\/([a-zA-Z0-9]+))?/);
+      const embedUrl = vimeoMatch
+        ? `https://player.vimeo.com/video/${vimeoMatch[1]}${vimeoMatch[2] ? `?h=${vimeoMatch[2]}` : ''}`
         : url;
       return (
         <div className={containerClass}>

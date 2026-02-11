@@ -178,10 +178,11 @@ export default function TrainingLesson() {
       return `https://www.youtube.com/embed/${ytMatch[1]}`;
     }
 
-    // Vimeo
-    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+    // Vimeo (capture optional privacy hash for private videos)
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)(?:\/([a-zA-Z0-9]+))?/);
     if (vimeoMatch) {
-      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+      const hash = vimeoMatch[2] ? `?h=${vimeoMatch[2]}` : '';
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}${hash}`;
     }
 
     // Loom
