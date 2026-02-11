@@ -79,6 +79,11 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 220 80% 69%; /* Primary color for focus rings */
+    --chart-1: 214 89% 60%;
+    --chart-2: 172 70% 45%;
+    --chart-3: 31 95% 55%;
+    --chart-4: 355 78% 60%;
+    --chart-5: 265 83% 64%;
 
     --radius: 0.75rem;
 
@@ -139,6 +144,11 @@
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
+    --chart-1: 210 95% 68%;
+    --chart-2: 172 67% 53%;
+    --chart-3: 35 95% 63%;
+    --chart-4: 355 88% 67%;
+    --chart-5: 265 90% 72%;
     --sidebar-background: 222.2 84% 4.9%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;

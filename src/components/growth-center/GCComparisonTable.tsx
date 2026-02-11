@@ -29,7 +29,7 @@ type MetricRow = {
 };
 
 function monthLabel(reportMonth: string): string {
-  const d = new Date(reportMonth);
+  const d = new Date(`${reportMonth}T00:00:00Z`);
   if (!Number.isFinite(d.getTime())) return reportMonth;
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
@@ -97,33 +97,37 @@ interface GCComparisonTableProps {
 export function GCComparisonTable({ snapshots }: GCComparisonTableProps) {
   const [fromMonth, setFromMonth] = useState<string>('all');
   const [toMonth, setToMonth] = useState<string>('all');
-
-  const monthOptions = useMemo(
-    () =>
-      snapshots.map((s) => ({
-        key: s.report_month,
-        label: monthLabel(s.report_month),
-      })),
+  const sortedSnapshots = useMemo(
+    () => [...snapshots].sort((a, b) => a.report_month.localeCompare(b.report_month)),
     [snapshots]
   );
 
+  const monthOptions = useMemo(
+    () =>
+      sortedSnapshots.map((s) => ({
+        key: s.report_month,
+        label: monthLabel(s.report_month),
+      })),
+    [sortedSnapshots]
+  );
+
   const filteredSnapshots = useMemo(() => {
-    if (snapshots.length === 0) return [];
-    if (fromMonth === 'all' && toMonth === 'all') return snapshots.slice(-3);
+    if (sortedSnapshots.length === 0) return [];
+    if (fromMonth === 'all' && toMonth === 'all') return sortedSnapshots.slice(-3);
 
-    const fromDate = fromMonth === 'all' ? null : new Date(fromMonth);
-    const toDate = toMonth === 'all' ? null : new Date(toMonth);
+    const fromDate = fromMonth === 'all' ? null : new Date(`${fromMonth}T00:00:00Z`);
+    const toDate = toMonth === 'all' ? null : new Date(`${toMonth}T00:00:00Z`);
 
-    const data = snapshots.filter((s) => {
-      const d = new Date(s.report_month);
+    const data = sortedSnapshots.filter((s) => {
+      const d = new Date(`${s.report_month}T00:00:00Z`);
       if (!Number.isFinite(d.getTime())) return false;
       if (fromDate && d < fromDate) return false;
       if (toDate && d > toDate) return false;
       return true;
     });
 
-    return data.length > 0 ? data : snapshots.slice(-3);
-  }, [snapshots, fromMonth, toMonth]);
+    return data.length > 0 ? data : sortedSnapshots.slice(-3);
+  }, [sortedSnapshots, fromMonth, toMonth]);
 
   const sections: Array<MetricRow['section']> = ['GROWTH', 'RETENTION', 'PREMIUM', 'LOSS RATIO'];
   const headerMonths = filteredSnapshots;

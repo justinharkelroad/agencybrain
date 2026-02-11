@@ -26,6 +26,7 @@ interface GCRetentionTabProps {
 }
 
 type ParsedLineRetention = {
+  label: string;
   current: number | null;
   variance: number | null;
 };
@@ -35,16 +36,10 @@ type ParsedMonthRetention = {
   lines: Record<string, ParsedLineRetention>;
 };
 
-const LINE_CONFIG: Array<{ key: string; label: string }> = [
-  { key: 'standard_auto', label: 'Standard Auto' },
-  { key: 'homeowners', label: 'Homeowners' },
-  { key: 'renters', label: 'Renters' },
-  { key: 'condo', label: 'Condo' },
-  { key: 'other_special_property', label: 'Other Special' },
-];
+const EXCLUDED_LINE_KEYS = new Set(['total_pc', 'total_personal_lines']);
 
 function toMonthLabel(value: string): string {
-  const d = new Date(value);
+  const d = new Date(`${value}T00:00:00Z`);
   if (!Number.isFinite(d.getTime())) return value;
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
@@ -56,7 +51,7 @@ function toPercent(v: number | null | undefined): string {
 
 function toPoints(v: number | null | undefined): string {
   if (v === null || v === undefined) return '--';
-  return `${v >= 0 ? '+' : ''}${(v * 100).toFixed(2)}`;
+  return `${v >= 0 ? '+' : ''}${(v * 100).toFixed(2)} pts`;
 }
 
 function getRecord(value: unknown): Record<string, unknown> | null {
@@ -68,18 +63,36 @@ function getNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function formatLineLabel(key: string, rawLabel?: unknown): string {
+  if (typeof rawLabel === 'string' && rawLabel.trim().length > 0 && rawLabel !== key) {
+    return rawLabel;
+  }
+  return key
+    .split('_')
+    .map((part) => (part.length ? `${part[0].toUpperCase()}${part.slice(1)}` : part))
+    .join(' ');
+}
+
 function parseRetentionByMonth(reports: BusinessMetricsReport[]): ParsedMonthRetention[] {
   return reports
+    .filter((report) => report.parse_status === 'parsed')
     .map((report) => {
       const parsedData = getRecord(report.parsed_data);
       const lines = getRecord(parsedData?.lines);
       if (!lines) return null;
 
       const monthLines: Record<string, ParsedLineRetention> = {};
-      for (const line of LINE_CONFIG) {
-        const lineObj = getRecord(lines[line.key]);
-        const retention = getRecord(lineObj?.retention);
-        monthLines[line.key] = {
+
+      for (const [lineKey, rawLine] of Object.entries(lines)) {
+        if (EXCLUDED_LINE_KEYS.has(lineKey)) continue;
+
+        const line = getRecord(rawLine);
+        if (!line) continue;
+
+        const retention = getRecord(line.retention);
+
+        monthLines[lineKey] = {
+          label: formatLineLabel(lineKey, line.label),
           current: getNumber(retention?.current_month),
           variance: getNumber(retention?.point_variance_py),
         };
@@ -91,7 +104,7 @@ function parseRetentionByMonth(reports: BusinessMetricsReport[]): ParsedMonthRet
       };
     })
     .filter((v): v is ParsedMonthRetention => v !== null)
-    .sort((a, b) => new Date(a.reportMonth).getTime() - new Date(b.reportMonth).getTime());
+    .sort((a, b) => a.reportMonth.localeCompare(b.reportMonth));
 }
 
 function heatmapClass(value: number | null): string {
@@ -114,26 +127,48 @@ export function GCRetentionTab({ snapshots, reports }: GCRetentionTabProps) {
     return parsedMonths.find((m) => m.reportMonth === selectedMonth) ?? parsedMonths[parsedMonths.length - 1];
   }, [parsedMonths, selectedMonth]);
 
-  const latestTwoSnapshots = snapshots.slice(-2);
+  const latestTwoSnapshots = useMemo(
+    () => [...snapshots].sort((a, b) => a.report_month.localeCompare(b.report_month)).slice(-2),
+    [snapshots]
+  );
+
   const retentionBars = useMemo(() => {
     if (!selectedMonthData) return [];
-    return LINE_CONFIG.map((line) => ({
-      key: line.key,
-      label: line.label,
-      current: selectedMonthData.lines[line.key]?.current ?? null,
-      variance: selectedMonthData.lines[line.key]?.variance ?? null,
-    }));
+
+    return Object.entries(selectedMonthData.lines)
+      .map(([key, values]) => ({
+        key,
+        label: values.label,
+        current: values.current,
+        variance: values.variance,
+      }))
+      .sort((a, b) => Math.abs(b.current ?? 0) - Math.abs(a.current ?? 0));
   }, [selectedMonthData]);
 
   const biggestGaps = useMemo(
     () =>
       [...retentionBars]
+        .filter((row) => row.variance !== null)
         .sort((a, b) => (a.variance ?? Number.POSITIVE_INFINITY) - (b.variance ?? Number.POSITIVE_INFINITY))
         .slice(0, 3),
     [retentionBars]
   );
 
   const heatmapMonths = parsedMonths.slice(-12);
+
+  const heatmapLines = useMemo(() => {
+    const keyToLabel = new Map<string, string>();
+
+    for (const month of heatmapMonths) {
+      for (const [key, values] of Object.entries(month.lines)) {
+        if (!keyToLabel.has(key)) {
+          keyToLabel.set(key, values.label);
+        }
+      }
+    }
+
+    return Array.from(keyToLabel.entries()).map(([key, label]) => ({ key, label }));
+  }, [heatmapMonths]);
 
   return (
     <div className="space-y-4">
@@ -161,7 +196,7 @@ export function GCRetentionTab({ snapshots, reports }: GCRetentionTabProps) {
             const pct = row.current ? Math.max(0, Math.min(100, row.current * 100)) : 0;
             const positive = (row.variance ?? 0) >= 0;
             return (
-              <div key={row.key} className="grid grid-cols-[140px_1fr_auto_auto] gap-3 items-center">
+              <div key={row.key} className="grid grid-cols-[160px_1fr_auto_auto] gap-3 items-center">
                 <div className="text-sm font-medium">{row.label}</div>
                 <div className="h-6 rounded-full bg-muted/30 overflow-hidden">
                   <div
@@ -218,14 +253,14 @@ export function GCRetentionTab({ snapshots, reports }: GCRetentionTabProps) {
             <table className="w-full text-xs border-separate border-spacing-1">
               <thead>
                 <tr>
-                  <th className="text-left sticky left-0 bg-background z-10 p-2 w-[140px]">Line</th>
+                  <th className="text-left sticky left-0 bg-background z-10 p-2 w-[160px]">Line</th>
                   {heatmapMonths.map((m) => (
                     <th key={m.reportMonth} className="text-center p-2 min-w-[60px]">{toMonthLabel(m.reportMonth).split(' ')[0]}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {LINE_CONFIG.map((line) => (
+                {heatmapLines.map((line) => (
                   <tr key={line.key}>
                     <td className="text-left text-sm font-medium sticky left-0 bg-background z-10 p-2">{line.label}</td>
                     {heatmapMonths.map((m) => {
@@ -235,7 +270,7 @@ export function GCRetentionTab({ snapshots, reports }: GCRetentionTabProps) {
                           key={`${line.key}-${m.reportMonth}`}
                           className={cn('h-10 text-center tabular-nums rounded', heatmapClass(variance))}
                         >
-                          {variance === null ? '--' : toPoints(variance)}
+                          {toPoints(variance)}
                         </td>
                       );
                     })}
@@ -263,7 +298,7 @@ export function GCRetentionTab({ snapshots, reports }: GCRetentionTabProps) {
               </div>
               <div className="flex items-center gap-3">
                 <Badge variant="secondary" className={cn('tabular-nums', (row.variance ?? 0) < 0 ? 'text-red-400' : 'text-emerald-400')}>
-                  {toPoints(row.variance)} pts vs PY
+                  {toPoints(row.variance)} vs PY
                 </Badge>
                 <div className="text-sm text-muted-foreground tabular-nums w-24 text-right">
                   {toPercent(row.current)}

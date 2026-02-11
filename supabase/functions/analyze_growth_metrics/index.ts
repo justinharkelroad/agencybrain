@@ -95,6 +95,8 @@ At least one thing that's going well.
 RULES:
 - Never give generic advice. Every recommendation must reference a specific number from their data.
 - Distinguish between TREND (3+ months same direction) and ANOMALY (single month blip).
+- You MUST explicitly reference every selected month in chronological order before concluding root cause.
+- If 3+ months are provided, you MUST describe the direction of change across the full sequence (oldest -> newest), not just the biggest month.
 - If data is insufficient for a conclusion (e.g., only 1 month uploaded), say so rather than speculate.
 - When cross-reference data is NOT provided, do not mention it.
 - Format all dollar amounts with $ and commas. Format percentages to 2 decimal places. Format point variances with +/- sign.`;
@@ -244,6 +246,23 @@ function buildUserPrompt(
 
   parts.push(`Analyze the following business metrics data for ${agentName}.`);
   parts.push(`Months being compared: ${months}`);
+  parts.push("Chronology requirement: evaluate every selected month from oldest to newest before final conclusions.");
+  parts.push("");
+
+  parts.push("MONTH-BY-MONTH QUICK SUMMARY (chronological):");
+  for (const report of reports) {
+    const pd = report.parsed_data as Record<string, unknown> | undefined;
+    const totals = pd?.totals as Record<string, unknown> | undefined;
+    const totalPC = totals?.total_pc as Record<string, unknown> | undefined;
+    const capped = totalPC?.capped_items as Record<string, unknown> | undefined;
+    const retention = totalPC?.retention as Record<string, unknown> | undefined;
+    const premium = totalPC?.premium as Record<string, unknown> | undefined;
+    const loss = totalPC?.loss_ratio as Record<string, unknown> | undefined;
+
+    parts.push(
+      `- ${String(report.report_month ?? "")}: Growth Var PYE=${String(capped?.variance_pye ?? "N/A")}, Retention=${formatPct(retention?.current_month as number | null | undefined)}, Retention PY Var=${formatPts(retention?.point_variance_py as number | null | undefined)}, New Premium=$${centsToStr(premium?.current_month_new_cents as number | null | undefined)}, YTD Premium Var=${formatPct(premium?.pct_variance_py_ytd as number | null | undefined)}, Loss Ratio 12MM=${formatPct(loss?.adj_loss_ratio_12mm as number | null | undefined)}`
+    );
+  }
   parts.push("");
 
   for (const report of reports) {

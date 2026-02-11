@@ -27,16 +27,18 @@ type LobLossRow = {
   ratio24: number | null;
 };
 
-const LINE_CONFIG: Array<{ key: string; label: string }> = [
-  { key: 'standard_auto', label: 'Standard Auto' },
-  { key: 'homeowners', label: 'Homeowners' },
-  { key: 'renters', label: 'Renters' },
-  { key: 'condo', label: 'Condo' },
-  { key: 'other_special_property', label: 'Other Special' },
-];
+const EXCLUDED_LINE_KEYS = new Set(['total_pc', 'total_personal_lines']);
+
+function sortByReportMonthAsc<T extends { report_month: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => a.report_month.localeCompare(b.report_month));
+}
+
+function sortByReportMonthDesc<T extends { report_month: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => b.report_month.localeCompare(a.report_month));
+}
 
 function toMonthLabel(reportMonth: string): string {
-  const d = new Date(reportMonth);
+  const d = new Date(`${reportMonth}T00:00:00Z`);
   if (!Number.isFinite(d.getTime())) return reportMonth;
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
@@ -64,6 +66,16 @@ function getNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function formatLineLabel(key: string, rawLabel?: unknown): string {
+  if (typeof rawLabel === 'string' && rawLabel.trim().length > 0 && rawLabel !== key) {
+    return rawLabel;
+  }
+  return key
+    .split('_')
+    .map((part) => (part.length ? `${part[0].toUpperCase()}${part.slice(1)}` : part))
+    .join(' ');
+}
+
 function barColor(ratio: number | null): string {
   if (ratio === null) return 'bg-muted/30';
   if (ratio < 0.4) return 'bg-emerald-500/70';
@@ -71,10 +83,17 @@ function barColor(ratio: number | null): string {
   return 'bg-red-500/70';
 }
 
+const tooltipStyle = {
+  backgroundColor: 'hsl(var(--popover))',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: 8,
+  color: 'hsl(var(--popover-foreground))',
+};
+
 export function GCLossRatioTab({ snapshots, reports }: GCLossRatioTabProps) {
   const trendData = useMemo(
     () =>
-      snapshots.map((s) => ({
+      sortByReportMonthAsc(snapshots).map((s) => ({
         month: toMonthLabel(s.report_month),
         lossRatio12: (s.loss_ratio_12mm ?? 0) * 100,
         lossRatio24: (s.loss_ratio_24mm ?? 0) * 100,
@@ -85,9 +104,10 @@ export function GCLossRatioTab({ snapshots, reports }: GCLossRatioTabProps) {
   );
 
   const parsedReports = useMemo(
-    () => reports.filter((report) => report.parse_status === 'parsed'),
+    () => sortByReportMonthDesc(reports.filter((report) => report.parse_status === 'parsed')),
     [reports]
   );
+
   const latestReport = parsedReports[0] ?? null;
   const latestParsedLines = useMemo(() => {
     const parsedData = getRecord(latestReport?.parsed_data);
@@ -95,16 +115,22 @@ export function GCLossRatioTab({ snapshots, reports }: GCLossRatioTabProps) {
   }, [latestReport]);
 
   const lobRows = useMemo<LobLossRow[]>(() => {
-    return LINE_CONFIG.map((line) => {
-      const lineObj = getRecord(latestParsedLines?.[line.key]);
-      const loss = getRecord(lineObj?.loss_ratio);
-      return {
-        key: line.key,
-        label: line.label,
-        ratio12: getNumber(loss?.adj_loss_ratio_12mm),
-        ratio24: getNumber(loss?.adj_loss_ratio_24mm),
-      };
-    }).sort((a, b) => (b.ratio12 ?? -1) - (a.ratio12 ?? -1));
+    if (!latestParsedLines) return [];
+
+    return Object.entries(latestParsedLines)
+      .filter(([lineKey]) => !EXCLUDED_LINE_KEYS.has(lineKey))
+      .map(([lineKey, rawLine]) => {
+        const lineObj = getRecord(rawLine);
+        const loss = getRecord(lineObj?.loss_ratio);
+
+        return {
+          key: lineKey,
+          label: formatLineLabel(lineKey, lineObj?.label),
+          ratio12: getNumber(loss?.adj_loss_ratio_12mm),
+          ratio24: getNumber(loss?.adj_loss_ratio_24mm),
+        };
+      })
+      .sort((a, b) => (b.ratio12 ?? -1) - (a.ratio12 ?? -1));
   }, [latestParsedLines]);
 
   const alertRows = lobRows.filter((row) => (row.ratio12 ?? 0) > 0.5);
@@ -122,11 +148,11 @@ export function GCLossRatioTab({ snapshots, reports }: GCLossRatioTabProps) {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v.toFixed(0)}%`} />
-                <Tooltip formatter={(value: number) => `${value.toFixed(2)}%`} />
-                <ReferenceArea y1={0} y2={40} fill="hsl(142 76% 36%)" fillOpacity={0.05} />
-                <ReferenceArea y1={50} y2={100} fill="hsl(0 84% 60%)" fillOpacity={0.05} />
-                <Area type="monotone" dataKey="lossRatio12" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.08} strokeWidth={2} />
-                <Line type="monotone" dataKey="lossRatio24" stroke="hsl(var(--chart-2))" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => `${value.toFixed(2)}%`} />
+                <ReferenceArea y1={0} y2={40} fill="hsl(142 76% 36%)" fillOpacity={0.08} />
+                <ReferenceArea y1={50} y2={100} fill="hsl(0 84% 60%)" fillOpacity={0.08} />
+                <Area type="monotone" dataKey="lossRatio12" stroke="hsl(188 87% 47%)" fill="hsl(188 87% 47%)" fillOpacity={0.12} strokeWidth={2.2} />
+                <Line type="monotone" dataKey="lossRatio24" stroke="hsl(31 95% 55%)" strokeWidth={2.2} strokeDasharray="5 5" dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -137,9 +163,9 @@ export function GCLossRatioTab({ snapshots, reports }: GCLossRatioTabProps) {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${Math.round(v / 100000)}K`} />
-                <Tooltip formatter={(value: number) => toCurrency(value)} />
-                <Area type="monotone" dataKey="earnedPremium12" stroke="hsl(var(--chart-3))" fill="hsl(var(--chart-3))" fillOpacity={0.12} />
-                <Line type="monotone" dataKey="paidLosses12" stroke="hsl(var(--chart-4))" strokeWidth={2} dot={false} />
+                <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => toCurrency(value)} />
+                <Area type="monotone" dataKey="earnedPremium12" stroke="hsl(214 89% 60%)" fill="hsl(214 89% 60%)" fillOpacity={0.18} />
+                <Line type="monotone" dataKey="paidLosses12" stroke="hsl(355 78% 60%)" strokeWidth={2.2} dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>

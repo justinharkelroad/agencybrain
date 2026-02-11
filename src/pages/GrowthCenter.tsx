@@ -58,6 +58,14 @@ function monthLabelFromYearMonth(value: string): string {
   return monthLabelFromDateString(`${value}-01`);
 }
 
+function sortByReportMonthAsc<T extends { report_month: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => a.report_month.localeCompare(b.report_month));
+}
+
+function sortByReportMonthDesc<T extends { report_month: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => b.report_month.localeCompare(a.report_month));
+}
+
 export default function GrowthCenter() {
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -113,7 +121,11 @@ export default function GrowthCenter() {
     () => snapshotsQuery.snapshots.filter((snapshot) => carrierReportIds.has(snapshot.report_id)),
     [snapshotsQuery.snapshots, carrierReportIds]
   );
-  const latestSnapshot = carrierSnapshots[carrierSnapshots.length - 1] ?? null;
+  const sortedCarrierSnapshots = useMemo(
+    () => sortByReportMonthAsc(carrierSnapshots),
+    [carrierSnapshots]
+  );
+  const latestSnapshot = sortedCarrierSnapshots[sortedCarrierSnapshots.length - 1] ?? null;
 
   const handleUpload = async (input: Parameters<typeof reportsQuery.createReport>[0]) => {
     await reportsQuery.createReport(input);
@@ -126,7 +138,7 @@ export default function GrowthCenter() {
   const isLoading = carrierSchemasQuery.isLoading || reportsQuery.isLoading || snapshotsQuery.isLoading || tierLoading;
   const hasReports = reportsQuery.reports.length > 0;
   const analysisEligibleReports = useMemo(
-    () => reportsQuery.reports.filter((report) => report.parse_status === 'parsed'),
+    () => sortByReportMonthDesc(reportsQuery.reports.filter((report) => report.parse_status === 'parsed')),
     [reportsQuery.reports]
   );
   const latestAnalysis = analysisQuery.analyses[0] ?? null;
@@ -330,8 +342,8 @@ export default function GrowthCenter() {
                 </Card>
               </div>
 
-              <GCTrendChart snapshots={carrierSnapshots} />
-              <GCComparisonTable snapshots={carrierSnapshots} />
+              <GCTrendChart snapshots={sortedCarrierSnapshots} />
+              <GCComparisonTable snapshots={sortedCarrierSnapshots} />
 
               <Card>
                 <CardHeader>
@@ -412,15 +424,15 @@ export default function GrowthCenter() {
             </TabsContent>
 
             <TabsContent value="retention" className="mt-4">
-              <GCRetentionTab snapshots={carrierSnapshots} reports={reportsQuery.reports} />
+              <GCRetentionTab snapshots={sortedCarrierSnapshots} reports={reportsQuery.reports} />
             </TabsContent>
 
             <TabsContent value="premium" className="mt-4">
-              <GCPremiumTab snapshots={carrierSnapshots} reports={reportsQuery.reports} />
+              <GCPremiumTab snapshots={sortedCarrierSnapshots} reports={reportsQuery.reports} />
             </TabsContent>
 
             <TabsContent value="loss-ratio" className="mt-4">
-              <GCLossRatioTab snapshots={carrierSnapshots} reports={reportsQuery.reports} />
+              <GCLossRatioTab snapshots={sortedCarrierSnapshots} reports={reportsQuery.reports} />
             </TabsContent>
 
             <TabsContent value="bonus-planner" className="mt-4">

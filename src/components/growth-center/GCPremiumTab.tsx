@@ -33,18 +33,20 @@ type LobPremiumRow = {
   pctChange: number | null;
 };
 
-const LINE_CONFIG: Array<{ key: string; label: string }> = [
-  { key: 'standard_auto', label: 'Standard Auto' },
-  { key: 'homeowners', label: 'Homeowners' },
-  { key: 'renters', label: 'Renters' },
-  { key: 'condo', label: 'Condo' },
-  { key: 'other_special_property', label: 'Other Special' },
-];
+const EXCLUDED_LINE_KEYS = new Set(['total_pc', 'total_personal_lines']);
 
 function toMonthLabel(reportMonth: string): string {
-  const d = new Date(reportMonth);
+  const d = new Date(`${reportMonth}T00:00:00Z`);
   if (!Number.isFinite(d.getTime())) return reportMonth;
   return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
+
+function sortByReportMonthAsc<T extends { report_month: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => a.report_month.localeCompare(b.report_month));
+}
+
+function sortByReportMonthDesc<T extends { report_month: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => b.report_month.localeCompare(a.report_month));
 }
 
 function toCurrency(cents: number | null | undefined): string {
@@ -70,10 +72,49 @@ function getNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function formatLineLabel(key: string, rawLabel?: unknown): string {
+  if (typeof rawLabel === 'string' && rawLabel.trim().length > 0 && rawLabel !== key) {
+    return rawLabel;
+  }
+  return key
+    .split('_')
+    .map((part) => (part.length ? `${part[0].toUpperCase()}${part.slice(1)}` : part))
+    .join(' ');
+}
+
+function parseLinePremiums(report: BusinessMetricsReport | null): Record<string, { label: string; currentMonthTotalCents: number | null }> {
+  const parsedData = getRecord(report?.parsed_data);
+  const lines = getRecord(parsedData?.lines);
+  if (!lines) return {};
+
+  const result: Record<string, { label: string; currentMonthTotalCents: number | null }> = {};
+
+  for (const [key, rawLine] of Object.entries(lines)) {
+    if (EXCLUDED_LINE_KEYS.has(key)) continue;
+    const line = getRecord(rawLine);
+    if (!line) continue;
+    const premium = getRecord(line.premium);
+
+    result[key] = {
+      label: formatLineLabel(key, line.label),
+      currentMonthTotalCents: getNumber(premium?.current_month_total_cents),
+    };
+  }
+
+  return result;
+}
+
+const tooltipStyle = {
+  backgroundColor: 'hsl(var(--popover))',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: 8,
+  color: 'hsl(var(--popover-foreground))',
+};
+
 export function GCPremiumTab({ snapshots, reports }: GCPremiumTabProps) {
   const trendData = useMemo(
     () =>
-      snapshots.map((s) => ({
+      sortByReportMonthAsc(snapshots).map((s) => ({
         month: toMonthLabel(s.report_month),
         newPremium: s.premium_current_month_new ?? 0,
         renewalPremium: s.premium_current_month_renewal ?? 0,
@@ -81,49 +122,46 @@ export function GCPremiumTab({ snapshots, reports }: GCPremiumTabProps) {
     [snapshots]
   );
 
-  const parsedReports = useMemo(
-    () => reports.filter((report) => report.parse_status === 'parsed'),
+  const parsedReportsDesc = useMemo(
+    () => sortByReportMonthDesc(reports.filter((report) => report.parse_status === 'parsed')),
     [reports]
   );
 
-  const latestReport = parsedReports[0] ?? null;
-  const latestParsedLines = useMemo(() => {
-    const parsedData = getRecord(latestReport?.parsed_data);
-    return getRecord(parsedData?.lines);
-  }, [latestReport]);
+  const latestReport = parsedReportsDesc[0] ?? null;
+  const previousReport = parsedReportsDesc[1] ?? null;
 
-  const previousReport = parsedReports[1] ?? null;
-  const previousParsedLines = useMemo(() => {
-    const parsedData = getRecord(previousReport?.parsed_data);
-    return getRecord(parsedData?.lines);
-  }, [previousReport]);
+  const latestLinePremiums = useMemo(() => parseLinePremiums(latestReport), [latestReport]);
+  const previousLinePremiums = useMemo(() => parseLinePremiums(previousReport), [previousReport]);
 
   const lobRows = useMemo<LobPremiumRow[]>(() => {
-    return LINE_CONFIG.map((line) => {
-      const currentLine = getRecord(latestParsedLines?.[line.key]);
-      const currentPremium = getRecord(currentLine?.premium);
-      const currentCents = getNumber(currentPremium?.current_month_total_cents);
+    const allKeys = new Set<string>([
+      ...Object.keys(latestLinePremiums),
+      ...Object.keys(previousLinePremiums),
+    ]);
 
-      const prevLine = getRecord(previousParsedLines?.[line.key]);
-      const prevPremium = getRecord(prevLine?.premium);
-      const prevCents = getNumber(prevPremium?.current_month_total_cents);
+    return Array.from(allKeys)
+      .map((key) => {
+        const current = latestLinePremiums[key]?.currentMonthTotalCents ?? null;
+        const prev = previousLinePremiums[key]?.currentMonthTotalCents ?? null;
+        const delta = current !== null && prev !== null ? current - prev : null;
+        const pctChange =
+          delta !== null && prev !== null && prev !== 0
+            ? delta / prev
+            : null;
 
-      const delta = currentCents !== null && prevCents !== null ? currentCents - prevCents : null;
-      const pctChange =
-        delta !== null && prevCents !== null && prevCents !== 0
-          ? delta / prevCents
-          : null;
+        return {
+          key,
+          label: latestLinePremiums[key]?.label ?? previousLinePremiums[key]?.label ?? formatLineLabel(key),
+          currentMonthCents: current,
+          lastMonthCents: prev,
+          deltaCents: delta,
+          pctChange,
+        };
+      })
+      .sort((a, b) => Math.abs(b.currentMonthCents ?? 0) - Math.abs(a.currentMonthCents ?? 0));
+  }, [latestLinePremiums, previousLinePremiums]);
 
-      return {
-        key: line.key,
-        label: line.label,
-        currentMonthCents: currentCents,
-        lastMonthCents: prevCents,
-        deltaCents: delta,
-        pctChange,
-      };
-    }).sort((a, b) => Math.abs(b.deltaCents ?? 0) - Math.abs(a.deltaCents ?? 0));
-  }, [latestParsedLines, previousParsedLines]);
+  const maxCurrentCents = Math.max(...lobRows.map((r) => r.currentMonthCents ?? 0), 1);
 
   return (
     <div className="space-y-4">
@@ -145,14 +183,10 @@ export function GCPremiumTab({ snapshots, reports }: GCPremiumTabProps) {
                 />
                 <Tooltip
                   formatter={(value: number) => toCurrency(value)}
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: 8,
-                  }}
+                  contentStyle={tooltipStyle}
                 />
-                <Area type="monotone" dataKey="newPremium" stackId="premium" stroke="hsl(var(--chart-1))" fill="hsl(var(--chart-1))" fillOpacity={0.3} />
-                <Area type="monotone" dataKey="renewalPremium" stackId="premium" stroke="hsl(var(--chart-2))" fill="hsl(var(--chart-2))" fillOpacity={0.3} />
+                <Area type="monotone" dataKey="newPremium" stackId="premium" stroke="hsl(172 70% 45%)" fill="hsl(172 70% 45%)" fillOpacity={0.26} />
+                <Area type="monotone" dataKey="renewalPremium" stackId="premium" stroke="hsl(214 89% 60%)" fill="hsl(214 89% 60%)" fillOpacity={0.2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -166,7 +200,7 @@ export function GCPremiumTab({ snapshots, reports }: GCPremiumTabProps) {
         <CardContent className="space-y-3">
           {lobRows.map((row) => {
             const base = row.currentMonthCents ?? 0;
-            const widthPct = Math.max(0, Math.min(100, (base / Math.max(...lobRows.map((r) => r.currentMonthCents ?? 0), 1)) * 100));
+            const widthPct = Math.max(0, Math.min(100, (base / maxCurrentCents) * 100));
             return (
               <div key={row.key} className="grid grid-cols-[180px_1fr_auto] gap-3 items-center">
                 <div className="text-sm font-medium">{row.label}</div>
@@ -191,7 +225,7 @@ export function GCPremiumTab({ snapshots, reports }: GCPremiumTabProps) {
                 <TableHead>Line</TableHead>
                 <TableHead className="text-right">This Month</TableHead>
                 <TableHead className="text-right">Last Month</TableHead>
-                <TableHead className="text-right">Δ</TableHead>
+                <TableHead className="text-right">Delta</TableHead>
                 <TableHead className="text-right">% Change</TableHead>
               </TableRow>
             </TableHeader>
