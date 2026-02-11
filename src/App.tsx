@@ -1044,7 +1044,7 @@ const App = () => {
               </ProtectedRoute>
             } />
             <Route path="/growth-center" element={
-              <ProtectedRoute requireManager>
+              <ProtectedRoute requireAgencyOwner>
                 <SidebarLayout>
                   <GrowthCenter />
                 </SidebarLayout>
