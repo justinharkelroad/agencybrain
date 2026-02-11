@@ -131,52 +131,6 @@ async function matchProspect(
 }
 
 /**
- * Upsert call metrics for a team member on a given date
- */
-async function upsertCallMetrics(
-  supabase: SupabaseClient,
-  agencyId: string,
-  teamMemberId: string
-): Promise<void> {
-  const today = new Date().toISOString().split("T")[0];
-
-  // Get all calls for this team member today
-  const { data: calls } = await supabase
-    .from("call_events")
-    .select("direction, duration_seconds")
-    .eq("agency_id", agencyId)
-    .eq("matched_team_member_id", teamMemberId)
-    .gte("call_started_at", `${today}T00:00:00Z`)
-    .lt("call_started_at", `${today}T23:59:59Z`);
-
-  if (!calls?.length) return;
-
-  // Aggregate metrics
-  const metrics = {
-    total_calls: calls.length,
-    inbound_calls: calls.filter(c => c.direction === "Inbound").length,
-    outbound_calls: calls.filter(c => c.direction === "Outbound").length,
-    answered_calls: calls.filter(c => (c.duration_seconds || 0) > 0).length,
-    missed_calls: calls.filter(c => (c.duration_seconds || 0) === 0).length,
-    total_talk_seconds: calls.reduce((sum, c) => sum + (c.duration_seconds || 0), 0),
-  };
-
-  // Upsert the daily metrics
-  await supabase
-    .from("call_metrics_daily")
-    .upsert({
-      agency_id: agencyId,
-      team_member_id: teamMemberId,
-      date: today,
-      ...metrics,
-      last_calculated_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }, {
-      onConflict: "agency_id,team_member_id,date",
-    });
-}
-
-/**
  * Insert contact activity for a prospect
  */
 async function insertContactActivity(
@@ -339,15 +293,8 @@ Deno.serve(async (req) => {
 
     console.log(`[ricochet-webhook] Inserted call: ${insertedCall.id}`);
 
-    // Post-insert: Update daily metrics if team member matched
-    if (matchedTeamMemberId) {
-      try {
-        await upsertCallMetrics(supabase, agencyId, matchedTeamMemberId);
-        console.log(`[ricochet-webhook] Updated metrics for team member: ${matchedTeamMemberId}`);
-      } catch (err) {
-        console.error(`[ricochet-webhook] Metrics update error:`, err);
-      }
-    }
+    // call_metrics_daily is now aggregated by DB trigger
+    // trg_call_events_aggregate_daily (migration 20260211200000)
 
     // Post-insert: Add contact activity if prospect matched
     if (matchedProspectId) {
