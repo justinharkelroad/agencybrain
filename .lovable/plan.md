@@ -1,81 +1,96 @@
 
+## Add Bulk Delete and Delete-by-Upload to Winback HQ
 
-## Fix: Grateful Flow Answer Bleeding + Auth Expiry Recovery + Build Errors
-
-### Data Status
-Your Grateful Flow data is 100% saved and intact in the database (session `9f41479d-...`, status: `completed`, all responses present). Nothing was lost.
-
-### What Went Wrong
-
-1. **Auth token expired mid-flow** -- Your refresh token became invalid during the session, which caused "Flow template not found" when the page tried to re-query the template.
-2. **Answer bleeding into next question** -- A React `useEffect` timing issue causes the input to briefly repopulate with the just-saved answer before the 2-second typing animation advances to the next question.
-
----
+### Current State
+- Only single-record delete exists (inside the household detail modal)
+- No checkboxes, no bulk actions, no upload history with delete
+- `winback_households` table has **no** `upload_id` column, so we can't currently link households back to their upload
 
 ### Changes
 
-#### 1. Fix answer bleeding in FlowSession.tsx (lines 139-146)
+#### 1. Database Migration: Add `last_upload_id` to `winback_households`
 
-**Problem**: The effect `setCurrentValue(responses[currentQuestion.id] || '')` triggers whenever `responses` changes. When `saveResponse` updates `responses`, this fires while the OLD question is still active, re-populating the input with the saved answer.
+Add a nullable `last_upload_id` column (FK to `winback_uploads.id`, ON DELETE SET NULL) so we can track which upload created/last touched each household. This enables "delete by upload."
 
-**Fix**: Add a guard so the effect does NOT set `currentValue` when `isTyping` is true (the transition period between questions). Also clear `currentValue` immediately inside `handleSubmitAnswer` right after saving.
+Also backfill: set `last_upload_id` for existing households based on `created_at` proximity to upload timestamps where possible (best-effort, not critical).
 
+#### 2. Update Upload Process to Set `last_upload_id`
+
+- **`src/hooks/useWinbackBackgroundUpload.ts`**: After inserting the `winback_uploads` row, capture the returned `id` and update all households processed in that batch with `last_upload_id`.
+- **`supabase/functions/get_staff_winback/index.ts`** (`upload_terminations` operation): Same -- capture upload ID and stamp it on households.
+
+#### 3. New Component: `WinbackUploadHistory`
+
+Create `src/components/winback/WinbackUploadHistory.tsx` modeled after the existing `src/components/cancel-audit/UploadHistory.tsx`:
+
+- Lists recent uploads from `winback_uploads` (filename, record counts, relative timestamp)
+- Each row has a trash icon with a confirmation dialog
+- On delete: removes all `winback_policies` and `winback_activities` for households with that `last_upload_id`, then the households themselves, then the upload record
+- Place this component in the WinbackHQ page near the Upload button (inside a collapsible or always visible)
+
+#### 4. Add Checkbox Multi-Select to `WinbackHouseholdTable`
+
+- Add a `Checkbox` column as the first column
+- Header checkbox = "select all on current page"
+- Individual row checkboxes
+- New props: `selectedIds: Set<string>`, `onSelectionChange: (ids: Set<string>) => void`
+- Clicking a row still opens the detail modal (checkbox click stops propagation)
+
+#### 5. Floating Bulk Action Bar on `WinbackHQ`
+
+- Add `selectedIds` state (Set) to `WinbackHQ.tsx`
+- When items are selected, show a floating bar at the bottom (reuse the pattern from `src/components/cancel-audit/BulkActions.tsx`)
+- Actions: **Delete Selected** (with confirmation dialog showing count)
+- "Select All on Page" via the table header checkbox; no cross-page select needed
+- Clear selection button
+
+#### 6. Bulk Delete Logic in `winbackApi.ts`
+
+Add two new functions:
+
+```text
+bulkDeleteHouseholds(householdIds: string[]): Promise<void>
+  - Staff path: calls edge function operation "bulk_delete_households"
+  - Agency path: deletes winback_policies, winback_activities, clears renewal_records references, then deletes winback_households for all IDs
+
+deleteUpload(uploadId: string): Promise<void>
+  - Staff path: calls edge function operation "delete_upload"
+  - Agency path: finds all households with last_upload_id = uploadId, runs same cascade delete, then deletes the upload record
 ```
-// Line ~322, after saveResponse call:
-setCurrentValue('');  // Clear input immediately
 
-// Line ~139, add isTyping guard:
-useEffect(() => {
-  if (currentQuestion && !isTyping) {
-    setCurrentValue(responses[currentQuestion.id] || '');
-    ...
-  }
-}, [currentQuestion?.id, responses, isTyping]);
+#### 7. Edge Function Updates (`get_staff_winback`)
+
+Add two new operations:
+
+- **`bulk_delete_households`**: Accepts `{ householdIds: string[] }`, performs cascading delete (policies, activities, renewal_records cleanup, households) scoped to `agency_id`
+- **`delete_upload`**: Accepts `{ uploadId: string }`, finds households by `last_upload_id`, cascades delete, removes upload record
+
+#### 8. Export Updates
+
+- Add `WinbackUploadHistory` to `src/components/winback/index.ts`
+
+### Access Control
+- Agency owners, managers, and key employees all authenticate through the same Supabase JWT flow and share the same `agency_id` scope, so they all get access to bulk delete and upload history delete automatically
+- Staff users go through the edge function path which already validates their agency scope
+- No additional role checks needed -- the existing agency-scoped RLS and edge function authorization cover all three roles
+
+### Files to Create
+| File | Purpose |
+|------|---------|
+| `src/components/winback/WinbackUploadHistory.tsx` | Upload history list with per-upload delete |
+
+### Files to Modify
+| File | Change |
+|------|--------|
+| `src/components/winback/WinbackHouseholdTable.tsx` | Add checkbox column, selectedIds/onSelectionChange props |
+| `src/pages/WinbackHQ.tsx` | Add selectedIds state, bulk action bar, upload history section |
+| `src/lib/winbackApi.ts` | Add `bulkDeleteHouseholds` and `deleteUpload` functions |
+| `src/components/winback/index.ts` | Export WinbackUploadHistory |
+| `src/hooks/useWinbackBackgroundUpload.ts` | Stamp `last_upload_id` on households after upload |
+| `supabase/functions/get_staff_winback/index.ts` | Add `bulk_delete_households` and `delete_upload` operations, stamp `last_upload_id` in `upload_terminations` |
+
+### Database Migration
+```sql
+ALTER TABLE winback_households
+  ADD COLUMN last_upload_id uuid REFERENCES winback_uploads(id) ON DELETE SET NULL;
 ```
-
-#### 2. Fix GCTrendChart.tsx build error (line 96)
-
-**Problem**: `ResponsiveContainer` expects a single child but receives multiple conditional `{view === 'x' ? <Chart/> : null}` children.
-
-**Fix**: Wrap the conditional chart rendering so only one chart element is returned as the single child. Use a helper that returns just the active chart.
-
-```tsx
-<ResponsiveContainer width="100%" height="100%">
-  {view === 'growth' ? (
-    <AreaChart data={data}>...</AreaChart>
-  ) : view === 'retention' ? (
-    <ComposedChart data={data}>...</ComposedChart>
-  ) : view === 'premium' ? (
-    <ComposedChart data={data}>...</ComposedChart>
-  ) : (
-    <ComposedChart data={data}>...</ComposedChart>
-  )}
-</ResponsiveContainer>
-```
-
-#### 3. Fix test build error (line 64)
-
-**Problem**: `reportUpdate` mock is typed with 0 parameters but called with `(payload)`.
-
-**Fix**: Add the parameter type to the mock: `vi.fn((_payload?: Record<string, unknown>) => ({ eq: updateEq }))`.
-
-#### 4. Fix edge function build errors (4 errors across 3 files)
-
-| File | Fix |
-|------|-----|
-| `stripe-webhook/index.ts:42-43` | Cast `err` to `Error`: `(err instanceof Error ? err.message : String(err))` |
-| `send_daily_summary/index.ts:134,162` | Cast `existing`/`created` with `as { id: string; version: number }` |
-| `send_daily_summary/index.ts:247` | Cast supabase parameter: `resolveLockedSnapshotId(supabase as any, ...)` |
-| `send_onboarding_overdue_alerts/index.ts:156` | Access first element: `task.instance` is an array from join; use `(task.instance as any)?.[0]` or cast through `unknown` first |
-| `get_staff_lqs_data/index.ts:255` | Cast through `unknown`: `(page as unknown as LqsHousehold[])` |
-
-### Summary of Files Modified
-
-- `src/pages/flows/FlowSession.tsx` -- fix answer bleeding
-- `src/components/growth-center/GCTrendChart.tsx` -- single-child fix
-- `src/tests/growth-center/business-metrics-reports.hardening.test.ts` -- mock param type
-- `supabase/functions/stripe-webhook/index.ts` -- unknown err handling
-- `supabase/functions/send_daily_summary/index.ts` -- type casts
-- `supabase/functions/send_onboarding_overdue_alerts/index.ts` -- array element access
-- `supabase/functions/get_staff_lqs_data/index.ts` -- cast through unknown
-
