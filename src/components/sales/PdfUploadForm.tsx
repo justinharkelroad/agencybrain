@@ -52,6 +52,8 @@ import { cn, todayLocal, formatPhoneNumber } from "@/lib/utils";
 
 interface ExtractedSaleData {
   customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
   customerZip: string;
   policyNumber: string;
   effectiveDate: string;
@@ -83,6 +85,20 @@ interface ProductType {
   default_points: number | null;
   is_vc_item: boolean | null;
   canonical_name: string | null; // From linked product_types, used for matching
+}
+
+interface ProductTypeLinkedRecord {
+  name: string | null;
+  category: string | null;
+  default_points: number | null;
+  is_vc_item: boolean | null;
+}
+
+interface PolicyTypeQueryRow {
+  id: string;
+  name: string;
+  allow_multiple_items: boolean | null;
+  product_type: ProductTypeLinkedRecord | ProductTypeLinkedRecord[] | null;
 }
 
 interface TeamMember {
@@ -150,9 +166,20 @@ const PRODUCT_TYPE_MAPPING: Record<string, string> = {
   'condo': 'Condo',
   'your condo policy': 'Condo',
   'umbrella': 'Personal Umbrella',
+  'pup': 'Personal Umbrella',
+  'personal umbrella policy': 'Personal Umbrella',
   'personal umbrella': 'Personal Umbrella',
+  'llp': 'Landlord Package',
+  'landlord': 'Landlord Package',
+  'landlord package': 'Landlord Package',
+  'landlord package policy': 'Landlord Package',
+  'motorcycle': 'Motorcycle',
+  'mc': 'Motorcycle',
   'boat': 'Boatowners',
   'boatowners': 'Boatowners',
+  'off road vehicle': 'Off-Road Vehicle',
+  'off-road vehicle': 'Off-Road Vehicle',
+  'atv': 'Off-Road Vehicle',
 };
 
 // Icon mapping for product types
@@ -170,10 +197,36 @@ const PRODUCT_ICONS: Record<string, React.ReactNode> = {
 function matchProductType(extracted: string, productTypes: ProductType[]): ProductType | null {
   const normalized = extracted.toLowerCase().trim();
   const mappedName = PRODUCT_TYPE_MAPPING[normalized] || extracted;
-  // Match against canonical_name (from linked product_types) first, then display name
+  const normalizePolicyLabel = (value: string | null | undefined) =>
+    (value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+  // 1) Exact canonical/display match
+  const exact = productTypes.find(pt =>
+    (pt.canonical_name && normalizePolicyLabel(pt.canonical_name) === normalizePolicyLabel(mappedName)) ||
+    normalizePolicyLabel(pt.name) === normalizePolicyLabel(mappedName)
+  );
+  if (exact) return exact;
+
+  // 2) Substring match to tolerate labels like "Landlord Package Policy"
+  const contains = productTypes.find(pt => {
+    const canonical = normalizePolicyLabel(pt.canonical_name);
+    const display = normalizePolicyLabel(pt.name);
+    const normalizedMapped = normalizePolicyLabel(mappedName);
+    return (
+      (!!canonical && (canonical.includes(normalizedMapped) || normalizedMapped.includes(canonical))) ||
+      display.includes(normalizedMapped) ||
+      normalizedMapped.includes(display)
+    );
+  });
+  if (contains) return contains;
+
+  // 3) Last attempt on raw extracted text
   return productTypes.find(pt =>
-    (pt.canonical_name && pt.canonical_name.toLowerCase() === mappedName.toLowerCase()) ||
-    pt.name.toLowerCase() === mappedName.toLowerCase()
+    (pt.canonical_name && normalizePolicyLabel(pt.canonical_name).includes(normalized)) ||
+    normalizePolicyLabel(pt.name).includes(normalized)
   ) || null;
 }
 
@@ -281,15 +334,18 @@ export function PdfUploadForm({
         .eq("is_active", true)
         .order("order_index", { ascending: true });
       if (error) throw error;
-      return (data || []).map(pt => ({
+      return ((data || []) as PolicyTypeQueryRow[]).map(pt => {
+        const linked = Array.isArray(pt.product_type) ? pt.product_type[0] : pt.product_type;
+        return {
         id: pt.id,
         name: pt.name,
         allow_multiple_items: pt.allow_multiple_items ?? false,
-        category: (pt.product_type as any)?.category || 'General',
-        default_points: (pt.product_type as any)?.default_points ?? 0,
-        is_vc_item: (pt.product_type as any)?.is_vc_item ?? false,
-        canonical_name: (pt.product_type as any)?.name || null,
-      }));
+        category: linked?.category || 'General',
+        default_points: linked?.default_points ?? 0,
+        is_vc_item: linked?.is_vc_item ?? false,
+        canonical_name: linked?.name || null,
+      };
+    });
     },
     enabled: !!effectiveAgencyId,
   });
@@ -362,6 +418,8 @@ export function PdfUploadForm({
       // If this is the first policy, set customer info from it
       if (stagedPolicies.length === 0) {
         setCustomerName(extractedData.customerName || '');
+        setCustomerEmail(extractedData.customerEmail || '');
+        setCustomerPhone(formatPhoneNumber(extractedData.customerPhone || ''));
         setCustomerZip(extractedData.customerZip || '');
         addPolicyToStaged(extractedData, filename);
         setUploadState('review');
