@@ -308,6 +308,7 @@ export function PdfUploadForm({
 
   // Customer name mismatch warning
   const [showNameMismatchWarning, setShowNameMismatchWarning] = useState(false);
+  const [showPolicyTypeReviewDialog, setShowPolicyTypeReviewDialog] = useState(false);
   const [pendingPolicyData, setPendingPolicyData] = useState<{
     data: ExtractedSaleData;
     filename: string;
@@ -688,6 +689,7 @@ export function PdfUploadForm({
     setHasExistingPolicies(false);
     setExistingPolicyTypes([]);
     setShowUploadDropzone(false);
+    setShowPolicyTypeReviewDialog(false);
     setEditingPolicy(null);
     setEditModalOpen(false);
   };
@@ -756,6 +758,8 @@ export function PdfUploadForm({
       effectiveDate: editEffectiveDate,
       premium: parseFloat(editPremium) || 0,
       itemCount: supportsMultipleItems ? editItemCount : 1,
+      // Treat manual edits as user-reviewed so confidence prompts do not persist unnecessarily.
+      confidence: 'high',
     };
     
     if (existingIndex >= 0) {
@@ -839,6 +843,27 @@ export function PdfUploadForm({
 
   const getProductIcon = (productName: string) => {
     return PRODUCT_ICONS[productName] || <FileText className="h-4 w-4" />;
+  };
+
+  const getConfidenceMeta = (confidence: StagedPolicy['confidence']) => {
+    if (confidence === 'high') {
+      return { label: 'High confidence', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+    }
+    if (confidence === 'medium') {
+      return { label: 'Needs review', className: 'bg-amber-50 text-amber-700 border-amber-200' };
+    }
+    return { label: 'Low confidence', className: 'bg-red-50 text-red-700 border-red-200' };
+  };
+
+  const policiesNeedingTypeReview = stagedPolicies.filter((p) => p.confidence !== 'high');
+  const hasPolicyTypeUncertainty = policiesNeedingTypeReview.length > 0;
+
+  const handleCreateSaleClick = () => {
+    if (hasPolicyTypeUncertainty) {
+      setShowPolicyTypeReviewDialog(true);
+      return;
+    }
+    createSale.mutate();
   };
 
   // Idle state - show initial upload dropzone
@@ -1112,6 +1137,9 @@ export function PdfUploadForm({
                   <div>
                     <div className="font-medium flex items-center gap-2">
                       {policy.productTypeName || 'Unknown Product'}
+                      <Badge variant="outline" className={getConfidenceMeta(policy.confidence).className}>
+                        {getConfidenceMeta(policy.confidence).label}
+                      </Badge>
                       {!policy.productTypeId && (
                         <Badge variant="destructive" className="text-xs">
                           <AlertCircle className="h-3 w-3 mr-1" />
@@ -1129,6 +1157,11 @@ export function PdfUploadForm({
                       <span>${policy.premium.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                       <span>{policy.itemCount} item{policy.itemCount !== 1 ? 's' : ''}</span>
                     </div>
+                    {policy.confidence !== 'high' && (
+                      <p className="text-xs text-amber-700 mt-2">
+                        Please confirm policy type before saving. You can edit it if needed.
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -1268,7 +1301,7 @@ export function PdfUploadForm({
           Cancel
         </Button>
         <Button
-          onClick={() => createSale.mutate()}
+          onClick={handleCreateSaleClick}
           disabled={
             createSale.isPending || 
             stagedPolicies.length === 0 || 
@@ -1291,6 +1324,13 @@ export function PdfUploadForm({
           )}
         </Button>
       </div>
+
+      {hasPolicyTypeUncertainty && (
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+          We are not fully confident about {policiesNeedingTypeReview.length} uploaded policy
+          {policiesNeedingTypeReview.length > 1 ? ' types' : ' type'}. Please review before saving.
+        </div>
+      )}
 
       {/* Edit/Add Policy Modal */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
@@ -1422,6 +1462,53 @@ export function PdfUploadForm({
             </Button>
             <Button onClick={handleNameMismatchContinue}>
               Add Anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Policy Type Review Dialog */}
+      <Dialog open={showPolicyTypeReviewDialog} onOpenChange={setShowPolicyTypeReviewDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Please confirm policy type
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              We are not fully confident about the detected policy type for the items below.
+              Review or edit before saving.
+            </p>
+            <div className="space-y-2">
+              {policiesNeedingTypeReview.map((policy) => (
+                <div key={policy.id} className="rounded-md border p-2 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium">{policy.productTypeName || 'Unknown Product'}</span>
+                    <Badge variant="outline" className={getConfidenceMeta(policy.confidence).className}>
+                      {getConfidenceMeta(policy.confidence).label}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Policy: {policy.policyNumber || 'N/A'} {policy.effectiveDate ? `• Eff ${format(policy.effectiveDate, 'MM/dd/yyyy')}` : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPolicyTypeReviewDialog(false)}>
+              Review Fields
+            </Button>
+            <Button
+              onClick={() => {
+                setShowPolicyTypeReviewDialog(false);
+                createSale.mutate();
+              }}
+              disabled={createSale.isPending}
+            >
+              Save Anyway
             </Button>
           </DialogFooter>
         </DialogContent>
