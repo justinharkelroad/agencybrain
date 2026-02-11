@@ -166,7 +166,7 @@ serve(async (req) => {
 
     const { data: agencyModeData, error: agencyModeError } = await supabase
       .from('agencies')
-      .select('call_metrics_mode')
+      .select('call_metrics_mode, timezone')
       .eq('id', agencyId)
       .single();
 
@@ -233,6 +233,29 @@ serve(async (req) => {
       });
     }
 
+    // Query agency-wide call totals from call_events directly.
+    // This includes ALL calls (matched + unmatched) for the "Entire Agency" view.
+    let agencyCallTotals: { outbound_calls: number; talk_minutes: number } | null = null;
+    {
+      const { data: totalsData, error: totalsError } = await supabase
+        .rpc('get_agency_call_totals_from_events', {
+          p_agency_id: agencyId,
+          p_date: workDate,
+          p_timezone: agencyModeData?.timezone || 'America/New_York',
+        })
+        .single();
+
+      if (totalsError) {
+        console.error('Dashboard daily agency call totals error:', totalsError);
+        // Non-fatal — fall back to per-member sums in the frontend
+      } else if (totalsData) {
+        agencyCallTotals = {
+          outbound_calls: Number(totalsData.outbound_calls) || 0,
+          talk_minutes: Number(totalsData.talk_minutes) || 0,
+        };
+      }
+    }
+
     // Transform view data to match expected interface and enforce call metrics mode.
     // In non-on modes, call fields should only come from actual submitted scorecards.
     const rows: DashboardDailyRow[] = (data || []).map((row) => {
@@ -274,7 +297,7 @@ serve(async (req) => {
     console.log(`Dashboard daily [${authResult.mode}]: Found ${rows.length} rows for agency ${agencySlug || agencyId} on ${workDate} with role ${role}`);
 
     return new Response(
-      JSON.stringify({ rows }),
+      JSON.stringify({ rows, agencyCallTotals }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
