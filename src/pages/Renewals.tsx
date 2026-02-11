@@ -707,8 +707,8 @@ export default function Renewals() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[40px]"><Checkbox checked={selectedIds.size === records.length && records.length > 0} onCheckedChange={toggleSelectAll} /></TableHead>
-                <TableHead>Effective</TableHead>
-                <TableHead>Customer</TableHead>
+                <SortableHeader column="renewal_effective_date" label="Effective" />
+                <SortableHeader column="first_name" label="Customer" />
                 <TableHead>Policy</TableHead>
                 <SortableHeader column="product_name" label="Product" />
                 <SortableHeader column="premium_new" label="Premium" />
