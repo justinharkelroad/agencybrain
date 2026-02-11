@@ -11,7 +11,9 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:growth-center-hardening": "vitest run src/tests/growth-center/business-metrics-reports.hardening.test.ts && deno test supabase/functions/analyze_growth_metrics/validation.test.ts supabase/functions/parse_business_metrics/parsers.test.ts",
+    "smoke:growth-center-live": "node scripts/growth-center-live-smoke.mjs"
   },
   "dependencies": {
     "@11labs/react": "^0.2.0",

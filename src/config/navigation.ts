@@ -711,6 +711,15 @@ export const navigationConfig: NavEntry[] = [
         access: { staff: false, manager: true, owner: true },
       },
       {
+        id: 'growth-center',
+        title: 'Growth Center',
+        icon: TrendingUp,
+        type: 'link',
+        url: '/growth-center',
+        access: { staff: false, manager: true, owner: true },
+        requiresTier: '1:1',
+      },
+      {
         id: 'producer-quote-dashboard',
         title: 'Quote Details',
         icon: ExternalLink,

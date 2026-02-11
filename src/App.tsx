@@ -78,6 +78,7 @@ import LandingPagePreview from "./pages/LandingPage";
 import MarketingLanding from "./pages/MarketingLanding";
 import BonusGrid from "./pages/BonusGrid";
 import SnapshotPlanner from "./pages/SnapshotPlanner";
+import GrowthCenter from "./pages/GrowthCenter";
 import CancelAudit from "./pages/CancelAudit";
 import Renewals from "./pages/Renewals";
 import Sales from "./pages/Sales";
@@ -1041,6 +1042,13 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <BonusGrid />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/growth-center" element={
+              <ProtectedRoute requireManager>
+                <SidebarLayout>
+                  <GrowthCenter />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

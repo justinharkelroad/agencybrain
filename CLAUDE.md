@@ -773,3 +773,99 @@ For each validation cycle, record:
 - Own result (status + message)
 - UI module result (pass/fail + screenshot if fail)
 - Commit SHA + migration IDs included
+
+## Growth Intelligence Center (GIC) Implementation Plan (Saved 2026-02-11)
+
+Source of truth:
+- `/Users/justinsmacbook/Projects/agencybrain/GROWTH_INTELLIGENCE_CENTER_PLAN_CLAUDE_CODE.md`
+
+Scope:
+- Build `Growth Center` for `1:1 Coaching` agencies only.
+- Include upload + parse pipeline, analytics tabs, Bonus Grid integration, and AI diagnostics.
+- Preserve existing AgencyBrain patterns for routing, sidebar access control, hooks, and Supabase edge function conventions.
+
+Execution order (mandatory):
+1. Phase 1: Database + Storage setup (manual SQL from Appendix A)
+2. Phase 2: Types + hooks + route shell + sidebar item
+3. Phase 3: Upload dialog + parse edge function
+4. Phase 4: Overview tab + KPI summary cards
+5. Phase 5: Trend charts + month-over-month detail table
+6. Phase 6: Retention deep-dive tab
+7. Phase 7: Premium + Loss Ratio tabs
+8. Phase 8: Bonus Planner tab (embed existing Bonus Grid + Snapshot Planner)
+9. Phase 9: AI diagnostic engine + UI analysis panel
+10. Phase 10: Upload dialog polish/details
+11. Phase 11: Empty/error/loading states
+12. Phase 12: Multi-carrier support (deferred, architecture-ready)
+
+Phase deliverables:
+- Phase 1:
+  - Create/seed `carrier_schemas`, `business_metrics_reports`, `business_metrics_snapshots`, `gic_analyses`.
+  - Configure storage bucket `business-metrics`.
+  - Apply indexes + RLS from Appendix A.
+- Phase 2:
+  - Add `src/lib/growth-center/types.ts`.
+  - Add hooks: `useBusinessMetricsReports`, `useBusinessMetricsSnapshots`, `useCarrierSchemas`, `useGICAnalysis`.
+  - Add page shell: `src/pages/GrowthCenter.tsx`.
+  - Add protected route `/growth-center` in `src/App.tsx`.
+  - Add sidebar item in Agency Management with `TrendingUp`, label `Growth Center`.
+  - Gate visibility with `membership_tier === '1:1 Coaching'`.
+- Phase 3:
+  - Add `src/components/growth-center/GCUploadDialog.tsx`.
+  - Add `supabase/functions/parse_business_metrics/index.ts`.
+  - Parse Allstate Business Metrics XLSX via `carrier_schemas.field_map` (no hardcoded cells).
+  - Persist raw JSON to `business_metrics_reports.parsed_data`.
+  - Flatten key metrics into `business_metrics_snapshots`.
+  - Set `parse_status` and `parse_error` correctly.
+- Phase 4:
+  - Build Overview tab header, agent info bar, KPI cards, and tab shell.
+  - Match existing design tokens/components (Card/Badge/Tabs).
+- Phase 5:
+  - Add chart modes: Growth Points, Retention, Premium, Loss Ratio.
+  - Add month-over-month grouped metrics table with polarity-aware delta rendering.
+- Phase 6:
+  - Add retention deep-dive: LOB bars, tenure comparison, heatmap, biggest gaps.
+- Phase 7:
+  - Add premium/loss ratio detail tabs and alerting rules (>50% 12MM loss ratio).
+- Phase 8:
+  - Embed existing `BonusGrid` (do not rewrite internals).
+  - Add `Auto-Fill from Report` mapping from latest parsed snapshot.
+  - Redirect `/bonus-grid` to `/growth-center?tab=bonus`.
+- Phase 9:
+  - Add `supabase/functions/analyze_growth_metrics/index.ts`.
+  - Use Anthropic Claude Sonnet 4 model and structured analyst prompt.
+  - Support follow-up questions and optional LQS/scorecard context joins.
+- Phase 10:
+  - Complete upload UX details (month duplicate warning, parse progress, retry).
+- Phase 11:
+  - Implement empty, incomplete-year warning, loading, and error states.
+- Phase 12:
+  - Add future carriers by inserting `carrier_schemas` rows only.
+
+Critical implementation rules:
+- Keep route protection pattern identical to other protected pages.
+- Match sidebar access behavior to existing membership-gated items.
+- Use shared edge-function auth/error/cors patterns already established in repo.
+- Use dynamic parser mapping from schema JSON; never hardcode row/column coordinates.
+- Keep money/percent normalization strict:
+  - Dollars: strip symbols/commas, handle negatives in parentheses, store cents.
+  - Percentages: strip `%`, normalize to decimal.
+  - Empty markers (`--`, `N/A`, blank) -> `null`.
+- Preserve existing Bonus Grid logic; integration must be additive only.
+
+Verification gates (must pass before next phase):
+- Phase 1: All schema objects created; `allstate_bm` row present with valid field map.
+- Phase 2: `/growth-center` renders and sidebar item appears only for `1:1 Coaching`.
+- Phase 3: Upload -> storage write -> parse success -> snapshot row created.
+- Phase 4: KPI cards render from snapshot data with correct formatting.
+- Phase 5: All chart modes render with month-over-month data.
+- Phases 6-7: Deep-dive tabs show LOB metrics and correct sorting/polarity.
+- Phase 8: Bonus Grid visible in tab; auto-fill writes expected values and remains editable.
+- Phase 9: AI analysis returns structured output with numeric grounding.
+- Phases 10-11: UX handles replace, parse errors, loading, and zero-data paths gracefully.
+
+Definition of done:
+- End-to-end flow works for at least one Allstate monthly report:
+  - upload -> parse -> overview/trends/deep dives -> bonus autofill -> AI analysis.
+- Access control, RLS behavior, and route/sidebar gating verified for target membership.
+- No regressions to existing Bonus Grid or staff/admin portal behavior.

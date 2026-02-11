@@ -491,3 +491,9 @@ verify_jwt = false
 
 [functions.get_metrics_snapshot]
 verify_jwt = false
+
+[functions.parse_business_metrics]
+verify_jwt = false
+
+[functions.analyze_growth_metrics]
+verify_jwt = false
