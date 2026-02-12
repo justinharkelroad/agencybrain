@@ -123,7 +123,7 @@ Thanks,
 const renderTemplate = (template: string, tokens: Record<string, string>) => {
   let output = template;
   Object.entries(tokens).forEach(([key, value]) => {
-    output = output.replaceAll(`{{${key}}}`, value || "");
+    output = output.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value || "");
   });
   return output;
 };

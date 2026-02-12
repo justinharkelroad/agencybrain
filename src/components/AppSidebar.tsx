@@ -548,7 +548,6 @@ useEffect(() => {
                                   callScoringAccessibleIds={restrictedAccessibleIds}
                                   agencyId={agencyId}
                                   isTrialing={isTrialing}
-                                  gateReturnPath={gateReturnPath}
                                 />
                               );
                             }
@@ -587,7 +586,6 @@ useEffect(() => {
                                 callScoringAccessibleIds={restrictedAccessibleIds}
                                 agencyId={agencyId}
                                 isTrialing={isTrialing}
-                                gateReturnPath={gateReturnPath}
                               />
                             );
                           })}
@@ -617,7 +615,6 @@ useEffect(() => {
                       callScoringAccessibleIds={restrictedAccessibleIds}
                       agencyId={agencyId}
                       isTrialing={isTrialing}
-                      gateReturnPath={gateReturnPath}
                     />
                   );
                 })}
