@@ -203,7 +203,27 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { agencyId, forceSend } = await req.json().catch(() => ({}));
+    const { agencyId, forceSend, testEmail } = await req.json().catch(() => ({}));
+
+    if (forceSend && !agencyId) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'forceSend requires agencyId to avoid accidental multi-agency sends',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (forceSend && (!testEmail || typeof testEmail !== 'string' || !testEmail.includes('@'))) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'forceSend requires a valid testEmail to avoid sending to all recipients',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const now = new Date();
     if (!shouldSendDailySummary(now)) {
@@ -564,7 +584,16 @@ Deno.serve(async (req) => {
           }
         });
 
-        const uniqueRecipients = Array.from(recipientSet);
+        let uniqueRecipients = Array.from(recipientSet);
+
+        if (forceSend) {
+          uniqueRecipients = [String(testEmail).toLowerCase().trim()];
+          logStructured('force_send_test_recipient_override', {
+            agencyId: agency.id,
+            formId: form.id,
+            testEmail: uniqueRecipients[0],
+          });
+        }
 
         logStructured('recipients_resolved', {
           formId: form.id,
