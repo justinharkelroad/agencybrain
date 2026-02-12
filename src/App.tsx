@@ -186,6 +186,7 @@ import {
   SalesExperienceDeliverableBuilder,
   SalesExperienceDeliverableEdit,
 } from "./pages/sales-experience";
+import SalesExperienceTeamProgressDemo from "./pages/sales-experience/SalesExperienceTeamProgressDemo";
 import SalesProcessBuilder from "./pages/tools/SalesProcessBuilder";
 
 const queryClient = new QueryClient({
@@ -552,6 +553,14 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <SalesExperienceTeamProgress />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* TEMP: Demo route for marketing screenshots — remove after use */}
+            <Route path="/sales-experience/team-progress-demo" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceTeamProgressDemo />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

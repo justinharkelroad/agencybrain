@@ -83,7 +83,7 @@ export function LqsHouseholdDetailModal({
   // Fetch objections for edit dropdown - use staff hook in staff context
   const isStaffContext = !!staffSessionToken;
   const { data: staffObjections = [] } = useStaffLqsObjections(staffSessionToken);
-  const { data: agencyObjections = [] } = useLqsObjections(!isStaffContext);
+  const { data: agencyObjections = [] } = useLqsObjections(household?.agency_id, !isStaffContext);
   const objections = isStaffContext ? staffObjections : agencyObjections;
 
   // Fetch lead sources for edit dropdown

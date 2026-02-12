@@ -54,8 +54,8 @@ const Dashboard = () => {
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [dashboardCallMetricsEnabled, setDashboardCallMetricsEnabled] = useState(false);
 
-  // Fetch objections for quote modal
-  const { data: objections = [] } = useLqsObjections();
+  // Fetch objections for quote modal — must scope by agencyId so admins don't see all agencies
+  const { data: objections = [] } = useLqsObjections(agencyId);
 
   // ALL useEffect hooks MUST also be declared before any conditional returns (React Rules of Hooks)
 

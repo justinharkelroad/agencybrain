@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabaseClient';
+import { useAuth } from '@/lib/auth';
 import { useSalesExperienceAccess } from '@/hooks/useSalesExperienceAccess';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -71,113 +71,43 @@ interface QuizAttempt {
   };
 }
 
-type StaffUsersData = StaffProgress['staff_users'];
+interface TeamProgressResponse {
+  staff_progress: StaffProgress[];
+  recent_quizzes: QuizAttempt[];
+}
 
 export default function SalesExperienceTeamProgress() {
-  const { hasAccess, assignment, currentWeek, isLoading: accessLoading } = useSalesExperienceAccess();
+  const { session } = useAuth();
+  const { hasAccess, assignment, isLoading: accessLoading } = useSalesExperienceAccess();
   const [selectedQuiz, setSelectedQuiz] = useState<QuizAttempt | null>(null);
 
-  // Fetch staff progress
-  const { data: staffProgress, isLoading: progressLoading } = useQuery({
+  const { data: teamData, isLoading: teamDataLoading } = useQuery<TeamProgressResponse>({
     queryKey: ['sales-experience-team-progress', assignment?.id],
-    enabled: hasAccess && !!assignment?.id,
+    enabled: hasAccess && !!assignment?.id && !!session?.access_token,
     queryFn: async () => {
-      // Get all staff progress for this assignment
-      const { data: progress, error } = await supabase
-        .from('sales_experience_staff_progress')
-        .select(`
-          staff_user_id,
-          status,
-          quiz_score_percent,
-          completed_at,
-          staff_users!inner(
-            id,
-            display_name,
-            email,
-            team_members(name)
-          )
-        `)
-        .eq('assignment_id', assignment!.id);
-
-      if (error) throw error;
-
-      // Aggregate by staff user
-      const staffMap = new Map<string, StaffProgress>();
-
-      for (const record of progress || []) {
-        const staffId = record.staff_user_id;
-
-        if (!staffMap.has(staffId)) {
-          staffMap.set(staffId, {
-            staff_user_id: staffId,
-            staff_users: record.staff_users as StaffUsersData,
-            total_lessons: 0,
-            completed_lessons: 0,
-            avg_quiz_score: null,
-            last_activity: null,
-          });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-sales-experience-team-progress`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session!.access_token}`,
+          },
+          body: JSON.stringify({ assignment_id: assignment!.id }),
         }
+      );
 
-        const staff = staffMap.get(staffId)!;
-        staff.total_lessons++;
-
-        if (record.status === 'completed') {
-          staff.completed_lessons++;
-        }
-
-        if (record.quiz_score_percent !== null) {
-          if (staff.avg_quiz_score === null) {
-            staff.avg_quiz_score = record.quiz_score_percent;
-          } else {
-            // Running average
-            staff.avg_quiz_score =
-              (staff.avg_quiz_score + record.quiz_score_percent) / 2;
-          }
-        }
-
-        if (record.completed_at) {
-          if (
-            !staff.last_activity ||
-            new Date(record.completed_at) > new Date(staff.last_activity)
-          ) {
-            staff.last_activity = record.completed_at;
-          }
-        }
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to fetch team progress');
       }
 
-      return Array.from(staffMap.values());
+      return await response.json() as TeamProgressResponse;
     },
   });
 
-  // Fetch recent quiz attempts
-  const { data: recentQuizzes, isLoading: quizzesLoading } = useQuery({
-    queryKey: ['sales-experience-recent-quizzes', assignment?.id],
-    enabled: hasAccess && !!assignment?.id,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('sales_experience_quiz_attempts')
-        .select(`
-          id,
-          staff_user_id,
-          lesson_id,
-          score_percent,
-          completed_at,
-          answers_json,
-          feedback_ai,
-          staff_users(display_name),
-          sales_experience_lessons(
-            title,
-            sales_experience_modules(week_number)
-          )
-        `)
-        .eq('assignment_id', assignment!.id)
-        .order('completed_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      return data as QuizAttempt[];
-    },
-  });
+  const staffProgress = useMemo(() => teamData?.staff_progress || [], [teamData?.staff_progress]);
+  const recentQuizzes = useMemo(() => teamData?.recent_quizzes || [], [teamData?.recent_quizzes]);
 
   // Calculate team stats
   const teamStats = useMemo(() => {
@@ -231,7 +161,7 @@ export default function SalesExperienceTeamProgress() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const isLoading = progressLoading || quizzesLoading;
+  const isLoading = teamDataLoading;
 
   const getInitials = (staff: StaffProgress['staff_users']) => {
     const name =

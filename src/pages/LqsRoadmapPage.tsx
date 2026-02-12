@@ -229,7 +229,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const leadSources = isStaffPortal ? staffLeadSources : agencyLeadSources;
   // Use staff hook for objections in staff portal, regular hook otherwise
   const { data: staffObjections = [] } = useStaffLqsObjections(isStaffPortal ? staffSessionToken : null);
-  const { data: agencyObjections = [] } = useLqsObjections(!isStaffPortal);
+  const { data: agencyObjections = [] } = useLqsObjections(agencyProfile?.agencyId, !isStaffPortal);
   const objections = isStaffPortal ? staffObjections : agencyObjections;
   const assignMutation = useAssignLeadSource();
   const bulkAssignMutation = useBulkAssignLeadSource();
