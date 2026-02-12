@@ -13,6 +13,7 @@ interface SubmissionSummary {
   submitted: boolean;
   passRate: number;
   kpis: Array<{
+    key: string;
     metric: string;
     actual: number;
     target: number;
@@ -52,12 +53,40 @@ function getLocalHour(timezone: string): number {
 
 const QUOTED_ALIASES = ['quoted_households', 'quoted_count', 'policies_quoted', 'items_quoted', 'households_quoted'];
 const SOLD_ALIASES = ['items_sold', 'sold_items', 'sold_count'];
+const TALK_ALIASES = ['talk_minutes', 'talk_time', 'talktime'];
+const CALL_ALIASES = ['outbound_calls', 'calls_made', 'calls'];
 
 function normalizeMetricKey(key: string): string {
   const lower = key?.toLowerCase() || '';
   if (QUOTED_ALIASES.includes(lower)) return 'quoted_households';
   if (SOLD_ALIASES.includes(lower)) return 'items_sold';
+  if (TALK_ALIASES.includes(lower)) return 'talk_minutes';
+  if (CALL_ALIASES.includes(lower)) return 'outbound_calls';
   return key;
+}
+
+function canonicalMetricKey(primaryKey: string, fallbackLabel?: string): string {
+  const baseKey = (primaryKey || '')
+    .toLowerCase()
+    .replace(/^preselected_kpi_\d+_/, '')
+    .trim();
+
+  const normalizedPrimary = normalizeMetricKey(baseKey);
+  if (normalizedPrimary) {
+    return normalizedPrimary.toLowerCase();
+  }
+
+  if (baseKey) {
+    return baseKey.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  }
+
+  const label = (fallbackLabel || '').toLowerCase();
+  if (label.includes('quoted')) return 'quoted_households';
+  if (label.includes('sold') && label.includes('item')) return 'items_sold';
+  if (label.includes('outbound') && label.includes('call')) return 'outbound_calls';
+  if (label.includes('talk')) return 'talk_minutes';
+
+  return label.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'unknown';
 }
 
 function getMetricValueFromPayload(payload: Record<string, unknown>, kpiSlug: string, kpiKey: string): number {
@@ -339,14 +368,15 @@ Deno.serve(async (req) => {
         if ((teamMembers || []).length > 0) {
           const memberIds = (teamMembers || []).map((member) => member.id);
           const { data: submittedRows, error: submittedRowsError } = await supabase
-            .from('metrics_daily')
+            .from('submissions')
             .select('team_member_id')
-            .eq('agency_id', agency.id)
-            .eq('date', yesterdayStr)
+            .eq('form_template_id', form.id)
+            .eq('final', true)
+            .or(`work_date.eq.${yesterdayStr},and(work_date.is.null,submission_date.eq.${yesterdayStr})`)
             .in('team_member_id', memberIds);
 
           if (submittedRowsError) {
-            logStructured('submitted_rows_fetch_error', {
+            logStructured('submitted_fetch_error', {
               agencyId: agency.id,
               formId: form.id,
               date: yesterdayStr,
@@ -369,7 +399,7 @@ Deno.serve(async (req) => {
             const metricPayload = (snapshotRow.metric_payload || {}) as Record<string, unknown>;
             const targetPayload = (snapshotRow.target_payload || {}) as Record<string, unknown>;
 
-            const memberKpis: Array<{ metric: string; actual: number; target: number; passed: boolean }> =
+            const memberKpis: Array<{ key: string; metric: string; actual: number; target: number; passed: boolean }> =
               kpis.map((kpi: { selectedKpiSlug?: string; key?: string; label?: string; target?: { goal?: number } }) => {
                 const kpiSlug = kpi.selectedKpiSlug || '';
                 const kpiKey = kpi.key || '';
@@ -381,6 +411,7 @@ Deno.serve(async (req) => {
                 const target = Number.isFinite(payloadTarget) && payloadTarget > 0 ? payloadTarget : fallbackTarget;
 
                 return {
+                  key: canonicalMetricKey(normalizedKey || kpiSlug || kpiKey, kpi.label),
                   metric: kpi.label || kpi.selectedKpiSlug || kpi.key || 'Unknown',
                   actual,
                   target,
@@ -404,6 +435,7 @@ Deno.serve(async (req) => {
                 || getTargetValue(targetsMap, 'quoted_households', 'quoted_count', undefined);
 
               memberKpis.push({
+                key: 'quoted_households',
                 metric: 'Quoted Households',
                 actual: actualQuoted,
                 target: quotedTarget,
@@ -426,6 +458,7 @@ Deno.serve(async (req) => {
                 || getTargetValue(targetsMap, 'items_sold', 'sold_items', undefined);
 
               memberKpis.push({
+                key: 'items_sold',
                 metric: 'Items Sold',
                 actual: actualSold,
                 target: soldTarget,
@@ -539,10 +572,10 @@ Deno.serve(async (req) => {
         }
 
         const submittedList = summaries
-          .filter(s => s.submitted || s.kpis.length > 0)
+          .filter(s => s.submitted)
           .sort((a, b) => b.passRate - a.passRate)
           .map(s => {
-            const statusIcon = s.submitted ? '✅' : '📊';
+            const statusIcon = '✅';
             return `<tr>
             <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${statusIcon} ${s.teamMemberName}</td>
             <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: ${s.passRate >= 75 ? '#22c55e' : s.passRate >= 50 ? '#eab308' : '#ef4444'}; font-weight: 600;">${s.passRate}%</td>
@@ -551,28 +584,29 @@ Deno.serve(async (req) => {
           .join('');
 
         const missedList = summaries
-          .filter(s => !s.submitted && s.kpis.length === 0)
+          .filter(s => !s.submitted)
           .map(s => `<li style="color: #ef4444; margin-bottom: 4px;">❌ ${s.teamMemberName}</li>`)
           .join('');
 
-        const kpiTotals: Record<string, { total: number; target: number; count: number }> = {};
+        const kpiTotals: Record<string, { key: string; label: string; total: number; target: number; count: number }> = {};
         summaries.filter(s => s.submitted || s.kpis.length > 0).forEach(s => {
           s.kpis.forEach(k => {
-            if (!kpiTotals[k.metric]) {
-              kpiTotals[k.metric] = { total: 0, target: k.target, count: 0 };
+            const totalKey = canonicalMetricKey(k.key, k.metric);
+            if (!kpiTotals[totalKey]) {
+              kpiTotals[totalKey] = { key: totalKey, label: k.metric, total: 0, target: k.target, count: 0 };
             }
-            kpiTotals[k.metric].total += k.actual;
-            kpiTotals[k.metric].count++;
+            kpiTotals[totalKey].total += k.actual;
+            kpiTotals[totalKey].count++;
           });
         });
 
-        const kpiTotalsHtml = Object.entries(kpiTotals)
-          .map(([metric, data]) => {
+        const kpiTotalsHtml = Object.values(kpiTotals)
+          .map((data) => {
             const teamTarget = data.target * data.count;
             const passed = data.total >= teamTarget;
             const pct = teamTarget > 0 ? Math.round((data.total / teamTarget) * 100) : 0;
             return `<tr>
-              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${metric}</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${data.label}</td>
               <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${data.total}</td>
               <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${teamTarget}</td>
               <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: ${passed ? '#22c55e' : '#ef4444'}; font-weight: 600;">${passed ? '✅' : '❌'} ${pct}%</td>
@@ -580,8 +614,33 @@ Deno.serve(async (req) => {
           })
           .join('');
 
+        const topMetricKeys = ['items_sold', 'outbound_calls', 'talk_minutes', 'quoted_households'];
+        const topMetricsHtml = topMetricKeys
+          .map((key) => kpiTotals[key])
+          .filter(Boolean)
+          .map((data) => {
+            const teamTarget = data.target * data.count;
+            const pct = teamTarget > 0 ? Math.round((data.total / teamTarget) * 100) : 0;
+            const color = pct >= 100 ? '#22c55e' : pct >= 75 ? '#eab308' : '#ef4444';
+            return `
+              <div style="flex: 1 1 130px; min-width: 120px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">
+                <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">${data.label}</div>
+                <div style="font-size: 26px; line-height: 1.2; font-weight: 700; color: #111827; margin-top: 4px;">${data.total}</div>
+                <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Target ${teamTarget}</div>
+                <div style="font-size: 13px; font-weight: 700; color: ${color}; margin-top: 2px;">${pct}%</div>
+              </div>
+            `;
+          })
+          .join('');
+
         const bodyContent = `
           ${EmailComponents.summaryBox(`📊 ${submittedCount} of ${totalCount} team members submitted (${avgPassRate}% avg pass rate)`) }
+          ${topMetricsHtml ? `
+            <h3 style="margin: 8px 0 12px 0; color: ${BRAND.colors.primary};">Top Team Metrics</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
+              ${topMetricsHtml}
+            </div>
+          ` : ''}
 
           <h3 style="margin: 24px 0 12px 0; color: ${BRAND.colors.primary};">Team Submissions</h3>
           <table style="width: 100%; border-collapse: collapse;">
