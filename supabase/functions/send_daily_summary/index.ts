@@ -55,6 +55,12 @@ const QUOTED_ALIASES = ['quoted_households', 'quoted_count', 'policies_quoted', 
 const SOLD_ALIASES = ['items_sold', 'sold_items', 'sold_count'];
 const TALK_ALIASES = ['talk_minutes', 'talk_time', 'talktime'];
 const CALL_ALIASES = ['outbound_calls', 'calls_made', 'calls'];
+const TOP_METRIC_LABELS: Record<string, string> = {
+  items_sold: 'Items Sold',
+  outbound_calls: 'Outbound Calls',
+  talk_minutes: 'Talk Time',
+  quoted_households: 'Quoted Households',
+};
 
 function normalizeMetricKey(key: string): string {
   const lower = key?.toLowerCase() || '';
@@ -588,28 +594,31 @@ Deno.serve(async (req) => {
           .map(s => `<li style="color: #ef4444; margin-bottom: 4px;">❌ ${s.teamMemberName}</li>`)
           .join('');
 
-        const kpiTotals: Record<string, { key: string; label: string; total: number; target: number; count: number }> = {};
+        const kpiTotals: Record<string, { key: string; label: string; total: number; targetTotal: number; count: number }> = {};
         summaries.filter(s => s.submitted || s.kpis.length > 0).forEach(s => {
           s.kpis.forEach(k => {
             const totalKey = canonicalMetricKey(k.key, k.metric);
             if (!kpiTotals[totalKey]) {
-              kpiTotals[totalKey] = { key: totalKey, label: k.metric, total: 0, target: k.target, count: 0 };
+              kpiTotals[totalKey] = { key: totalKey, label: k.metric, total: 0, targetTotal: 0, count: 0 };
             }
             kpiTotals[totalKey].total += k.actual;
+            kpiTotals[totalKey].targetTotal += Number.isFinite(k.target) ? k.target : 0;
             kpiTotals[totalKey].count++;
           });
         });
 
         const kpiTotalsHtml = Object.values(kpiTotals)
           .map((data) => {
-            const teamTarget = data.target * data.count;
-            const passed = data.total >= teamTarget;
+            const teamTarget = data.targetTotal;
+            const passed = teamTarget > 0 ? data.total >= teamTarget : true;
             const pct = teamTarget > 0 ? Math.round((data.total / teamTarget) * 100) : 0;
+            const resultText = teamTarget > 0 ? `${passed ? '✅' : '❌'} ${pct}%` : '—';
+            const resultColor = teamTarget > 0 ? (passed ? '#22c55e' : '#ef4444') : '#6b7280';
             return `<tr>
               <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${data.label}</td>
               <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${data.total}</td>
               <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${teamTarget}</td>
-              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: ${passed ? '#22c55e' : '#ef4444'}; font-weight: 600;">${passed ? '✅' : '❌'} ${pct}%</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: ${resultColor}; font-weight: 600;">${resultText}</td>
             </tr>`;
           })
           .join('');
@@ -619,15 +628,17 @@ Deno.serve(async (req) => {
           .map((key) => kpiTotals[key])
           .filter(Boolean)
           .map((data) => {
-            const teamTarget = data.target * data.count;
+            const teamTarget = data.targetTotal;
             const pct = teamTarget > 0 ? Math.round((data.total / teamTarget) * 100) : 0;
-            const color = pct >= 100 ? '#22c55e' : pct >= 75 ? '#eab308' : '#ef4444';
+            const color = teamTarget <= 0 ? '#6b7280' : (pct >= 100 ? '#22c55e' : pct >= 75 ? '#eab308' : '#ef4444');
+            const pctText = teamTarget > 0 ? `${pct}%` : '—';
+            const label = TOP_METRIC_LABELS[data.key] || data.label;
             return `
               <div style="flex: 1 1 130px; min-width: 120px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">
-                <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">${data.label}</div>
+                <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">${label}</div>
                 <div style="font-size: 26px; line-height: 1.2; font-weight: 700; color: #111827; margin-top: 4px;">${data.total}</div>
                 <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Target ${teamTarget}</div>
-                <div style="font-size: 13px; font-weight: 700; color: ${color}; margin-top: 2px;">${pct}%</div>
+                <div style="font-size: 13px; font-weight: 700; color: ${color}; margin-top: 2px;">${pctText}</div>
               </div>
             `;
           })
