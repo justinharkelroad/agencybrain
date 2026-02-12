@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ArrowLeft, Save, Loader2, Users, Building2, Briefcase, UserCog } from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Users, Building2, Briefcase, UserCog, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const EMOJI_OPTIONS = ['📚', '🎯', '💼', '🚀', '⭐', '🔥', '💡', '📈', '🎓', '🏆', '📊', '🤝', '💪', '🧠'];
@@ -33,6 +33,9 @@ export default function AdminSPCategoryEditor() {
   const [description, setDescription] = useState('');
   const [icon, setIcon] = useState('📚');
   const [accessTiers, setAccessTiers] = useState<string[]>([]);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!isNew && categoryId) {
@@ -56,6 +59,7 @@ export default function AdminSPCategoryEditor() {
       setDescription(data.description || '');
       setIcon(data.icon || '📚');
       setAccessTiers(data.access_tiers || []);
+      setImageUrl(data.image_url || null);
     } catch (err) {
       console.error('Error loading category:', err);
       toast.error('Error loading category');
@@ -111,6 +115,7 @@ export default function AdminSPCategoryEditor() {
         description: description.trim() || null,
         icon,
         access_tiers: accessTiers,
+        image_url: imageUrl,
       };
 
       if (isNew) {
@@ -249,6 +254,84 @@ export default function AdminSPCategoryEditor() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Cover Image */}
+            <div>
+              <Label>Cover Image</Label>
+              <p className="text-xs text-muted-foreground mt-1 mb-2">
+                Recommended: 1200 × 400 pixels (3:1 ratio)
+              </p>
+              {imageUrl ? (
+                <div className="relative rounded-lg border border-border overflow-hidden">
+                  <img
+                    src={imageUrl}
+                    alt="Category cover"
+                    className="w-full aspect-[3/1] object-cover"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8"
+                    onClick={() => setImageUrl(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImage}
+                  className="w-full aspect-[3/1] rounded-lg border-2 border-dashed border-border/50 hover:border-border flex flex-col items-center justify-center gap-2 text-muted-foreground transition-colors"
+                >
+                  {uploadingImage ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <>
+                      <Upload className="h-6 w-6" />
+                      <span className="text-sm">Upload cover image</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  setUploadingImage(true);
+                  try {
+                    const ext = file.name.split('.').pop() || 'png';
+                    const id = isNew ? crypto.randomUUID() : categoryId;
+                    const path = `category-images/${id}.${ext}`;
+
+                    const { error: uploadError } = await supabase.storage
+                      .from('training-assets')
+                      .upload(path, file, { upsert: true });
+
+                    if (uploadError) throw uploadError;
+
+                    const { data: publicUrlData } = supabase.storage
+                      .from('training-assets')
+                      .getPublicUrl(path);
+
+                    setImageUrl(publicUrlData.publicUrl);
+                    toast.success('Image uploaded');
+                  } catch (err) {
+                    console.error('Image upload error:', err);
+                    toast.error('Failed to upload image');
+                  } finally {
+                    setUploadingImage(false);
+                    e.target.value = '';
+                  }
+                }}
+              />
             </div>
           </CardContent>
         </Card>
