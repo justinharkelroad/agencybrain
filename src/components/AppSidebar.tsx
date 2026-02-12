@@ -58,7 +58,7 @@ import { useSalesExperienceUnreadMessages } from "@/hooks/useSalesExperienceUnre
 import { Badge } from "@/components/ui/badge";
 import { MembershipGateModal } from "@/components/MembershipGateModal";
 import { getFeatureGateConfig } from "@/config/featureGates";
-import { isCallScoringTier as checkIsCallScoringTier } from "@/utils/tierAccess";
+import { isCallScoringTier as checkIsCallScoringTier, isChallengeTier as checkIsChallengeTier } from "@/utils/tierAccess";
 
 // New imports for navigation system
 import { navigationConfig, isNavFolder, isNavSubFolder, NavEntry, NavItem } from "@/config/navigation";
@@ -91,6 +91,7 @@ const adminOnlyItems = [
   { title: "Checklists", url: "/admin/checklists", icon: ListChecks },
   { title: "Analysis", url: "/admin/analysis", icon: LineChart },
   { title: "Prompts", url: "/admin/prompts", icon: FileText },
+  { title: "Breakup Templates", url: "/admin/breakup-letter-templates", icon: FileText },
   { title: "Process Vault", url: "/admin/process-vault-types", icon: FolderLock },
   { title: "Field Mapping", url: "/admin/field-mapping-setup", icon: Settings2 },
   { title: "Roleplay Reports", url: "/admin/roleplay-reports", icon: MessageSquare },
@@ -118,9 +119,18 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
 
   // Check if user is on a Call Scoring tier
   const isCallScoringTier = checkIsCallScoringTier(membershipTier);
-  
-  // Items that Call Scoring tier users can actually access (not just see)
+
+  // Check if user is on a Challenge tier
+  const isChallengeTierUser = checkIsChallengeTier(membershipTier);
+
+  // Determine if user is on any restricted tier
+  const isRestrictedTier = isCallScoringTier || isChallengeTierUser;
+
+  // Items that restricted tier users can actually access (not just see)
   const callScoringAccessibleIds = ['call-scoring', 'call-scoring-top', 'the-exchange'];
+  const challengeAccessibleIds = ['six-week-challenge', 'the-exchange'];
+  const restrictedAccessibleIds = isCallScoringTier ? callScoringAccessibleIds : challengeAccessibleIds;
+  const gateReturnPath = isChallengeTierUser ? '/training/challenge' : '/call-scoring';
   
   // Close sidebar on mobile when navigating
   const handleNavClick = () => {
@@ -316,7 +326,7 @@ const toggleFolder = useCallback((folderId: string) => {
     });
     
     if (isCallScoringTier) {
-      // For Call Scoring tier: 
+      // For Call Scoring tier:
       // 1. Remove call-scoring from inside Accountability folder (avoid duplicate)
       // 2. Keep call-scoring-top at top level
       // 3. Reorder so call-scoring-top is FIRST
@@ -335,18 +345,52 @@ const toggleFolder = useCallback((folderId: string) => {
         }
         return true;
       });
-      
+
       // Reorder so call-scoring-top is FIRST
       const callScoringTopIndex = filtered.findIndex(
         entry => !isNavFolder(entry) && entry.id === 'call-scoring-top'
       );
-      
+
       if (callScoringTopIndex > 0) {
         const [callScoringTop] = filtered.splice(callScoringTopIndex, 1);
         filtered.unshift(callScoringTop);
       }
+    } else if (isChallengeTierUser) {
+      // For Challenge tier:
+      // 1. Remove call-scoring-top from top-level (not relevant)
+      // 2. Promote six-week-challenge to top level (extract from Training folder)
+      filtered = filtered.filter(entry => {
+        if (!isNavFolder(entry) && entry.id === 'call-scoring-top') {
+          return false;
+        }
+        return true;
+      });
+
+      // Extract six-week-challenge from Training folder and promote to top
+      let challengeItem: NavEntry | null = null;
+      filtered = filtered.map(entry => {
+        if (isNavFolder(entry) && entry.id === 'training') {
+          const remaining = entry.items.filter(item => {
+            if (!isNavSubFolder(item) && item.id === 'six-week-challenge') {
+              challengeItem = item;
+              return false;
+            }
+            return true;
+          });
+          return { ...entry, items: remaining };
+        }
+        return entry;
+      }).filter(entry => {
+        if (isNavFolder(entry)) return entry.items.length > 0;
+        return true;
+      });
+
+      // Add challenge item at the top
+      if (challengeItem) {
+        filtered.unshift(challengeItem);
+      }
     } else {
-      // For NON-Call-Scoring tier users:
+      // For NON-restricted tier users:
       // Remove call-scoring-top from navigation (they should only see it in Accountability folder)
       filtered = filtered.filter(entry => {
         if (!isNavFolder(entry) && entry.id === 'call-scoring-top') {
@@ -357,7 +401,7 @@ const toggleFolder = useCallback((folderId: string) => {
     }
     
     return filtered;
-  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, hasSalesExperienceAccess, hasSalesProcessBuilderAccess, canAccessCoachingInsights]);
+  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, isChallengeTierUser, hasSalesExperienceAccess, hasSalesProcessBuilderAccess, canAccessCoachingInsights]);
 
 // Auto-expand folder containing active route
 useEffect(() => {
@@ -500,10 +544,11 @@ useEffect(() => {
                                   subFolder={item}
                                   onOpenModal={handleOpenModal}
                                   membershipTier={membershipTier}
-                                  isCallScoringTier={isCallScoringTier}
-                                  callScoringAccessibleIds={callScoringAccessibleIds}
+                                  isCallScoringTier={isRestrictedTier}
+                                  callScoringAccessibleIds={restrictedAccessibleIds}
                                   agencyId={agencyId}
                                   isTrialing={isTrialing}
+                                  gateReturnPath={gateReturnPath}
                                 />
                               );
                             }
@@ -538,17 +583,18 @@ useEffect(() => {
                                 onOpenModal={handleOpenModal}
                                 badge={itemBadge}
                                 membershipTier={membershipTier}
-                                isCallScoringTier={isCallScoringTier}
-                                callScoringAccessibleIds={callScoringAccessibleIds}
+                                isCallScoringTier={isRestrictedTier}
+                                callScoringAccessibleIds={restrictedAccessibleIds}
                                 agencyId={agencyId}
                                 isTrialing={isTrialing}
+                                gateReturnPath={gateReturnPath}
                               />
                             );
                           })}
                         </SidebarFolder>
                       );
                   }
-                  
+
                   // Single nav item (not in folder)
                   // Add badge for Exchange notifications
                   const badge = entry.id === 'the-exchange' && totalExchangeNotifications > 0 ? (
@@ -567,10 +613,11 @@ useEffect(() => {
                       onOpenModal={handleOpenModal}
                       badge={badge}
                       membershipTier={membershipTier}
-                      isCallScoringTier={isCallScoringTier}
-                      callScoringAccessibleIds={callScoringAccessibleIds}
+                      isCallScoringTier={isRestrictedTier}
+                      callScoringAccessibleIds={restrictedAccessibleIds}
                       agencyId={agencyId}
                       isTrialing={isTrialing}
+                      gateReturnPath={gateReturnPath}
                     />
                   );
                 })}
@@ -738,7 +785,7 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Call Scoring Tier Gate Modal */}
+      {/* Restricted Tier Gate Modal */}
       {gatedItemId && (
         <MembershipGateModal
           open={showCallScoringGate}
@@ -750,7 +797,7 @@ useEffect(() => {
           featureDescription={getFeatureGateConfig(gatedItemId).featureDescription}
           videoKey={getFeatureGateConfig(gatedItemId).videoKey}
           gateType="call_scoring_upsell"
-          returnPath="/call-scoring"
+          returnPath={isChallengeTierUser ? "/training/challenge" : "/call-scoring"}
         />
       )}
     </Sidebar>

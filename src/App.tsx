@@ -47,6 +47,7 @@ import SlidesTeamMembers from "./pages/slides/SlidesTeamMembers";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
+import AdminBreakupLetterTemplates from "./pages/admin/AdminBreakupLetterTemplates";
 import AdminProcessVaultTypes from "./pages/admin/AdminProcessVaultTypes";
 import AdminTeam from "./pages/admin/AdminTeam";
 import AdminMember from "./pages/admin/AdminMember";
@@ -771,6 +772,13 @@ const App = () => {
               <ProtectedRoute requireAdmin>
                 <SidebarLayout>
                   <AdminPrompts />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/breakup-letter-templates" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminBreakupLetterTemplates />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

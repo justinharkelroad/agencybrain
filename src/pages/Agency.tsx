@@ -36,6 +36,7 @@ import { RingCentralReportUpload } from "@/components/RingCentralReportUpload";
 import { Core4Tab } from "@/components/agency/Core4Tab";
 import { EmailDeliveryNoticeButton, EmailDeliveryNoticeModal } from "@/components/EmailDeliveryNoticeModal";
 import { SalesEmailSettings } from "@/components/settings/SalesEmailSettings";
+import { BreakupLetterSettings } from "@/components/settings/BreakupLetterSettings";
 import { hasSalesAccess } from "@/lib/salesBetaAccess";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
@@ -1804,6 +1805,15 @@ export default function Agency() {
                   <AccordionTrigger>Sales Email Notifications</AccordionTrigger>
                   <AccordionContent>
                     <SalesEmailSettings agencyId={agencyId} />
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
+              {(isAdmin || hasSalesAccess(agencyId)) && (
+                <AccordionItem value="breakup-letter-settings">
+                  <AccordionTrigger>Breakup Letter</AccordionTrigger>
+                  <AccordionContent>
+                    <BreakupLetterSettings agencyId={agencyId} />
                   </AccordionContent>
                 </AccordionItem>
               )}

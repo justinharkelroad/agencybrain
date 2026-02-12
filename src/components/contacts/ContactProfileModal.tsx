@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Phone, Mail, MapPin, FileText, X, MessageSquare, Loader2, Voicemail, MessageCircle, DollarSign, Handshake, StickyNote, Calendar, CheckCircle2, ArrowRightLeft, Workflow } from 'lucide-react';
 import {
@@ -31,6 +31,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 import { sendRenewalToWinback } from '@/lib/sendToWinback';
 import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';
+import { BreakupLetterModal } from '@/components/sales/BreakupLetterModal';
 
 interface ContactProfileModalProps {
   contactId: string | null;
@@ -95,6 +96,7 @@ export function ContactProfileModal({
   const [hasMutated, setHasMutated] = useState(false);
   // State for Apply Sequence modal
   const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
+  const [breakupLetterModalOpen, setBreakupLetterModalOpen] = useState(false);
   const resolvedCreatedByStaffId = staffSessionToken ? (staffMemberId || null) : null;
 
   // Query client for cache invalidation
@@ -129,6 +131,41 @@ export function ContactProfileModal({
   const displayStage = hasMutated
     ? (profile?.current_stage || passedStage)
     : (passedStage || profile?.current_stage);
+
+  const showBreakupLetterAction = useMemo(() => {
+    if (!agencyId || !profile) return false;
+    if ((displayStage || "open_lead") !== "customer") return false;
+    const createdAt = new Date(profile.created_at).getTime();
+    if (Number.isNaN(createdAt)) return false;
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    return Date.now() - createdAt <= thirtyDaysMs;
+  }, [agencyId, displayStage, profile]);
+
+  const breakupPolicies = useMemo(() => {
+    if (!profile) return [];
+
+    const mapped = profile.lqs_records.flatMap((record) =>
+      (record.sales || []).map((sale) => ({
+        id: sale.id,
+        policyTypeName: sale.product_type || "Policy",
+        policyNumber: sale.policy_number || "",
+        effectiveDate: (sale.sale_date || new Date().toISOString()).slice(0, 10),
+        carrierName: "Prior Carrier",
+      }))
+    );
+
+    if (mapped.length > 0) return mapped;
+
+    return [
+      {
+        id: crypto.randomUUID(),
+        policyTypeName: "Policy",
+        policyNumber: "",
+        effectiveDate: new Date().toISOString().slice(0, 10),
+        carrierName: "Prior Carrier",
+      },
+    ];
+  }, [profile]);
 
   // Reset hasMutated flag when modal closes
   useEffect(() => {
@@ -922,6 +959,15 @@ export function ContactProfileModal({
                     )}
                   </div>
                 )}
+
+                {showBreakupLetterAction && (
+                  <div className="mt-2">
+                    <Button size="sm" variant="outline" onClick={() => setBreakupLetterModalOpen(true)}>
+                      <FileText className="h-4 w-4 mr-1" />
+                      Generate Breakup Letter
+                    </Button>
+                  </div>
+                )}
               </SheetHeader>
 
               <Separator className="my-4" />
@@ -1045,6 +1091,25 @@ export function ContactProfileModal({
           onSuccess={() => {
             setApplySequenceModalOpen(false);
             onActivityLogged?.();
+          }}
+        />
+      )}
+
+      {agencyId && profile && (
+        <BreakupLetterModal
+          open={breakupLetterModalOpen}
+          onOpenChange={setBreakupLetterModalOpen}
+          agencyId={agencyId}
+          contactId={contactId || undefined}
+          sourceContext="contact_sidebar"
+          customerName={`${profile.first_name} ${profile.last_name}`.trim()}
+          customerZip={profile.zip_code || undefined}
+          customerEmail={profile.emails?.[0]}
+          customerPhone={profile.phones?.[0]}
+          policies={breakupPolicies}
+          onContinueToSequence={() => {
+            setBreakupLetterModalOpen(false);
+            setApplySequenceModalOpen(true);
           }}
         />
       )}

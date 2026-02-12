@@ -31,6 +31,15 @@ import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Buildin
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
+import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type ProductType = {
   id: string;
@@ -207,11 +216,21 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
 
   // Apply sequence modal state
   const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
+  const [breakupChoiceModalOpen, setBreakupChoiceModalOpen] = useState(false);
+  const [breakupLetterModalOpen, setBreakupLetterModalOpen] = useState(false);
   const [newSaleData, setNewSaleData] = useState<{
     saleId: string;
     customerName: string;
     customerPhone?: string;
     customerEmail?: string;
+    customerZip?: string;
+    breakupPolicies: Array<{
+      id: string;
+      policyTypeName: string;
+      policyNumber: string;
+      effectiveDate: string;
+      carrierName: string;
+    }>;
   } | null>(null);
 
   const isEditMode = !!editSale;
@@ -825,14 +844,30 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
 
       // For new sales, show the ApplySequenceModal
       if (!isEditMode && profile?.agency_id) {
+        const fallbackPriorCarrier =
+          priorInsuranceCompanies.find((company) => company.id === priorInsuranceCompanyId)?.name ||
+          "Prior Carrier";
+
+        const breakupPolicies = policies.map((policy) => ({
+          id: policy.id,
+          policyTypeName: policy.policy_type_name,
+          policyNumber: policy.policy_number || "",
+          effectiveDate: format(policy.effective_date || saleDate, "yyyy-MM-dd"),
+          carrierName: policy.isBrokered
+            ? brokeredCarriers.find((carrier) => carrier.id === policy.brokeredCarrierId)?.name || fallbackPriorCarrier
+            : fallbackPriorCarrier,
+        }));
+
         // Save the data needed for the modal before resetting the form
         setNewSaleData({
           saleId,
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim() || undefined,
           customerEmail: customerEmail.trim() || undefined,
+          customerZip: customerZip.trim() || undefined,
+          breakupPolicies,
         });
-        setApplySequenceModalOpen(true);
+        setBreakupChoiceModalOpen(true);
         // Don't call onSuccess yet - will be called when modal closes
       } else {
         resetForm();
@@ -1839,6 +1874,71 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
             setApplySequenceModalOpen(false);
             resetForm();
             onSuccess?.();
+          }}
+        />
+      )}
+
+      {newSaleData && profile?.agency_id && (
+        <Dialog
+          open={breakupChoiceModalOpen}
+          onOpenChange={(open) => {
+            setBreakupChoiceModalOpen(open);
+            if (!open && !breakupLetterModalOpen) {
+              setApplySequenceModalOpen(true);
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Generate Breakup Letter?</DialogTitle>
+              <DialogDescription>
+                Generate a cancellation letter before sequence assignment. You can skip this and continue.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setBreakupChoiceModalOpen(false);
+                  setApplySequenceModalOpen(true);
+                }}
+              >
+                Skip for Now
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setBreakupLetterModalOpen(true);
+                  setBreakupChoiceModalOpen(false);
+                }}
+              >
+                Generate Letter
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {newSaleData && profile?.agency_id && (
+        <BreakupLetterModal
+          open={breakupLetterModalOpen}
+          onOpenChange={(open) => {
+            setBreakupLetterModalOpen(open);
+            if (!open) {
+              setApplySequenceModalOpen(true);
+            }
+          }}
+          agencyId={profile.agency_id}
+          customerName={newSaleData.customerName}
+          customerZip={newSaleData.customerZip}
+          customerEmail={newSaleData.customerEmail}
+          customerPhone={newSaleData.customerPhone}
+          policies={newSaleData.breakupPolicies}
+          sourceContext="sale_upload"
+          onContinueToSequence={() => {
+            setBreakupLetterModalOpen(false);
+            setApplySequenceModalOpen(true);
           }}
         />
       )}
