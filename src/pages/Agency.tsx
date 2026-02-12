@@ -1701,7 +1701,7 @@ export default function Agency() {
       <TabsContent value="settings" className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Agency Settings</CardTitle>
+            <CardTitle>Agency Settings <span className="text-xs font-semibold text-destructive ml-1">BETA</span></CardTitle>
             <CardDescription>Configure settings for your agency</CardDescription>
           </CardHeader>
           <CardContent>
@@ -1810,7 +1810,7 @@ export default function Agency() {
 
               {/* Phone System Integrations */}
               <AccordionItem value="phone-integrations">
-                <AccordionTrigger>Phone System Integrations</AccordionTrigger>
+                <AccordionTrigger>Phone System Integrations <span className="text-xs font-semibold text-destructive ml-1">BETA</span></AccordionTrigger>
                 <AccordionContent>
                   <p className="text-sm text-muted-foreground mb-4">
                     Connect your phone system to automatically sync call logs and track team performance.
