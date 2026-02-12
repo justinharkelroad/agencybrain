@@ -321,7 +321,7 @@ export default function AdminSPCategoryEditor() {
                       .from('training-assets')
                       .getPublicUrl(path);
 
-                    setImageUrl(publicUrlData.publicUrl);
+                    setImageUrl(`${publicUrlData.publicUrl}?t=${Date.now()}`);
                     toast.success('Image uploaded');
                   } catch (err) {
                     console.error('Image upload error:', err);
