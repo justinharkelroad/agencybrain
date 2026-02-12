@@ -1,9 +1,10 @@
 import { useId, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine, ReferenceDot } from 'recharts';
 import { CalendarDays, BarChart3, RotateCcw } from 'lucide-react';
 import { format, addDays, startOfDay, parseISO, getDay } from 'date-fns';
+import { PulseMarker } from '@/components/charts/PulseMarker';
 
 interface RenewalsDashboardProps {
   chartRecords: { renewal_effective_date: string | null }[];
@@ -94,6 +95,7 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
   }, [chartRecords]);
 
   const maxDayCount = Math.max(...dayOfWeekData.map(d => d.count), 1);
+  const latestPoint = upcomingData[upcomingData.length - 1] ?? null;
 
   // Custom tooltip for area chart
   const AreaTooltip = ({ active, payload }: { active?: boolean; payload?: AreaTooltipPayload[] }) => {
@@ -188,29 +190,22 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
                   stroke={`url(#${chartId}-count-line)`}
                   strokeWidth={3}
                   fill={`url(#${chartId}-count-fill)`}
-                  dot={({ cx, cy, payload }) => {
-                    const isActive = activeDateFilter === payload.date;
-                    const isBelowAvg = payload.count < averageCount;
-                    return (
-                      <circle
-                        key={payload.date}
-                        cx={cx}
-                        cy={cy}
-                        r={isActive ? 8 : 6}
-                        fill={isActive ? '#fbbf24' : isBelowAvg ? '#ef4444' : '#3b82f6'}
-                        stroke={isActive ? '#fbbf24' : isBelowAvg ? '#ef4444' : '#3b82f6'}
-                        strokeWidth={2}
-                        style={{ cursor: 'pointer' }}
-                      />
-                    );
-                  }}
-                  activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+                  dot={false}
+                  activeDot={{ r: 5, fill: '#3b82f6', stroke: '#93c5fd', strokeWidth: 2 }}
                 />
+                {latestPoint && (
+                  <ReferenceDot
+                    x={latestPoint.dateLabel}
+                    y={latestPoint.count}
+                    ifOverflow="visible"
+                    shape={<PulseMarker color="#3b82f6" coreRadius={3.4} pulseRadius={11} />}
+                  />
+                )}
               </AreaChart>
             </ResponsiveContainer>
           </div>
           <p className="text-xs text-gray-500 mt-2 text-center">
-            Click a point to filter by that date • <span className="text-red-400">Red</span> = below average
+            Click the line to filter by date
           </p>
         </CardContent>
       </Card>

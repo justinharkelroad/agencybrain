@@ -294,13 +294,20 @@ export function LqsPerformanceTrendChart({ agencyId }: LqsPerformanceTrendChartP
             <LineChart data={chartData} margin={{ top: 20, right: 30, bottom: 20, left: 20 }}>
               <defs>
                 <linearGradient id={`${chartId}-line`} x1="0%" y1="0%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor={metricConfig.color} stopOpacity={0.6} />
-                  <stop offset="100%" stopColor={metricConfig.color} />
+                  <stop offset="0%" stopColor={metricConfig.color} stopOpacity={0.7} />
+                  <stop offset="100%" stopColor="hsl(var(--chart-2))" />
                 </linearGradient>
                 <linearGradient id={`${chartId}-fill`} x1="0%" y1="0%" x2="0%" y2="100%">
                   <stop offset="0%" stopColor={metricConfig.color} stopOpacity={0.42} />
                   <stop offset="100%" stopColor={metricConfig.color} stopOpacity={0.02} />
                 </linearGradient>
+                <filter id={`${chartId}-glow`} x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="3.2" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
               </defs>
               <CartesianGrid
                 vertical={false}
@@ -349,6 +356,7 @@ export function LqsPerformanceTrendChart({ agencyId }: LqsPerformanceTrendChartP
                 dataKey={metricConfig.dataKey}
                 stroke={`url(#${chartId}-line)`}
                 strokeWidth={3.2}
+                filter={`url(#${chartId}-glow)`}
                 dot={false}
                 activeDot={{ r: 5, fill: metricConfig.color, strokeWidth: 0 }}
                 connectNulls
