@@ -5,7 +5,7 @@ import { StaffSidebar } from "./StaffSidebar";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { ROIForecastersModal, CalcKey } from "@/components/ROIForecastersModal";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
-import { getStaffHomePath, isCallScoringTier } from "@/utils/tierAccess";
+import { getStaffHomePath, isCallScoringTier, isChallengeTier } from "@/utils/tierAccess";
 import { Button } from "@/components/ui/button";
 import { Eye, X } from "lucide-react";
 import { StanChatBot } from "@/components/chatbot/StanChatBot";
@@ -27,20 +27,32 @@ export function StaffLayout() {
     '/staff/account',
   ];
 
+  // Routes that Challenge tier users ARE allowed to access
+  const challengeAllowedPaths = [
+    '/staff/challenge',
+    '/staff/core4',
+    '/staff/flows',
+    '/staff/account',
+  ];
+
   // Check if current path starts with any allowed path
-  const isAllowedPath = callScoringAllowedPaths.some(
+  const isCallScoringAllowed = callScoringAllowedPaths.some(
+    allowedPath => location.pathname.startsWith(allowedPath)
+  );
+  const isChallengeAllowed = challengeAllowedPaths.some(
     allowedPath => location.pathname.startsWith(allowedPath)
   );
 
-  // Redirect Call Scoring tier users away from restricted pages
+  // Redirect restricted tier users away from pages they can't access
   useEffect(() => {
     const userTier = user?.agency_membership_tier;
-    
-    if (isCallScoringTier(userTier) && !isAllowedPath) {
-      // User is Call Scoring tier and trying to access a restricted page
+
+    if (isCallScoringTier(userTier) && !isCallScoringAllowed) {
       navigate('/staff/call-scoring', { replace: true });
+    } else if (isChallengeTier(userTier) && !isChallengeAllowed) {
+      navigate('/staff/challenge', { replace: true });
     }
-  }, [location.pathname, user?.agency_membership_tier, isAllowedPath, navigate]);
+  }, [location.pathname, user?.agency_membership_tier, isCallScoringAllowed, isChallengeAllowed, navigate]);
 
   const handleOpenROI = (toolKey?: CalcKey) => {
     setRoiInitialTool(toolKey || null);

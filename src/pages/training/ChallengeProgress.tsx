@@ -24,14 +24,18 @@ import {
   Calendar,
   ChevronRight,
   MessageSquare,
+  Sparkles,
   Dumbbell,
   Brain,
   Heart,
   Briefcase,
   Trophy,
+  UserPlus,
+  ShoppingCart,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDateLocal } from '@/lib/utils';
+import { isChallengeTier } from '@/utils/tierAccess';
 
 interface StaffAssignment {
   id: string;
@@ -57,11 +61,20 @@ interface StaffAssignment {
   last_activity: string | null;
 }
 
+interface AiFeedback {
+  headline: string;
+  coaching_summary: string;
+  relevance_score: 'high' | 'medium' | 'low';
+  pushback: string | null;
+  highlight: string | null;
+}
+
 interface LessonProgress {
   id: string;
   status: string;
   completed_at: string | null;
   reflection_response: Record<string, string> | null;
+  ai_feedback: AiFeedback | null;
   challenge_lessons: {
     id: string;
     title: string;
@@ -85,7 +98,8 @@ interface Core4Entry {
 }
 
 export default function ChallengeProgress() {
-  const { user } = useAuth();
+  const { user, membershipTier } = useAuth();
+  const isChallengeTierUser = isChallengeTier(membershipTier);
   const [loading, setLoading] = useState(true);
   const [assignments, setAssignments] = useState<StaffAssignment[]>([]);
   const [selectedAssignment, setSelectedAssignment] = useState<StaffAssignment | null>(null);
@@ -218,6 +232,7 @@ export default function ChallengeProgress() {
           status,
           completed_at,
           reflection_response,
+          ai_feedback,
           challenge_lessons (
             id,
             title,
@@ -273,21 +288,41 @@ export default function ChallengeProgress() {
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
-      {/* Back Link */}
-      <Link
-        to="/training/challenge"
-        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4 mr-1" />
-        Back to Challenge
-      </Link>
+      {/* Back Link - hidden for challenge tier since this is their home */}
+      {!isChallengeTierUser && (
+        <Link
+          to="/training/challenge"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back to Challenge
+        </Link>
+      )}
 
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Staff Challenge Progress</h1>
-        <p className="text-muted-foreground mt-1">
-          Monitor your team's progress and view their reflections
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Staff Challenge Progress</h1>
+          <p className="text-muted-foreground mt-1">
+            Monitor your team's progress and view their reflections
+          </p>
+        </div>
+        {isChallengeTierUser && (
+          <div className="flex gap-3">
+            <Button size="sm" asChild>
+              <Link to="/training/challenge/assign">
+                <UserPlus className="h-4 w-4 mr-2" />
+                Add Team Member
+              </Link>
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/training/challenge">
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Buy More Seats
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Summary Stats */}
@@ -536,6 +571,35 @@ export default function ChallengeProgress() {
                                 </div>
                               );
                             })}
+                            {/* AI Feedback Card */}
+                            {progress.ai_feedback && (
+                              <div className={`mt-3 p-3 rounded-lg border ${
+                                progress.ai_feedback.relevance_score === 'high'
+                                  ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800'
+                                  : progress.ai_feedback.relevance_score === 'medium'
+                                  ? 'bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20 dark:border-yellow-800'
+                                  : 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800'
+                              }`}>
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <Sparkles className={`h-3.5 w-3.5 ${
+                                    progress.ai_feedback.relevance_score === 'high'
+                                      ? 'text-green-600'
+                                      : progress.ai_feedback.relevance_score === 'medium'
+                                      ? 'text-yellow-600'
+                                      : 'text-red-600'
+                                  }`} />
+                                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">AI Coaching Feedback</span>
+                                </div>
+                                <p className="text-sm font-semibold">{progress.ai_feedback.headline}</p>
+                                <p className="text-sm text-muted-foreground mt-1">{progress.ai_feedback.coaching_summary}</p>
+                                {progress.ai_feedback.highlight && (
+                                  <p className="text-sm mt-1.5"><span className="font-medium text-green-700 dark:text-green-400">Highlight:</span> {progress.ai_feedback.highlight}</p>
+                                )}
+                                {progress.ai_feedback.pushback && (
+                                  <p className="text-sm mt-1.5"><span className="font-medium text-yellow-700 dark:text-yellow-400">Follow-up needed:</span> {progress.ai_feedback.pushback}</p>
+                                )}
+                              </div>
+                            )}
                           </CardContent>
                         </Card>
                       ))}

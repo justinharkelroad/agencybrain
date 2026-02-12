@@ -381,6 +381,9 @@ verify_jwt = false
 [functions.challenge-send-credentials]
 verify_jwt = false
 
+[functions.challenge-setup-team]
+verify_jwt = false
+
 [functions.submit-landing-lead]
 verify_jwt = false
 

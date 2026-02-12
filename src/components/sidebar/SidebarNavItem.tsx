@@ -25,6 +25,7 @@ interface SidebarNavItemProps {
   callScoringAccessibleIds?: string[];
   agencyId?: string | null;
   isTrialing?: boolean;  // Show trial restriction indicator
+  gateReturnPath?: string;  // Return path for tier gate modals
 }
 
 export function SidebarNavItem({
@@ -36,7 +37,8 @@ export function SidebarNavItem({
   isCallScoringTier = false,
   callScoringAccessibleIds = ['call-scoring', 'call-scoring-top', 'the-exchange'],
   agencyId,
-  isTrialing = false
+  isTrialing = false,
+  gateReturnPath = '/call-scoring',
 }: SidebarNavItemProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -49,7 +51,7 @@ export function SidebarNavItem({
   const isGatedForCallScoring = isCallScoringTier && !callScoringAccessibleIds.includes(item.id);
 
   // Check if this challenge item should show "Coming Soon" for non-whitelisted agencies
-  const isGatedForChallenge = item.challengeAccess && !hasChallengeAccess(agencyId ?? null);
+  const isGatedForChallenge = item.challengeAccess && !hasChallengeAccess(agencyId ?? null, membershipTier);
 
   // Check if this item has trial restrictions (show subtle indicator)
   const hasTrialRestriction = isTrialing && item.trialRestricted;
@@ -203,7 +205,7 @@ export function SidebarNavItem({
             featureDescription={getFeatureGateConfig(item.id).featureDescription}
             videoKey={getFeatureGateConfig(item.id).videoKey}
             gateType="call_scoring_upsell"
-            returnPath="/call-scoring"
+            returnPath={gateReturnPath}
           />
           {/* Challenge Coming Soon Modal */}
           <MembershipGateModal

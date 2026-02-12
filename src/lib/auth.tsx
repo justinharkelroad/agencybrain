@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
-import { normalizeTier, isCallScoringTier } from '@/utils/tierAccess';
+import { normalizeTier, isCallScoringTier, isChallengeTier } from '@/utils/tierAccess';
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -442,6 +442,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isCallScoringTier(membershipTier)) {
       const callScoringAllowed = ['call-scoring', 'exchange', 'agency', 'my-agency', 'account-settings'];
       return callScoringAllowed.includes(feature);
+    }
+
+    // Challenge tier: limited access to challenge, training, exchange, and agency
+    if (isChallengeTier(membershipTier)) {
+      const challengeAllowed = ['challenge', 'training', 'agency', 'my-agency', 'account-settings', 'exchange'];
+      return challengeAllowed.includes(feature);
     }
     
     // AI Roleplay only for 1:1 Coaching (not Boardroom)

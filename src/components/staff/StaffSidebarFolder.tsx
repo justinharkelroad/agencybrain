@@ -33,6 +33,8 @@ interface StaffSidebarFolderProps {
   agencyId?: string | null;
   // Trial status for showing trial restriction indicators
   isTrialing?: boolean;
+  // Return path for tier gate modals
+  gateReturnPath?: string;
 }
 
 export function StaffSidebarFolder({
@@ -48,6 +50,7 @@ export function StaffSidebarFolder({
   callScoringAccessibleIds = ['call-scoring', 'call-scoring-top'],
   agencyId,
   isTrialing = false,
+  gateReturnPath = '/staff/call-scoring',
 }: StaffSidebarFolderProps) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -137,7 +140,7 @@ export function StaffSidebarFolder({
     }
 
     // Check challenge access - show "Coming Soon" for non-whitelisted agencies
-    if (item.challengeAccess && !hasChallengeAccess(agencyId ?? null)) {
+    if (item.challengeAccess && !hasChallengeAccess(agencyId ?? null, membershipTier)) {
       setComingSoonFeatureName(item.title);
       setShowComingSoonGate(true);
       return;
@@ -213,13 +216,14 @@ export function StaffSidebarFolder({
                     callScoringAccessibleIds={callScoringAccessibleIds}
                     agencyId={agencyId}
                     isTrialing={isTrialing}
+                    gateReturnPath={gateReturnPath}
                   />
                 );
               }
 
               const isActive = isItemActive(item);
               const isGatedForCallScoring = isCallScoringTier && !callScoringAccessibleIds.includes(item.id);
-              const isGatedForChallenge = item.challengeAccess && !hasChallengeAccess(agencyId ?? null);
+              const isGatedForChallenge = item.challengeAccess && !hasChallengeAccess(agencyId ?? null, membershipTier);
               const hasTrialRestriction = isTrialing && item.trialRestricted;
 
               return (
@@ -268,7 +272,7 @@ export function StaffSidebarFolder({
           featureDescription={getFeatureGateConfig(gatedItemId).featureDescription}
           videoKey={getFeatureGateConfig(gatedItemId).videoKey}
           gateType="call_scoring_upsell"
-          returnPath="/staff/call-scoring"
+          returnPath={gateReturnPath}
         />
       )}
 

@@ -2283,6 +2283,7 @@ export type Database = {
       }
       challenge_progress: {
         Row: {
+          ai_feedback: Json | null
           assignment_id: string
           completed_at: string | null
           created_at: string
@@ -2298,6 +2299,7 @@ export type Database = {
           video_watched_seconds: number | null
         }
         Insert: {
+          ai_feedback?: Json | null
           assignment_id: string
           completed_at?: string | null
           created_at?: string
@@ -2313,6 +2315,7 @@ export type Database = {
           video_watched_seconds?: number | null
         }
         Update: {
+          ai_feedback?: Json | null
           assignment_id?: string
           completed_at?: string | null
           created_at?: string

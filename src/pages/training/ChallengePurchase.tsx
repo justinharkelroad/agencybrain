@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Loader2,
   Users,
@@ -20,8 +21,11 @@ import {
   ArrowLeft,
   Eye,
   BarChart3,
+  UserPlus,
+  ArrowRight,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { isChallengeTier } from '@/utils/tierAccess';
 
 interface ChallengeProduct {
   id: string;
@@ -157,6 +161,8 @@ export default function ChallengePurchase() {
   };
 
   const totalAvailableSeats = purchases.reduce((acc, p) => acc + (p.quantity - p.seats_used), 0);
+  const totalAssignedSeats = purchases.reduce((acc, p) => acc + p.seats_used, 0);
+  const isChallengeTierUser = isChallengeTier(membershipTier);
 
   if (loading) {
     return (
@@ -183,14 +189,53 @@ export default function ChallengePurchase() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
-      {/* Back Link */}
-      <Link
-        to="/training"
-        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <ArrowLeft className="h-4 w-4 mr-1" />
-        Back to Training
-      </Link>
+      {/* Back Link - hidden for challenge tier since this is their home */}
+      {!isChallengeTierUser && (
+        <Link
+          to="/training"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back to Training
+        </Link>
+      )}
+
+      {/* Challenge Tier: Team Setup Prompt */}
+      {isChallengeTierUser && totalAvailableSeats > 0 && totalAssignedSeats === 0 && (
+        <Alert className="border-green-500/30 bg-green-500/10">
+          <UserPlus className="h-4 w-4 text-green-500" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              You have <strong>{totalAvailableSeats} seat{totalAvailableSeats > 1 ? 's' : ''}</strong> ready to assign.
+              Set up your team to get started!
+            </span>
+            <Button size="sm" asChild className="ml-4 shrink-0">
+              <Link to="/training/challenge/assign">
+                Set Up Team
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Challenge Tier: Progress Link */}
+      {isChallengeTierUser && totalAssignedSeats > 0 && (
+        <Alert className="border-blue-500/30 bg-blue-500/10">
+          <BarChart3 className="h-4 w-4 text-blue-500" />
+          <AlertDescription className="flex items-center justify-between">
+            <span>
+              <strong>{totalAssignedSeats}</strong> team member{totalAssignedSeats > 1 ? 's' : ''} enrolled in the challenge.
+            </span>
+            <Button size="sm" variant="outline" asChild className="ml-4 shrink-0">
+              <Link to="/training/challenge/progress">
+                View Progress
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Hero Section */}
       <div

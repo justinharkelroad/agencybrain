@@ -233,10 +233,26 @@ serve(async (req) => {
       });
     }
 
-    // Query agency-wide call totals from call_events directly.
-    // This includes ALL calls (matched + unmatched) for the "Entire Agency" view.
     let agencyCallTotals: { outbound_calls: number; talk_minutes: number } | null = null;
-    {
+    if (agencyCallMetricsMode === 'on') {
+      // Build agency-wide totals from call_metrics_daily first.
+      // For RingCentral, this is authoritative (Users sheet).
+      const callDailyAgencyTotals = (callDailyData || []).reduce(
+        (acc, row) => {
+          acc.outbound_calls += Number(row.outbound_calls) || 0;
+          acc.talk_minutes += Math.round((Number(row.total_talk_seconds) || 0) / 60);
+          return acc;
+        },
+        { outbound_calls: 0, talk_minutes: 0 }
+      );
+
+      if (callDailyAgencyTotals.outbound_calls > 0 || callDailyAgencyTotals.talk_minutes > 0) {
+        agencyCallTotals = callDailyAgencyTotals;
+      }
+
+      // Fallback: query agency-wide call totals from raw call_events.
+      // This includes ALL calls (matched + unmatched) for providers without
+      // authoritative daily summary rows.
       const { data: totalsData, error: totalsError } = await supabase
         .rpc('get_agency_call_totals_from_events', {
           p_agency_id: agencyId,
@@ -252,9 +268,9 @@ serve(async (req) => {
         const outboundCalls = Number(totalsData.outbound_calls) || 0;
         const talkMinutes = Number(totalsData.talk_minutes) || 0;
 
-        // Keep the "Entire Agency" override only when call_events has actual data.
-        // If it's all-zero, fall back to per-member rollups from call_metrics_daily.
-        if (outboundCalls > 0 || talkMinutes > 0) {
+        // Use raw event totals only when we do not already have authoritative
+        // daily summary totals from call_metrics_daily.
+        if (!agencyCallTotals && (outboundCalls > 0 || talkMinutes > 0)) {
           agencyCallTotals = {
             outbound_calls: outboundCalls,
             talk_minutes: talkMinutes,

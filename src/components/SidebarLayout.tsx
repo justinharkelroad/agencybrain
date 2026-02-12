@@ -7,7 +7,7 @@ import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { cleanupRadixLocks, isPageLocked } from "@/lib/radixCleanup";
 import { StanChatBot } from "@/components/chatbot/StanChatBot";
 import { ReportIssueButton } from "@/components/feedback";
-import { isCallScoringTier } from "@/utils/tierAccess";
+import { isCallScoringTier, isChallengeTier } from "@/utils/tierAccess";
 import { useAuth } from "@/lib/auth";
 import { TrialBanner, PaymentFailedLockout } from "@/components/subscription";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -38,20 +38,33 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
     '/exchange',
   ];
 
+  // Routes that Challenge tier users ARE allowed to access in Brain Portal
+  const challengeAllowedPaths = [
+    '/training/challenge',
+    '/agency',
+    '/exchange',
+    '/account',
+  ];
+
   // Check if current path starts with any allowed path
-  const isAllowedPath = callScoringAllowedPaths.some(
+  const isCallScoringAllowed = callScoringAllowedPaths.some(
+    allowedPath => location.pathname.startsWith(allowedPath)
+  );
+  const isChallengeAllowed = challengeAllowedPaths.some(
     allowedPath => location.pathname.startsWith(allowedPath)
   );
 
-  // Redirect Call Scoring tier users away from restricted pages
+  // Redirect restricted tier users away from pages they can't access
   useEffect(() => {
     // Don't redirect until tier data is loaded
     if (roleLoading) return;
 
-    if (isCallScoringTier(membershipTier) && !isAllowedPath) {
+    if (isCallScoringTier(membershipTier) && !isCallScoringAllowed) {
       navigate('/call-scoring', { replace: true });
+    } else if (isChallengeTier(membershipTier) && !isChallengeAllowed) {
+      navigate('/training/challenge', { replace: true });
     }
-  }, [location.pathname, membershipTier, isAllowedPath, navigate, roleLoading]);
+  }, [location.pathname, membershipTier, isCallScoringAllowed, isChallengeAllowed, navigate, roleLoading]);
 
   // Cleanup any stuck Radix locks on route change
   useEffect(() => {

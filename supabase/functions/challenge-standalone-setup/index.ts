@@ -15,39 +15,6 @@ function generatePassword(): string {
   return password;
 }
 
-// PBKDF2 password hashing using Web Crypto API
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    data,
-    { name: 'PBKDF2' },
-    false,
-    ['deriveBits']
-  );
-
-  const derivedBits = await crypto.subtle.deriveBits(
-    {
-      name: 'PBKDF2',
-      salt: salt,
-      iterations: 100000,
-      hash: 'SHA-256'
-    },
-    keyMaterial,
-    256
-  );
-
-  const hashArray = new Uint8Array(derivedBits);
-  const saltHex = Array.from(salt).map(b => b.toString(16).padStart(2, '0')).join('');
-  const hashHex = Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
-
-  // Format: pbkdf2_sha256$100000$salt$hash
-  return `pbkdf2_sha256$100000$${saltHex}$${hashHex}`;
-}
-
 // Calculate next Monday from today
 function getNextMonday(): Date {
   const today = new Date();
@@ -57,27 +24,6 @@ function getNextMonday(): Date {
   nextMonday.setDate(today.getDate() + daysUntilMonday);
   nextMonday.setHours(0, 0, 0, 0);
   return nextMonday;
-}
-
-// Calculate end date (6 weeks from start, ending on Friday)
-function getChallengeEndDate(startDate: Date): Date {
-  const endDate = new Date(startDate);
-  endDate.setDate(startDate.getDate() + 32); // 6 weeks * 5 days + buffer
-  return endDate;
-}
-
-// Map tier names to membership_tier values
-function mapTierToMembership(tier: string): string {
-  const tierMap: Record<string, string> = {
-    'Call Scoring': 'Call Scoring',
-    'call_scoring': 'Call Scoring',
-    'Boardroom': 'Boardroom',
-    'boardroom': 'Boardroom',
-    '1:1 Coaching': '1:1 Coaching',
-    'one_on_one': '1:1 Coaching',
-    'oneOnOne': '1:1 Coaching',
-  };
-  return tierMap[tier] || 'Call Scoring';
 }
 
 interface StandaloneSetupInput {
@@ -96,9 +42,9 @@ Deno.serve(async (req) => {
 
   try {
     const input: StandaloneSetupInput = await req.json();
-    const { email, tier, quantity = 1, stripe_session_id, stripe_payment_intent_id, amount_paid_cents } = input;
+    const { email, quantity = 1, stripe_session_id, stripe_payment_intent_id, amount_paid_cents } = input;
 
-    console.log('[challenge-standalone-setup] Starting setup:', { email, tier, quantity });
+    console.log('[challenge-standalone-setup] Starting setup:', { email, quantity, stripe_session_id });
 
     if (!email) {
       return new Response(
@@ -110,11 +56,15 @@ Deno.serve(async (req) => {
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
     // 1. Check if email already exists as auth user
-    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
-    const existingUser = existingUsers?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase());
+    // Use targeted lookup instead of listUsers() which has pagination limits
+    const { data: existingProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .ilike('email', email)
+      .maybeSingle();
 
-    if (existingUser) {
-      console.log('[challenge-standalone-setup] User already exists:', existingUser.id);
+    if (existingProfile) {
+      console.log('[challenge-standalone-setup] User already exists (profile match):', existingProfile.id);
       return new Response(
         JSON.stringify({
           error: 'An account with this email already exists. Please sign in at myagencybrain.com to purchase.',
@@ -123,9 +73,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 2. Generate credentials
+    // 2. Generate a temporary password (user will set their own via recovery link)
     const ownerPassword = generatePassword();
-    const membershipTier = mapTierToMembership(tier);
 
     // 3. Create agency
     const agencyName = `${email.split('@')[0]}'s Agency`;
@@ -148,7 +97,7 @@ Deno.serve(async (req) => {
 
     console.log('[challenge-standalone-setup] Agency created:', agency.id);
 
-    // 4. Create auth user (owner)
+    // 4. Create auth user (owner) with Six Week Challenge tier
     const { data: newUser, error: userError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password: ownerPassword,
@@ -161,8 +110,17 @@ Deno.serve(async (req) => {
 
     if (userError) {
       console.error('[challenge-standalone-setup] User creation error:', userError);
-      // Clean up agency
       await supabaseAdmin.from('agencies').delete().eq('id', agency.id);
+      // Handle duplicate email that wasn't caught by profile check
+      const isDuplicate = userError.message?.toLowerCase().includes('already') ||
+                         userError.message?.toLowerCase().includes('duplicate') ||
+                         userError.message?.toLowerCase().includes('registered');
+      if (isDuplicate) {
+        return new Response(
+          JSON.stringify({ error: 'An account with this email already exists. Please sign in at myagencybrain.com to purchase.' }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
       return new Response(
         JSON.stringify({ error: 'Failed to create user account' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -171,18 +129,17 @@ Deno.serve(async (req) => {
 
     console.log('[challenge-standalone-setup] Auth user created:', newUser.user.id);
 
-    // 5. Update profile with agency link and membership tier
+    // 5. Update profile with agency link and Six Week Challenge membership tier
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .update({
         agency_id: agency.id,
-        membership_tier: membershipTier,
+        membership_tier: 'Six Week Challenge',
       })
       .eq('id', newUser.user.id);
 
     if (profileError) {
       console.error('[challenge-standalone-setup] Profile update error:', profileError);
-      // Clean up
       await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
       await supabaseAdmin.from('agencies').delete().eq('id', agency.id);
       return new Response(
@@ -191,7 +148,29 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 6. Get challenge product
+    // 6. Generate Supabase recovery link so the buyer can set their own password
+    const siteUrl = Deno.env.get('SITE_URL') || 'https://myagencybrain.com';
+    let ownerSetupUrl = '';
+    try {
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'recovery',
+        email,
+        options: {
+          redirectTo: `${siteUrl}/reset-password`,
+        }
+      });
+
+      if (linkError) {
+        console.error('[challenge-standalone-setup] Recovery link generation error:', linkError);
+      } else if (linkData?.properties?.action_link) {
+        ownerSetupUrl = linkData.properties.action_link;
+        console.log('[challenge-standalone-setup] Recovery link generated');
+      }
+    } catch (linkErr) {
+      console.error('[challenge-standalone-setup] Recovery link error:', linkErr);
+    }
+
+    // 7. Get challenge product
     const { data: product, error: productError } = await supabaseAdmin
       .from('challenge_products')
       .select('id')
@@ -206,7 +185,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 7. Create challenge_purchases record
+    // 8. Create challenge_purchases record
+    // seats_used starts at 0 — the buyer will assign team members after logging in
+    const startDate = getNextMonday();
     const { data: purchase, error: purchaseError } = await supabaseAdmin
       .from('challenge_purchases')
       .insert({
@@ -214,7 +195,7 @@ Deno.serve(async (req) => {
         product_id: product.id,
         purchased_by: newUser.user.id,
         quantity,
-        seats_used: quantity, // All seats will be used immediately
+        seats_used: 0,
         price_per_seat_cents: amount_paid_cents ? Math.round(amount_paid_cents / quantity) : 0,
         total_price_cents: amount_paid_cents || 0,
         status: 'completed',
@@ -234,129 +215,44 @@ Deno.serve(async (req) => {
 
     console.log('[challenge-standalone-setup] Purchase created:', purchase.id);
 
-    // 8. Create staff users and assignments for each seat
-    const startDate = getNextMonday();
-    const endDate = getChallengeEndDate(startDate);
-    const createdStaff: Array<{ username: string; password: string; email: string }> = [];
-
-    for (let i = 0; i < quantity; i++) {
-      const staffPassword = generatePassword();
-      const staffUsername = quantity === 1
-        ? email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
-        : `${email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')}${i + 1}`;
-
-      // Create team member
-      const { data: teamMember, error: tmError } = await supabaseAdmin
-        .from('team_members')
+    // 9. Write to challenge_setup_results for the success page to poll
+    if (stripe_session_id) {
+      const { error: setupResultError } = await supabaseAdmin
+        .from('challenge_setup_results')
         .insert({
+          stripe_session_id,
           agency_id: agency.id,
-          name: quantity === 1 ? email.split('@')[0] : `Team Member ${i + 1}`,
-          email: quantity === 1 ? email : null,
-          role: 'Sales',
-          status: 'active',
-          employment: 'Full-time',
-        })
-        .select()
-        .single();
-
-      if (tmError) {
-        console.error('[challenge-standalone-setup] Team member creation error:', tmError);
-        continue;
-      }
-
-      // Hash password
-      const passwordHash = await hashPassword(staffPassword);
-
-      // Create staff user
-      const { data: staffUser, error: staffError } = await supabaseAdmin
-        .from('staff_users')
-        .insert({
-          agency_id: agency.id,
-          username: staffUsername,
-          password_hash: passwordHash,
-          display_name: teamMember.name,
-          email: quantity === 1 ? email : null,
-          team_member_id: teamMember.id,
-          is_active: true,
-        })
-        .select()
-        .single();
-
-      if (staffError) {
-        console.error('[challenge-standalone-setup] Staff user creation error:', staffError);
-        // Try alternative username if conflict
-        if (staffError.code === '23505') {
-          const altUsername = `${staffUsername}${Date.now().toString(36)}`;
-          const { data: altStaff, error: altError } = await supabaseAdmin
-            .from('staff_users')
-            .insert({
-              agency_id: agency.id,
-              username: altUsername,
-              password_hash: passwordHash,
-              display_name: teamMember.name,
-              email: quantity === 1 ? email : null,
-              team_member_id: teamMember.id,
-              is_active: true,
-            })
-            .select()
-            .single();
-
-          if (altError) continue;
-          createdStaff.push({ username: altUsername, password: staffPassword, email: email });
-
-          // Create challenge assignment
-          await supabaseAdmin.from('challenge_assignments').insert({
-            staff_user_id: altStaff.id,
-            product_id: product.id,
-            purchase_id: purchase.id,
-            assigned_by: newUser.user.id,
-            start_date: startDate.toISOString().split('T')[0],
-            end_date: endDate.toISOString().split('T')[0],
-            status: 'pending',
-          });
-          continue;
-        }
-        continue;
-      }
-
-      createdStaff.push({ username: staffUsername, password: staffPassword, email: email });
-
-      // Create challenge assignment
-      const { error: assignError } = await supabaseAdmin
-        .from('challenge_assignments')
-        .insert({
-          staff_user_id: staffUser.id,
-          product_id: product.id,
+          user_id: newUser.user.id,
+          email,
+          staff_credentials: [], // No staff created yet — buyer assigns team after login
+          owner_setup_url: ownerSetupUrl,
           purchase_id: purchase.id,
-          assigned_by: newUser.user.id,
+          quantity,
           start_date: startDate.toISOString().split('T')[0],
-          end_date: endDate.toISOString().split('T')[0],
-          status: 'pending',
         });
 
-      if (assignError) {
-        console.error('[challenge-standalone-setup] Assignment creation error:', assignError);
+      if (setupResultError) {
+        console.error('[challenge-standalone-setup] Setup results write error:', setupResultError);
+        // Non-fatal — the purchase is still valid
       }
     }
 
-    console.log('[challenge-standalone-setup] Created staff users:', createdStaff.length);
-
-    // 9. Send welcome email with credentials
-    if (createdStaff.length > 0) {
-      try {
-        await supabaseAdmin.functions.invoke('challenge-send-credentials', {
-          body: {
-            email,
-            staff_credentials: createdStaff,
-            agency_name: agencyName,
-            start_date: startDate.toISOString().split('T')[0],
-          },
-        });
-        console.log('[challenge-standalone-setup] Credentials email sent');
-      } catch (emailError) {
-        console.error('[challenge-standalone-setup] Email send error:', emailError);
-        // Don't fail the whole operation if email fails
-      }
+    // 10. Send welcome email with owner setup link as backup
+    try {
+      await supabaseAdmin.functions.invoke('challenge-send-credentials', {
+        body: {
+          email,
+          staff_credentials: [], // No staff credentials yet
+          agency_name: agencyName,
+          start_date: startDate.toISOString().split('T')[0],
+          owner_setup_url: ownerSetupUrl,
+          quantity,
+        },
+      });
+      console.log('[challenge-standalone-setup] Welcome email sent');
+    } catch (emailError) {
+      console.error('[challenge-standalone-setup] Email send error:', emailError);
+      // Don't fail the whole operation if email fails
     }
 
     return new Response(
@@ -365,8 +261,8 @@ Deno.serve(async (req) => {
         agency_id: agency.id,
         user_id: newUser.user.id,
         purchase_id: purchase.id,
-        staff_count: createdStaff.length,
         start_date: startDate.toISOString().split('T')[0],
+        quantity,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -119,52 +119,18 @@ function getCol(row: Record<string, unknown>, ...names: string[]): unknown {
 interface AgencyLookups {
   agencyId: string;
   teamByName: Map<string, string>;
-  householdByPhone: Map<string, {
-    householdId: string;
-    contactId: string | null;
-    firstName: string;
-    lastName: string;
-    zipCode: string;
-    email: string | null;
-  }>;
   contactByPhone: Map<string, string>;
 }
 
 async function loadAgencyLookups(supabase: SupabaseClient, agencyId: string): Promise<AgencyLookups> {
-  const [teamResult, householdsResult, contactsResult] = await Promise.all([
+  const [teamResult, contactsResult] = await Promise.all([
     supabase.from("team_members").select("id, name, email").eq("agency_id", agencyId),
-    supabase.from("lqs_households")
-      .select("id, phone, contact_id, first_name, last_name, zip_code, email")
-      .eq("agency_id", agencyId)
-      .not("phone", "is", null),
     supabase.from("agency_contacts").select("id, phones").eq("agency_id", agencyId),
   ]);
 
   const teamByName = new Map<string, string>();
   for (const tm of (teamResult.data || [])) {
     if (tm.name) teamByName.set(tm.name.toLowerCase(), tm.id);
-  }
-
-  const householdByPhone = new Map<string, {
-    householdId: string;
-    contactId: string | null;
-    firstName: string;
-    lastName: string;
-    zipCode: string;
-    email: string | null;
-  }>();
-  for (const h of (householdsResult.data || [])) {
-    const norm = normalizePhone(h.phone);
-    if (norm) {
-      householdByPhone.set(norm, {
-        householdId: h.id,
-        contactId: h.contact_id || null,
-        firstName: h.first_name || "",
-        lastName: h.last_name || "",
-        zipCode: h.zip_code || "",
-        email: h.email || null,
-      });
-    }
   }
 
   const contactByPhone = new Map<string, string>();
@@ -177,8 +143,8 @@ async function loadAgencyLookups(supabase: SupabaseClient, agencyId: string): Pr
     }
   }
 
-  console.log(`[ringcentral-report-ingest] Loaded ${teamByName.size} team members, ${householdByPhone.size} households, ${contactByPhone.size} contacts`);
-  return { agencyId, teamByName, householdByPhone, contactByPhone };
+  console.log(`[ringcentral-report-ingest] Loaded ${teamByName.size} team members, ${contactByPhone.size} contacts`);
+  return { agencyId, teamByName, contactByPhone };
 }
 
 function matchTeamMember(lookups: AgencyLookups, name: string | null): string | null {
@@ -258,6 +224,9 @@ async function processXlsxBuffer(
 
   const DEDUP_CHUNK = 1000; // Must stay ≤ PostgREST default max-rows (1000)
   const INSERT_CHUNK = 500;
+  const UNMATCHED_GUARDRAIL_MIN_ROWS = 2000;
+  const UNMATCHED_GUARDRAIL_MAX_RATIO = 0.95;
+  const UNMATCHED_GUARDRAIL_MIN_MATCHED = 25;
 
   if (hasCalls) {
     const callsSheet = workbook.Sheets["Calls"];
@@ -276,7 +245,6 @@ async function processXlsxBuffer(
       durationSeconds: number;
       callStartedAt: string | null;
       matchedTeamMemberId: string | null;
-      matchedProspectId: string | null;
       matchedContactId: string | null;
       normalizedProspectPhone: string | null;
       raw: Record<string, unknown>;
@@ -343,18 +311,9 @@ async function processXlsxBuffer(
         const prospectPhone = dirLower === "outbound" ? toNumber : fromNumber;
         const normalizedProspectPhone = normalizePhone(prospectPhone);
 
-        let matchedProspectId: string | null = null;
-        let matchedProspectContactId: string | null = null;
-        if (normalizedProspectPhone) {
-          const household = lookups.householdByPhone.get(normalizedProspectPhone);
-          matchedProspectId = household?.householdId || null;
-          matchedProspectContactId = household?.contactId || null;
-          if (matchedProspectId) prospectsMatched++;
-        }
-
         let matchedContactId: string | null = null;
         if (normalizedProspectPhone) {
-          matchedContactId = lookups.contactByPhone.get(normalizedProspectPhone) || matchedProspectContactId || null;
+          matchedContactId = lookups.contactByPhone.get(normalizedProspectPhone) || null;
         }
 
         let callStartedAt: string | null = null;
@@ -376,7 +335,7 @@ async function processXlsxBuffer(
           sessionId, direction: dirLower, agentName,
           fromNumber: fromNumber || null, toNumber: toNumber || null,
           result, durationSeconds, callStartedAt,
-          matchedTeamMemberId, matchedProspectId,
+          matchedTeamMemberId,
           matchedContactId, normalizedProspectPhone,
           raw: row,
         });
@@ -409,18 +368,33 @@ async function processXlsxBuffer(
     callsSkippedDuplicate += parsedCalls.length - newCalls.length;
     console.log(`[ringcentral-report-ingest] Dedup: ${callsSkippedDuplicate} duplicates, ${newCalls.length} new calls to insert`);
 
+    let insertableCalls = newCalls;
+    if (hasUsers && newCalls.length >= UNMATCHED_GUARDRAIL_MIN_ROWS) {
+      const matchedCount = newCalls.filter(c => !!c.matchedTeamMemberId).length;
+      const unmatchedCount = newCalls.length - matchedCount;
+      const unmatchedRatio = unmatchedCount / newCalls.length;
+
+      if (unmatchedRatio > UNMATCHED_GUARDRAIL_MAX_RATIO || matchedCount < UNMATCHED_GUARDRAIL_MIN_MATCHED) {
+        insertableCalls = newCalls.filter(c => !!c.matchedTeamMemberId);
+        console.warn(
+          `[ringcentral-report-ingest] Guardrail active: suppressed ${newCalls.length - insertableCalls.length} unmatched call_events ` +
+          `(matched=${matchedCount}, unmatched=${unmatchedCount}, ratio=${unmatchedRatio.toFixed(4)})`
+        );
+      }
+    }
+
     // ── Phase 3: Batch insert call_events (chunks of 500) ──
 
     const insertedCallMap = new Map<string, string>(); // sessionId → call_event.id
 
-    for (let i = 0; i < newCalls.length; i += INSERT_CHUNK) {
-      const chunk = newCalls.slice(i, i + INSERT_CHUNK);
+    for (let i = 0; i < insertableCalls.length; i += INSERT_CHUNK) {
+      const chunk = insertableCalls.slice(i, i + INSERT_CHUNK);
       const rows = chunk.map(c => ({
         agency_id: agencyId, provider: "ringcentral", external_call_id: c.sessionId,
         direction: c.direction, from_number: c.fromNumber, to_number: c.toNumber,
         duration_seconds: c.durationSeconds, call_started_at: c.callStartedAt, call_ended_at: null,
         result: c.result || null, extension_name: c.agentName,
-        matched_team_member_id: c.matchedTeamMemberId, matched_prospect_id: c.matchedProspectId,
+        matched_team_member_id: c.matchedTeamMemberId, matched_prospect_id: null,
         raw_payload: c.raw,
       }));
 
@@ -444,58 +418,8 @@ async function processXlsxBuffer(
 
     // ── Phase 4: Batch insert contact_activities (chunks of 500) ──
 
-    const unresolvedByPhone = new Map<string, string>(); // phone -> householdId
-    for (const call of newCalls) {
-      if (!call.matchedContactId && call.matchedProspectId && call.normalizedProspectPhone) {
-        unresolvedByPhone.set(call.normalizedProspectPhone, call.matchedProspectId);
-      }
-    }
-
-    if (unresolvedByPhone.size > 0) {
-      for (const [phone, householdId] of unresolvedByPhone.entries()) {
-        const household = lookups.householdByPhone.get(phone);
-        if (!household) continue;
-
-        try {
-          const { data: contactId, error: contactError } = await supabase.rpc("find_or_create_contact", {
-            p_agency_id: agencyId,
-            p_first_name: household.firstName || "UNKNOWN",
-            p_last_name: household.lastName || "UNKNOWN",
-            p_zip_code: household.zipCode || null,
-            p_phone: phone,
-            p_email: household.email || null,
-            p_street_address: null,
-            p_city: null,
-            p_state: null,
-          });
-
-          if (contactError || !contactId) {
-            console.error("[ringcentral-report-ingest] Contact resolve error:", contactError);
-            continue;
-          }
-
-          lookups.contactByPhone.set(phone, contactId as string);
-          lookups.householdByPhone.set(phone, {
-            ...household,
-            contactId: contactId as string,
-          });
-
-          const { error: householdUpdateError } = await supabase
-            .from("lqs_households")
-            .update({ contact_id: contactId as string })
-            .eq("id", householdId)
-            .is("contact_id", null);
-          if (householdUpdateError) {
-            console.error("[ringcentral-report-ingest] Household contact link update error:", householdUpdateError);
-          }
-        } catch (resolveError) {
-          console.error("[ringcentral-report-ingest] Contact resolve exception:", resolveError);
-        }
-      }
-    }
-
     const activities: Record<string, unknown>[] = [];
-    for (const call of newCalls) {
+    for (const call of insertableCalls) {
       if (!call.matchedContactId && call.normalizedProspectPhone) {
         call.matchedContactId = lookups.contactByPhone.get(call.normalizedProspectPhone) || null;
       }
@@ -528,6 +452,7 @@ async function processXlsxBuffer(
   }
 
   // ── Users sheet: batch upsert call_metrics_daily ──
+  // Keep this after Calls-sheet processing so Users totals are the final write.
 
   let metricsUpserted = 0;
   if (hasUsers) {

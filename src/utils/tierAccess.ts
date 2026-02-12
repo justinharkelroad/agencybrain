@@ -1,5 +1,5 @@
 // Canonical tier types
-export type TierType = 'one_on_one' | 'boardroom' | 'call_scoring' | 'inactive' | 'unknown';
+export type TierType = 'one_on_one' | 'boardroom' | 'call_scoring' | 'challenge_only' | 'inactive' | 'unknown';
 
 /**
  * Normalize any tier string to a canonical format
@@ -12,10 +12,13 @@ export function normalizeTier(tier: string | null | undefined): TierType {
   
   // Boardroom check
   if (lowerTier.includes('boardroom')) return 'boardroom';
-  
+
   // Call Scoring check
   if (lowerTier.includes('call scoring') || lowerTier.includes('call_scoring')) return 'call_scoring';
-  
+
+  // Six Week Challenge check
+  if (lowerTier.includes('six week challenge') || lowerTier.includes('challenge')) return 'challenge_only';
+
   // Inactive check
   if (lowerTier === 'inactive') return 'inactive';
   
@@ -65,18 +68,28 @@ export function isCallScoringTier(tier: string | null | undefined): boolean {
 }
 
 /**
- * Check if tier is a Challenge-only tier (limited access, similar to Call Scoring)
+ * Check if tier is Six Week Challenge only (limited access)
  */
 export function isChallengeTier(tier: string | null | undefined): boolean {
-  if (!tier) return false;
-  const lower = tier.toLowerCase();
-  return lower.includes('challenge');
+  return normalizeTier(tier) === 'challenge_only';
 }
 
 /**
  * Get the appropriate staff home path based on tier
- * Call Scoring tier goes to /staff/call-scoring, everyone else to /staff/dashboard
+ * Call Scoring tier goes to /staff/call-scoring, Challenge tier to /staff/challenge, everyone else to /staff/dashboard
  */
 export function getStaffHomePath(tier: string | null | undefined): string {
-  return isCallScoringTier(tier) ? '/staff/call-scoring' : '/staff/dashboard';
+  if (isCallScoringTier(tier)) return '/staff/call-scoring';
+  if (isChallengeTier(tier)) return '/staff/challenge';
+  return '/staff/dashboard';
+}
+
+/**
+ * Get the appropriate owner home path based on tier
+ * Challenge tier goes to /training/challenge, everyone else to /dashboard
+ */
+export function getOwnerHomePath(tier: string | null | undefined): string {
+  if (isChallengeTier(tier)) return '/training/challenge';
+  if (isCallScoringTier(tier)) return '/call-scoring';
+  return '/dashboard';
 }
