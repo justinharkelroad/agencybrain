@@ -41,10 +41,6 @@ export type Database = {
           description: string | null
           email_from: string | null
           id: string
-          breakup_letter_agency_display_name: string | null
-          breakup_letter_confirmation_reply_email: string | null
-          breakup_letter_primary_agent_name: string | null
-          breakup_letter_primary_agent_phone: string | null
           logo_url: string | null
           morning_digest_enabled: boolean | null
           morning_digest_sections: Json | null
@@ -92,10 +88,6 @@ export type Database = {
           description?: string | null
           email_from?: string | null
           id?: string
-          breakup_letter_agency_display_name?: string | null
-          breakup_letter_confirmation_reply_email?: string | null
-          breakup_letter_primary_agent_name?: string | null
-          breakup_letter_primary_agent_phone?: string | null
           logo_url?: string | null
           morning_digest_enabled?: boolean | null
           morning_digest_sections?: Json | null
@@ -143,10 +135,6 @@ export type Database = {
           description?: string | null
           email_from?: string | null
           id?: string
-          breakup_letter_agency_display_name?: string | null
-          breakup_letter_confirmation_reply_email?: string | null
-          breakup_letter_primary_agent_name?: string | null
-          breakup_letter_primary_agent_phone?: string | null
           logo_url?: string | null
           morning_digest_enabled?: boolean | null
           morning_digest_sections?: Json | null
@@ -167,90 +155,6 @@ export type Database = {
           suppress_if_final_exists?: boolean | null
           timezone?: string | null
           updated_at?: string
-        }
-        Relationships: []
-      }
-      breakup_letter_generation_events: {
-        Row: {
-          agency_id: string
-          carrier_count: number
-          contact_id: string | null
-          created_at: string
-          customer_name: string | null
-          generated_by_user_id: string
-          id: string
-          policy_count: number
-          source_context: string
-        }
-        Insert: {
-          agency_id: string
-          carrier_count?: number
-          contact_id?: string | null
-          created_at?: string
-          customer_name?: string | null
-          generated_by_user_id?: string
-          id?: string
-          policy_count?: number
-          source_context?: string
-        }
-        Update: {
-          agency_id?: string
-          carrier_count?: number
-          contact_id?: string | null
-          created_at?: string
-          customer_name?: string | null
-          generated_by_user_id?: string
-          id?: string
-          policy_count?: number
-          source_context?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "breakup_letter_generation_events_agency_id_fkey"
-            columns: ["agency_id"]
-            isOneToOne: false
-            referencedRelation: "agencies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "breakup_letter_generation_events_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "agency_contacts"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      breakup_letter_templates: {
-        Row: {
-          created_at: string
-          email_template: string
-          id: string
-          is_active: boolean
-          letter_template: string
-          name: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          email_template: string
-          id?: string
-          is_active?: boolean
-          letter_template: string
-          name: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          email_template?: string
-          id?: string
-          is_active?: boolean
-          letter_template?: string
-          name?: string
-          updated_at?: string
-          updated_by?: string | null
         }
         Relationships: []
       }
@@ -1389,6 +1293,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      call_events_cleanup_audit: {
+        Row: {
+          agency_id: string
+          archived_at: string
+          call_started_at: string | null
+          cleanup_tag: string
+          direction: string | null
+          duration_seconds: number | null
+          external_call_id: string | null
+          id: string
+          matched_team_member_id: string | null
+          provider: string
+          raw_payload: Json | null
+          source_call_event_id: string
+        }
+        Insert: {
+          agency_id: string
+          archived_at?: string
+          call_started_at?: string | null
+          cleanup_tag: string
+          direction?: string | null
+          duration_seconds?: number | null
+          external_call_id?: string | null
+          id?: string
+          matched_team_member_id?: string | null
+          provider: string
+          raw_payload?: Json | null
+          source_call_event_id: string
+        }
+        Update: {
+          agency_id?: string
+          archived_at?: string
+          call_started_at?: string | null
+          cleanup_tag?: string
+          direction?: string | null
+          duration_seconds?: number | null
+          external_call_id?: string | null
+          id?: string
+          matched_team_member_id?: string | null
+          provider?: string
+          raw_payload?: Json | null
+          source_call_event_id?: string
+        }
+        Relationships: []
       }
       call_metrics_daily: {
         Row: {
@@ -12451,6 +12400,25 @@ export type Database = {
           },
         ]
       }
+      vw_ringcentral_unmatched_daily: {
+        Row: {
+          agency_id: string | null
+          day_utc: string | null
+          matched_rows: number | null
+          total_rows: number | null
+          unmatched_ratio: number | null
+          unmatched_rows: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_events_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vw_submission_metrics: {
         Row: {
           outbound_calls: number | null
@@ -12882,6 +12850,22 @@ export type Database = {
       }
       get_my_agency_id: { Args: never; Returns: string }
       get_next_monday: { Args: { p_from_date?: string }; Returns: string }
+      get_ringcentral_unmatched_alerts: {
+        Args: {
+          p_days?: number
+          p_min_rows?: number
+          p_min_unmatched_ratio?: number
+        }
+        Returns: {
+          agency_id: string
+          agency_name: string
+          day_utc: string
+          matched_rows: number
+          total_rows: number
+          unmatched_ratio: number
+          unmatched_rows: number
+        }[]
+      }
       get_sales_experience_business_day: {
         Args: { p_check_date: string; p_start_date: string }
         Returns: number
