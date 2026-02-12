@@ -249,10 +249,17 @@ serve(async (req) => {
         console.error('Dashboard daily agency call totals error:', totalsError);
         // Non-fatal — fall back to per-member sums in the frontend
       } else if (totalsData) {
-        agencyCallTotals = {
-          outbound_calls: Number(totalsData.outbound_calls) || 0,
-          talk_minutes: Number(totalsData.talk_minutes) || 0,
-        };
+        const outboundCalls = Number(totalsData.outbound_calls) || 0;
+        const talkMinutes = Number(totalsData.talk_minutes) || 0;
+
+        // Keep the "Entire Agency" override only when call_events has actual data.
+        // If it's all-zero, fall back to per-member rollups from call_metrics_daily.
+        if (outboundCalls > 0 || talkMinutes > 0) {
+          agencyCallTotals = {
+            outbound_calls: outboundCalls,
+            talk_minutes: talkMinutes,
+          };
+        }
       }
     }
 
