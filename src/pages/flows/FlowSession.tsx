@@ -427,7 +427,7 @@ export default function FlowSession() {
     );
   }
 
-  if (!template || !currentQuestion) {
+  if (!template) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card>
@@ -438,6 +438,20 @@ export default function FlowSession() {
             </Button>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  // If all questions are answered (currentQuestion is undefined), navigate to completion
+  if (!currentQuestion) {
+    if (session?.id) {
+      navigate(`/flows/complete/${session.id}`, { replace: true });
+    } else {
+      navigate('/flows', { replace: true });
+    }
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
