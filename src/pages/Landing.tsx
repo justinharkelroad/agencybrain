@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
+import { Brain, Users } from "lucide-react";
 import lightModeLogo from "@/assets/agencybrain-logo-light.png";
 
 const DARK_MODE_LOGO = "https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png";
@@ -75,23 +76,34 @@ export default function Landing() {
             </div>
           </div>
 
-          {/* Buttons */}
-          <div className="flex flex-col items-center gap-4 w-full max-w-xs mx-auto">
-            <Link to="/auth" className="w-full">
-              <Button size="lg" className="w-full text-lg py-6">
-                Sign In
-              </Button>
-            </Link>
-            <Link to="/auth" className="w-full">
-              <Button size="lg" variant="outline" className="w-full text-lg py-6">
-                Create Account
-              </Button>
-            </Link>
+          {/* Portal Buttons */}
+          <div className="flex flex-col gap-3 w-full max-w-sm mx-auto">
+            <Button asChild variant="flat" size="lg" className="rounded-full px-8 text-base sm:text-lg w-full h-14">
+              <Link to="/auth" aria-label="Enter Brain Portal" className="flex items-center justify-center gap-3">
+                <Brain className="h-5 w-5" />
+                <div className="flex flex-col items-start leading-tight">
+                  <span className="font-semibold">Brain Portal</span>
+                  <span className="text-xs opacity-80">For Agency Owners</span>
+                </div>
+              </Link>
+            </Button>
+            
+            <Button asChild variant="outline" size="lg" className="rounded-full px-8 text-base sm:text-lg w-full h-14 border-2">
+              <Link to="/staff/login" aria-label="Enter Staff Portal" className="flex items-center justify-center gap-3">
+                <Users className="h-5 w-5" />
+                <div className="flex flex-col items-start leading-tight">
+                  <span className="font-semibold">Staff Portal</span>
+                  <span className="text-xs opacity-80">For Team Members</span>
+                </div>
+              </Link>
+            </Button>
+
+            {/* How do I access AgencyBrain? */}
             <a
               href="https://standardplaybook.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="w-3/4 mt-2"
+              className="w-3/4 mx-auto mt-2"
             >
               <Button variant="ghost" className="w-full text-sm py-4 text-muted-foreground">
                 How do I access AgencyBrain?
