@@ -1,20 +1,24 @@
 
 
-## Fix Build Errors: Remove Unknown `gateReturnPath` Prop
+## Problem
 
-These errors are **not** related to the 6-week challenge. They come from `gateReturnPath` being passed to two sidebar components (`SidebarNavItem` and `SidebarSubFolder`) whose TypeScript interfaces don't include that prop. The simplest fix is to remove the prop from the call sites since neither component uses it internally.
+The home page (`/`) is rendered by **`src/pages/Landing.tsx`**, not `src/pages/Index.tsx`. All previous edits went to the wrong file, which is why nothing changed on screen.
 
-### Changes
+## Plan
 
-**1. `src/components/AppSidebar.tsx`** -- Remove `gateReturnPath` from three locations:
-- Line 551: Remove `gateReturnPath={gateReturnPath}` from `<SidebarSubFolder>`
-- Line 590: Remove `gateReturnPath={gateReturnPath}` from nested `<SidebarNavItem>`
-- Line 620: Remove `gateReturnPath={gateReturnPath}` from top-level `<SidebarNavItem>`
+**Edit `src/pages/Landing.tsx`** to replace the current content (video frame, Brain Portal, Staff Portal, lead capture modal) with a simple centered layout:
 
-**2. `src/components/sales/BreakupLetterModal.tsx`** -- Line 126: Replace `.replaceAll(...)` with `.replace(/pattern/g, ...)` to fix the ES2021 compatibility error.
+1. Remove the video (`LaptopVideoFrame`), the "Brain Portal" / "Staff Portal" buttons, and the "I Want Info on AgencyBrain" lead-capture button/modal.
+2. Keep the oversized logo with the animated background.
+3. Add three buttons stacked vertically:
+   - **Sign In** -- full width, links to `/auth`
+   - **Create Account** -- full width, outline variant, links to `/auth`
+   - **How do I access AgencyBrain?** -- 75% width, ghost/subdued style, links to `https://standardplaybook.com` in a new tab
 
-### Why This Is Safe
+### Technical details
 
-- Neither `SidebarNavItem` nor `SidebarSubFolder` reference `gateReturnPath` in their code -- the prop was being passed but ignored.
-- The `.replaceAll` fix is a standard JS compatibility pattern with identical behavior.
+- Remove imports: `LaptopVideoFrame`, `LeadCaptureModal`, `Brain`, `Users`, `ArrowRight`, and the `showLeadModal` state.
+- Replace the portal buttons section and video section with the three simple buttons (matching the style already written in `Index.tsx`).
+- Keep the `AgencyBrainBadge` or the existing dual light/dark logo images (they already work well).
+- Keep the `AnimatedBackground`, loading state, and auth redirect logic untouched.
 
