@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { ShieldAlert, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,9 +22,11 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  ReferenceDot,
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { useLqsObjectionAnalysis } from '@/hooks/useLqsObjectionAnalysis';
+import { PulseMarker } from '@/components/charts/PulseMarker';
 
 interface LqsObjectionAnalysisProps {
   agencyId: string | null;
@@ -39,6 +41,7 @@ function formatPercent(value: number | null): string {
 export function LqsObjectionAnalysis({ agencyId, dateRange }: LqsObjectionAnalysisProps) {
   const { data, isLoading } = useLqsObjectionAnalysis(agencyId, dateRange);
   const [tab, setTab] = useState('bySource');
+  const chartId = useId().replace(/:/g, '');
 
   if (isLoading) {
     return (
@@ -108,6 +111,7 @@ export function LqsObjectionAnalysis({ agencyId, dateRange }: LqsObjectionAnalys
     soldDespite: f.soldDespite,
     percentage: f.percentage,
   }));
+  const latestTrendPoint = [...data.trend].reverse().find((point) => typeof point.objectionRate === 'number');
 
   return (
     <Card>
@@ -313,16 +317,26 @@ export function LqsObjectionAnalysis({ agencyId, dateRange }: LqsObjectionAnalys
               <>
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={data.trend} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <defs>
+                      <linearGradient id={`${chartId}-objection-line`} x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="#f97316" stopOpacity={0.55} />
+                        <stop offset="100%" stopColor="#f97316" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} strokeDasharray="8 8" className="stroke-border/70" />
                     <XAxis
                       dataKey="month"
                       tick={{ fontSize: 12 }}
                       className="fill-muted-foreground"
+                      tickLine={false}
+                      axisLine={false}
                     />
                     <YAxis
                       tick={{ fontSize: 12 }}
                       className="fill-muted-foreground"
                       tickFormatter={(v) => `${v}%`}
+                      tickLine={false}
+                      axisLine={false}
                     />
                     <RechartsTooltip
                       contentStyle={{
@@ -334,12 +348,21 @@ export function LqsObjectionAnalysis({ agencyId, dateRange }: LqsObjectionAnalys
                       formatter={(value: number) => [`${value.toFixed(1)}%`, 'Objection Rate']}
                     />
                     <Line
-                      type="monotone"
+                      type="natural"
                       dataKey="objectionRate"
-                      stroke="#f97316"
-                      strokeWidth={2}
-                      dot={{ r: 4, fill: '#f97316' }}
+                      stroke={`url(#${chartId}-objection-line)`}
+                      strokeWidth={2.8}
+                      dot={false}
+                      activeDot={{ r: 5, fill: '#f97316', strokeWidth: 0 }}
                     />
+                    {latestTrendPoint && (
+                      <ReferenceDot
+                        x={latestTrendPoint.month}
+                        y={latestTrendPoint.objectionRate}
+                        ifOverflow="visible"
+                        shape={<PulseMarker color="#f97316" />}
+                      />
+                    )}
                   </LineChart>
                 </ResponsiveContainer>
                 <div className="overflow-x-auto border rounded-lg">

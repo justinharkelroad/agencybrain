@@ -119,13 +119,13 @@ export function GCTrendChart({ snapshots }: GCTrendChartProps) {
           <ResponsiveContainer width="100%" height="100%">
             {view === 'growth' ? (
               <AreaChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                <CartesianGrid vertical={false} strokeDasharray="8 8" className="stroke-border/50" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={tooltipStyle} />
                 <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="4 4" />
                 <Area
-                  type="monotone"
+                  type="natural"
                   dataKey="growthPoints"
                   stroke={SERIES_COLORS.growth}
                   fill={SERIES_COLORS.growth}
@@ -135,7 +135,7 @@ export function GCTrendChart({ snapshots }: GCTrendChartProps) {
               </AreaChart>
             ) : view === 'retention' ? (
               <ComposedChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                <CartesianGrid vertical={false} strokeDasharray="8 8" className="stroke-border/50" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                 <YAxis yAxisId="left" domain={[0, 100]} tickFormatter={(v) => `${v.toFixed(0)}%`} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                 <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v.toFixed(1)} pts`} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
@@ -147,12 +147,12 @@ export function GCTrendChart({ snapshots }: GCTrendChartProps) {
                   }}
                 />
                 <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="retentionCurrent" name="Retention" stroke={SERIES_COLORS.retention} strokeWidth={2.2} dot={{ r: 3 }} />
-                <Line yAxisId="right" type="monotone" dataKey="retentionVariancePy" name="PY Variance" stroke={SERIES_COLORS.variance} strokeWidth={2.2} strokeDasharray="5 5" dot={{ r: 3 }} />
+                <Line yAxisId="left" type="natural" dataKey="retentionCurrent" name="Retention" stroke={SERIES_COLORS.retention} strokeWidth={2.6} dot={false} activeDot={{ r: 4 }} />
+                <Line yAxisId="right" type="natural" dataKey="retentionVariancePy" name="PY Variance" stroke={SERIES_COLORS.variance} strokeWidth={2.4} strokeDasharray="6 6" dot={false} activeDot={{ r: 4 }} />
               </ComposedChart>
             ) : view === 'premium' ? (
               <ComposedChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                <CartesianGrid vertical={false} strokeDasharray="8 8" className="stroke-border/50" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                 <YAxis
                   yAxisId="left"
@@ -179,18 +179,18 @@ export function GCTrendChart({ snapshots }: GCTrendChartProps) {
                 <Legend />
                 <Bar yAxisId="left" dataKey="premiumNew" name="New Premium" stackId="premium" fill={SERIES_COLORS.premiumNew} radius={[4, 4, 0, 0]} />
                 <Bar yAxisId="left" dataKey="premiumRenewal" name="Renewal Premium" stackId="premium" fill={SERIES_COLORS.premiumRenewal} radius={[4, 4, 0, 0]} />
-                <Line yAxisId="right" type="monotone" dataKey="premiumVarianceYtd" name="YTD Variance" stroke={SERIES_COLORS.premiumTrend} strokeWidth={2.2} dot={{ r: 3 }} />
+                <Line yAxisId="right" type="natural" dataKey="premiumVarianceYtd" name="YTD Variance" stroke={SERIES_COLORS.premiumTrend} strokeWidth={2.6} dot={false} activeDot={{ r: 4 }} />
               </ComposedChart>
             ) : (
               <ComposedChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                <CartesianGrid vertical={false} strokeDasharray="8 8" className="stroke-border/50" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                 <YAxis domain={[0, 100]} tickFormatter={(v) => `${v.toFixed(0)}%`} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                 <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => `${value.toFixed(2)}%`} />
                 <ReferenceArea y1={0} y2={40} fill="hsl(142 76% 36%)" fillOpacity={0.08} />
                 <ReferenceArea y1={50} y2={100} fill="hsl(0 84% 60%)" fillOpacity={0.08} />
-                <Area type="monotone" dataKey="lossRatio12" name="12MM" stroke={SERIES_COLORS.loss12} fill={SERIES_COLORS.loss12} fillOpacity={0.1} strokeWidth={2.2} />
-                <Line type="monotone" dataKey="lossRatio24" name="24MM" stroke={SERIES_COLORS.loss24} strokeWidth={2.2} strokeDasharray="5 5" dot={{ r: 2 }} />
+                <Area type="natural" dataKey="lossRatio12" name="12MM" stroke={SERIES_COLORS.loss12} fill={SERIES_COLORS.loss12} fillOpacity={0.1} strokeWidth={2.2} />
+                <Line type="natural" dataKey="lossRatio24" name="24MM" stroke={SERIES_COLORS.loss24} strokeWidth={2.4} strokeDasharray="6 6" dot={false} activeDot={{ r: 4 }} />
               </ComposedChart>
             )}
           </ResponsiveContainer>

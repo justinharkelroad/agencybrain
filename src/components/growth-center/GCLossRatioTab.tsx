@@ -145,14 +145,14 @@ export function GCLossRatioTab({ snapshots, reports }: GCLossRatioTabProps) {
           <div className="h-[180px]">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                <CartesianGrid vertical={false} strokeDasharray="8 8" className="stroke-border/50" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(v) => `${v.toFixed(0)}%`} />
                 <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => `${value.toFixed(2)}%`} />
                 <ReferenceArea y1={0} y2={40} fill="hsl(142 76% 36%)" fillOpacity={0.08} />
                 <ReferenceArea y1={50} y2={100} fill="hsl(0 84% 60%)" fillOpacity={0.08} />
-                <Area type="monotone" dataKey="lossRatio12" stroke="hsl(188 87% 47%)" fill="hsl(188 87% 47%)" fillOpacity={0.12} strokeWidth={2.2} />
-                <Line type="monotone" dataKey="lossRatio24" stroke="hsl(31 95% 55%)" strokeWidth={2.2} strokeDasharray="5 5" dot={false} />
+                <Area type="natural" dataKey="lossRatio12" stroke="hsl(188 87% 47%)" fill="hsl(188 87% 47%)" fillOpacity={0.12} strokeWidth={2.2} />
+                <Line type="natural" dataKey="lossRatio24" stroke="hsl(31 95% 55%)" strokeWidth={2.4} strokeDasharray="6 6" dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -160,12 +160,12 @@ export function GCLossRatioTab({ snapshots, reports }: GCLossRatioTabProps) {
           <div className="h-[140px]">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={trendData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
+                <CartesianGrid vertical={false} strokeDasharray="8 8" className="stroke-border/50" />
                 <XAxis dataKey="month" tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                 <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${Math.round(v / 100000)}K`} />
                 <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => toCurrency(value)} />
-                <Area type="monotone" dataKey="earnedPremium12" stroke="hsl(214 89% 60%)" fill="hsl(214 89% 60%)" fillOpacity={0.18} />
-                <Line type="monotone" dataKey="paidLosses12" stroke="hsl(355 78% 60%)" strokeWidth={2.2} dot={false} />
+                <Area type="natural" dataKey="earnedPremium12" stroke="hsl(214 89% 60%)" fill="hsl(214 89% 60%)" fillOpacity={0.18} />
+                <Line type="natural" dataKey="paidLosses12" stroke="hsl(355 78% 60%)" strokeWidth={2.4} dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>

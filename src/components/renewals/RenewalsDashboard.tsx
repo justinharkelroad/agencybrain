@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine } from 'recharts';
@@ -13,10 +13,21 @@ interface RenewalsDashboardProps {
   activeDayFilter: number | null;
 }
 
+type AreaTooltipPayload = {
+  value: number;
+  payload: { dateLabel: string };
+};
+
+type BarTooltipPayload = {
+  value: number;
+  payload: { dayIndex: number };
+};
+
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilter, activeDateFilter, activeDayFilter }: RenewalsDashboardProps) {
+  const chartId = useId().replace(/:/g, '');
   // Calculate data for the past 6 days + today (7 days total)
   const upcomingData = useMemo(() => {
     const today = startOfDay(new Date());
@@ -85,7 +96,7 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
   const maxDayCount = Math.max(...dayOfWeekData.map(d => d.count), 1);
 
   // Custom tooltip for area chart
-  const AreaTooltip = ({ active, payload, label }: any) => {
+  const AreaTooltip = ({ active, payload }: { active?: boolean; payload?: AreaTooltipPayload[] }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-slate-800 text-white px-3 py-2 rounded shadow-lg text-sm">
@@ -98,7 +109,7 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
   };
 
   // Custom tooltip for bar chart
-  const BarTooltip = ({ active, payload }: any) => {
+  const BarTooltip = ({ active, payload }: { active?: boolean; payload?: BarTooltipPayload[] }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-slate-800 text-white px-3 py-2 rounded shadow-lg text-sm">
@@ -140,12 +151,16 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
                 }}
               >
                 <defs>
-                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id={`${chartId}-count-fill`} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
+                  <linearGradient id={`${chartId}-count-line`} x1="0" y1="0" x2="100%" y2="0">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.6} />
+                    <stop offset="100%" stopColor="#3b82f6" />
+                  </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                <CartesianGrid strokeDasharray="8 8" stroke="#374151" vertical={false} />
                 <XAxis
                   dataKey="dateLabel"
                   stroke="#9ca3af"
@@ -168,11 +183,11 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
                   label={{ value: `Avg: ${averageCount.toFixed(1)}/day`, position: 'right', fill: '#22c55e', fontSize: 11 }}
                 />
                 <Area
-                  type="monotone"
+                  type="natural"
                   dataKey="count"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  fill="url(#colorCount)"
+                  stroke={`url(#${chartId}-count-line)`}
+                  strokeWidth={2.6}
+                  fill={`url(#${chartId}-count-fill)`}
                   dot={({ cx, cy, payload }) => {
                     const isActive = activeDateFilter === payload.date;
                     const isBelowAvg = payload.count < averageCount;

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, ChevronLeft, User, Target, DollarSign, ExternalLink, TrendingUp, BarChart3 } from 'lucide-react';
 import {
   LineChart,
@@ -8,6 +8,7 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  ReferenceDot,
 } from 'recharts';
 import {
   Sheet,
@@ -38,6 +39,7 @@ import { useLqsProducerDetail, ProducerViewMode, ProducerHouseholdRow } from '@/
 import { useLqsHouseholdById } from '@/hooks/useLqsHouseholdById';
 import { LqsHouseholdDetailModal } from './LqsHouseholdDetailModal';
 import { format, differenceInDays } from 'date-fns';
+import { PulseMarker } from '@/components/charts/PulseMarker';
 
 interface LqsProducerDetailSheetProps {
   agencyId: string | null;
@@ -261,6 +263,7 @@ export function LqsProducerDetailSheet({
   open,
   onOpenChange,
 }: LqsProducerDetailSheetProps) {
+  const trendChartId = useId().replace(/:/g, '');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -329,6 +332,12 @@ export function LqsProducerDetailSheet({
   }, [data?.households]);
 
   const viewModeLabel = viewMode === 'quotedBy' ? 'Quoted By' : 'Sold By';
+  const lastQuotedPoint = [...(data?.trendData ?? [])]
+    .reverse()
+    .find((point) => typeof point.quotedHouseholds === 'number');
+  const lastSoldPoint = [...(data?.trendData ?? [])]
+    .reverse()
+    .find((point) => typeof point.soldHouseholds === 'number');
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -509,12 +518,23 @@ export function LqsProducerDetailSheet({
                     <div className="h-[200px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={data.trendData} margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                          <defs>
+                            <linearGradient id={`${trendChartId}-quoted`} x1="0%" y1="0%" x2="100%" y2="0%">
+                              <stop offset="0%" stopColor="hsl(38 92% 50%)" stopOpacity={0.55} />
+                              <stop offset="100%" stopColor="hsl(38 92% 50%)" />
+                            </linearGradient>
+                            <linearGradient id={`${trendChartId}-sold`} x1="0%" y1="0%" x2="100%" y2="0%">
+                              <stop offset="0%" stopColor="hsl(142.1 76.2% 36.3%)" stopOpacity={0.55} />
+                              <stop offset="100%" stopColor="hsl(142.1 76.2% 36.3%)" />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid vertical={false} strokeDasharray="8 8" className="stroke-border/70" />
                           <XAxis
                             dataKey="periodLabel"
                             tick={{ fontSize: 11 }}
                             className="text-muted-foreground"
                             tickLine={false}
+                            axisLine={false}
                           />
                           <YAxis
                             tick={{ fontSize: 11 }}
@@ -524,21 +544,39 @@ export function LqsProducerDetailSheet({
                           />
                           <Tooltip content={<TrendTooltip />} />
                           <Line
-                            type="monotone"
+                            type="natural"
                             dataKey="quotedHouseholds"
-                            stroke="hsl(38 92% 50%)"
-                            strokeWidth={2}
-                            dot={{ fill: 'hsl(38 92% 50%)', strokeWidth: 0, r: 3 }}
+                            stroke={`url(#${trendChartId}-quoted)`}
+                            strokeWidth={2.6}
+                            dot={false}
+                            activeDot={{ r: 4, fill: 'hsl(38 92% 50%)', strokeWidth: 0 }}
                             name="Quoted"
                           />
                           <Line
-                            type="monotone"
+                            type="natural"
                             dataKey="soldHouseholds"
-                            stroke="hsl(142.1 76.2% 36.3%)"
-                            strokeWidth={2}
-                            dot={{ fill: 'hsl(142.1 76.2% 36.3%)', strokeWidth: 0, r: 3 }}
+                            stroke={`url(#${trendChartId}-sold)`}
+                            strokeWidth={2.6}
+                            dot={false}
+                            activeDot={{ r: 4, fill: 'hsl(142.1 76.2% 36.3%)', strokeWidth: 0 }}
                             name="Sold"
                           />
+                          {lastQuotedPoint && (
+                            <ReferenceDot
+                              x={lastQuotedPoint.periodLabel}
+                              y={lastQuotedPoint.quotedHouseholds}
+                              ifOverflow="visible"
+                              shape={<PulseMarker color="hsl(38 92% 50%)" coreRadius={2.7} pulseRadius={8} />}
+                            />
+                          )}
+                          {lastSoldPoint && (
+                            <ReferenceDot
+                              x={lastSoldPoint.periodLabel}
+                              y={lastSoldPoint.soldHouseholds}
+                              ifOverflow="visible"
+                              shape={<PulseMarker color="hsl(142.1 76.2% 36.3%)" coreRadius={2.7} pulseRadius={8} />}
+                            />
+                          )}
                         </LineChart>
                       </ResponsiveContainer>
                     </div>
