@@ -106,7 +106,7 @@ export default function Landing() {
               className="w-3/4 mx-auto mt-2"
             >
               <Button variant="ghost" className="w-full text-sm py-4 text-muted-foreground">
-                How do I access AgencyBrain?
+                How do I access Standard & AgencyBrain?
               </Button>
             </a>
           </div>
