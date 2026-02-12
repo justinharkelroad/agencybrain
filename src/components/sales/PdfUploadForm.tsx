@@ -700,7 +700,7 @@ export function PdfUploadForm({
       const breakupPolicies = stagedPolicies.map((policy) => ({
         id: policy.id,
         policyTypeName: policy.productTypeName,
-        policyNumber: policy.policyNumber || "",
+        policyNumber: "",
         effectiveDate: format(policy.effectiveDate || todayLocal(), "yyyy-MM-dd"),
         carrierName: "Prior Carrier",
       }));

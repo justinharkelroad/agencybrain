@@ -851,7 +851,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         const breakupPolicies = policies.map((policy) => ({
           id: policy.id,
           policyTypeName: policy.policy_type_name,
-          policyNumber: policy.policy_number || "",
+          policyNumber: "",
           effectiveDate: format(policy.effective_date || saleDate, "yyyy-MM-dd"),
           carrierName: policy.isBrokered
             ? brokeredCarriers.find((carrier) => carrier.id === policy.brokeredCarrierId)?.name || fallbackPriorCarrier
