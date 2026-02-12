@@ -392,7 +392,7 @@ export default function StaffSalesLesson() {
       )}
 
       {/* Discovery Flow Section */}
-      {lesson.is_discovery_flow && lesson.progress?.status !== 'completed' && (
+      {lesson.is_discovery_flow && lesson.progress?.status !== 'locked' && (
         <Card className="mb-6 border-purple-500/30 bg-purple-500/5">
           <CardContent className="py-6">
             <div className="text-center space-y-4">
@@ -411,7 +411,7 @@ export default function StaffSalesLesson() {
                   if (hasProfile) {
                     navigate('/staff/flows/start/discovery');
                   } else {
-                    navigate('/staff/flows/profile', { state: { returnTo: `/staff/flows/start/discovery` } });
+                    navigate('/staff/flows/profile', { state: { redirectTo: `/staff/flows/start/discovery` } });
                   }
                 }}
                 disabled={profileLoading}
