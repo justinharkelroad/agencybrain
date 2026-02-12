@@ -12587,6 +12587,13 @@ export type Database = {
           total_talk_seconds: number
         }[]
       }
+      get_agency_call_totals_from_events: {
+        Args: { p_agency_id: string; p_date: string; p_timezone?: string }
+        Returns: {
+          outbound_calls: number
+          talk_minutes: number
+        }[]
+      }
       get_agency_dates_now: { Args: { p_agency_id: string }; Returns: Json }
       get_agency_id_by_slug: { Args: { p_slug: string }; Returns: string }
       get_agency_safe: {
