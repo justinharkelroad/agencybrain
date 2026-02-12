@@ -80,9 +80,26 @@ function extractReportDateFromFilters(workbook: XLSX.WorkBook): string | null {
 }
 
 function getCol(row: Record<string, unknown>, ...names: string[]): unknown {
+  const normalizeHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  // Fast path for exact matches.
   for (const n of names) {
     if (row[n] !== undefined && row[n] !== null) return row[n];
   }
+
+  // Fallback path for vendor header drift (spaces, punctuation, casing).
+  const normalizedRow = new Map<string, unknown>();
+  for (const [key, value] of Object.entries(row)) {
+    if (value !== undefined && value !== null) {
+      normalizedRow.set(normalizeHeader(key), value);
+    }
+  }
+
+  for (const n of names) {
+    const normalized = normalizeHeader(n);
+    if (normalizedRow.has(normalized)) return normalizedRow.get(normalized);
+  }
+
   return undefined;
 }
 
@@ -489,9 +506,32 @@ async function processXlsxBuffer(
 
         const totalHandleTime = getCol(row, "Total Handle Time", "total_handle_time");
         const totalHandleSeconds = parseDuration(totalHandleTime);
-        const inboundCalls = Number(getCol(row, "# Inbound", "# Inbounc", "Inbound Calls", "inbound_calls") || 0);
-        const outboundCalls = Number(getCol(row, "# Outbound", "# Outboun", "# Outbou", "Outbound Calls", "outbound_calls") || 0);
-        const totalCalls = Number(getCol(row, "Total Calls", "total_calls") || (inboundCalls + outboundCalls));
+        const inboundCalls = Number(getCol(
+          row,
+          "# Inbound",
+          "# Inbound Calls",
+          "# Inbounc",
+          "Inbound Calls",
+          "inbound_calls",
+        ) || 0);
+
+        const rawOutboundCalls = Number(getCol(
+          row,
+          "# Outbound",
+          "# Outbound Calls",
+          "# Outbound Call",
+          "# Outboun",
+          "# Outbou",
+          "Outbound Calls",
+          "outbound_calls",
+        ) || 0);
+
+        const totalCalls = Number(getCol(row, "Total Calls", "total_calls") || (inboundCalls + rawOutboundCalls));
+        const outboundCalls = rawOutboundCalls > 0
+          ? rawOutboundCalls
+          : (Number.isFinite(totalCalls) && Number.isFinite(inboundCalls) && totalCalls >= inboundCalls
+            ? Math.max(totalCalls - inboundCalls, 0)
+            : 0);
 
         metricsRows.push({
           agency_id: agencyId, team_member_id: teamMemberId, date: reportDate,
