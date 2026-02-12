@@ -152,7 +152,7 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
               >
                 <defs>
                   <linearGradient id={`${chartId}-count-fill`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.42} />
                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id={`${chartId}-count-line`} x1="0" y1="0" x2="100%" y2="0">
@@ -186,7 +186,7 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
                   type="natural"
                   dataKey="count"
                   stroke={`url(#${chartId}-count-line)`}
-                  strokeWidth={2.6}
+                  strokeWidth={3}
                   fill={`url(#${chartId}-count-fill)`}
                   dot={({ cx, cy, payload }) => {
                     const isActive = activeDateFilter === payload.date;

@@ -491,8 +491,17 @@ const AdminCallScoringDashboard = () => {
                     <Line
                       type="natural"
                       dataKey="cost"
+                      stroke="hsl(var(--chart-1))"
+                      strokeOpacity={0.22}
+                      strokeWidth={7}
+                      dot={false}
+                      activeDot={false}
+                    />
+                    <Line
+                      type="natural"
+                      dataKey="cost"
                       stroke={`url(#${chartId}-daily-cost-line)`}
-                      strokeWidth={2.8}
+                      strokeWidth={3.2}
                       dot={false}
                       activeDot={{ r: 5, fill: 'hsl(var(--chart-1))', strokeWidth: 0 }}
                     />

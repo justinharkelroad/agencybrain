@@ -147,8 +147,8 @@ export function GCTrendChart({ snapshots }: GCTrendChartProps) {
                   }}
                 />
                 <Legend />
-                <Line yAxisId="left" type="natural" dataKey="retentionCurrent" name="Retention" stroke={SERIES_COLORS.retention} strokeWidth={2.6} dot={false} activeDot={{ r: 4 }} />
-                <Line yAxisId="right" type="natural" dataKey="retentionVariancePy" name="PY Variance" stroke={SERIES_COLORS.variance} strokeWidth={2.4} strokeDasharray="6 6" dot={false} activeDot={{ r: 4 }} />
+                <Line yAxisId="left" type="natural" dataKey="retentionCurrent" name="Retention" stroke={SERIES_COLORS.retention} strokeWidth={3} dot={false} activeDot={{ r: 4.5 }} />
+                <Line yAxisId="right" type="natural" dataKey="retentionVariancePy" name="PY Variance" stroke={SERIES_COLORS.variance} strokeWidth={2.7} strokeDasharray="6 6" dot={false} activeDot={{ r: 4.5 }} />
               </ComposedChart>
             ) : view === 'premium' ? (
               <ComposedChart data={data}>
@@ -179,7 +179,7 @@ export function GCTrendChart({ snapshots }: GCTrendChartProps) {
                 <Legend />
                 <Bar yAxisId="left" dataKey="premiumNew" name="New Premium" stackId="premium" fill={SERIES_COLORS.premiumNew} radius={[4, 4, 0, 0]} />
                 <Bar yAxisId="left" dataKey="premiumRenewal" name="Renewal Premium" stackId="premium" fill={SERIES_COLORS.premiumRenewal} radius={[4, 4, 0, 0]} />
-                <Line yAxisId="right" type="natural" dataKey="premiumVarianceYtd" name="YTD Variance" stroke={SERIES_COLORS.premiumTrend} strokeWidth={2.6} dot={false} activeDot={{ r: 4 }} />
+                <Line yAxisId="right" type="natural" dataKey="premiumVarianceYtd" name="YTD Variance" stroke={SERIES_COLORS.premiumTrend} strokeWidth={3} dot={false} activeDot={{ r: 4.5 }} />
               </ComposedChart>
             ) : (
               <ComposedChart data={data}>
@@ -190,7 +190,7 @@ export function GCTrendChart({ snapshots }: GCTrendChartProps) {
                 <ReferenceArea y1={0} y2={40} fill="hsl(142 76% 36%)" fillOpacity={0.08} />
                 <ReferenceArea y1={50} y2={100} fill="hsl(0 84% 60%)" fillOpacity={0.08} />
                 <Area type="natural" dataKey="lossRatio12" name="12MM" stroke={SERIES_COLORS.loss12} fill={SERIES_COLORS.loss12} fillOpacity={0.1} strokeWidth={2.2} />
-                <Line type="natural" dataKey="lossRatio24" name="24MM" stroke={SERIES_COLORS.loss24} strokeWidth={2.4} strokeDasharray="6 6" dot={false} activeDot={{ r: 4 }} />
+                <Line type="natural" dataKey="lossRatio24" name="24MM" stroke={SERIES_COLORS.loss24} strokeWidth={2.8} strokeDasharray="6 6" dot={false} activeDot={{ r: 4.5 }} />
               </ComposedChart>
             )}
           </ResponsiveContainer>

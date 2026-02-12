@@ -546,11 +546,31 @@ export function LqsProducerDetailSheet({
                           <Line
                             type="natural"
                             dataKey="quotedHouseholds"
+                            stroke="hsl(38 92% 50%)"
+                            strokeOpacity={0.2}
+                            strokeWidth={5.6}
+                            dot={false}
+                            activeDot={false}
+                            name="Quoted"
+                          />
+                          <Line
+                            type="natural"
+                            dataKey="quotedHouseholds"
                             stroke={`url(#${trendChartId}-quoted)`}
                             strokeWidth={2.6}
                             dot={false}
                             activeDot={{ r: 4, fill: 'hsl(38 92% 50%)', strokeWidth: 0 }}
                             name="Quoted"
+                          />
+                          <Line
+                            type="natural"
+                            dataKey="soldHouseholds"
+                            stroke="hsl(142.1 76.2% 36.3%)"
+                            strokeOpacity={0.2}
+                            strokeWidth={5.6}
+                            dot={false}
+                            activeDot={false}
+                            name="Sold"
                           />
                           <Line
                             type="natural"

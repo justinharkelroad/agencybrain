@@ -350,8 +350,17 @@ export function LqsObjectionAnalysis({ agencyId, dateRange }: LqsObjectionAnalys
                     <Line
                       type="natural"
                       dataKey="objectionRate"
+                      stroke="#f97316"
+                      strokeOpacity={0.2}
+                      strokeWidth={6}
+                      dot={false}
+                      activeDot={false}
+                    />
+                    <Line
+                      type="natural"
+                      dataKey="objectionRate"
                       stroke={`url(#${chartId}-objection-line)`}
-                      strokeWidth={2.8}
+                      strokeWidth={3.1}
                       dot={false}
                       activeDot={{ r: 5, fill: '#f97316', strokeWidth: 0 }}
                     />

@@ -152,7 +152,7 @@ export function GCLossRatioTab({ snapshots, reports }: GCLossRatioTabProps) {
                 <ReferenceArea y1={0} y2={40} fill="hsl(142 76% 36%)" fillOpacity={0.08} />
                 <ReferenceArea y1={50} y2={100} fill="hsl(0 84% 60%)" fillOpacity={0.08} />
                 <Area type="natural" dataKey="lossRatio12" stroke="hsl(188 87% 47%)" fill="hsl(188 87% 47%)" fillOpacity={0.12} strokeWidth={2.2} />
-                <Line type="natural" dataKey="lossRatio24" stroke="hsl(31 95% 55%)" strokeWidth={2.4} strokeDasharray="6 6" dot={false} />
+                <Line type="natural" dataKey="lossRatio24" stroke="hsl(31 95% 55%)" strokeWidth={2.9} strokeDasharray="6 6" dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -165,7 +165,7 @@ export function GCLossRatioTab({ snapshots, reports }: GCLossRatioTabProps) {
                 <YAxis tick={{ fontSize: 12 }} tickLine={false} axisLine={false} tickFormatter={(v) => `$${Math.round(v / 100000)}K`} />
                 <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => toCurrency(value)} />
                 <Area type="natural" dataKey="earnedPremium12" stroke="hsl(214 89% 60%)" fill="hsl(214 89% 60%)" fillOpacity={0.18} />
-                <Line type="natural" dataKey="paidLosses12" stroke="hsl(355 78% 60%)" strokeWidth={2.4} dot={false} />
+                <Line type="natural" dataKey="paidLosses12" stroke="hsl(355 78% 60%)" strokeWidth={2.9} dot={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>

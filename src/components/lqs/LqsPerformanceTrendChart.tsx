@@ -289,7 +289,7 @@ export function LqsPerformanceTrendChart({ agencyId }: LqsPerformanceTrendChartP
         </p>
       </CardHeader>
       <CardContent>
-        <div className="h-[350px] rounded-2xl border border-border/50 bg-background/70 px-2 py-3 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.25)]">
+        <div className="h-[350px] rounded-2xl border border-border/50 bg-[radial-gradient(120%_90%_at_50%_0%,hsl(var(--primary)/0.2),transparent_48%),hsl(var(--background)/0.78)] px-2 py-3 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.25)]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 20, right: 30, bottom: 20, left: 20 }}>
               <defs>
@@ -298,7 +298,7 @@ export function LqsPerformanceTrendChart({ agencyId }: LqsPerformanceTrendChartP
                   <stop offset="100%" stopColor={metricConfig.color} />
                 </linearGradient>
                 <linearGradient id={`${chartId}-fill`} x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor={metricConfig.color} stopOpacity={0.25} />
+                  <stop offset="0%" stopColor={metricConfig.color} stopOpacity={0.42} />
                   <stop offset="100%" stopColor={metricConfig.color} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
@@ -337,8 +337,18 @@ export function LqsPerformanceTrendChart({ agencyId }: LqsPerformanceTrendChartP
               <Line
                 type="natural"
                 dataKey={metricConfig.dataKey}
+                stroke={metricConfig.color}
+                strokeOpacity={0.22}
+                strokeWidth={7}
+                dot={false}
+                activeDot={false}
+                connectNulls
+              />
+              <Line
+                type="natural"
+                dataKey={metricConfig.dataKey}
                 stroke={`url(#${chartId}-line)`}
-                strokeWidth={2.8}
+                strokeWidth={3.2}
                 dot={false}
                 activeDot={{ r: 5, fill: metricConfig.color, strokeWidth: 0 }}
                 connectNulls
