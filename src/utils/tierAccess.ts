@@ -65,6 +65,15 @@ export function isCallScoringTier(tier: string | null | undefined): boolean {
 }
 
 /**
+ * Check if tier is a Challenge-only tier (limited access, similar to Call Scoring)
+ */
+export function isChallengeTier(tier: string | null | undefined): boolean {
+  if (!tier) return false;
+  const lower = tier.toLowerCase();
+  return lower.includes('challenge');
+}
+
+/**
  * Get the appropriate staff home path based on tier
  * Call Scoring tier goes to /staff/call-scoring, everyone else to /staff/dashboard
  */
