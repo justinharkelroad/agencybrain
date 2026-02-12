@@ -100,6 +100,17 @@ function getCol(row: Record<string, unknown>, ...names: string[]): unknown {
     if (normalizedRow.has(normalized)) return normalizedRow.get(normalized);
   }
 
+  // Last-resort fuzzy match for vendor header drift (e.g., extra words/prefixes/suffixes).
+  for (const [rowKey, rowValue] of normalizedRow.entries()) {
+    for (const n of names) {
+      const normalized = normalizeHeader(n);
+      if (normalized.length < 4) continue;
+      if (rowKey.includes(normalized) || normalized.includes(rowKey)) {
+        return rowValue;
+      }
+    }
+  }
+
   return undefined;
 }
 
@@ -277,24 +288,52 @@ async function processXlsxBuffer(
 
     for (const row of callsData) {
       try {
-        const direction = String(getCol(row, "Call Direction", "Call Direct", "Direction", "direction") || "").trim();
+        const direction = String(getCol(
+          row,
+          "Call Direction",
+          "Call Direct",
+          "Direction",
+          "Call Type",
+          "Call Direction Type",
+          "direction",
+        ) || "").trim();
         if (direction.toLowerCase() === "internal") { callsSkippedInternal++; continue; }
         if (!direction || !["inbound", "outbound"].includes(direction.toLowerCase())) continue;
 
-        const sessionId = String(getCol(row, "Session Id", "Session ID", "session_id") || "").trim();
+        const sessionId = String(getCol(
+          row,
+          "Session Id",
+          "Session ID",
+          "Session",
+          "Call Id",
+          "Call ID",
+          "CallId",
+          "call_id",
+          "session_id",
+        ) || "").trim();
         if (!sessionId) continue;
 
         // Skip in-file duplicates (keep first occurrence, same as original per-row behavior)
         if (seenSessionIds.has(sessionId)) { callsSkippedDuplicate++; continue; }
         seenSessionIds.add(sessionId);
 
-        const fromName = extractCallerName(String(getCol(row, "From Name", "From Nam") || ""));
-        const toName = extractCallerName(String(getCol(row, "To Name") || ""));
-        const fromNumber = normalizePhone(String(getCol(row, "From Number", "From Num", "From Numb") || ""));
-        const toNumber = normalizePhone(String(getCol(row, "To Number", "To Numbe") || ""));
+        const fromName = extractCallerName(String(getCol(row, "From Name", "From Nam", "From") || ""));
+        const toName = extractCallerName(String(getCol(row, "To Name", "To") || ""));
+        const fromNumber = normalizePhone(String(getCol(row, "From Number", "From Num", "From Numb", "From Phone", "From Phone Number") || ""));
+        const toNumber = normalizePhone(String(getCol(row, "To Number", "To Numbe", "To Phone", "To Phone Number") || ""));
         const result = String(getCol(row, "Result", "result") || "").trim();
-        const callLength = getCol(row, "Call Length", "Call Lengt");
-        const callStartTime = getCol(row, "Call Start Time", "Call Start", "Call Start Ti");
+        const callLength = getCol(row, "Call Length", "Call Lengt", "Duration", "Talk Time", "Length");
+        const callStartTime = getCol(
+          row,
+          "Call Start Time",
+          "Call Start",
+          "Call Start Ti",
+          "Start Time",
+          "Start",
+          "Call Time",
+          "Date Time",
+          "Timestamp",
+        );
 
         const dirLower = direction.toLowerCase() as "inbound" | "outbound";
         const agentName = dirLower === "outbound" ? fromName : toName;
