@@ -25,6 +25,10 @@ export type Database = {
           agent_cell: string | null
           agent_name: string | null
           auto_reminders_enabled: boolean | null
+          breakup_letter_agency_display_name: string | null
+          breakup_letter_confirmation_reply_email: string | null
+          breakup_letter_primary_agent_name: string | null
+          breakup_letter_primary_agent_phone: string | null
           call_metrics_mode: string
           call_scoring_email_enabled: boolean | null
           cc_owner_on_reminders: boolean | null
@@ -72,6 +76,10 @@ export type Database = {
           agent_cell?: string | null
           agent_name?: string | null
           auto_reminders_enabled?: boolean | null
+          breakup_letter_agency_display_name?: string | null
+          breakup_letter_confirmation_reply_email?: string | null
+          breakup_letter_primary_agent_name?: string | null
+          breakup_letter_primary_agent_phone?: string | null
           call_metrics_mode?: string
           call_scoring_email_enabled?: boolean | null
           cc_owner_on_reminders?: boolean | null
@@ -119,6 +127,10 @@ export type Database = {
           agent_cell?: string | null
           agent_name?: string | null
           auto_reminders_enabled?: boolean | null
+          breakup_letter_agency_display_name?: string | null
+          breakup_letter_confirmation_reply_email?: string | null
+          breakup_letter_primary_agent_name?: string | null
+          breakup_letter_primary_agent_phone?: string | null
           call_metrics_mode?: string
           call_scoring_email_enabled?: boolean | null
           cc_owner_on_reminders?: boolean | null
@@ -912,6 +924,90 @@ export type Database = {
           id?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      breakup_letter_generation_events: {
+        Row: {
+          agency_id: string
+          carrier_count: number
+          contact_id: string | null
+          created_at: string
+          customer_name: string | null
+          generated_by_user_id: string
+          id: string
+          policy_count: number
+          source_context: string
+        }
+        Insert: {
+          agency_id: string
+          carrier_count?: number
+          contact_id?: string | null
+          created_at?: string
+          customer_name?: string | null
+          generated_by_user_id?: string
+          id?: string
+          policy_count?: number
+          source_context?: string
+        }
+        Update: {
+          agency_id?: string
+          carrier_count?: number
+          contact_id?: string | null
+          created_at?: string
+          customer_name?: string | null
+          generated_by_user_id?: string
+          id?: string
+          policy_count?: number
+          source_context?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "breakup_letter_generation_events_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breakup_letter_generation_events_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "agency_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      breakup_letter_templates: {
+        Row: {
+          created_at: string
+          email_template: string
+          id: string
+          is_active: boolean
+          letter_template: string
+          name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          email_template: string
+          id?: string
+          is_active?: boolean
+          letter_template: string
+          name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          email_template?: string
+          id?: string
+          is_active?: boolean
+          letter_template?: string
+          name?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -2426,6 +2522,59 @@ export type Database = {
             columns: ["purchaser_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_setup_results: {
+        Row: {
+          agency_id: string | null
+          created_at: string | null
+          email: string | null
+          expires_at: string | null
+          id: string
+          owner_setup_url: string | null
+          purchase_id: string | null
+          quantity: number | null
+          staff_credentials: Json | null
+          start_date: string | null
+          stripe_session_id: string
+          user_id: string | null
+        }
+        Insert: {
+          agency_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          expires_at?: string | null
+          id?: string
+          owner_setup_url?: string | null
+          purchase_id?: string | null
+          quantity?: number | null
+          staff_credentials?: Json | null
+          start_date?: string | null
+          stripe_session_id: string
+          user_id?: string | null
+        }
+        Update: {
+          agency_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          expires_at?: string | null
+          id?: string
+          owner_setup_url?: string | null
+          purchase_id?: string | null
+          quantity?: number | null
+          staff_credentials?: Json | null
+          start_date?: string | null
+          stripe_session_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_setup_results_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]
@@ -13361,6 +13510,7 @@ export type Database = {
         | "Call Scoring 50"
         | "Call Scoring 100"
         | "Inactive"
+        | "Six Week Challenge"
       onboarding_action_type: "call" | "text" | "email" | "other"
       onboarding_instance_status: "active" | "completed" | "cancelled"
       onboarding_sequence_target_type:
@@ -13543,6 +13693,7 @@ export const Constants = {
         "Call Scoring 50",
         "Call Scoring 100",
         "Inactive",
+        "Six Week Challenge",
       ],
       onboarding_action_type: ["call", "text", "email", "other"],
       onboarding_instance_status: ["active", "completed", "cancelled"],
