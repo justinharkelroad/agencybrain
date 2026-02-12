@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
-import { useStaffFlowProfile } from '@/hooks/useStaffFlowProfile';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -92,7 +91,6 @@ export default function StaffSalesLesson() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, sessionToken, isAuthenticated, loading: authLoading } = useStaffAuth();
-  const { hasProfile, loading: profileLoading } = useStaffFlowProfile();
 
   const [lesson, setLesson] = useState<LessonData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -406,22 +404,10 @@ export default function StaffSalesLesson() {
                 </p>
               </div>
               <Button
-                onClick={() => {
-                  if (profileLoading) return;
-                  if (hasProfile) {
-                    navigate('/staff/flows/start/discovery');
-                  } else {
-                    navigate('/staff/flows/profile', { state: { redirectTo: `/staff/flows/start/discovery` } });
-                  }
-                }}
-                disabled={profileLoading}
+                onClick={() => navigate('/staff/flows')}
                 className="gap-2 bg-purple-500 hover:bg-purple-600"
               >
-                {profileLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
+                <Sparkles className="h-4 w-4" />
                 Start Discovery Flow
               </Button>
             </div>

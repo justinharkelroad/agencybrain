@@ -441,7 +441,7 @@ export default function SalesExperienceWeek() {
                         </p>
                       </div>
                       <Button
-                        onClick={() => navigate('/flows/start/discovery')}
+                        onClick={() => navigate('/flows')}
                         className="gap-2 bg-purple-500 hover:bg-purple-600"
                       >
                         <Sparkles className="h-4 w-4" />
