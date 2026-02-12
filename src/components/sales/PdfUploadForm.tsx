@@ -28,10 +28,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
+import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
 import { 
   Upload, 
   FileText, 
@@ -312,6 +315,23 @@ export function PdfUploadForm({
   const [pendingPolicyData, setPendingPolicyData] = useState<{
     data: ExtractedSaleData;
     filename: string;
+  } | null>(null);
+  const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
+  const [breakupChoiceModalOpen, setBreakupChoiceModalOpen] = useState(false);
+  const [breakupLetterModalOpen, setBreakupLetterModalOpen] = useState(false);
+  const [newSaleData, setNewSaleData] = useState<{
+    saleId: string;
+    customerName: string;
+    customerPhone?: string;
+    customerEmail?: string;
+    customerZip?: string;
+    breakupPolicies: Array<{
+      id: string;
+      policyTypeName: string;
+      policyNumber: string;
+      effectiveDate: string;
+      carrierName: string;
+    }>;
   } | null>(null);
 
   // Fetch policy types with linked product_types for comp fields
@@ -661,7 +681,7 @@ export function PdfUploadForm({
         return { sale_id: sale.id };
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success('Sale created successfully!');
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['staff-sales'] });
@@ -669,8 +689,31 @@ export function PdfUploadForm({
       queryClient.invalidateQueries({ queryKey: ['admin-promo-goals-widget'] });
       queryClient.invalidateQueries({ queryKey: ['promo-goals'] });
       queryClient.invalidateQueries({ queryKey: ['staff-promo-goals'] });
-      resetForm();
-      onSuccess?.();
+
+      const saleId = result?.sale_id;
+      if (!saleId || !effectiveAgencyId) {
+        resetForm();
+        onSuccess?.();
+        return;
+      }
+
+      const breakupPolicies = stagedPolicies.map((policy) => ({
+        id: policy.id,
+        policyTypeName: policy.productTypeName,
+        policyNumber: policy.policyNumber || "",
+        effectiveDate: format(policy.effectiveDate || todayLocal(), "yyyy-MM-dd"),
+        carrierName: "Prior Carrier",
+      }));
+
+      setNewSaleData({
+        saleId,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim() || undefined,
+        customerEmail: customerEmail.trim() || undefined,
+        customerZip: customerZip.trim() || undefined,
+        breakupPolicies,
+      });
+      setBreakupChoiceModalOpen(true);
     },
     onError: (error) => {
       console.error('Create sale error:', error);
@@ -934,6 +977,7 @@ export function PdfUploadForm({
 
   // Review state - show staged policies and customer info
   return (
+    <>
     <div className="space-y-6">
       {/* Customer Information Card */}
       <Card>
@@ -1514,5 +1558,97 @@ export function PdfUploadForm({
         </DialogContent>
       </Dialog>
     </div>
+
+    {newSaleData && effectiveAgencyId && (
+      <ApplySequenceModal
+        open={applySequenceModalOpen}
+        onOpenChange={(open) => {
+          setApplySequenceModalOpen(open);
+          if (!open) {
+            setNewSaleData(null);
+            resetForm();
+            onSuccess?.();
+          }
+        }}
+        saleId={newSaleData.saleId}
+        customerName={newSaleData.customerName}
+        customerPhone={newSaleData.customerPhone}
+        customerEmail={newSaleData.customerEmail}
+        agencyId={effectiveAgencyId}
+        staffSessionToken={staffSessionToken || null}
+        onSuccess={() => {
+          setNewSaleData(null);
+          setApplySequenceModalOpen(false);
+          resetForm();
+          onSuccess?.();
+        }}
+      />
+    )}
+
+    {newSaleData && effectiveAgencyId && (
+      <Dialog
+        open={breakupChoiceModalOpen}
+        onOpenChange={(open) => {
+          setBreakupChoiceModalOpen(open);
+          if (!open && !breakupLetterModalOpen) {
+            setApplySequenceModalOpen(true);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Generate Breakup Letter?</DialogTitle>
+            <DialogDescription>
+              Generate a cancellation letter before sequence assignment. You can skip this and continue.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setBreakupChoiceModalOpen(false);
+                setApplySequenceModalOpen(true);
+              }}
+            >
+              Skip for Now
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setBreakupLetterModalOpen(true);
+                setBreakupChoiceModalOpen(false);
+              }}
+            >
+              Generate Letter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
+
+    {newSaleData && effectiveAgencyId && (
+      <BreakupLetterModal
+        open={breakupLetterModalOpen}
+        onOpenChange={(open) => {
+          setBreakupLetterModalOpen(open);
+          if (!open) {
+            setApplySequenceModalOpen(true);
+          }
+        }}
+        agencyId={effectiveAgencyId}
+        customerName={newSaleData.customerName}
+        customerZip={newSaleData.customerZip}
+        customerEmail={newSaleData.customerEmail}
+        customerPhone={newSaleData.customerPhone}
+        policies={newSaleData.breakupPolicies}
+        sourceContext="sale_upload"
+        onContinueToSequence={() => {
+          setBreakupLetterModalOpen(false);
+          setApplySequenceModalOpen(true);
+        }}
+      />
+    )}
+    </>
   );
 }
