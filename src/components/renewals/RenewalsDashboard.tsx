@@ -241,6 +241,7 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
                 data={dayOfWeekData}
                 layout="vertical"
                 margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                barCategoryGap="38%"
                 onClick={(data) => {
                   if (data && data.activePayload) {
                     const clickedDayIndex = data.activePayload[0].payload.dayIndex;
@@ -271,6 +272,7 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
                 <Bar 
                   dataKey="count" 
                   radius={[0, 4, 4, 0]}
+                  maxBarSize={16}
                   style={{ cursor: 'pointer' }}
                 >
                   {dayOfWeekData.map((entry, index) => (

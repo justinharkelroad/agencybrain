@@ -192,7 +192,11 @@ export function LqsTimeToCloseAnalytics({ agencyId, dateRange }: LqsTimeToCloseA
         <div>
           <h4 className="text-sm font-medium mb-2">Close Time Distribution</h4>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.distribution} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+            <BarChart
+              data={data.distribution}
+              margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+              barCategoryGap="42%"
+            >
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis
                 dataKey="label"
@@ -217,6 +221,7 @@ export function LqsTimeToCloseAnalytics({ agencyId, dateRange }: LqsTimeToCloseA
               <Bar
                 dataKey="count"
                 radius={[8, 8, 0, 0]}
+                maxBarSize={18}
                 cursor="pointer"
                 onClick={(_data: unknown, index: number) => {
                   const entry = data.distribution[index];

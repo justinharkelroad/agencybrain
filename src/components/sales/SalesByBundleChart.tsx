@@ -194,6 +194,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
             <BarChart
               data={chartData}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              barCategoryGap="42%"
             >
               <CartesianGrid 
                 strokeDasharray="3 3" 
@@ -227,6 +228,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
               <Bar
                 dataKey={metric}
                 radius={[8, 8, 0, 0]}
+                maxBarSize={20}
                 onClick={handleBarClick}
                 cursor="pointer"
               >

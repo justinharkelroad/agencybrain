@@ -206,7 +206,11 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+            <BarChart
+              data={chartData}
+              margin={{ top: 5, right: 20, left: 10, bottom: 5 }}
+              barCategoryGap="38%"
+            >
               <CartesianGrid 
                 strokeDasharray="3 3" 
                 stroke="hsl(var(--border))" 
@@ -239,6 +243,7 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
               <Bar
                 dataKey={metric}
                 radius={[8, 8, 0, 0]}
+                maxBarSize={18}
                 onClick={handleBarClick}
                 cursor="pointer"
               >

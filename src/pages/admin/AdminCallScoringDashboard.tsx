@@ -535,7 +535,7 @@ const AdminCallScoringDashboard = () => {
             <div className="h-64">
               {dailyCosts.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dailyCosts}>
+                  <BarChart data={dailyCosts} barCategoryGap="38%">
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis 
                       dataKey="date" 
@@ -549,7 +549,7 @@ const AdminCallScoringDashboard = () => {
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                       labelFormatter={(label) => new Date(label).toLocaleDateString()}
                     />
-                    <Bar dataKey="calls" fill="hsl(var(--chart-2))" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="calls" fill="hsl(var(--chart-2))" radius={[8, 8, 0, 0]} maxBarSize={18} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

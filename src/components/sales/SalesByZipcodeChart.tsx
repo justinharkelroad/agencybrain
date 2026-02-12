@@ -231,6 +231,7 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
               data={chartData}
               layout="vertical"
               margin={{ top: 5, right: 50, left: 60, bottom: 5 }}
+              barCategoryGap="40%"
             >
               <CartesianGrid 
                 strokeDasharray="3 3" 
@@ -267,6 +268,7 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
               <Bar
                 dataKey={metric}
                 radius={[0, 8, 8, 0]}
+                maxBarSize={16}
                 onClick={handleBarClick}
                 cursor="pointer"
               >
