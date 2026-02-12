@@ -33,7 +33,7 @@ import {
   ArrowDown,
   FileText,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 interface SubmissionsListProps {
@@ -61,6 +61,7 @@ export function SubmissionsList({ staffAgencyId }: SubmissionsListProps) {
     filteredCount,
   } = useSubmissions(staffAgencyId || undefined, filters);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Sorting state
   const [sortField, setSortField] = useState<SortField>("submitted_at");
@@ -258,12 +259,14 @@ export function SubmissionsList({ staffAgencyId }: SubmissionsListProps) {
                         key={submission.id}
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
                         onClick={() => {
+                          const from = `${location.pathname}${location.search}`;
                           if (staffAgencyId) {
                             navigate(
-                              `/staff/scorecards/submissions/${submission.id}`
+                              `/staff/scorecards/submissions/${submission.id}`,
+                              { state: { from } }
                             );
                           } else {
-                            navigate(`/submissions/${submission.id}`);
+                            navigate(`/submissions/${submission.id}`, { state: { from } });
                           }
                         }}
                       >

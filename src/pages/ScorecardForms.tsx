@@ -34,14 +34,16 @@ interface StaffFormTemplate {
 
 export default function ScorecardForms() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  type MetricsTab = 'metrics' | 'forms' | 'submissions' | 'explorer' | 'targets';
+  const validTabs: MetricsTab[] = ['metrics', 'forms', 'submissions', 'explorer', 'targets'];
+  const tabParam = searchParams.get('tab');
+  const tabFromUrl: MetricsTab = validTabs.includes((tabParam || '') as MetricsTab)
+    ? (tabParam as MetricsTab)
+    : 'metrics';
   
   // Initialize tab from URL query param if valid
-  const [activeTab, setActiveTab] = useState(() => {
-    const tabParam = searchParams.get('tab');
-    const validTabs = ['metrics', 'forms', 'submissions', 'explorer', 'targets'];
-    return validTabs.includes(tabParam || '') ? tabParam! : 'metrics';
-  });
+  const [activeTab, setActiveTab] = useState<MetricsTab>(tabFromUrl);
   const [formFilter, setFormFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const { forms: ownerForms, loading: ownerLoading, agencyId, deleteForm, toggleFormActive, refetch } = useScorecardForms();
   const { isAdmin } = useAuth();
@@ -59,6 +61,27 @@ export default function ScorecardForms() {
   // Staff-specific forms state (loaded via edge function)
   const [staffForms, setStaffForms] = useState<StaffFormTemplate[]>([]);
   const [staffFormsLoading, setStaffFormsLoading] = useState(false);
+
+  // Keep tab state in sync with browser URL (supports back/forward navigation).
+  useEffect(() => {
+    if (activeTab !== tabFromUrl) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [activeTab, tabFromUrl]);
+
+  const handleTabChange = (tab: string) => {
+    const nextTab = tab as MetricsTab;
+    setActiveTab(nextTab);
+
+    const nextParams = new URLSearchParams(searchParams);
+    if (nextTab === 'metrics') {
+      nextParams.delete('tab');
+    } else {
+      nextParams.set('tab', nextTab);
+    }
+
+    setSearchParams(nextParams);
+  };
 
   // Detect staff user by verifying session token
   useEffect(() => {
@@ -313,7 +336,7 @@ export default function ScorecardForms() {
           </div>
         )}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="metrics" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />

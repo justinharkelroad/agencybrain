@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -210,21 +210,27 @@ function getRootCustomFields(
 export default function SubmissionDetail() {
   const { submissionId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const isStaffUser = hasStaffToken();
+  const locationState = location.state as { from?: string } | null;
+  const returnPath = locationState?.from || (isStaffUser ? '/staff/metrics?tab=submissions' : '/metrics?tab=submissions');
+
+  const handleBack = () => {
+    navigate(returnPath);
+  };
 
   useEffect(() => {
     fetchSubmission();
   }, [submissionId]);
 
   const fetchSubmission = async () => {
-    const isStaff = hasStaffToken();
-
     try {
-      if (isStaff) {
+      if (isStaffUser) {
         // Staff users: use edge function to bypass RLS
         console.log('[SubmissionDetail] Staff user - fetching via edge function');
 
@@ -339,8 +345,7 @@ export default function SubmissionDetail() {
       if (error) throw error;
 
       toast.success('Submission deleted successfully');
-      const isStaffUser = hasStaffToken();
-      navigate(isStaffUser ? '/staff/metrics' : '/metrics');
+      navigate(returnPath);
     } catch (error: any) {
       console.error('Error deleting submission:', error);
       toast.error('Failed to delete submission');
@@ -365,7 +370,7 @@ export default function SubmissionDetail() {
             <div className="text-center text-muted-foreground">
               <Clock className="mx-auto h-12 w-12 mb-4 opacity-50" />
               <p className="text-lg font-medium mb-2">Submission not found</p>
-              <Button variant="outline" onClick={() => navigate(-1)}>
+              <Button variant="outline" onClick={handleBack}>
                 Go Back
               </Button>
             </div>
@@ -381,7 +386,7 @@ export default function SubmissionDetail() {
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+          <Button variant="outline" size="sm" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
