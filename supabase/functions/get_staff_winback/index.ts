@@ -38,6 +38,14 @@ Deno.serve(async (req) => {
     );
 
     let result: any;
+    const chunkSize = 200;
+    const chunk = <T>(values: T[], size: number): T[][] => {
+      const chunks: T[][] = [];
+      for (let i = 0; i < values.length; i += size) {
+        chunks.push(values.slice(i, i + size));
+      }
+      return chunks;
+    };
 
     switch (operation) {
       case "get_settings": {
@@ -1235,13 +1243,20 @@ Deno.serve(async (req) => {
       case "delete_upload": {
         const { uploadId } = params;
 
+        if (!uploadId || typeof uploadId !== "string") {
+          return new Response(JSON.stringify({ error: "uploadId is required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
         // Verify upload belongs to agency
         const { data: upload, error: uploadVerifyError } = await supabase
           .from("winback_uploads")
-          .select("id")
+          .select("id, created_at, records_new_households, records_updated, records_new_policies")
           .eq("id", uploadId)
           .eq("agency_id", agencyId)
-          .single();
+          .maybeSingle();
 
         if (uploadVerifyError) {
           throw uploadVerifyError;
@@ -1258,62 +1273,111 @@ Deno.serve(async (req) => {
         const { data: households, error: householdsError } = await supabase
           .from("winback_households")
           .select("id")
-          .eq("last_upload_id", uploadId);
+          .eq("last_upload_id", uploadId)
+          .eq("agency_id", agencyId);
 
         if (householdsError) {
           throw householdsError;
         }
 
         const hhIds = (households || []).map((h: any) => h.id);
+        const uploadHasActivity =
+          (upload.records_new_households || 0) +
+          (upload.records_updated || 0) +
+          (upload.records_new_policies || 0);
 
-        if (hhIds.length > 0) {
-          const { error: policiesError } = await supabase
-            .from("winback_policies")
-            .delete()
-            .in("household_id", hhIds);
+        if (uploadHasActivity > 0) {
+          const uploadCreatedAt = new Date(upload.created_at);
+          const updatedFrom = new Date(uploadCreatedAt.getTime() - 60 * 60 * 1000);
+          const updatedTo = new Date(uploadCreatedAt.getTime() + 6 * 60 * 60 * 1000);
 
-          if (policiesError) throw policiesError;
-
-          const { error: activitiesError } = await supabase
-            .from("winback_activities")
-            .delete()
-            .in("household_id", hhIds);
-
-          if (activitiesError) throw activitiesError;
-
-          const { error: renewalError } = await supabase
-            .from("renewal_records")
-            .update({ winback_household_id: null, sent_to_winback_at: null })
-            .in("winback_household_id", hhIds);
-
-          if (renewalError) throw renewalError;
-
-          const { error: cancelAuditError } = await supabase
-            .from("cancel_audit_records")
-            .update({ winback_household_id: null })
-            .in("winback_household_id", hhIds);
-
-          if (cancelAuditError) throw cancelAuditError;
-
-          const { error: householdsError } = await supabase
+          const { data: fallbackHouseholds, error: fallbackError } = await supabase
             .from("winback_households")
-            .delete()
-            .in("id", hhIds);
+            .select("id")
+            .eq("agency_id", agencyId)
+            .or(`created_at.gte.${updatedFrom.toISOString()},updated_at.gte.${updatedFrom.toISOString()}`)
+            .lte("updated_at", updatedTo.toISOString());
 
-          if (householdsError) throw householdsError;
+          if (fallbackError) throw fallbackError;
+
+          const fallbackIds = (fallbackHouseholds || [])
+            .map((h: any) => h.id)
+            .filter((id: string) => !hhIds.includes(id));
+
+          hhIds.push(...fallbackIds);
+        }
+
+        const uniqueHouseholdIds = [...new Set(hhIds)];
+
+        if (uniqueHouseholdIds.length > 0) {
+          for (const householdChunk of chunk(uniqueHouseholdIds, chunkSize)) {
+            const { error: policiesError } = await supabase
+              .from("winback_policies")
+              .delete()
+              .in("household_id", householdChunk);
+
+            if (policiesError) throw policiesError;
+          }
+
+          for (const householdChunk of chunk(uniqueHouseholdIds, chunkSize)) {
+            const { error: activitiesError } = await supabase
+              .from("winback_activities")
+              .delete()
+              .in("household_id", householdChunk);
+
+            if (activitiesError) throw activitiesError;
+          }
+
+          for (const householdChunk of chunk(uniqueHouseholdIds, chunkSize)) {
+            const { error: renewalError } = await supabase
+              .from("renewal_records")
+              .update({ winback_household_id: null, sent_to_winback_at: null })
+              .in("winback_household_id", householdChunk);
+
+            if (renewalError) throw renewalError;
+          }
+
+          for (const householdChunk of chunk(uniqueHouseholdIds, chunkSize)) {
+            const { error: cancelAuditError } = await supabase
+              .from("cancel_audit_records")
+              .update({ winback_household_id: null })
+              .in("winback_household_id", householdChunk);
+
+            if (cancelAuditError) throw cancelAuditError;
+          }
+
+          for (const householdChunk of chunk(uniqueHouseholdIds, chunkSize)) {
+            const { error: householdsError } = await supabase
+              .from("winback_households")
+              .delete()
+              .in("id", householdChunk)
+              .eq("agency_id", agencyId);
+
+            if (householdsError) throw householdsError;
+          }
         }
 
         // Delete upload record
         const { error: uploadDeleteError } = await supabase
           .from("winback_uploads")
           .delete()
-          .eq("id", uploadId);
+          .eq("id", uploadId)
+          .eq("agency_id", agencyId);
 
         if (uploadDeleteError) {
           throw uploadDeleteError;
         }
 
-        result = { success: true, deleted: hhIds.length };
+        if (uniqueHouseholdIds.length === 0) {
+          result = {
+            success: false,
+            deleted: 0,
+            message: "No households were linked to this upload. Upload record was removed.",
+          };
+          break;
+        }
+
+        result = { success: true, deleted: uniqueHouseholdIds.length };
         break;
       }
 

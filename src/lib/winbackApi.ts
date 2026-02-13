@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { getStaffToken, hasStaffToken, fetchWithAuth } from './staffRequest';
+import { hasStaffToken, fetchWithAuth } from './staffRequest';
 import { startOfWeek, endOfWeek } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -89,11 +89,9 @@ interface UploadStats {
 
 // Helper to call staff edge function using fetchWithAuth to avoid invalid JWT issues
 async function callStaffWinback<T>(operation: string, params: Record<string, any> = {}): Promise<T> {
-  const token = getStaffToken();
-  if (!token) throw new Error('No staff token');
-
   const response = await fetchWithAuth('get_staff_winback', {
     method: 'POST',
+    prefer: 'auto',
     body: { operation, params },
   });
 
@@ -103,6 +101,13 @@ async function callStaffWinback<T>(operation: string, params: Record<string, any
   }
 
   return await response.json() as T;
+}
+
+async function hasStaffWinbackAccess(): Promise<boolean> {
+  if (hasStaffToken()) return true;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  return !!session;
 }
 
 // Check if current user is staff
@@ -843,7 +848,7 @@ export async function uploadTerminations(
 // ============ List Uploads ============
 
 export async function listUploads(agencyId: string): Promise<any[]> {
-  if (isStaffUser()) {
+  if (await hasStaffWinbackAccess()) {
     const result = await callStaffWinback<{ uploads: any[] }>('list_uploads', {});
     return result.uploads;
   }
@@ -861,28 +866,28 @@ export async function listUploads(agencyId: string): Promise<any[]> {
 
 // ============ Delete Upload ============
 
-export async function deleteUpload(uploadId: string, agencyId: string): Promise<void> {
-  if (hasStaffToken()) {
-    const result = await callStaffWinback<{ success: boolean; deleted: number }>(
+export interface DeleteUploadResult {
+  success: boolean;
+  deleted: number;
+  message?: string;
+}
+
+export async function deleteUpload(uploadId: string, agencyId: string): Promise<DeleteUploadResult> {
+  if (await hasStaffWinbackAccess()) {
+    const result = await callStaffWinback<DeleteUploadResult>(
       'delete_upload',
       { uploadId }
     );
 
-    if (!result?.success) {
-      throw new Error('Delete upload did not complete');
-    }
-
-    if (typeof result.deleted === 'number' && result.deleted === 0) {
-      throw new Error('No households were linked to this upload id');
-    }
-    return;
+    return result;
   }
 
   // Find all households linked to this upload
   const { data: households, error: fetchError } = await supabase
     .from('winback_households')
     .select('id')
-    .eq('last_upload_id', uploadId);
+    .eq('last_upload_id', uploadId)
+    .eq('agency_id', agencyId);
 
   if (fetchError) throw fetchError;
 
@@ -932,6 +937,15 @@ export async function deleteUpload(uploadId: string, agencyId: string): Promise<
     .eq('id', uploadId);
 
   if (error) throw error;
+
+  return {
+    success: true,
+    deleted: householdIds.length,
+    message:
+      householdIds.length === 0
+        ? 'Upload removed from list, but no linked households were found for that upload'
+        : undefined,
+  };
 }
 
 // ============ Bulk Delete Households ============

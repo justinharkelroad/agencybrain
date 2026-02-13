@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { FileUp, Clock, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -39,38 +38,34 @@ function formatRelativeTime(dateString: string): string {
 
 export function WinbackUploadHistory({ agencyId, onDeleteComplete }: WinbackUploadHistoryProps) {
   const queryClient = useQueryClient();
-  const isStaff = winbackApi.isStaffUser();
-
   const { data: uploads, isLoading } = useQuery({
     queryKey: ['winback-uploads', agencyId],
     queryFn: async () => {
-      if (isStaff) {
-        const result = await winbackApi.listUploads(agencyId);
-        return result;
-      }
-      const { data, error } = await supabase
-        .from('winback_uploads')
-        .select('*')
-        .eq('agency_id', agencyId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      if (error) throw error;
-      return data;
+      return winbackApi.listUploads(agencyId);
     },
     enabled: !!agencyId,
   });
 
   const deleteUpload = useMutation({
     mutationFn: async (uploadId: string) => {
-      await winbackApi.deleteUpload(uploadId, agencyId);
+      return winbackApi.deleteUpload(uploadId, agencyId);
     },
-    onSuccess: () => {
+    onSuccess: (result: winbackApi.DeleteUploadResult) => {
       queryClient.invalidateQueries({ queryKey: ['winback-uploads'] });
       queryClient.invalidateQueries({ queryKey: ['winback-uploads', agencyId, 'latest'] });
       queryClient.invalidateQueries({ queryKey: ['winback-households'] });
       queryClient.invalidateQueries({ queryKey: ['winback-stats'] });
       queryClient.invalidateQueries({ queryKey: ['winback-policies'] });
-      toast.success('Upload and associated records deleted');
+      if (result?.success) {
+        toast.success(
+          `Upload deleted — ${result.deleted} household${result.deleted === 1 ? '' : 's'} removed`
+        );
+      } else {
+        toast.warning(
+          result?.message ||
+            'Upload removed from list, but no linked households were found for that upload'
+        );
+      }
       onDeleteComplete?.();
     },
     onError: (err: any) => {
@@ -139,8 +134,8 @@ export function WinbackUploadHistory({ agencyId, onDeleteComplete }: WinbackUplo
                 <AlertDialogContent>
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete upload?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete this upload and all associated households, policies, and activities. This action cannot be undone.
+                  <AlertDialogDescription>
+                      This will remove the upload and delete any households linked to it (including related policies and activities). If no linked households exist, only the upload is removed. This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
