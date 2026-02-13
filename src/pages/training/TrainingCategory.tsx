@@ -125,15 +125,6 @@ export default function TrainingCategory() {
 
       setModules(modulesWithProgress);
 
-      // Auto-expand first incomplete module
-      const firstIncomplete = modulesWithProgress.find(m => 
-        m.lessons.some((l: SPLesson) => !l.completed)
-      );
-      if (firstIncomplete) {
-        setExpandedModules(new Set([firstIncomplete.id]));
-      } else if (modulesWithProgress.length > 0) {
-        setExpandedModules(new Set([modulesWithProgress[0].id]));
-      }
     } catch (err) {
       console.error('Error fetching category:', err);
       navigate('/training/standard');
@@ -221,7 +212,7 @@ export default function TrainingCategory() {
                     <img
                       src={module.image_url}
                       alt={module.name}
-                      className="w-full aspect-[3/1] object-cover"
+                      className="w-full aspect-[6/1] object-cover"
                     />
                   )}
                   {/* Module Header */}
