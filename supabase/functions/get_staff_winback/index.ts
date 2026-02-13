@@ -1179,11 +1179,13 @@ Deno.serve(async (req) => {
         }
 
         // Verify all households belong to agency
-        const { data: validHouseholds } = await supabase
+        const { data: validHouseholds, error: validHouseholdsError } = await supabase
           .from("winback_households")
           .select("id")
           .eq("agency_id", agencyId)
           .in("id", householdIds);
+
+        if (validHouseholdsError) throw validHouseholdsError;
 
         const validIds = (validHouseholds || []).map((h: any) => h.id);
         if (validIds.length === 0) {
@@ -1192,13 +1194,44 @@ Deno.serve(async (req) => {
         }
 
         // Delete policies
-        await supabase.from("winback_policies").delete().in("household_id", validIds);
+        const { error: policiesError } = await supabase
+          .from("winback_policies")
+          .delete()
+          .in("household_id", validIds);
+
+        if (policiesError) throw policiesError;
+
         // Delete activities
-        await supabase.from("winback_activities").delete().in("household_id", validIds);
+        const { error: activitiesError } = await supabase
+          .from("winback_activities")
+          .delete()
+          .in("household_id", validIds);
+
+        if (activitiesError) throw activitiesError;
+
         // Clear renewal_records references
-        await supabase.from("renewal_records").update({ winback_household_id: null, sent_to_winback_at: null }).in("winback_household_id", validIds);
+        const { error: renewalError } = await supabase
+          .from("renewal_records")
+          .update({ winback_household_id: null, sent_to_winback_at: null })
+          .in("winback_household_id", validIds);
+
+        if (renewalError) throw renewalError;
+
+        // Clear cancel_audit_records references
+        const { error: cancelAuditError } = await supabase
+          .from("cancel_audit_records")
+          .update({ winback_household_id: null })
+          .in("winback_household_id", validIds);
+
+        if (cancelAuditError) throw cancelAuditError;
+
         // Delete households
-        await supabase.from("winback_households").delete().in("id", validIds);
+        const { error: householdsError } = await supabase
+          .from("winback_households")
+          .delete()
+          .in("id", validIds);
+
+        if (householdsError) throw householdsError;
 
         result = { success: true, deleted: validIds.length };
         break;
@@ -1231,10 +1264,40 @@ Deno.serve(async (req) => {
         const hhIds = (households || []).map((h: any) => h.id);
 
         if (hhIds.length > 0) {
-          await supabase.from("winback_policies").delete().in("household_id", hhIds);
-          await supabase.from("winback_activities").delete().in("household_id", hhIds);
-          await supabase.from("renewal_records").update({ winback_household_id: null, sent_to_winback_at: null }).in("winback_household_id", hhIds);
-          await supabase.from("winback_households").delete().in("id", hhIds);
+          const { error: policiesError } = await supabase
+            .from("winback_policies")
+            .delete()
+            .in("household_id", hhIds);
+
+          if (policiesError) throw policiesError;
+
+          const { error: activitiesError } = await supabase
+            .from("winback_activities")
+            .delete()
+            .in("household_id", hhIds);
+
+          if (activitiesError) throw activitiesError;
+
+          const { error: renewalError } = await supabase
+            .from("renewal_records")
+            .update({ winback_household_id: null, sent_to_winback_at: null })
+            .in("winback_household_id", hhIds);
+
+          if (renewalError) throw renewalError;
+
+          const { error: cancelAuditError } = await supabase
+            .from("cancel_audit_records")
+            .update({ winback_household_id: null })
+            .in("winback_household_id", hhIds);
+
+          if (cancelAuditError) throw cancelAuditError;
+
+          const { error: householdsError } = await supabase
+            .from("winback_households")
+            .delete()
+            .in("id", hhIds);
+
+          if (householdsError) throw householdsError;
         }
 
         // Delete upload record

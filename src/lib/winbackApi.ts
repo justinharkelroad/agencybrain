@@ -677,22 +677,32 @@ export async function permanentDeleteHousehold(householdId: string): Promise<voi
   }
 
   // Delete policies
-  await supabase
+  const { error: policiesError } = await supabase
     .from('winback_policies')
     .delete()
     .eq('household_id', householdId);
+  if (policiesError) throw policiesError;
 
   // Delete activities
-  await supabase
+  const { error: activitiesError } = await supabase
     .from('winback_activities')
     .delete()
     .eq('household_id', householdId);
+  if (activitiesError) throw activitiesError;
 
   // Clear renewal_records references
-  await supabase
+  const { error: renewalError } = await supabase
     .from('renewal_records')
     .update({ winback_household_id: null, sent_to_winback_at: null })
     .eq('winback_household_id', householdId);
+  if (renewalError) throw renewalError;
+
+  // Clear cancel_audit_records references
+  const { error: cancelAuditError } = await supabase
+    .from('cancel_audit_records')
+    .update({ winback_household_id: null })
+    .eq('winback_household_id', householdId);
+  if (cancelAuditError) throw cancelAuditError;
 
   // Delete household
   const { error } = await supabase
@@ -853,28 +863,39 @@ export async function deleteUpload(uploadId: string, agencyId: string): Promise<
 
   if (householdIds.length > 0) {
     // Delete policies
-    await supabase
+    const { error: policiesError } = await supabase
       .from('winback_policies')
       .delete()
       .in('household_id', householdIds);
+    if (policiesError) throw policiesError;
 
     // Delete activities
-    await supabase
+    const { error: activitiesError } = await supabase
       .from('winback_activities')
       .delete()
       .in('household_id', householdIds);
+    if (activitiesError) throw activitiesError;
 
     // Clear renewal_records references
-    await supabase
+    const { error: renewalError } = await supabase
       .from('renewal_records')
       .update({ winback_household_id: null, sent_to_winback_at: null })
       .in('winback_household_id', householdIds);
+    if (renewalError) throw renewalError;
+
+    // Clear cancel_audit_records references
+    const { error: cancelAuditError } = await supabase
+      .from('cancel_audit_records')
+      .update({ winback_household_id: null })
+      .in('winback_household_id', householdIds);
+    if (cancelAuditError) throw cancelAuditError;
 
     // Delete households
-    await supabase
+    const { error: householdsError } = await supabase
       .from('winback_households')
       .delete()
       .in('id', householdIds);
+    if (householdsError) throw householdsError;
   }
 
   // Delete the upload record
@@ -897,22 +918,32 @@ export async function bulkDeleteHouseholds(householdIds: string[]): Promise<void
   if (householdIds.length === 0) return;
 
   // Delete policies
-  await supabase
+  const { error: policiesError } = await supabase
     .from('winback_policies')
     .delete()
     .in('household_id', householdIds);
+  if (policiesError) throw policiesError;
 
   // Delete activities
-  await supabase
+  const { error: activitiesError } = await supabase
     .from('winback_activities')
     .delete()
     .in('household_id', householdIds);
+  if (activitiesError) throw activitiesError;
 
   // Clear renewal_records references
-  await supabase
+  const { error: renewalError } = await supabase
     .from('renewal_records')
     .update({ winback_household_id: null, sent_to_winback_at: null })
     .in('winback_household_id', householdIds);
+  if (renewalError) throw renewalError;
+
+  // Clear cancel_audit_records references
+  const { error: cancelAuditError } = await supabase
+    .from('cancel_audit_records')
+    .update({ winback_household_id: null })
+    .in('winback_household_id', householdIds);
+  if (cancelAuditError) throw cancelAuditError;
 
   // Delete households
   const { error } = await supabase
