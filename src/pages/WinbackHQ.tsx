@@ -614,7 +614,7 @@ export default function WinbackHQ() {
                 contactDaysBefore={contactDaysBefore}
                 onSettingsChange={(days) => setContactDaysBefore(days)}
               />
-              <WinbackUploadHistory agencyId={agencyId} />
+              <WinbackUploadHistory agencyId={agencyId} onDeleteComplete={handleUploadComplete} />
             </div>
           )}
 

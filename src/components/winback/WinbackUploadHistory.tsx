@@ -18,6 +18,7 @@ import * as winbackApi from '@/lib/winbackApi';
 
 interface WinbackUploadHistoryProps {
   agencyId: string;
+  onDeleteComplete?: () => void;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -36,7 +37,7 @@ function formatRelativeTime(dateString: string): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function WinbackUploadHistory({ agencyId }: WinbackUploadHistoryProps) {
+export function WinbackUploadHistory({ agencyId, onDeleteComplete }: WinbackUploadHistoryProps) {
   const queryClient = useQueryClient();
   const isStaff = winbackApi.isStaffUser();
 
@@ -69,6 +70,7 @@ export function WinbackUploadHistory({ agencyId }: WinbackUploadHistoryProps) {
       queryClient.invalidateQueries({ queryKey: ['winback-stats'] });
       queryClient.invalidateQueries({ queryKey: ['winback-policies'] });
       toast.success('Upload and associated records deleted');
+      onDeleteComplete?.();
     },
     onError: (err: any) => {
       toast.error('Failed to delete upload', {
