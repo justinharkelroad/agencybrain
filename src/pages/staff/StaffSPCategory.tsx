@@ -178,11 +178,13 @@ export default function StaffSPCategory() {
                 <CardContent className="p-0">
                   {/* Module Cover Image */}
                   {module.image_url && (
-                    <img
-                      src={module.image_url}
-                      alt={module.name}
-                      className="w-full aspect-[4/1] object-cover"
-                    />
+                    <div className="px-4 pt-4">
+                      <img
+                        src={module.image_url}
+                        alt={module.name}
+                        className="h-16 w-auto object-contain"
+                      />
+                    </div>
                   )}
                   {/* Module Header */}
                   <button
