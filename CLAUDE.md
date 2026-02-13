@@ -169,6 +169,23 @@ const { data: { user } } = await supabase.auth.getUser();
 
 **Exception:** Admin-only functions (`admin-create-user`, `admin-delete-user`) may use JWT-only auth since staff should never call them. Staff-specific functions (`staff_add_quote`, `staff_submit_form`) that use `x-staff-session` header validation directly are also fine.
 
+### Rule 3b: ALWAYS pass JWT explicitly to `getUser()` in edge functions
+
+In `_shared/verifyRequest.ts` and any edge function that validates a JWT, **ALWAYS** pass the token explicitly:
+
+```typescript
+// CORRECT — passes JWT directly, works regardless of gotrue-js version:
+const jwt = authHeader.replace("Bearer ", "");
+const { data: { user }, error } = await userClient.auth.getUser(jwt);
+
+// WRONG — relies on session state, which is empty in edge function throwaway clients:
+const { data: { user }, error } = await userClient.auth.getUser();
+```
+
+**Why:** Edge functions create fresh Supabase clients per request with no signed-in session. In newer `gotrue-js` versions, `getUser()` without a parameter checks for a stored session first — finds none — and returns `{ user: null }` without ever validating the JWT against the Auth API. This caused a production outage (2026-02-13) where all Growth Center uploads failed with "Invalid or expired JWT" after a routine edge function redeployment resolved a newer `gotrue-js` patch via `esm.sh`.
+
+**Applies to:** `_shared/verifyRequest.ts` and any edge function that creates a Supabase client and calls `auth.getUser()`.
+
 ### Rule 4: Frontend components MUST NOT use `useAuth().user.id` for staff-facing features
 
 Components rendered in the staff portal (`/staff/*`) must use `useStaffAuth()`, not `useAuth()`. The IDs come from different tables:
@@ -340,6 +357,46 @@ When writing data cleanup migrations:
 - **Always log** what will be affected with a dry-run count before the destructive operation
 - **Prefer UPDATE over DELETE** — marking records as inactive is safer than removing them
 - **Never assume** `status='lead'` with no quotes means "garbage data" — users can manually add leads via AddLeadModal that legitimately have no quotes yet
+
+## Sales Email Rules (MANDATORY — read before touching sales notification or summary emails)
+
+The sales email system has two edge functions that query the `sales` and `sale_policies` tables. These rules exist because a wrong column name silently broke all sales emails for 5 days (Feb 8–13, 2026).
+
+### Rule 1: sale_policies column is `policy_type_name`, NOT `policy_type`
+
+The `sale_policies` table column for the policy type display name is **`policy_type_name`**. There is no column called `policy_type`.
+
+```typescript
+// CORRECT:
+sale_policies(policy_type_name)
+
+// WRONG — causes PostgREST error, silently kills the entire query:
+sale_policies(policy_type)
+```
+
+**Why:** PostgREST returns an error when you select a non-existent column from a nested resource. Because both `send-sale-notification` and `send-daily-sales-summary` are called fire-and-forget, the error is silently swallowed and no email is ever sent.
+
+**Applies to:** `supabase/functions/send-sale-notification/index.ts`, `supabase/functions/send-daily-sales-summary/index.ts`, and any future function that queries `sale_policies`.
+
+### Rule 2: ALWAYS verify PostgREST nested select column names against actual schema
+
+Before adding or modifying a `.select()` call that includes nested resource columns (e.g., `sale_policies(col)`, `lead_sources(col)`), verify the column name exists in the actual table by checking `src/integrations/supabase/types.ts` or the migration that created the table. PostgREST nested select errors are silent when the caller is fire-and-forget.
+
+### Rule 3: Sales email functions are fire-and-forget — errors must be logged
+
+Both `send-sale-notification` and `send-daily-sales-summary` are invoked via non-blocking calls (`.catch()` swallows errors). Any error inside these functions is invisible to the user. When modifying these functions:
+- Always test the full invocation path end-to-end after changes
+- Never assume a successful deploy means the function works — the query may fail at runtime
+
+### Key column reference for sales email queries
+
+| Table | Column | Purpose |
+|-------|--------|---------|
+| `sale_policies` | `policy_type_name` | Display name of the policy type (e.g., "Renters", "Homeowners") |
+| `sale_policies` | `product_type_id` | FK to `policy_types` table (nullable) |
+| `sales` | `total_policies` | Count of policies in the sale |
+| `sales` | `total_items` | Count of line items in the sale |
+| `sales` | `total_premium` | Total premium amount |
 
 ## Testing
 
