@@ -114,7 +114,32 @@ function isStaffRoute(): boolean {
 
 // Check if current user should use staff API path
 export function isStaffUser(): boolean {
-  return isStaffRoute() && hasStaffToken();
+  const hasToken = hasStaffToken();
+  if (!hasToken) return false;
+
+  const isStaffMode = (() => {
+    try {
+      return window.localStorage.getItem("auth_mode") === "staff";
+    } catch {
+      return false;
+    }
+  })();
+
+  if (!isStaffMode && !isStaffRoute()) return false;
+
+  const staffTokenExpiresAt = (() => {
+    try {
+      const expiry = window.localStorage.getItem("staff_session_expiry");
+      return expiry ? new Date(expiry) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  if (staffTokenExpiresAt && Number.isNaN(staffTokenExpiresAt.getTime())) return true;
+  if (staffTokenExpiresAt) return staffTokenExpiresAt.getTime() > Date.now();
+
+  return true;
 }
 
 // ============ Settings ============
