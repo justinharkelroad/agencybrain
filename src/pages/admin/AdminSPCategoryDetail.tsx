@@ -549,7 +549,7 @@ export default function AdminSPCategoryDetail() {
 
       {/* Module Dialog */}
       <Dialog open={moduleDialogOpen} onOpenChange={setModuleDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingModule ? 'Edit Module' : 'New Module'}
