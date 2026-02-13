@@ -9686,6 +9686,7 @@ export type Database = {
           display_order: number | null
           icon: string | null
           id: string
+          image_url: string | null
           is_published: boolean | null
           name: string
           published_at: string | null
@@ -9699,6 +9700,7 @@ export type Database = {
           display_order?: number | null
           icon?: string | null
           id?: string
+          image_url?: string | null
           is_published?: boolean | null
           name: string
           published_at?: string | null
@@ -9712,6 +9714,7 @@ export type Database = {
           display_order?: number | null
           icon?: string | null
           id?: string
+          image_url?: string | null
           is_published?: boolean | null
           name?: string
           published_at?: string | null
