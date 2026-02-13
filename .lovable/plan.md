@@ -1,31 +1,23 @@
 
 
-## Fix: Cover Image Not Updating After Re-Upload
+## Fix: Modules Auto-Opening + Oversized Cover Images
 
-### The Problem
-When you upload a new image to replace the old one, the file successfully uploads to Supabase Storage (the success message is real), but because the URL path never changes, your browser shows the cached old image instead of the new one.
+### Two Issues
 
-### The Fix
-After uploading, append a unique timestamp to the image URL (e.g., `?t=1234567890`). This forces the browser to treat it as a new URL and fetch the fresh image.
+**1. Modules auto-expanding on page load**
+In `TrainingCategory.tsx`, lines 129-136 deliberately auto-expand the first incomplete module (or the first module if all are complete). This code will be removed so all modules start collapsed -- users open them when they want to.
 
-### What Changes
+**2. Module cover images are too large**
+Both `TrainingCategory.tsx` and `StaffSPCategory.tsx` use `aspect-[3/1]` at full card width, making the images dominate the card. The aspect ratio will be changed to `aspect-[6/1]` (effectively halving the image height) to keep them visible but proportional.
 
-**File: `src/pages/admin/AdminSPCategoryEditor.tsx`**
-- After a successful upload, append `?t={timestamp}` to the public URL before setting it in state
-- This is a one-line change in the upload handler
+### Changes
 
-**No database or storage changes needed** -- the upload itself is working correctly. This is purely a browser display issue.
+**File: `src/pages/training/TrainingCategory.tsx`**
+- Remove the auto-expand logic (lines 129-136) that sets `expandedModules` after data fetch
+- Change cover image class from `aspect-[3/1]` to `aspect-[6/1]`
 
-### Technical Details
+**File: `src/pages/staff/StaffSPCategory.tsx`**
+- Change cover image class from `aspect-[3/1]` to `aspect-[6/1]`
 
-In the upload handler (around line 324), change:
-```typescript
-setImageUrl(publicUrlData.publicUrl);
-```
-to:
-```typescript
-setImageUrl(`${publicUrlData.publicUrl}?t=${Date.now()}`);
-```
-
-This cache-busting parameter does not affect storage or the saved URL -- it just ensures the browser fetches the latest version of the image after each upload.
+No database or backend changes needed.
 
