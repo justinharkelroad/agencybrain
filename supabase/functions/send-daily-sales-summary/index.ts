@@ -20,11 +20,11 @@ const BRAND = {
   fromEmail: 'Agency Brain <info@agencybrain.standardplaybook.com>',
 };
 
-function summarizePolicyTypes(policies: Array<{ policy_type?: string | null }> | null | undefined): string {
+function summarizePolicyTypes(policies: Array<{ policy_type_name?: string | null }> | null | undefined): string {
   if (!policies || policies.length === 0) return '—';
   const counts = new Map<string, number>();
   for (const p of policies) {
-    const key = (p.policy_type || '').trim() || 'Unknown';
+    const key = (p.policy_type_name || '').trim() || 'Unknown';
     counts.set(key, (counts.get(key) || 0) + 1);
   }
   return Array.from(counts.entries())
@@ -191,7 +191,7 @@ serve(async (req) => {
             total_points,
             created_at,
             lead_source:lead_sources(name),
-            sale_policies(policy_type),
+            sale_policies(policy_type_name),
             team_member:team_members!sales_team_member_id_fkey(name)
           `)
           .eq('agency_id', agency.id)
@@ -381,7 +381,7 @@ serve(async (req) => {
               <td style="padding: 6px 12px;">${(s.team_member as { name: string } | null)?.name || 'Unknown'}</td>
               <td style="padding: 6px 12px;">${s.customer_name}</td>
               <td style="padding: 6px 12px;">${(s.lead_source as { name: string } | null)?.name || '—'}</td>
-              <td style="padding: 6px 12px;">${(s.total_policies || 0)} (${summarizePolicyTypes(s.sale_policies as Array<{ policy_type?: string | null }> | null)})</td>
+              <td style="padding: 6px 12px;">${(s.total_policies || 0)} (${summarizePolicyTypes(s.sale_policies as Array<{ policy_type_name?: string | null }> | null)})</td>
               <td style="padding: 6px 12px; text-align: right;">${formatCurrency(s.total_premium || 0)}</td>
             </tr>
           `).join('')

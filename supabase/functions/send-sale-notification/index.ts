@@ -25,11 +25,11 @@ interface SaleNotificationRequest {
   agency_id: string;
 }
 
-function summarizePolicyTypes(policies: Array<{ policy_type?: string | null }> | null | undefined): string {
+function summarizePolicyTypes(policies: Array<{ policy_type_name?: string | null }> | null | undefined): string {
   if (!policies || policies.length === 0) return '';
   const counts = new Map<string, number>();
   for (const p of policies) {
-    const key = (p.policy_type || '').trim() || 'Unknown';
+    const key = (p.policy_type_name || '').trim() || 'Unknown';
     counts.set(key, (counts.get(key) || 0) + 1);
   }
   return Array.from(counts.entries())
@@ -101,7 +101,7 @@ serve(async (req) => {
         source,
         created_at,
         lead_source_id,
-        sale_policies(policy_type),
+        sale_policies(policy_type_name),
         lead_source:lead_sources(name, is_self_generated),
         team_member:team_members!sales_team_member_id_fkey(id, name)
       `)
@@ -329,7 +329,7 @@ serve(async (req) => {
     const submittedTime = new Date(sale.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone });
     const todayDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: timezone });
     const policyTypesSummary = summarizePolicyTypes(
-      (sale as { sale_policies?: Array<{ policy_type?: string | null }> }).sale_policies
+      (sale as { sale_policies?: Array<{ policy_type_name?: string | null }> }).sale_policies
     );
     const policyCount = sale.total_policies || 0;
     const policyDisplay = policyTypesSummary ? `${policyCount} (${policyTypesSummary})` : `${policyCount}`;
