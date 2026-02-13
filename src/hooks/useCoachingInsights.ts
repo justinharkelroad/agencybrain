@@ -3,8 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { useMemo } from 'react';
 import { format, subDays } from 'date-fns';
 import { getCoachingSuggestion } from '@/components/coaching/coachingSuggestions';
-import type { CoachingInsight, CoachingThresholds, InsightSeverity, TeamMemberInsights } from '@/types/coaching';
-import { DEFAULT_COACHING_THRESHOLDS } from '@/types/coaching';
+import type {
+  CoachingInsight,
+  CoachingThresholds,
+  InsightSeverity,
+  TeamMemberInsights,
+  CoachingInsightConfig,
+} from '@/types/coaching';
+import {
+  DEFAULT_COACHING_INSIGHT_CONFIG,
+  mergeCoachingInsightConfig,
+} from '@/types/coaching';
 
 interface MetricsDailyRow {
   team_member_id: string;
@@ -49,11 +58,54 @@ const PAGE_SIZE = 1000;
 const MAX_FETCH = 10000;
 const IN_BATCH_SIZE = 400; // Supabase .in() parameter limit safety margin
 
+type CoachingInsightSettingsRow = {
+  thresholds: CoachingThresholds;
+  feature_flags: CoachingInsightConfig['featureFlags'];
+  analysis_windows: CoachingInsightConfig['windows'];
+  benchmark_config: CoachingInsightConfig['benchmarkConfig'];
+  suggestion_templates: CoachingInsightConfig['suggestionTemplates'];
+};
+
 export function useCoachingInsights(agencyId: string | null) {
   const now = new Date();
-  const sixtyDaysAgo = format(subDays(now, 60), 'yyyy-MM-dd');
-  const thirtyDaysAgo = format(subDays(now, 30), 'yyyy-MM-dd');
   const today = format(now, 'yyyy-MM-dd');
+
+  const settingsQuery = useQuery({
+    queryKey: ['coaching-insight-config', agencyId],
+    enabled: !!agencyId,
+    staleTime: 60_000,
+    queryFn: async (): Promise<CoachingInsightConfig> => {
+      const { data, error } = await supabase
+        .from('coaching_insight_settings')
+        .select('*')
+        .eq('agency_id', agencyId!)
+        .maybeSingle();
+      if (error) {
+        console.warn('[coaching-insights] settings query failed, using defaults', error);
+        return DEFAULT_COACHING_INSIGHT_CONFIG;
+      }
+      if (!data) return DEFAULT_COACHING_INSIGHT_CONFIG;
+      const row = data as unknown as CoachingInsightSettingsRow;
+      return mergeCoachingInsightConfig({
+        thresholds: row.thresholds,
+        featureFlags: row.feature_flags,
+        windows: row.analysis_windows,
+        benchmarkConfig: row.benchmark_config,
+        suggestionTemplates: row.suggestion_templates,
+      });
+    },
+  });
+
+  const config = settingsQuery.data ?? DEFAULT_COACHING_INSIGHT_CONFIG;
+  const metricsWindowDays = Math.max(1, config.windows.metricsLookbackDays);
+  const objectionsWindowDays = Math.max(1, config.windows.objectionsLookbackDays);
+  const passRateWindowDays = Math.max(7, config.windows.passRateLookbackDays);
+  const passRateBuckets = Math.max(2, config.windows.passRateBuckets);
+  const metricsQueryWindowDays = Math.max(metricsWindowDays, passRateWindowDays);
+  const metricsSince = format(subDays(now, metricsQueryWindowDays), 'yyyy-MM-dd');
+  const activitySince = format(subDays(now, metricsWindowDays), 'yyyy-MM-dd');
+  const objectionsSince = format(subDays(now, objectionsWindowDays), 'yyyy-MM-dd');
+  const passRateSince = format(subDays(now, passRateWindowDays), 'yyyy-MM-dd');
 
   // 1. Team members
   const teamMembersQuery = useQuery({
@@ -91,9 +143,9 @@ export function useCoachingInsights(agencyId: string | null) {
     },
   });
 
-  // 2. metrics_daily (60 days) with pagination
+  // 2. metrics_daily (dynamic window) with pagination
   const metricsQuery = useQuery({
-    queryKey: ['coaching-metrics-daily', agencyId, sixtyDaysAgo],
+    queryKey: ['coaching-metrics-daily', agencyId, metricsQueryWindowDays, today],
     enabled: !!agencyId,
     staleTime: 60_000,
     queryFn: async (): Promise<MetricsDailyRow[]> => {
@@ -103,7 +155,7 @@ export function useCoachingInsights(agencyId: string | null) {
           .from('metrics_daily')
           .select('team_member_id, date, outbound_calls, quoted_count, sold_items, talk_minutes, pass, hits, role')
           .eq('agency_id', agencyId!)
-          .gte('date', sixtyDaysAgo)
+          .gte('date', metricsSince)
           .lte('date', today)
           .range(from, from + PAGE_SIZE - 1);
         if (error) {
@@ -120,7 +172,7 @@ export function useCoachingInsights(agencyId: string | null) {
 
   // 3. LQS pipeline counts per team member (60 days)
   const lqsQuery = useQuery({
-    queryKey: ['coaching-lqs-counts', agencyId, sixtyDaysAgo],
+    queryKey: ['coaching-lqs-counts', agencyId, metricsWindowDays, today],
     enabled: !!agencyId,
     staleTime: 60_000,
     queryFn: async (): Promise<LqsCountRow[]> => {
@@ -130,7 +182,7 @@ export function useCoachingInsights(agencyId: string | null) {
         .select('id, team_member_id, status')
         .eq('agency_id', agencyId!)
         .not('team_member_id', 'is', null)
-        .gte('created_at', sixtyDaysAgo);
+        .gte('created_at', activitySince);
       if (hhError) {
         console.warn('[coaching-insights] lqs_households query failed', hhError);
         return [];
@@ -192,7 +244,7 @@ export function useCoachingInsights(agencyId: string | null) {
 
   // 4. Objection frequency (30 days)
   const objectionsQuery = useQuery({
-    queryKey: ['coaching-objections', agencyId, thirtyDaysAgo],
+    queryKey: ['coaching-objections', agencyId, objectionsWindowDays],
     enabled: !!agencyId,
     staleTime: 60_000,
     queryFn: async (): Promise<ObjectionRow[]> => {
@@ -202,7 +254,7 @@ export function useCoachingInsights(agencyId: string | null) {
         .eq('agency_id', agencyId!)
         .not('objection_id', 'is', null)
         .not('team_member_id', 'is', null)
-        .gte('updated_at', thirtyDaysAgo);
+        .gte('updated_at', objectionsSince);
       if (error) {
         console.warn('[coaching-insights] objections query failed', error);
         return [];
@@ -246,26 +298,6 @@ export function useCoachingInsights(agencyId: string | null) {
     },
   });
 
-  // 6. Coaching thresholds
-  const thresholdsQuery = useQuery({
-    queryKey: ['coaching-thresholds', agencyId],
-    enabled: !!agencyId,
-    staleTime: 60_000,
-    queryFn: async (): Promise<CoachingThresholds> => {
-      const { data, error } = await supabase
-        .from('coaching_insight_settings')
-        .select('thresholds')
-        .eq('agency_id', agencyId!)
-        .maybeSingle();
-      if (error) {
-        console.warn('[coaching-insights] thresholds query failed, using defaults', error);
-        return { ...DEFAULT_COACHING_THRESHOLDS };
-      }
-      if (!data) return { ...DEFAULT_COACHING_THRESHOLDS };
-      return { ...DEFAULT_COACHING_THRESHOLDS, ...(data.thresholds as Partial<CoachingThresholds>) };
-    },
-  });
-
   // Compute insights
   const result = useMemo(() => {
     const teamMembers = teamMembersQuery.data;
@@ -273,7 +305,14 @@ export function useCoachingInsights(agencyId: string | null) {
     const lqsCounts = lqsQuery.data;
     const objections = objectionsQuery.data;
     const targets = targetsQuery.data;
-    const thresholds = thresholdsQuery.data ?? DEFAULT_COACHING_THRESHOLDS;
+    const thresholds = config.thresholds;
+    const featureFlags = config.featureFlags;
+    const benchmarkConfig = config.benchmarkConfig;
+    const suggestionTemplates = config.suggestionTemplates;
+    const minQuoteRateSampleLeads = Math.max(1, thresholds.minQuoteRateSampleLeads);
+    const minCloseRateSampleQuoted = Math.max(1, thresholds.minCloseRateSampleQuoted);
+    const minActivitySampleDays = Math.max(1, thresholds.minActivitySampleDays);
+    const minPassRateSampleDays = Math.max(1, thresholds.minPassRateSampleDays);
 
     if (!teamMembers || !metrics) return null;
 
@@ -282,6 +321,7 @@ export function useCoachingInsights(agencyId: string | null) {
     // Build lookups
     const memberNameMap = new Map(teamMembers.map(m => [m.id, m.name]));
     const memberRoleMap = new Map(teamMembers.map(m => [m.id, m.role]));
+    const metricKeyForObjection = (objectionId: string) => `objection_${objectionId}`;
 
     // Target lookup: prefer per-member target, then agency-level
     const getTarget = (metricKey: string, memberId: string): number | null => {
@@ -293,20 +333,27 @@ export function useCoachingInsights(agencyId: string | null) {
       return null;
     };
 
-    // Filter to recent 30 days for analysis
-    const recent = metrics.filter(m => m.date >= thirtyDaysAgo);
+    const activityWindowRows = metrics.filter(m => m.date >= activitySince);
+    const passRateWindowRows = metrics.filter(m => m.date >= passRateSince);
 
-    // Aggregate metrics per member for recent 30 days
-    const recentByMember = new Map<string, MetricsDailyRow[]>();
-    for (const m of recent) {
-      if (!recentByMember.has(m.team_member_id)) recentByMember.set(m.team_member_id, []);
-      recentByMember.get(m.team_member_id)!.push(m);
+    // Aggregate metrics per member for activity windows
+    const activityRowsByMember = new Map<string, MetricsDailyRow[]>();
+    for (const m of activityWindowRows) {
+      if (!activityRowsByMember.has(m.team_member_id)) activityRowsByMember.set(m.team_member_id, []);
+      activityRowsByMember.get(m.team_member_id)!.push(m);
     }
 
-    // Team averages for recent period
+    // Pass-rate specific rows and team buckets per member
+    const passRateRowsByMember = new Map<string, MetricsDailyRow[]>();
+    for (const m of passRateWindowRows) {
+      if (!passRateRowsByMember.has(m.team_member_id)) passRateRowsByMember.set(m.team_member_id, []);
+      passRateRowsByMember.get(m.team_member_id)!.push(m);
+    }
+
+    // Team averages for activity analysis period
     const teamCallsPerDay: number[] = [];
     const teamTalkMinPerDay: number[] = [];
-    for (const [, rows] of recentByMember) {
+    for (const [, rows] of activityRowsByMember) {
       const daysCount = rows.length || 1;
       const totalCalls = rows.reduce((s, r) => s + (r.outbound_calls || 0), 0);
       const totalTalk = rows.reduce((s, r) => s + (r.talk_minutes || 0), 0);
@@ -331,12 +378,14 @@ export function useCoachingInsights(agencyId: string | null) {
     const avgTeamCloseRate = teamCloseRates.length > 0
       ? teamCloseRates.reduce((a, b) => a + b, 0) / teamCloseRates.length : 0;
 
-    const hasMeaningfulTeamAvg = teamMembers.length > 2;
+    const hasMeaningfulTeamAvg = teamMembers.length >= Math.max(2, benchmarkConfig.minTeamMembersForAverages);
 
     for (const member of teamMembers) {
       const memberId = member.id;
       const memberName = member.name;
-      const memberRows = recentByMember.get(memberId) || [];
+      const activityMemberRows = activityRowsByMember.get(memberId) || [];
+      const passRateMemberRows = passRateRowsByMember.get(memberId) || [];
+      const memberRows = activityMemberRows;
       const daysSubmitted = memberRows.length;
 
       if (daysSubmitted === 0) continue; // No data to analyze
@@ -345,12 +394,12 @@ export function useCoachingInsights(agencyId: string | null) {
       // Targets are daily absolute counts (e.g., "3 quotes/day"), not percentages,
       // so we use team average as the benchmark for rate-based comparisons.
       const lqs = lqsByMember.get(memberId);
-      if (lqs && lqs.leads >= 3) {
+      if (featureFlags.lowQuoteRate && lqs && lqs.leads >= minQuoteRateSampleLeads) {
         const quoteRate = (lqs.quoted / lqs.leads) * 100;
         let benchmark: number | null = null;
         let benchmarkSource: CoachingInsight['benchmarkSource'] = 'team_average';
 
-        if (hasMeaningfulTeamAvg && avgTeamQuoteRate > 0) {
+        if (benchmarkConfig.useTeamAverageForRates && hasMeaningfulTeamAvg && avgTeamQuoteRate > 0) {
           benchmark = avgTeamQuoteRate;
         }
 
@@ -361,7 +410,13 @@ export function useCoachingInsights(agencyId: string | null) {
           else if (ratio < thresholds.rateWarningRatio) severity = 'warning';
 
           if (severity) {
-            const ctx = { currentValue: quoteRate, benchmark, benchmarkSource, metricLabel: 'Quote Rate' };
+            const ctx = {
+              metricKey: 'quote_rate',
+              currentValue: quoteRate,
+              benchmark,
+              benchmarkSource,
+              metricLabel: 'Quote Rate',
+            };
             insights.push({
               id: `${memberId}-low_quote_rate-quote_rate`,
               type: 'low_quote_rate',
@@ -373,19 +428,22 @@ export function useCoachingInsights(agencyId: string | null) {
               currentValue: quoteRate,
               benchmark,
               benchmarkSource,
-              suggestion: getCoachingSuggestion('low_quote_rate', ctx),
+              suggestion: getCoachingSuggestion('low_quote_rate', {
+                ...ctx,
+                objectionsLookbackDays: objectionsWindowDays,
+              }, suggestionTemplates),
             });
           }
         }
       }
 
       // --- B. Close Rate ---
-      if (lqs && lqs.quoted >= 3) {
+      if (featureFlags.lowCloseRate && lqs && lqs.quoted >= minCloseRateSampleQuoted) {
         const closeRate = (lqs.sold / lqs.quoted) * 100;
         let benchmark: number | null = null;
         let benchmarkSource: CoachingInsight['benchmarkSource'] = 'team_average';
 
-        if (hasMeaningfulTeamAvg && avgTeamCloseRate > 0) {
+        if (benchmarkConfig.useTeamAverageForRates && hasMeaningfulTeamAvg && avgTeamCloseRate > 0) {
           benchmark = avgTeamCloseRate;
           benchmarkSource = 'team_average';
         }
@@ -397,7 +455,13 @@ export function useCoachingInsights(agencyId: string | null) {
           else if (ratio < thresholds.rateWarningRatio) severity = 'warning';
 
           if (severity) {
-            const ctx = { currentValue: closeRate, benchmark, benchmarkSource, metricLabel: 'Close Rate' };
+            const ctx = {
+              metricKey: 'close_rate',
+              currentValue: closeRate,
+              benchmark,
+              benchmarkSource,
+              metricLabel: 'Close Rate',
+            };
             insights.push({
               id: `${memberId}-low_close_rate-close_rate`,
               type: 'low_close_rate',
@@ -409,14 +473,17 @@ export function useCoachingInsights(agencyId: string | null) {
               currentValue: closeRate,
               benchmark,
               benchmarkSource,
-              suggestion: getCoachingSuggestion('low_close_rate', ctx),
+              suggestion: getCoachingSuggestion('low_close_rate', {
+                ...ctx,
+                objectionsLookbackDays: objectionsWindowDays,
+              }, suggestionTemplates),
             });
           }
         }
       }
 
       // --- C. Objection Pattern ---
-      if (objections) {
+      if (featureFlags.objectionPattern && objections) {
         const memberObjections = objections.filter(o => o.team_member_id === memberId);
         for (const obj of memberObjections) {
           let severity: InsightSeverity | null = null;
@@ -438,12 +505,16 @@ export function useCoachingInsights(agencyId: string | null) {
               severity,
               teamMemberId: memberId,
               teamMemberName: memberName,
-              metricKey: `objection_${obj.objection_id}`,
+              metricKey: metricKeyForObjection(obj.objection_id),
               metricLabel: obj.objection_name,
               currentValue: obj.count,
               benchmark: 0,
               benchmarkSource: 'team_average',
-              suggestion: getCoachingSuggestion('objection_pattern', ctx),
+              suggestion: getCoachingSuggestion('objection_pattern', {
+                ...ctx,
+                metricKey: metricKeyForObjection(obj.objection_id),
+                objectionsLookbackDays: objectionsWindowDays,
+              }, suggestionTemplates),
               objectionName: obj.objection_name,
               objectionCount: obj.count,
             });
@@ -458,18 +529,24 @@ export function useCoachingInsights(agencyId: string | null) {
       {
         let benchmark = callTarget;
         let benchmarkSource: CoachingInsight['benchmarkSource'] = 'target';
-        if (!benchmark && hasMeaningfulTeamAvg && avgTeamCallsPerDay > 0) {
+        if (!benchmark && benchmarkConfig.useTeamAverageForActivity && hasMeaningfulTeamAvg && avgTeamCallsPerDay > 0) {
           benchmark = avgTeamCallsPerDay;
           benchmarkSource = 'team_average';
         }
-        if (benchmark && benchmark > 0) {
+        if (featureFlags.lowCallVolume && daysSubmitted >= minActivitySampleDays && benchmark && benchmark > 0) {
           const ratio = avgCalls / benchmark;
           let severity: InsightSeverity | null = null;
           if (ratio < thresholds.activityCriticalRatio) severity = 'critical';
           else if (ratio < thresholds.activityWarningRatio) severity = 'warning';
 
           if (severity) {
-            const ctx = { currentValue: avgCalls, benchmark, benchmarkSource, metricLabel: 'Outbound Calls' };
+            const ctx = {
+              metricKey: 'outbound_calls',
+              currentValue: avgCalls,
+              benchmark,
+              benchmarkSource,
+              metricLabel: 'Outbound Calls',
+            };
             insights.push({
               id: `${memberId}-low_call_volume-outbound_calls`,
               type: 'low_call_volume',
@@ -481,7 +558,11 @@ export function useCoachingInsights(agencyId: string | null) {
               currentValue: avgCalls,
               benchmark,
               benchmarkSource,
-              suggestion: getCoachingSuggestion('low_call_volume', ctx),
+              suggestion: getCoachingSuggestion(
+                'low_call_volume',
+                { ...ctx, objectionsLookbackDays: objectionsWindowDays },
+                suggestionTemplates,
+              ),
             });
           }
         }
@@ -494,18 +575,24 @@ export function useCoachingInsights(agencyId: string | null) {
       {
         let benchmark = talkTarget;
         let benchmarkSource: CoachingInsight['benchmarkSource'] = 'target';
-        if (!benchmark && hasMeaningfulTeamAvg && avgTeamTalkMinPerDay > 0) {
+        if (!benchmark && benchmarkConfig.useTeamAverageForActivity && hasMeaningfulTeamAvg && avgTeamTalkMinPerDay > 0) {
           benchmark = avgTeamTalkMinPerDay;
           benchmarkSource = 'team_average';
         }
-        if (benchmark && benchmark > 0) {
+        if (featureFlags.lowTalkTime && daysSubmitted >= minActivitySampleDays && benchmark && benchmark > 0) {
           const ratio = avgTalk / benchmark;
           let severity: InsightSeverity | null = null;
           if (ratio < thresholds.activityCriticalRatio) severity = 'critical';
           else if (ratio < thresholds.activityWarningRatio) severity = 'warning';
 
           if (severity) {
-            const ctx = { currentValue: avgTalk, benchmark, benchmarkSource, metricLabel: 'Talk Time' };
+            const ctx = {
+              metricKey: 'talk_minutes',
+              currentValue: avgTalk,
+              benchmark,
+              benchmarkSource,
+              metricLabel: 'Talk Time',
+            };
             insights.push({
               id: `${memberId}-low_talk_time-talk_minutes`,
               type: 'low_talk_time',
@@ -517,22 +604,35 @@ export function useCoachingInsights(agencyId: string | null) {
               currentValue: avgTalk,
               benchmark,
               benchmarkSource,
-              suggestion: getCoachingSuggestion('low_talk_time', ctx),
+              suggestion: getCoachingSuggestion(
+                'low_talk_time',
+                { ...ctx, objectionsLookbackDays: objectionsWindowDays },
+                suggestionTemplates,
+              ),
             });
           }
         }
       }
 
       // --- E. Declining Pass Rate ---
-      // Split recent 30 days into 4 weekly buckets
-      const sortedRows = [...memberRows].sort((a, b) => a.date.localeCompare(b.date));
-      const weekBuckets: boolean[][] = [[], [], [], []];
+      // Split recent window into configurable buckets
+      const passRateSampleCount = passRateMemberRows.filter(r => r.pass !== null).length;
+      if (!featureFlags.decliningPassRate || passRateSampleCount < minPassRateSampleDays) {
+        continue;
+      }
+      const sortedRows = [...passRateMemberRows].sort((a, b) => a.date.localeCompare(b.date));
+      const passRateLookbackDaysActual = Math.max(1, Math.ceil((new Date(today).getTime() - new Date(passRateSince).getTime()) / (1000 * 60 * 60 * 24)));
+      const daysPerBucket = Math.max(1, Math.floor(passRateLookbackDaysActual / passRateBuckets));
+      const weekBuckets: boolean[][] = Array.from({ length: passRateBuckets }, () => []);
       for (const row of sortedRows) {
         const dayOffset = Math.floor(
-          (new Date(row.date).getTime() - new Date(thirtyDaysAgo).getTime()) / (1000 * 60 * 60 * 24)
+          (new Date(row.date).getTime() - new Date(passRateSince).getTime()) / (1000 * 60 * 60 * 24)
         );
-        const weekIdx = Math.min(Math.floor(dayOffset / 7), 3);
-        if (row.pass !== null) weekBuckets[weekIdx].push(row.pass);
+        if (dayOffset < 0) continue;
+        const weekIdx = Math.min(Math.floor(dayOffset / daysPerBucket), passRateBuckets - 1);
+        if (row.pass !== null && weekIdx >= 0 && weekIdx < weekBuckets.length) {
+          weekBuckets[weekIdx].push(row.pass);
+        }
       }
 
       const weekPassRates = weekBuckets.map(bucket => {
@@ -555,8 +655,8 @@ export function useCoachingInsights(agencyId: string | null) {
         }
       }
 
-      const latestPassRate = weekPassRates[3] ?? weekPassRates[2] ?? null;
-      if (latestPassRate !== null && decliningWeeks >= thresholds.passRateWarningWeeks) {
+      const latestPassRate = weekPassRates[weekPassRates.length - 1] ?? null;
+      if (featureFlags.decliningPassRate && latestPassRate !== null && decliningWeeks >= thresholds.passRateWarningWeeks) {
         let severity: InsightSeverity | null = null;
         if (decliningWeeks >= thresholds.passRateCriticalWeeks && latestPassRate < thresholds.passRateCriticalThreshold) severity = 'critical';
         else if (decliningWeeks >= thresholds.passRateWarningWeeks && latestPassRate < thresholds.passRateWarningThreshold) severity = 'warning';
@@ -581,7 +681,11 @@ export function useCoachingInsights(agencyId: string | null) {
             currentValue: latestPassRate,
             benchmark: 0,
             benchmarkSource: 'prior_period',
-            suggestion: getCoachingSuggestion('declining_pass_rate', ctx),
+            suggestion: getCoachingSuggestion('declining_pass_rate', {
+              ...ctx,
+              metricKey: 'pass_rate',
+              objectionsLookbackDays: objectionsWindowDays,
+            }, suggestionTemplates),
             trendWeeks: decliningWeeks,
             priorValue: firstNonNullRate ?? undefined,
           });
@@ -620,8 +724,8 @@ export function useCoachingInsights(agencyId: string | null) {
       });
 
     // Summary stats
-    const totalPassDays = recent.filter(r => r.pass === true).length;
-    const totalCountedDays = recent.filter(r => r.pass !== null).length;
+    const totalPassDays = passRateWindowRows.filter(r => r.pass === true).length;
+    const totalCountedDays = passRateWindowRows.filter(r => r.pass !== null).length;
     const teamPassRate = totalCountedDays > 0 ? (totalPassDays / totalCountedDays) * 100 : 0;
 
     return {
@@ -637,8 +741,12 @@ export function useCoachingInsights(agencyId: string | null) {
     lqsQuery.data,
     objectionsQuery.data,
     targetsQuery.data,
-    thresholdsQuery.data,
-    thirtyDaysAgo,
+    settingsQuery.data,
+    metricsWindowDays,
+    objectionsWindowDays,
+    passRateWindowDays,
+    passRateBuckets,
+    today,
   ]);
 
   const isLoading =
@@ -647,7 +755,7 @@ export function useCoachingInsights(agencyId: string | null) {
     lqsQuery.isLoading ||
     objectionsQuery.isLoading ||
     targetsQuery.isLoading ||
-    thresholdsQuery.isLoading;
+    settingsQuery.isLoading;
 
   const error =
     teamMembersQuery.error ||
@@ -655,7 +763,7 @@ export function useCoachingInsights(agencyId: string | null) {
     lqsQuery.error ||
     objectionsQuery.error ||
     targetsQuery.error ||
-    thresholdsQuery.error;
+    settingsQuery.error;
 
   return {
     data: result,
@@ -667,7 +775,7 @@ export function useCoachingInsights(agencyId: string | null) {
       lqsQuery.refetch();
       objectionsQuery.refetch();
       targetsQuery.refetch();
-      thresholdsQuery.refetch();
+      settingsQuery.refetch();
     },
   };
 }

@@ -1,6 +1,12 @@
 import { useState } from 'react';
-import { AlertTriangle, AlertCircle, ChevronDown, ChevronRight, Lightbulb } from 'lucide-react';
+import { AlertTriangle, AlertCircle, ChevronDown, ChevronRight, Lightbulb, CircleHelp } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import type { CoachingInsight } from '@/types/coaching';
 
 interface InsightRowProps {
@@ -50,12 +56,34 @@ function getTypeLabel(type: CoachingInsight['type']): string {
   }
 }
 
+function getTypeDescription(type: CoachingInsight['type']): string {
+  switch (type) {
+    case 'low_quote_rate':
+      return 'This rep is quoting less than expected from their lead volume in the current activity window.';
+    case 'low_close_rate':
+      return 'This rep is converting a smaller share of quoted leads compared to team/target expectations.';
+    case 'objection_pattern':
+      return 'This objection is appearing repeatedly and likely deserves focused coaching.';
+    case 'low_call_volume':
+      return 'This rep has fewer outbound calls than expected for the same period.';
+    case 'low_talk_time':
+      return 'This rep is spending less phone time than expected, which may signal rushed or low-depth calls.';
+    case 'declining_pass_rate':
+      return 'This rep has a sustained decline in pass-rate across recent buckets.';
+    case 'declining_metric':
+      return 'A related metric is trending lower over consecutive periods.';
+    default:
+      return '';
+  }
+}
+
 export function InsightRow({ insight }: InsightRowProps) {
   const [open, setOpen] = useState(false);
   const isCritical = insight.severity === 'critical';
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen}>
+    <TooltipProvider delayDuration={250}>
+      <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger asChild>
         <button className="w-full flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left">
           {isCritical ? (
@@ -72,6 +100,23 @@ export function InsightRow({ insight }: InsightRowProps) {
               }`}>
                 {getTypeLabel(insight.type)}
               </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className="inline-flex text-muted-foreground/80 hover:text-foreground transition-colors"
+                    aria-label={`${getTypeLabel(insight.type)} help`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <CircleHelp className="h-4 w-4" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-64">
+                  <p className="text-xs">{getTypeDescription(insight.type)}</p>
+                </TooltipContent>
+              </Tooltip>
             </div>
             <p className="text-sm text-foreground mt-1">{getDescription(insight)}</p>
           </div>
@@ -91,5 +136,6 @@ export function InsightRow({ insight }: InsightRowProps) {
         </div>
       </CollapsibleContent>
     </Collapsible>
+    </TooltipProvider>
   );
 }

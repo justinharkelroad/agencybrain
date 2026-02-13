@@ -1,35 +1,54 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import type { CoachingThresholds } from '@/types/coaching';
-import { DEFAULT_COACHING_THRESHOLDS } from '@/types/coaching';
+import type { CoachingInsightConfig, CoachingThresholds } from '@/types/coaching';
+import { DEFAULT_COACHING_INSIGHT_CONFIG, mergeCoachingInsightConfig } from '@/types/coaching';
+
+type CoachingInsightSettingsRow = {
+  thresholds: CoachingThresholds;
+  feature_flags: CoachingInsightConfig['featureFlags'];
+  analysis_windows: CoachingInsightConfig['windows'];
+  benchmark_config: CoachingInsightConfig['benchmarkConfig'];
+  suggestion_templates: CoachingInsightConfig['suggestionTemplates'];
+};
 
 export function useCoachingThresholds(agencyId: string | null) {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['coaching-thresholds', agencyId],
+    queryKey: ['coaching-insight-config', agencyId],
     enabled: !!agencyId,
     staleTime: 60_000,
-    queryFn: async (): Promise<CoachingThresholds> => {
+    queryFn: async (): Promise<CoachingInsightConfig> => {
       const { data, error } = await supabase
         .from('coaching_insight_settings')
-        .select('thresholds')
+        .select('*')
         .eq('agency_id', agencyId!)
         .maybeSingle();
       if (error) throw error;
-      if (!data) return { ...DEFAULT_COACHING_THRESHOLDS };
-      return { ...DEFAULT_COACHING_THRESHOLDS, ...(data.thresholds as Partial<CoachingThresholds>) };
+      if (!data) return DEFAULT_COACHING_INSIGHT_CONFIG;
+      const row = data as unknown as CoachingInsightSettingsRow;
+      return mergeCoachingInsightConfig({
+        thresholds: (row.thresholds || undefined) as CoachingInsightConfig['thresholds'],
+        featureFlags: row.feature_flags,
+        windows: row.analysis_windows,
+        benchmarkConfig: row.benchmark_config,
+        suggestionTemplates: row.suggestion_templates,
+      });
     },
   });
 
   const saveMutation = useMutation({
-    mutationFn: async (thresholds: CoachingThresholds) => {
+    mutationFn: async (settings: CoachingInsightConfig) => {
       const { error } = await supabase
         .from('coaching_insight_settings')
         .upsert(
           {
             agency_id: agencyId!,
-            thresholds: thresholds as unknown as Record<string, unknown>,
+            thresholds: settings.thresholds as unknown as Record<string, unknown>,
+            feature_flags: settings.featureFlags as unknown as Record<string, unknown>,
+            analysis_windows: settings.windows as unknown as Record<string, unknown>,
+            benchmark_config: settings.benchmarkConfig as unknown as Record<string, unknown>,
+            suggestion_templates: settings.suggestionTemplates as unknown as Record<string, unknown>,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'agency_id' }
@@ -37,7 +56,7 @@ export function useCoachingThresholds(agencyId: string | null) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['coaching-thresholds', agencyId] });
+      queryClient.invalidateQueries({ queryKey: ['coaching-insight-config', agencyId] });
     },
   });
 
@@ -48,7 +67,11 @@ export function useCoachingThresholds(agencyId: string | null) {
         .upsert(
           {
             agency_id: agencyId!,
-            thresholds: DEFAULT_COACHING_THRESHOLDS as unknown as Record<string, unknown>,
+            thresholds: DEFAULT_COACHING_INSIGHT_CONFIG.thresholds as unknown as Record<string, unknown>,
+            feature_flags: DEFAULT_COACHING_INSIGHT_CONFIG.featureFlags as unknown as Record<string, unknown>,
+            analysis_windows: DEFAULT_COACHING_INSIGHT_CONFIG.windows as unknown as Record<string, unknown>,
+            benchmark_config: DEFAULT_COACHING_INSIGHT_CONFIG.benchmarkConfig as unknown as Record<string, unknown>,
+            suggestion_templates: DEFAULT_COACHING_INSIGHT_CONFIG.suggestionTemplates as unknown as Record<string, unknown>,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'agency_id' }
@@ -56,12 +79,17 @@ export function useCoachingThresholds(agencyId: string | null) {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['coaching-thresholds', agencyId] });
+      queryClient.invalidateQueries({ queryKey: ['coaching-insight-config', agencyId] });
     },
   });
 
   return {
-    thresholds: query.data ?? DEFAULT_COACHING_THRESHOLDS,
+    thresholds: query.data?.thresholds ?? DEFAULT_COACHING_INSIGHT_CONFIG.thresholds,
+    featureFlags: query.data?.featureFlags ?? DEFAULT_COACHING_INSIGHT_CONFIG.featureFlags,
+    windows: query.data?.windows ?? DEFAULT_COACHING_INSIGHT_CONFIG.windows,
+    benchmarkConfig: query.data?.benchmarkConfig ?? DEFAULT_COACHING_INSIGHT_CONFIG.benchmarkConfig,
+    suggestionTemplates: query.data?.suggestionTemplates ?? DEFAULT_COACHING_INSIGHT_CONFIG.suggestionTemplates,
+    config: query.data ?? DEFAULT_COACHING_INSIGHT_CONFIG,
     isLoading: query.isLoading,
     save: saveMutation.mutateAsync,
     isSaving: saveMutation.isPending,
