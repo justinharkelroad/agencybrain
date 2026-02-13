@@ -122,7 +122,7 @@ export async function verifyRequest(
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const { data: { user }, error: userError } = await userClient.auth.getUser(jwt);
 
     if (userError || !user) {
       return { error: "Invalid or expired JWT", status: 401 };
