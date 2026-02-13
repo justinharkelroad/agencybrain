@@ -114,6 +114,8 @@ async function processInBackground(
   queryClient: ReturnType<typeof useQueryClient>
 ) {
   try {
+    const processedHouseholdIds = new Set<string>();
+
     const stats: UploadStats = {
       processed: 0,
       newHouseholds: 0,
@@ -203,6 +205,8 @@ async function processInBackground(
         householdId = newHousehold.id;
         stats.newHouseholds++;
       }
+
+      processedHouseholdIds.add(householdId);
 
       // Process each policy in this household
       for (const record of groupRecords) {
@@ -325,19 +329,7 @@ async function processInBackground(
 
     // Stamp last_upload_id on all processed households
     if (uploadRecord?.id) {
-      const allHouseholdIds: string[] = [];
-      for (const [, groupRecords] of householdGroups) {
-        const firstRecord = groupRecords[0];
-        const { data: hh } = await supabase
-          .from('winback_households')
-          .select('id')
-          .eq('agency_id', agencyId)
-          .ilike('first_name', firstRecord.firstName)
-          .ilike('last_name', firstRecord.lastName)
-          .filter('zip_code', 'like', `${firstRecord.zipCode.substring(0, 5)}%`)
-          .maybeSingle();
-        if (hh) allHouseholdIds.push(hh.id);
-      }
+      const allHouseholdIds = Array.from(processedHouseholdIds);
       if (allHouseholdIds.length > 0) {
         await supabase
           .from('winback_households')

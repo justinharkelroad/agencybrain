@@ -668,6 +668,7 @@ Deno.serve(async (req) => {
           updated: 0,
           skipped: 0,
         };
+        const uploadedHouseholdIds = new Set<string>();
 
         // Group by household key (firstName + lastName + zip5)
         const householdGroups = new Map<string, ParsedRecord[]>();
@@ -731,6 +732,8 @@ Deno.serve(async (req) => {
             householdId = newHousehold.id;
             stats.newHouseholds++;
           }
+
+          uploadedHouseholdIds.add(householdId);
 
           // Process each policy
           for (const record of groupRecords) {
@@ -839,25 +842,17 @@ Deno.serve(async (req) => {
 
         // Stamp last_upload_id on all households created/updated in this upload
         if (uploadRecord?.id) {
-          // Collect all household IDs that were processed
-          const allHouseholdIds: string[] = [];
-          for (const [, groupRecords] of householdGroups) {
-            const firstRecord = groupRecords[0];
-            const { data: hh } = await supabase
-              .from("winback_households")
-              .select("id")
-              .eq("agency_id", agencyId)
-              .ilike("first_name", firstRecord.firstName)
-              .ilike("last_name", firstRecord.lastName)
-              .filter("zip_code", "like", `${firstRecord.zipCode.substring(0, 5)}%`)
-              .maybeSingle();
-            if (hh) allHouseholdIds.push(hh.id);
-          }
+          const allHouseholdIds = Array.from(uploadedHouseholdIds);
+
           if (allHouseholdIds.length > 0) {
-            await supabase
+            const { error: stampError } = await supabase
               .from("winback_households")
               .update({ last_upload_id: uploadRecord.id })
               .in("id", allHouseholdIds);
+
+            if (stampError) {
+              throw stampError;
+            }
           }
         }
 
