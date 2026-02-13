@@ -106,26 +106,10 @@ async function callStaffWinback<T>(operation: string, params: Record<string, any
 }
 
 // Check if current user is staff
-function isStaffRoute(): boolean {
-  if (typeof window === 'undefined') return false;
-
-  return window.location.pathname.startsWith('/staff');
-}
-
 // Check if current user should use staff API path
 export function isStaffUser(): boolean {
   const hasToken = hasStaffToken();
   if (!hasToken) return false;
-
-  const isStaffMode = (() => {
-    try {
-      return window.localStorage.getItem("auth_mode") === "staff";
-    } catch {
-      return false;
-    }
-  })();
-
-  if (!isStaffMode && !isStaffRoute()) return false;
 
   const staffTokenExpiresAt = (() => {
     try {
@@ -878,8 +862,19 @@ export async function listUploads(agencyId: string): Promise<any[]> {
 // ============ Delete Upload ============
 
 export async function deleteUpload(uploadId: string, agencyId: string): Promise<void> {
-  if (isStaffUser()) {
-    await callStaffWinback('delete_upload', { uploadId });
+  if (hasStaffToken()) {
+    const result = await callStaffWinback<{ success: boolean; deleted: number }>(
+      'delete_upload',
+      { uploadId }
+    );
+
+    if (!result?.success) {
+      throw new Error('Delete upload did not complete');
+    }
+
+    if (typeof result.deleted === 'number' && result.deleted === 0) {
+      throw new Error('No households were linked to this upload id');
+    }
     return;
   }
 
