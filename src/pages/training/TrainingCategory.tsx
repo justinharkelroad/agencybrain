@@ -33,6 +33,7 @@ interface SPModule {
   slug: string;
   description: string | null;
   icon: string;
+  image_url: string | null;
   display_order: number;
   lessons: SPLesson[];
 }
@@ -213,8 +214,16 @@ export default function TrainingCategory() {
             const isExpanded = expandedModules.has(module.id);
 
             return (
-              <Card key={module.id}>
+              <Card key={module.id} className="overflow-hidden">
                 <CardContent className="p-0">
+                  {/* Module Cover Image */}
+                  {module.image_url && (
+                    <img
+                      src={module.image_url}
+                      alt={module.name}
+                      className="w-full aspect-[3/1] object-cover"
+                    />
+                  )}
                   {/* Module Header */}
                   <button
                     className="w-full p-4 flex items-center gap-4 text-left hover:bg-accent/5 transition-colors"

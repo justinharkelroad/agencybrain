@@ -1,0 +1,1 @@
+ALTER TABLE public.sp_modules ADD COLUMN image_url text;
