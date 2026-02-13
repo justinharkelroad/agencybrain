@@ -181,7 +181,7 @@ export default function StaffSPCategory() {
                     <img
                       src={module.image_url}
                       alt={module.name}
-                      className="w-full aspect-[4/1] object-cover"
+                      className="w-full aspect-[5/2] object-cover"
                     />
                   )}
                   {/* Module Header */}
