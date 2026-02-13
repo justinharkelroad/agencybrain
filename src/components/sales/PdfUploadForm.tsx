@@ -666,12 +666,40 @@ export function PdfUploadForm({
           if (itemError) throw itemError;
         }
 
+        // Create or find unified contact so this customer appears in Contacts
+        if (customerName.trim()) {
+          try {
+            const nameParts = customerName.trim().split(/\s+/);
+            const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+            const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : '';
+
+            const { data: contactId } = await supabase.rpc('find_or_create_contact', {
+              p_agency_id: effectiveAgencyId,
+              p_first_name: firstName || null,
+              p_last_name: lastName,
+              p_zip_code: customerZip.trim() || null,
+              p_phone: customerPhone.trim() || null,
+              p_email: customerEmail.trim() || null,
+            });
+
+            if (contactId) {
+              await supabase
+                .from('sales')
+                .update({ contact_id: contactId })
+                .eq('id', sale.id)
+                .is('contact_id', null);
+            }
+          } catch (contactErr) {
+            console.warn('[PdfUploadForm] Failed to create contact:', contactErr);
+          }
+        }
+
         // Trigger sale notification email (fire and forget)
         if (profile?.agency_id) {
           supabase.functions.invoke('send-sale-notification', {
-            body: { 
-              sale_id: sale.id, 
-              agency_id: profile.agency_id 
+            body: {
+              sale_id: sale.id,
+              agency_id: profile.agency_id
             }
           }).catch(err => {
             console.error('[PdfUploadForm] Failed to trigger sale notification:', err);
@@ -685,6 +713,7 @@ export function PdfUploadForm({
       toast.success('Sale created successfully!');
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['staff-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
       // Invalidate promo widgets so progress refreshes immediately
       queryClient.invalidateQueries({ queryKey: ['admin-promo-goals-widget'] });
       queryClient.invalidateQueries({ queryKey: ['promo-goals'] });

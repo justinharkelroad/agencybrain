@@ -801,12 +801,40 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         if (itemsError) throw itemsError;
       }
 
+      // Create or find unified contact so this customer appears in Contacts
+      if (profile?.agency_id && customerName.trim()) {
+        try {
+          const nameParts = customerName.trim().split(/\s+/);
+          const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+          const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : '';
+
+          const { data: contactId } = await supabase.rpc('find_or_create_contact', {
+            p_agency_id: profile.agency_id,
+            p_first_name: firstName || null,
+            p_last_name: lastName,
+            p_zip_code: customerZip.trim() || null,
+            p_phone: customerPhone.trim() || null,
+            p_email: customerEmail.trim() || null,
+          });
+
+          if (contactId) {
+            await supabase
+              .from('sales')
+              .update({ contact_id: contactId })
+              .eq('id', saleId)
+              .is('contact_id', null);
+          }
+        } catch (contactErr) {
+          console.warn('[AddSaleForm] Failed to create contact:', contactErr);
+        }
+      }
+
       // Trigger sale notification email for new sales (fire and forget)
       if (!isEditMode && profile?.agency_id) {
         supabase.functions.invoke('send-sale-notification', {
-          body: { 
-            sale_id: saleId, 
-            agency_id: profile.agency_id 
+          body: {
+            sale_id: saleId,
+            agency_id: profile.agency_id
           }
         }).catch(err => {
           console.error('[AddSaleForm] Failed to trigger sale notification:', err);
@@ -837,6 +865,8 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       queryClient.invalidateQueries({ queryKey: ["sale-for-edit"] });
       // Invalidate dashboard metrics so sold_items refreshes immediately
       queryClient.invalidateQueries({ queryKey: ["dashboard-daily"] });
+      // Invalidate contacts so new contact appears
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
       // Invalidate promo widgets so progress refreshes immediately
       queryClient.invalidateQueries({ queryKey: ["admin-promo-goals-widget"] });
       queryClient.invalidateQueries({ queryKey: ["promo-goals"] });
