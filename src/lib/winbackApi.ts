@@ -106,8 +106,15 @@ async function callStaffWinback<T>(operation: string, params: Record<string, any
 }
 
 // Check if current user is staff
+function isStaffRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  return window.location.pathname.startsWith('/staff');
+}
+
+// Check if current user should use staff API path
 export function isStaffUser(): boolean {
-  return hasStaffToken();
+  return isStaffRoute() && hasStaffToken();
 }
 
 // ============ Settings ============

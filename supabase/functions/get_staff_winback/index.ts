@@ -1241,12 +1241,16 @@ Deno.serve(async (req) => {
         const { uploadId } = params;
 
         // Verify upload belongs to agency
-        const { data: upload } = await supabase
+        const { data: upload, error: uploadVerifyError } = await supabase
           .from("winback_uploads")
           .select("id")
           .eq("id", uploadId)
           .eq("agency_id", agencyId)
           .single();
+
+        if (uploadVerifyError) {
+          throw uploadVerifyError;
+        }
 
         if (!upload) {
           return new Response(JSON.stringify({ error: "Upload not found" }), {
@@ -1256,10 +1260,14 @@ Deno.serve(async (req) => {
         }
 
         // Find households linked to this upload
-        const { data: households } = await supabase
+        const { data: households, error: householdsError } = await supabase
           .from("winback_households")
           .select("id")
           .eq("last_upload_id", uploadId);
+
+        if (householdsError) {
+          throw householdsError;
+        }
 
         const hhIds = (households || []).map((h: any) => h.id);
 
@@ -1301,7 +1309,14 @@ Deno.serve(async (req) => {
         }
 
         // Delete upload record
-        await supabase.from("winback_uploads").delete().eq("id", uploadId);
+        const { error: uploadDeleteError } = await supabase
+          .from("winback_uploads")
+          .delete()
+          .eq("id", uploadId);
+
+        if (uploadDeleteError) {
+          throw uploadDeleteError;
+        }
 
         result = { success: true, deleted: hhIds.length };
         break;

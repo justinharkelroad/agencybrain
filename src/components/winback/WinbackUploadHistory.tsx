@@ -66,6 +66,7 @@ export function WinbackUploadHistory({ agencyId, onDeleteComplete }: WinbackUplo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['winback-uploads'] });
+      queryClient.invalidateQueries({ queryKey: ['winback-uploads', agencyId, 'latest'] });
       queryClient.invalidateQueries({ queryKey: ['winback-households'] });
       queryClient.invalidateQueries({ queryKey: ['winback-stats'] });
       queryClient.invalidateQueries({ queryKey: ['winback-policies'] });
