@@ -132,6 +132,9 @@ serve(async (req) => {
       case "get_active_policy_numbers":
         result = await getActivePolicyNumbers(supabase, agencyId);
         break;
+      case "get_uploads":
+        result = await getUploads(supabase, agencyId);
+        break;
       default:
         console.error(`[get-cancel-audit-data] Unknown operation: ${operation}`);
         return new Response(
@@ -155,8 +158,12 @@ serve(async (req) => {
 });
 
 // Get records with filtering
+const CANCEL_STATUS_FILTERS = ['all', 'cancel', 'cancelled', 's-cancel', 'saved', 'unmatched'] as const;
+type CancelStatusFilter = (typeof CANCEL_STATUS_FILTERS)[number];
+
 async function getRecords(supabase: any, agencyId: string, params: any) {
-  const { viewMode, reportTypeFilter, searchQuery, sortBy } = params || {};
+  const { viewMode, reportTypeFilter, searchQuery, sortBy, cancelStatusFilter } = params || {};
+  const normalizedCancelStatusFilter = normalizeCancelStatusFilter(cancelStatusFilter);
 
   let query = supabase
     .from("cancel_audit_records")
@@ -178,6 +185,10 @@ async function getRecords(supabase: any, agencyId: string, params: any) {
     );
   }
 
+  if (normalizedCancelStatusFilter !== 'all') {
+    query = applyCancelStatusFilter(query, normalizedCancelStatusFilter);
+  }
+
   if (sortBy === "urgency") {
     query = query
       .order("pending_cancel_date", { ascending: true, nullsFirst: false })
@@ -186,6 +197,10 @@ async function getRecords(supabase: any, agencyId: string, params: any) {
     query = query
       .order("insured_last_name", { ascending: true })
       .order("insured_first_name", { ascending: true });
+  } else if (sortBy === "cancel_status") {
+    query = query
+      .order("cancel_status", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: false });
   } else {
     query = query.order("created_at", { ascending: false });
   }
@@ -217,6 +232,34 @@ async function getRecords(supabase: any, agencyId: string, params: any) {
       is_active: record.is_active,
     };
   });
+}
+
+function normalizeCancelStatusFilter(cancelStatusFilter: unknown): CancelStatusFilter {
+  if (typeof cancelStatusFilter === 'string') {
+    const normalized = cancelStatusFilter.toLowerCase();
+    if ((CANCEL_STATUS_FILTERS as readonly string[]).includes(normalized)) {
+      return normalized as CancelStatusFilter;
+    }
+  }
+
+  return 'all';
+}
+
+function applyCancelStatusFilter(query: any, filter: CancelStatusFilter) {
+  switch (filter) {
+    case 'cancel':
+      return query.or("cancel_status.ilike.Cancel,and(cancel_status.is.null,report_type.eq.pending_cancel)");
+    case 'cancelled':
+      return query.or("cancel_status.ilike.Cancelled,and(cancel_status.is.null,report_type.eq.cancellation)");
+    case 's-cancel':
+      return query.ilike('cancel_status', 'S-cancel');
+    case 'saved':
+      return query.ilike('cancel_status', 'Saved');
+    case 'unmatched':
+      return query.is('cancel_status', null);
+    default:
+      return query;
+  }
 }
 
 // Get weekly stats
@@ -388,6 +431,39 @@ async function getCounts(supabase: any, agencyId: string) {
       pending_cancel: pendingCancel || 0,
       cancellation: cancellation || 0,
     },
+  };
+}
+
+async function getUploads(supabase: any, agencyId: string) {
+  const { data: cancellationUpload, error: cancellationError } = await supabase
+    .from("cancel_audit_uploads")
+    .select("id, uploaded_by_name, file_name, records_processed, records_created, records_updated, created_at, report_type")
+    .eq("agency_id", agencyId)
+    .eq("report_type", "cancellation")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  const { data: pendingCancelUpload, error: pendingCancelError } = await supabase
+    .from("cancel_audit_uploads")
+    .select("id, uploaded_by_name, file_name, records_processed, records_created, records_updated, created_at, report_type")
+    .eq("agency_id", agencyId)
+    .eq("report_type", "pending_cancel")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (cancellationError && cancellationError.code !== "PGRST116") {
+    throw cancellationError;
+  }
+
+  if (pendingCancelError && pendingCancelError.code !== "PGRST116") {
+    throw pendingCancelError;
+  }
+
+  return {
+    cancellation: cancellationUpload || null,
+    pending_cancel: pendingCancelUpload || null,
   };
 }
 
@@ -617,6 +693,8 @@ async function uploadRecords(supabase: any, agencyId: string, teamMemberId: stri
         p_account_type: record.account_type,
         p_report_type: record.report_type,
         p_amount_due_cents: record.amount_due_cents,
+        p_cancel_status: record.cancel_status,
+        p_original_year: record.original_year,
         p_cancel_date: record.cancel_date,
         p_renewal_effective_date: record.renewal_effective_date,
         p_pending_cancel_date: record.pending_cancel_date,

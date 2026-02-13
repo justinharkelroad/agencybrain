@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -21,6 +22,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { DateRange } from 'react-day-picker';
+import { formatDistanceToNow, format } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   WinbackUploadModal,
   WinbackSettings,
@@ -50,6 +53,79 @@ interface Stats {
 interface TeamMember {
   id: string;
   name: string;
+}
+
+interface WinbackUploadRow {
+  id: string;
+  filename: string;
+  created_at: string;
+  records_processed: number;
+  records_new_households: number;
+  records_new_policies: number;
+  records_updated: number;
+  records_skipped: number;
+  uploaded_by_staff_id: string | null;
+  uploaded_by_user_id: string | null;
+}
+
+interface LatestWinbackUpload {
+  upload: WinbackUploadRow;
+  uploadedBy: string;
+}
+
+function formatUploadAge(dateString: string | null): string {
+  if (!dateString) return 'Never uploaded';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  return formatDistanceToNow(date, { addSuffix: true });
+}
+
+function formatUploadTooltip(upload: WinbackUploadRow | null, uploadedBy: string | null): string {
+  if (!upload?.created_at) {
+    return 'No upload recorded yet';
+  }
+
+  const uploadedDate = new Date(upload.created_at);
+  if (Number.isNaN(uploadedDate.getTime())) {
+    return 'Invalid upload timestamp';
+  }
+
+  const dateLabel = format(uploadedDate, 'PPpp');
+  const uploadedByLabel = uploadedBy || 'Unknown';
+  const fileLabel = upload.filename ? ` (file: ${upload.filename})` : '';
+  return `Uploaded ${dateLabel} by ${uploadedByLabel}${fileLabel}`;
+}
+
+async function resolveWinbackUploadUploader(upload: WinbackUploadRow): Promise<string> {
+  if (upload.uploaded_by_staff_id) {
+    const { data: teamMember } = await supabase
+      .from('team_members')
+      .select('name')
+      .eq('id', upload.uploaded_by_staff_id)
+      .maybeSingle();
+
+    if (teamMember?.name) {
+      return teamMember.name;
+    }
+  }
+
+  if (upload.uploaded_by_user_id) {
+    const { data: uploaderProfile } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', upload.uploaded_by_user_id)
+      .maybeSingle();
+
+    if (uploaderProfile?.full_name) {
+      return uploaderProfile.full_name;
+    }
+
+    if (uploaderProfile?.email) {
+      return uploaderProfile.email;
+    }
+  }
+
+  return 'Unknown';
 }
 
 export default function WinbackHQ() {
@@ -331,6 +407,42 @@ export default function WinbackHQ() {
     }
   };
 
+  const { data: latestUpload, isLoading: latestUploadLoading } = useQuery({
+    queryKey: ['winback-uploads', agencyId, 'latest'],
+    queryFn: async (): Promise<LatestWinbackUpload | null> => {
+      if (!agencyId) return null;
+
+      if (winbackApi.isStaffUser()) {
+        const uploads = await winbackApi.listUploads(agencyId);
+        const latest = uploads?.[0] as WinbackUploadRow | undefined;
+        if (!latest) return null;
+
+        return {
+          upload: latest,
+          uploadedBy: await resolveWinbackUploadUploader(latest),
+        };
+      }
+
+      const { data, error } = await supabase
+        .from('winback_uploads')
+        .select('id, filename, created_at, records_processed, records_new_households, records_new_policies, records_updated, records_skipped, uploaded_by_staff_id, uploaded_by_user_id')
+        .eq('agency_id', agencyId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      const upload = (data?.[0] as WinbackUploadRow | undefined) || null;
+      if (!upload) return null;
+
+      return {
+        upload,
+        uploadedBy: await resolveWinbackUploadUploader(upload),
+      };
+    },
+    enabled: !!agencyId,
+  });
+
   if (loading) {
     return (
       <div className="container mx-auto p-6 space-y-6">
@@ -367,6 +479,43 @@ export default function WinbackHQ() {
           </Button>
         </div>
       </div>
+
+      {agencyId && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              Latest termination upload
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {latestUploadLoading ? (
+              <div className="text-sm text-muted-foreground">Checking latest upload...</div>
+            ) : latestUpload ? (
+              <div className="space-y-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-sm">
+                        Last uploaded <span className="text-foreground">{formatUploadAge(latestUpload.upload.created_at)}</span> by{' '}
+                        <span className="text-foreground font-medium">{latestUpload.uploadedBy}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatUploadTooltip(latestUpload.upload, latestUpload.uploadedBy)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <p className="text-xs text-muted-foreground">
+                  {latestUpload.upload.filename} • {latestUpload.upload.records_processed} records processed
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No uploads yet.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Main Tabs */}
       <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'opportunities' | 'analysis')}>

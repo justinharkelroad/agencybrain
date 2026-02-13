@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { ReportType, RecordStatus } from '@/types/cancel-audit';
-import type { ViewMode } from '@/hooks/useCancelAuditRecords';
+import { type CancelStatusFilter, type ViewMode } from '@/hooks/useCancelAuditRecords';
 
 interface FilterCounts {
   all: number;
@@ -41,6 +41,8 @@ interface CancelAuditFilterBarProps {
   isLoading?: boolean;
   statusFilter: RecordStatus | 'all';
   onStatusFilterChange: (status: RecordStatus | 'all') => void;
+  cancelStatusFilter: CancelStatusFilter;
+  onCancelStatusFilterChange: (status: CancelStatusFilter) => void;
   showUntouchedOnly: boolean;
   onShowUntouchedOnlyChange: (show: boolean) => void;
   untouchedCount: number;
@@ -64,6 +66,8 @@ export function CancelAuditFilterBar({
   isLoading = false,
   statusFilter,
   onStatusFilterChange,
+  cancelStatusFilter,
+  onCancelStatusFilterChange,
   showUntouchedOnly,
   onShowUntouchedOnlyChange,
   untouchedCount,
@@ -218,14 +222,14 @@ export function CancelAuditFilterBar({
           )}
         </Toggle>
 
-        {/* Status filter dropdown - only show in 'all' view mode */}
+        {/* Workflow status filter */}
         {viewMode === 'all' && (
           <Select value={statusFilter} onValueChange={(v) => onStatusFilterChange(v as RecordStatus | 'all')}>
             <SelectTrigger className="w-[130px]">
-              <SelectValue placeholder="Status" />
+              <SelectValue placeholder="Workflow Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="all">All Workflow</SelectItem>
               <SelectItem value="new">New</SelectItem>
               <SelectItem value="in_progress">In Progress</SelectItem>
               <SelectItem value="resolved">Resolved</SelectItem>
@@ -233,6 +237,21 @@ export function CancelAuditFilterBar({
             </SelectContent>
           </Select>
         )}
+
+        {/* Cancel status filter */}
+        <Select value={cancelStatusFilter} onValueChange={(v) => onCancelStatusFilterChange(v as CancelStatusFilter)}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue placeholder="Filter by Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Status</SelectItem>
+            <SelectItem value="cancel">Cancel</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="s-cancel">S-Cancel</SelectItem>
+            <SelectItem value="saved">Saved</SelectItem>
+            <SelectItem value="unmatched">No Cancel Status</SelectItem>
+          </SelectContent>
+        </Select>
 
         {/* Sort dropdown */}
         <Select value={sortBy} onValueChange={(v) => onSortByChange(v as typeof sortBy)}>

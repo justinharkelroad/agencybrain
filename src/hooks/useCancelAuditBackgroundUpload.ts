@@ -154,6 +154,8 @@ async function processInBackground(
           p_account_type: record.account_type,
           p_report_type: record.report_type,
           p_amount_due_cents: record.amount_due_cents,
+          p_cancel_status: record.cancel_status,
+          p_original_year: record.original_year,
           p_cancel_date: record.cancel_date,
           p_renewal_effective_date: record.renewal_effective_date,
           p_pending_cancel_date: record.pending_cancel_date,
@@ -208,4 +210,5 @@ function invalidateCancelAuditQueries(queryClient: ReturnType<typeof useQueryCli
   queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
   queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
   queryClient.invalidateQueries({ queryKey: ['cancel-audit-uploads'] });
+  queryClient.invalidateQueries({ queryKey: ['cancel-audit-latest-uploads'] });
 }

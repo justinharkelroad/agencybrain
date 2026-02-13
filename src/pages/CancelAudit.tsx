@@ -1,12 +1,12 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { hasOneOnOneAccess } from "@/utils/tierAccess";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Upload, Loader2, ChevronUp, ChevronDown, ChevronsUpDown } from "lucide-react";
+import { Upload, Loader2, ChevronUp, ChevronDown, ChevronsUpDown, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { clearStaffTokenIfNotStaffRoute } from "@/lib/cancel-audit-api";
+import { clearStaffTokenIfNotStaffRoute, callCancelAuditApi } from "@/lib/cancel-audit-api";
 import { CancelAuditUploadModal } from "@/components/cancel-audit/CancelAuditUploadModal";
 import { CancelAuditFilterBar } from "@/components/cancel-audit/CancelAuditFilterBar";
 import { CancelAuditRecordCard } from "@/components/cancel-audit/CancelAuditRecordCard";
@@ -20,17 +20,51 @@ import { UrgencyTimeline } from "@/components/cancel-audit/UrgencyTimeline";
 import { ExportButton } from "@/components/cancel-audit/ExportButton";
 import { HelpButton } from "@/components/HelpButton";
 import { BulkActions, RecordStatus } from "@/components/cancel-audit/BulkActions";
-import { useCancelAuditRecords, ViewMode } from "@/hooks/useCancelAuditRecords";
+import { useCancelAuditRecords, ViewMode, CancelStatusFilter } from "@/hooks/useCancelAuditRecords";
 import { useCancelAuditStats } from "@/hooks/useCancelAuditStats";
 import { useCancelAuditCounts } from "@/hooks/useCancelAuditCounts";
 import { useBulkDeleteCancelAuditRecords } from "@/hooks/useCancelAuditDelete";
 import { useBulkUpdateCancelAuditStatus } from "@/hooks/useBulkCancelAuditOperations";
 import { useToast } from "@/hooks/use-toast";
-import { ReportType, RecordStatus as RecordStatusType } from "@/types/cancel-audit";
-import { useQueryClient } from "@tanstack/react-query";
+import { ReportType, RecordStatus as RecordStatusType, CancelAuditUpload } from "@/types/cancel-audit";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { differenceInDays, startOfDay, parseISO } from 'date-fns';
+import { differenceInDays, startOfDay, parseISO, formatDistanceToNow, format } from 'date-fns';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+interface LatestCancelAuditUploads {
+  cancellation: CancelAuditUpload | null;
+  pending_cancel: CancelAuditUpload | null;
+}
+
+function formatUploadAge(dateString: string | null): string {
+  if (!dateString) return 'Never uploaded';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  return formatDistanceToNow(date, { addSuffix: true });
+}
+
+function formatUploadTooltip(upload: CancelAuditUpload | null): string {
+  if (!upload?.created_at) {
+    return "No upload recorded yet";
+  }
+
+  const uploadedDate = new Date(upload.created_at);
+  if (Number.isNaN(uploadedDate.getTime())) {
+    return "Invalid upload timestamp";
+  }
+
+  const dateLabel = format(uploadedDate, "PPpp");
+  const uploadedBy = upload.uploaded_by_name || "Unknown";
+  const fileLabel = upload.file_name ? ` (file: ${upload.file_name})` : "";
+  return `Uploaded ${dateLabel} by ${uploadedBy}${fileLabel}`;
+}
 
 const CancelAuditPage = () => {
   const { user, membershipTier, loading: authLoading } = useAuth();
@@ -56,6 +90,7 @@ const CancelAuditPage = () => {
   // Filter and UI state
   const [reportTypeFilter, setReportTypeFilter] = useState<ReportType | 'all'>('all');
   const [statusFilter, setStatusFilter] = useState<RecordStatusType | 'all'>('all');
+  const [cancelStatusFilter, setCancelStatusFilter] = useState<CancelStatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sortBy, setSortBy] = useState<'urgency' | 'name' | 'date_added' | 'cancel_status' | 'original_year' | 'policy_number' | 'premium'>('urgency');
@@ -105,6 +140,7 @@ const CancelAuditPage = () => {
     searchQuery: debouncedSearch,
     sortBy,
     showCurrentOnly,
+    cancelStatusFilter,
   });
 
   // Fetch stats to get week range
@@ -112,6 +148,49 @@ const CancelAuditPage = () => {
 
   // Fetch counts for view toggle badges
   const { data: viewCounts } = useCancelAuditCounts(agencyId);
+
+  const { data: latestUploads, isLoading: latestUploadsLoading } = useQuery({
+    queryKey: ['cancel-audit-latest-uploads', agencyId, staffSessionToken || 'user-route'],
+    queryFn: async (): Promise<LatestCancelAuditUploads> => {
+      if (!agencyId) {
+        return { cancellation: null, pending_cancel: null };
+      }
+
+      if (staffSessionToken) {
+        return callCancelAuditApi({
+          operation: "get_uploads",
+          params: {},
+          sessionToken: staffSessionToken,
+        });
+      }
+
+      const { data: cancellationRows, error: cancellationError } = await supabase
+        .from('cancel_audit_uploads')
+        .select('id, uploaded_by_name, agency_id, report_type, file_name, records_processed, records_created, records_updated, created_at')
+        .eq('agency_id', agencyId)
+        .eq('report_type', 'cancellation')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (cancellationError) throw cancellationError;
+
+      const { data: pendingRows, error: pendingError } = await supabase
+        .from('cancel_audit_uploads')
+        .select('id, uploaded_by_name, agency_id, report_type, file_name, records_processed, records_created, records_updated, created_at')
+        .eq('agency_id', agencyId)
+        .eq('report_type', 'pending_cancel')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (pendingError) throw pendingError;
+
+      return {
+        cancellation: (cancellationRows?.[0] as CancelAuditUpload | undefined) || null,
+        pending_cancel: (pendingRows?.[0] as CancelAuditUpload | undefined) || null,
+      };
+    },
+    enabled: !!agencyId,
+  });
 
   // Apply additional filters (status, untouched, and urgency)
   const filteredRecords = useMemo(() => {
@@ -126,6 +205,20 @@ const CancelAuditPage = () => {
     // Untouched filter
     if (showUntouchedOnly) {
       filtered = filtered.filter(r => r.activity_count === 0);
+    }
+
+    // Cancel status filter (uses cancel_status + report type fallback)
+    if (cancelStatusFilter !== 'all') {
+      filtered = filtered.filter((record) => {
+        if (!record.cancel_status?.trim()) {
+          if (cancelStatusFilter === 'unmatched') return true;
+          if (cancelStatusFilter === 'cancel') return record.report_type === 'pending_cancel';
+          if (cancelStatusFilter === 'cancelled') return record.report_type === 'cancellation';
+          return false;
+        }
+
+        return record.cancel_status.trim().toLowerCase() === cancelStatusFilter;
+      });
     }
     
     // Urgency filter
@@ -159,7 +252,7 @@ const CancelAuditPage = () => {
     }
     
     return filtered;
-  }, [records, viewMode, statusFilter, showUntouchedOnly, urgencyFilter]);
+  }, [records, viewMode, statusFilter, cancelStatusFilter, showUntouchedOnly, urgencyFilter]);
 
   // Count untouched records
   const untouchedCount = useMemo(() => {
@@ -475,6 +568,7 @@ const CancelAuditPage = () => {
   const handleClearFilters = useCallback(() => {
     setReportTypeFilter('all');
     setStatusFilter('all');
+    setCancelStatusFilter('all');
     setSearchQuery('');
     setDebouncedSearch('');
     setShowUntouchedOnly(false);
@@ -532,7 +626,7 @@ const CancelAuditPage = () => {
 
   const hasRecords = (viewCounts?.all || 0) > 0;
   const hasFilteredRecords = filteredRecords.length > 0;
-  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly || !showCurrentOnly || urgencyFilter !== null;
+  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || cancelStatusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly || !showCurrentOnly || urgencyFilter !== null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -574,6 +668,46 @@ const CancelAuditPage = () => {
       {agencyId && (
         <div className="container mx-auto px-4 py-6 pb-0">
           <CancelAuditHeroStats agencyId={agencyId} />
+        </div>
+      )}
+
+      {/* Latest Upload Times */}
+      {agencyId && (
+        <div className="container mx-auto px-4 pb-4">
+          <div className="rounded-md border border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="h-4 w-4" />
+              <span className="font-medium text-foreground">Latest uploads</span>
+            </div>
+            {latestUploadsLoading ? (
+              <div>Checking latest upload times...</div>
+            ) : (
+              <div className="grid gap-1 sm:grid-cols-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1">
+                        Cancellation Audit: <span className="text-foreground">{formatUploadAge(latestUploads?.cancellation?.created_at || null)}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatUploadTooltip(latestUploads?.cancellation || null)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1">
+                        Pending Cancel: <span className="text-foreground">{formatUploadAge(latestUploads?.pending_cancel?.created_at || null)}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatUploadTooltip(latestUploads?.pending_cancel || null)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -626,6 +760,8 @@ const CancelAuditPage = () => {
               isLoading={recordsLoading}
               statusFilter={statusFilter}
               onStatusFilterChange={setStatusFilter}
+              cancelStatusFilter={cancelStatusFilter}
+              onCancelStatusFilterChange={setCancelStatusFilter}
               showUntouchedOnly={showUntouchedOnly}
               onShowUntouchedOnlyChange={setShowUntouchedOnly}
               untouchedCount={untouchedCount}

@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, EyeOff, Phone, Calendar, Star, X } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, EyeOff, Phone, Calendar, Star, X, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -29,10 +29,49 @@ import type { RenewalRecord, RenewalUploadContext, WorkflowStatus, BundledStatus
 import { isFirstTermRenewal } from '@/lib/renewalParser';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { format, parseISO, getDay } from 'date-fns';
+import { format, parseISO, getDay, formatDistanceToNow } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const STATUS_COLORS: Record<WorkflowStatus, string> = { uncontacted: 'bg-slate-100 text-slate-700', pending: 'bg-amber-100 text-amber-700', success: 'bg-green-100 text-green-700', unsuccessful: 'bg-red-100 text-red-700' };
 const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+interface RenewalUploadRow {
+  id: string;
+  filename: string;
+  uploaded_by_display_name: string | null;
+  created_at: string;
+  record_count: number;
+  date_range_start: string | null;
+  date_range_end: string | null;
+}
+
+interface LatestRenewalUpload {
+  upload: RenewalUploadRow;
+  uploadedBy: string;
+}
+
+function formatRenewalUploadAge(dateString: string | null): string {
+  if (!dateString) return 'Never uploaded';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  return formatDistanceToNow(date, { addSuffix: true });
+}
+
+function formatRenewalUploadTooltip(upload: RenewalUploadRow | null, uploadedBy: string | null): string {
+  if (!upload?.created_at) {
+    return 'No upload recorded yet';
+  }
+
+  const uploadedDate = new Date(upload.created_at);
+  if (Number.isNaN(uploadedDate.getTime())) {
+    return 'Invalid upload timestamp';
+  }
+
+  const dateLabel = format(uploadedDate, 'PPpp');
+  const uploadedByLabel = uploadedBy || 'Unknown';
+  const fileLabel = upload.filename ? ` (file: ${upload.filename})` : '';
+  return `Uploaded ${dateLabel} by ${uploadedByLabel}${fileLabel}`;
+}
 
 export default function Renewals() {
   const { user } = useAuth();
@@ -282,6 +321,29 @@ export default function Renewals() {
   const { data: productNames = [] } = useRenewalProductNames(context?.agencyId || null);
   const { data: activeCancelPolicies } = useActiveCancelAuditPolicies(context?.agencyId || null);
   const { data: chartData = [] } = useRenewalChartData(context?.agencyId || null);
+  const { data: latestUpload, isLoading: latestUploadLoading } = useQuery({
+    queryKey: ['renewal-uploads', context?.agencyId, 'latest'],
+    queryFn: async (): Promise<LatestRenewalUpload | null> => {
+      if (!context?.agencyId) return null;
+
+      const { data, error } = await supabase
+        .from('renewal_uploads')
+        .select('id, filename, uploaded_by_display_name, created_at, record_count, date_range_start, date_range_end')
+        .eq('agency_id', context.agencyId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+      const upload = (data?.[0] as RenewalUploadRow | undefined) || null;
+      if (!upload) return null;
+
+      return {
+        upload,
+        uploadedBy: upload.uploaded_by_display_name?.trim() || 'Unknown',
+      };
+    },
+    enabled: !!context?.agencyId,
+  });
   const bulkUpdate = useBulkUpdateRenewals();
   const bulkDelete = useBulkDeleteRenewals();
   const updateRecord = useUpdateRenewalRecord();
@@ -467,6 +529,43 @@ export default function Renewals() {
         <div className="flex items-center gap-3"><RefreshCw className="h-8 w-8" /><h1 className="text-3xl font-bold">Renewals</h1></div>
         <Button onClick={() => setShowUploadModal(true)}><Upload className="h-4 w-4 mr-2" />Upload Report</Button>
       </div>
+
+      {context && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              Latest renewal upload
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {latestUploadLoading ? (
+              <div className="text-sm text-muted-foreground">Checking latest upload...</div>
+            ) : latestUpload ? (
+              <div className="space-y-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-sm">
+                        Last uploaded <span className="text-foreground">{formatRenewalUploadAge(latestUpload.upload.created_at)}</span> by{' '}
+                        <span className="text-foreground font-medium">{latestUpload.uploadedBy}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatRenewalUploadTooltip(latestUpload.upload, latestUpload.uploadedBy)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <p className="text-xs text-muted-foreground">
+                  {latestUpload.upload.filename} • {latestUpload.upload.record_count} records
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No uploads yet.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
       
       {/* Dashboard Charts */}
       <RenewalsDashboard
