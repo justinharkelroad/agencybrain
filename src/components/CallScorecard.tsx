@@ -1539,6 +1539,11 @@ export function CallScorecard({
                 <Search className="h-4 w-4 text-blue-400" />
                 CALL TIMELINE Q&A
               </h3>
+              {qaEnabled && (
+                <p className="text-xs text-blue-400/90 mb-3">
+                  Ask timeline questions right here (for example: “When did we discuss liability limits?”)
+                </p>
+              )}
 
               {!qaEnabled ? (
                 <p className="text-sm text-muted-foreground">
