@@ -60,6 +60,10 @@ function formatSeconds(value: number) {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
+function toMmSs(value: number) {
+  return formatSeconds(value);
+}
+
 function extractQuestionTokens(question: string): string[] {
   return question
     .toLowerCase()
@@ -67,6 +71,68 @@ function extractQuestionTokens(question: string): string[] {
     .split(/\s+/)
     .map((token) => token.trim())
     .filter((token) => token.length > 2 && !STOP_WORDS.has(token));
+}
+
+function scoreSegmentForQuestion(segmentText: string, questionTokens: string[]): number {
+  if (questionTokens.length === 0) {
+    return 0;
+  }
+
+  const normalizedText = normalizeSegmentText(segmentText);
+  const segmentTokens = normalizedText.split(' ').filter(Boolean);
+  if (segmentTokens.length === 0) {
+    return 0;
+  }
+  const effectiveTokens = extractSignalTokens(questionTokens);
+  const matchTokens = effectiveTokens.length > 0 ? effectiveTokens : questionTokens;
+
+  const tokenSet = new Set(segmentTokens);
+  const overlap = matchTokens.reduce((total, token) => total + (tokenSet.has(token) ? 1 : 0), 0);
+  const phraseBonuses = [
+    matchTokens.slice(0, Math.min(3, matchTokens.length)).join(' '),
+    matchTokens.slice(-Math.min(3, matchTokens.length)).join(' '),
+  ].filter(Boolean)
+    .reduce((total, phrase) => total + (normalizedText.includes(phrase) ? 2 : 0), 0);
+
+  const density = (overlap / Math.max(matchTokens.length, 1));
+  return overlap * 2 + phraseBonuses + density * 2;
+}
+
+function findLocalMatches(
+  segments: TranscriptSegment[],
+  questionTokens: string[],
+  maxMatches = 3,
+): Array<{
+  timestamp_seconds: number;
+  speaker: string | null;
+  quote: string;
+  context: string | null;
+  score: number;
+}> {
+  if (!Array.isArray(segments) || segments.length === 0 || questionTokens.length === 0) {
+    return [];
+  }
+
+  const ranked = segments
+    .map((segment) => ({
+      segment,
+      score: scoreSegmentForQuestion(segment.text, questionTokens),
+    }))
+    .filter((row) => row.score >= 3)
+    .sort((a, b) => b.score - a.score || a.segment.start - b.segment.start)
+    .slice(0, maxMatches)
+    .map((row) => {
+      const quote = row.segment.text.trim().slice(0, 240);
+      return {
+        timestamp_seconds: row.segment.start,
+        speaker: row.segment.speaker ? row.segment.speaker.toLowerCase() : null,
+        quote: quote || row.segment.text,
+        context: row.segment.text,
+        score: row.score,
+      };
+    });
+
+  return ranked;
 }
 
 function pickSegmentWindow(segments: TranscriptSegment[], indices: Set<number>, extraWindow = 1): TranscriptSegment[] {
@@ -134,6 +200,78 @@ function normalizeSegmentText(text: string): string {
   return tokenizeForMatch(text).join(" ");
 }
 
+function parseTimestampInput(value: unknown): number | null {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === "string") {
+    const raw = value.trim();
+    if (!raw) return null;
+
+    const colonMatch = raw.match(/^(\d+):(\d{2}):(\d{2})$/);
+    if (colonMatch) {
+      const hours = Number(colonMatch[1]);
+      const mins = Number(colonMatch[2]);
+      const secs = Number(colonMatch[3]);
+      const total = (hours * 60 * 60) + (mins * 60) + secs;
+      return Number.isFinite(total) ? total : null;
+    }
+
+    const mmssMatch = raw.match(/^(\d+):(\d{1,2})$/);
+    if (mmssMatch) {
+      const mins = Number(mmssMatch[1]);
+      const secs = Number(mmssMatch[2]);
+      if (!Number.isFinite(mins) || !Number.isFinite(secs)) return null;
+      const total = mins * 60 + secs;
+      return Number.isFinite(total) ? total : null;
+    }
+
+    const numeric = Number(raw);
+    return Number.isFinite(numeric) ? numeric : null;
+  }
+
+  return null;
+}
+
+function extractSignalTokens(questionTokens: string[]): string[] {
+  if (!Array.isArray(questionTokens) || questionTokens.length === 0) {
+    return [];
+  }
+
+  const deduped = [...new Set(questionTokens.map((token) => token.toLowerCase()))];
+  const comparisonSignals = new Set(["compare", "vs", "versus", "difference", "option", "options", "instead"]);
+  const policySignals = new Set([
+    "coverage",
+    "coverages",
+    "liability",
+    "deductible",
+    "umbrella",
+    "uninsured",
+    "collision",
+    "comp",
+    "comprehensive",
+    "pup",
+    "bundling",
+    "quote",
+    "vehicle",
+    "auto",
+    "home",
+    "policy",
+    "insured",
+    "carrier",
+    "premium",
+    "payment",
+  ]);
+
+  const preferred = deduped.filter(
+    (token) => comparisonSignals.has(token) || policySignals.has(token) || token.length > 7,
+  );
+  if (preferred.length > 0) return preferred.slice(0, 8);
+
+  return deduped.slice(0, 5);
+}
+
 function quoteMatchesQuestionSignals(quote: string, questionTokens: string[]): boolean {
   if (questionTokens.length === 0) {
     return quote.trim().length >= 8;
@@ -144,15 +282,109 @@ function quoteMatchesQuestionSignals(quote: string, questionTokens: string[]): b
     return false;
   }
 
-  const requiredOverlap = Math.min(2, questionTokens.length);
+  const normalizedQuestionTokens = questionTokens.map((token) => token.toLowerCase());
+  const signalTokens = extractSignalTokens(normalizedQuestionTokens).map((token) => token.toLowerCase());
+
+  const overlapTargets = signalTokens.length > 0 ? signalTokens : normalizedQuestionTokens;
+  const requiredOverlap = overlapTargets.length <= 2
+    ? 1
+    : Math.min(4, Math.max(2, Math.ceil(overlapTargets.length * 0.45)));
   let matches = 0;
-  for (const token of questionTokens) {
+  for (const token of overlapTargets) {
     if (quoteTokens.has(token)) {
       matches += 1;
       if (matches >= requiredOverlap) return true;
     }
   }
-  return false;
+
+  // Fallback for semantic phrase overlap for questions with unique wording.
+  const quoteNorm = normalizeSegmentText(quote);
+  const questionPhrases = [
+    overlapTargets.slice(0, Math.min(4, overlapTargets.length)).join(" "),
+    overlapTargets.slice(Math.max(0, overlapTargets.length - 3)).join(" "),
+  ];
+  return questionPhrases.some((phrase) => phrase.length > 0 && quoteNorm.includes(phrase));
+}
+
+function isEarliestMentionRequest(question: string): boolean {
+  const normalized = question.toLowerCase();
+  return (
+    normalized.includes("first") ||
+    normalized.includes("earliest") ||
+    normalized.includes("earliest mention") ||
+    normalized.includes("when did they first")
+  );
+}
+
+function getMatchStrength(
+  segmentText: string,
+  questionTokens: string[],
+  quote: string,
+): number {
+  if (!segmentText || !quote) {
+    return 0;
+  }
+
+  const normalizedQuestionTokens = questionTokens.map((token) => token.toLowerCase());
+  const signalTokens = extractSignalTokens(normalizedQuestionTokens);
+  const anchorTokens = signalTokens.length > 0 ? signalTokens : normalizedQuestionTokens;
+  const quoteTokens = tokenizeForMatch(quote);
+  if (quoteTokens.length === 0) {
+    return 0;
+  }
+
+  const quoteSet = new Set(quoteTokens);
+  const segmentTokens = tokenizeForMatch(segmentText);
+  const segmentSet = new Set(segmentTokens);
+
+  const overlapWithQuestion = normalizedQuestionTokens.reduce(
+    (total, token) => total + (anchorTokens.includes(token) && quoteSet.has(token) ? 1 : 0),
+    0,
+  );
+  const questionCoverage = overlapWithQuestion / Math.max(anchorTokens.length, 1);
+
+  const quoteCoverage = quoteSet.size > 0
+    ? Math.min(quoteSet.size / Math.max(anchorTokens.length, 1), 1)
+    : 0;
+
+  const segmentCoverage = quoteSet.size / Math.max(segmentSet.size, 1);
+  const quoteNorm = normalizeSegmentText(quote);
+  const segmentNorm = normalizeSegmentText(segmentText);
+  const exactMatchBoost = quoteNorm && segmentNorm.includes(quoteNorm) ? 0.8 : 0;
+
+  return (questionCoverage * 0.55) + (quoteCoverage * 0.2) + (segmentCoverage * 0.15) + exactMatchBoost;
+}
+
+function findBestSegmentForQuote(
+  segments: TranscriptSegment[],
+  quote: string,
+  questionTokens: string[],
+): TranscriptSegment | null {
+  const quoteNorm = normalizeSegmentText(quote);
+  const quoteTokens = tokenizeForMatch(quote);
+  if (!quoteNorm || quoteTokens.length === 0) return null;
+
+  const searchSet = new Set(extractSignalTokens(questionTokens).map((token) => token.toLowerCase()));
+  const best = segments
+    .map((segment) => {
+      const segmentNorm = normalizeSegmentText(segment.text);
+      const segmentTokens = segmentNorm ? segmentNorm.split(" ") : [];
+      const overlap = quoteTokens.reduce(
+        (total, token) => total + (segmentTokens.includes(token) ? 1 : 0),
+        0,
+      );
+      const questionAnchor = searchSet.size === 0
+        ? 0
+        : quoteTokens.reduce((total, token) => total + (searchSet.has(token) ? 1 : 0), 0) / searchSet.size;
+      const exactMatch = segmentNorm.includes(quoteNorm) ? 1.8 : 0;
+      const score = exactMatch + (overlap / Math.max(quoteTokens.length, 1)) + (questionAnchor * 0.8);
+      return { segment, score };
+    })
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || a.segment.start - b.segment.start)
+    .at(0);
+
+  return best ? best.segment : null;
 }
 
 function findMatchingSegment(
@@ -163,12 +395,24 @@ function findMatchingSegment(
   const quoteNorm = normalizeSegmentText(quote);
   let bestMatch: TranscriptSegment | null = null;
   let bestGap = Number.POSITIVE_INFINITY;
+  const quoteTokens = tokenizeForMatch(quote);
+  if (quoteTokens.length === 0) {
+    return null;
+  }
 
   for (const segment of segments) {
     const segmentNorm = normalizeSegmentText(segment.text);
+    const segmentTokens = segmentNorm.split(" ");
+    const tokenMatch = quoteTokens.reduce(
+      (total, token) => total + (segmentTokens.includes(token) ? 1 : 0),
+      0,
+    );
+    const tokenCoverage = tokenMatch / Math.max(quoteTokens.length, 1);
     const startsNearTimestamp = timestamp >= segment.start - 2 && timestamp <= segment.end + 2;
     const quoteInSegment = !!(quoteNorm && segmentNorm.includes(quoteNorm));
-    if (startsNearTimestamp && (quoteInSegment || quoteNorm === "")) {
+    const tokenInSegment = tokenCoverage >= 0.45 || (tokenMatch >= 2 && quoteTokens.length <= 3);
+
+    if (startsNearTimestamp && (quoteInSegment || tokenInSegment)) {
       return segment;
     }
 
@@ -191,13 +435,15 @@ function findMatchingSegment(
     }
   }
 
-  return bestGap <= 8 ? bestMatch : null;
+  return bestGap <= 12 ? bestMatch : null;
 }
 
 function sanitizeResult(
   parsed: unknown,
   selectedSegments: TranscriptSegment[],
   questionTokens: string[],
+  fallbackSegments: TranscriptSegment[],
+  questionText: string,
 ): QaResult {
   const fallback: QaResult = {
     question: "",
@@ -229,6 +475,7 @@ function sanitizeResult(
   const rawMatches = Array.isArray(data.matches)
     ? data.matches as Array<Record<string, unknown>>
     : [];
+  const questionSignalTokens = extractSignalTokens(questionTokens);
 
   const validatedMatches = rawMatches
     .map((match) => {
@@ -247,31 +494,42 @@ function sanitizeResult(
       const quote = typeof match.quote === "string" ? match.quote : "";
       if (!quote.trim()) return null;
 
-      const rawTimestamp = Number(match.timestamp_seconds);
+      const rawTimestamp = parseTimestampInput(match.timestamp_seconds);
 
-      const segment = findMatchingSegment(selectedSegments, rawTimestamp, quote);
+      const segment = rawTimestamp !== null
+        ? findMatchingSegment(selectedSegments, rawTimestamp, quote) || findBestSegmentForQuote(fallbackSegments, quote, questionSignalTokens)
+        : findBestSegmentForQuote(fallbackSegments, quote, questionSignalTokens);
       if (!segment) return null;
 
-      const validatedTimestamp = Number.isFinite(rawTimestamp)
+      const validatedTimestamp = rawTimestamp !== null
         ? Math.min(Math.max(rawTimestamp, segment.start), segment.end)
         : segment.start;
 
-      if (!quoteMatchesQuestionSignals(quote, questionTokens)) {
+      if (!quoteMatchesQuestionSignals(quote, questionSignalTokens)) {
         return null;
       }
 
-      return {
+      const matchStrength = getMatchStrength(segment.text, questionSignalTokens, quote);
+      if (matchStrength < 0.42) {
+        return null;
+      }
+
+        return {
         timestamp_seconds: Number.isFinite(validatedTimestamp)
           ? validatedTimestamp
           : segment.start,
         speaker: normalizedSpeaker,
-        quote,
+        quote: quote.substring(0, 240),
         context: typeof match.context === "string" ? match.context : null,
+        score: matchStrength,
       };
     })
-    .filter(Boolean) as QaMatch[];
+    .filter(Boolean) as (QaMatch & { score: number })[];
 
-  const matches = validatedMatches.slice(0, 8).filter(
+  const matches = validatedMatches
+    .sort((a, b) => b.score - a.score || (a.timestamp_seconds ?? 0) - (b.timestamp_seconds ?? 0))
+    .slice(0, 8)
+    .filter(
     (match, index, arr) => arr.findIndex((m) =>
       m.timestamp_seconds === match.timestamp_seconds && m.quote === match.quote
     ) === index,
@@ -279,16 +537,40 @@ function sanitizeResult(
 
   const reliableEvidence = matches.filter((match) => {
     if (!match.timestamp_seconds && match.timestamp_seconds !== 0) return false;
-    const segment = selectedSegments.find(
+    const segment = fallbackSegments.find(
       (candidate) =>
-        match.timestamp_seconds >= candidate.start - 2 &&
-        match.timestamp_seconds <= candidate.end + 2 &&
+        (match.timestamp_seconds ?? 0) >= candidate.start - 2 &&
+        (match.timestamp_seconds ?? 0) <= candidate.end + 2 &&
         normalizeSegmentText(candidate.text).includes(normalizeSegmentText(match.quote)),
     );
     return !!segment;
   });
 
   if (reliableEvidence.length === 0) {
+    const fallbackMatches = findLocalMatches(fallbackSegments, questionTokens, 3).map((item) => ({
+      timestamp_seconds: item.timestamp_seconds,
+      speaker: item.speaker,
+      quote: item.quote,
+      context: item.context,
+      score: item.score,
+    }));
+
+    const orderedMatches = isEarliestMentionRequest(questionText)
+      ? fallbackMatches.sort((a, b) => a.timestamp_seconds - b.timestamp_seconds)
+      : fallbackMatches;
+
+    if (orderedMatches.length > 0 && orderedMatches[0].score >= 4) {
+      return {
+        question: String(data.question || ""),
+        verdict: "partial",
+        confidence: 0.4,
+        summary: "No model-confirmed match passed quality checks. Returning the strongest local matches from transcript scoring.",
+        matches: isEarliestMentionRequest(questionText)
+          ? orderedMatches.slice(0, 1)
+          : orderedMatches,
+      };
+    }
+
     return {
       question: String(data.question || ""),
       verdict: "not_found",
@@ -298,7 +580,15 @@ function sanitizeResult(
     };
   }
 
-  let verdict: "found" | "partial" | "not_found" = reliableEvidence.length > 1 ? "found" : "partial";
+  let normalizedMatches = reliableEvidence;
+  if (isEarliestMentionRequest(questionText)) {
+    normalizedMatches = reliableEvidence
+      .slice()
+      .sort((a, b) => (a.timestamp_seconds ?? Infinity) - (b.timestamp_seconds ?? Infinity))
+      .slice(0, 1);
+  }
+
+  let verdict: "found" | "partial" | "not_found" = normalizedMatches.length > 1 ? "found" : "partial";
   if (reliableEvidence.length === 0) verdict = "not_found";
 
   return {
@@ -306,7 +596,7 @@ function sanitizeResult(
     verdict: verdict === "not_found" ? "not_found" : verdict,
     confidence: reliableEvidence.length > 0 ? confidence : 0,
     summary,
-    matches: reliableEvidence,
+    matches: normalizedMatches,
   };
 }
 
@@ -507,7 +797,7 @@ Return ONLY valid JSON with this exact shape:
     }
 
     const questionTokens = extractQuestionTokens(question);
-    const result = sanitizeResult(parsed, selectedSegments, questionTokens);
+    const result = sanitizeResult(parsed, selectedSegments, questionTokens, fullSegments, question);
 
     const response: QaResult = {
       ...result,
