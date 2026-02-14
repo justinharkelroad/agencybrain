@@ -187,10 +187,11 @@ jobs:
 
           CHANGED_FUNCTIONS=""
           if [ -n "$BASE_COMMIT" ]; then
-            CHANGED_FUNCTIONS=$(git diff --name-only "$BASE_COMMIT" "$TARGET_COMMIT" \
+            DIFF_FILES=$(git diff --name-only "$BASE_COMMIT" "$TARGET_COMMIT" || true)
+            CHANGED_FUNCTIONS=$(printf '%s\n' "$DIFF_FILES" \
               | grep '^supabase/functions/.*/index.ts$' \
               | awk -F/ '{print $3}' \
-              | sort -u)
+              | sort -u || true)
           fi
 
           if [ -z "$CHANGED_FUNCTIONS" ]; then
