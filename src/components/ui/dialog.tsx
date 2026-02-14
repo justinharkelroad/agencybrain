@@ -88,32 +88,35 @@ const DialogFooter = ({
 )
 DialogFooter.displayName = "DialogFooter"
 
-const DialogTitle = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Title>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Title
-    ref={ref}
-    className={cn(
-      "text-lg font-semibold leading-none tracking-tight",
-      className
-    )}
-    {...props}
-  />
-))
-DialogTitle.displayName = DialogPrimitive.Title.displayName
+const DialogPrimitiveTitle = (DialogPrimitive as any).Title || "h2";
+const DialogPrimitiveDescription = (DialogPrimitive as any).Description || "p";
 
-const DialogDescription = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Description>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
->(({ className, ...props }, ref) => (
-  <DialogPrimitive.Description
-    ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
-    {...props}
-  />
-))
-DialogDescription.displayName = DialogPrimitive.Description.displayName
+const DialogTitle = React.forwardRef<any, any>(({ className, ...props }, ref) => {
+  const Tag = DialogPrimitiveTitle;
+  return (
+    <Tag
+      ref={ref}
+      className={cn(
+        "text-lg font-semibold leading-none tracking-tight",
+        className
+      )}
+      {...props}
+    />
+  );
+});
+DialogTitle.displayName = "DialogTitle";
+
+const DialogDescription = React.forwardRef<any, any>(({ className, ...props }, ref) => {
+  const Tag = DialogPrimitiveDescription;
+  return (
+    <Tag
+      ref={ref}
+      className={cn("text-sm text-muted-foreground", className)}
+      {...props}
+    />
+  );
+});
+DialogDescription.displayName = "DialogDescription";
 
 export {
   Dialog,
