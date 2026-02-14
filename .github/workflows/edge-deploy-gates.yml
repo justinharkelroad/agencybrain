@@ -194,16 +194,8 @@ jobs:
           fi
 
           if [ -z "$CHANGED_FUNCTIONS" ]; then
-            CHANGED_FUNCTIONS=$(ls -1 supabase/functions/*/index.ts 2>/dev/null \
-              | sed 's|supabase/functions/\(.*\)/index.ts|\1|' \
-              | grep -v '^_' \
-              | sort -u)
-            echo "⚠️ No function-index changes detected in this commit; deploying all functions as fallback."
-            for FN in $CHANGED_FUNCTIONS; do
-              echo "Deploying function: $FN"
-              supabase functions deploy "$FN" --project-ref wjqyccbytctqwceuhzhk
-            done
-            echo "✅ Completed fallback deploy for all functions."
+            echo "ℹ️ No function-index changes detected in this commit. Skipping edge function deploy."
+            exit 0
           else
             echo "Detected changed functions:"
             echo "$CHANGED_FUNCTIONS"
