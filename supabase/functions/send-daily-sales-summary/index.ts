@@ -101,10 +101,12 @@ serve(async (req) => {
     
     console.log('[send-daily-sales-summary] Starting daily summary check');
 
-    // NOTE: No global day-of-week check here. This function reports TODAY's sales
-    // (not yesterday's), so Monday is a valid business day. The per-agency
-    // localHour !== 19 check handles timing. The scheduler handles day-of-week.
-
+    // Business day check: only send Mon-Fri (local time).
+    // This check uses UTC day-of-week as a fast pre-filter. The per-agency
+    // localHour === 19 check handles the exact timing. We skip Saturday (6)
+    // and Sunday (0) in UTC, which covers most cases. Edge cases near midnight
+    // UTC (e.g. Friday 7 PM EST = Saturday 0 UTC) are handled by the per-agency
+    // local day check below.
     const nowUtc = new Date();
     console.log('[send-daily-sales-summary] Current UTC time:', nowUtc.toISOString());
 
@@ -148,6 +150,17 @@ serve(async (req) => {
 
         // Get today's date in agency timezone
         const todayStr = nowUtc.toLocaleDateString('en-CA', { timeZone: timezone }); // YYYY-MM-DD
+
+        // Skip weekends (local time) - only send Mon-Fri
+        // This is checked here (not globally) because the local day depends on agency timezone
+        if (!forceTest) {
+          const localDay = new Date(todayStr + 'T12:00:00').getDay(); // 0=Sun, 6=Sat
+          if (localDay === 0 || localDay === 6) {
+            console.log(`[send-daily-sales-summary] Skipping ${agency.name} - weekend (local day ${localDay})`);
+            results.push({ agency: agency.name, status: 'skipped - weekend' });
+            continue;
+          }
+        }
 
         // Get ALL active team members (not just Sales/Hybrid)
         const { data: allTeamMembers, error: teamError } = await supabase

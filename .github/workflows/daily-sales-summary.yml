@@ -5,7 +5,9 @@ on:
     # Run at hours that cover 7 PM across all US timezones (standard + DST)
     # 23 UTC = 7 PM EDT, 0 UTC = 7 PM EST/CDT, 1 UTC = 7 PM CST/MDT,
     # 2 UTC = 7 PM MST/PDT, 3 UTC = 7 PM PST
-    - cron: '0 23,0,1,2,3 * * 1-5'
+    # Runs every day because hours 23-03 cross the UTC day boundary, making
+    # cron day-of-week unreliable. The function checks local business day instead.
+    - cron: '0 23,0,1,2,3 * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
