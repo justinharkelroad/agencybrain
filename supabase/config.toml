@@ -300,6 +300,9 @@ verify_jwt = false
 [functions.get-staff-call-scoring-data]
 verify_jwt = false
 
+[functions.call-scoring-qa]
+verify_jwt = false
+
 [functions.get-staff-commission]
 verify_jwt = false
 

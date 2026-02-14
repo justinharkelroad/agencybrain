@@ -332,6 +332,7 @@ export function CallScoringSubmissionsSection({
           open={scorecardOpen}
           onClose={handleCloseScorecard}
           isReadOnly={true}
+          qaEnabled={qaEnabled}
         />
       ) : (
         <CallScorecard

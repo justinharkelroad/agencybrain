@@ -12,7 +12,7 @@ import {
   User, CheckCircle2, XCircle, Clock, Download,
   Loader2, Headphones, FileText, Lightbulb, ClipboardList,
   MessageSquareQuote, CheckCircle, AlertTriangle, Target,
-  Sparkles, Mail, MessageSquare
+  Sparkles, Mail, MessageSquare, Search
 } from "lucide-react";
 import { parseFeedback } from '@/lib/utils/feedback-parser';
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,7 @@ import { useState, useRef } from "react";
 import { toast } from 'sonner';
 import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecard';
 import { FollowUpTemplateDisplay } from './FollowUpTemplateDisplay';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ServiceSectionScore {
   section_name: string;
@@ -81,6 +82,7 @@ interface ServiceCallReportCardProps {
   acknowledgedAt?: string | null;
   staffFeedbackPositive?: string | null;
   staffFeedbackImprovement?: string | null;
+  qaEnabled?: boolean;
   onAcknowledge?: (positive: string, improvement: string) => Promise<void>;
 }
 
@@ -111,11 +113,27 @@ export function ServiceCallReportCard({
   acknowledgedAt,
   staffFeedbackPositive,
   staffFeedbackImprovement,
+  qaEnabled = false,
   onAcknowledge
 }: ServiceCallReportCardProps) {
   const [exporting, setExporting] = useState(false);
   const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const [qaQuestion, setQaQuestion] = useState('');
+  const [qaLoading, setQaLoading] = useState(false);
+  const [qaError, setQaError] = useState<string | null>(null);
+  const [qaResult, setQaResult] = useState<{
+    question: string;
+    verdict: 'found' | 'partial' | 'not_found';
+    confidence: number;
+    summary: string;
+    matches: Array<{
+      timestamp_seconds?: number | null;
+      speaker?: string | null;
+      quote: string;
+      context?: string | null;
+    }>;
+  } | null>(null);
 
   // Staff acknowledgment state
   const [showAcknowledgeForm, setShowAcknowledgeForm] = useState(false);
@@ -138,6 +156,53 @@ export function ServiceCallReportCard({
       toast.error('Failed to submit acknowledgment');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleQaQuery = async () => {
+    if (!qaEnabled || qaLoading) return;
+
+    const question = qaQuestion.trim();
+    if (!question) {
+      toast.error('Please enter a question first.');
+      return;
+    }
+
+    setQaLoading(true);
+    setQaError(null);
+    setQaResult(null);
+
+    try {
+      const headers: Record<string, string> = {};
+      const staffSession = localStorage.getItem('staff_session_token');
+      if (staffSession) {
+        headers['x-staff-session'] = staffSession;
+      }
+
+      const { data, error } = await supabase.functions.invoke('call-scoring-qa', {
+        body: {
+          call_id: call.id,
+          question,
+        },
+        headers,
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to run QA query');
+      }
+
+      if (!data?.question) {
+        throw new Error('QA service returned an unexpected response.');
+      }
+
+      setQaResult(data);
+      toast.success('Q&A complete.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to run QA query';
+      setQaError(message);
+      toast.error(message);
+    } finally {
+      setQaLoading(false);
     }
   };
 
@@ -647,6 +712,119 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
               </CardContent>
             </Card>
           )}
+
+          {/* Time-Based Q&A */}
+          <Card
+            className="mt-6 border-l-4 border-l-blue-500"
+            style={{ backgroundColor: COLORS.cardBg, borderColor: COLORS.border }}
+          >
+            <CardContent className="pt-4">
+              <h3 className="font-bold text-sm mb-4 flex items-center gap-2" style={{ color: COLORS.blue }}>
+                <Search className="h-4 w-4" />
+                CALL TIMELINE Q&A
+              </h3>
+              {qaEnabled ? (
+                <>
+                  <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                    Ask timeline questions right here (for example: “When did we discuss liability limits?”)
+                  </p>
+                  <div className="space-y-2 mt-3">
+                    <Label htmlFor="qa-question-service" style={{ color: COLORS.text }}>
+                      Ask about a moment in this call
+                    </Label>
+                    <Textarea
+                      id="qa-question-service"
+                      value={qaQuestion}
+                      onChange={(e) => setQaQuestion(e.target.value)}
+                      placeholder="Example: When did they discuss liability limits?"
+                      className="min-h-[80px]"
+                    />
+                  </div>
+                  <div className="mt-3 flex items-center justify-end">
+                    <Button
+                      onClick={handleQaQuery}
+                      disabled={qaLoading || !qaQuestion.trim()}
+                      className="bg-primary"
+                    >
+                      {qaLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="h-4 w-4 mr-2" />
+                          Ask
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {qaError && (
+                    <p className="mt-3 text-sm" style={{ color: '#f87171' }}>
+                      {qaError}
+                    </p>
+                  )}
+
+                  {qaResult && (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                        {qaResult.summary} (confidence: {(qaResult.confidence * 100).toFixed(0)}%)
+                      </p>
+                      {qaResult.matches.length > 0 ? (
+                        qaResult.matches.map((match, idx) => (
+                          <div
+                            key={`${match.timestamp_seconds}-${idx}`}
+                            className="rounded-lg border p-3"
+                            style={{ backgroundColor: COLORS.cardBg, borderColor: COLORS.border }}
+                          >
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              {match.timestamp_seconds !== null &&
+                                match.timestamp_seconds !== undefined && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleTimestampClick(match.timestamp_seconds!)}
+                                    className="px-2 py-1 text-xs font-mono rounded border hover:opacity-80 transition-opacity"
+                                    style={{
+                                      borderColor: COLORS.border,
+                                      backgroundColor: COLORS.cardBg,
+                                      color: COLORS.text,
+                                    }}
+                                  >
+                                    {formatTimestamp(match.timestamp_seconds)}
+                                  </button>
+                                )}
+                              {match.speaker && (
+                                <Badge variant="outline" className="text-xs">
+                                  {match.speaker}
+                                </Badge>
+                              )}
+                            </div>
+                            <p className="text-sm italic" style={{ color: COLORS.text }}>
+                              &quot;{match.quote}&quot;
+                            </p>
+                            {match.context && (
+                              <p className="text-xs mt-2" style={{ color: COLORS.textMuted }}>
+                                Context: {match.context}
+                              </p>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                          No matching moments were found for this question.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                  Ask-specific timeline questions are not enabled for your agency.
+                </p>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Staff Acknowledgment Section */}
           <div className="mt-6 pt-6 border-t" style={{ borderColor: COLORS.border }}>

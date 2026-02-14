@@ -1,6 +1,83 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { corsHeaders } from '../_shared/cors.ts';
 
+interface StaffSessionRecord {
+  staff_user_id: string;
+  expires_at: string;
+  staff_users: {
+    id: string;
+    agency_id: string;
+    team_member_id: string | null;
+    is_active: boolean;
+  } | null;
+}
+
+interface SessionRoleRecord {
+  role: string | null;
+}
+
+interface TeamMemberRecord {
+  id: string;
+  name: string;
+}
+
+interface TemplateRecord {
+  id: string;
+  name: string;
+  call_type: string | null;
+}
+
+interface CallListRow {
+  id: string;
+  team_member_id: string | null;
+  template_id: string | null;
+  original_filename: string | null;
+  status: string | null;
+  overall_score: number | null;
+  potential_rank: string | null;
+  summary: string | null;
+  created_at: string;
+  analyzed_at: string | null;
+  call_type: string | null;
+  call_duration_seconds: number | null;
+  agent_talk_percent: number | null;
+  customer_talk_percent: number | null;
+  dead_air_percent: number | null;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+  staff_feedback_positive: string | null;
+  staff_feedback_improvement: string | null;
+  skill_scores: unknown;
+  section_scores: unknown;
+  client_profile: unknown;
+  discovery_wins: unknown;
+  critical_gaps: unknown;
+  closing_attempts: unknown;
+  missed_signals: unknown;
+  coaching_recommendations: unknown;
+  notable_quotes: unknown;
+  premium_analysis: unknown;
+  agent_talk_seconds: number | null;
+  customer_talk_seconds: number | null;
+  dead_air_seconds: number | null;
+}
+
+interface AnalyticsCallRow {
+  id: string;
+  team_member_id: string;
+  template_id: string | null;
+  potential_rank: string | null;
+  overall_score: number | null;
+  skill_scores: unknown;
+  discovery_wins: unknown;
+  analyzed_at: string | null;
+  analyzed_or_created_at?: string | null;
+}
+
+function getAnalyzedAtValue(row: { analyzed_at?: string | null; analyzed_or_created_at?: string | null; created_at?: string | null }): string | null {
+  return row.analyzed_at || row.analyzed_or_created_at || row.created_at || null;
+}
+
 /**
  * Staff Call Scoring Data Edge Function
  *
@@ -48,7 +125,7 @@ Deno.serve(async (req) => {
       .eq('session_token', sessionToken)
       .eq('is_valid', true)
       .gt('expires_at', new Date().toISOString())
-      .single() as { data: any; error: any };
+      .single() as { data: StaffSessionRecord | null; error: unknown };
 
     if (sessionError || !session) {
       console.log('[get-staff-call-scoring-data] Invalid or expired session');
@@ -86,11 +163,19 @@ Deno.serve(async (req) => {
       .from('team_members')
       .select('role')
       .eq('id', staffTeamMemberId)
-      .single();
+      .single() as { data: SessionRoleRecord | null; error: unknown };
 
-    if (teamMember?.role === 'Manager') {
+    const normalizedRole = (teamMember?.role || '').toLowerCase();
+    if (normalizedRole === 'manager' || normalizedRole === 'owner') {
       isManager = true;
     }
+
+    const { data: callScoringQaAccess } = await supabase
+      .from('agency_feature_access')
+      .select('id')
+      .eq('agency_id', agencyId)
+      .eq('feature_key', 'call_scoring_qa')
+      .maybeSingle();
 
     // Get request body for pagination
     const body = await req.json().catch(() => ({}));
@@ -116,43 +201,10 @@ Deno.serve(async (req) => {
 
     const { count: totalCalls } = await countQuery;
 
-    // Get recent calls
+    // Get recent calls (schema-safe)
     let callsQuery = supabase
       .from('agency_calls')
-      .select(`
-        id,
-        team_member_id,
-        template_id,
-        original_filename,
-        status,
-        overall_score,
-        potential_rank,
-        summary,
-        created_at,
-        analyzed_at,
-        call_type,
-        call_duration_seconds,
-        agent_talk_percent,
-        customer_talk_percent,
-        dead_air_percent,
-        acknowledged_at,
-        acknowledged_by,
-        staff_feedback_positive,
-        staff_feedback_improvement,
-        skill_scores,
-        section_scores,
-        client_profile,
-        discovery_wins,
-        critical_gaps,
-        closing_attempts,
-        missed_signals,
-        coaching_recommendations,
-        notable_quotes,
-        premium_analysis,
-        agent_talk_seconds,
-        customer_talk_seconds,
-        dead_air_seconds
-      `)
+      .select('*')
       .eq('agency_id', agencyId)
       .order('created_at', { ascending: false })
       .range(offset, offset + pageSize - 1);
@@ -172,8 +224,18 @@ Deno.serve(async (req) => {
     }
 
     // Get team member names for the calls
-    const teamMemberIds = [...new Set((calls || []).map((c: any) => c.team_member_id).filter(Boolean))];
-    const templateIds = [...new Set((calls || []).map((c: any) => c.template_id).filter(Boolean))];
+    const callRows = ((calls || []) as unknown as Array<Record<string, string | number | null | boolean>>).map((call) => ({
+      ...(call as unknown as CallListRow),
+      analyzed_at: getAnalyzedAtValue({
+        ...(call as { analyzed_at?: string | null; analyzed_or_created_at?: string | null; created_at: string }),
+      }),
+    }));
+    const teamMemberIds = [...new Set(callRows
+      .map((c) => c.team_member_id)
+      .filter((id): id is string => !!id))];
+    const templateIds = [...new Set(callRows
+      .map((c) => c.template_id)
+      .filter((id): id is string => !!id))];
 
     let teamMemberMap: Record<string, string> = {};
     let templateMap: Record<string, { name: string; call_type: string | null }> = {};
@@ -184,7 +246,8 @@ Deno.serve(async (req) => {
         .select('id, name')
         .in('id', teamMemberIds);
 
-      teamMemberMap = (teamMembers || []).reduce((acc: any, tm: any) => {
+      const rows = (teamMembers || []) as TeamMemberRecord[];
+      teamMemberMap = rows.reduce((acc: Record<string, string>, tm: TeamMemberRecord) => {
         acc[tm.id] = tm.name;
         return acc;
       }, {});
@@ -196,17 +259,18 @@ Deno.serve(async (req) => {
         .select('id, name, call_type')
         .in('id', templateIds);
 
-      templateMap = (templates || []).reduce((acc: any, t: any) => {
+      const templateRows = (templates || []) as TemplateRecord[];
+      templateMap = templateRows.reduce((acc: Record<string, { name: string; call_type: string | null }>, t: TemplateRecord) => {
         acc[t.id] = { name: t.name, call_type: t.call_type };
         return acc;
       }, {});
     }
 
     // Enrich calls with team member and template names
-    const recentCalls = (calls || []).map((call: any) => ({
+    const recentCalls = callRows.map((call: CallListRow) => ({
       ...call,
-      team_member_name: teamMemberMap[call.team_member_id] || 'Unknown',
-      template_name: templateMap[call.template_id]?.name || 'Unknown Template',
+      team_member_name: call.team_member_id && teamMemberMap[call.team_member_id] ? teamMemberMap[call.team_member_id] : 'Unknown',
+      template_name: call.template_id && templateMap[call.template_id]?.name ? templateMap[call.template_id]?.name : 'Unknown Template',
     }));
 
     // Get team members for dropdown (staff sees only themselves, managers see all)
@@ -254,28 +318,46 @@ Deno.serve(async (req) => {
     };
 
     // Get analytics calls for managers only
-    let analyticsCalls: any[] = [];
+    let analyticsCalls: Array<{
+      id: string;
+      team_member_id: string;
+      team_member_name: string;
+      template_id: string | null;
+      template_name: string;
+      potential_rank: string | null;
+      overall_score: number | null;
+      skill_scores: unknown;
+      discovery_wins: unknown;
+      analyzed_at: string | null;
+    }> = [];
     if (isManager) {
-      const { data: analyticsData } = await supabase
+      const { data: analyticsData, error: analyticsError } = await supabase
         .from('agency_calls')
-        .select(`
-          id,
-          team_member_id,
-          template_id,
-          potential_rank,
-          overall_score,
-          skill_scores,
-          discovery_wins,
-          analyzed_at,
-          call_type
-        `)
+        .select('*')
         .eq('agency_id', agencyId)
-        .not('analyzed_at', 'is', null)
-        .order('analyzed_at', { ascending: false });
+        .order('created_at', { ascending: false });
+
+      if (analyticsError) {
+        console.error('[get-staff-call-scoring-data] Analytics calls query error:', analyticsError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to fetch analytics calls' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
 
       // Build maps for analytics calls that might not be in recent calls
-      const analyticsTeamMemberIds = [...new Set((analyticsData || []).map((c: any) => c.team_member_id).filter(Boolean))];
-      const analyticsTemplateIds = [...new Set((analyticsData || []).map((c: any) => c.template_id).filter(Boolean))];
+      const analyticsRows = ((analyticsData || []) as unknown as Array<Record<string, string | number | null | boolean>>).map((call) => ({
+        ...(call as unknown as AnalyticsCallRow),
+        analyzed_at: getAnalyzedAtValue({
+          ...(call as { analyzed_at?: string | null; analyzed_or_created_at?: string | null; created_at: string }),
+        }) || null,
+      }));
+      const analyticsTeamMemberIds = [...new Set(analyticsRows
+        .map((c) => c.team_member_id)
+        .filter((id): id is string => !!id))];
+      const analyticsTemplateIds = [...new Set(analyticsRows
+        .map((c) => c.template_id)
+        .filter((id): id is string => !!id))];
 
       // Fetch any team members not already in our map
       const missingTeamMemberIds = analyticsTeamMemberIds.filter(id => !teamMemberMap[id]);
@@ -285,7 +367,8 @@ Deno.serve(async (req) => {
           .select('id, name')
           .in('id', missingTeamMemberIds);
 
-        (missingTeamMembers || []).forEach((tm: any) => {
+        const rows = (missingTeamMembers || []) as TeamMemberRecord[];
+        rows.forEach((tm: TeamMemberRecord) => {
           teamMemberMap[tm.id] = tm.name;
         });
       }
@@ -298,15 +381,16 @@ Deno.serve(async (req) => {
           .select('id, name, call_type')
           .in('id', missingTemplateIds);
 
-        (missingTemplates || []).forEach((t: any) => {
+        const templateRows = (missingTemplates || []) as TemplateRecord[];
+        templateRows.forEach((t: TemplateRecord) => {
           templateMap[t.id] = { name: t.name, call_type: t.call_type };
         });
       }
 
-      analyticsCalls = (analyticsData || []).map((call: any) => ({
+      analyticsCalls = analyticsRows.map((call: AnalyticsCallRow) => ({
         ...call,
-        team_member_name: teamMemberMap[call.team_member_id] || 'Unknown',
-        template_name: templateMap[call.template_id]?.name || 'Unknown Template',
+        team_member_name: call.team_member_id && teamMemberMap[call.team_member_id] ? teamMemberMap[call.team_member_id] : 'Unknown',
+        template_name: call.template_id && templateMap[call.template_id]?.name ? templateMap[call.template_id]?.name : 'Unknown Template',
       }));
     }
 
@@ -318,6 +402,7 @@ Deno.serve(async (req) => {
       usage,
       analytics_calls: analyticsCalls,
       is_manager: isManager,
+      has_call_scoring_qa: Boolean(callScoringQaAccess),
     };
 
     return new Response(

@@ -1900,6 +1900,7 @@ export default function CallScoring() {
           open={scorecardOpen}
           onClose={() => setScorecardOpen(false)}
           isReadOnly={false}
+          qaEnabled={callScoringQaEnabled}
           isStaffUser={isStaffUser}
           staffTeamMemberId={staffTeamMemberId || undefined}
           acknowledgedAt={selectedCall?.acknowledged_at}
