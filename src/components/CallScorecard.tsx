@@ -888,12 +888,14 @@ export function CallScorecard({
             const closingData = sectionScores.closing;
             const hasLegacySections = rapportData || coverageData || closingData;
             
-            // Handle both array and object formats for skill_scores
-            // CRITICAL: Always enrich with feedback/tip from section_scores using normalized keys
-            const skillScoresArray = (() => {
-              // If skill_scores is an array, enrich each entry with section_scores data
-              if (Array.isArray(call.skill_scores)) {
-                  return normalizedScores.map((row) => {
+              // Handle both array and object formats for skill_scores
+              // CRITICAL: Always enrich with feedback/tip from section_scores using normalized keys
+              const skillScoresArray = (() => {
+                const normalizedSkillScores = toNormalizedSkillScores(call.skill_scores as Json | null | undefined);
+
+                // If skill_scores is an array, enrich each entry with section_scores data
+                if (Array.isArray(call.skill_scores)) {
+                  return normalizedSkillScores.map((row) => {
                     const key = normalizeKey(row.skill_name || '');
                     const sectionData = sectionScoresMap[key];
                     return {
@@ -904,8 +906,7 @@ export function CallScorecard({
                     };
                   });
                   }
-                  const normalized = toNormalizedSkillScores(call.skill_scores as Json | null | undefined);
-                  return normalized.map((row) => {
+                  return normalizedSkillScores.map((row) => {
                     const normalizedKey = normalizeKey(row.skill_name);
                     const sectionData = sectionScoresMap[normalizedKey];
                     return {

@@ -25,6 +25,7 @@ import { useAgencyKpisWithConfig } from '@/hooks/useAgencyKpisWithConfig';
 import { useUniversalDataProtection } from '@/hooks/useUniversalDataProtection';
 import { UniversalDataProtectionService } from '@/lib/universalDataProtection';
 import { enableMeetingFrameModeAware } from '@/lib/featureFlags';
+import { useFeatureAccess, FeatureKeys } from '@/hooks/useFeatureAccess';
 
 interface MeetingFrameTabProps {
   agencyId: string;
@@ -170,6 +171,8 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
   const [viewingHistoricalFrame, setViewingHistoricalFrame] = useState<string | null>(null);
   const [showRecoveryBanner, setShowRecoveryBanner] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  const { data: callScoringQaAccess } = useFeatureAccess(FeatureKeys.CALL_SCORING_QA);
   const reportRef = useRef<HTMLDivElement>(null);
   const recoveryCheckedRef = useRef(false);
   // Combine all form data for data protection
@@ -1060,6 +1063,7 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
                     startDate={startDate!}
                     endDate={endDate!}
                     onDataChange={setCallScoringData}
+                    qaEnabled={callScoringQaAccess?.canAccess ?? false}
                   />
                 )}
 
