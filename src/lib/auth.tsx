@@ -314,6 +314,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!session) return;
 
+    // Avoid token refresh logic while running in staff mode.
+    // Staff users are authenticated through staff sessions, not Supabase Auth.
+    if (localStorage.getItem('auth_mode') === 'staff') {
+      return;
+    }
+
     // Get token expiry time
     const expiresAt = session.expires_at;
     if (!expiresAt) return;

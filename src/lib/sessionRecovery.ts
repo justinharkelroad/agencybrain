@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabaseClient';
 import { toast } from 'sonner';
+import { isStaffModeEnabled } from '@/lib/sessionMode';
 
 // Track if we're already handling a session error to prevent loops
 let isHandlingSessionError = false;
@@ -42,7 +43,7 @@ export function isSessionError(error: any): boolean {
  * Check if current session is a staff session (not Supabase Auth)
  */
 function isStaffSession(): boolean {
-  return !!localStorage.getItem('staff_session_token');
+  return !!localStorage.getItem('staff_session_token') || isStaffModeEnabled();
 }
 
 /**
