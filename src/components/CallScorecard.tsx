@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   User, Users, Target, AlertTriangle, CheckCircle2, XCircle,
-  FileAudio, Clock, ChevronDown, ChevronUp, Download,
+  FileAudio, Clock, ChevronDown, ChevronUp, Download, Search,
   Image, FileText, Share2, Loader2, CheckCircle, Mic, VolumeX,
   MessageSquareQuote, Sparkles, Mail, MessageSquare
 } from "lucide-react";
@@ -22,9 +22,42 @@ import { toast } from 'sonner';
 import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecard';
 import { parseFeedback } from '@/lib/utils/feedback-parser';
 import { FollowUpTemplateDisplay } from '@/components/call-scoring/FollowUpTemplateDisplay';
+import { supabase } from '@/integrations/supabase/client';
+import type { Database, Json } from '@/integrations/supabase/types';
+
+interface CallScorecardCall extends Database["public"]["Tables"]["agency_calls"]["Row"] {
+  team_member_name?: string | null;
+}
+
+interface SectionScoreEntry {
+  score?: number;
+  wins?: string[];
+  failures?: string[];
+  coaching?: string | null;
+  tip?: string | null;
+  feedback?: string | null;
+}
+
+type SectionScoreMap = Record<string, SectionScoreEntry | undefined>;
+
+interface RawSkillScoreRow {
+  skill_name?: string | null;
+  score?: number | null;
+  max_score?: number | null;
+  feedback?: string | null;
+  tip?: string | null;
+}
+
+interface NormalizedSkillScore {
+  skill_name: string;
+  score: number;
+  max_score: number;
+  feedback?: string | null;
+  tip?: string | null;
+}
 
 interface CallScorecardProps {
-  call: any;
+  call: CallScorecardCall | null;
   open: boolean;
   onClose: () => void;
   isStaffUser?: boolean;
@@ -34,6 +67,7 @@ interface CallScorecardProps {
   staffFeedbackImprovement?: string | null;
   onAcknowledge?: (positive: string, improvement: string) => Promise<void>;
   loading?: boolean;
+  qaEnabled?: boolean;
 }
 
 export function CallScorecard({ 
@@ -46,7 +80,8 @@ export function CallScorecard({
   staffFeedbackPositive,
   staffFeedbackImprovement,
   onAcknowledge,
-  loading = false
+  loading = false,
+  qaEnabled = false
 }: CallScorecardProps) {
   const [showCrmNotes, setShowCrmNotes] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -55,7 +90,119 @@ export function CallScorecard({
   const [feedbackImprovement, setFeedbackImprovement] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
+  const [qaQuestion, setQaQuestion] = useState('');
+  const [qaLoading, setQaLoading] = useState(false);
+  const [qaError, setQaError] = useState<string | null>(null);
+  const [qaResult, setQaResult] = useState<{
+    question: string;
+    verdict: 'found' | 'partial' | 'not_found';
+    confidence: number;
+    summary: string;
+    matches: Array<{
+      timestamp_seconds?: number | null;
+      speaker?: string | null;
+      quote: string;
+      context?: string | null;
+    }>;
+  } | null>(null);
   const scorecardRef = useRef<HTMLDivElement>(null);
+
+  const handleQaQuery = async () => {
+    if (!qaEnabled || qaLoading) return;
+    const question = qaQuestion.trim();
+    if (!question) {
+      toast.error('Please enter a question first.');
+      return;
+    }
+
+    setQaLoading(true);
+    setQaError(null);
+    setQaResult(null);
+
+    try {
+      const resolveFunctionErrorMessage = async (fnError: unknown): Promise<string> => {
+        const maybeError = fnError as {
+          message?: string;
+          status?: number;
+          code?: string;
+          context?: {
+            status?: number;
+            json?: () => Promise<{ error?: string }>;
+          };
+        };
+
+        const message =
+          typeof maybeError?.message === "string" ? maybeError.message : "Unable to run QA search";
+
+        const status = maybeError?.status ?? maybeError?.context?.status;
+        let bodyMessage = message;
+
+        if (maybeError?.context?.json) {
+          try {
+            const errorBody = await maybeError.context.json();
+            if (errorBody?.error && typeof errorBody.error === "string") {
+              bodyMessage = errorBody.error;
+            }
+          } catch (_e) {
+            // ignore body parse failures; fall back to status/message handling
+          }
+        }
+
+        const normalized = bodyMessage.toLowerCase();
+
+        if (status === 401 || status === 403) {
+          if (normalized.includes("session") || normalized.includes("authorization") || normalized.includes("token")) {
+            return "Session expired or missing. Please re-login and try again.";
+          }
+          return "Access denied for call Q&A. Verify your login and feature permissions.";
+        }
+
+        if (status === 409) {
+          if (normalized.includes("timestamped")) {
+            return "This call needs to be reprocessed to generate timestamped transcript segments before timeline Q&A works.";
+          }
+          if (normalized.includes("transcript segments")) {
+            return "This call does not have timestamped transcript segments yet. Reprocess this call and try again.";
+          }
+          return bodyMessage || "Timeline Q&A cannot process this call yet.";
+        }
+
+        return bodyMessage;
+      };
+
+      const headers: Record<string, string> = {};
+      const staffSession = localStorage.getItem('staff_session_token');
+      if (staffSession) {
+        headers['x-staff-session'] = staffSession;
+      }
+
+      const { data, error } = await supabase.functions.invoke('call-scoring-qa', {
+        body: {
+          call_id: call.id,
+          question,
+        },
+        headers,
+      });
+
+      if (error) {
+        const message = await resolveFunctionErrorMessage(error);
+        throw new Error(message);
+      }
+
+      if (!data?.question) {
+        throw new Error('QA service returned an unexpected response.');
+      }
+
+      setQaResult(data);
+      toast.success('Q&A complete.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to run QA query';
+      setQaError(message);
+      toast.error(message);
+    } finally {
+      setQaLoading(false);
+    }
+  };
 
   const handleAcknowledge = async () => {
     if (!feedbackPositive.trim() || !feedbackImprovement.trim()) {
@@ -135,6 +282,11 @@ export function CallScorecard({
     toast.success(`Timestamp ${formatted} copied`);
   };
 
+  const toMmSs = (seconds: number | null | undefined) => {
+    if (seconds === null || seconds === undefined || Number.isNaN(seconds)) return '--:--';
+    return formatTimestamp(seconds);
+  };
+
   const sectionScoresRaw = call.section_scores || {};
   const executionChecklist = call.discovery_wins || {};
 
@@ -150,12 +302,37 @@ export function CallScorecard({
   };
 
   // Build a normalized lookup map from section_scores (handles both object and array formats)
-  const sectionScoresMap: Record<string, any> = (() => {
+  const isObject = (value: Json | null | undefined): value is Record<string, Json> =>
+    typeof value === 'object' && value !== null && !Array.isArray(value);
+
+  const toNumber = (value: Json | null | undefined): number | null =>
+    typeof value === 'number' ? value : null;
+
+  const toStringArray = (value: Json | null | undefined): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value.filter((entry): entry is string => typeof entry === 'string');
+  };
+
+  const asSectionScoreEntry = (value: Json | null | undefined): SectionScoreEntry | null => {
+    if (!isObject(value)) return null;
+    return {
+      score: toNumber(value.score) ?? undefined,
+      wins: toStringArray(value.wins),
+      failures: toStringArray(value.failures),
+      coaching: typeof value.coaching === 'string' ? value.coaching : null,
+      tip: typeof value.tip === 'string' ? value.tip : null,
+      feedback: typeof value.feedback === 'string' ? value.feedback : null,
+    };
+  };
+
+  const sectionScoresMap: SectionScoreMap = (() => {
     // If it's already an object with normalized keys
-    if (sectionScoresRaw && typeof sectionScoresRaw === 'object' && !Array.isArray(sectionScoresRaw)) {
-      const map: Record<string, any> = {};
-      for (const [key, value] of Object.entries(sectionScoresRaw)) {
+    if (isObject(sectionScoresRaw)) {
+      const map: SectionScoreMap = {};
+      for (const [key, rawValue] of Object.entries(sectionScoresRaw)) {
         const normalizedKey = normalizeKey(key);
+        const value = asSectionScoreEntry(rawValue);
+        if (!value) continue;
         map[normalizedKey] = value;
         // Also store with original key for backward compatibility
         if (key !== normalizedKey) {
@@ -166,11 +343,13 @@ export function CallScorecard({
     }
     // If it's an array (service calls), convert to object using section_name
     if (Array.isArray(sectionScoresRaw)) {
-      const map: Record<string, any> = {};
+      const map: SectionScoreMap = {};
       for (const section of sectionScoresRaw) {
-        if (section.section_name) {
+        if (isObject(section) && typeof section.section_name === 'string') {
           const normalizedKey = normalizeKey(section.section_name);
-          map[normalizedKey] = section;
+          const value = asSectionScoreEntry(section);
+          if (!value) continue;
+          map[normalizedKey] = value;
         }
       }
       return map;
@@ -188,15 +367,47 @@ export function CallScorecard({
     extractedData?.salesperson_name || 
     'Agent';
 
+  const toNormalizedSkillScores = (scores: Json | null | undefined): NormalizedSkillScore[] => {
+    if (Array.isArray(scores)) {
+      return scores
+        .filter((row): row is RawSkillScoreRow => isObject(row))
+        .map((row) => ({
+          skill_name: row.skill_name?.trim() || 'Skill',
+          score: typeof row.score === 'number' ? row.score : 0,
+          max_score: typeof row.max_score === 'number' && row.max_score > 0 ? row.max_score : 10,
+          feedback: row.feedback ?? null,
+          tip: row.tip ?? null
+        }));
+    }
+
+    if (!isObject(scores)) return [];
+
+    return Object.entries(scores).flatMap(([key, value]) => {
+      const numericValue = toNumber(value);
+      if (numericValue === null) {
+        return [];
+      }
+      const normalizedScore = numericValue <= 10 ? numericValue : Math.round(numericValue / 10);
+      return [{
+        skill_name: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        score: normalizedScore,
+        max_score: 10,
+        feedback: null,
+        tip: null
+      }];
+    });
+  };
+
   // Prepare radar chart data - handles both array and object formats
   const getRadarData = () => {
     const scores = call.skill_scores;
+    const normalizedScores = toNormalizedSkillScores(scores as Json | null | undefined);
     
     // Handle array format (new): [{skill_name, score (0-10), max_score}]
     if (Array.isArray(scores) && scores.length > 0) {
       const findScore = (keywords: string[]) => {
-        const match = scores.find((s: any) => 
-          keywords.some(k => s.skill_name?.toLowerCase().includes(k.toLowerCase()))
+        const match = normalizedScores.find((s) =>
+          keywords.some((k) => s.skill_name?.toLowerCase().includes(k.toLowerCase()))
         );
         return match ? (match.score / (match.max_score || 10)) * 100 : 50;
       };
@@ -211,13 +422,13 @@ export function CallScorecard({
     }
     
     // Handle object format (legacy): {rapport: 75, discovery: 60, ...}
-    const scoresObj = scores || {};
+    const scoresObj = isObject(scores) ? scores : {};
     return [
-      { skill: 'Rapport', score: sectionScores.rapport?.score || scoresObj.rapport || 50, fullMark: 100 },
-      { skill: 'Discovery', score: scoresObj.discovery || 50, fullMark: 100 },
-      { skill: 'Coverage', score: sectionScores.coverage?.score || scoresObj.coverage || 50, fullMark: 100 },
-      { skill: 'Objection', score: scoresObj.objection_handling || 50, fullMark: 100 },
-      { skill: 'Closing', score: sectionScores.closing?.score || scoresObj.closing || 50, fullMark: 100 },
+      { skill: 'Rapport', score: sectionScores.rapport?.score ?? toNumber(scoresObj.rapport) ?? 50, fullMark: 100 },
+      { skill: 'Discovery', score: toNumber(scoresObj.discovery) ?? 50, fullMark: 100 },
+      { skill: 'Coverage', score: sectionScores.coverage?.score ?? toNumber(scoresObj.coverage) ?? 50, fullMark: 100 },
+      { skill: 'Objection', score: toNumber(scoresObj.objection_handling) ?? 50, fullMark: 100 },
+      { skill: 'Closing', score: sectionScores.closing?.score ?? toNumber(scoresObj.closing) ?? 50, fullMark: 100 },
     ];
   };
 
@@ -616,8 +827,8 @@ export function CallScorecard({
           {/* Three Section Scores OR Skill Breakdown */}
           {(() => {
             // Check for both normalized keys and alternate GPT output keys
-            const rapportData = sectionScores.rapport || (sectionScores as any).opening__rapport || (sectionScores as any).opening_rapport;
-            const coverageData = sectionScores.coverage || (sectionScores as any).coverage_education || (sectionScores as any).coverage__education;
+            const rapportData = sectionScores.rapport || sectionScores.opening__rapport || sectionScores.opening_rapport;
+            const coverageData = sectionScores.coverage || sectionScores.coverage_education || sectionScores.coverage__education;
             const closingData = sectionScores.closing;
             const hasLegacySections = rapportData || coverageData || closingData;
             
@@ -626,33 +837,29 @@ export function CallScorecard({
             const skillScoresArray = (() => {
               // If skill_scores is an array, enrich each entry with section_scores data
               if (Array.isArray(call.skill_scores)) {
-                return call.skill_scores.map((row: any) => {
-                  const key = normalizeKey(row.skill_name || '');
-                  const sectionData = sectionScoresMap[key];
-                  return {
-                    ...row,
-                    // Use existing feedback/tip if present, otherwise pull from section_scores
-                    feedback: row.feedback ?? sectionData?.feedback ?? sectionData?.coaching ?? null,
-                    tip: row.tip ?? sectionData?.tip ?? null
-                  };
-                });
-              }
-              // Convert object format {closing: 50, rapport: 60} to array format
-              if (call.skill_scores && typeof call.skill_scores === 'object') {
-                return Object.entries(call.skill_scores as Record<string, number>).map(([key, value]) => {
-                  const normalizedKey = normalizeKey(key);
-                  const sectionData = sectionScoresMap[normalizedKey];
-                  return {
-                    skill_name: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                    score: typeof value === 'number' ? (value <= 10 ? value : Math.round(value / 10)) : 0,
-                    max_score: 10,
-                    feedback: sectionData?.feedback ?? sectionData?.coaching ?? null,
-                    tip: sectionData?.tip ?? null
-                  };
-                });
-              }
-              return [];
-            })();
+                  return normalizedScores.map((row) => {
+                    const key = normalizeKey(row.skill_name || '');
+                    const sectionData = sectionScoresMap[key];
+                    return {
+                      ...row,
+                      // Use existing feedback/tip if present, otherwise pull from section_scores
+                      feedback: row.feedback ?? sectionData?.feedback ?? sectionData?.coaching ?? null,
+                      tip: row.tip ?? sectionData?.tip ?? null
+                    };
+                  });
+                  }
+                  const normalized = toNormalizedSkillScores(call.skill_scores as Json | null | undefined);
+                  return normalized.map((row) => {
+                    const normalizedKey = normalizeKey(row.skill_name);
+                    const sectionData = sectionScoresMap[normalizedKey];
+                    return {
+                      ...row,
+                      feedback: row.feedback ?? sectionData?.feedback ?? sectionData?.coaching ?? null,
+                      tip: row.tip ?? sectionData?.tip ?? null
+                    };
+                  });
+                  return [];
+                })();
             
             if (hasLegacySections) {
               return (
@@ -880,7 +1087,7 @@ export function CallScorecard({
                   <CardContent className="pt-4">
                     <h3 className="font-bold text-sm mb-4">SKILL BREAKDOWN</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {skillScoresArray.map((skill: any, idx: number) => (
+                      {skillScoresArray.map((skill: NormalizedSkillScore, idx: number) => (
                         <div key={idx} className="p-3 bg-muted/30 rounded-lg">
                           <div className="flex justify-between items-start mb-2">
                             <span className="font-medium text-sm">{skill.skill_name}</span>
@@ -1025,15 +1232,14 @@ export function CallScorecard({
           {/* Corrective Action Plan */}
           {(() => {
             // Get relevant tips from skill_scores based on keywords
-            const getRelevantTips = (keywords: string[]) => {
-              if (!Array.isArray(call.skill_scores)) return [];
-              return call.skill_scores
-                .filter((s: any) => keywords.some(k => 
-                  s.skill_name?.toLowerCase().includes(k.toLowerCase())
-                ))
-                .map((s: any) => s.tip)
-                .filter(Boolean);
-            };
+                const getRelevantTips = (keywords: string[]) => {
+                  if (!Array.isArray(call.skill_scores)) return [];
+                  return call.skill_scores
+                    .filter((rawSkill): rawSkill is RawSkillScoreRow => isObject(rawSkill))
+                    .filter((s) => keywords.some(k => s.skill_name?.toLowerCase().includes(k.toLowerCase())))
+                    .map((s) => s.tip)
+                    .filter((tip): tip is string => typeof tip === 'string');
+                };
 
             // Group tips by coaching category
             const rapportTips = getRelevantTips(['rapport', 'thanking', 'greeting', 'frame']);
@@ -1323,8 +1529,92 @@ export function CallScorecard({
                   ))}
                 </div>
               </CardContent>
-            </Card>
+          </Card>
           )}
+
+          {/* Time-Based Q&A */}
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="pt-4">
+              <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                <Search className="h-4 w-4 text-blue-400" />
+                CALL TIMELINE Q&A
+              </h3>
+
+              {!qaEnabled ? (
+                <p className="text-sm text-muted-foreground">
+                  Ask-specific timeline questions are not enabled for your agency.
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="qa-question">Ask about a moment in this call</Label>
+                    <Textarea
+                      id="qa-question"
+                      value={qaQuestion}
+                      onChange={(e) => setQaQuestion(e.target.value)}
+                      placeholder="Example: When did they discuss liability limits?"
+                      className="min-h-[80px]"
+                    />
+                  </div>
+                  <div className="mt-3 flex items-center justify-end">
+                    <Button onClick={handleQaQuery} disabled={qaLoading || !qaQuestion.trim()}>
+                      {qaLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="h-4 w-4 mr-2" />
+                          Ask
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {qaError && (
+                    <p className="mt-3 text-sm text-destructive">{qaError}</p>
+                  )}
+
+                  {qaResult && (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        {qaResult.summary} (confidence: {(qaResult.confidence * 100).toFixed(0)}%)
+                      </p>
+                      {qaResult.matches.length > 0 ? (
+                        qaResult.matches.map((match, idx) => (
+                          <div key={`${match.timestamp_seconds}-${idx}`} className="rounded-lg border border-border bg-muted/20 p-3">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              {match.timestamp_seconds !== null && match.timestamp_seconds !== undefined && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleTimestampClick(match.timestamp_seconds!)}
+                                  className="px-2 py-1 text-xs font-mono bg-background/80 rounded border border-border hover:bg-muted"
+                                >
+                                  {toMmSs(match.timestamp_seconds)}
+                                </button>
+                              )}
+                              {match.speaker && (
+                                <Badge variant="outline" className="text-xs">{match.speaker}</Badge>
+                              )}
+                            </div>
+                            <p className="text-sm italic">"{match.quote}"</p>
+                            {match.context && (
+                              <p className="text-xs text-muted-foreground mt-2">Context: {match.context}</p>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No matching moments were found for this question.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Staff Acknowledgment Section */}
           <div className="mt-6 pt-6 border-t border-border">
