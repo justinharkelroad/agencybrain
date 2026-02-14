@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -226,11 +226,12 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
   };
 
   const scoreColors = getScoreColor(call.overall_score || 0);
-  const sectionScores = call.section_scores || [];
+  const sectionScores = Array.isArray(call.section_scores) ? call.section_scores : [];
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+        <DialogTitle className="sr-only">Service Call Report</DialogTitle>
         {/* Export buttons - OUTSIDE the ref */}
         <div className="absolute top-4 right-12 z-10 flex gap-2">
           <DropdownMenu>

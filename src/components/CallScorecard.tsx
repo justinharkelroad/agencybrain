@@ -384,12 +384,31 @@ export function CallScorecard({
 
   // Backward compatible alias
   const sectionScores = sectionScoresMap;
-  const crmNotes = call.closing_attempts || {};
-  const extractedData = call.client_profile || {};
+  const crmNotes = isObject(call.closing_attempts) ? call.closing_attempts : {};
+  const extractedData = isObject(call.client_profile) ? call.client_profile : {};
+
+  const getClientProfileText = (value: Json | undefined) => {
+    return typeof value === 'string' ? value : '';
+  };
+
+  const getClientProfileList = (value: Json | undefined): string[] => {
+    return toStringArray(value);
+  };
+
+  const yourQuote = getClientProfileText(extractedData.your_quote);
+  const budgetIndicators = getClientProfileText(extractedData.budget_indicators);
+  const competitorQuote = getClientProfileText(extractedData.competitor_quote);
+  const currentCoverage = getClientProfileText(extractedData.current_coverage);
+  const householdSize = getClientProfileText(extractedData.household_size);
+  const timeline = getClientProfileText(extractedData.timeline);
+  const clientFirstName = getClientProfileText(extractedData.client_first_name);
+  const salespersonNameFromProfile = getClientProfileText(extractedData.salesperson_name);
+  const assets = getClientProfileList(extractedData.assets);
+  const painPoints = getClientProfileList(extractedData.pain_points);
 
   // Get salesperson name from various possible locations
-  const salespersonName = call.team_member_name || 
-    extractedData?.salesperson_name || 
+  const salespersonName = call.team_member_name ||
+    salespersonNameFromProfile ||
     'Agent';
 
   const toNormalizedSkillScores = (scores: Json | null | undefined): NormalizedSkillScore[] => {
@@ -458,7 +477,13 @@ export function CallScorecard({
   };
 
   // Parse price for comparison bars
-  const parsePrice = (priceStr: string) => {
+  const parsePrice = (priceValue: unknown) => {
+    const priceStr =
+      typeof priceValue === 'string'
+        ? priceValue
+        : typeof priceValue === 'number'
+          ? priceValue.toString()
+          : '';
     if (!priceStr) return 0;
     return parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 0;
   };
@@ -479,8 +504,8 @@ export function CallScorecard({
   const customerTalkSeconds = call.customer_talk_seconds;
   const deadAirSeconds = call.dead_air_seconds;
 
-  const yourQuoteValue = parsePrice(extractedData.your_quote);
-  const competitorQuoteValue = parsePrice(extractedData.competitor_quote);
+  const yourQuoteValue = parsePrice(yourQuote || budgetIndicators);
+  const competitorQuoteValue = parsePrice(competitorQuote || currentCoverage);
   const maxQuote = Math.max(yourQuoteValue, competitorQuoteValue, 1);
 
   const handleExportPNG = async () => {
@@ -615,10 +640,10 @@ export function CallScorecard({
             <Card className="bg-muted/30">
               <CardContent className="pt-4 text-center">
                 <p className="text-xs text-muted-foreground mb-1">
-                  {extractedData.your_quote ? 'YOUR QUOTE' : extractedData.budget_indicators ? 'BUDGET' : 'YOUR QUOTE'}
+                  {yourQuote ? 'YOUR QUOTE' : budgetIndicators ? 'BUDGET' : 'YOUR QUOTE'}
                 </p>
                 <p className="text-xl sm:text-2xl font-bold break-words">
-                  {extractedData.your_quote || extractedData.budget_indicators || '--'}
+                  {yourQuote || budgetIndicators || '--'}
                 </p>
               </CardContent>
             </Card>
@@ -627,10 +652,10 @@ export function CallScorecard({
             <Card className="bg-muted/30">
               <CardContent className="pt-4 text-center">
                 <p className="text-xs text-muted-foreground mb-1">
-                  {extractedData.competitor_quote ? 'COMPETITOR AVG' : extractedData.current_coverage ? 'CURRENT COVERAGE' : 'COMPETITOR AVG'}
+                  {competitorQuote ? 'COMPETITOR AVG' : currentCoverage ? 'CURRENT COVERAGE' : 'COMPETITOR AVG'}
                 </p>
                 <p className="text-xl sm:text-2xl font-bold text-green-400 break-words">
-                  {extractedData.competitor_quote ? `~${extractedData.competitor_quote}` : extractedData.current_coverage || '--'}
+                  {competitorQuote ? `~${competitorQuote}` : currentCoverage || '--'}
                 </p>
               </CardContent>
             </Card>
@@ -639,12 +664,16 @@ export function CallScorecard({
             <Card className="bg-muted/30">
               <CardContent className="pt-4">
                 <p className="text-xs text-muted-foreground mb-1 text-center sm:text-left">
-                  {extractedData.assets ? 'ASSET PROFILE' : extractedData.household_size ? 'HOUSEHOLD' : 'ASSET PROFILE'}
+                  {assets.length ? 'ASSET PROFILE' : householdSize ? 'HOUSEHOLD' : 'ASSET PROFILE'}
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs sm:text-sm">
-                  {extractedData.assets?.slice(0, 2).map((asset: string, i: number) => (
-                    <span key={i} className="truncate max-w-full sm:max-w-[120px]">{asset}</span>
-                  )) || <span className="truncate max-w-full">{extractedData.household_size || '--'}</span>}
+                  {assets.length > 0 ? (
+                    assets.slice(0, 2).map((asset: string, i: number) => (
+                      <span key={i} className="truncate max-w-full sm:max-w-[120px]">{asset}</span>
+                    ))
+                  ) : (
+                    <span className="truncate max-w-full">{householdSize || '--'}</span>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -779,67 +808,67 @@ export function CallScorecard({
                   </p>
                   
                   {/* Legacy: Quote Comparison OR New: Budget Info */}
-                  {extractedData.your_quote ? (
+                  {yourQuote ? (
                     <div>
                       <p className="text-xs text-muted-foreground">QUOTE COMPARISON</p>
                       <p className="text-lg font-bold">
-                        {extractedData.your_quote}
-                        {extractedData.competitor_quote && (
+                        {yourQuote}
+                        {competitorQuote && (
                           <span className="text-sm text-muted-foreground ml-2">
-                            vs <span className="text-green-400">{extractedData.competitor_quote}</span>
+                            vs <span className="text-green-400">{competitorQuote}</span>
                           </span>
                         )}
                       </p>
                     </div>
-                  ) : extractedData.budget_indicators && (
+                  ) : budgetIndicators && (
                     <div>
                       <p className="text-xs text-muted-foreground">BUDGET</p>
-                      <p className="text-sm font-medium">{extractedData.budget_indicators}</p>
+                      <p className="text-sm font-medium">{budgetIndicators}</p>
                     </div>
                   )}
 
                   {/* Legacy: Assets OR New: Current Coverage */}
-                  {extractedData.assets?.length > 0 ? (
+                  {assets.length > 0 ? (
                     <div>
                       <p className="text-xs text-muted-foreground">ASSETS</p>
-                      {extractedData.assets.map((asset: string, i: number) => (
+                      {assets.map((asset: string, i: number) => (
                         <p key={i} className="text-sm flex items-center gap-1">
                           <span className="w-1 h-4 bg-blue-500 rounded" />
                           {asset}
                         </p>
                       ))}
                     </div>
-                  ) : extractedData.current_coverage && (
+                  ) : currentCoverage && (
                     <div>
                       <p className="text-xs text-muted-foreground">CURRENT COVERAGE</p>
                       <p className="text-sm flex items-center gap-1">
                         <span className="w-1 h-4 bg-blue-500 rounded" />
-                        {extractedData.current_coverage}
+                        {currentCoverage}
                       </p>
                     </div>
                   )}
 
                   {/* Legacy: Timeline OR New: Household */}
-                  {extractedData.timeline ? (
+                  {timeline ? (
                     <div>
                       <p className="text-xs text-muted-foreground">FOLLOW UP PLAN</p>
                       <p className="text-sm text-yellow-400 flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {extractedData.timeline}
+                        {timeline}
                       </p>
                     </div>
-                  ) : extractedData.household_size && (
+                  ) : householdSize && (
                     <div>
                       <p className="text-xs text-muted-foreground">HOUSEHOLD</p>
-                      <p className="text-sm">{extractedData.household_size}</p>
+                      <p className="text-sm">{householdSize}</p>
                     </div>
                   )}
 
                   {/* New: Pain Points (no legacy equivalent) */}
-                  {extractedData.pain_points?.length > 0 && (
+                  {painPoints.length > 0 && (
                     <div>
                       <p className="text-xs text-muted-foreground">PAIN POINTS</p>
-                      {extractedData.pain_points.map((point: string, i: number) => (
+                      {painPoints.map((point: string, i: number) => (
                         <p key={i} className="text-sm flex items-center gap-1 text-orange-400">
                           <span className="w-1 h-4 bg-orange-500 rounded" />
                           {point}
@@ -1172,7 +1201,7 @@ export function CallScorecard({
           {/* Visual Charts Row */}
           <div className="grid md:grid-cols-2 gap-4">
             {/* Price Resistance Gap */}
-            {extractedData.your_quote && extractedData.competitor_quote && (
+            {yourQuote && competitorQuote && (
               <Card>
                 <CardContent className="pt-4">
                   <div className="flex items-center gap-2 mb-4">
@@ -1190,7 +1219,7 @@ export function CallScorecard({
                         }}
                       />
                       <p className="text-xs text-muted-foreground mt-2">Competitor</p>
-                      <p className="text-sm font-medium text-green-400">{extractedData.competitor_quote}</p>
+                        <p className="text-sm font-medium text-green-400">{competitorQuote}</p>
                     </div>
                     
                     {/* Your Quote Bar */}
@@ -1200,7 +1229,7 @@ export function CallScorecard({
                         style={{ height: `${Math.max(20, (yourQuoteValue / maxQuote) * 100)}px` }}
                       />
                       <p className="text-xs text-muted-foreground mt-2">Your Quote</p>
-                      <p className="text-sm font-medium text-red-400">{extractedData.your_quote}</p>
+                      <p className="text-sm font-medium text-red-400">{yourQuote}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -1208,7 +1237,7 @@ export function CallScorecard({
             )}
 
             {/* Skill Execution Gap - Radar Chart */}
-            <Card className={!extractedData.your_quote || !extractedData.competitor_quote ? 'md:col-span-2' : ''}>
+            <Card className={!yourQuote || !competitorQuote ? 'md:col-span-2' : ''}>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-2 h-2 rounded-full bg-red-500" />
@@ -1773,7 +1802,7 @@ export function CallScorecard({
         callId={call.id}
         existingEmail={call.generated_email_template}
         existingText={call.generated_text_template}
-        clientName={extractedData?.client_first_name || 'Client'}
+        clientName={clientFirstName || 'Client'}
       />
     </Dialog>
   );
