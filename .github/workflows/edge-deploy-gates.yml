@@ -181,13 +181,23 @@ jobs:
 
           BASE_COMMIT="${{ github.event.before }}"
           TARGET_COMMIT="${{ github.sha }}"
+          echo "Deploy diff base commit: $BASE_COMMIT"
+          echo "Deploy diff target commit: $TARGET_COMMIT"
           if [ -z "$BASE_COMMIT" ] || [ "$BASE_COMMIT" = "0000000000000000000000000000000000000000" ]; then
             BASE_COMMIT="$(git rev-parse "$TARGET_COMMIT^" 2>/dev/null || true)"
           fi
+          echo "Resolved deploy diff base commit: ${BASE_COMMIT:-<empty>}"
 
           CHANGED_FUNCTIONS=""
+          DIFF_FILES=""
           if [ -n "$BASE_COMMIT" ]; then
             DIFF_FILES=$(git diff --name-only "$BASE_COMMIT" "$TARGET_COMMIT" || true)
+            if [ -n "$DIFF_FILES" ]; then
+              echo "Files changed in diff:"
+              echo "$DIFF_FILES"
+            else
+              echo "No file changes detected in diff range."
+            fi
             CHANGED_FUNCTIONS=$(printf '%s\n' "$DIFF_FILES" \
               | grep '^supabase/functions/.*/index.ts$' \
               | awk -F/ '{print $3}' \
