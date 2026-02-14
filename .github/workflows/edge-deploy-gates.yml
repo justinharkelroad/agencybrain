@@ -43,9 +43,10 @@ jobs:
           DISK_COUNT=$(printf '%s\n' "$DISK_SET" | awk 'END{print NR}' )
 
           echo "=== CONFIG_SET (functions in config.toml) ==="
-          CONFIG_SET=$(grep '^\[functions\.' supabase/config.toml \
-            | sed 's/^\[functions.\(.*\)\]$/\1/' \
-            | tr -d '\r' \
+          CONFIG_SET=$(tr -d '\r' < supabase/config.toml \
+            | grep '^\[functions\.' \
+            | sed 's|^\[functions\.||' \
+            | sed 's/\].*$//' \
             | sort -u)
           echo "$CONFIG_SET"
           CONFIG_COUNT=$(printf '%s\n' "$CONFIG_SET" | awk 'END{print NR}' )
