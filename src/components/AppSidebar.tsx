@@ -100,6 +100,8 @@ const adminOnlyItems = [
   { title: "Exchange Reports", url: "/admin/exchange-reports", icon: FileBarChart },
   { title: "Exchange Analytics", url: "/admin/exchange-analytics", icon: BarChart3 },
   { title: "1:1 Clients", url: "/admin/one-on-one-clients", icon: Users },
+  { title: "Sales Process Builder Access", url: "/admin/one-on-one-clients?feature=sales_process_builder", icon: Sparkles },
+  { title: "Call Scoring Q&A Access", url: "/admin/one-on-one-clients?feature=call_scoring_qa", icon: MessageSquare },
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
