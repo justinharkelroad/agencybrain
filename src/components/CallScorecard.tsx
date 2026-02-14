@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -228,6 +228,7 @@ export function CallScorecard({
     return (
       <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogTitle className="sr-only">Call Scorecard</DialogTitle>
           <div className="flex items-center justify-center gap-3 py-10 text-muted-foreground">
             {loading ? (
               <>
@@ -488,6 +489,7 @@ export function CallScorecard({
     return (
       <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogTitle className="sr-only">Loading call details</DialogTitle>
           <div className="flex items-center justify-center py-24">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
@@ -499,6 +501,7 @@ export function CallScorecard({
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+        <DialogTitle className="sr-only">Call scorecard details</DialogTitle>
         {/* Export buttons - OUTSIDE the ref so they don't appear in export */}
         <div className="absolute top-4 right-12 z-10 flex gap-2">
           <DropdownMenu>
