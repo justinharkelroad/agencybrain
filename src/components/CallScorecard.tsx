@@ -23,10 +23,34 @@ import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecar
 import { parseFeedback } from '@/lib/utils/feedback-parser';
 import { FollowUpTemplateDisplay } from '@/components/call-scoring/FollowUpTemplateDisplay';
 import { supabase } from '@/integrations/supabase/client';
-import type { Database, Json } from '@/integrations/supabase/types';
+import type { Json } from '@/integrations/supabase/types';
 
-interface CallScorecardCall extends Database["public"]["Tables"]["agency_calls"]["Row"] {
+interface CallScorecardCall {
+  id: string;
   team_member_name?: string | null;
+  section_scores: Json | null;
+  transcript_segments: Json | null;
+  discovery_wins: Json | null;
+  closing_attempts: Json | null;
+  client_profile: Json | null;
+  skill_scores: Json | null;
+  agent_talk_percent: number | null;
+  customer_talk_percent: number | null;
+  dead_air_percent: number | null;
+  agent_talk_seconds: number | null;
+  customer_talk_seconds: number | null;
+  dead_air_seconds: number | null;
+  overall_score: number | null;
+  potential_rank: string | null;
+  critical_gaps: Json | null;
+  summary: string | null;
+  notable_quotes: Json | null;
+  original_filename: string | null;
+  created_at: string | null;
+  analyzed_at: string | null;
+  generated_email_template: string | null;
+  generated_text_template: string | null;
+  [key: string]: unknown;
 }
 
 interface SectionScoreEntry {
