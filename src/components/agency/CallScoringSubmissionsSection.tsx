@@ -9,6 +9,9 @@ import { toast } from 'sonner';
 import { CallScorecard } from '@/components/CallScorecard';
 import { ServiceCallReportCard } from '@/components/call-scoring/ServiceCallReportCard';
 import { fetchWithAuth } from '@/lib/staffRequest';
+import type { Database } from '@/integrations/supabase/types';
+
+type CallScorecardCall = Database['public']['Tables']['agency_calls']['Row'];
 
 interface CallScoringSubmissionsProps {
   agencyId: string;
@@ -17,6 +20,7 @@ interface CallScoringSubmissionsProps {
   startDate: Date;
   endDate: Date;
   onDataChange?: (data: CallScoringData[]) => void;
+  qaEnabled?: boolean;
 }
 
 export interface CallScoringData {
@@ -37,10 +41,11 @@ export function CallScoringSubmissionsSection({
   startDate,
   endDate,
   onDataChange,
+  qaEnabled = false,
 }: CallScoringSubmissionsProps) {
   const [submissions, setSubmissions] = useState<CallScoringData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCall, setSelectedCall] = useState<any>(null);
+  const [selectedCall, setSelectedCall] = useState<CallScorecardCall | null>(null);
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [loadingCallDetails, setLoadingCallDetails] = useState(false);
 
@@ -334,6 +339,7 @@ export function CallScoringSubmissionsSection({
           open={scorecardOpen}
           onClose={handleCloseScorecard}
           isStaffUser={false}
+          qaEnabled={qaEnabled}
         />
       )}
     </div>
