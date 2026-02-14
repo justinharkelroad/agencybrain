@@ -302,68 +302,73 @@ export default function CallScoring() {
     const sessionToken = localStorage.getItem('staff_session_token');
     if (!sessionToken) {
       console.log('No session token, aborting fetch');
+      toast.error('Missing staff session. Please sign in again.');
+      setLoading(false);
       return;
     }
 
     setLoading(true);
 
-    // Call edge function with server-side session validation
-    // The edge function enforces role-based access: staff sees own calls, managers see all
-    const { data, error } = await supabase.functions.invoke('get-staff-call-scoring-data', {
-      body: { page: currentPage, pageSize: CALLS_PER_PAGE },
-      headers: { 'x-staff-session': sessionToken }
-    });
+    try {
+      // Call edge function with server-side session validation
+      // The edge function enforces role-based access: staff sees own calls, managers see all
+      const { data, error } = await supabase.functions.invoke('get-staff-call-scoring-data', {
+        body: { page: currentPage, pageSize: CALLS_PER_PAGE },
+        headers: { 'x-staff-session': sessionToken }
+      });
 
-    console.log('Edge function response data:', data);
-    console.log('Edge function error:', error);
-    console.log('Recent calls returned:', data?.recent_calls);
-    console.log('Team members returned:', data?.team_members);
-    console.log('Templates returned:', data?.templates);
-    console.log('Usage returned:', data?.usage);
-    console.log('Total calls returned:', data?.total_calls);
-    console.log('Is manager (server-determined):', data?.is_manager);
+      console.log('Edge function response data:', data);
+      console.log('Edge function error:', error);
+      console.log('Recent calls returned:', data?.recent_calls);
+      console.log('Team members returned:', data?.team_members);
+      console.log('Templates returned:', data?.templates);
+      console.log('Usage returned:', data?.usage);
+      console.log('Total calls returned:', data?.total_calls);
+      console.log('Is manager (server-determined):', data?.is_manager);
 
-    if (error) {
-      console.error('Failed to fetch call scoring data:', error);
+      if (error) {
+        console.error('Failed to fetch call scoring data:', error);
+        toast.error('Failed to load call scoring data');
+        return;
+      }
+
+      // Check for error in response body (edge function returns errors in body)
+      if (data?.error) {
+        console.error('Call scoring data error:', data.error);
+        if (data.error === 'User account is not active') {
+          toast.error('Your account is not active. Please contact your administrator.');
+        } else if (data.error === 'Invalid or expired session') {
+          toast.error('Your session has expired. Please log in again.');
+        } else {
+          toast.error(data.error);
+        }
+        return;
+      }
+
+      if (data) {
+        setTemplates((data.templates as TemplateOption[]) || []);
+        setTeamMembers((data.team_members as TeamMemberOption[]) || []);
+        setRecentCalls(data.recent_calls || []);
+        setUsage(data.usage || { calls_used: 0, calls_limit: 20 });
+        setTotalCalls(data.total_calls || 0);
+        setCallScoringQaEnabled(Boolean(data.has_call_scoring_qa));
+
+        // Set analytics calls for managers (server determines manager status)
+        if (data.is_manager) {
+          setAnalyticsCalls(data.analytics_calls || []);
+        }
+
+        // Auto-select team member for staff
+        if (data.team_members?.length === 1) {
+          setSelectedTeamMember(data.team_members[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Unexpected error while fetching staff call scoring data:', err);
       toast.error('Failed to load call scoring data');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    // Check for error in response body (edge function returns errors in body)
-    if (data?.error) {
-      console.error('Call scoring data error:', data.error);
-      if (data.error === 'User account is not active') {
-        toast.error('Your account is not active. Please contact your administrator.');
-      } else if (data.error === 'Invalid or expired session') {
-        toast.error('Your session has expired. Please log in again.');
-      } else {
-        toast.error(data.error);
-      }
-      setLoading(false);
-      return;
-    }
-
-    if (data) {
-      setTemplates((data.templates as TemplateOption[]) || []);
-      setTeamMembers((data.team_members as TeamMemberOption[]) || []);
-      setRecentCalls(data.recent_calls || []);
-      setUsage(data.usage || { calls_used: 0, calls_limit: 20 });
-      setTotalCalls(data.total_calls || 0);
-      setCallScoringQaEnabled(Boolean(data.has_call_scoring_qa));
-
-      // Set analytics calls for managers (server determines manager status)
-      if (data.is_manager) {
-        setAnalyticsCalls(data.analytics_calls || []);
-      }
-
-      // Auto-select team member for staff
-      if (data.team_members?.length === 1) {
-        setSelectedTeamMember(data.team_members[0].id);
-      }
-    }
-
-    setLoading(false);
   }, [hasAccess, staffAgencyId, staffTeamMemberId, currentPage]);
 
   // Fetch data for staff users via RPC
@@ -435,20 +440,6 @@ export default function CallScoring() {
 
     checkAccess();
   }, [user, isAdmin, navigate, isStaffUser, accessChecked]);
-
-  // Fetch data once access is confirmed (regular users only)
-  useEffect(() => {
-    if (hasAccess && user && !isStaffUser) {
-      fetchAgencyAndData();
-    }
-  }, [hasAccess, user, isStaffUser, fetchAgencyAndData]);
-
-  // Refetch when page changes (regular users)
-  useEffect(() => {
-    if (hasAccess && user && !isStaffUser && agencyId) {
-      fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
-    }
-  }, [currentPage, hasAccess, user, isStaffUser, agencyId, userRole, userTeamMemberId, fetchUsageAndCalls]);
 
   const fetchUsageAndCalls = useCallback(async (agency: string, role: string, teamMemberId?: string | null) => {
     setLoading(true);
@@ -676,6 +667,20 @@ export default function CallScoring() {
       console.error('Error fetching agency data:', err);
     }
   }, [user, fetchUsageAndCalls, fetchFormData]);
+
+  // Fetch data once access is confirmed (regular users only)
+  useEffect(() => {
+    if (hasAccess && user && !isStaffUser) {
+      fetchAgencyAndData();
+    }
+  }, [hasAccess, user, isStaffUser, fetchAgencyAndData]);
+
+  // Refetch when page changes (regular users)
+  useEffect(() => {
+    if (hasAccess && user && !isStaffUser && agencyId) {
+      fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
+    }
+  }, [currentPage, hasAccess, user, isStaffUser, agencyId, userRole, userTeamMemberId, fetchUsageAndCalls]);
 
   const handleFileSelect = async (file: File | null) => {
     setFileError(null);
@@ -1275,6 +1280,14 @@ export default function CallScoring() {
           error = result.error;
         }
 
+        if (!fullCall) {
+          const detailError = error ? new Error(`Could not load call details: ${error.message}`) : new Error('Call details were not returned by the server.');
+          console.error(detailError);
+          toast.error('Failed to load call details');
+          setScorecardOpen(false);
+          return;
+        }
+
         if (error) {
           console.error('Error fetching call details:', error);
           toast.error('Failed to load call details');
@@ -1337,6 +1350,13 @@ export default function CallScoring() {
         if (error) {
           console.error('Error fetching call details:', error);
           toast.error('Failed to load call details');
+          setScorecardOpen(false);
+          return;
+        }
+
+        if (!fullCall) {
+          console.error('Fetched full call is null with no error');
+          toast.error('Call details were not found');
           setScorecardOpen(false);
           return;
         }
