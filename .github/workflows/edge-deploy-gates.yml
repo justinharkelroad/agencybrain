@@ -33,30 +33,42 @@ jobs:
       - name: Gate A - Verify DISK_SET == CONFIG_SET
         id: disk_config_check
         run: |
+          set -euo pipefail
           echo "=== DISK_SET (functions with index.ts) ==="
-          DISK_SET=$(ls -1 supabase/functions/*/index.ts 2>/dev/null | sed 's|supabase/functions/\(.*\)/index.ts|\1|' | sort)
+          DISK_SET=$(ls -1 supabase/functions/*/index.ts 2>/dev/null \
+            | sed 's|supabase/functions/\(.*\)/index.ts|\1|' \
+            | tr -d '\r' \
+            | sort -u)
           echo "$DISK_SET"
-          echo "disk_functions<<EOF" >> $GITHUB_OUTPUT
-          echo "$DISK_SET" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
+          DISK_COUNT=$(printf '%s\n' "$DISK_SET" | awk 'END{print NR}' )
+
           echo "=== CONFIG_SET (functions in config.toml) ==="
-          CONFIG_SET=$(grep '^\[functions\.' supabase/config.toml | sed 's/\[functions\.\(.*\)\]/\1/' | sort)
+          CONFIG_SET=$(grep '^\[functions\.' supabase/config.toml \
+            | sed 's/^\[functions.\(.*\)\]$/\1/' \
+            | tr -d '\r' \
+            | sort -u)
           echo "$CONFIG_SET"
-          echo "config_functions<<EOF" >> $GITHUB_OUTPUT
-          echo "$CONFIG_SET" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
+          CONFIG_COUNT=$(printf '%s\n' "$CONFIG_SET" | awk 'END{print NR}' )
+
+          echo "=== DISK COUNT: $DISK_COUNT ==="
+          echo "=== CONFIG COUNT: $CONFIG_COUNT ==="
+
           echo "=== COMPARISON ==="
           if [ "$DISK_SET" = "$CONFIG_SET" ]; then
             echo "✅ DISK_SET == CONFIG_SET"
             echo "match=true" >> $GITHUB_OUTPUT
           else
             echo "❌ DISK_SET != CONFIG_SET"
-            echo "DISK_SET:"
-            echo "$DISK_SET"
-            echo "CONFIG_SET:"  
-            echo "$CONFIG_SET"
+            echo "MISSING IN CONFIG:"
+            comm -13 <(printf '%s\n' "$CONFIG_SET") <(printf '%s\n' "$DISK_SET") || true
+            echo "MISSING IN DISK:"
+            comm -23 <(printf '%s\n' "$CONFIG_SET") <(printf '%s\n' "$DISK_SET") || true
+            echo "disk_functions<<EOF" >> $GITHUB_OUTPUT
+            echo "$DISK_SET" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            echo "config_functions<<EOF" >> $GITHUB_OUTPUT
+            echo "$CONFIG_SET" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
             echo "match=false" >> $GITHUB_OUTPUT
             exit 1
           fi
