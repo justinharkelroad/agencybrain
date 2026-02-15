@@ -1,0 +1,22 @@
+name: Sales Lesson Reminder Email
+
+on:
+  schedule:
+    # Mon/Wed/Fri, hours 11-15 UTC (covers 7 AM across all US timezones)
+    # 11 UTC = 7 AM EDT, 12 UTC = 7 AM EST/CDT, 13 UTC = 7 AM CST/MDT,
+    # 14 UTC = 7 AM MST/PDT, 15 UTC = 7 AM PST
+    # Day-of-week filtering is SAFE here (11-15 UTC never crosses midnight)
+    - cron: '0 11,12,13,14,15 * * 1,3,5'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  send-lesson-reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Sales Lesson Reminder
+        run: |
+          curl -X POST \
+            'https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/send-sales-lesson-reminder' \
+            -H 'Content-Type: application/json' \
+            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}' \
+            -d '{}'

@@ -474,6 +474,9 @@ verify_jwt = true
 [functions.process-sales-experience-emails]
 verify_jwt = false
 
+[functions.send-sales-lesson-reminder]
+verify_jwt = false
+
 [functions.deliverable-builder-chat]
 verify_jwt = true
 
