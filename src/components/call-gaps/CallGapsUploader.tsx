@@ -46,7 +46,7 @@ export default function CallGapsUploader({
   );
 
   return (
-    <Card className="border-dashed border-2">
+    <Card className="border-dashed border-2 border-muted-foreground/30">
       <CardContent className="p-0">
         <div
           className="relative flex flex-col items-center justify-center gap-4 py-16 px-8 cursor-pointer"

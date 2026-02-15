@@ -696,14 +696,6 @@ export const navigationConfig: NavEntry[] = [
         access: { staff: false, manager: false, owner: true },
       },
       {
-        id: 'call-efficiency-tool',
-        title: 'Call Efficiency Tool',
-        icon: PhoneCall,
-        type: 'modal',
-        modalKey: 'call_efficiency',
-        access: { staff: false, manager: true, owner: true },
-      },
-      {
         id: 'compensation-analyzer',
         title: 'Compensation Analyzer',
         icon: FileSpreadsheet,
@@ -719,6 +711,14 @@ export const navigationConfig: NavEntry[] = [
         url: '/call-gaps',
         access: { staff: false, manager: true, owner: true },
         callGapsAccess: true,
+      },
+      {
+        id: 'call-efficiency-tool',
+        title: 'Call Efficiency Tool',
+        icon: PhoneCall,
+        type: 'modal',
+        modalKey: 'call_efficiency',
+        access: { staff: false, manager: true, owner: true },
       },
       {
         id: 'growth-center',

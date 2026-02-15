@@ -1435,6 +1435,126 @@ export type Database = {
         }
         Relationships: []
       }
+      call_gap_records: {
+        Row: {
+          agency_id: string
+          agent_name: string
+          call_date: string
+          call_start: string
+          contact_name: string
+          contact_phone: string
+          created_at: string
+          direction: string
+          duration_seconds: number
+          id: string
+          result: string
+          upload_id: string
+        }
+        Insert: {
+          agency_id: string
+          agent_name: string
+          call_date: string
+          call_start: string
+          contact_name?: string
+          contact_phone?: string
+          created_at?: string
+          direction: string
+          duration_seconds?: number
+          id?: string
+          result?: string
+          upload_id: string
+        }
+        Update: {
+          agency_id?: string
+          agent_name?: string
+          call_date?: string
+          call_start?: string
+          contact_name?: string
+          contact_phone?: string
+          created_at?: string
+          direction?: string
+          duration_seconds?: number
+          id?: string
+          result?: string
+          upload_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_gap_records_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_gap_records_upload_id_fkey"
+            columns: ["upload_id"]
+            isOneToOne: false
+            referencedRelation: "call_gap_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_gap_uploads: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by_staff_id: string | null
+          created_by_user_id: string | null
+          date_range_end: string | null
+          date_range_start: string | null
+          file_name: string
+          id: string
+          raw_call_count: number
+          record_count: number
+          source_format: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by_staff_id?: string | null
+          created_by_user_id?: string | null
+          date_range_end?: string | null
+          date_range_start?: string | null
+          file_name: string
+          id?: string
+          raw_call_count?: number
+          record_count?: number
+          source_format: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by_staff_id?: string | null
+          created_by_user_id?: string | null
+          date_range_end?: string | null
+          date_range_start?: string | null
+          file_name?: string
+          id?: string
+          raw_call_count?: number
+          record_count?: number
+          source_format?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_gap_uploads_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_gap_uploads_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_metrics_daily: {
         Row: {
           agency_id: string
@@ -2824,22 +2944,34 @@ export type Database = {
       coaching_insight_settings: {
         Row: {
           agency_id: string
+          analysis_windows: Json
+          benchmark_config: Json
           created_at: string
+          feature_flags: Json
           id: string
+          suggestion_templates: Json
           thresholds: Json
           updated_at: string
         }
         Insert: {
           agency_id: string
+          analysis_windows?: Json
+          benchmark_config?: Json
           created_at?: string
+          feature_flags?: Json
           id?: string
+          suggestion_templates?: Json
           thresholds?: Json
           updated_at?: string
         }
         Update: {
           agency_id?: string
+          analysis_windows?: Json
+          benchmark_config?: Json
           created_at?: string
+          feature_flags?: Json
           id?: string
+          suggestion_templates?: Json
           thresholds?: Json
           updated_at?: string
         }
