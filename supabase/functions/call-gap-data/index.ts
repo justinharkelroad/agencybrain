@@ -188,25 +188,40 @@ serve(async (req) => {
           );
         }
 
-        const { data: records, error: recordsError } = await adminClient
-          .from("call_gap_records")
-          .select("agent_name, call_start, call_date, duration_seconds, direction, contact_name, contact_phone, result")
-          .eq("upload_id", uploadId)
-          .eq("agency_id", agencyId)
-          .order("agent_name", { ascending: true })
-          .order("call_start", { ascending: true });
+        // Fetch all records (override Supabase default 1000-row limit)
+        const allRecords: any[] = [];
+        const PAGE_SIZE = 1000;
+        let offset = 0;
+        let hasMore = true;
 
-        if (recordsError) {
-          console.error("Failed to fetch records:", recordsError);
-          return new Response(
-            JSON.stringify({ error: "Failed to fetch records" }),
-            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
+        while (hasMore) {
+          const { data: page, error: pageError } = await adminClient
+            .from("call_gap_records")
+            .select("agent_name, call_start, call_date, duration_seconds, direction, contact_name, contact_phone, result")
+            .eq("upload_id", uploadId)
+            .eq("agency_id", agencyId)
+            .order("agent_name", { ascending: true })
+            .order("call_start", { ascending: true })
+            .range(offset, offset + PAGE_SIZE - 1);
+
+          if (pageError) {
+            console.error("Failed to fetch records page:", pageError);
+            return new Response(
+              JSON.stringify({ error: "Failed to fetch records" }),
+              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+
+          allRecords.push(...(page || []));
+          hasMore = (page?.length || 0) === PAGE_SIZE;
+          offset += PAGE_SIZE;
         }
+
+        const records = allRecords;
 
         return new Response(
           JSON.stringify({
-            records: records || [],
+            records,
             sourceFormat: upload.source_format,
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
