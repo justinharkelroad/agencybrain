@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import {
   Search,
   Loader2,
   CheckCircle2,
+  BarChart3,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
@@ -41,21 +42,33 @@ interface FeatureAccess {
   agency?: Agency;
 }
 
-const FEATURE_INFO = {
+const FEATURE_OPTIONS = ['sales_process_builder', 'call_gaps'] as const;
+type FeatureKey = typeof FEATURE_OPTIONS[number];
+
+const FEATURE_INFO: Record<FeatureKey, { title: string; description: string; icon: typeof Sparkles }> = {
   sales_process_builder: {
     title: 'Sales Process Builder',
     description: 'AI-powered Sales Process Builder tool',
     icon: Sparkles,
+  },
+  call_gaps: {
+    title: 'Call Gaps Analyzer',
+    description: 'Phone system call gap analysis tool',
+    icon: BarChart3,
   },
 };
 
 export default function AdminOneOnOneClients() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [selectedFeature, setSelectedFeature] = useState<FeatureKey>('sales_process_builder');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedAgencyId, setSelectedAgencyId] = useState<string>('');
   const [notes, setNotes] = useState('');
+
+  const featureInfo = FEATURE_INFO[selectedFeature];
+  const FeatureIcon = featureInfo.icon;
 
   // Fetch all agencies
   const { data: agencies, isLoading: agenciesLoading } = useQuery({
@@ -73,7 +86,7 @@ export default function AdminOneOnOneClients() {
 
   // Fetch feature access records
   const { data: featureAccess, isLoading: accessLoading } = useQuery({
-    queryKey: ['admin-feature-access', 'sales_process_builder'],
+    queryKey: ['admin-feature-access', selectedFeature],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('agency_feature_access')
@@ -85,7 +98,7 @@ export default function AdminOneOnOneClients() {
           granted_at,
           notes
         `)
-        .eq('feature_key', 'sales_process_builder')
+        .eq('feature_key', selectedFeature)
         .order('granted_at', { ascending: false });
 
       if (error) throw error;
@@ -108,12 +121,12 @@ export default function AdminOneOnOneClients() {
 
   // Grant access mutation
   const grantAccessMutation = useMutation({
-    mutationFn: async ({ agencyId, notes }: { agencyId: string; notes: string }) => {
+    mutationFn: async ({ agencyId, featureKey, notes }: { agencyId: string; featureKey: string; notes: string }) => {
       const { data, error } = await supabase
         .from('agency_feature_access')
         .insert({
           agency_id: agencyId,
-          feature_key: 'sales_process_builder',
+          feature_key: featureKey,
           granted_by: user?.id,
           notes: notes || null,
         })
@@ -179,22 +192,39 @@ export default function AdminOneOnOneClients() {
           <h1 className="text-3xl font-bold">1:1 Clients</h1>
         </div>
         <p className="text-muted-foreground">
-          Manage agencies with access to premium 1:1 features like the Sales Process Builder.
+          Manage per-agency access to premium features.
         </p>
       </div>
 
-      {/* Stats Card */}
+      {/* Feature Selector + Stats */}
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <Sparkles className="h-6 w-6 text-primary" />
+          <div className="flex items-center gap-6">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Feature</label>
+              <Select value={selectedFeature} onValueChange={(v) => setSelectedFeature(v as FeatureKey)}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FEATURE_OPTIONS.map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {FEATURE_INFO[key].title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div>
-              <p className="text-2xl font-bold">{featureAccess?.length || 0}</p>
-              <p className="text-sm text-muted-foreground">
-                Agencies with Sales Process Builder access
-              </p>
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <FeatureIcon className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{featureAccess?.length || 0}</p>
+                <p className="text-sm text-muted-foreground">
+                  Agencies with {featureInfo.title} access
+                </p>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -205,9 +235,9 @@ export default function AdminOneOnOneClients() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Sales Process Builder Access</CardTitle>
+              <CardTitle>{featureInfo.title} Access</CardTitle>
               <CardDescription>
-                Grant or revoke access to the standalone Sales Process Builder tool.
+                Grant or revoke access to the {featureInfo.description}.
               </CardDescription>
             </div>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -219,9 +249,9 @@ export default function AdminOneOnOneClients() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Grant Sales Process Builder Access</DialogTitle>
+                  <DialogTitle>Grant {featureInfo.title} Access</DialogTitle>
                   <DialogDescription>
-                    Select an agency to grant access to the Sales Process Builder tool.
+                    Select an agency to grant access to the {featureInfo.description}.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -260,7 +290,7 @@ export default function AdminOneOnOneClients() {
                     Cancel
                   </Button>
                   <Button
-                    onClick={() => grantAccessMutation.mutate({ agencyId: selectedAgencyId, notes })}
+                    onClick={() => grantAccessMutation.mutate({ agencyId: selectedAgencyId, featureKey: selectedFeature, notes })}
                     disabled={!selectedAgencyId || grantAccessMutation.isPending}
                   >
                     {grantAccessMutation.isPending ? (

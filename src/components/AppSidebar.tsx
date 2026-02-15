@@ -65,6 +65,7 @@ import { navigationConfig, isNavFolder, isNavSubFolder, NavEntry, NavItem } from
 import { useSidebarAccess } from "@/hooks/useSidebarAccess";
 import { useSalesExperienceAccess } from "@/hooks/useSalesExperienceAccess";
 import { useSalesProcessBuilderAccess } from "@/hooks/useStandaloneSalesProcess";
+import { useCallGapsAccess } from "@/hooks/useCallGapsAccess";
 import { SidebarNavItem, SidebarFolder, SidebarSubFolder } from "@/components/sidebar";
 import type { CalcKey } from "@/components/ROIForecastersModal";
 
@@ -108,6 +109,8 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { data: salesProcessBuilderData, isError: salesProcessBuilderError } = useSalesProcessBuilderAccess();
   // If there's an error (like 403), treat as no access - don't crash the app
   const hasSalesProcessBuilderAccess = (!salesProcessBuilderError && salesProcessBuilderData?.hasAccess) ?? false;
+  const { data: callGapsAccessData, isError: callGapsAccessError } = useCallGapsAccess(agencyId);
+  const hasCallGapsAccess = (!callGapsAccessError && callGapsAccessData?.hasAccess) ?? false;
   const location = useLocation();
   const { data: subscription } = useSubscription();
 
@@ -310,6 +313,7 @@ const toggleFolder = useCallback((folderId: string) => {
       userEmail: user?.email,
       hasSalesExperienceAccess,
       hasSalesProcessBuilderAccess,
+      hasCallGapsAccess,
     });
     
     if (isCallScoringTier) {
@@ -354,7 +358,7 @@ const toggleFolder = useCallback((folderId: string) => {
     }
     
     return filtered;
-  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, hasSalesExperienceAccess, hasSalesProcessBuilderAccess]);
+  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, hasSalesExperienceAccess, hasSalesProcessBuilderAccess, hasCallGapsAccess]);
 
 // Auto-expand folder containing active route
 useEffect(() => {

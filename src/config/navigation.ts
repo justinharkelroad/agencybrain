@@ -62,6 +62,7 @@ export type NavItem = {
   trialRestricted?: boolean;  // Some functionality restricted during trial (shows indicator)
   salesExperienceAccess?: boolean;  // Requires agency to have active sales experience assignment
   salesProcessBuilderAccess?: boolean;  // Requires agency to have sales_process_builder feature flag
+  callGapsAccess?: boolean;  // Requires agency to have call_gaps feature flag
 };
 
 // Sub-folder that can appear inside a NavFolder
@@ -707,6 +708,7 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/call-gaps',
         access: { staff: false, manager: true, owner: true },
+        callGapsAccess: true,
       },
       {
         id: 'producer-quote-dashboard',
@@ -968,6 +970,7 @@ export const staffNavigationConfig: NavEntry[] = [
         type: 'link',
         url: '/staff/call-gaps',
         access: { staff: false, manager: true, owner: true },
+        callGapsAccess: true,
       },
     ],
   },

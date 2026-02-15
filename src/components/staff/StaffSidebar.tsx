@@ -50,6 +50,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   const navigate = useNavigate();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const [callScoringEnabled, setCallScoringEnabled] = useState<boolean | null>(null);
+  const [callGapsEnabled, setCallGapsEnabled] = useState(false);
   const [showCallScoringGate, setShowCallScoringGate] = useState(false);
   const [gatedItemId, setGatedItemId] = useState<string | null>(null);
   
@@ -136,6 +137,36 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
       cancelled = true;
     };
   }, [loading, user?.agency_id]);
+
+  // Check if call gaps is enabled for staff user's agency
+  // Uses SECURITY DEFINER RPC function (not direct table query) because
+  // agency_feature_access RLS is TO authenticated only — staff anon key can't SELECT it
+  useEffect(() => {
+    if (!user?.agency_id) {
+      setCallGapsEnabled(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    supabase
+      .rpc('has_feature_access', {
+        p_agency_id: user.agency_id,
+        p_feature_key: 'call_gaps',
+      })
+      .then(({ data, error }) => {
+        if (!cancelled) {
+          if (error) {
+            console.error('[StaffSidebar] Call gaps access check error:', error);
+            setCallGapsEnabled(false);
+          } else {
+            setCallGapsEnabled(data === true);
+          }
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [user?.agency_id]);
 
   // Determine user access level based on role
   const userAccess = useMemo(() => {
@@ -227,7 +258,12 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
           if (item.settingCheck === 'callScoringEnabled') {
             return callScoringEnabled === true;
           }
-          
+
+          // Check callGapsAccess feature flag
+          if (item.callGapsAccess && !callGapsEnabled) {
+            return false;
+          }
+
           return true;
         })
         .map(item => {
@@ -249,6 +285,9 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
               }
               if (subItem.settingCheck === 'callScoringEnabled') {
                 return callScoringEnabled === true;
+              }
+              if (subItem.callGapsAccess && !callGapsEnabled) {
+                return false;
               }
               return true;
             });
@@ -286,7 +325,12 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
         if (entry.settingCheck === 'callScoringEnabled' && !callScoringEnabled) {
           return false;
         }
-        
+
+        // Check callGapsAccess for root-level items
+        if (entry.callGapsAccess && !callGapsEnabled) {
+          return false;
+        }
+
         return canAccessItem(entry.access);
       })
       .map((entry): NavEntry | null => {
@@ -322,7 +366,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
     }
 
     return filtered;
-  }, [callScoringEnabled, canAccessItem, isCallScoringTier, salesEnabled, user?.email]);
+  }, [callScoringEnabled, callGapsEnabled, canAccessItem, isCallScoringTier, salesEnabled, user?.email]);
 
   const isActive = (path: string) => {
     if (path === "/staff/submit") {

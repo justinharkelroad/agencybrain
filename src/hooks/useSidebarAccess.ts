@@ -24,6 +24,7 @@ export interface SidebarFilterOptions {
   userEmail?: string;
   hasSalesExperienceAccess?: boolean;
   hasSalesProcessBuilderAccess?: boolean;
+  hasCallGapsAccess?: boolean;
 }
 
 export function useSidebarAccess() {
@@ -57,7 +58,7 @@ export function useSidebarAccess() {
 
   const checkItemAccess = useMemo(() => {
     return (item: NavItem, options: SidebarFilterOptions): boolean => {
-      const { callScoringEnabled, userEmail, hasSalesExperienceAccess, hasSalesProcessBuilderAccess } = options;
+      const { callScoringEnabled, userEmail, hasSalesExperienceAccess, hasSalesProcessBuilderAccess, hasCallGapsAccess } = options;
 
       // Check email restriction first - most restrictive
       if (item.emailRestriction) {
@@ -81,6 +82,11 @@ export function useSidebarAccess() {
 
       // Check salesProcessBuilderAccess - only show if agency has feature flag
       if (item.salesProcessBuilderAccess && !hasSalesProcessBuilderAccess) {
+        return false;
+      }
+
+      // Check callGapsAccess - only show if agency has feature flag
+      if (item.callGapsAccess && !hasCallGapsAccess) {
         return false;
       }
 
