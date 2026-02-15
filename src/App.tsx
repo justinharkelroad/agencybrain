@@ -92,6 +92,7 @@ import RoleplayStaff from "./pages/RoleplayStaff";
 import ThetaTalkTrack from "./pages/ThetaTalkTrack";
 const ThetaTalkTrackCreate = lazy(() => import("./pages/ThetaTalkTrackCreate"));
 import CompensationAnalyzer from "./pages/CompensationAnalyzer";
+import CallGaps from "./pages/CallGaps";
 import ThetaTalkTrackDownload from "./pages/ThetaTalkTrackDownload";
 import TestTrainingHooks from "./pages/TestTrainingHooks";
 import StaffLogin from "./pages/StaffLogin";
@@ -1086,6 +1087,15 @@ const App = () => {
               </ProtectedRoute>
             } />
             
+            {/* Call Gaps Analyzer */}
+            <Route path="/call-gaps" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <CallGaps />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+
             {/* Theta Talk Track Routes (SidebarLayout included in components) */}
             <Route path="/theta-talk-track" element={
               <ProtectedRoute>
@@ -1181,6 +1191,8 @@ const App = () => {
               <Route path="meeting-frame" element={<StaffMeetingFrameWrapper />} />
               {/* LQS Roadmap */}
               <Route path="lqs-roadmap" element={<LqsRoadmapPage isStaffPortal={true} />} />
+              {/* Call Gaps Analyzer */}
+              <Route path="call-gaps" element={<CallGaps />} />
               {/* Win-Back HQ */}
               <Route path="winback" element={<WinbackHQ />} />
             </Route>
