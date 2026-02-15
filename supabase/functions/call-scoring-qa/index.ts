@@ -86,8 +86,8 @@ function snapToSegment(
   return bestDist <= 15 ? best : null;
 }
 
-function normalizeSpeaker(raw: string | null | undefined): string | null {
-  if (!raw) return null;
+function normalizeSpeaker(raw: unknown): string | null {
+  if (!raw || typeof raw !== "string") return null;
   const lower = raw.toLowerCase().trim();
   if (["customer", "caller", "customer side", "client"].includes(lower)) return "customer";
   if (["agent", "rep", "sales", "representative"].includes(lower)) return "agent";
@@ -317,7 +317,7 @@ Return ONLY valid JSON:
 
       validatedMatches.push({
         timestamp_seconds: segment ? segment.start : (rawTs ?? null),
-        speaker: normalizeSpeaker(match.speaker as string),
+        speaker: normalizeSpeaker(match.speaker),
         quote: quote.substring(0, 300),
         context: typeof match.context === "string" ? match.context : null,
       });

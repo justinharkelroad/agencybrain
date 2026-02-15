@@ -16,7 +16,7 @@ import {
   Image, FileText, Share2, Loader2, CheckCircle, Mic, VolumeX,
   MessageSquareQuote, Sparkles, Mail, MessageSquare
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
 import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecard';
@@ -130,6 +130,14 @@ export function CallScorecard({
     }>;
   } | null>(null);
   const scorecardRef = useRef<HTMLDivElement>(null);
+
+  // Reset QA state when switching calls
+  useEffect(() => {
+    setQaQuestion('');
+    setQaLoading(false);
+    setQaError(null);
+    setQaResult(null);
+  }, [call?.id]);
 
   const handleQaQuery = async () => {
     if (!qaEnabled || qaLoading) return;
