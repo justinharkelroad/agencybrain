@@ -21,10 +21,15 @@ export type Database = {
           address_line2: string | null
           address_state: string | null
           address_zip: string | null
-          agency_email: string | null
+          agency_email: string
           agent_cell: string | null
           agent_name: string | null
           auto_reminders_enabled: boolean | null
+          breakup_letter_agency_display_name: string | null
+          breakup_letter_confirmation_reply_email: string | null
+          breakup_letter_primary_agent_name: string | null
+          breakup_letter_primary_agent_phone: string | null
+          call_metrics_mode: string
           call_scoring_email_enabled: boolean | null
           cc_owner_on_reminders: boolean | null
           contest_board_enabled: boolean
@@ -34,18 +39,22 @@ export type Database = {
           created_at: string
           daily_quoted_households_target: number | null
           daily_sold_items_target: number | null
+          daily_written_premium_target_cents: number | null
+          dashboard_call_metrics_enabled: boolean | null
           default_commission_rate: number | null
           description: string | null
           email_from: string | null
           id: string
           logo_url: string | null
           morning_digest_enabled: boolean | null
+          morning_digest_sections: Json | null
           name: string
           notifications_email_enabled: boolean | null
           notifications_lateness_enabled: boolean | null
           notifications_submissions_enabled: boolean | null
           owner_rollup_time: string | null
           phone: string | null
+          rc_ingest_key: string
           reminder_times_json: Json | null
           sales_daily_summary_enabled: boolean | null
           sales_realtime_email_enabled: boolean | null
@@ -63,10 +72,15 @@ export type Database = {
           address_line2?: string | null
           address_state?: string | null
           address_zip?: string | null
-          agency_email?: string | null
+          agency_email: string
           agent_cell?: string | null
           agent_name?: string | null
           auto_reminders_enabled?: boolean | null
+          breakup_letter_agency_display_name?: string | null
+          breakup_letter_confirmation_reply_email?: string | null
+          breakup_letter_primary_agent_name?: string | null
+          breakup_letter_primary_agent_phone?: string | null
+          call_metrics_mode?: string
           call_scoring_email_enabled?: boolean | null
           cc_owner_on_reminders?: boolean | null
           contest_board_enabled?: boolean
@@ -76,18 +90,22 @@ export type Database = {
           created_at?: string
           daily_quoted_households_target?: number | null
           daily_sold_items_target?: number | null
+          daily_written_premium_target_cents?: number | null
+          dashboard_call_metrics_enabled?: boolean | null
           default_commission_rate?: number | null
           description?: string | null
           email_from?: string | null
           id?: string
           logo_url?: string | null
           morning_digest_enabled?: boolean | null
+          morning_digest_sections?: Json | null
           name: string
           notifications_email_enabled?: boolean | null
           notifications_lateness_enabled?: boolean | null
           notifications_submissions_enabled?: boolean | null
           owner_rollup_time?: string | null
           phone?: string | null
+          rc_ingest_key?: string
           reminder_times_json?: Json | null
           sales_daily_summary_enabled?: boolean | null
           sales_realtime_email_enabled?: boolean | null
@@ -105,10 +123,15 @@ export type Database = {
           address_line2?: string | null
           address_state?: string | null
           address_zip?: string | null
-          agency_email?: string | null
+          agency_email?: string
           agent_cell?: string | null
           agent_name?: string | null
           auto_reminders_enabled?: boolean | null
+          breakup_letter_agency_display_name?: string | null
+          breakup_letter_confirmation_reply_email?: string | null
+          breakup_letter_primary_agent_name?: string | null
+          breakup_letter_primary_agent_phone?: string | null
+          call_metrics_mode?: string
           call_scoring_email_enabled?: boolean | null
           cc_owner_on_reminders?: boolean | null
           contest_board_enabled?: boolean
@@ -118,18 +141,22 @@ export type Database = {
           created_at?: string
           daily_quoted_households_target?: number | null
           daily_sold_items_target?: number | null
+          daily_written_premium_target_cents?: number | null
+          dashboard_call_metrics_enabled?: boolean | null
           default_commission_rate?: number | null
           description?: string | null
           email_from?: string | null
           id?: string
           logo_url?: string | null
           morning_digest_enabled?: boolean | null
+          morning_digest_sections?: Json | null
           name?: string
           notifications_email_enabled?: boolean | null
           notifications_lateness_enabled?: boolean | null
           notifications_submissions_enabled?: boolean | null
           owner_rollup_time?: string | null
           phone?: string | null
+          rc_ingest_key?: string
           reminder_times_json?: Json | null
           sales_daily_summary_enabled?: boolean | null
           sales_realtime_email_enabled?: boolean | null
@@ -900,6 +927,90 @@ export type Database = {
         }
         Relationships: []
       }
+      breakup_letter_generation_events: {
+        Row: {
+          agency_id: string
+          carrier_count: number
+          contact_id: string | null
+          created_at: string
+          customer_name: string | null
+          generated_by_user_id: string
+          id: string
+          policy_count: number
+          source_context: string
+        }
+        Insert: {
+          agency_id: string
+          carrier_count?: number
+          contact_id?: string | null
+          created_at?: string
+          customer_name?: string | null
+          generated_by_user_id?: string
+          id?: string
+          policy_count?: number
+          source_context?: string
+        }
+        Update: {
+          agency_id?: string
+          carrier_count?: number
+          contact_id?: string | null
+          created_at?: string
+          customer_name?: string | null
+          generated_by_user_id?: string
+          id?: string
+          policy_count?: number
+          source_context?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "breakup_letter_generation_events_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "breakup_letter_generation_events_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "agency_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      breakup_letter_templates: {
+        Row: {
+          created_at: string
+          email_template: string
+          id: string
+          is_active: boolean
+          letter_template: string
+          name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          email_template: string
+          id?: string
+          is_active?: boolean
+          letter_template: string
+          name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          email_template?: string
+          id?: string
+          is_active?: boolean
+          letter_template?: string
+          name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       brokered_carriers: {
         Row: {
           agency_id: string
@@ -931,6 +1042,255 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_metrics_reports: {
+        Row: {
+          agency_id: string
+          agent_code: string | null
+          agent_name: string | null
+          bonus_projection_cents: number | null
+          carrier_schema_id: string
+          created_at: string | null
+          file_path: string
+          id: string
+          is_baseline: boolean | null
+          original_filename: string
+          parse_error: string | null
+          parse_status: string
+          parsed_data: Json | null
+          report_month: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          agent_code?: string | null
+          agent_name?: string | null
+          bonus_projection_cents?: number | null
+          carrier_schema_id: string
+          created_at?: string | null
+          file_path: string
+          id?: string
+          is_baseline?: boolean | null
+          original_filename: string
+          parse_error?: string | null
+          parse_status?: string
+          parsed_data?: Json | null
+          report_month: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          agent_code?: string | null
+          agent_name?: string | null
+          bonus_projection_cents?: number | null
+          carrier_schema_id?: string
+          created_at?: string | null
+          file_path?: string
+          id?: string
+          is_baseline?: boolean | null
+          original_filename?: string
+          parse_error?: string | null
+          parse_status?: string
+          parsed_data?: Json | null
+          report_month?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_metrics_reports_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_metrics_reports_carrier_schema_id_fkey"
+            columns: ["carrier_schema_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_schemas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_metrics_snapshots: {
+        Row: {
+          adj_earned_premium_12mm: number | null
+          adj_paid_losses_12mm: number | null
+          agency_id: string
+          bonus_projection_cents: number | null
+          capped_items_new: number | null
+          capped_items_pye: number | null
+          capped_items_renewal: number | null
+          capped_items_total: number | null
+          capped_items_variance_pye: number | null
+          created_at: string | null
+          ho_premium_current: number | null
+          ho_retention: number | null
+          ho_retention_py_var: number | null
+          id: string
+          loss_ratio_12mm: number | null
+          loss_ratio_24mm: number | null
+          motor_club_items_current: number | null
+          motor_club_items_pye: number | null
+          motor_club_items_variance: number | null
+          motor_club_retention: number | null
+          net_retention: number | null
+          pif_current: number | null
+          pif_pye: number | null
+          pif_variance_pye: number | null
+          premium_12mm_earned: number | null
+          premium_12mm_written: number | null
+          premium_current_month_new: number | null
+          premium_current_month_renewal: number | null
+          premium_current_month_total: number | null
+          premium_pct_variance_py: number | null
+          premium_pct_variance_py_ytd: number | null
+          premium_prior_year_ytd: number | null
+          premium_py_same_month: number | null
+          premium_ytd_total: number | null
+          report_id: string
+          report_month: string
+          retention_0_2_years: number | null
+          retention_2_5_years: number | null
+          retention_2_plus_years: number | null
+          retention_5_plus_years: number | null
+          retention_condo: number | null
+          retention_current: number | null
+          retention_homeowners: number | null
+          retention_other_special: number | null
+          retention_point_variance_py: number | null
+          retention_prior_year: number | null
+          retention_renters: number | null
+          retention_std_auto: number | null
+          std_auto_new_items: number | null
+          std_auto_retention: number | null
+          std_auto_retention_py_var: number | null
+        }
+        Insert: {
+          adj_earned_premium_12mm?: number | null
+          adj_paid_losses_12mm?: number | null
+          agency_id: string
+          bonus_projection_cents?: number | null
+          capped_items_new?: number | null
+          capped_items_pye?: number | null
+          capped_items_renewal?: number | null
+          capped_items_total?: number | null
+          capped_items_variance_pye?: number | null
+          created_at?: string | null
+          ho_premium_current?: number | null
+          ho_retention?: number | null
+          ho_retention_py_var?: number | null
+          id?: string
+          loss_ratio_12mm?: number | null
+          loss_ratio_24mm?: number | null
+          motor_club_items_current?: number | null
+          motor_club_items_pye?: number | null
+          motor_club_items_variance?: number | null
+          motor_club_retention?: number | null
+          net_retention?: number | null
+          pif_current?: number | null
+          pif_pye?: number | null
+          pif_variance_pye?: number | null
+          premium_12mm_earned?: number | null
+          premium_12mm_written?: number | null
+          premium_current_month_new?: number | null
+          premium_current_month_renewal?: number | null
+          premium_current_month_total?: number | null
+          premium_pct_variance_py?: number | null
+          premium_pct_variance_py_ytd?: number | null
+          premium_prior_year_ytd?: number | null
+          premium_py_same_month?: number | null
+          premium_ytd_total?: number | null
+          report_id: string
+          report_month: string
+          retention_0_2_years?: number | null
+          retention_2_5_years?: number | null
+          retention_2_plus_years?: number | null
+          retention_5_plus_years?: number | null
+          retention_condo?: number | null
+          retention_current?: number | null
+          retention_homeowners?: number | null
+          retention_other_special?: number | null
+          retention_point_variance_py?: number | null
+          retention_prior_year?: number | null
+          retention_renters?: number | null
+          retention_std_auto?: number | null
+          std_auto_new_items?: number | null
+          std_auto_retention?: number | null
+          std_auto_retention_py_var?: number | null
+        }
+        Update: {
+          adj_earned_premium_12mm?: number | null
+          adj_paid_losses_12mm?: number | null
+          agency_id?: string
+          bonus_projection_cents?: number | null
+          capped_items_new?: number | null
+          capped_items_pye?: number | null
+          capped_items_renewal?: number | null
+          capped_items_total?: number | null
+          capped_items_variance_pye?: number | null
+          created_at?: string | null
+          ho_premium_current?: number | null
+          ho_retention?: number | null
+          ho_retention_py_var?: number | null
+          id?: string
+          loss_ratio_12mm?: number | null
+          loss_ratio_24mm?: number | null
+          motor_club_items_current?: number | null
+          motor_club_items_pye?: number | null
+          motor_club_items_variance?: number | null
+          motor_club_retention?: number | null
+          net_retention?: number | null
+          pif_current?: number | null
+          pif_pye?: number | null
+          pif_variance_pye?: number | null
+          premium_12mm_earned?: number | null
+          premium_12mm_written?: number | null
+          premium_current_month_new?: number | null
+          premium_current_month_renewal?: number | null
+          premium_current_month_total?: number | null
+          premium_pct_variance_py?: number | null
+          premium_pct_variance_py_ytd?: number | null
+          premium_prior_year_ytd?: number | null
+          premium_py_same_month?: number | null
+          premium_ytd_total?: number | null
+          report_id?: string
+          report_month?: string
+          retention_0_2_years?: number | null
+          retention_2_5_years?: number | null
+          retention_2_plus_years?: number | null
+          retention_5_plus_years?: number | null
+          retention_condo?: number | null
+          retention_current?: number | null
+          retention_homeowners?: number | null
+          retention_other_special?: number | null
+          retention_point_variance_py?: number | null
+          retention_prior_year?: number | null
+          retention_renters?: number | null
+          retention_std_auto?: number | null
+          std_auto_new_items?: number | null
+          std_auto_retention?: number | null
+          std_auto_retention_py_var?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_metrics_snapshots_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_metrics_snapshots_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: true
+            referencedRelation: "business_metrics_reports"
             referencedColumns: ["id"]
           },
         ]
@@ -1029,6 +1389,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      call_events_cleanup_audit: {
+        Row: {
+          agency_id: string
+          archived_at: string
+          call_started_at: string | null
+          cleanup_tag: string
+          direction: string | null
+          duration_seconds: number | null
+          external_call_id: string | null
+          id: string
+          matched_team_member_id: string | null
+          provider: string
+          raw_payload: Json | null
+          source_call_event_id: string
+        }
+        Insert: {
+          agency_id: string
+          archived_at?: string
+          call_started_at?: string | null
+          cleanup_tag: string
+          direction?: string | null
+          duration_seconds?: number | null
+          external_call_id?: string | null
+          id?: string
+          matched_team_member_id?: string | null
+          provider: string
+          raw_payload?: Json | null
+          source_call_event_id: string
+        }
+        Update: {
+          agency_id?: string
+          archived_at?: string
+          call_started_at?: string | null
+          cleanup_tag?: string
+          direction?: string | null
+          duration_seconds?: number | null
+          external_call_id?: string | null
+          id?: string
+          matched_team_member_id?: string | null
+          provider?: string
+          raw_payload?: Json | null
+          source_call_event_id?: string
+        }
+        Relationships: []
       }
       call_metrics_daily: {
         Row: {
@@ -1539,6 +1944,42 @@ export type Database = {
           },
         ]
       }
+      carrier_schemas: {
+        Row: {
+          carrier_name: string
+          created_at: string | null
+          display_name: string
+          field_map: Json
+          id: string
+          is_active: boolean | null
+          schema_key: string
+          updated_at: string | null
+          version: string
+        }
+        Insert: {
+          carrier_name: string
+          created_at?: string | null
+          display_name: string
+          field_map: Json
+          id?: string
+          is_active?: boolean | null
+          schema_key: string
+          updated_at?: string | null
+          version?: string
+        }
+        Update: {
+          carrier_name?: string
+          created_at?: string | null
+          display_name?: string
+          field_map?: Json
+          id?: string
+          is_active?: boolean | null
+          schema_key?: string
+          updated_at?: string | null
+          version?: string
+        }
+        Relationships: []
+      }
       challenge_assignments: {
         Row: {
           agency_id: string
@@ -1938,6 +2379,7 @@ export type Database = {
       }
       challenge_progress: {
         Row: {
+          ai_feedback: Json | null
           assignment_id: string
           completed_at: string | null
           created_at: string
@@ -1953,6 +2395,7 @@ export type Database = {
           video_watched_seconds: number | null
         }
         Insert: {
+          ai_feedback?: Json | null
           assignment_id: string
           completed_at?: string | null
           created_at?: string
@@ -1968,6 +2411,7 @@ export type Database = {
           video_watched_seconds?: number | null
         }
         Update: {
+          ai_feedback?: Json | null
           assignment_id?: string
           completed_at?: string | null
           created_at?: string
@@ -2078,6 +2522,59 @@ export type Database = {
             columns: ["purchaser_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_setup_results: {
+        Row: {
+          agency_id: string | null
+          created_at: string | null
+          email: string | null
+          expires_at: string | null
+          id: string
+          owner_setup_url: string | null
+          purchase_id: string | null
+          quantity: number | null
+          staff_credentials: Json | null
+          start_date: string | null
+          stripe_session_id: string
+          user_id: string | null
+        }
+        Insert: {
+          agency_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          expires_at?: string | null
+          id?: string
+          owner_setup_url?: string | null
+          purchase_id?: string | null
+          quantity?: number | null
+          staff_credentials?: Json | null
+          start_date?: string | null
+          stripe_session_id: string
+          user_id?: string | null
+        }
+        Update: {
+          agency_id?: string | null
+          created_at?: string | null
+          email?: string | null
+          expires_at?: string | null
+          id?: string
+          owner_setup_url?: string | null
+          purchase_id?: string | null
+          quantity?: number | null
+          staff_credentials?: Json | null
+          start_date?: string | null
+          stripe_session_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_setup_results_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]
@@ -2319,6 +2816,38 @@ export type Database = {
             foreignKeyName: "checklist_template_items_agency_id_fkey"
             columns: ["agency_id"]
             isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coaching_insight_settings: {
+        Row: {
+          agency_id: string
+          created_at: string
+          id: string
+          thresholds: Json
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          id?: string
+          thresholds?: Json
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          id?: string
+          thresholds?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coaching_insight_settings_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
             referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
@@ -3281,6 +3810,68 @@ export type Database = {
             columns: ["dictionary_id"]
             isOneToOne: false
             referencedRelation: "dictionaries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      email_ingest_logs: {
+        Row: {
+          agency_id: string | null
+          attachment_count: number | null
+          created_at: string | null
+          error_message: string | null
+          files_processed: number | null
+          id: string
+          message_id: string | null
+          processed_at: string | null
+          processing_duration_ms: number | null
+          processing_results: Json | null
+          received_at: string | null
+          recipient: string
+          sender: string | null
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          agency_id?: string | null
+          attachment_count?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          files_processed?: number | null
+          id?: string
+          message_id?: string | null
+          processed_at?: string | null
+          processing_duration_ms?: number | null
+          processing_results?: Json | null
+          received_at?: string | null
+          recipient: string
+          sender?: string | null
+          status: string
+          subject?: string | null
+        }
+        Update: {
+          agency_id?: string | null
+          attachment_count?: number | null
+          created_at?: string | null
+          error_message?: string | null
+          files_processed?: number | null
+          id?: string
+          message_id?: string | null
+          processed_at?: string | null
+          processing_duration_ms?: number | null
+          processing_results?: Json | null
+          received_at?: string | null
+          recipient?: string
+          sender?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_ingest_logs_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]
@@ -4439,6 +5030,56 @@ export type Database = {
           },
         ]
       }
+      gic_analyses: {
+        Row: {
+          agency_id: string
+          analysis_result: string
+          analysis_type: string
+          conversation: Json | null
+          created_at: string | null
+          id: string
+          included_lqs_data: boolean | null
+          included_scorecard_data: boolean | null
+          model_used: string
+          report_ids: string[]
+          user_id: string
+        }
+        Insert: {
+          agency_id: string
+          analysis_result: string
+          analysis_type: string
+          conversation?: Json | null
+          created_at?: string | null
+          id?: string
+          included_lqs_data?: boolean | null
+          included_scorecard_data?: boolean | null
+          model_used: string
+          report_ids: string[]
+          user_id: string
+        }
+        Update: {
+          agency_id?: string
+          analysis_result?: string
+          analysis_type?: string
+          conversation?: Json | null
+          created_at?: string | null
+          id?: string
+          included_lqs_data?: boolean | null
+          included_scorecard_data?: boolean | null
+          model_used?: string
+          report_ids?: string[]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gic_analyses_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       help_videos: {
         Row: {
           created_at: string | null
@@ -5264,6 +5905,7 @@ export type Database = {
           created_at: string
           household_id: string
           id: string
+          is_one_call_close: boolean
           items_sold: number
           linked_quote_id: string | null
           policies_sold: number
@@ -5280,6 +5922,7 @@ export type Database = {
           created_at?: string
           household_id: string
           id?: string
+          is_one_call_close?: boolean
           items_sold?: number
           linked_quote_id?: string | null
           policies_sold?: number
@@ -5296,6 +5939,7 @@ export type Database = {
           created_at?: string
           household_id?: string
           id?: string
+          is_one_call_close?: boolean
           items_sold?: number
           linked_quote_id?: string | null
           policies_sold?: number
@@ -5616,6 +6260,205 @@ export type Database = {
           },
         ]
       }
+      metrics_daily_facts: {
+        Row: {
+          agency_id: string
+          call_data_status: string
+          call_metrics_mode: string
+          created_at: string
+          date: string
+          id: string
+          inbound_calls_auto: number
+          items_sold: number
+          last_recomputed_at: string
+          outbound_calls_auto: number
+          outbound_calls_manual: number
+          quoted_households: number
+          role: Database["public"]["Enums"]["app_member_role"] | null
+          source_flags: Json
+          talk_minutes_auto: number
+          talk_minutes_manual: number
+          team_member_id: string
+          total_calls_auto: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          call_data_status?: string
+          call_metrics_mode?: string
+          created_at?: string
+          date: string
+          id?: string
+          inbound_calls_auto?: number
+          items_sold?: number
+          last_recomputed_at?: string
+          outbound_calls_auto?: number
+          outbound_calls_manual?: number
+          quoted_households?: number
+          role?: Database["public"]["Enums"]["app_member_role"] | null
+          source_flags?: Json
+          talk_minutes_auto?: number
+          talk_minutes_manual?: number
+          team_member_id: string
+          total_calls_auto?: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          call_data_status?: string
+          call_metrics_mode?: string
+          created_at?: string
+          date?: string
+          id?: string
+          inbound_calls_auto?: number
+          items_sold?: number
+          last_recomputed_at?: string
+          outbound_calls_auto?: number
+          outbound_calls_manual?: number
+          quoted_households?: number
+          role?: Database["public"]["Enums"]["app_member_role"] | null
+          source_flags?: Json
+          talk_minutes_auto?: number
+          talk_minutes_manual?: number
+          team_member_id?: string
+          total_calls_auto?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrics_daily_facts_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrics_daily_facts_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metrics_daily_snapshot_rows: {
+        Row: {
+          agency_id: string
+          attainment_payload: Json
+          created_at: string
+          id: string
+          metric_payload: Json
+          role: Database["public"]["Enums"]["app_member_role"] | null
+          snapshot_id: string
+          source_payload: Json
+          status_payload: Json
+          target_payload: Json
+          team_member_id: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          attainment_payload?: Json
+          created_at?: string
+          id?: string
+          metric_payload?: Json
+          role?: Database["public"]["Enums"]["app_member_role"] | null
+          snapshot_id: string
+          source_payload?: Json
+          status_payload?: Json
+          target_payload?: Json
+          team_member_id: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          attainment_payload?: Json
+          created_at?: string
+          id?: string
+          metric_payload?: Json
+          role?: Database["public"]["Enums"]["app_member_role"] | null
+          snapshot_id?: string
+          source_payload?: Json
+          status_payload?: Json
+          target_payload?: Json
+          team_member_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrics_daily_snapshot_rows_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrics_daily_snapshot_rows_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "metrics_daily_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrics_daily_snapshot_rows_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      metrics_daily_snapshots: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          lock_type: string
+          snapshot_date: string
+          status: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lock_type?: string
+          snapshot_date: string
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          lock_type?: string
+          snapshot_date?: string
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrics_daily_snapshots_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrics_daily_snapshots_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_instances: {
         Row: {
           agency_id: string
@@ -5782,34 +6625,46 @@ export type Database = {
       onboarding_sequences: {
         Row: {
           agency_id: string
+          clone_count: number
           created_at: string
           created_by: string | null
+          custom_type_label: string | null
           description: string | null
           id: string
           is_active: boolean
+          is_public: boolean
           name: string
+          source_sequence_id: string | null
           target_type: Database["public"]["Enums"]["onboarding_sequence_target_type"]
           updated_at: string
         }
         Insert: {
           agency_id: string
+          clone_count?: number
           created_at?: string
           created_by?: string | null
+          custom_type_label?: string | null
           description?: string | null
           id?: string
           is_active?: boolean
+          is_public?: boolean
           name: string
+          source_sequence_id?: string | null
           target_type?: Database["public"]["Enums"]["onboarding_sequence_target_type"]
           updated_at?: string
         }
         Update: {
           agency_id?: string
+          clone_count?: number
           created_at?: string
           created_by?: string | null
+          custom_type_label?: string | null
           description?: string | null
           id?: string
           is_active?: boolean
+          is_public?: boolean
           name?: string
+          source_sequence_id?: string | null
           target_type?: Database["public"]["Enums"]["onboarding_sequence_target_type"]
           updated_at?: string
         }
@@ -5826,6 +6681,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_sequences_source_sequence_id_fkey"
+            columns: ["source_sequence_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_sequences"
             referencedColumns: ["id"]
           },
         ]
@@ -5850,6 +6712,7 @@ export type Database = {
           instance_id: string | null
           is_adhoc: boolean
           parent_task_id: string | null
+          sale_id: string | null
           script_template: string | null
           status: Database["public"]["Enums"]["onboarding_task_status"]
           step_id: string | null
@@ -5875,6 +6738,7 @@ export type Database = {
           instance_id?: string | null
           is_adhoc?: boolean
           parent_task_id?: string | null
+          sale_id?: string | null
           script_template?: string | null
           status?: Database["public"]["Enums"]["onboarding_task_status"]
           step_id?: string | null
@@ -5900,6 +6764,7 @@ export type Database = {
           instance_id?: string | null
           is_adhoc?: boolean
           parent_task_id?: string | null
+          sale_id?: string | null
           script_template?: string | null
           status?: Database["public"]["Enums"]["onboarding_task_status"]
           step_id?: string | null
@@ -5968,6 +6833,13 @@ export type Database = {
             columns: ["parent_task_id"]
             isOneToOne: false
             referencedRelation: "onboarding_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_tasks_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
             referencedColumns: ["id"]
           },
           {
@@ -6171,6 +7043,7 @@ export type Database = {
       policy_types: {
         Row: {
           agency_id: string
+          allow_multiple_items: boolean
           created_at: string
           id: string
           is_active: boolean
@@ -6181,6 +7054,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          allow_multiple_items?: boolean
           created_at?: string
           id?: string
           is_active?: boolean
@@ -6191,6 +7065,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          allow_multiple_items?: boolean
           created_at?: string
           id?: string
           is_active?: boolean
@@ -6212,6 +7087,41 @@ export type Database = {
             columns: ["product_type_id"]
             isOneToOne: false
             referencedRelation: "product_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prior_insurance_companies: {
+        Row: {
+          agency_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prior_insurance_companies_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]
@@ -7357,9 +8267,11 @@ export type Database = {
           expiration_date: string | null
           id: string
           is_bundle: boolean | null
+          is_one_call_close: boolean
           is_vc_qualifying: boolean | null
           lead_source_id: string | null
           policy_number: string | null
+          prior_insurance_company_id: string | null
           sale_date: string | null
           source: string | null
           source_details: Json | null
@@ -7391,9 +8303,11 @@ export type Database = {
           expiration_date?: string | null
           id?: string
           is_bundle?: boolean | null
+          is_one_call_close?: boolean
           is_vc_qualifying?: boolean | null
           lead_source_id?: string | null
           policy_number?: string | null
+          prior_insurance_company_id?: string | null
           sale_date?: string | null
           source?: string | null
           source_details?: Json | null
@@ -7425,9 +8339,11 @@ export type Database = {
           expiration_date?: string | null
           id?: string
           is_bundle?: boolean | null
+          is_one_call_close?: boolean
           is_vc_qualifying?: boolean | null
           lead_source_id?: string | null
           policy_number?: string | null
+          prior_insurance_company_id?: string | null
           sale_date?: string | null
           source?: string | null
           source_details?: Json | null
@@ -7469,6 +8385,13 @@ export type Database = {
             columns: ["lead_source_id"]
             isOneToOne: false
             referencedRelation: "lead_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_prior_insurance_company_id_fkey"
+            columns: ["prior_insurance_company_id"]
+            isOneToOne: false
+            referencedRelation: "prior_insurance_companies"
             referencedColumns: ["id"]
           },
           {
@@ -8645,6 +9568,7 @@ export type Database = {
           display_order: number | null
           icon: string | null
           id: string
+          image_url: string | null
           is_published: boolean | null
           name: string
           published_at: string | null
@@ -8659,6 +9583,7 @@ export type Database = {
           display_order?: number | null
           icon?: string | null
           id?: string
+          image_url?: string | null
           is_published?: boolean | null
           name: string
           published_at?: string | null
@@ -8673,6 +9598,7 @@ export type Database = {
           display_order?: number | null
           icon?: string | null
           id?: string
+          image_url?: string | null
           is_published?: boolean | null
           name?: string
           published_at?: string | null
@@ -8760,6 +9686,7 @@ export type Database = {
           display_order: number | null
           icon: string | null
           id: string
+          image_url: string | null
           is_published: boolean | null
           name: string
           published_at: string | null
@@ -8773,6 +9700,7 @@ export type Database = {
           display_order?: number | null
           icon?: string | null
           id?: string
+          image_url?: string | null
           is_published?: boolean | null
           name: string
           published_at?: string | null
@@ -8786,6 +9714,7 @@ export type Database = {
           display_order?: number | null
           icon?: string | null
           id?: string
+          image_url?: string | null
           is_published?: boolean | null
           name?: string
           published_at?: string | null
@@ -11132,6 +12061,7 @@ export type Database = {
           first_name: string
           id: string
           last_name: string
+          last_upload_id: string | null
           notes: string | null
           phone: string | null
           policy_count: number | null
@@ -11154,6 +12084,7 @@ export type Database = {
           first_name: string
           id?: string
           last_name: string
+          last_upload_id?: string | null
           notes?: string | null
           phone?: string | null
           policy_count?: number | null
@@ -11176,6 +12107,7 @@ export type Database = {
           first_name?: string
           id?: string
           last_name?: string
+          last_upload_id?: string | null
           notes?: string | null
           phone?: string | null
           policy_count?: number | null
@@ -11206,6 +12138,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "agency_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winback_households_last_upload_id_fkey"
+            columns: ["last_upload_id"]
+            isOneToOne: false
+            referencedRelation: "winback_uploads"
             referencedColumns: ["id"]
           },
         ]
@@ -11619,6 +12558,25 @@ export type Database = {
           },
         ]
       }
+      vw_ringcentral_unmatched_daily: {
+        Row: {
+          agency_id: string | null
+          day_utc: string | null
+          matched_rows: number | null
+          total_rows: number | null
+          unmatched_ratio: number | null
+          unmatched_rows: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_events_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vw_submission_metrics: {
         Row: {
           outbound_calls: number | null
@@ -11697,8 +12655,12 @@ export type Database = {
         Returns: string
       }
       calculate_data_completeness: { Args: { data: Json }; Returns: number }
-      check_and_reset_call_usage: {
+      can_manage_coaching_insight_settings: {
         Args: { p_agency_id: string }
+        Returns: boolean
+      }
+      check_and_reset_call_usage: {
+        Args: { p_agency_id: string; p_staff_session_token?: string }
         Returns: {
           calls_limit: number
           calls_used: number
@@ -11782,6 +12744,15 @@ export type Database = {
         Args: { p_agency_id: string }
         Returns: undefined
       }
+      create_metrics_daily_snapshot: {
+        Args: {
+          p_agency_id: string
+          p_created_by?: string
+          p_lock_type?: string
+          p_snapshot_date: string
+        }
+        Returns: string
+      }
       delete_kpi_transaction: {
         Args: { p_actor_id: string; p_agency_id: string; p_kpi_key: string }
         Returns: Json
@@ -11823,6 +12794,7 @@ export type Database = {
       get_agency_call_metrics: {
         Args: {
           p_end_date?: string
+          p_staff_session_token?: string
           p_start_date?: string
           p_team_member_id: string
         }
@@ -11835,6 +12807,13 @@ export type Database = {
           team_member_count: number
           total_calls: number
           total_talk_seconds: number
+        }[]
+      }
+      get_agency_call_totals_from_events: {
+        Args: { p_agency_id: string; p_date: string; p_timezone?: string }
+        Returns: {
+          outbound_calls: number
+          talk_minutes: number
         }[]
       }
       get_agency_dates_now: { Args: { p_agency_id: string }; Returns: Json }
@@ -11860,7 +12839,10 @@ export type Database = {
           updated_at: string
         }[]
       }
-      get_agency_settings: { Args: { p_agency_id: string }; Returns: Json }
+      get_agency_settings: {
+        Args: { p_agency_id: string; p_staff_session_token?: string }
+        Returns: Json
+      }
       get_agency_voip_status: {
         Args: { p_team_member_id: string }
         Returns: {
@@ -11941,6 +12923,7 @@ export type Database = {
           p_search?: string
           p_sort_by?: string
           p_sort_direction?: string
+          p_staff_session_token?: string
           p_stage?: string
         }
         Returns: {
@@ -11998,6 +12981,7 @@ export type Database = {
               p_agency_slug: string
               p_end: string
               p_role: string
+              p_staff_session_token?: string
               p_start: string
             }
             Returns: {
@@ -12024,6 +13008,22 @@ export type Database = {
       }
       get_my_agency_id: { Args: never; Returns: string }
       get_next_monday: { Args: { p_from_date?: string }; Returns: string }
+      get_ringcentral_unmatched_alerts: {
+        Args: {
+          p_days?: number
+          p_min_rows?: number
+          p_min_unmatched_ratio?: number
+        }
+        Returns: {
+          agency_id: string
+          agency_name: string
+          day_utc: string
+          matched_rows: number
+          total_rows: number
+          unmatched_ratio: number
+          unmatched_rows: number
+        }[]
+      }
       get_sales_experience_business_day: {
         Args: { p_check_date: string; p_start_date: string }
         Returns: number
@@ -12036,6 +13036,7 @@ export type Database = {
         Args: {
           p_agency_id?: string
           p_call_id: string
+          p_staff_session_token?: string
           p_team_member_id?: string
         }
         Returns: Json
@@ -12043,6 +13044,7 @@ export type Database = {
       get_staff_call_metrics: {
         Args: {
           p_end_date?: string
+          p_staff_session_token?: string
           p_start_date?: string
           p_team_member_id: string
         }
@@ -12066,12 +13068,17 @@ export type Database = {
               p_agency_id: string
               p_page?: number
               p_page_size?: number
+              p_staff_session_token?: string
               p_team_member_id?: string
             }
             Returns: Json
           }
       get_staff_call_status: {
-        Args: { p_agency_id: string; p_call_id: string }
+        Args: {
+          p_agency_id: string
+          p_call_id: string
+          p_staff_session_token?: string
+        }
         Returns: Json
       }
       get_staff_challenge_access_grant: {
@@ -12184,6 +13191,10 @@ export type Database = {
         Args: { p_agency_id: string; p_date: string; p_team_member_id: string }
         Returns: undefined
       }
+      increment_sequence_clone_count: {
+        Args: { p_sequence_id: string }
+        Returns: undefined
+      }
       insert_contact_activity: {
         Args: {
           p_activity_date?: string
@@ -12211,7 +13222,7 @@ export type Database = {
         Returns: boolean
       }
       is_call_scoring_enabled: {
-        Args: { p_agency_id: string }
+        Args: { p_agency_id: string; p_staff_session_token?: string }
         Returns: boolean
       }
       is_challenge_lesson_unlocked: {
@@ -12307,13 +13318,29 @@ export type Database = {
           updated_count: number
         }[]
       }
+      recalculate_metrics_hits_pass: {
+        Args: { p_date: string; p_team_member_id: string }
+        Returns: undefined
+      }
       recalculate_winback_household_aggregates: {
         Args: { p_household_id: string }
+        Returns: undefined
+      }
+      recompute_metrics_daily_fact: {
+        Args: { p_agency_id: string; p_date: string; p_team_member_id: string }
         Returns: undefined
       }
       recompute_streaks_for_member: {
         Args: { p_end: string; p_member: string; p_start: string }
         Returns: undefined
+      }
+      refresh_metrics_daily_facts: {
+        Args: {
+          p_agency_id?: string
+          p_end_date?: string
+          p_start_date?: string
+        }
+        Returns: number
       }
       reset_subscription_calls: {
         Args: {
@@ -12324,7 +13351,7 @@ export type Database = {
         Returns: undefined
       }
       search_exchange_users: {
-        Args: { current_user_id: string; search_term: string }
+        Args: { current_user_id?: string; search_term: string }
         Returns: {
           agency_name: string
           email: string
@@ -12457,6 +13484,10 @@ export type Database = {
         Args: { p_agency_id: string; p_kpi_key: string }
         Returns: Json
       }
+      verify_staff_session: {
+        Args: { p_agency_id: string; p_token: string }
+        Returns: string
+      }
     }
     Enums: {
       app_employment_type: "Full-time" | "Part-time"
@@ -12485,6 +13516,7 @@ export type Database = {
         | "Call Scoring 50"
         | "Call Scoring 100"
         | "Inactive"
+        | "Six Week Challenge"
       onboarding_action_type: "call" | "text" | "email" | "other"
       onboarding_instance_status: "active" | "completed" | "cancelled"
       onboarding_sequence_target_type:
@@ -12667,6 +13699,7 @@ export const Constants = {
         "Call Scoring 50",
         "Call Scoring 100",
         "Inactive",
+        "Six Week Challenge",
       ],
       onboarding_action_type: ["call", "text", "email", "other"],
       onboarding_instance_status: ["active", "completed", "cancelled"],

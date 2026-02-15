@@ -117,11 +117,17 @@ function parseVideoUrl(url: string, options: EmbedOptions = {}): VideoData {
   if (urlLower.includes("vimeo.com")) {
     const videoId = extractVimeoId(url);
     if (videoId) {
+      const hash = extractVimeoHash(url);
       const queryParams = buildQueryParams(options, "vimeo");
+      const hashParam = hash ? `h=${hash}` : "";
+      const separator = hashParam && queryParams ? "&" : hashParam ? "?" : "";
+      const fullParams = queryParams
+        ? `${queryParams}${hashParam ? `&${hashParam}` : ""}`
+        : hashParam ? `?${hashParam}` : "";
       return {
         platform: "vimeo",
         videoId,
-        embedUrl: `https://player.vimeo.com/video/${videoId}${queryParams}`,
+        embedUrl: `https://player.vimeo.com/video/${videoId}${fullParams}`,
       };
     }
   }
@@ -173,6 +179,11 @@ function extractYouTubeId(url: string): string | null {
 
 function extractVimeoId(url: string): string | null {
   const match = url.match(/vimeo\.com\/(\d+)/);
+  return match ? match[1] : null;
+}
+
+function extractVimeoHash(url: string): string | null {
+  const match = url.match(/vimeo\.com\/\d+\/([a-zA-Z0-9]+)/);
   return match ? match[1] : null;
 }
 

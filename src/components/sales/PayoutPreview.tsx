@@ -226,38 +226,66 @@ export function PayoutPreview({
         const chargebackPremium = producerData?.premium || 0;
         const chargebackCount = producerData?.count || 0;
 
-        // Use bundle type PROPORTIONS from Agent Transaction Detail, but scale to sales report premium
-        // This gives us accurate bundle classification but correct premium amounts
+        // Keep New Business issued bundle/product amounts as payout basis.
+        // Merge only chargeback amounts/counts from Agent Transaction Detail.
         let byBundleType = m.byBundleType;
         let byProduct = m.byProduct;
 
         if (producerData?.byBundleType && producerData.byBundleType.length > 0) {
-          // Calculate total premium in Agent Transaction Detail
-          const atdTotalPremium = producerData.byBundleType.reduce((sum, b) => sum + (b.premiumWritten || b.netPremium || 0), 0);
-          const atdTotalItems = producerData.byBundleType.reduce((sum, b) => sum + (b.itemsIssued || 0), 0);
+          const normalizeBundle = (bundleType: string) => {
+            const normalized = (bundleType || '').trim().toLowerCase();
+            if (!normalized || normalized === 'mono' || normalized === 'mono line' || normalized === 'monoline') return 'monoline';
+            if (normalized === 'bundled' || normalized === 'standard' || normalized === 'std' || normalized === 'standard bundle') return 'standard';
+            if (normalized === 'preferred' || normalized === 'pref' || normalized === 'preferred bundle') return 'preferred';
+            return normalized;
+          };
 
-          if (atdTotalPremium > 0) {
-            // Scale the bundle breakdown to match the sales report premium
-            const salesPremium = m.premiumWritten || m.netPremium || 0;
-            const salesItems = m.itemsIssued || 0;
-            const premiumScale = salesPremium / atdTotalPremium;
-            const itemsScale = atdTotalItems > 0 ? salesItems / atdTotalItems : 1;
-
-            byBundleType = producerData.byBundleType.map(b => ({
-              bundleType: b.bundleType,
-              premiumWritten: (b.premiumWritten || b.netPremium || 0) * premiumScale,
-              premiumChargebacks: (b.premiumChargebacks || 0) * premiumScale,
-              netPremium: (b.netPremium || b.premiumWritten || 0) * premiumScale,
-              itemsIssued: Math.round((b.itemsIssued || 0) * itemsScale),
-              creditCount: Math.round((b.creditCount || 0) * itemsScale),
-              chargebackCount: b.chargebackCount || 0,
-            }));
-
-            console.log(`[PayoutPreview] ${m.code}: Scaled bundle breakdown from Agent Transaction Detail (ATD total: $${atdTotalPremium.toFixed(0)}, Sales: $${salesPremium.toFixed(0)}, scale: ${premiumScale.toFixed(2)}x)`);
-            console.log(`[PayoutPreview] ${m.code}: Scaled breakdown:`, byBundleType.map(b => `${b.bundleType}: $${b.premiumWritten?.toFixed(0) || 0}`));
+          const chargebackByBundle = new Map<string, { premiumChargebacks: number; chargebackCount: number }>();
+          for (const b of producerData.byBundleType) {
+            const key = normalizeBundle(b.bundleType);
+            const existing = chargebackByBundle.get(key) || { premiumChargebacks: 0, chargebackCount: 0 };
+            existing.premiumChargebacks += b.premiumChargebacks || 0;
+            existing.chargebackCount += b.chargebackCount || 0;
+            chargebackByBundle.set(key, existing);
           }
+
+          byBundleType = m.byBundleType.map((b) => {
+            const key = normalizeBundle(b.bundleType);
+            const chargeback = chargebackByBundle.get(key);
+            return {
+              ...b,
+              premiumChargebacks: chargeback?.premiumChargebacks || 0,
+              chargebackCount: chargeback?.chargebackCount || 0,
+              netPremium: b.premiumWritten - (chargeback?.premiumChargebacks || 0),
+            };
+          });
+
+          console.log(`[PayoutPreview] ${m.code}: Using New Business bundle basis with ATD chargebacks merged`);
+          console.log(`[PayoutPreview] ${m.code}: Bundle breakdown:`, byBundleType.map(b => `${b.bundleType}: issued=$${b.premiumWritten?.toFixed(0) || 0}, cbs=$${b.premiumChargebacks?.toFixed(0) || 0}`));
         } else {
-          console.log(`[PayoutPreview] ${m.code}: Using INFERRED bundle breakdown (no Agent Transaction Detail data)`);
+          console.log(`[PayoutPreview] ${m.code}: Using New Business bundle breakdown (no Agent Transaction Detail data)`);
+        }
+
+        if (producerData?.byProduct && producerData.byProduct.length > 0) {
+          const chargebackByProduct = new Map<string, { premiumChargebacks: number; chargebackCount: number }>();
+          for (const p of producerData.byProduct) {
+            const key = (p.product || '').trim().toLowerCase();
+            const existing = chargebackByProduct.get(key) || { premiumChargebacks: 0, chargebackCount: 0 };
+            existing.premiumChargebacks += p.premiumChargebacks || 0;
+            existing.chargebackCount += p.chargebackCount || 0;
+            chargebackByProduct.set(key, existing);
+          }
+
+          byProduct = m.byProduct.map((p) => {
+            const key = (p.product || '').trim().toLowerCase();
+            const chargeback = chargebackByProduct.get(key);
+            return {
+              ...p,
+              premiumChargebacks: chargeback?.premiumChargebacks || 0,
+              chargebackCount: chargeback?.chargebackCount || 0,
+              netPremium: p.premiumWritten - (chargeback?.premiumChargebacks || 0),
+            };
+          });
         }
 
         // Always log the lookup attempt for debugging
@@ -286,7 +314,7 @@ export function PayoutPreview({
           chargebackTransactions: producerData?.chargebackTransactions || [],
           creditInsureds: m.creditInsureds,
           chargebackInsureds: producerData?.chargebackInsureds || [],
-          // Use scaled bundle breakdown (Agent Transaction Detail proportions applied to sales report premium)
+          // Use New Business issued bundle/product basis with ATD chargebacks merged
           byBundleType,
           byProduct,
         };

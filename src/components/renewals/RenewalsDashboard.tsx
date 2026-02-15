@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useId, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, ReferenceLine, ReferenceDot } from 'recharts';
 import { CalendarDays, BarChart3, RotateCcw } from 'lucide-react';
 import { format, addDays, startOfDay, parseISO, getDay } from 'date-fns';
+import { PulseMarker } from '@/components/charts/PulseMarker';
 
 interface RenewalsDashboardProps {
   chartRecords: { renewal_effective_date: string | null }[];
@@ -13,10 +14,21 @@ interface RenewalsDashboardProps {
   activeDayFilter: number | null;
 }
 
+type AreaTooltipPayload = {
+  value: number;
+  payload: { dateLabel: string };
+};
+
+type BarTooltipPayload = {
+  value: number;
+  payload: { dayIndex: number };
+};
+
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilter, activeDateFilter, activeDayFilter }: RenewalsDashboardProps) {
+  const chartId = useId().replace(/:/g, '');
   // Calculate data for the past 6 days + today (7 days total)
   const upcomingData = useMemo(() => {
     const today = startOfDay(new Date());
@@ -83,9 +95,10 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
   }, [chartRecords]);
 
   const maxDayCount = Math.max(...dayOfWeekData.map(d => d.count), 1);
+  const latestPoint = upcomingData[upcomingData.length - 1] ?? null;
 
   // Custom tooltip for area chart
-  const AreaTooltip = ({ active, payload, label }: any) => {
+  const AreaTooltip = ({ active, payload }: { active?: boolean; payload?: AreaTooltipPayload[] }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-slate-800 text-white px-3 py-2 rounded shadow-lg text-sm">
@@ -98,7 +111,7 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
   };
 
   // Custom tooltip for bar chart
-  const BarTooltip = ({ active, payload }: any) => {
+  const BarTooltip = ({ active, payload }: { active?: boolean; payload?: BarTooltipPayload[] }) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-slate-800 text-white px-3 py-2 rounded shadow-lg text-sm">
@@ -140,12 +153,16 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
                 }}
               >
                 <defs>
-                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                  <linearGradient id={`${chartId}-count-fill`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.42} />
                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                   </linearGradient>
+                  <linearGradient id={`${chartId}-count-line`} x1="0" y1="0" x2="100%" y2="0">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.6} />
+                    <stop offset="100%" stopColor="#3b82f6" />
+                  </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
+                <CartesianGrid strokeDasharray="8 8" stroke="#374151" vertical={false} />
                 <XAxis
                   dataKey="dateLabel"
                   stroke="#9ca3af"
@@ -168,34 +185,27 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
                   label={{ value: `Avg: ${averageCount.toFixed(1)}/day`, position: 'right', fill: '#22c55e', fontSize: 11 }}
                 />
                 <Area
-                  type="monotone"
+                  type="natural"
                   dataKey="count"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  fill="url(#colorCount)"
-                  dot={({ cx, cy, payload }) => {
-                    const isActive = activeDateFilter === payload.date;
-                    const isBelowAvg = payload.count < averageCount;
-                    return (
-                      <circle
-                        key={payload.date}
-                        cx={cx}
-                        cy={cy}
-                        r={isActive ? 8 : 6}
-                        fill={isActive ? '#fbbf24' : isBelowAvg ? '#ef4444' : '#3b82f6'}
-                        stroke={isActive ? '#fbbf24' : isBelowAvg ? '#ef4444' : '#3b82f6'}
-                        strokeWidth={2}
-                        style={{ cursor: 'pointer' }}
-                      />
-                    );
-                  }}
-                  activeDot={{ r: 6, stroke: '#3b82f6', strokeWidth: 2 }}
+                  stroke={`url(#${chartId}-count-line)`}
+                  strokeWidth={3}
+                  fill={`url(#${chartId}-count-fill)`}
+                  dot={false}
+                  activeDot={{ r: 5, fill: '#3b82f6', stroke: '#93c5fd', strokeWidth: 2 }}
                 />
+                {latestPoint && (
+                  <ReferenceDot
+                    x={latestPoint.dateLabel}
+                    y={latestPoint.count}
+                    ifOverflow="visible"
+                    shape={<PulseMarker color="#3b82f6" coreRadius={3.4} pulseRadius={11} />}
+                  />
+                )}
               </AreaChart>
             </ResponsiveContainer>
           </div>
           <p className="text-xs text-gray-500 mt-2 text-center">
-            Click a point to filter by that date • <span className="text-red-400">Red</span> = below average
+            Click the line to filter by date
           </p>
         </CardContent>
       </Card>
@@ -231,6 +241,7 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
                 data={dayOfWeekData}
                 layout="vertical"
                 margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                barCategoryGap="38%"
                 onClick={(data) => {
                   if (data && data.activePayload) {
                     const clickedDayIndex = data.activePayload[0].payload.dayIndex;
@@ -261,6 +272,7 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
                 <Bar 
                   dataKey="count" 
                   radius={[0, 4, 4, 0]}
+                  maxBarSize={16}
                   style={{ cursor: 'pointer' }}
                 >
                   {dayOfWeekData.map((entry, index) => (

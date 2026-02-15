@@ -54,6 +54,7 @@ interface SPCategory {
   description: string | null;
   icon: string;
   color: string;
+  image_url: string | null;
   access_tiers: string[];
   display_order: number;
   is_published: boolean;

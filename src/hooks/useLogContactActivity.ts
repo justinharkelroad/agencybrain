@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { getStaffSessionToken } from '@/lib/cancel-audit-api';
 import type {
   ContactActivity,
   ContactActivityType,
@@ -29,7 +28,6 @@ interface LogActivityParams {
 
 export function useLogContactActivity() {
   const queryClient = useQueryClient();
-  const staffSessionToken = getStaffSessionToken();
 
   return useMutation({
     mutationFn: async (params: LogActivityParams): Promise<ContactActivity> => {
@@ -81,11 +79,17 @@ export function useLogContactActivity() {
         .from('contact_activities')
         .select('*')
         .eq('id', activityId)
-        .single();
+        .maybeSingle();
 
       if (fetchError) {
-        console.error('[useLogContactActivity] Fetch error:', fetchError);
+        if ((fetchError as any).code !== 'PGRST116') {
+          console.error('[useLogContactActivity] Fetch error:', fetchError);
+        }
         // Activity was created, just can't fetch it - still return something
+        return { id: activityId } as ContactActivity;
+      }
+
+      if (!activity) {
         return { id: activityId } as ContactActivity;
       }
 

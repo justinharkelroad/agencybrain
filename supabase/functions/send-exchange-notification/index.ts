@@ -226,34 +226,42 @@ serve(async (req) => {
       post.file_name
     );
     
-    // Send via Resend (batch send)
-    const emailBatch = recipientEmails.map(email => ({
+    // Send via Resend (batch send, max 100 per batch)
+    const BATCH_SIZE = 100;
+    const allEmails = recipientEmails.map(email => ({
       from: 'Agency Brain <info@agencybrain.standardplaybook.com>',
       to: email,
       subject: subject || 'New post in The Exchange',
       html: htmlContent,
     }));
-    
-    const response = await fetch('https://api.resend.com/emails/batch', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(emailBatch),
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Resend error:', errorText);
-      return new Response(
-        JSON.stringify({ error: 'Failed to send emails', details: errorText }), 
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+
+    let totalSentInBatches = 0;
+    for (let i = 0; i < allEmails.length; i += BATCH_SIZE) {
+      const chunk = allEmails.slice(i, i + BATCH_SIZE);
+      console.log(`Sending batch ${Math.floor(i / BATCH_SIZE) + 1} of ${Math.ceil(allEmails.length / BATCH_SIZE)} (${chunk.length} emails)`);
+
+      const response = await fetch('https://api.resend.com/emails/batch', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(chunk),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Resend error on batch ${Math.floor(i / BATCH_SIZE) + 1}:`, errorText);
+        return new Response(
+          JSON.stringify({ error: 'Failed to send emails', details: errorText, sent_before_error: totalSentInBatches }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const result = await response.json();
+      console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1} response:`, result);
+      totalSentInBatches += chunk.length;
     }
-    
-    const result = await response.json();
-    console.log('Resend response:', result);
     
     return new Response(
       JSON.stringify({ success: true, sent: recipientEmails.length }), 

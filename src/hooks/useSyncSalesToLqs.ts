@@ -153,15 +153,16 @@ export function useSyncSalesToLqs(agencyId: string | null) {
         const householdKeys = Array.from(recordsByHouseholdKey.keys());
         const { data: existingHouseholds } = await supabase
           .from("lqs_households")
-          .select("id, household_key, team_member_id")
+          .select("id, household_key, team_member_id, contact_id")
           .eq("agency_id", agencyId)
           .in("household_key", householdKeys);
 
-        const householdIdByKey = new Map<string, { id: string; team_member_id: string | null }>();
+        const householdIdByKey = new Map<string, { id: string; team_member_id: string | null; contact_id: string | null }>();
         (existingHouseholds || []).forEach((h) => {
           householdIdByKey.set(h.household_key, {
             id: h.id,
             team_member_id: h.team_member_id,
+            contact_id: h.contact_id,
           });
         });
 
@@ -190,8 +191,7 @@ export function useSyncSalesToLqs(agencyId: string | null) {
               first_name: firstRecord.firstName || "UNKNOWN",
               last_name: firstRecord.lastName || "UNKNOWN",
               zip_code: null,
-              status: "sold" as const,
-              sold_date: firstRecord.issuedDate,
+              status: "lead" as const,
               team_member_id: teamMemberId,
             };
           });
@@ -208,9 +208,40 @@ export function useSyncSalesToLqs(agencyId: string | null) {
               householdIdByKey.set(h.household_key, {
                 id: h.id,
                 team_member_id: h.team_member_id,
+                contact_id: null, // Newly created, no contact yet
               });
             });
             householdsCreated = createdHouseholds?.length || 0;
+          }
+        }
+
+        // Step 2b: Create unified contacts for households that don't have one yet
+        for (const [key, records2] of recordsByHouseholdKey.entries()) {
+          const householdData = householdIdByKey.get(key);
+          if (!householdData) continue;
+          if (householdData.contact_id) continue; // Already linked
+
+          const firstRec = records2[0];
+          if (!firstRec.lastName?.trim()) continue;
+
+          try {
+            const { data: contactId } = await supabase.rpc('find_or_create_contact', {
+              p_agency_id: agencyId,
+              p_first_name: firstRec.firstName || null,
+              p_last_name: firstRec.lastName,
+              p_zip_code: null,
+              p_phone: null,
+              p_email: null,
+            });
+            if (contactId) {
+              await supabase
+                .from('lqs_households')
+                .update({ contact_id: contactId })
+                .eq('id', householdData.id)
+                .is('contact_id', null); // Only set if not already linked
+            }
+          } catch (contactErr) {
+            console.warn('[Sync Sales] Failed to create contact for household:', key, contactErr);
           }
         }
 
@@ -257,7 +288,7 @@ export function useSyncSalesToLqs(agencyId: string | null) {
               policies_sold: 1,
               premium_cents: Math.round(record.writtenPremium * 100),
               policy_number: record.policyNumber,
-              source: "new_business_report" as const,
+              source: "allstate_report" as const,
             };
           })
           .filter((s): s is NonNullable<typeof s> => s !== null);

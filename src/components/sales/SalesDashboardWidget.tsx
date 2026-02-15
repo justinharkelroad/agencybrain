@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Link, useNavigate } from "react-router-dom";
-import { BarChart3, DollarSign, Package, FileText, Trophy, Loader2, Target, Users, Upload } from "lucide-react";
+import { BarChart3, DollarSign, Package, FileText, Trophy, Loader2, Target, Users, Upload, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, startOfDay, subDays } from "date-fns";
 import { GoalProgressRing } from "./GoalProgressRing";
@@ -99,6 +99,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
           total_premium,
           total_items,
           total_points,
+          is_one_call_close,
           sale_policies(id)
         `)
         .eq("agency_id", agencyId)
@@ -129,6 +130,9 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
       const uniqueCustomers = new Set(data?.map(s => s.customer_name?.toLowerCase().trim()).filter(Boolean));
       const totalHouseholds = uniqueCustomers.size;
 
+      // Count one-call closes
+      const oneCallCloses = data?.filter(s => s.is_one_call_close).length || 0;
+
       // Calculate today's sales
       const todaySales = data?.filter(s => s.sale_date === todayStr) || [];
       const todayPremium = todaySales.reduce((sum, s) => sum + (s.total_premium || 0), 0);
@@ -143,6 +147,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
         totalPoints,
         totalPolicies,
         totalHouseholds,
+        oneCallCloses,
         salesCount: data?.length || 0,
         todayPremium,
         weekPremium,
@@ -213,7 +218,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
   const streak = streakData || { current: 0, longest: 0, lastSaleDate: null };
   const leaderboard = leaderboardData?.leaderboard || [];
 
-  const stats = salesData || { totalPremium: 0, totalItems: 0, totalPoints: 0, totalPolicies: 0, totalHouseholds: 0, todayPremium: 0, weekPremium: 0 };
+  const stats = salesData || { totalPremium: 0, totalItems: 0, totalPoints: 0, totalPolicies: 0, totalHouseholds: 0, oneCallCloses: 0, todayPremium: 0, weekPremium: 0 };
   const hasGoal = !!activeGoal;
   const monthlyGoal = activeGoal?.target_value || 0;
   const goalMeasurement = (activeGoal?.measurement as MeasurementType) || "premium";
@@ -471,7 +476,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
 
           {/* Footer Stats Row */}
           <div className={cn(
-            "grid grid-cols-3 gap-4 pt-4",
+            "grid grid-cols-4 gap-4 pt-4",
             "border-t border-white/10 dark:border-white/5"
           )}>
             <div className="text-center">
@@ -485,6 +490,13 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 ${stats.weekPremium.toLocaleString()}
               </div>
               <div className="text-xs text-muted-foreground">This Week</div>
+            </div>
+            <div className="text-center border-r border-white/10 dark:border-white/5">
+              <div className="text-lg font-semibold text-green-500 flex items-center justify-center gap-1">
+                <Phone className="h-3.5 w-3.5" />
+                {stats.oneCallCloses}
+              </div>
+              <div className="text-xs text-muted-foreground">One-Call Closes</div>
             </div>
             <div className="text-center">
               <div className={cn(

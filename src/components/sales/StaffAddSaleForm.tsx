@@ -24,13 +24,15 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, Phone } from "lucide-react";
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 type ProductType = {
   id: string;
   name: string;
+  allow_multiple_items: boolean;
   category: string;
   default_points: number | null;
   is_vc_item: boolean | null;
@@ -51,6 +53,7 @@ type Policy = {
   id: string;
   product_type_id: string;
   policy_type_name: string;
+  allow_multiple_items?: boolean;
   canonical_name: string | null; // From linked product_types, used for bundle detection
   policy_number: string;
   effective_date: Date | undefined;
@@ -98,12 +101,26 @@ const detectBundleType = (policies: Policy[]): { isBundle: boolean; bundleType: 
 };
 
 // Multi-item product types (uses canonical names)
-const MULTI_ITEM_PRODUCTS = ["Standard Auto", "Specialty Auto", "Boatowners", "Motorcycle"];
+const DEFAULT_MULTI_ITEM_PRODUCTS = [
+  "Standard Auto",
+  "Non-Standard Auto",
+  "Specialty Auto",
+  "Boatowners",
+  "Motorcycle",
+  "Off-Road Vehicle",
+];
 
 // Check if product allows multiple line items - uses canonical name if available
-const isMultiItemProduct = (productName: string, canonicalName?: string | null): boolean => {
+const isMultiItemProduct = (
+  productName: string,
+  canonicalName?: string | null,
+  allowMultipleItems?: boolean
+): boolean => {
+  if (typeof allowMultipleItems === "boolean") {
+    return allowMultipleItems;
+  }
   const nameToCheck = canonicalName || productName;
-  return MULTI_ITEM_PRODUCTS.some(
+  return DEFAULT_MULTI_ITEM_PRODUCTS.some(
     (name) => nameToCheck.toLowerCase() === name.toLowerCase()
   );
 };
@@ -119,6 +136,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
   const [leadSourceId, setLeadSourceId] = useState("");
   const [priorInsuranceCompanyId, setPriorInsuranceCompanyId] = useState("");
   const [saleDate, setSaleDate] = useState<Date | undefined>(todayLocal());
+  const [isOneCallClose, setIsOneCallClose] = useState(false);
   const [policies, setPolicies] = useState<Policy[]>([]);
 
   // Fetch brokered carriers
@@ -136,6 +154,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         .select(`
           id,
           name,
+          allow_multiple_items,
           product_type:product_types(
             name,
             category,
@@ -150,6 +169,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       return (data || []).map(pt => ({
         id: pt.id,
         name: pt.name,
+        allow_multiple_items: pt.allow_multiple_items ?? false,
         category: (pt.product_type as any)?.category || 'General',
         default_points: (pt.product_type as any)?.default_points ?? 0,
         is_vc_item: (pt.product_type as any)?.is_vc_item ?? false,
@@ -185,6 +205,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         id: crypto.randomUUID(),
         product_type_id: "",
         policy_type_name: "",
+        allow_multiple_items: undefined,
         canonical_name: null,
         policy_number: "",
         effective_date: toLocalDate(saleDate),
@@ -225,6 +246,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
           if (value === "brokered") {
             updated.is_vc_qualifying = false;
             updated.isBrokered = true;
+            updated.allow_multiple_items = false;
             updated.canonical_name = null; // Brokered has no canonical product type
             // Auto-create a line item for brokered business if none exists
             if (p.lineItems.length === 0) {
@@ -250,12 +272,13 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
             const defaultPoints = selectedProduct.default_points || 0;
 
             updated.policy_type_name = selectedProduct.name;
+            updated.allow_multiple_items = selectedProduct.allow_multiple_items;
             updated.canonical_name = selectedProduct.canonical_name; // For bundle detection
             updated.is_vc_qualifying = isVc;
 
             // For non-multi-item products, auto-create a single line item
             // Use canonical_name for accurate multi-item detection
-            if (!isMultiItemProduct(selectedProduct.name, selectedProduct.canonical_name)) {
+            if (!isMultiItemProduct(selectedProduct.name, selectedProduct.canonical_name, selectedProduct.allow_multiple_items)) {
               // Create or update single line item
               updated.lineItems = [{
                 id: p.lineItems[0]?.id || crypto.randomUUID(),
@@ -455,6 +478,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         vc_points: vcTotals.points,
         is_bundle: bundleInfo.isBundle,
         bundle_type: bundleInfo.bundleType,
+        is_one_call_close: isOneCallClose,
         policies: policies.map((policy) => {
           // For brokered policies, product_type_id is "brokered" - convert to null for DB
           const productTypeId = policy.product_type_id === "brokered" ? null : (policy.product_type_id || null);
@@ -490,6 +514,8 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
     onSuccess: () => {
       toast.success("Sale created successfully!");
       queryClient.invalidateQueries({ queryKey: ["staff-sales"] });
+      // Invalidate dashboard metrics so sold_items refreshes immediately
+      queryClient.invalidateQueries({ queryKey: ["dashboard-daily"] });
       // Invalidate promo widgets so progress refreshes immediately
       queryClient.invalidateQueries({ queryKey: ["admin-promo-goals-widget"] });
       queryClient.invalidateQueries({ queryKey: ["promo-goals"] });
@@ -511,6 +537,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
     setLeadSourceId("");
     setPriorInsuranceCompanyId("");
     setSaleDate(todayLocal());
+    setIsOneCallClose(false);
     setPolicies([]);
   };
 
@@ -936,7 +963,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                             </div>
 
                             {/* Line Items for multi-item products */}
-                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name) ? (
+                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name, policy.allow_multiple_items) ? (
                               <>
                                 <div className="flex items-center justify-between mt-4">
                                   <Label className="text-sm font-medium">Line Items</Label>
@@ -1204,7 +1231,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                             )}
 
                             {/* Policy Subtotals */}
-                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name) && policy.lineItems.length > 0 && (
+                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name, policy.allow_multiple_items) && policy.lineItems.length > 0 && (
                               <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg mt-4">
                                 <div className="text-center">
                                   <div className="font-semibold">{policyTotals.items}</div>
@@ -1271,6 +1298,32 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                   <div className="text-2xl font-bold">{totals.points}</div>
                   <div className="text-sm text-muted-foreground">Total Points</div>
                 </div>
+              </div>
+
+              {/* One-Call Close Toggle */}
+              <div className={cn(
+                "p-4 rounded-lg border transition-colors",
+                isOneCallClose
+                  ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20"
+                  : "border-muted bg-muted/30"
+              )}>
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id="staffIsOneCallClose"
+                    checked={isOneCallClose}
+                    onCheckedChange={(checked) => setIsOneCallClose(checked === true)}
+                  />
+                  <Label
+                    htmlFor="staffIsOneCallClose"
+                    className="flex items-center gap-2 cursor-pointer font-medium"
+                  >
+                    <Phone className="h-4 w-4 text-green-600" />
+                    One-Call Close
+                  </Label>
+                </div>
+                <p className="mt-2 pl-7 text-sm text-muted-foreground">
+                  This sale closed on the first call with no follow-up required.
+                </p>
               </div>
             </CardContent>
           </Card>

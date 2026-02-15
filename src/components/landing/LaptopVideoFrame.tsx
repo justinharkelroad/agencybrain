@@ -12,10 +12,11 @@ export function LaptopVideoFrame({ videoUrl, className = '' }: LaptopVideoFrameP
 
   // Extract Vimeo video ID from URL
   const getVimeoEmbedUrl = (url: string) => {
-    const match = url.match(/vimeo\.com\/(\d+)/);
+    const match = url.match(/vimeo\.com\/(\d+)(?:\/([a-zA-Z0-9]+))?/);
     if (match) {
       const videoId = match[1];
-      return `https://player.vimeo.com/video/${videoId}?autoplay=1&muted=${isMuted ? 1 : 0}&loop=1&background=0&autopause=0&player_id=0&app_id=58479`;
+      const hashParam = match[2] ? `&h=${match[2]}` : '';
+      return `https://player.vimeo.com/video/${videoId}?autoplay=1&muted=${isMuted ? 1 : 0}&loop=1&background=0&autopause=0&player_id=0&app_id=58479${hashParam}`;
     }
     return url;
   };

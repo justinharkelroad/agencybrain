@@ -441,10 +441,24 @@ export function useDeleteAllRenewalData() {
 }
 
 export function useRenewalProductNames(agencyId: string | null) {
+  const staffSessionToken = getStaffSessionToken();
+
   return useQuery({
-    queryKey: ['renewal-product-names', agencyId],
+    queryKey: ['renewal-product-names', agencyId, !!staffSessionToken],
     queryFn: async () => {
       if (!agencyId) return [];
+
+      // Staff users: call edge function (direct query blocked by RLS)
+      if (staffSessionToken) {
+        const { data, error } = await supabase.functions.invoke('get_staff_renewal_stats', {
+          body: {},
+          headers: { 'x-staff-session': staffSessionToken }
+        });
+        if (error) throw error;
+        return (data?.productNames || []) as string[];
+      }
+
+      // Regular users: direct query (RLS handles access)
       const { data, error } = await supabase.from('renewal_records')
         .select('product_name')
         .eq('agency_id', agencyId)

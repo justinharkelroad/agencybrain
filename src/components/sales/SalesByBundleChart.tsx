@@ -194,6 +194,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
             <BarChart
               data={chartData}
               margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              barCategoryGap="42%"
             >
               <CartesianGrid 
                 strokeDasharray="3 3" 
@@ -213,6 +214,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
                 tickFormatter={metric === "premium" ? (v) => `$${v}` : undefined}
               />
               <Tooltip
+                cursor={false}
                 contentStyle={{
                   backgroundColor: 'hsl(222 47% 11%)',
                   border: '1px solid hsl(var(--border))',
@@ -223,9 +225,10 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
                 itemStyle={{ color: 'hsl(var(--muted-foreground))' }}
                 formatter={(value: number) => [formatValue(value), metric.charAt(0).toUpperCase() + metric.slice(1)]}
               />
-              <Bar 
-                dataKey={metric} 
-                radius={[12, 12, 0, 0]}
+              <Bar
+                dataKey={metric}
+                radius={[8, 8, 0, 0]}
+                maxBarSize={20}
                 onClick={handleBarClick}
                 cursor="pointer"
               >

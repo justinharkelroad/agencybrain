@@ -8,14 +8,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Timezone to hour offset map for common US timezones
-const TIMEZONE_OFFSETS: Record<string, number> = {
-  'America/New_York': -5,
-  'America/Chicago': -6,
-  'America/Denver': -7,
-  'America/Los_Angeles': -8,
-  'America/Phoenix': -7,
-};
+// DST-aware local hour using Intl (replaces hardcoded offsets)
+function getLocalHour(timezone: string): number {
+  try {
+    const hour = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date());
+    return parseInt(hour, 10);
+  } catch {
+    // Fallback for unknown timezone: assume Eastern
+    const fallbackHour = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date());
+    return parseInt(fallbackHour, 10);
+  }
+}
 
 // Types for our data
 interface SalesSnapshot {
@@ -145,11 +156,8 @@ serve(async (req) => {
       );
     }
 
-    // Get current UTC time
     const nowUtc = new Date();
-    const currentUtcHour = nowUtc.getUTCHours();
-
-    console.log('[send-morning-digest] Current UTC hour:', currentUtcHour);
+    console.log('[send-morning-digest] Current UTC time:', nowUtc.toISOString());
 
     // Fetch agencies with morning digest enabled (or specific agency if testing)
     let agencyQuery = supabase
@@ -178,11 +186,8 @@ serve(async (req) => {
         const timezone = agency.timezone || 'America/New_York';
         const sections: MorningDigestSections = { ...DEFAULT_SECTIONS, ...(agency.morning_digest_sections || {}) };
 
-        // Calculate local hour for this agency
-        const offset = TIMEZONE_OFFSETS[timezone] || -5;
-        let localHour = currentUtcHour + offset;
-        if (localHour < 0) localHour += 24;
-        if (localHour >= 24) localHour -= 24;
+        // Calculate local hour for this agency (DST-aware)
+        const localHour = getLocalHour(timezone);
 
         console.log(`[send-morning-digest] Agency ${agency.name}: timezone=${timezone}, localHour=${localHour}`);
 
@@ -690,8 +695,10 @@ function buildEmailHtml(
   <div style="max-width: 700px; margin: 0 auto; padding: 20px;">
 
     <!-- Header -->
-    <div style="background: linear-gradient(135deg, ${BRAND.colors.primary}, ${BRAND.colors.secondary}); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
-      <img src="${BRAND.logo}" alt="${BRAND.name}" style="height: 40px; margin-bottom: 16px; display: block;">
+    <div style="background-color: ${BRAND.colors.secondary}; background: linear-gradient(135deg, ${BRAND.colors.primary}, ${BRAND.colors.secondary}); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
+      <div style="display: inline-block; padding: 8px 10px; background-color: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.28); border-radius: 8px; margin-bottom: 16px;">
+        <img src="${BRAND.logo}" alt="${BRAND.name}" style="height: 40px; display: block;">
+      </div>
       <h1 style="margin: 0; font-size: 24px;">Good Morning, ${agencyName}!</h1>
       <p style="margin: 8px 0 0 0; opacity: 0.9;">${todayFormatted}</p>
     </div>

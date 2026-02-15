@@ -2,14 +2,28 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useLocation } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw, Upload, Users, Calendar, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { RefreshCw, Upload, Users, Calendar, AlertCircle, CheckCircle, Clock, Trash2, X, Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { DateRange } from 'react-day-picker';
+import { formatDistanceToNow, format } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   WinbackUploadModal,
   WinbackSettings,
@@ -20,6 +34,7 @@ import {
   WinbackActivityStats,
   WinbackActivitySummary,
   TerminationAnalytics,
+  WinbackUploadHistory,
 } from '@/components/winback';
 import { ContactProfileModal } from '@/components/contacts';
 import type { WinbackStatus, QuickDateFilter } from '@/components/winback/WinbackFilters';
@@ -38,6 +53,79 @@ interface Stats {
 interface TeamMember {
   id: string;
   name: string;
+}
+
+interface WinbackUploadRow {
+  id: string;
+  filename: string;
+  created_at: string;
+  records_processed: number;
+  records_new_households: number;
+  records_new_policies: number;
+  records_updated: number;
+  records_skipped: number;
+  uploaded_by_staff_id: string | null;
+  uploaded_by_user_id: string | null;
+}
+
+interface LatestWinbackUpload {
+  upload: WinbackUploadRow;
+  uploadedBy: string;
+}
+
+function formatUploadAge(dateString: string | null): string {
+  if (!dateString) return 'Never uploaded';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+  return formatDistanceToNow(date, { addSuffix: true });
+}
+
+function formatUploadTooltip(upload: WinbackUploadRow | null, uploadedBy: string | null): string {
+  if (!upload?.created_at) {
+    return 'No upload recorded yet';
+  }
+
+  const uploadedDate = new Date(upload.created_at);
+  if (Number.isNaN(uploadedDate.getTime())) {
+    return 'Invalid upload timestamp';
+  }
+
+  const dateLabel = format(uploadedDate, 'PPpp');
+  const uploadedByLabel = uploadedBy || 'Unknown';
+  const fileLabel = upload.filename ? ` (file: ${upload.filename})` : '';
+  return `Uploaded ${dateLabel} by ${uploadedByLabel}${fileLabel}`;
+}
+
+async function resolveWinbackUploadUploader(upload: WinbackUploadRow): Promise<string> {
+  if (upload.uploaded_by_staff_id) {
+    const { data: teamMember } = await supabase
+      .from('team_members')
+      .select('name')
+      .eq('id', upload.uploaded_by_staff_id)
+      .maybeSingle();
+
+    if (teamMember?.name) {
+      return teamMember.name;
+    }
+  }
+
+  if (upload.uploaded_by_user_id) {
+    const { data: uploaderProfile } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', upload.uploaded_by_user_id)
+      .maybeSingle();
+
+    if (uploaderProfile?.full_name) {
+      return uploaderProfile.full_name;
+    }
+
+    if (uploaderProfile?.email) {
+      return uploaderProfile.email;
+    }
+  }
+
+  return 'Unknown';
 }
 
 export default function WinbackHQ() {
@@ -88,6 +176,9 @@ export default function WinbackHQ() {
   const [profileContactId, setProfileContactId] = useState<string | null>(null);
   const [profileHouseholdId, setProfileHouseholdId] = useState<string | null>(null);
 
+  // Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   // Handler for viewing profile - finds the household to pass to modal
   const handleViewProfile = (contactId: string) => {
     const household = households.find(h => h.contact_id === contactId);
@@ -269,8 +360,27 @@ export default function WinbackHQ() {
 
   const handleModalUpdate = async () => {
     if (agencyId) {
+      setSelectedIds(new Set());
       await loadStats(agencyId);
       await loadHouseholds(agencyId, teamMembers);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      await winbackApi.bulkDeleteHouseholds(Array.from(selectedIds));
+      setSelectedIds(new Set());
+      if (agencyId) {
+        await loadStats(agencyId);
+        await loadHouseholds(agencyId, teamMembers);
+      }
+      toast.success(`${selectedIds.size} household(s) deleted`);
+    } catch (err: any) {
+      toast.error('Failed to delete households', { description: err?.message });
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -296,6 +406,42 @@ export default function WinbackHQ() {
       }
     }
   };
+
+  const { data: latestUpload, isLoading: latestUploadLoading } = useQuery({
+    queryKey: ['winback-uploads', agencyId, 'latest'],
+    queryFn: async (): Promise<LatestWinbackUpload | null> => {
+      if (!agencyId) return null;
+
+      if (winbackApi.isStaffUser()) {
+        const uploads = await winbackApi.listUploads(agencyId);
+        const latest = uploads?.[0] as WinbackUploadRow | undefined;
+        if (!latest) return null;
+
+        return {
+          upload: latest,
+          uploadedBy: await resolveWinbackUploadUploader(latest),
+        };
+      }
+
+      const { data, error } = await supabase
+        .from('winback_uploads')
+        .select('id, filename, created_at, records_processed, records_new_households, records_new_policies, records_updated, records_skipped, uploaded_by_staff_id, uploaded_by_user_id')
+        .eq('agency_id', agencyId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      const upload = (data?.[0] as WinbackUploadRow | undefined) || null;
+      if (!upload) return null;
+
+      return {
+        upload,
+        uploadedBy: await resolveWinbackUploadUploader(upload),
+      };
+    },
+    enabled: !!agencyId,
+  });
 
   if (loading) {
     return (
@@ -333,6 +479,43 @@ export default function WinbackHQ() {
           </Button>
         </div>
       </div>
+
+      {agencyId && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              Latest termination upload
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {latestUploadLoading ? (
+              <div className="text-sm text-muted-foreground">Checking latest upload...</div>
+            ) : latestUpload ? (
+              <div className="space-y-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-sm">
+                        Last uploaded <span className="text-foreground">{formatUploadAge(latestUpload.upload.created_at)}</span> by{' '}
+                        <span className="text-foreground font-medium">{latestUpload.uploadedBy}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{formatUploadTooltip(latestUpload.upload, latestUpload.uploadedBy)}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <p className="text-xs text-muted-foreground">
+                  {latestUpload.upload.filename} • {latestUpload.upload.records_processed} records processed
+                </p>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No uploads yet.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Main Tabs */}
       <Tabs value={mainTab} onValueChange={(v) => setMainTab(v as 'opportunities' | 'analysis')}>
@@ -423,13 +606,16 @@ export default function WinbackHQ() {
             <WinbackActivitySummary agencyId={agencyId} />
           )}
 
-          {/* Settings (collapsible) */}
+          {/* Settings & Upload History (collapsible) */}
           {agencyId && (
-            <WinbackSettings
-              agencyId={agencyId}
-              contactDaysBefore={contactDaysBefore}
-              onSettingsChange={(days) => setContactDaysBefore(days)}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <WinbackSettings
+                agencyId={agencyId}
+                contactDaysBefore={contactDaysBefore}
+                onSettingsChange={(days) => setContactDaysBefore(days)}
+              />
+              <WinbackUploadHistory agencyId={agencyId} onDeleteComplete={handleUploadComplete} />
+            </div>
           )}
 
           {/* Household Tabs */}
@@ -472,6 +658,8 @@ export default function WinbackHQ() {
                 onSort={handleSort}
                 onRowClick={handleRowClick}
                 onViewProfile={handleViewProfile}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
               />
 
               <WinbackPagination
@@ -492,6 +680,8 @@ export default function WinbackHQ() {
                 onSort={handleSort}
                 onRowClick={handleRowClick}
                 onViewProfile={handleViewProfile}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
               />
 
               <WinbackPagination
@@ -546,12 +736,50 @@ export default function WinbackHQ() {
           winbackHousehold={profileHouseholdId ? { id: profileHouseholdId } : undefined}
           teamMembers={teamMembers}
           currentUserTeamMemberId={currentUserTeamMemberId}
-          staffSessionToken={location.pathname.startsWith('/staff') ? staffSessionToken : null}
+          staffSessionToken={staffSessionToken || null}
           onActivityLogged={() => {
             // Refresh data when activity is logged
             if (agencyId) loadHouseholds(agencyId, teamMembers);
           }}
         />
+      )}
+
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-card border border-border shadow-lg rounded-lg px-4 py-3">
+          <span className="text-sm font-medium text-foreground">
+            {selectedIds.size} selected
+          </span>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="destructive" disabled={bulkDeleting}>
+                {bulkDeleting ? (
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                ) : (
+                  <Trash2 className="h-3 w-3 mr-1" />
+                )}
+                Delete Selected
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {selectedIds.size} household{selectedIds.size > 1 ? 's' : ''}?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete the selected households and all associated policies and activities. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       )}
     </div>
   );

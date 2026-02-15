@@ -4,6 +4,14 @@ import { corsHeaders } from '../_shared/cors.ts';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -52,7 +60,7 @@ Deno.serve(async (req) => {
     // Verify assignment belongs to this staff user and is active
     const { data: assignment, error: assignmentError } = await supabase
       .from('challenge_assignments')
-      .select('id, start_date, status, challenge_product_id')
+      .select('id, start_date, status, challenge_product_id, agency_id')
       .eq('id', assignment_id)
       .eq('staff_user_id', staffUserId)
       .single();
@@ -71,10 +79,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify lesson exists and get day_number
+    // Verify lesson exists and get lesson + module context for AI feedback
     const { data: lesson, error: lessonError } = await supabase
       .from('challenge_lessons')
-      .select('id, day_number, challenge_product_id')
+      .select('id, day_number, title, preview_text, questions, challenge_product_id, challenge_modules(name, description)')
       .eq('id', lesson_id)
       .eq('challenge_product_id', assignment.challenge_product_id)
       .single();
@@ -178,6 +186,228 @@ Deno.serve(async (req) => {
         .from('challenge_assignments')
         .update({ status: 'completed' })
         .eq('id', assignment_id);
+    }
+
+    // --- AI Feedback + Owner Email (non-blocking: failures don't affect lesson completion) ---
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    const hasReflections = reflection_response && typeof reflection_response === 'object' && Object.keys(reflection_response).length > 0;
+
+    if (hasReflections && openaiApiKey) {
+      try {
+        // Get staff user display name
+        const { data: staffUser } = await supabase
+          .from('staff_users')
+          .select('display_name')
+          .eq('id', staffUserId)
+          .single();
+
+        const staffName = staffUser?.display_name || 'Team Member';
+
+        // Extract module context from the joined lesson query
+        const moduleData = lesson.challenge_modules as { name: string; description: string | null } | null;
+        const moduleName = moduleData?.name || 'Training';
+        const moduleDescription = moduleData?.description || '';
+
+        // Build Q&A pairs from questions + reflection_response
+        const questions = (lesson.questions || []) as Array<string | { text: string }>;
+        const qaPairs = questions.map((q, i) => {
+          const questionText = typeof q === 'string' ? q : q.text;
+          const answer = reflection_response[`q${i}`] || reflection_response[i.toString()] || '';
+          return `Q: "${questionText}"\nA: "${answer}"`;
+        }).join('\n\n');
+
+        // Generate AI feedback via OpenAI
+        console.log('[challenge-complete-lesson] Generating AI feedback for lesson:', lesson.title);
+        const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'system',
+                content: `You are a coaching assistant analyzing a team member's reflection responses for a training lesson. You have two jobs:
+
+1. VALIDATE: Are the answers thoughtful, specific, and relevant to the lesson topic?
+2. COACH: Provide a brief coaching summary for their manager.
+
+=== LESSON CONTEXT ===
+Week Theme: ${moduleName}${moduleDescription ? ` — ${moduleDescription}` : ''}
+Lesson: ${lesson.title}
+${lesson.preview_text ? `Topic Summary: ${lesson.preview_text}` : ''}
+
+=== QUALITY STANDARDS ===
+- If answers are specific, personal, and connect to the lesson topic: praise and highlight their best insight.
+- If answers are vague or generic (e.g., "it was good", "I'll try harder"): push back. Name what's missing and ask a specific follow-up question.
+- If answers are completely off-topic or clearly low-effort: call it out directly. The team member needs to understand this is for their growth, not a checkbox.
+
+Respond ONLY with valid JSON (no markdown, no code fences):
+{
+  "headline": "5-8 word summary of their engagement level",
+  "coaching_summary": "2-3 sentences for their manager about what this person took away and their commitment level",
+  "relevance_score": "high" or "medium" or "low",
+  "pushback": null if answers are solid, otherwise a specific challenge/question to dig deeper (string),
+  "highlight": "Their best insight or commitment" or null if low-effort
+}`,
+              },
+              {
+                role: 'user',
+                content: `Here are ${staffName}'s reflection responses:\n\n${qaPairs}`,
+              },
+            ],
+            max_tokens: 400,
+            temperature: 0.7,
+          }),
+        });
+
+        if (openaiResponse.ok) {
+          const aiData = await openaiResponse.json();
+          const rawContent = aiData.choices?.[0]?.message?.content;
+
+          if (rawContent) {
+            let aiFeedback;
+            try {
+              aiFeedback = JSON.parse(rawContent);
+            } catch {
+              console.error('[challenge-complete-lesson] Failed to parse AI response as JSON:', rawContent);
+              aiFeedback = { headline: 'Feedback generated', coaching_summary: rawContent, relevance_score: 'medium', pushback: null, highlight: null };
+            }
+
+            // Save AI feedback to progress record
+            await supabase
+              .from('challenge_progress')
+              .update({ ai_feedback: aiFeedback })
+              .eq('id', existingProgress.id);
+
+            console.log('[challenge-complete-lesson] AI feedback saved, relevance:', aiFeedback.relevance_score);
+
+            // Send owner email notification
+            if (resendApiKey && assignment.agency_id) {
+              try {
+                const { BRAND, buildEmailHtml, EmailComponents } = await import('../_shared/email-template.ts');
+
+                // Find agency owner
+                const { data: agencyOwners } = await supabase
+                  .from('profiles')
+                  .select('id, agency_id')
+                  .eq('agency_id', assignment.agency_id);
+
+                if (agencyOwners && agencyOwners.length > 0) {
+                  const ownerId = agencyOwners[0].id;
+                  const { data: { user: authUser } } = await supabase.auth.admin.getUserById(ownerId);
+
+                  if (authUser?.email) {
+                    // Get agency name
+                    const { data: agency } = await supabase
+                      .from('agencies')
+                      .select('name')
+                      .eq('id', assignment.agency_id)
+                      .single();
+
+                    const agencyName = agency?.name || '';
+                    const baseUrl = Deno.env.get('SITE_URL') || 'https://myagencybrain.com';
+                    const progressUrl = `${baseUrl}/training/challenge/progress`;
+
+                    // Build Q&A HTML for email (escape user-supplied content)
+                    const qaHtml = questions.map((q, i) => {
+                      const questionText = typeof q === 'string' ? q : q.text;
+                      const answer = reflection_response[`q${i}`] || reflection_response[i.toString()] || '';
+                      if (!answer) return '';
+                      return `
+                        <div style="margin-bottom: 12px;">
+                          <p style="margin: 0 0 4px 0; font-weight: 600; color: #64748b; font-size: 13px;">Q: ${escapeHtml(questionText)}</p>
+                          <p style="margin: 0; background: #f1f5f9; padding: 8px 12px; border-radius: 6px; font-size: 14px; color: #1e293b;">${escapeHtml(answer)}</p>
+                        </div>
+                      `;
+                    }).filter(Boolean).join('');
+
+                    // Build AI feedback section based on relevance score
+                    const isHighRelevance = aiFeedback.relevance_score === 'high';
+                    const feedbackBorderColor = isHighRelevance ? '#22c55e' : '#fbbf24';
+                    const feedbackBgColor = isHighRelevance ? '#f0fdf4' : '#fffbeb';
+                    const feedbackLabelColor = isHighRelevance ? '#166534' : '#92400e';
+                    const feedbackLabel = isHighRelevance ? 'AI Coaching Summary' : 'AI Coaching Summary — Needs Attention';
+
+                    const feedbackHtml = `
+                      <div style="background: ${feedbackBgColor}; padding: 16px; border-radius: 8px; border-left: 4px solid ${feedbackBorderColor}; margin: 16px 0;">
+                        <p style="margin: 0 0 8px 0; font-weight: 600; color: ${feedbackLabelColor}; font-size: 14px;">${feedbackLabel}</p>
+                        <p style="margin: 0 0 4px 0; font-weight: 600; color: #1e293b;">${escapeHtml(aiFeedback.headline || '')}</p>
+                        <p style="margin: 0; color: #334155; font-size: 14px;">${escapeHtml(aiFeedback.coaching_summary || '')}</p>
+                        ${aiFeedback.highlight ? `<p style="margin: 8px 0 0 0; color: ${feedbackLabelColor}; font-size: 13px;"><strong>Highlight:</strong> ${escapeHtml(aiFeedback.highlight)}</p>` : ''}
+                        ${aiFeedback.pushback ? `<p style="margin: 8px 0 0 0; color: #92400e; font-size: 13px;"><strong>Follow-up needed:</strong> ${escapeHtml(aiFeedback.pushback)}</p>` : ''}
+                      </div>
+                    `;
+
+                    // Build lesson info box
+                    const safeModuleName = escapeHtml(moduleName);
+                    const safeModuleDesc = moduleDescription ? escapeHtml(moduleDescription) : '';
+                    const safeLessonTitle = escapeHtml(lesson.title);
+                    const safeStaffName = escapeHtml(staffName);
+                    const lessonInfoHtml = `
+                      <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 16px 0; border-left: 4px solid ${BRAND.colors.primary};">
+                        <p style="margin: 0 0 4px 0; color: #64748b; font-size: 13px;">${safeModuleName}${safeModuleDesc ? ` — ${safeModuleDesc}` : ''}</p>
+                        <p style="margin: 0; font-weight: 600; font-size: 16px; color: #1e293b;">Day ${lesson.day_number}: ${safeLessonTitle}</p>
+                      </div>
+                    `;
+
+                    const bodyContent = `
+                      ${EmailComponents.paragraph(`<strong>${safeStaffName}</strong> just completed a challenge lesson and submitted their reflections.`)}
+                      ${lessonInfoHtml}
+                      <h3 style="margin: 20px 0 12px 0; font-size: 16px; color: #1e293b;">Reflection Responses</h3>
+                      ${qaHtml}
+                      ${feedbackHtml}
+                      ${EmailComponents.button('View Team Progress', progressUrl)}
+                    `;
+
+                    const emailHtml = buildEmailHtml({
+                      title: 'Lesson Completed!',
+                      subtitle: `${safeStaffName} finished Day ${lesson.day_number}`,
+                      bodyContent,
+                      footerAgencyName: agencyName,
+                    });
+
+                    const emailResponse = await fetch('https://api.resend.com/emails', {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${resendApiKey}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify({
+                        from: BRAND.fromEmail,
+                        to: [authUser.email],
+                        subject: `${staffName} completed Day ${lesson.day_number}: ${lesson.title}`,
+                        html: emailHtml,
+                        text: `${staffName} just completed Day ${lesson.day_number}: ${lesson.title}\n\nWeek Theme: ${moduleName}\n\n${questions.map((q, i) => {
+                          const questionText = typeof q === 'string' ? q : q.text;
+                          const answer = reflection_response[`q${i}`] || reflection_response[i.toString()] || '';
+                          return `Q: ${questionText}\nA: ${answer}`;
+                        }).join('\n\n')}\n\nAI Coaching Summary: ${aiFeedback.coaching_summary}\n\nView progress: ${progressUrl}`,
+                      }),
+                    });
+
+                    if (emailResponse.ok) {
+                      console.log('[challenge-complete-lesson] Owner email sent to:', authUser.email);
+                    } else {
+                      const errData = await emailResponse.json();
+                      console.error('[challenge-complete-lesson] Resend error:', errData);
+                    }
+                  }
+                }
+              } catch (emailErr) {
+                console.error('[challenge-complete-lesson] Email send error:', emailErr);
+              }
+            }
+          }
+        } else {
+          console.error('[challenge-complete-lesson] OpenAI API error:', openaiResponse.status, await openaiResponse.text());
+        }
+      } catch (aiErr) {
+        console.error('[challenge-complete-lesson] AI feedback error:', aiErr);
+      }
     }
 
     return new Response(

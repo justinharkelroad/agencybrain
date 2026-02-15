@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams, Navigate } from 'react-router-dom';
+import { Link, useParams, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { useSalesExperienceAccess } from '@/hooks/useSalesExperienceAccess';
@@ -32,6 +32,7 @@ import {
   Download,
   ExternalLink,
   HelpCircle,
+  Sparkles,
 } from 'lucide-react';
 
 interface Module {
@@ -65,6 +66,7 @@ interface Lesson {
   video_platform: string | null;
   content_html: string | null;
   is_staff_visible: boolean;
+  is_discovery_flow: boolean;
   documents_json: LessonDocument[] | null;
   quiz_questions: QuizQuestion[] | null;
 }
@@ -83,6 +85,7 @@ interface OwnerProgress {
 
 export default function SalesExperienceWeek() {
   const { week } = useParams<{ week: string }>();
+  const navigate = useNavigate();
   const weekNumber = parseInt(week || '1', 10);
   const { hasAccess, assignment, currentWeek, isLoading: accessLoading } = useSalesExperienceAccess();
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
@@ -423,6 +426,32 @@ export default function SalesExperienceWeek() {
                 </div>
               )}
 
+              {/* Discovery Flow */}
+              {selectedLesson?.is_discovery_flow && (
+                <Card className="border-purple-500/30 bg-purple-500/5">
+                  <CardContent className="py-6">
+                    <div className="text-center space-y-4">
+                      <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-purple-500/20 text-purple-500 mx-auto">
+                        <Sparkles className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">Discovery Flow Session</h3>
+                        <p className="text-muted-foreground text-sm">
+                          Complete a guided reflection session to deepen your learning
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => navigate('/flows')}
+                        className="gap-2 bg-purple-500 hover:bg-purple-600"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Start Discovery Flow
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Quiz Questions */}
               {selectedLesson?.quiz_questions && selectedLesson.quiz_questions.length > 0 && (
                 <div>
@@ -566,6 +595,11 @@ function LessonCard({ lesson, weekNumber, progress, onView }: LessonCardProps) {
                 <HelpCircle className="h-3 w-3" />
                 Quiz
               </span>
+            )}
+            {lesson.is_discovery_flow && (
+              <Badge variant="outline" className="text-xs">
+                Discovery Flow
+              </Badge>
             )}
             {lesson.is_staff_visible && (
               <Badge variant="outline" className="text-xs">

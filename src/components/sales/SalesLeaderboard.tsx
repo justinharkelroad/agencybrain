@@ -10,10 +10,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, subMonths } from "date-fns";
 import { LeaderboardPodium } from "./LeaderboardPodium";
 import { LeaderboardList, LeaderboardListMobile } from "./LeaderboardList";
+import { BundleMixLeaderboard } from "./BundleMixLeaderboard";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { MetricToggle, MetricType } from "./MetricToggle";
 import { calculateCountableTotals } from "@/lib/product-constants";
@@ -29,6 +31,7 @@ interface LeaderboardEntry {
   points: number;
   policies: number;
   households: number;
+  one_call_closes: number;
 }
 
 interface SalesLeaderboardProps {
@@ -38,7 +41,7 @@ interface SalesLeaderboardProps {
 
 function getPeriodDates(period: Period): { start: string; end: string } {
   const today = new Date();
-  
+
   switch (period) {
     case "last_month": {
       const lastMonth = subMonths(today, 1);
@@ -71,7 +74,7 @@ function getPeriodDates(period: Period): { start: string; end: string } {
 
 function getPeriodLabel(period: Period): string {
   const today = new Date();
-  
+
   switch (period) {
     case "last_month":
       return format(subMonths(today, 1), "MMMM yyyy");
@@ -99,6 +102,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
   const [rankBy, setRankBy] = useState<RankMetric>("items");
   const [period, setPeriod] = useState<Period>("this_month");
   const [businessFilter, setBusinessFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState("performance");
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   const { start, end } = getPeriodDates(period);
@@ -117,31 +121,31 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
       }
 
       if (!user?.id) return null;
-      
+
       const { data: staffData } = await supabase
         .from("staff_users")
         .select("team_member_id")
         .eq("id", user.id)
         .maybeSingle();
       if (staffData?.team_member_id) return staffData.team_member_id;
-      
+
       const { data: profileData } = await supabase
         .from("profiles")
         .select("agency_id")
         .eq("id", user.id)
         .maybeSingle();
       if (!profileData?.agency_id) return null;
-      
+
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user?.email) return null;
-      
+
       const { data: teamMember } = await supabase
         .from("team_members")
         .select("id")
         .eq("agency_id", profileData.agency_id)
         .eq("email", userData.user.email)
         .maybeSingle();
-      
+
       return teamMember?.id || null;
     },
     enabled: !!user?.id || !!staffSessionToken,
@@ -183,6 +187,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         .select(`
           team_member_id,
           customer_name,
+          is_one_call_close,
           sale_policies(id, policy_type_name, total_premium, total_items, total_points)
         `)
         .eq("agency_id", agencyId)
@@ -211,6 +216,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
           points: 0,
           policies: 0,
           households: 0,
+          one_call_closes: 0,
           customerNames: new Set(),
         };
       }
@@ -220,12 +226,16 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
           // Calculate totals excluding Motor Club and other excluded products
           const policies = (sale.sale_policies as any[]) || [];
           const countable = calculateCountableTotals(policies);
-          
+
           aggregated[sale.team_member_id].premium += countable.premium;
           aggregated[sale.team_member_id].items += countable.items;
           aggregated[sale.team_member_id].points += countable.points;
           aggregated[sale.team_member_id].policies += countable.policyCount;
-          
+
+          if (sale.is_one_call_close) {
+            aggregated[sale.team_member_id].one_call_closes += 1;
+          }
+
           // Track unique households (only if sale has countable policies)
           if (countable.policyCount > 0) {
             const customerName = sale.customer_name?.toLowerCase().trim();
@@ -245,6 +255,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         points: entry.points,
         policies: entry.policies,
         households: entry.customerNames.size,
+        one_call_closes: entry.one_call_closes,
       }));
     },
     enabled: !!agencyId || !!staffSessionToken,
@@ -253,7 +264,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
   // Sort and rank
   const rankedData = useMemo(() => {
     if (!leaderboardData) return [];
-    
+
     const sorted = [...leaderboardData].sort((a, b) => {
       switch (rankBy) {
         case "items":
@@ -285,7 +296,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
       else if (rankBy === 'points') value = entry.points;
       else if (rankBy === 'households') value = entry.households;
       else if (rankBy === 'policies') value = entry.policies;
-      
+
       return {
         rank: entry.rank as 1 | 2 | 3,
         name: entry.name,
@@ -326,7 +337,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
               <CardTitle className="text-xl font-bold">Leaderboard</CardTitle>
               <p className="text-sm text-muted-foreground mt-0.5">{periodLabel}</p>
             </div>
-            
+
             <div className="flex items-center gap-2">
               {/* Period Selector */}
               <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
@@ -354,51 +365,74 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
               </Select>
             </div>
           </div>
-          
-          {/* Metric Toggle */}
-          <MetricToggle 
-            value={rankBy} 
-            onChange={setRankBy}
-            availableMetrics={["items", "premium", "points", "policies", "households"]}
-          />
+
+          {/* Inner Tabs: Performance vs Bundle Mix */}
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="grid w-full max-w-xs grid-cols-2">
+              <TabsTrigger value="performance" className="text-xs sm:text-sm">Performance</TabsTrigger>
+              <TabsTrigger value="bundle-mix" className="text-xs sm:text-sm">Bundle Mix</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Metric Toggle - only for Performance tab */}
+          {activeTab === "performance" && (
+            <MetricToggle
+              value={rankBy}
+              onChange={setRankBy}
+              availableMetrics={["items", "premium", "points", "policies", "households"]}
+            />
+          )}
         </div>
       </CardHeader>
-      
+
       <CardContent className="pt-0">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
-          </div>
-        ) : rankedData.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground">
-            <p className="text-lg mb-2">No producers found</p>
-            <p className="text-sm">Start making sales to appear on the leaderboard!</p>
-          </div>
-        ) : (
-          <div>
-            {/* Podium */}
-            <LeaderboardPodium topThree={topThree} metric={rankBy} />
-            
-            {/* Divider */}
-            {restOfList.length > 0 && (
-              <div className="border-t border-border/50 my-4" />
-            )}
-            
-            {/* Rest of List */}
-            {isMobile ? (
-              <LeaderboardListMobile 
-                producers={restOfList} 
-                startRank={4} 
-                metric={rankBy} 
-              />
+        {activeTab === "performance" ? (
+          <>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+              </div>
+            ) : rankedData.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground">
+                <p className="text-lg mb-2">No producers found</p>
+                <p className="text-sm">Start making sales to appear on the leaderboard!</p>
+              </div>
             ) : (
-              <LeaderboardList 
-                producers={restOfList} 
-                startRank={4} 
-                metric={rankBy} 
-              />
+              <div>
+                {/* Podium */}
+                <LeaderboardPodium topThree={topThree} metric={rankBy} />
+
+                {/* Divider */}
+                {restOfList.length > 0 && (
+                  <div className="border-t border-border/50 my-4" />
+                )}
+
+                {/* Rest of List */}
+                {isMobile ? (
+                  <LeaderboardListMobile
+                    producers={restOfList}
+                    startRank={4}
+                    metric={rankBy}
+                  />
+                ) : (
+                  <LeaderboardList
+                    producers={restOfList}
+                    startRank={4}
+                    metric={rankBy}
+                  />
+                )}
+              </div>
             )}
-          </div>
+          </>
+        ) : (
+          <BundleMixLeaderboard
+            agencyId={agencyId}
+            startDate={start}
+            endDate={end}
+            businessFilter={businessFilter}
+            staffSessionToken={staffSessionToken}
+            currentTeamMemberId={currentUserTeamMemberId}
+          />
         )}
       </CardContent>
     </Card>

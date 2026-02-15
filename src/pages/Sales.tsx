@@ -83,7 +83,8 @@ export default function Sales() {
           is_bundle,
           bundle_type,
           existing_customer_products,
-          brokered_counts_toward_bundling
+          brokered_counts_toward_bundling,
+          is_one_call_close
         `)
         .eq("id", editingSaleId)
         .single();

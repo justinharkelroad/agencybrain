@@ -41,9 +41,13 @@ import OnboardingTasksPrototype from "./pages/prototype/OnboardingTasksPrototype
 import SequenceBuilderPrototype from "./pages/prototype/SequenceBuilderPrototype";
 import SubscriptionPreview from "./pages/SubscriptionPreview";
 import TestCheckout from "./pages/TestCheckout";
+import SlidesProspects from "./pages/slides/SlidesProspects";
+import SlidesCustomers from "./pages/slides/SlidesCustomers";
+import SlidesTeamMembers from "./pages/slides/SlidesTeamMembers";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminAnalysis from "./pages/admin/AdminAnalysis";
 import AdminPrompts from "./pages/admin/AdminPrompts";
+import AdminBreakupLetterTemplates from "./pages/admin/AdminBreakupLetterTemplates";
 import AdminProcessVaultTypes from "./pages/admin/AdminProcessVaultTypes";
 import AdminTeam from "./pages/admin/AdminTeam";
 import AdminMember from "./pages/admin/AdminMember";
@@ -73,8 +77,7 @@ import Health from "./pages/Health";
 import Landing from "./pages/Landing";
 import LandingPagePreview from "./pages/LandingPage";
 import MarketingLanding from "./pages/MarketingLanding";
-import BonusGrid from "./pages/BonusGrid";
-import SnapshotPlanner from "./pages/SnapshotPlanner";
+import GrowthCenter from "./pages/GrowthCenter";
 import CancelAudit from "./pages/CancelAudit";
 import Renewals from "./pages/Renewals";
 import Sales from "./pages/Sales";
@@ -82,6 +85,7 @@ import Contacts from "./pages/Contacts";
 import WinbackHQ from "./pages/WinbackHQ";
 import LqsRoadmapPage from "./pages/LqsRoadmapPage";
 import LqsRoiPage from "./pages/LqsRoiPage";
+import CoachingInsightsPage from "./pages/CoachingInsightsPage";
 import SubmissionDetail from "./pages/SubmissionDetail";
 import RepairExplorer from "./pages/RepairExplorer";
 import RunRepair from "./pages/RunRepair";
@@ -183,6 +187,7 @@ import {
   SalesExperienceDeliverableBuilder,
   SalesExperienceDeliverableEdit,
 } from "./pages/sales-experience";
+import SalesExperienceTeamProgressDemo from "./pages/sales-experience/SalesExperienceTeamProgressDemo";
 import SalesProcessBuilder from "./pages/tools/SalesProcessBuilder";
 
 const queryClient = new QueryClient({
@@ -258,6 +263,10 @@ const App = () => {
             <Route path="/prototype/sequence-builder" element={<SequenceBuilderPrototype />} />
             <Route path="/preview/subscription" element={<SubscriptionPreview />} />
             <Route path="/test/checkout" element={<TestCheckout />} />
+            {/* Onboarding Discovery Slide Decks */}
+            <Route path="/slides/prospects" element={<SlidesProspects />} />
+            <Route path="/slides/customers" element={<SlidesCustomers />} />
+            <Route path="/slides/team-members" element={<SlidesTeamMembers />} />
             <Route path="/dashboard" element={
               <ProtectedRoute>
                 <SidebarLayout>
@@ -356,6 +365,14 @@ const App = () => {
             <Route path="/objection-manager" element={
               <ProtectedRoute>
                 <AdminLqsObjections />
+              </ProtectedRoute>
+            } />
+            {/* Coaching Insights - Agency Owners and Managers */}
+            <Route path="/coaching-insights" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <CoachingInsightsPage />
+                </SidebarLayout>
               </ProtectedRoute>
             } />
             {/* Exchange Routes */}
@@ -537,6 +554,14 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <SalesExperienceTeamProgress />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            {/* TEMP: Demo route for marketing screenshots — remove after use */}
+            <Route path="/sales-experience/team-progress-demo" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <SalesExperienceTeamProgressDemo />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
@@ -757,6 +782,13 @@ const App = () => {
               <ProtectedRoute requireAdmin>
                 <SidebarLayout>
                   <AdminPrompts />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/breakup-letter-templates" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminBreakupLetterTemplates />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
@@ -1025,14 +1057,21 @@ const App = () => {
             <Route path="/bonus-grid" element={
               <ProtectedRoute>
                 <SidebarLayout>
-                  <BonusGrid />
+                  <Navigate to="/growth-center" replace />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/growth-center" element={
+              <ProtectedRoute requireAgencyOwner>
+                <SidebarLayout>
+                  <GrowthCenter />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
             <Route path="/snapshot-planner" element={
               <ProtectedRoute>
                 <SidebarLayout>
-                  <SnapshotPlanner />
+                  <Navigate to="/growth-center" replace />
                 </SidebarLayout>
               </ProtectedRoute>
             } />

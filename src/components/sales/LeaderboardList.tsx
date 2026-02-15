@@ -9,6 +9,7 @@ interface LeaderboardListEntry {
   points: number;
   policies: number;
   households: number;
+  one_call_closes?: number;
   isCurrentUser?: boolean;
   team_member_id: string;
 }
@@ -46,6 +47,9 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
         </div>
         <div className={cn("w-14 text-right shrink-0", metric === 'households' && "text-foreground font-bold")}>
           HH
+        </div>
+        <div className="w-12 text-right shrink-0">
+          OCC
         </div>
       </div>
 
@@ -139,6 +143,11 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
             )}>
               {producer.households}
             </div>
+
+            {/* OCC */}
+            <div className="w-12 shrink-0 flex items-center justify-end text-sm">
+              {producer.one_call_closes || 0}
+            </div>
           </motion.div>
         );
       })}
@@ -197,7 +206,7 @@ export function LeaderboardListMobile({ producers, startRank, metric }: Leaderbo
               )}
             </div>
             
-            <div className="grid grid-cols-5 gap-2 text-center">
+            <div className="grid grid-cols-6 gap-2 text-center">
               <div className={cn(metric === 'premium' && "font-bold")}>
                 <p className="text-xs text-muted-foreground mb-0.5">Premium</p>
                 <p className="text-sm">{formatCurrency(producer.premium)}</p>
@@ -217,6 +226,10 @@ export function LeaderboardListMobile({ producers, startRank, metric }: Leaderbo
               <div className={cn(metric === 'households' && "font-bold")}>
                 <p className="text-xs text-muted-foreground mb-0.5">HH</p>
                 <p className="text-sm">{producer.households}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground mb-0.5">OCC</p>
+                <p className="text-sm">{producer.one_call_closes || 0}</p>
               </div>
             </div>
           </motion.div>

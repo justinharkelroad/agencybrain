@@ -65,6 +65,9 @@ import { LqsGoalsHeader } from '@/components/lqs/LqsGoalsHeader';
 import { LqsSameMonthConversion } from '@/components/lqs/LqsSameMonthConversion';
 import { LqsRoiSpendBubbleChart } from '@/components/lqs/LqsRoiSpendBubbleChart';
 import { LqsPerformanceTrendChart } from '@/components/lqs/LqsPerformanceTrendChart';
+import { LqsTimeToCloseAnalytics } from '@/components/lqs/LqsTimeToCloseAnalytics';
+import { LqsProducerLeadSourceCrossTab } from '@/components/lqs/LqsProducerLeadSourceCrossTab';
+import { LqsObjectionAnalysis } from '@/components/lqs/LqsObjectionAnalysis';
 import { differenceInDays } from 'date-fns';
 
 // Format currency from cents
@@ -448,7 +451,7 @@ export default function LqsRoiPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('agencies')
-        .select('daily_quoted_households_target, daily_sold_items_target')
+        .select('daily_quoted_households_target, daily_sold_items_target, daily_written_premium_target_cents')
         .eq('id', agencyProfile!.agencyId)
         .single();
 
@@ -456,6 +459,7 @@ export default function LqsRoiPage() {
       return {
         dailyQuotedHouseholdsTarget: data?.daily_quoted_households_target ?? null,
         dailySoldItemsTarget: data?.daily_sold_items_target ?? null,
+        dailyWrittenPremiumTargetCents: data?.daily_written_premium_target_cents ?? null,
       };
     },
   });
@@ -700,6 +704,11 @@ export default function LqsRoiPage() {
         agencyGoals={agencyGoalsQuery.data ?? null}
         daysInPeriod={daysInPeriod}
         isLoading={analyticsLoading || agencyGoalsQuery.isLoading}
+        commissionRate={parseFloat(commissionRate) || 0}
+        agencyId={agencyProfile?.agencyId ?? ''}
+        onGoalsUpdated={() => {
+          queryClient.invalidateQueries({ queryKey: ['lqs-agency-goals'] });
+        }}
       />
 
       {/* Summary Cards */}
@@ -738,15 +747,12 @@ export default function LqsRoiPage() {
             icon={DollarSign}
             variant="success"
           />
-          {/* Quote Rate - hide in activity view */}
-          {!summary.isActivityView && (
-            <SummaryCard
-              title="Quote Rate"
-              value={summary.quoteRate !== null ? formatPercent(summary.quoteRate) : '—'}
-              icon={Percent}
-              tooltip="Percentage of total leads that received a quote"
-            />
-          )}
+          <SummaryCard
+            title="Quote Rate"
+            value={summary.quoteRate !== null ? formatPercent(summary.quoteRate) : '—'}
+            icon={Percent}
+            tooltip={summary.isActivityView ? "Quotes Created ÷ Leads Received" : "Percentage of total leads that received a quote"}
+          />
           <SummaryCard
             title="Close Rate"
             value={summary.closeRate !== null ? formatPercent(summary.closeRate) : '—'}
@@ -855,6 +861,12 @@ export default function LqsRoiPage() {
         </Card>
       </div>
 
+      {/* Time to Close Analytics */}
+      <LqsTimeToCloseAnalytics
+        agencyId={agencyProfile?.agencyId ?? null}
+        dateRange={dateRange}
+      />
+
       {/* Charts Row: Bubble Chart + Trend Chart */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* ROI vs Spend Bubble Chart */}
@@ -881,8 +893,20 @@ export default function LqsRoiPage() {
         onProducerClick={handleProducerClick}
       />
 
+      {/* Producer x Lead Source Cross-Tab */}
+      <LqsProducerLeadSourceCrossTab
+        agencyId={agencyProfile?.agencyId ?? null}
+        dateRange={dateRange}
+      />
+
       {/* Same-Month Conversion Metric */}
       <LqsSameMonthConversion
+        agencyId={agencyProfile?.agencyId ?? null}
+        dateRange={dateRange}
+      />
+
+      {/* Objection Analysis */}
+      <LqsObjectionAnalysis
         agencyId={agencyProfile?.agencyId ?? null}
         dateRange={dateRange}
       />

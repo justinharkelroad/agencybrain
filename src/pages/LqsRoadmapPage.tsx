@@ -28,7 +28,7 @@ import {
   HouseholdWithRelations
 } from '@/hooks/useLqsData';
 import { useLqsObjections } from '@/hooks/useLqsObjections';
-import { useStaffLqsData, useStaffLqsObjections } from '@/hooks/useStaffLqsData';
+import { useStaffLqsData, useStaffLqsObjections, useStaffLqsLeadSources } from '@/hooks/useStaffLqsData';
 import { LqsMetricTiles } from '@/components/lqs/LqsMetricTiles';
 import { LqsFilters } from '@/components/lqs/LqsFilters';
 import { LqsHouseholdTable } from '@/components/lqs/LqsHouseholdTable';
@@ -49,8 +49,9 @@ import { findOrCreateContact } from '@/hooks/useContacts';
 import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
-import type { QuoteUploadResult, SalesUploadResult, PendingSaleReview } from '@/types/lqs';
+import type { QuoteUploadResult, SalesUploadResult, PendingSaleReview, LeadStatus } from '@/types/lqs';
 import { SalesReviewModal, ReviewResult } from '@/components/lqs/SalesReviewModal';
+import { filterCountableQuotes, filterCountableSales } from '@/lib/lqs-constants';
 
 type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'needs-attention' | 'missing-zip';
 type ViewMode = 'overview' | 'detail';
@@ -223,19 +224,120 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const isLoading = isStaffPortal ? staffDataLoading : agencyDataLoading;
   const refetch = isStaffPortal ? staffRefetch : agencyRefetch;
 
-  const { data: leadSources = [] } = useLqsLeadSources(isStaffPortal ? null : (agencyProfile?.agencyId ?? null));
+  const { data: agencyLeadSources = [] } = useLqsLeadSources(isStaffPortal ? null : (agencyProfile?.agencyId ?? null));
+  const { data: staffLeadSources = [] } = useStaffLqsLeadSources(isStaffPortal ? staffSessionToken : null);
+  const leadSources = isStaffPortal ? staffLeadSources : agencyLeadSources;
   // Use staff hook for objections in staff portal, regular hook otherwise
   const { data: staffObjections = [] } = useStaffLqsObjections(isStaffPortal ? staffSessionToken : null);
-  const { data: agencyObjections = [] } = useLqsObjections(!isStaffPortal);
+  const { data: agencyObjections = [] } = useLqsObjections(agencyProfile?.agencyId, !isStaffPortal);
   const objections = isStaffPortal ? staffObjections : agencyObjections;
   const assignMutation = useAssignLeadSource();
   const bulkAssignMutation = useBulkAssignLeadSource();
 
+  const statusRank = useCallback((status: string | null | undefined): number => {
+    const normalized = (status || '').toLowerCase();
+    if (normalized === 'sold') return 2;
+    if (normalized === 'quoted') return 1;
+    return 0;
+  }, []);
+
+  const normalizeNameToken = useCallback((value: string | null | undefined): string =>
+    (value || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9 ]+/g, ' ')
+      .replace(/\s+/g, ' '), []);
+
+  const normalizePhoneToken = useCallback((value: string | null | undefined): string =>
+    (value || '').replace(/\D+/g, ''), []);
+
+  const identitySignalsForHousehold = useCallback((h: HouseholdWithRelations): string[] => {
+    const signals: string[] = [];
+
+    const first = normalizeNameToken(h.first_name);
+    const last = normalizeNameToken(h.last_name);
+    const zip = (h.zip_code || '').trim();
+    if (first && last && zip) {
+      signals.push(`person:${last}|${first}|${zip}`);
+    }
+
+    if (h.household_key) {
+      signals.push(`household:${h.household_key.toUpperCase()}`);
+    }
+
+    if (h.email) {
+      signals.push(`email:${h.email.trim().toLowerCase()}`);
+    }
+
+    const phones = Array.isArray(h.phone) ? h.phone : [];
+    phones.forEach((p) => {
+      const normalized = normalizePhoneToken(p);
+      if (normalized) signals.push(`phone:${normalized}`);
+    });
+
+    if (h.contact_id) {
+      signals.push(`contact:${h.contact_id}`);
+    }
+
+    return signals;
+  }, [normalizeNameToken, normalizePhoneToken]);
+
+  // Derive effective status from activity so stale household.status values don't misbucket records.
+  const effectiveHouseholds = useMemo(() => {
+    const households = data?.households || [];
+
+    // First pass: infer status from activity on each row.
+    const activityInferred = households.map((h) => {
+      const hasSales = filterCountableSales(h.sales || []).length > 0;
+      const hasQuotes = filterCountableQuotes(h.quotes || []).length > 0;
+
+      let effectiveStatus = h.status;
+      if (hasSales) {
+        effectiveStatus = 'sold';
+      } else if (hasQuotes) {
+        effectiveStatus = 'quoted';
+      }
+
+      return {
+        ...h,
+        status: effectiveStatus,
+      };
+    });
+
+    // Second pass: normalize by identity so a person with any quoted/sold record
+    // does not appear as an open lead in another duplicate/stale row.
+    const maxStatusBySignal = new Map<string, string>();
+    activityInferred.forEach((h) => {
+      identitySignalsForHousehold(h).forEach((signal) => {
+        const existing = maxStatusBySignal.get(signal) || 'lead';
+        if (statusRank(h.status) > statusRank(existing)) {
+          maxStatusBySignal.set(signal, h.status);
+        } else if (!maxStatusBySignal.has(signal)) {
+          maxStatusBySignal.set(signal, existing);
+        }
+      });
+    });
+
+    return activityInferred.map((h) => {
+      let identityStatus: string = h.status;
+      identitySignalsForHousehold(h).forEach((signal) => {
+        const signalStatus = maxStatusBySignal.get(signal);
+        if (signalStatus && statusRank(signalStatus) > statusRank(identityStatus)) {
+          identityStatus = signalStatus;
+        }
+      });
+      return {
+        ...h,
+        status: identityStatus as LeadStatus,
+      };
+    });
+  }, [data?.households, identitySignalsForHousehold, statusRank]);
+
   // Filter by bucket and personal view mode
   const bucketFilteredHouseholds = useMemo(() => {
-    if (!data?.households) return [];
+    if (!effectiveHouseholds.length) return [];
     
-    let filtered = data.households;
+    let filtered = effectiveHouseholds;
 
     // Filter by bucket (status)
     if (viewMode === 'detail') {
@@ -253,12 +355,16 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
     }
 
     // Filter by personal data if "My Numbers" selected
-    if (dataViewMode === 'personal' && currentTeamMemberId) {
+    if (dataViewMode === 'personal') {
+      if (!currentTeamMemberId) {
+        // Avoid falling back to agency-wide data when a user has no team member mapping.
+        return [];
+      }
       filtered = filtered.filter(h => h.team_member_id === currentTeamMemberId);
     }
 
     return filtered;
-  }, [data?.households, viewMode, activeBucket, dataViewMode, currentTeamMemberId]);
+  }, [effectiveHouseholds, viewMode, activeBucket, dataViewMode, currentTeamMemberId]);
 
   // Filter households based on active tab and lead source
   const filteredHouseholds = useMemo(() => {
@@ -379,13 +485,13 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   }, []);
 
   const handleAssignLeadSource = useCallback((householdId: string) => {
-    const household = data?.households.find(h => h.id === householdId);
+    const household = effectiveHouseholds.find(h => h.id === householdId);
     if (household) {
       setSelectedHousehold(household);
       setBulkAssignIds([]);
       setAssignModalOpen(true);
     }
-  }, [data?.households]);
+  }, [effectiveHouseholds]);
 
   const handleBulkAssign = useCallback((householdIds: string[]) => {
     setBulkAssignIds(householdIds);
@@ -518,11 +624,15 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
 
   // Bucket counts for selector
   const bucketCounts = useMemo(() => {
-    let households = data?.households || [];
+    let households = effectiveHouseholds;
     
     // Apply personal filter if needed
-    if (dataViewMode === 'personal' && currentTeamMemberId) {
-      households = households.filter(h => h.team_member_id === currentTeamMemberId);
+    if (dataViewMode === 'personal') {
+      if (!currentTeamMemberId) {
+        households = [];
+      } else {
+        households = households.filter(h => h.team_member_id === currentTeamMemberId);
+      }
     }
 
     return {
@@ -530,7 +640,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
       quoted: households.filter(h => h.status === 'quoted').length,
       sold: households.filter(h => h.status === 'sold').length,
     };
-  }, [data?.households, dataViewMode, currentTeamMemberId]);
+  }, [effectiveHouseholds, dataViewMode, currentTeamMemberId]);
 
   // Needs attention count for current bucket (for tab badge)
   const needsAttentionCount = useMemo(() => {

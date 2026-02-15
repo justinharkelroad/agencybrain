@@ -1,43 +1,36 @@
 
-# Fix: Browser Tab Title Not Updating on Flow Pages
 
-## Problem
-When navigating to flow session pages (like `/flows/session/bible`), the browser tab title doesn't update - it remains whatever it was on the previous page (e.g., "Sequence Builder").
+## Fix Module Cover Images: Show Full Image, Scaled Down
 
-## Root Cause
-The `FlowSession.tsx` page (and related flow pages) never call `document.title = ...`, unlike other pages in the app that do set it.
+### The Problem
+The current CSS class `max-h-24 object-cover` does two bad things:
+1. Caps the image height at 96px
+2. `object-cover` crops the image to fill that space, cutting off the top and bottom (which is why "Opening" is getting clipped)
 
-## Solution
-Add `document.title` updates to all flow-related pages that are missing them.
+### The Fix
+Replace `max-h-24 object-cover` with `aspect-[4/1] object-contain` on both files.
 
-## Files to Update
+Here is exactly what each property does:
+- `w-full` -- image spans the full card width (unchanged)
+- `aspect-[4/1]` -- constrains the image container to a 4:1 width-to-height ratio, making it roughly 50% shorter than the original 3:1 while providing a defined space
+- `object-contain` -- scales the entire image down to fit inside that container **without cropping**. The full image will always be visible
+- A dark background (`bg-black/90`) is added so any letterbox space around the image blends with the dark image backgrounds
 
-| File | New Title Format |
-|------|------------------|
-| `src/pages/flows/FlowSession.tsx` | `"{template.name} | AgencyBrain"` (e.g., "Bible \| AgencyBrain") |
-| `src/pages/flows/FlowsHub.tsx` | `"My Flows | AgencyBrain"` |
-| `src/pages/flows/FlowStart.tsx` | `"Start {template.name} | AgencyBrain"` |
-| `src/pages/flows/FlowComplete.tsx` | `"Flow Complete | AgencyBrain"` |
-| `src/pages/staff/StaffFlowSession.tsx` | `"{template.name} | AgencyBrain"` |
-| `src/pages/staff/StaffFlowStart.tsx` | `"Start {template.name} | AgencyBrain"` |
+This means a card on a 400px wide screen would show the image in a 400x100 box. On 800px wide, it would be 800x200. The image always shows in full, never cropped.
 
-## Implementation
+### Exact Changes
 
-For `FlowSession.tsx`, add a `useEffect` that updates the title when the template loads:
+**File 1: `src/pages/training/TrainingCategory.tsx` (line 215)**
+- Change: `className="w-full max-h-24 object-cover"`
+- To: `className="w-full aspect-[4/1] object-contain bg-black/90"`
 
-```tsx
-useEffect(() => {
-  if (template?.name) {
-    document.title = `${template.name} | AgencyBrain`;
-  } else {
-    document.title = "Flow Session | AgencyBrain";
-  }
-}, [template?.name]);
-```
+**File 2: `src/pages/staff/StaffSPCategory.tsx` (line 184)**
+- Change: `className="w-full max-h-24 object-cover"`
+- To: `className="w-full aspect-[4/1] object-contain bg-black/90"`
 
-Similar pattern for other pages, using the appropriate dynamic title based on the template or static text.
+### Result
+- Every module cover image will display fully (no cropping of text like "Opening Objections")
+- Images will be roughly 33% shorter than the original `aspect-[3/1]` sizing
+- Consistent sizing across all screen widths
+- No distortion or stretching
 
-## Technical Notes
-- Title updates when `template` data loads from the database
-- Fallback title used while loading or if template is missing
-- Follows existing app pattern (e.g., `Agency.tsx` uses `"My Agency | AgencyBrain"`)

@@ -26,6 +26,7 @@ interface PolicyType {
   id: string;
   name: string;
   is_active: boolean;
+  allow_multiple_items: boolean;
   order_index: number;
   product_type: ProductType | null;
 }
@@ -48,7 +49,7 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
       const { data, error } = await supabase
         .from('policy_types')
         .select(`
-          id, name, is_active, order_index,
+          id, name, is_active, allow_multiple_items, order_index,
           product_type:product_types(id, name, category, default_points, is_vc_item)
         `)
         .eq('agency_id', agencyId)
@@ -297,6 +298,17 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 pr-2 border-r border-border/40">
+                    <span className="text-xs text-muted-foreground">Multi-item</span>
+                    <Switch
+                      checked={type.allow_multiple_items}
+                      onCheckedChange={(checked) =>
+                        updatePolicyType(type.id, { allow_multiple_items: checked })
+                      }
+                      disabled={loading}
+                    />
+                  </div>
+
                   <Select
                     value={type.product_type?.id || "unlinked"}
                     onValueChange={(val) =>

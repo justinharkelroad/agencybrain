@@ -113,7 +113,7 @@ serve(async (req) => {
           })
 
       } catch (error) {
-        const errorMsg = `Error processing ${sub.agency_id}: ${error.message}`
+        const errorMsg = `Error processing ${sub.agency_id}: ${error instanceof Error ? error.message : String(error)}`
         console.error(errorMsg)
         results.errors.push(errorMsg)
       }
@@ -135,7 +135,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in send-trial-reminders:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500 }
     )
   }
@@ -298,4 +298,3 @@ Questions? Reply to this email – we're here to help!
 
   await sendEmail(email, `📅 Your Agency Brain trial ends tomorrow`, html, text)
 }
-

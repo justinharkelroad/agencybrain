@@ -27,14 +27,24 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, ExternalLink, Users } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, ExternalLink, Users, Phone } from "lucide-react";
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
+import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type ProductType = {
   id: string;
   name: string;
+  allow_multiple_items: boolean;
   category: string;
   default_points: number | null;
   is_vc_item: boolean | null;
@@ -60,6 +70,7 @@ type Policy = {
   id: string;
   product_type_id: string;
   policy_type_name: string;
+  allow_multiple_items?: boolean;
   canonical_name: string | null; // From linked product_types, used for bundle detection
   policy_number: string;
   effective_date: Date | undefined;
@@ -87,6 +98,7 @@ type SaleForEdit = {
   bundle_type: string | null;
   existing_customer_products: string[] | null;
   brokered_counts_toward_bundling: boolean | null;
+  is_one_call_close?: boolean;
   sale_policies: {
     id: string;
     product_type_id: string | null;
@@ -153,12 +165,26 @@ const detectBundleType = (
 };
 
 // Multi-item product types (uses canonical names)
-const MULTI_ITEM_PRODUCTS = ["Standard Auto", "Specialty Auto", "Boatowners", "Motorcycle"];
+const DEFAULT_MULTI_ITEM_PRODUCTS = [
+  "Standard Auto",
+  "Non-Standard Auto",
+  "Specialty Auto",
+  "Boatowners",
+  "Motorcycle",
+  "Off-Road Vehicle",
+];
 
 // Check if product allows multiple line items - uses canonical name if available
-const isMultiItemProduct = (productName: string, canonicalName?: string | null): boolean => {
+const isMultiItemProduct = (
+  productName: string,
+  canonicalName?: string | null,
+  allowMultipleItems?: boolean
+): boolean => {
+  if (typeof allowMultipleItems === "boolean") {
+    return allowMultipleItems;
+  }
   const nameToCheck = canonicalName || productName;
-  return MULTI_ITEM_PRODUCTS.some(
+  return DEFAULT_MULTI_ITEM_PRODUCTS.some(
     (name) => nameToCheck.toLowerCase() === name.toLowerCase()
   );
 };
@@ -185,13 +211,26 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
   // Brokered bundling state - when checked, brokered policies count toward bundling metrics
   const [brokeredCountsTowardBundling, setBrokeredCountsTowardBundling] = useState(false);
 
+  // One-call close state - manual toggle indicating deal closed on first call
+  const [isOneCallClose, setIsOneCallClose] = useState(false);
+
   // Apply sequence modal state
   const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
+  const [breakupChoiceModalOpen, setBreakupChoiceModalOpen] = useState(false);
+  const [breakupLetterModalOpen, setBreakupLetterModalOpen] = useState(false);
   const [newSaleData, setNewSaleData] = useState<{
     saleId: string;
     customerName: string;
     customerPhone?: string;
     customerEmail?: string;
+    customerZip?: string;
+    breakupPolicies: Array<{
+      id: string;
+      policyTypeName: string;
+      policyNumber: string;
+      effectiveDate: string;
+      carrierName: string;
+    }>;
   } | null>(null);
 
   const isEditMode = !!editSale;
@@ -220,6 +259,9 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
 
       // Restore brokered bundling state
       setBrokeredCountsTowardBundling(editSale.brokered_counts_toward_bundling || false);
+
+      // Restore one-call close state
+      setIsOneCallClose(editSale.is_one_call_close || false);
 
       // Map policies and items
       // For backward compatibility: if sale has brokered_carrier_id but policies don't,
@@ -282,6 +324,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         .select(`
           id,
           name,
+          allow_multiple_items,
           product_type:product_types(
             name,
             category,
@@ -296,6 +339,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       return (data || []).map(pt => ({
         id: pt.id,
         name: pt.name,
+        allow_multiple_items: pt.allow_multiple_items ?? false,
         category: (pt.product_type as any)?.category || 'General',
         default_points: (pt.product_type as any)?.default_points ?? 0,
         is_vc_item: (pt.product_type as any)?.is_vc_item ?? false,
@@ -380,6 +424,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         id: crypto.randomUUID(),
         product_type_id: "",
         policy_type_name: "",
+        allow_multiple_items: undefined,
         canonical_name: null,
         policy_number: "",
         effective_date: toLocalDate(saleDate) || todayLocal(),
@@ -420,6 +465,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
           if (value === "brokered") {
             updated.is_vc_qualifying = false;
             updated.isBrokered = true;
+            updated.allow_multiple_items = false;
             updated.canonical_name = null; // Brokered has no canonical product type
             // Auto-create a line item for brokered business if none exists
             if (p.lineItems.length === 0) {
@@ -441,12 +487,13 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
             const product = productTypes.find((pt) => pt.id === value);
             if (product) {
               updated.policy_type_name = product.name;
+              updated.allow_multiple_items = product.allow_multiple_items;
               updated.canonical_name = product.canonical_name; // For bundle detection
               updated.is_vc_qualifying = product.is_vc_item || false;
 
               // For single-item products, auto-create/update a single line item
               // Use canonical_name for accurate multi-item detection
-              if (!isMultiItemProduct(product.name, product.canonical_name)) {
+              if (!isMultiItemProduct(product.name, product.canonical_name, product.allow_multiple_items)) {
                 // Keep existing premium if there's already a line item, otherwise start at 0
                 const existingPremium = p.lineItems.length > 0 ? p.lineItems[0].premium : 0;
                 updated.lineItems = [
@@ -463,7 +510,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
               } else {
                 // For multi-item products, clear line items if switching from single-item
                 // but only if there's exactly one auto-created item with same product
-                if (p.lineItems.length === 1 && !isMultiItemProduct(p.policy_type_name, p.canonical_name) && p.policy_type_name) {
+                if (p.lineItems.length === 1 && !isMultiItemProduct(p.policy_type_name, p.canonical_name, p.allow_multiple_items) && p.policy_type_name) {
                   updated.lineItems = [];
                 }
               }
@@ -684,6 +731,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         bundle_type: bundleInfo.bundleType,
         existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
         brokered_counts_toward_bundling: hasBrokeredPolicy && brokeredCountsTowardBundling,
+        is_one_call_close: isOneCallClose,
         source: "manual",
         created_by: user?.id,
       };
@@ -753,12 +801,40 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
         if (itemsError) throw itemsError;
       }
 
+      // Create or find unified contact so this customer appears in Contacts
+      if (profile?.agency_id && customerName.trim()) {
+        try {
+          const nameParts = customerName.trim().split(/\s+/);
+          const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+          const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : '';
+
+          const { data: contactId } = await supabase.rpc('find_or_create_contact', {
+            p_agency_id: profile.agency_id,
+            p_first_name: firstName || null,
+            p_last_name: lastName,
+            p_zip_code: customerZip.trim() || null,
+            p_phone: customerPhone.trim() || null,
+            p_email: customerEmail.trim() || null,
+          });
+
+          if (contactId) {
+            await supabase
+              .from('sales')
+              .update({ contact_id: contactId })
+              .eq('id', saleId)
+              .is('contact_id', null);
+          }
+        } catch (contactErr) {
+          console.warn('[AddSaleForm] Failed to create contact:', contactErr);
+        }
+      }
+
       // Trigger sale notification email for new sales (fire and forget)
       if (!isEditMode && profile?.agency_id) {
         supabase.functions.invoke('send-sale-notification', {
-          body: { 
-            sale_id: saleId, 
-            agency_id: profile.agency_id 
+          body: {
+            sale_id: saleId,
+            agency_id: profile.agency_id
           }
         }).catch(err => {
           console.error('[AddSaleForm] Failed to trigger sale notification:', err);
@@ -787,6 +863,10 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       queryClient.invalidateQueries({ queryKey: ["sales"] });
       // Invalidate sale-for-edit so next edit fetch is fresh
       queryClient.invalidateQueries({ queryKey: ["sale-for-edit"] });
+      // Invalidate dashboard metrics so sold_items refreshes immediately
+      queryClient.invalidateQueries({ queryKey: ["dashboard-daily"] });
+      // Invalidate contacts so new contact appears
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
       // Invalidate promo widgets so progress refreshes immediately
       queryClient.invalidateQueries({ queryKey: ["admin-promo-goals-widget"] });
       queryClient.invalidateQueries({ queryKey: ["promo-goals"] });
@@ -794,14 +874,30 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
 
       // For new sales, show the ApplySequenceModal
       if (!isEditMode && profile?.agency_id) {
+        const fallbackPriorCarrier =
+          priorInsuranceCompanies.find((company) => company.id === priorInsuranceCompanyId)?.name ||
+          "Prior Carrier";
+
+        const breakupPolicies = policies.map((policy) => ({
+          id: policy.id,
+          policyTypeName: policy.policy_type_name,
+          policyNumber: "",
+          effectiveDate: format(policy.effective_date || saleDate, "yyyy-MM-dd"),
+          carrierName: policy.isBrokered
+            ? brokeredCarriers.find((carrier) => carrier.id === policy.brokeredCarrierId)?.name || fallbackPriorCarrier
+            : fallbackPriorCarrier,
+        }));
+
         // Save the data needed for the modal before resetting the form
         setNewSaleData({
           saleId,
           customerName: customerName.trim(),
           customerPhone: customerPhone.trim() || undefined,
           customerEmail: customerEmail.trim() || undefined,
+          customerZip: customerZip.trim() || undefined,
+          breakupPolicies,
         });
-        setApplySequenceModalOpen(true);
+        setBreakupChoiceModalOpen(true);
         // Don't call onSuccess yet - will be called when modal closes
       } else {
         resetForm();
@@ -826,6 +922,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     setHasExistingPolicies(false);
     setExistingPolicyTypes([]);
     setBrokeredCountsTowardBundling(false);
+    setIsOneCallClose(false);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -1354,7 +1451,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                             </div>
 
                             {/* Conditional rendering based on product type */}
-                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name) ? (
+                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name, policy.allow_multiple_items) ? (
                               /* Multi-item products: Full line items interface */
                               <>
                                 {/* Line Items Header */}
@@ -1629,7 +1726,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                             )}
 
                             {/* Policy Subtotals - only show for multi-item products with items */}
-                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name) && policy.lineItems.length > 0 && (
+                            {isMultiItemProduct(policy.policy_type_name, policy.canonical_name, policy.allow_multiple_items) && policy.lineItems.length > 0 && (
                               <div className="grid grid-cols-3 gap-4 p-3 bg-muted/50 rounded-lg mt-4">
                                 <div className="text-center">
                                   <div className="font-semibold">{policyTotals.items}</div>
@@ -1728,6 +1825,32 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                   </p>
                 </div>
               )}
+
+              {/* One-Call Close Toggle */}
+              <div className={cn(
+                "p-4 rounded-lg border transition-colors",
+                isOneCallClose
+                  ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20"
+                  : "border-muted bg-muted/30"
+              )}>
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id="isOneCallClose"
+                    checked={isOneCallClose}
+                    onCheckedChange={(checked) => setIsOneCallClose(checked === true)}
+                  />
+                  <Label
+                    htmlFor="isOneCallClose"
+                    className="flex items-center gap-2 cursor-pointer font-medium"
+                  >
+                    <Phone className="h-4 w-4 text-green-600" />
+                    One-Call Close
+                  </Label>
+                </div>
+                <p className="mt-2 pl-7 text-sm text-muted-foreground">
+                  This sale closed on the first call with no follow-up required.
+                </p>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -1781,6 +1904,71 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
             setApplySequenceModalOpen(false);
             resetForm();
             onSuccess?.();
+          }}
+        />
+      )}
+
+      {newSaleData && profile?.agency_id && (
+        <Dialog
+          open={breakupChoiceModalOpen}
+          onOpenChange={(open) => {
+            setBreakupChoiceModalOpen(open);
+            if (!open && !breakupLetterModalOpen) {
+              setApplySequenceModalOpen(true);
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Generate Breakup Letter?</DialogTitle>
+              <DialogDescription>
+                Generate a cancellation letter before sequence assignment. You can skip this and continue.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setBreakupChoiceModalOpen(false);
+                  setApplySequenceModalOpen(true);
+                }}
+              >
+                Skip for Now
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setBreakupLetterModalOpen(true);
+                  setBreakupChoiceModalOpen(false);
+                }}
+              >
+                Generate Letter
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {newSaleData && profile?.agency_id && (
+        <BreakupLetterModal
+          open={breakupLetterModalOpen}
+          onOpenChange={(open) => {
+            setBreakupLetterModalOpen(open);
+            if (!open) {
+              setApplySequenceModalOpen(true);
+            }
+          }}
+          agencyId={profile.agency_id}
+          customerName={newSaleData.customerName}
+          customerZip={newSaleData.customerZip}
+          customerEmail={newSaleData.customerEmail}
+          customerPhone={newSaleData.customerPhone}
+          policies={newSaleData.breakupPolicies}
+          sourceContext="sale_upload"
+          onContinueToSequence={() => {
+            setBreakupLetterModalOpen(false);
+            setApplySequenceModalOpen(true);
           }}
         />
       )}

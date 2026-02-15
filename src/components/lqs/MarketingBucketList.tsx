@@ -18,8 +18,8 @@ import { MarketingBucketModal } from './MarketingBucketModal';
 interface MarketingBucketListProps {
   buckets: MarketingBucket[];
   leadSources: LeadSourceExtended[];
-  onCreateBucket: (data: { name: string; commission_rate_percent: number }) => Promise<boolean>;
-  onUpdateBucket: (id: string, data: { name: string; commission_rate_percent: number }) => Promise<boolean>;
+  onCreateBucket: (data: { name: string }) => Promise<boolean>;
+  onUpdateBucket: (id: string, data: { name: string }) => Promise<boolean>;
   onDeleteBucket: (id: string) => Promise<boolean>;
   onReorderBucket: (id: string, direction: 'up' | 'down') => Promise<boolean>;
   loading?: boolean;
@@ -74,7 +74,7 @@ export const MarketingBucketList = ({
     setDeletingBucket(null);
   };
 
-  const handleSaveBucket = async (data: { name: string; commission_rate_percent: number }) => {
+  const handleSaveBucket = async (data: { name: string }) => {
     if (editingBucket) {
       return onUpdateBucket(editingBucket.id, data);
     }
@@ -120,10 +120,6 @@ export const MarketingBucketList = ({
                   </Button>
 
                   <span className="font-medium flex-1">{bucket.name}</span>
-
-                  <Badge variant="secondary" className="text-xs">
-                    {bucket.commission_rate_percent}% commission
-                  </Badge>
 
                   <Badge variant="outline" className="text-xs">
                     {sourcesInBucket.length} source{sourcesInBucket.length !== 1 ? 's' : ''}

@@ -13,47 +13,100 @@ interface SubmissionSummary {
   submitted: boolean;
   passRate: number;
   kpis: Array<{
+    key: string;
     metric: string;
     actual: number;
     target: number;
     passed: boolean;
-    hasDiscrepancy?: boolean;
-    trackedCount?: number | null;
   }>;
+}
+
+interface SnapshotRow {
+  team_member_id: string;
+  metric_payload: Record<string, unknown> | null;
+  target_payload: Record<string, unknown> | null;
+  source_payload: Record<string, unknown> | null;
+  status_payload: Record<string, unknown> | null;
 }
 
 function logStructured(event: string, data: Record<string, unknown>) {
   console.log(JSON.stringify({ event, ...data, timestamp: new Date().toISOString() }));
 }
 
-// ========== KPI Key Normalization (mirrors frontend logic) ==========
+function getLocalHour(timezone: string): number {
+  try {
+    const hour = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date());
+    return parseInt(hour, 10);
+  } catch {
+    const fallbackHour = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date());
+    return parseInt(fallbackHour, 10);
+  }
+}
+
 const QUOTED_ALIASES = ['quoted_households', 'quoted_count', 'policies_quoted', 'items_quoted', 'households_quoted'];
 const SOLD_ALIASES = ['items_sold', 'sold_items', 'sold_count'];
+const TALK_ALIASES = ['talk_minutes', 'talk_time', 'talktime'];
+const CALL_ALIASES = ['outbound_calls', 'calls_made', 'calls'];
+const TOP_METRIC_LABELS: Record<string, string> = {
+  items_sold: 'Items Sold',
+  outbound_calls: 'Outbound Calls',
+  talk_minutes: 'Talk Time',
+  quoted_households: 'Quoted Households',
+};
 
 function normalizeMetricKey(key: string): string {
   const lower = key?.toLowerCase() || '';
   if (QUOTED_ALIASES.includes(lower)) return 'quoted_households';
   if (SOLD_ALIASES.includes(lower)) return 'items_sold';
+  if (TALK_ALIASES.includes(lower)) return 'talk_minutes';
+  if (CALL_ALIASES.includes(lower)) return 'outbound_calls';
   return key;
 }
 
-// Get metric value from payload, trying aliases if primary key missing
+function canonicalMetricKey(primaryKey: string, fallbackLabel?: string): string {
+  const baseKey = (primaryKey || '')
+    .toLowerCase()
+    .replace(/^preselected_kpi_\d+_/, '')
+    .trim();
+
+  const normalizedPrimary = normalizeMetricKey(baseKey);
+  if (normalizedPrimary) {
+    return normalizedPrimary.toLowerCase();
+  }
+
+  if (baseKey) {
+    return baseKey.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  }
+
+  const label = (fallbackLabel || '').toLowerCase();
+  if (label.includes('quoted')) return 'quoted_households';
+  if (label.includes('sold') && label.includes('item')) return 'items_sold';
+  if (label.includes('outbound') && label.includes('call')) return 'outbound_calls';
+  if (label.includes('talk')) return 'talk_minutes';
+
+  return label.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'unknown';
+}
+
 function getMetricValueFromPayload(payload: Record<string, unknown>, kpiSlug: string, kpiKey: string): number {
-  // 1. Try selectedKpiSlug directly
   if (payload[kpiSlug] !== undefined && payload[kpiSlug] !== null) {
     return Number(payload[kpiSlug]) || 0;
   }
-  // 2. Try kpi.key directly
   if (kpiKey && payload[kpiKey] !== undefined && payload[kpiKey] !== null) {
     return Number(payload[kpiKey]) || 0;
   }
-  // 3. Try stripped version of kpi.key (removes preselected_kpi_N_ prefix)
-  // This handles the mismatch where form submissions strip this prefix before saving
   const strippedKey = kpiKey?.replace(/^preselected_kpi_\d+_/, '') || '';
   if (strippedKey && strippedKey !== kpiKey && payload[strippedKey] !== undefined && payload[strippedKey] !== null) {
     return Number(payload[strippedKey]) || 0;
   }
-  // 4. Determine aliases based on normalized key
+
   const normalized = normalizeMetricKey(kpiSlug || kpiKey || strippedKey);
   let aliases: string[] = [];
   if (normalized === 'quoted_households') aliases = QUOTED_ALIASES;
@@ -68,21 +121,17 @@ function getMetricValueFromPayload(payload: Record<string, unknown>, kpiSlug: st
   return 0;
 }
 
-// Get target value, trying aliases if primary key missing
 function getTargetValue(targetsMap: Record<string, number>, kpiSlug: string, kpiKey: string, kpiGoal?: number): number {
-  // 1. If kpi has explicit goal, use it
   if (kpiGoal !== undefined && kpiGoal !== null && kpiGoal > 0) {
     return kpiGoal;
   }
-  // 2. Try selectedKpiSlug in targets
   if (targetsMap[kpiSlug] !== undefined) {
     return targetsMap[kpiSlug];
   }
-  // 3. Try kpi.key in targets
   if (kpiKey && targetsMap[kpiKey] !== undefined) {
     return targetsMap[kpiKey];
   }
-  // 4. Try aliases
+
   const normalized = normalizeMetricKey(kpiSlug || kpiKey);
   let aliases: string[] = [];
   if (normalized === 'quoted_households') aliases = QUOTED_ALIASES;
@@ -97,23 +146,92 @@ function getTargetValue(targetsMap: Record<string, number>, kpiSlug: string, kpi
   return 0;
 }
 
+async function resolveLockedSnapshotId(
+  supabase: any,
+  agencyId: string,
+  snapshotDate: string,
+): Promise<{ id: string; version: number } | null> {
+  const { data: existing, error: existingError } = await supabase
+    .from('metrics_daily_snapshots')
+    .select('id, version')
+    .eq('agency_id', agencyId)
+    .eq('snapshot_date', snapshotDate)
+    .eq('status', 'locked')
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    throw new Error(`snapshot_lookup_failed: ${existingError.message}`);
+  }
+
+  if (existing) {
+    return existing as { id: string; version: number };
+  }
+
+  const { error: createError } = await supabase.rpc('create_metrics_daily_snapshot', {
+    p_agency_id: agencyId,
+    p_snapshot_date: snapshotDate,
+    p_lock_type: 'hard_lock',
+    p_created_by: null,
+  });
+
+  if (createError) {
+    throw new Error(`snapshot_create_failed: ${createError.message}`);
+  }
+
+  const { data: created, error: createdError } = await supabase
+    .from('metrics_daily_snapshots')
+    .select('id, version')
+    .eq('agency_id', agencyId)
+    .eq('snapshot_date', snapshotDate)
+    .eq('status', 'locked')
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (createdError) {
+    throw new Error(`snapshot_post_create_lookup_failed: ${createdError.message}`);
+  }
+
+  return created as { id: string; version: number } | null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { agencyId } = await req.json().catch(() => ({}));
+    const { agencyId, forceSend, testEmail } = await req.json().catch(() => ({}));
 
-    // Check if today is a valid day to send summary
-    // Skip Sunday (reports on Saturday) and Monday (reports on Sunday)
+    if (forceSend && !agencyId) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'forceSend requires agencyId to avoid accidental multi-agency sends',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (forceSend && (!testEmail || typeof testEmail !== 'string' || !testEmail.includes('@'))) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'forceSend requires a valid testEmail to avoid sending to all recipients',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const now = new Date();
     if (!shouldSendDailySummary(now)) {
       const dayName = getDayName(now);
       logStructured('daily_summary_skipped', {
         reason: 'non_business_day_report',
         today: dayName,
-        message: `Skipping daily summary - yesterday was not a business day (weekend)`
+        message: 'Skipping daily summary - yesterday was not a business day (weekend)'
       });
 
       return new Response(
@@ -127,14 +245,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    logStructured('daily_summary_start', { agencyId: agencyId || 'ALL' });
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+    logStructured('daily_summary_start', { agencyId: agencyId || 'ALL', snapshotDate: yesterdayStr });
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     );
 
-    // Get agencies to process
     let agenciesQuery = supabase.from('agencies').select('*');
     if (agencyId) {
       agenciesQuery = agenciesQuery.eq('id', agencyId);
@@ -152,14 +273,65 @@ Deno.serve(async (req) => {
       submittedCount: number;
       totalCount: number;
       recipients: number;
-      emailId?: string;
+      emailIds?: string[];
       error?: string;
     }> = [];
 
     for (const agency of agencies || []) {
       logStructured('processing_agency', { agencyId: agency.id, agencyName: agency.name });
 
-      // Get forms with daily summary enabled
+      const timezone = agency.timezone || 'America/New_York';
+      const localHour = getLocalHour(timezone);
+
+      if (!forceSend && localHour !== 10) {
+        logStructured('skipping_agency_for_hour', {
+          agencyId: agency.id,
+          agencyName: agency.name,
+          timezone,
+          localHour,
+          requiredHour: 10,
+        });
+        continue;
+      }
+
+      let snapshotId: string | null = null;
+      let snapshotVersion = 0;
+      const snapshotByMember = new Map<string, SnapshotRow>();
+
+      try {
+        const snapshot = await resolveLockedSnapshotId(supabase, agency.id, yesterdayStr);
+        if (snapshot) {
+          snapshotId = snapshot.id;
+          snapshotVersion = snapshot.version;
+
+          const { data: snapshotRows, error: snapshotRowsError } = await supabase
+            .from('metrics_daily_snapshot_rows')
+            .select('team_member_id, metric_payload, target_payload, source_payload, status_payload')
+            .eq('snapshot_id', snapshotId);
+
+          if (snapshotRowsError) {
+            throw new Error(`snapshot_rows_fetch_failed: ${snapshotRowsError.message}`);
+          }
+
+          (snapshotRows || []).forEach((row) => {
+            snapshotByMember.set(row.team_member_id, row as SnapshotRow);
+          });
+
+          logStructured('snapshot_loaded', {
+            agencyId: agency.id,
+            snapshotId,
+            snapshotVersion,
+            rowCount: snapshotByMember.size,
+          });
+        }
+      } catch (snapshotError) {
+        logStructured('snapshot_error', {
+          agencyId: agency.id,
+          date: yesterdayStr,
+          error: String(snapshotError),
+        });
+      }
+
       const { data: forms, error: formsError } = await supabase
         .from('form_templates')
         .select('*')
@@ -173,25 +345,18 @@ Deno.serve(async (req) => {
 
       for (const form of forms || []) {
         const settings = form.settings_json || {};
-
-        // Skip if daily summary not explicitly enabled (explicit opt-in only)
         if (settings.sendDailySummary !== true) {
           logStructured('skipping_form', { formId: form.id, formName: form.name, reason: 'daily_summary_disabled' });
           continue;
         }
 
-        logStructured('processing_form', { formId: form.id, formName: form.name, role: form.role });
+        logStructured('processing_form', {
+          formId: form.id,
+          formName: form.name,
+          role: form.role,
+          snapshotVersion,
+        });
 
-        // Calculate yesterday's date
-        const now = new Date();
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-        logStructured('date_range', { yesterday: yesterdayStr });
-
-        // Get team members for this form's role (include Hybrid and Manager)
-        // Only include members with include_in_metrics = true for tracking
         const { data: teamMembers, error: tmError } = await supabase
           .from('team_members')
           .select('id, name, email, role')
@@ -205,20 +370,6 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Get yesterday's submissions for this form
-        const { data: submissions, error: subError } = await supabase
-          .from('submissions')
-          .select('*')
-          .eq('form_template_id', form.id)
-          .eq('work_date', yesterdayStr)
-          .eq('final', true);
-
-        if (subError) {
-          logStructured('submissions_fetch_error', { formId: form.id, error: subError.message });
-          continue;
-        }
-
-        // Get targets
         const { data: targets } = await supabase
           .from('targets')
           .select('metric_key, value_number')
@@ -227,53 +378,6 @@ Deno.serve(async (req) => {
         const targetsMap: Record<string, number> = {};
         targets?.forEach(t => { targetsMap[t.metric_key] = t.value_number; });
 
-        // Build submission map
-        const submissionsByMember = new Map();
-        submissions?.forEach(s => {
-          submissionsByMember.set(s.team_member_id, s);
-        });
-
-        // ========== ADDED: Batch query for tracked household counts ==========
-        // For daily summary, use lqs_households (end of day, all syncs complete)
-        const { data: trackedHouseholds } = await supabase
-          .from('lqs_households')
-          .select('team_member_id')
-          .eq('agency_id', agency.id)
-          .eq('first_quote_date', yesterdayStr)
-          .in('status', ['quoted', 'sold']);
-
-        // Build map: team_member_id -> tracked count
-        const trackedCountMap: Record<string, number> = {};
-        trackedHouseholds?.forEach(row => {
-          trackedCountMap[row.team_member_id] = (trackedCountMap[row.team_member_id] || 0) + 1;
-        });
-
-        logStructured('tracked_counts_loaded', {
-          formId: form.id,
-          trackedMembersCount: Object.keys(trackedCountMap).length
-        });
-
-        // ========== ADDED: Batch query metrics_daily ==========
-        const { data: metricsData } = await supabase
-          .from('metrics_daily')
-          .select('team_member_id, quoted_count, sold_items')
-          .eq('agency_id', agency.id)
-          .eq('date', yesterdayStr);
-
-        const metricsMap: Record<string, { quoted_count: number; sold_items: number }> = {};
-        metricsData?.forEach(row => {
-          metricsMap[row.team_member_id] = {
-            quoted_count: row.quoted_count || 0,
-            sold_items: row.sold_items || 0
-          };
-        });
-
-        logStructured('metrics_daily_loaded', {
-          formId: form.id,
-          metricsCount: Object.keys(metricsMap).length
-        });
-
-        // ========== ADDED: Get agency's enabled KPIs from scorecard_rules ==========
         const formRole = form.role || 'Sales';
         const { data: scorecardRules } = await supabase
           .from('scorecard_rules')
@@ -283,138 +387,118 @@ Deno.serve(async (req) => {
           .single();
 
         const enabledKpis = new Set<string>(scorecardRules?.selected_metrics || []);
-
-        logStructured('scorecard_rules_loaded', {
-          formId: form.id,
-          role: formRole,
-          enabled_kpis: Array.from(enabledKpis)
-        });
-
-        // Build summary for each team member
         const summaries: SubmissionSummary[] = [];
         const kpis = form.schema_json?.kpis || [];
+        const submittedTeamMemberIds = new Set<string>();
+
+        if ((teamMembers || []).length > 0) {
+          const memberIds = (teamMembers || []).map((member) => member.id);
+          const { data: submittedRows, error: submittedRowsError } = await supabase
+            .from('submissions')
+            .select('team_member_id')
+            .eq('form_template_id', form.id)
+            .eq('final', true)
+            .or(`work_date.eq.${yesterdayStr},and(work_date.is.null,submission_date.eq.${yesterdayStr})`)
+            .in('team_member_id', memberIds);
+
+          if (submittedRowsError) {
+            logStructured('submitted_fetch_error', {
+              agencyId: agency.id,
+              formId: form.id,
+              date: yesterdayStr,
+              error: submittedRowsError.message,
+            });
+          } else {
+            (submittedRows || []).forEach((row) => {
+              if (row.team_member_id) {
+                submittedTeamMemberIds.add(row.team_member_id);
+              }
+            });
+          }
+        }
 
         for (const member of teamMembers || []) {
-          const submission = submissionsByMember.get(member.id);
-          const memberMetrics = metricsMap[member.id];
-          const trackedQuotes = trackedCountMap[member.id] || 0;
+          const snapshotRow = snapshotByMember.get(member.id);
+          const didSubmit = submittedTeamMemberIds.has(member.id);
 
-          // Include member if they have a submission OR metrics_daily data (dashboard entries)
-          if (submission || memberMetrics) {
-            const payload = submission?.payload_json || {};
+          if (snapshotRow) {
+            const metricPayload = (snapshotRow.metric_payload || {}) as Record<string, unknown>;
+            const targetPayload = (snapshotRow.target_payload || {}) as Record<string, unknown>;
 
-            const memberKpis: Array<{
-              metric: string;
-              actual: number;
-              target: number;
-              passed: boolean;
-              hasDiscrepancy?: boolean;
-              trackedCount?: number | null;
-            }> = kpis.map((kpi: { selectedKpiSlug?: string; key?: string; label?: string; target?: { goal?: number } }) => {
-              const kpiSlug = kpi.selectedKpiSlug || '';
-              const kpiKey = kpi.key || '';
-              const normalizedKey = normalizeMetricKey(kpiSlug || kpiKey);
+            const memberKpis: Array<{ key: string; metric: string; actual: number; target: number; passed: boolean }> =
+              kpis.map((kpi: { selectedKpiSlug?: string; key?: string; label?: string; target?: { goal?: number } }) => {
+                const kpiSlug = kpi.selectedKpiSlug || '';
+                const kpiKey = kpi.key || '';
+                const normalizedKey = normalizeMetricKey(kpiSlug || kpiKey);
 
-              let actual: number;
-              let hasDiscrepancy = false;
-              let trackedCount: number | null = null;
+                const actual = getMetricValueFromPayload(metricPayload, kpiSlug, kpiKey);
+                const payloadTarget = Number(targetPayload[normalizedKey]);
+                const fallbackTarget = getTargetValue(targetsMap, kpiSlug, kpiKey, kpi.target?.goal);
+                const target = Number.isFinite(payloadTarget) && payloadTarget > 0 ? payloadTarget : fallbackTarget;
 
-              // For quoted_households: prefer metrics_daily
-              if (normalizedKey === 'quoted_households') {
-                actual = memberMetrics?.quoted_count ?? getMetricValueFromPayload(payload, kpiSlug, kpiKey);
-                trackedCount = trackedQuotes;
-                hasDiscrepancy = actual > trackedCount;
-              } else if (normalizedKey === 'items_sold') {
-                actual = memberMetrics?.sold_items ?? getMetricValueFromPayload(payload, kpiSlug, kpiKey);
-              } else {
-                actual = getMetricValueFromPayload(payload, kpiSlug, kpiKey);
-              }
+                return {
+                  key: canonicalMetricKey(normalizedKey || kpiSlug || kpiKey, kpi.label),
+                  metric: kpi.label || kpi.selectedKpiSlug || kpi.key || 'Unknown',
+                  actual,
+                  target,
+                  passed: target > 0 ? actual >= target : true,
+                };
+              });
 
-              const target = getTargetValue(targetsMap, kpiSlug, kpiKey, kpi.target?.goal);
-
-              return {
-                metric: kpi.label || kpi.selectedKpiSlug || kpi.key || 'Unknown',
-                actual,
-                target,
-                passed: actual >= target,
-                hasDiscrepancy,
-                trackedCount
-              };
-            });
-
-            // ========== ADDED: Include metrics not in form but enabled for agency ==========
             const quotedInForm = kpis.some((k: { selectedKpiSlug?: string; key?: string }) => {
               const normalized = normalizeMetricKey(k.selectedKpiSlug || k.key || '');
               return normalized === 'quoted_households';
             });
 
-            // Check if quoted_households is an enabled KPI for this agency
             const quotedEnabled = enabledKpis.has('quoted_households') ||
                                   enabledKpis.has('quoted_count') ||
                                   enabledKpis.has('policies_quoted') ||
                                   enabledKpis.has('households_quoted');
 
-            // Also check if there's a target configured (fallback if scorecard_rules doesn't match)
-            const hasQuotedTarget = targetsMap['quoted_households'] !== undefined ||
-                                    targetsMap['quoted_count'] !== undefined ||
-                                    targetsMap['policies_quoted'] !== undefined ||
-                                    targetsMap['households_quoted'] !== undefined;
-
-            // Add Quoted Households if:
-            // 1. It's enabled for agency, OR
-            // 2. There's a target configured, OR
-            // 3. There are tracked quotes in lqs_households
-            const shouldAddQuoted = quotedEnabled || hasQuotedTarget || trackedQuotes > 0;
-
-            if (!quotedInForm && shouldAddQuoted) {
-              // Use MAX of metrics_daily and lqs_households for actual value
-              const actualQuoted = Math.max(memberMetrics?.quoted_count ?? 0, trackedQuotes);
-              const quotedTarget = getTargetValue(targetsMap, 'quoted_households', 'quoted_count', undefined);
-              const hasDiscrepancy = actualQuoted > trackedQuotes;
+            if (!quotedInForm && quotedEnabled) {
+              const actualQuoted = Number(metricPayload.quoted_households) || 0;
+              const quotedTarget = Number(targetPayload.quoted_households)
+                || getTargetValue(targetsMap, 'quoted_households', 'quoted_count', undefined);
 
               memberKpis.push({
+                key: 'quoted_households',
                 metric: 'Quoted Households',
                 actual: actualQuoted,
                 target: quotedTarget,
                 passed: quotedTarget > 0 ? actualQuoted >= quotedTarget : true,
-                hasDiscrepancy,
-                trackedCount: trackedQuotes
               });
             }
 
-            // Same pattern for sold_items if not in form
             const soldInForm = kpis.some((k: { selectedKpiSlug?: string; key?: string }) => {
               const normalized = normalizeMetricKey(k.selectedKpiSlug || k.key || '');
               return normalized === 'items_sold';
             });
 
-            // Check if items_sold is an enabled KPI for this agency
             const soldEnabled = enabledKpis.has('items_sold') ||
                                 enabledKpis.has('sold_items') ||
                                 enabledKpis.has('sold_count');
 
-            // Add Items Sold if it's enabled for agency but not in form
             if (!soldInForm && soldEnabled) {
-              const actualSold = memberMetrics?.sold_items ?? 0;
-              const soldTarget = getTargetValue(targetsMap, 'items_sold', 'sold_items', undefined);
+              const actualSold = Number(metricPayload.items_sold) || 0;
+              const soldTarget = Number(targetPayload.items_sold)
+                || getTargetValue(targetsMap, 'items_sold', 'sold_items', undefined);
 
               memberKpis.push({
+                key: 'items_sold',
                 metric: 'Items Sold',
                 actual: actualSold,
                 target: soldTarget,
                 passed: soldTarget > 0 ? actualSold >= soldTarget : true,
-                hasDiscrepancy: false,
-                trackedCount: null
               });
             }
 
-            const passedCount = memberKpis.filter((k: { passed: boolean }) => k.passed).length;
+            const passedCount = memberKpis.filter((k) => k.passed).length;
             const passRate = memberKpis.length > 0 ? Math.round((passedCount / memberKpis.length) * 100) : 0;
 
             summaries.push({
               teamMemberId: member.id,
               teamMemberName: member.name,
-              submitted: !!submission, // Track whether they actually submitted a form
+              submitted: didSubmit,
               passRate,
               kpis: memberKpis,
             });
@@ -422,14 +506,13 @@ Deno.serve(async (req) => {
             summaries.push({
               teamMemberId: member.id,
               teamMemberName: member.name,
-              submitted: false,
+              submitted: didSubmit,
               passRate: 0,
               kpis: [],
             });
           }
         }
 
-        // Calculate totals
         const submittedCount = summaries.filter(s => s.submitted).length;
         const totalCount = summaries.length;
 
@@ -442,12 +525,11 @@ Deno.serve(async (req) => {
           ? Math.round(summaries.filter(s => s.submitted).reduce((sum, s) => sum + s.passRate, 0) / submittedCount)
           : 0;
 
-        // Build recipient list based on settings
-        const recipients: string[] = [];
+        const recipientSet = new Set<string>();
         const recipientSetting = settings.dailySummaryRecipients || 'all_team';
 
         if (recipientSetting === 'owner_only') {
-          if (agency.agency_email) recipients.push(agency.agency_email);
+          if (agency.agency_email) recipientSet.add(agency.agency_email.toLowerCase());
         } else if (recipientSetting === 'custom') {
           const customIds = settings.customSummaryRecipients || [];
           if (customIds.length > 0) {
@@ -457,20 +539,15 @@ Deno.serve(async (req) => {
               .in('id', customIds);
             customMembers?.forEach(m => {
               if (m.email && !m.email.includes('@staff.placeholder')) {
-                recipients.push(m.email);
+                recipientSet.add(m.email.toLowerCase());
               }
             });
           }
         } else {
-          // sales_team, service_team, or all_team
           let roleFilter: string | null = form.role;
-          if (recipientSetting === 'all_team') {
-            roleFilter = null;
-          } else if (recipientSetting === 'sales_team') {
-            roleFilter = 'Sales';
-          } else if (recipientSetting === 'service_team') {
-            roleFilter = 'Service';
-          }
+          if (recipientSetting === 'all_team') roleFilter = null;
+          else if (recipientSetting === 'sales_team') roleFilter = 'Sales';
+          else if (recipientSetting === 'service_team') roleFilter = 'Service';
 
           let membersQuery = supabase
             .from('team_members')
@@ -485,92 +562,125 @@ Deno.serve(async (req) => {
           const { data: roleMembers } = await membersQuery;
           roleMembers?.forEach(m => {
             if (m.email && !m.email.includes('@staff.placeholder')) {
-              recipients.push(m.email);
+              recipientSet.add(m.email.toLowerCase());
             }
           });
         }
 
-        // Always include agency owner
-        if (agency.agency_email && !recipients.includes(agency.agency_email)) {
-          recipients.push(agency.agency_email);
+        if (agency.agency_email) {
+          recipientSet.add(agency.agency_email.toLowerCase());
         }
 
-        // Deduplicate
-        const uniqueRecipients = [...new Set(recipients)];
+        const { data: staffUsers } = await supabase
+          .from('staff_users')
+          .select('email')
+          .eq('agency_id', agency.id)
+          .eq('is_active', true)
+          .not('email', 'is', null);
 
-        logStructured('recipients_resolved', { formId: form.id, recipientCount: uniqueRecipients.length, setting: recipientSetting });
+        staffUsers?.forEach(u => {
+          if (u.email && !u.email.includes('@staff.placeholder')) {
+            recipientSet.add(u.email.toLowerCase());
+          }
+        });
+
+        let uniqueRecipients = Array.from(recipientSet);
+
+        if (forceSend) {
+          uniqueRecipients = [String(testEmail).toLowerCase().trim()];
+          logStructured('force_send_test_recipient_override', {
+            agencyId: agency.id,
+            formId: form.id,
+            testEmail: uniqueRecipients[0],
+          });
+        }
+
+        logStructured('recipients_resolved', {
+          formId: form.id,
+          recipientCount: uniqueRecipients.length,
+          setting: recipientSetting,
+        });
 
         if (uniqueRecipients.length === 0) {
           logStructured('no_recipients', { formId: form.id });
           continue;
         }
 
-        // Check for any discrepancies across team
-        const hasAnyDiscrepancy = summaries.some(s =>
-          s.kpis.some(k => k.hasDiscrepancy)
-        );
-
-        // Build email HTML
         const submittedList = summaries
-          .filter(s => s.submitted || s.kpis.length > 0) // Include dashboard-only entries
+          .filter(s => s.submitted)
           .sort((a, b) => b.passRate - a.passRate)
           .map(s => {
-            const hasDiscrepancy = s.kpis.some(k => k.hasDiscrepancy);
-            const discrepancyMarker = hasDiscrepancy ? '*' : '';
-            const statusIcon = s.submitted ? '✅' : '📊'; // 📊 for dashboard-only
+            const statusIcon = '✅';
             return `<tr>
-            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${statusIcon} ${s.teamMemberName}${discrepancyMarker}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${statusIcon} ${s.teamMemberName}</td>
             <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: ${s.passRate >= 75 ? '#22c55e' : s.passRate >= 50 ? '#eab308' : '#ef4444'}; font-weight: 600;">${s.passRate}%</td>
           </tr>`;
           })
           .join('');
 
         const missedList = summaries
-          .filter(s => !s.submitted && s.kpis.length === 0) // Only show truly missed (no submission, no dashboard data)
-          .map(s => `<li style="color: #ef4444; margin-bottom: 4px;">\u274C ${s.teamMemberName}</li>`)
+          .filter(s => !s.submitted)
+          .map(s => `<li style="color: #ef4444; margin-bottom: 4px;">❌ ${s.teamMemberName}</li>`)
           .join('');
 
-        // Calculate team KPI totals
-        const kpiTotals: Record<string, { total: number; target: number; count: number; hasDiscrepancy: boolean }> = {};
+        const kpiTotals: Record<string, { key: string; label: string; total: number; targetTotal: number; count: number }> = {};
         summaries.filter(s => s.submitted || s.kpis.length > 0).forEach(s => {
           s.kpis.forEach(k => {
-            if (!kpiTotals[k.metric]) {
-              kpiTotals[k.metric] = { total: 0, target: k.target, count: 0, hasDiscrepancy: false };
+            const totalKey = canonicalMetricKey(k.key, k.metric);
+            if (!kpiTotals[totalKey]) {
+              kpiTotals[totalKey] = { key: totalKey, label: k.metric, total: 0, targetTotal: 0, count: 0 };
             }
-            kpiTotals[k.metric].total += k.actual;
-            kpiTotals[k.metric].count++;
-            if (k.hasDiscrepancy) {
-              kpiTotals[k.metric].hasDiscrepancy = true;
-            }
+            kpiTotals[totalKey].total += k.actual;
+            kpiTotals[totalKey].targetTotal += Number.isFinite(k.target) ? k.target : 0;
+            kpiTotals[totalKey].count++;
           });
         });
 
-        const kpiTotalsHtml = Object.entries(kpiTotals)
-          .map(([metric, data]) => {
-            const teamTarget = data.target * data.count;
-            const passed = data.total >= teamTarget;
+        const kpiTotalsHtml = Object.values(kpiTotals)
+          .map((data) => {
+            const teamTarget = data.targetTotal;
+            const passed = teamTarget > 0 ? data.total >= teamTarget : true;
             const pct = teamTarget > 0 ? Math.round((data.total / teamTarget) * 100) : 0;
-            const discrepancyMarker = data.hasDiscrepancy ? '*' : '';
+            const resultText = teamTarget > 0 ? `${passed ? '✅' : '❌'} ${pct}%` : '—';
+            const resultColor = teamTarget > 0 ? (passed ? '#22c55e' : '#ef4444') : '#6b7280';
             return `<tr>
-              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${metric}${discrepancyMarker}</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${data.label}</td>
               <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${data.total}</td>
               <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center;">${teamTarget}</td>
-              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: ${passed ? '#22c55e' : '#ef4444'}; font-weight: 600;">${passed ? '✅' : '❌'} ${pct}%</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: center; color: ${resultColor}; font-weight: 600;">${resultText}</td>
             </tr>`;
           })
           .join('');
 
-        // Discrepancy footnote for daily summary
-        const discrepancyFootnote = hasAnyDiscrepancy ? `
-          <div style="margin-top: 16px; padding: 12px; background-color: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px;">
-            <p style="margin: 0; font-size: 12px; color: #92400e;">
-              <strong>*</strong> Some reported values exceed tracked household details. Review dashboard for accuracy.
-            </p>
-          </div>
-        ` : '';
+        const topMetricKeys = ['items_sold', 'outbound_calls', 'talk_minutes', 'quoted_households'];
+        const topMetricsHtml = topMetricKeys
+          .map((key) => kpiTotals[key])
+          .filter(Boolean)
+          .map((data) => {
+            const teamTarget = data.targetTotal;
+            const pct = teamTarget > 0 ? Math.round((data.total / teamTarget) * 100) : 0;
+            const color = teamTarget <= 0 ? '#6b7280' : (pct >= 100 ? '#22c55e' : pct >= 75 ? '#eab308' : '#ef4444');
+            const pctText = teamTarget > 0 ? `${pct}%` : '—';
+            const label = TOP_METRIC_LABELS[data.key] || data.label;
+            return `
+              <div style="flex: 1 1 130px; min-width: 120px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px;">
+                <div style="font-size: 12px; color: #6b7280; text-transform: uppercase; font-weight: 600;">${label}</div>
+                <div style="font-size: 26px; line-height: 1.2; font-weight: 700; color: #111827; margin-top: 4px;">${data.total}</div>
+                <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">Target ${teamTarget}</div>
+                <div style="font-size: 13px; font-weight: 700; color: ${color}; margin-top: 2px;">${pctText}</div>
+              </div>
+            `;
+          })
+          .join('');
 
         const bodyContent = `
-          ${EmailComponents.summaryBox(`\uD83D\uDCCA ${submittedCount} of ${totalCount} team members submitted (${avgPassRate}% avg pass rate)`)}
+          ${EmailComponents.summaryBox(`📊 ${submittedCount} of ${totalCount} team members submitted (${avgPassRate}% avg pass rate)`) }
+          ${topMetricsHtml ? `
+            <h3 style="margin: 8px 0 12px 0; color: ${BRAND.colors.primary};">Top Team Metrics</h3>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px;">
+              ${topMetricsHtml}
+            </div>
+          ` : ''}
 
           <h3 style="margin: 24px 0 12px 0; color: ${BRAND.colors.primary};">Team Submissions</h3>
           <table style="width: 100%; border-collapse: collapse;">
@@ -586,7 +696,7 @@ Deno.serve(async (req) => {
           </table>
 
           ${missedList ? `
-            <h3 style="margin: 24px 0 12px 0; color: #ef4444;">\u26A0\uFE0F Did Not Submit</h3>
+            <h3 style="margin: 24px 0 12px 0; color: #ef4444;">⚠️ Did Not Submit</h3>
             <ul style="margin: 0; padding-left: 20px;">
               ${missedList}
             </ul>
@@ -608,31 +718,31 @@ Deno.serve(async (req) => {
               </tbody>
             </table>
           ` : ''}
-
-          ${discrepancyFootnote}
         `;
 
         const emailHtml = buildEmailHtml({
-          title: `\uD83D\uDCC8 Daily Team Summary`,
-          subtitle: `${form.name} \u2022 ${form.role} \u2022 ${yesterdayStr}`,
+          title: '📈 Daily Team Summary',
+          subtitle: `${form.name} • ${form.role} • ${yesterdayStr}`,
           bodyContent,
           footerAgencyName: agency.name,
         });
 
-        // Send email
         try {
-          const emailResponse = await fetch('https://api.resend.com/emails', {
+          const subject = `📈 Daily Summary: ${submittedCount}/${totalCount} submitted - ${form.name}`;
+          const emailBatch = uniqueRecipients.map(email => ({
+            from: BRAND.fromEmail,
+            to: email,
+            subject,
+            html: emailHtml,
+          }));
+
+          const emailResponse = await fetch('https://api.resend.com/emails/batch', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              from: BRAND.fromEmail,
-              to: uniqueRecipients,
-              subject: `\uD83D\uDCC8 Daily Summary: ${submittedCount}/${totalCount} submitted - ${form.name}`,
-              html: emailHtml,
-            }),
+            body: JSON.stringify(emailBatch),
           });
 
           const emailResult = await emailResponse.json();
@@ -648,14 +758,15 @@ Deno.serve(async (req) => {
               error: emailResult?.message || 'Email send failed',
             });
           } else {
-            logStructured('email_sent', { formId: form.id, emailId: emailResult.id, recipients: uniqueRecipients.length });
+            const emailIds = emailResult?.data?.map((e: { id: string }) => e.id) || [];
+            logStructured('email_sent', { formId: form.id, emailIds, recipients: uniqueRecipients.length });
             results.push({
               agency: agency.name,
               form: form.name,
               submittedCount,
               totalCount,
               recipients: uniqueRecipients.length,
-              emailId: emailResult.id,
+              emailIds,
             });
           }
         } catch (emailError) {

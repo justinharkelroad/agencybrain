@@ -26,6 +26,20 @@ interface HouseholdWithQuotes {
   lead_source?: { name: string } | null;
 }
 
+interface GroupUploadResult {
+  matchedTeamMemberId: string | null;
+  wasCreated: boolean;
+  householdFound: boolean;
+  needsAttention: boolean;
+  wasAutoMatched: boolean;
+  needsManualReview: boolean;
+  reviewCandidates: MatchCandidate[];
+  primaryRecord: ParsedSaleRow;
+  salesCreatedInGroup: number;
+  quotesLinkedInGroup: number;
+  errors: string[];
+}
+
 const BATCH_SIZE = 50;
 
 // Scoring constants
@@ -303,8 +317,12 @@ async function processInBackground(
       }
 
       const batchResults = await Promise.allSettled(
-        batch.map(async (group) => {
+        batch.map(async (group): Promise<GroupUploadResult> => {
           const { householdKey, records: groupRecords, primaryRecord } = group;
+          const groupErrors: string[] = [];
+          const addError = (record: ParsedSaleRow, detail: string) => {
+            groupErrors.push(`${buildSaleErrorPrefix(record)} ${detail}`);
+          };
           
           // Match sub-producer to team member
           let teamMemberId: string | null = null;
@@ -331,8 +349,9 @@ async function processInBackground(
             unmatchedProducerSet.add(primaryRecord.subProducerRaw);
           }
 
-          let householdId: string;
+          let householdId: string | null = null;
           let wasCreated = false;
+          let householdFound = false;
           let needsAttentionFlag = false;
           let wasAutoMatched = false;
           let needsManualReview = false;
@@ -345,36 +364,41 @@ async function processInBackground(
           // This is the most reliable match - skip all fuzzy matching if found
           // ============================================
           if (primaryRecord.policyNumber) {
-            const { data: matchingQuote } = await supabase
+            const { data: matchingQuote, error: policyMatchError } = await supabase
               .from('lqs_quotes')
               .select('household_id')
               .eq('agency_id', context.agencyId)
               .eq('issued_policy_number', primaryRecord.policyNumber)
               .maybeSingle();
 
+            if (policyMatchError) {
+              addError(
+                primaryRecord,
+                `could not check for a policy number match because LQS quote lookup failed: ${policyMatchError.message}`
+              );
+            }
+
             if (matchingQuote?.household_id) {
               householdId = matchingQuote.household_id;
+              householdFound = true;
               policyMatchFound = true;
               wasAutoMatched = true;
               console.log(`[Sales Match] ✓ POLICY NUMBER MATCH: Sale policy ${primaryRecord.policyNumber} → Household ${householdId}`);
 
-              // Update household to sold status
-              await supabase
-                .from('lqs_households')
-                .update({
-                  status: 'sold',
-                  sold_date: primaryRecord.saleDate,
-                  team_member_id: teamMemberId || undefined,
-                })
-                .eq('id', householdId);
-
               // Get lead_source_id to check if needs attention
-              const { data: hhData } = await supabase
+              const { data: hhData, error: hhLookupError } = await supabase
                 .from('lqs_households')
                 .select('lead_source_id')
                 .eq('id', householdId)
                 .single();
-              needsAttentionFlag = !hhData?.lead_source_id;
+              if (hhLookupError) {
+                addError(
+                  primaryRecord,
+                  `could not determine lead source for this customer because LQS lookup failed: ${hhLookupError.message}`
+                );
+              } else {
+                needsAttentionFlag = !hhData?.lead_source_id;
+              }
             }
           }
 
@@ -384,28 +408,25 @@ async function processInBackground(
           // ============================================
           if (!policyMatchFound) {
             // Check if household exists by exact key match
-            const { data: existingHousehold } = await supabase
+            const { data: existingHousehold, error: householdLookupError } = await supabase
               .from('lqs_households')
               .select('id, status, lead_source_id')
               .eq('agency_id', context.agencyId)
               .eq('household_key', householdKey)
               .maybeSingle();
 
+            if (householdLookupError) {
+              addError(
+                primaryRecord,
+                `could not check existing customers because household lookup failed: ${householdLookupError.message}`
+              );
+            }
+
             if (existingHousehold) {
-            // Household exists - update status to 'sold' and set sold_date
             householdId = existingHousehold.id;
+            householdFound = true;
             needsAttentionFlag = !existingHousehold.lead_source_id;
             wasAutoMatched = true; // Exact key match counts as auto-match
-            
-            // Update household to sold status
-            await supabase
-              .from('lqs_households')
-              .update({
-                status: 'sold',
-                sold_date: primaryRecord.saleDate,
-                team_member_id: teamMemberId || undefined,
-              })
-              .eq('id', householdId);
           } else {
             // No exact key match - QUERY BY NAME directly from Supabase (not in-memory filter)
             // This is the CRITICAL fix: query per sale by name, not rely on prefetch
@@ -416,6 +437,8 @@ async function processInBackground(
               householdKey,
             });
             
+            let candidateLookupFailed = false;
+
             // Query candidates by NAME directly from database
             const { data: candidateHouseholds, error: candidateError } = await supabase
               .from('lqs_households')
@@ -424,71 +447,109 @@ async function processInBackground(
                 quotes:lqs_quotes(id, product_type, premium_cents, quote_date),
                 lead_source:lead_sources!lqs_households_lead_source_id_fkey(name)
               `)
-              .eq('agency_id', context.agencyId)
-              .ilike('last_name', primaryRecord.lastName);
+                .eq('agency_id', context.agencyId)
+                .ilike('last_name', primaryRecord.lastName);
             
             if (candidateError) {
               console.error('[Sales Match] Query error:', candidateError.message);
+              addError(
+                primaryRecord,
+                `could not search matching names in LQS because candidate lookup failed: ${candidateError.message}`
+              );
+              candidateLookupFailed = true;
             }
-            
-            // Filter by EXACT first name match only - no fuzzy matching
-            // This prevents false positives like MELISSA SMITH matching MICHELLE SMITH
-            const nameMatchedCandidates = (candidateHouseholds || []).filter(h => {
-              const normSaleFirst = primaryRecord.firstName.toUpperCase().replace(/[^A-Z]/g, '');
-              const normHhFirst = (h.first_name || '').toUpperCase().replace(/[^A-Z]/g, '');
+            if (!candidateLookupFailed) {
+              // Filter by EXACT first name match only - no fuzzy matching
+              // This prevents false positives like MELISSA SMITH matching MICHELLE SMITH
+              const nameMatchedCandidates = (candidateHouseholds || []).filter(h => {
+                const normSaleFirst = primaryRecord.firstName.toUpperCase().replace(/[^A-Z]/g, '');
+                const normHhFirst = (h.first_name || '').toUpperCase().replace(/[^A-Z]/g, '');
 
-              if (normSaleFirst.length === 0 || normHhFirst.length === 0) return false;
+                if (normSaleFirst.length === 0 || normHhFirst.length === 0) return false;
 
-              // EXACT first name match required - no initials, no contains
-              return normSaleFirst === normHhFirst;
-            }) as HouseholdWithQuotes[];
-            
-            console.log('[Sales Match] Query result:', nameMatchedCandidates.length, 'candidates found');
-            nameMatchedCandidates.forEach(h => 
-              console.log('[Sales Match] Candidate:', h.last_name, h.first_name, h.zip_code)
-            );
-            
-            // Score each name-matched candidate
-            const scoredCandidates = nameMatchedCandidates
-              .map(h => scoreCandidate(primaryRecord, h, teamMemberId))
-              .sort((a, b) => b.score - a.score)
-              .slice(0, 5); // Top 5 candidates
-            
-            // ============================================
-            // PRIORITY 3: Name-Based Matching with Scoring
-            // Decision rules:
-            //   - 1 candidate only → Auto-match (regardless of score)
-            //   - Score >= 75 AND 20+ point lead → Auto-match
-            //   - Everything else → Manual review queue
-            //   - 0 candidates → Create new household (one-call close)
-            // ============================================
+                // EXACT first name match required - no initials, no contains
+                return normSaleFirst === normHhFirst;
+              }) as HouseholdWithQuotes[];
+              
+              console.log('[Sales Match] Query result:', nameMatchedCandidates.length, 'candidates found');
+              nameMatchedCandidates.forEach(h => 
+                console.log('[Sales Match] Candidate:', h.last_name, h.first_name, h.zip_code)
+              );
+              
+              // Score each name-matched candidate
+              const scoredCandidates = nameMatchedCandidates
+                .map(h => scoreCandidate(primaryRecord, h, teamMemberId))
+                .sort((a, b) => b.score - a.score)
+                .slice(0, 5); // Top 5 candidates
+              
+              // ============================================
+              // PRIORITY 3: Name-Based Matching with Scoring
+              // Decision rules:
+              //   - 1 candidate only → Auto-match (regardless of score)
+              //   - Score >= 75 AND 20+ point lead → Auto-match
+              //   - Everything else → Manual review queue
+              //   - 0 candidates → Create new household (one-call close)
+              // ============================================
 
-            const saleName = `${primaryRecord.firstName} ${primaryRecord.lastName}`;
+              const saleName = `${primaryRecord.firstName} ${primaryRecord.lastName}`;
 
-            if (nameMatchedCandidates.length > 0) {
-              // We have candidates - run scoring and decide
-              const autoMatchResult = shouldAutoMatch(scoredCandidates, saleName);
+              if (nameMatchedCandidates.length > 0) {
+                // We have candidates - run scoring and decide
+                const autoMatchResult = shouldAutoMatch(scoredCandidates, saleName);
 
-              if (autoMatchResult.match) {
-                // Auto-match to the winning candidate
-                householdId = autoMatchResult.match.householdId;
-                wasAutoMatched = true;
+                if (autoMatchResult.match) {
+                  // Auto-match to the winning candidate
+                  householdId = autoMatchResult.match.householdId;
+                  householdFound = true;
+                  wasAutoMatched = true;
+                } else {
+                  // No auto-match - queue for manual review
+                  needsManualReview = true;
+                  reviewCandidates = scoredCandidates;
 
-                // Update household to sold status
-                await supabase
-                  .from('lqs_households')
-                  .update({
-                    status: 'sold',
-                    sold_date: primaryRecord.saleDate,
-                    team_member_id: teamMemberId || undefined,
-                  })
-                  .eq('id', householdId);
+                  // Create temporary household (will be merged if user picks existing candidate)
+                  const { data: newHousehold, error: createError } = await supabase
+                    .from('lqs_households')
+                    .insert({
+                      agency_id: context.agencyId,
+                      household_key: householdKey,
+                      first_name: primaryRecord.firstName,
+                      last_name: primaryRecord.lastName,
+                      zip_code: primaryRecord.zipCode,
+                      status: 'lead',
+                      team_member_id: teamMemberId,
+                      needs_attention: true,
+                    })
+                    .select('id')
+                    .single();
+
+                  if (createError) {
+                    const { data: retryHousehold } = await supabase
+                      .from('lqs_households')
+                      .select('id')
+                      .eq('agency_id', context.agencyId)
+                      .eq('household_key', householdKey)
+                      .maybeSingle();
+
+                    if (retryHousehold) {
+                      householdId = retryHousehold.id;
+                      householdFound = true;
+                      wasCreated = true;
+                      needsAttentionFlag = true;
+                    } else {
+                      addError(primaryRecord, `could not create this customer in LQS. Try again: ${createError.message}`);
+                    }
+                  } else {
+                    householdId = newHousehold.id;
+                    householdFound = true;
+                    wasCreated = true;
+                    needsAttentionFlag = true;
+                  }
+                }
               } else {
-                // No auto-match - queue for manual review
-                needsManualReview = true;
-                reviewCandidates = scoredCandidates;
-
-                // Create temporary household (will be merged if user picks existing candidate)
+                // No name matches found - create new household (this is correct - genuinely new customer)
+                console.log(`[Sales Match] ✗ No name matches for ${primaryRecord.firstName} ${primaryRecord.lastName} - creating new household`);
+                
                 const { data: newHousehold, error: createError } = await supabase
                   .from('lqs_households')
                   .insert({
@@ -497,8 +558,7 @@ async function processInBackground(
                     first_name: primaryRecord.firstName,
                     last_name: primaryRecord.lastName,
                     zip_code: primaryRecord.zipCode,
-                    status: 'sold',
-                    sold_date: primaryRecord.saleDate,
+                    status: 'lead',
                     team_member_id: teamMemberId,
                     needs_attention: true,
                   })
@@ -512,69 +572,63 @@ async function processInBackground(
                     .eq('agency_id', context.agencyId)
                     .eq('household_key', householdKey)
                     .maybeSingle();
-
+                    
                   if (retryHousehold) {
                     householdId = retryHousehold.id;
+                    householdFound = true;
+                    wasCreated = true;
+                    needsAttentionFlag = true;
                   } else {
-                    throw new Error(`Failed to create household: ${createError.message}`);
+                    addError(primaryRecord, `could not create this customer in LQS. Try again: ${createError.message}`);
                   }
                 } else {
                   householdId = newHousehold.id;
+                  householdFound = true;
+                  wasCreated = true;
+                  needsAttentionFlag = true;
                 }
-                wasCreated = true;
-                needsAttentionFlag = true;
               }
-            } else {
-              // No name matches found - create new household (this is correct - genuinely new customer)
-              console.log(`[Sales Match] ✗ No name matches for ${primaryRecord.firstName} ${primaryRecord.lastName} - creating new household`);
-              
-              const { data: newHousehold, error: createError } = await supabase
-                .from('lqs_households')
-                .insert({
-                  agency_id: context.agencyId,
-                  household_key: householdKey,
-                  first_name: primaryRecord.firstName,
-                  last_name: primaryRecord.lastName,
-                  zip_code: primaryRecord.zipCode,
-                  status: 'sold',
-                  sold_date: primaryRecord.saleDate,
-                  team_member_id: teamMemberId,
-                  needs_attention: true,
-                })
-                .select('id')
-                .single();
+            }
+        }
+          } // End of if (!policyMatchFound)
 
-              if (createError) {
-                const { data: retryHousehold } = await supabase
+          // Create or find a unified contact for this household
+          if (householdId && primaryRecord.lastName?.trim()) {
+            try {
+              const { data: contactId } = await supabase.rpc('find_or_create_contact', {
+                p_agency_id: context.agencyId,
+                p_first_name: primaryRecord.firstName || null,
+                p_last_name: primaryRecord.lastName,
+                p_zip_code: primaryRecord.zipCode || null,
+                p_phone: null,
+                p_email: null,
+              });
+              if (contactId) {
+                await supabase
                   .from('lqs_households')
-                  .select('id')
-                  .eq('agency_id', context.agencyId)
-                  .eq('household_key', householdKey)
-                  .maybeSingle();
-                  
-                if (retryHousehold) {
-                  householdId = retryHousehold.id;
-                } else {
-                  throw new Error(`Failed to create household: ${createError.message}`);
-                }
-              } else {
-                householdId = newHousehold.id;
+                  .update({ contact_id: contactId })
+                  .eq('id', householdId)
+                  .is('contact_id', null); // Only set if not already linked
               }
-              wasCreated = true;
-              needsAttentionFlag = true;
+            } catch (contactErr) {
+              console.warn('[Sales Upload] Failed to create contact for household:', contactErr);
             }
           }
-          } // End of if (!policyMatchFound)
 
           // Process all sales for this household
           let salesCreatedInGroup = 0;
           let quotesLinkedInGroup = 0;
-          
+
+          if (!householdId) {
+            for (const record of groupRecords) {
+              addError(record, 'could not be matched to a customer record, so this sale could not be saved.');
+            }
+          } else {
           for (const record of groupRecords) {
             // Try to find matching quote by product type
             let linkedQuoteId: string | null = null;
-            
-            const { data: matchingQuote } = await supabase
+
+            const { data: matchingQuote, error: matchingQuoteError } = await supabase
               .from('lqs_quotes')
               .select('id')
               .eq('household_id', householdId)
@@ -582,6 +636,14 @@ async function processInBackground(
               .order('quote_date', { ascending: false })
               .limit(1)
               .maybeSingle();
+
+            if (matchingQuoteError) {
+              addError(
+                record,
+                `could not verify matching quote details because LQS lookup failed: ${matchingQuoteError.message}`
+              );
+              // Continue without quote link when lookup fails
+            }
               
             if (matchingQuote) {
               linkedQuoteId = matchingQuote.id;
@@ -613,17 +675,23 @@ async function processInBackground(
                 source: 'lqs_upload',
                 linked_quote_id: linkedQuoteId,
               });
-
-            if (saleError) {
-              throw new Error(`Failed to insert sale: ${saleError.message}`);
-            }
             
-            salesCreatedInGroup++;
+            if (saleError) {
+              const isDuplicate = saleError.code === '23505' || /duplicate/i.test(saleError.message || '');
+              const saleErrorMessage = isDuplicate
+                ? 'already exists in LQS and was skipped.'
+                : `was rejected by LQS: ${saleError.message}.`;
+              addError(record, saleErrorMessage);
+            } else {
+              salesCreatedInGroup++;
+            }
+          }
           }
 
           return {
             matchedTeamMemberId: teamMemberId,
             wasCreated,
+            householdFound,
             needsAttention: needsAttentionFlag,
             wasAutoMatched,
             needsManualReview,
@@ -631,6 +699,7 @@ async function processInBackground(
             primaryRecord,
             salesCreatedInGroup,
             quotesLinkedInGroup,
+            errors: groupErrors,
           };
         })
       );
@@ -639,9 +708,15 @@ async function processInBackground(
       for (const result of batchResults) {
         if (result.status === 'fulfilled') {
           const value = result.value;
+          if (value.errors.length > 0) {
+            errors.push(...value.errors);
+            errorCount += value.errors.length;
+          }
           if (value.matchedTeamMemberId) matchedTeamMemberIds.add(value.matchedTeamMemberId);
-          if (value.wasCreated) householdsCreated++;
-          else householdsMatched++;
+          if (value.householdFound) {
+            if (value.wasCreated) householdsCreated++;
+            else householdsMatched++;
+          }
           salesCreated += value.salesCreatedInGroup;
           quotesLinked += value.quotesLinkedInGroup;
           if (value.needsAttention) householdsNeedingAttention++;
@@ -655,7 +730,9 @@ async function processInBackground(
           }
         } else {
           errorCount++;
-          errors.push(result.reason?.message || 'Unknown error');
+          const reason =
+            result.reason instanceof Error ? result.reason.message : 'Unknown error';
+          errors.push(reason);
         }
       }
     }
@@ -664,6 +741,7 @@ async function processInBackground(
     queryClient.invalidateQueries({ queryKey: ['lqs-households'] });
     queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
     queryClient.invalidateQueries({ queryKey: ['lqs-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['contacts'] });
 
     // Build final result
     const result: SalesUploadResult = {
@@ -701,12 +779,12 @@ async function processInBackground(
       const reviewNote = needsReview > 0 ? ` (${needsReview} need review)` : '';
       toast({
         title: 'Sales Upload Complete!',
-        description: `${salesCreated} sales processed (${householdsMatched} matched, ${householdsCreated} new households)${reviewNote}`,
+        description: `${salesCreated} rows imported${reviewNote}.`,
       });
     } else {
       toast({
         title: 'Upload completed with issues',
-        description: `${salesCreated} succeeded, ${errorCount} failed`,
+        description: `${salesCreated} rows imported. ${errorCount} rows could not be imported and need re-upload.`,
         variant: 'destructive',
       });
     }
@@ -742,4 +820,10 @@ async function processInBackground(
       });
     }
   }
+}
+
+function buildSaleErrorPrefix(record: ParsedSaleRow): string {
+  const policyLabel = record.policyNumber ? `policy ${record.policyNumber}` : 'no policy number';
+  const lineLabel = `Row ${record.rowNumber}: ${record.firstName} ${record.lastName} (${policyLabel})`;
+  return lineLabel;
 }

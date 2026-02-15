@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -210,21 +210,27 @@ function getRootCustomFields(
 export default function SubmissionDetail() {
   const { submissionId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [submission, setSubmission] = useState<Submission | null>(null);
   const [leadSources, setLeadSources] = useState<LeadSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const isStaffUser = hasStaffToken();
+  const locationState = location.state as { from?: string } | null;
+  const returnPath = locationState?.from || (isStaffUser ? '/staff/metrics?tab=submissions' : '/metrics?tab=submissions');
+
+  const handleBack = () => {
+    navigate(returnPath);
+  };
 
   useEffect(() => {
     fetchSubmission();
   }, [submissionId]);
 
   const fetchSubmission = async () => {
-    const isStaff = hasStaffToken();
-
     try {
-      if (isStaff) {
+      if (isStaffUser) {
         // Staff users: use edge function to bypass RLS
         console.log('[SubmissionDetail] Staff user - fetching via edge function');
 
@@ -339,8 +345,7 @@ export default function SubmissionDetail() {
       if (error) throw error;
 
       toast.success('Submission deleted successfully');
-      const isStaffUser = hasStaffToken();
-      navigate(isStaffUser ? '/staff/metrics' : '/metrics');
+      navigate(returnPath);
     } catch (error: any) {
       console.error('Error deleting submission:', error);
       toast.error('Failed to delete submission');
@@ -365,7 +370,7 @@ export default function SubmissionDetail() {
             <div className="text-center text-muted-foreground">
               <Clock className="mx-auto h-12 w-12 mb-4 opacity-50" />
               <p className="text-lg font-medium mb-2">Submission not found</p>
-              <Button variant="outline" onClick={() => navigate(-1)}>
+              <Button variant="outline" onClick={handleBack}>
                 Go Back
               </Button>
             </div>
@@ -381,7 +386,7 @@ export default function SubmissionDetail() {
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+          <Button variant="outline" size="sm" onClick={handleBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
@@ -434,7 +439,7 @@ export default function SubmissionDetail() {
             
             <div>
               <span className="text-sm text-muted-foreground">Work Date</span>
-              <p className="font-medium">{format(parseISO(submission.work_date), 'PPP')}</p>
+              <p className="font-medium">{format(parseISO(submission.work_date || submission.submission_date || submission.submitted_at), 'PPP')}</p>
             </div>
             
             <div>
@@ -608,7 +613,22 @@ export default function SubmissionDetail() {
               )}
 
               {/* Render other form fields */}
-              {submission.payload_json && typeof submission.payload_json === 'object' ? (
+              {submission.payload_json && typeof submission.payload_json === 'object' ? (() => {
+                // Build label lookup from form schema KPIs and custom fields
+                const kpiLabelMap: Record<string, string> = {};
+                const schema = submission.form_templates?.schema_json;
+                if (schema?.kpis) {
+                  for (const kpi of schema.kpis) {
+                    if (kpi.key && kpi.label) kpiLabelMap[kpi.key] = kpi.label;
+                  }
+                }
+                if (schema?.customFields) {
+                  for (const field of schema.customFields) {
+                    if (field.key && field.label) kpiLabelMap[field.key] = field.label;
+                  }
+                }
+
+                return (
                 <div className="space-y-3">
                   {Object.entries(submission.payload_json).map(([key, value]) => {
                     // Skip quoted_details and soldDetails as we render them above
@@ -638,13 +658,16 @@ export default function SubmissionDetail() {
                       return null;
                     }
 
+                    // Resolve display label: form schema label > formatted key
+                    const displayLabel = kpiLabelMap[key] || key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim();
+
                     // For arrays (including UUID-keyed collections), render as a formatted list
                     if (Array.isArray(value) && value.length > 0) {
                       // Try to find a label from the schema for this collection
                       const schemaCollections = submission.form_templates?.schema_json?.collections || [];
                       const collection = schemaCollections.find((c: any) => c.id === key || c.key === key);
                       const collectionLabel = collection?.label ||
-                        (isUuidKey ? 'Details' : key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim());
+                        (isUuidKey ? 'Details' : displayLabel);
                       return (
                         <div key={key} className="border-b pb-2 last:border-b-0">
                           <span className="text-sm font-medium text-primary capitalize block mb-2">
@@ -680,7 +703,7 @@ export default function SubmissionDetail() {
                     return (
                       <div key={key} className="border-b pb-2 last:border-b-0">
                         <span className="text-sm text-muted-foreground capitalize">
-                          {key.replace(/([A-Z])/g, ' $1').replace(/[_-]/g, ' ').trim()}
+                          {displayLabel}
                         </span>
                         <p className="font-medium">
                           {typeof value === 'object' && value !== null
@@ -691,7 +714,8 @@ export default function SubmissionDetail() {
                     );
                   }).filter(Boolean)}
                 </div>
-              ) : !Array.isArray(submission?.payload_json?.quoted_details) || submission.payload_json.quoted_details.length === 0 ? (
+                );
+              })() : !Array.isArray(submission?.payload_json?.quoted_details) || submission.payload_json.quoted_details.length === 0 ? (
                 <p className="text-muted-foreground">No data available</p>
               ) : null}
 

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState, type ComponentType, type SVGProps } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -16,10 +25,10 @@ import {
   Trash2,
   Sparkles,
   Users,
-  Building2,
   Search,
   Loader2,
   CheckCircle2,
+  MessageSquare,
   BarChart3,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -35,21 +44,35 @@ interface Agency {
 interface FeatureAccess {
   id: string;
   agency_id: string;
-  feature_key: string;
+  feature_key: FeatureKey;
   granted_by: string | null;
   granted_at: string;
   notes: string | null;
   agency?: Agency;
 }
 
-const FEATURE_OPTIONS = ['sales_process_builder', 'call_gaps'] as const;
-type FeatureKey = typeof FEATURE_OPTIONS[number];
+type FeatureKey = 'sales_process_builder' | 'call_scoring_qa' | 'call_gaps';
 
-const FEATURE_INFO: Record<FeatureKey, { title: string; description: string; icon: typeof Sparkles }> = {
+const isFeatureKey = (value: string | null): value is FeatureKey =>
+  value === 'sales_process_builder' || value === 'call_scoring_qa' || value === 'call_gaps';
+
+const FEATURE_META: Record<
+  FeatureKey,
+  {
+    title: string;
+    description: string;
+    icon: ComponentType<SVGProps<SVGSVGElement>>;
+  }
+> = {
   sales_process_builder: {
     title: 'Sales Process Builder',
     description: 'AI-powered Sales Process Builder tool',
     icon: Sparkles,
+  },
+  call_scoring_qa: {
+    title: 'Call Scoring Q&A',
+    description: 'Ask timestamped questions against call transcripts',
+    icon: MessageSquare,
   },
   call_gaps: {
     title: 'Call Gaps Analyzer',
@@ -58,17 +81,44 @@ const FEATURE_INFO: Record<FeatureKey, { title: string; description: string; ico
   },
 };
 
+const FEATURE_OPTIONS: FeatureKey[] = ['sales_process_builder', 'call_scoring_qa', 'call_gaps'];
+
 export default function AdminOneOnOneClients() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const [selectedFeature, setSelectedFeature] = useState<FeatureKey>('sales_process_builder');
+
+  const featureFromQuery = useMemo<FeatureKey>(() => {
+    const candidate = searchParams.get('feature');
+    if (isFeatureKey(candidate)) {
+      return candidate;
+    }
+    return 'sales_process_builder';
+  }, [searchParams]);
+
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFeature, setSelectedFeature] = useState<FeatureKey>(featureFromQuery);
+
+  const setFeatureFromSelection = (next: FeatureKey) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (next === 'sales_process_builder') {
+      nextParams.delete('feature');
+    } else {
+      nextParams.set('feature', next);
+    }
+
+    setSearchParams(nextParams, { replace: true });
+    setSelectedFeature(next);
+  };
+
+  useEffect(() => {
+    if (selectedFeature !== featureFromQuery) {
+      setSelectedFeature(featureFromQuery);
+    }
+  }, [selectedFeature, featureFromQuery]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedAgencyId, setSelectedAgencyId] = useState<string>('');
   const [notes, setNotes] = useState('');
-
-  const featureInfo = FEATURE_INFO[selectedFeature];
-  const FeatureIcon = featureInfo.icon;
 
   // Fetch all agencies
   const { data: agencies, isLoading: agenciesLoading } = useQuery({
@@ -79,14 +129,20 @@ export default function AdminOneOnOneClients() {
         .select('id, name, created_at')
         .order('name');
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
       return data as Agency[];
     },
   });
 
-  // Fetch feature access records
-  const { data: featureAccess, isLoading: accessLoading } = useQuery({
-    queryKey: ['admin-feature-access', selectedFeature],
+  // Fetch all one-on-one feature access records
+  const {
+    data: featureAccess,
+    isLoading: accessLoading,
+  } = useQuery({
+    queryKey: ['admin-feature-access', 'one-on-one'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('agency_feature_access')
@@ -98,12 +154,13 @@ export default function AdminOneOnOneClients() {
           granted_at,
           notes
         `)
-        .eq('feature_key', selectedFeature)
+        .in('feature_key', FEATURE_OPTIONS)
         .order('granted_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      // Fetch agency names
       const agencyIds = data.map(d => d.agency_id);
       const { data: agencyData } = await supabase
         .from('agencies')
@@ -121,7 +178,15 @@ export default function AdminOneOnOneClients() {
 
   // Grant access mutation
   const grantAccessMutation = useMutation({
-    mutationFn: async ({ agencyId, featureKey, notes }: { agencyId: string; featureKey: string; notes: string }) => {
+    mutationFn: async ({
+      agencyId,
+      featureKey,
+      notes,
+    }: {
+      agencyId: string;
+      featureKey: FeatureKey;
+      notes: string;
+    }) => {
       const { data, error } = await supabase
         .from('agency_feature_access')
         .insert({
@@ -133,12 +198,15 @@ export default function AdminOneOnOneClients() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
       return data;
     },
     onSuccess: () => {
       toast.success('Access granted successfully');
-      queryClient.invalidateQueries({ queryKey: ['admin-feature-access'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-feature-access', 'one-on-one'] });
       setIsAddDialogOpen(false);
       setSelectedAgencyId('');
       setNotes('');
@@ -156,90 +224,102 @@ export default function AdminOneOnOneClients() {
         .delete()
         .eq('id', accessId);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
     },
     onSuccess: () => {
       toast.success('Access revoked');
-      queryClient.invalidateQueries({ queryKey: ['admin-feature-access'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-feature-access', 'one-on-one'] });
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Failed to revoke access');
     },
   });
 
-  // Filter agencies that don't already have access
-  const availableAgencies = agencies?.filter(
-    agency => !featureAccess?.some(fa => fa.agency_id === agency.id)
+  const filteredAgencies = agencies?.filter(
+    agency => agency.name.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
-  // Filter by search
-  const filteredAgencies = availableAgencies.filter(
-    agency => agency.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const selectedFeatureAccess = featureAccess?.filter(fa => fa.feature_key === selectedFeature) || [];
+
+  const selectedFeatureAccessFiltered = selectedFeatureAccess.filter(
+    fa => fa.agency?.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredAccess = featureAccess?.filter(
-    fa => fa.agency?.name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || [];
+  const availableAgencies = filteredAgencies.filter(
+    agency => !featureAccess?.some(
+      access => access.agency_id === agency.id && access.feature_key === selectedFeature
+    )
+  );
 
   const isLoading = agenciesLoading || accessLoading;
 
+  const FeatureIcon = FEATURE_META[selectedFeature].icon;
+
   return (
     <div className="container max-w-5xl mx-auto py-8 px-4">
-      {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
           <Users className="h-8 w-8 text-primary" />
           <h1 className="text-3xl font-bold">1:1 Clients</h1>
         </div>
         <p className="text-muted-foreground">
-          Manage per-agency access to premium features.
+          Manage which agencies can use one-on-one AI add-ons like Sales Process Builder and Call Scoring Q&A.
         </p>
       </div>
 
-      {/* Feature Selector + Stats */}
       <Card className="mb-6">
         <CardContent className="pt-6">
-          <div className="flex items-center gap-6">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Feature</label>
-              <Select value={selectedFeature} onValueChange={(v) => setSelectedFeature(v as FeatureKey)}>
-                <SelectTrigger className="w-[220px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FEATURE_OPTIONS.map((key) => (
-                    <SelectItem key={key} value={key}>
-                      {FEATURE_INFO[key].title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <FeatureIcon className="h-6 w-6 text-primary" />
             </div>
-            <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <FeatureIcon className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{featureAccess?.length || 0}</p>
-                <p className="text-sm text-muted-foreground">
-                  Agencies with {featureInfo.title} access
-                </p>
-              </div>
+            <div>
+              <p className="text-2xl font-bold">{selectedFeatureAccess.length}</p>
+              <p className="text-sm text-muted-foreground">
+                {FEATURE_META[selectedFeature].title} access granted
+              </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Main Card */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>{featureInfo.title} Access</CardTitle>
+              <CardTitle>{FEATURE_META[selectedFeature].title}</CardTitle>
               <CardDescription>
-                Grant or revoke access to the {featureInfo.description}.
+                {FEATURE_META[selectedFeature].description}
               </CardDescription>
             </div>
+
+            <div className="w-72">
+              <Label className="sr-only">Feature</Label>
+              <Select
+                value={selectedFeature}
+                onValueChange={(value) => setFeatureFromSelection(value as FeatureKey)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FEATURE_OPTIONS.map((featureKey) => {
+                    const FeatureOptionIcon = FEATURE_META[featureKey].icon;
+                    return (
+                      <SelectItem key={featureKey} value={featureKey}>
+                        <div className="flex items-center gap-2">
+                          <FeatureOptionIcon className="h-4 w-4" />
+                          {FEATURE_META[featureKey].title}
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -249,23 +329,26 @@ export default function AdminOneOnOneClients() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Grant {featureInfo.title} Access</DialogTitle>
+                  <DialogTitle>Grant {FEATURE_META[selectedFeature].title} Access</DialogTitle>
                   <DialogDescription>
-                    Select an agency to grant access to the {featureInfo.description}.
+                    Select an agency to grant access.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
                   <div className="space-y-2">
                     <Label>Agency</Label>
-                    <Select value={selectedAgencyId} onValueChange={setSelectedAgencyId}>
+                    <Select
+                      value={selectedAgencyId}
+                      onValueChange={setSelectedAgencyId}
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select an agency..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {filteredAgencies.map(agency => (
+                        {availableAgencies.map(agency => (
                           <SelectItem key={agency.id} value={agency.id}>
                             <div className="flex items-center gap-2">
-                              <Building2 className="h-4 w-4" />
+                              <Users className="h-4 w-4" />
                               {agency.name}
                             </div>
                           </SelectItem>
@@ -290,7 +373,13 @@ export default function AdminOneOnOneClients() {
                     Cancel
                   </Button>
                   <Button
-                    onClick={() => grantAccessMutation.mutate({ agencyId: selectedAgencyId, featureKey: selectedFeature, notes })}
+                    onClick={() =>
+                      grantAccessMutation.mutate({
+                        agencyId: selectedAgencyId,
+                        featureKey: selectedFeature,
+                        notes,
+                      })
+                    }
                     disabled={!selectedAgencyId || grantAccessMutation.isPending}
                   >
                     {grantAccessMutation.isPending ? (
@@ -310,8 +399,8 @@ export default function AdminOneOnOneClients() {
             </Dialog>
           </div>
         </CardHeader>
+
         <CardContent>
-          {/* Search */}
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -322,18 +411,19 @@ export default function AdminOneOnOneClients() {
             />
           </div>
 
-          {/* Table */}
           {isLoading ? (
             <div className="space-y-3">
               {[1, 2, 3].map(i => (
                 <Skeleton key={i} className="h-16 w-full" />
               ))}
             </div>
-          ) : filteredAccess.length === 0 ? (
+          ) : selectedFeatureAccessFiltered.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No agencies have been granted access yet.</p>
-              <p className="text-sm">Click "Grant Access" to add your first 1:1 client.</p>
+              <p>No agencies have been granted this feature yet.</p>
+              <p className="text-sm">
+                Grant access above to make it visible in the client&apos;s one-on-one tools.
+              </p>
             </div>
           ) : (
             <Table>
@@ -346,12 +436,15 @@ export default function AdminOneOnOneClients() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAccess.map(access => (
+                {selectedFeatureAccessFiltered.map(access => (
                   <TableRow key={access.id}>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <Users className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">{access.agency?.name || 'Unknown'}</span>
+                        <Badge variant="outline" className="ml-2">
+                          {FEATURE_META[access.feature_key].title}
+                        </Badge>
                       </div>
                     </TableCell>
                     <TableCell>

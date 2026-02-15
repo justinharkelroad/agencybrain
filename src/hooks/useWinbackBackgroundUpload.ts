@@ -114,6 +114,8 @@ async function processInBackground(
   queryClient: ReturnType<typeof useQueryClient>
 ) {
   try {
+    const processedHouseholdIds = new Set<string>();
+
     const stats: UploadStats = {
       processed: 0,
       newHouseholds: 0,
@@ -203,6 +205,8 @@ async function processInBackground(
         householdId = newHousehold.id;
         stats.newHouseholds++;
       }
+
+      processedHouseholdIds.add(householdId);
 
       // Process each policy in this household
       for (const record of groupRecords) {
@@ -311,8 +315,8 @@ async function processInBackground(
       });
     }
 
-    // Record the upload
-    await supabase.from('winback_uploads').insert({
+    // Record the upload and get its ID
+    const { data: uploadRecord } = await supabase.from('winback_uploads').insert({
       agency_id: agencyId,
       uploaded_by_user_id: userId || null,
       filename,
@@ -321,7 +325,18 @@ async function processInBackground(
       records_new_policies: stats.newPolicies,
       records_updated: stats.updated,
       records_skipped: stats.skipped,
-    });
+    }).select('id').single();
+
+    // Stamp last_upload_id on all processed households
+    if (uploadRecord?.id) {
+      const allHouseholdIds = Array.from(processedHouseholdIds);
+      if (allHouseholdIds.length > 0) {
+        await supabase
+          .from('winback_households')
+          .update({ last_upload_id: uploadRecord.id })
+          .in('id', allHouseholdIds);
+      }
+    }
 
     // Invalidate queries
     invalidateWinbackQueries(queryClient);

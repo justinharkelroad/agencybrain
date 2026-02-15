@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
-import { useStaffFlowProfile } from '@/hooks/useStaffFlowProfile';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -92,7 +91,6 @@ export default function StaffSalesLesson() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, sessionToken, isAuthenticated, loading: authLoading } = useStaffAuth();
-  const { hasProfile, loading: profileLoading } = useStaffFlowProfile();
 
   const [lesson, setLesson] = useState<LessonData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -333,10 +331,12 @@ export default function StaffSalesLesson() {
               {lesson.video_platform === 'vimeo' ? (
                 <iframe
                   src={(() => {
-                    const vimeoMatch = lesson.video_url?.match(/vimeo\.com\/(\d+)/);
-                    return vimeoMatch 
-                      ? `https://player.vimeo.com/video/${vimeoMatch[1]}`
-                      : lesson.video_url || '';
+                    const vimeoMatch = lesson.video_url?.match(/vimeo\.com\/(\d+)(?:\/([a-zA-Z0-9]+))?/);
+                    if (vimeoMatch) {
+                      const hash = vimeoMatch[2] ? `?h=${vimeoMatch[2]}` : '';
+                      return `https://player.vimeo.com/video/${vimeoMatch[1]}${hash}`;
+                    }
+                    return lesson.video_url || '';
                   })()}
                   className="w-full h-full"
                   allow="autoplay; fullscreen; picture-in-picture"
@@ -390,7 +390,7 @@ export default function StaffSalesLesson() {
       )}
 
       {/* Discovery Flow Section */}
-      {lesson.is_discovery_flow && lesson.progress?.status !== 'completed' && (
+      {lesson.is_discovery_flow && lesson.progress?.status !== 'locked' && (
         <Card className="mb-6 border-purple-500/30 bg-purple-500/5">
           <CardContent className="py-6">
             <div className="text-center space-y-4">
@@ -404,22 +404,10 @@ export default function StaffSalesLesson() {
                 </p>
               </div>
               <Button
-                onClick={() => {
-                  if (profileLoading) return;
-                  if (hasProfile) {
-                    navigate('/staff/flows/start/discovery');
-                  } else {
-                    navigate('/staff/flows/profile', { state: { returnTo: `/staff/flows/start/discovery` } });
-                  }
-                }}
-                disabled={profileLoading}
+                onClick={() => navigate('/staff/flows')}
                 className="gap-2 bg-purple-500 hover:bg-purple-600"
               >
-                {profileLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
+                <Sparkles className="h-4 w-4" />
                 Start Discovery Flow
               </Button>
             </div>

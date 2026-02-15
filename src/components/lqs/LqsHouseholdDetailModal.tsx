@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format, parseISO } from 'date-fns';
@@ -39,6 +39,7 @@ import { filterCountableQuotes } from '@/lib/lqs-constants';
 import { formatPhoneNumber } from '@/lib/utils';
 import { useLqsObjections } from '@/hooks/useLqsObjections';
 import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
+import { useLeadSources } from '@/hooks/useLeadSources';
 
 interface LqsHouseholdDetailModalProps {
   household: HouseholdWithRelations | null;
@@ -69,6 +70,7 @@ export function LqsHouseholdDetailModal({
   const [editZipCode, setEditZipCode] = useState('');
   const [editTeamMemberId, setEditTeamMemberId] = useState('');
   const [editObjectionId, setEditObjectionId] = useState('');
+  const [editLeadSourceId, setEditLeadSourceId] = useState('');
   const [deletedQuoteIds, setDeletedQuoteIds] = useState<string[]>([]);
   const [conflictingSourceName, setConflictingSourceName] = useState<string | null>(null);
   const [isResolvingConflict, setIsResolvingConflict] = useState(false);
@@ -81,8 +83,24 @@ export function LqsHouseholdDetailModal({
   // Fetch objections for edit dropdown - use staff hook in staff context
   const isStaffContext = !!staffSessionToken;
   const { data: staffObjections = [] } = useStaffLqsObjections(staffSessionToken);
-  const { data: agencyObjections = [] } = useLqsObjections(!isStaffContext);
+  const { data: agencyObjections = [] } = useLqsObjections(household?.agency_id, !isStaffContext);
   const objections = isStaffContext ? staffObjections : agencyObjections;
+
+  // Fetch lead sources for edit dropdown
+  // For staff context, fetch via edge function; for regular users, use the hook
+  const { leadSources: agencyLeadSources } = useLeadSources();
+  const { data: staffLeadSources = [] } = useQuery({
+    queryKey: ['staff-lead-sources-modal', staffSessionToken],
+    enabled: isStaffContext && !!staffSessionToken,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('get_staff_lead_sources', {
+        headers: { 'x-staff-session': staffSessionToken! },
+      });
+      if (error) throw error;
+      return (data?.leadSources || []) as { id: string; name: string; is_self_generated?: boolean; bucket?: { id: string; name: string } | null }[];
+    },
+  });
+  const availableLeadSources = isStaffContext ? staffLeadSources : agencyLeadSources;
 
   const PRODUCT_OPTIONS = [
     'Standard Auto',
@@ -184,6 +202,7 @@ export function LqsHouseholdDetailModal({
       setEditZipCode(household.zip_code || '');
       setEditTeamMemberId(household.team_member_id || '');
       setEditObjectionId(household.objection?.id || '');
+      setEditLeadSourceId(household.lead_source_id || '');
       setDeletedQuoteIds([]);
       setIsEditing(false);
       setShowAddQuoteForm(false);
@@ -263,6 +282,7 @@ export function LqsHouseholdDetailModal({
           email: editEmail || null,
           zip_code: editZipCode || null,
           team_member_id: editTeamMemberId || null,
+          lead_source_id: editLeadSourceId || null,
           objection_id: editObjectionId || null,
           ...(shouldRevertToLead && { status: 'lead', first_quote_date: null }),
           updated_at: new Date().toISOString(),
@@ -295,6 +315,7 @@ export function LqsHouseholdDetailModal({
       setEditZipCode(household.zip_code || '');
       setEditTeamMemberId(household.team_member_id || '');
       setEditObjectionId(household.objection?.id || '');
+      setEditLeadSourceId(household.lead_source_id || '');
       setDeletedQuoteIds([]);
     }
     setIsEditing(false);
@@ -890,7 +911,24 @@ export function LqsHouseholdDetailModal({
             {/* Normal Lead Source Display (when no conflict) */}
             {household.attention_reason !== 'source_conflict' && (
               <>
-                {household.lead_source ? (
+                {isEditing ? (
+                  <Select
+                    value={editLeadSourceId || '__none__'}
+                    onValueChange={(val) => setEditLeadSourceId(val === '__none__' ? '' : val)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select lead source..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      <SelectItem value="__none__">Not assigned</SelectItem>
+                      {availableLeadSources.map((ls) => (
+                        <SelectItem key={ls.id} value={ls.id}>
+                          {ls.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : household.lead_source ? (
                   <div className="flex items-center gap-2">
                     <Badge variant="outline">
                       {household.lead_source.name}

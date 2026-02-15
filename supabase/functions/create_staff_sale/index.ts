@@ -50,6 +50,8 @@ interface CreateSaleRequest {
   vc_points: number;
   is_bundle: boolean;
   bundle_type: string | null;
+  existing_customer_products?: string[];
+  is_one_call_close?: boolean;
 }
 
 serve(async (req) => {
@@ -281,12 +283,13 @@ serve(async (req) => {
 
       // Create quote and sale records for each policy (this auto-updates household status via triggers)
       if (lqsHouseholdId) {
+        let lqsErrors = 0;
         for (const policy of body.policies) {
           const premiumCents = Math.round((policy.items.reduce((sum, i) => sum + i.premium, 0)) * 100);
           const itemsCount = policy.items.reduce((sum, i) => sum + i.item_count, 0);
 
           // Create quote (triggers status → 'quoted')
-          await supabase
+          const { error: quoteErr } = await supabase
             .from('lqs_quotes')
             .insert({
               household_id: lqsHouseholdId,
@@ -300,8 +303,13 @@ serve(async (req) => {
               source: 'manual',
             });
 
+          if (quoteErr) {
+            console.error('[create_staff_sale] Failed to create LQS quote:', quoteErr);
+            lqsErrors++;
+          }
+
           // Create sale (triggers status → 'sold')
-          await supabase
+          const { error: saleErr } = await supabase
             .from('lqs_sales')
             .insert({
               household_id: lqsHouseholdId,
@@ -314,9 +322,19 @@ serve(async (req) => {
               premium_cents: premiumCents,
               policy_number: policy.policy_number || null,
               source: 'sales_dashboard',
+              is_one_call_close: body.is_one_call_close ?? false,
             });
+
+          if (saleErr) {
+            console.error('[create_staff_sale] Failed to create LQS sale:', saleErr);
+            lqsErrors++;
+          }
         }
-        console.log('[create_staff_sale] LQS quotes and sales created');
+        if (lqsErrors > 0) {
+          console.warn(`[create_staff_sale] LQS pipeline completed with ${lqsErrors} error(s)`);
+        } else {
+          console.log('[create_staff_sale] LQS quotes and sales created');
+        }
       }
     } catch (lqsErr) {
       console.warn('[create_staff_sale] LQS pipeline creation failed:', lqsErr);
@@ -349,8 +367,10 @@ serve(async (req) => {
         vc_points: body.vc_points,
         is_bundle: body.is_bundle,
         bundle_type: body.bundle_type,
+        existing_customer_products: body.existing_customer_products ?? [],
         source: body.source,
         source_details: body.source_details || null,
+        is_one_call_close: body.is_one_call_close ?? false,
       })
       .select('id')
       .single();

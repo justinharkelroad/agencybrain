@@ -55,7 +55,7 @@ serve(async (req) => {
     // Build query
     let query = supabase
       .from('renewal_records')
-      .select('current_status, multi_line_indicator, premium_new')
+      .select('current_status, multi_line_indicator, premium_new, product_name')
       .eq('agency_id', agencyId)
       .eq('is_active', true);
 
@@ -75,30 +75,42 @@ serve(async (req) => {
       });
     }
 
-    // Calculate stats
+    // Calculate stats - return flat structure matching non-staff path
     const records = data || [];
     const stats = {
       total: records.length,
-      byStatus: {} as Record<string, number>,
-      byBundling: { mono: 0, multi: 0 },
-      totalPremium: 0,
+      uncontacted: 0,
+      pending: 0,
+      success: 0,
+      unsuccessful: 0,
+      bundled: 0,
+      monoline: 0,
+      unknown: 0,
     };
+
+    const productNameSet = new Set<string>();
 
     records.forEach((r: any) => {
       // Count by status
       const status = r.current_status || 'unknown';
-      stats.byStatus[status] = (stats.byStatus[status] || 0) + 1;
-      
-      // Count by bundling (multi_line_indicator is boolean)
-      if (r.multi_line_indicator) stats.byBundling.multi++;
-      else stats.byBundling.mono++;
-      
-      // Sum premium (premium_new is already in dollars)
-      stats.totalPremium += r.premium_new || 0;
+      if (status === 'uncontacted') stats.uncontacted++;
+      else if (status === 'pending') stats.pending++;
+      else if (status === 'success') stats.success++;
+      else if (status === 'unsuccessful') stats.unsuccessful++;
+
+      // Count by bundling (multi_line_indicator is TEXT: 'yes'/'no'/'n/a')
+      if (r.multi_line_indicator === 'yes') stats.bundled++;
+      else if (r.multi_line_indicator === 'no') stats.monoline++;
+      else stats.unknown++;
+
+      // Collect distinct product names
+      if (r.product_name) productNameSet.add(r.product_name);
     });
 
-    console.log('[get_staff_renewal_stats] Returning stats for', records.length, 'records');
-    return new Response(JSON.stringify({ stats }), {
+    const productNames = [...productNameSet].sort();
+
+    console.log('[get_staff_renewal_stats] Returning stats for', records.length, 'records,', productNames.length, 'products');
+    return new Response(JSON.stringify({ stats, productNames }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 

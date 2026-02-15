@@ -33,6 +33,23 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { ExchangeShareModal } from '@/components/exchange/ExchangeShareModal';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface SPModule {
   id: string;
@@ -62,6 +79,148 @@ interface SPLesson {
   is_published: boolean;
 }
 
+interface SortableLessonProps {
+  lesson: SPLesson;
+  index: number;
+  moduleSlug: string | undefined;
+  categorySlug: string | undefined;
+  onTogglePublished: (lesson: SPLesson) => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  onShare: (lesson: SPLesson) => void;
+  onPreview: (lesson: SPLesson) => void;
+}
+
+function SortableLesson({ lesson, index, moduleSlug, categorySlug, onTogglePublished, onEdit, onDelete, onShare, onPreview }: SortableLessonProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: lesson.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className={`transition-opacity ${!lesson.is_published ? 'opacity-60' : ''} ${isDragging ? 'shadow-lg ring-2 ring-primary' : ''}`}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-center gap-4">
+          {/* Drag Handle */}
+          <div
+            {...attributes}
+            {...listeners}
+            className="text-muted-foreground/40 cursor-grab active:cursor-grabbing hover:text-muted-foreground touch-none"
+          >
+            <GripVertical className="h-5 w-5" />
+          </div>
+
+          {/* Lesson Number */}
+          <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-sm font-medium">
+            {index + 1}
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="font-medium truncate">{lesson.name}</h3>
+              {!lesson.is_published && (
+                <Badge variant="outline" className="text-xs">Draft</Badge>
+              )}
+            </div>
+            
+            {/* Content indicators */}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground/70">
+              {lesson.video_url && (
+                <span className="flex items-center gap-1">
+                  <Video className="h-3 w-3" /> Video
+                </span>
+              )}
+              {lesson.content_html && (
+                <span className="flex items-center gap-1">
+                  <FileText className="h-3 w-3" /> Content
+                </span>
+              )}
+              {lesson.document_url && (
+                <span className="flex items-center gap-1">
+                  <FileDown className="h-3 w-3" /> Document
+                </span>
+              )}
+              {lesson.has_quiz && (
+                <span className="flex items-center gap-1">
+                  <HelpCircle className="h-3 w-3" /> Quiz
+                </span>
+              )}
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3" /> {lesson.estimated_minutes} min
+              </span>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={lesson.is_published}
+              onCheckedChange={() => onTogglePublished(lesson)}
+            />
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onPreview(lesson)}
+                >
+                  <Eye className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Preview Lesson</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onShare(lesson)}
+                >
+                  <Share2 className="h-4 w-4" strokeWidth={1.5} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Share to The Exchange</TooltipContent>
+            </Tooltip>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onEdit(lesson.id)}
+            >
+              <Pencil className="h-4 w-4" strokeWidth={1.5} />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onDelete(lesson.id)}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" strokeWidth={1.5} />
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminSPModuleDetail() {
   const { moduleId } = useParams<{ moduleId: string }>();
   const navigate = useNavigate();
@@ -75,6 +234,17 @@ export default function AdminSPModuleDetail() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareLesson, setShareLesson] = useState<SPLesson | null>(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
   useEffect(() => {
     if (moduleId) {
       fetchData();
@@ -84,7 +254,6 @@ export default function AdminSPModuleDetail() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch module with category
       const { data: modData, error: modError } = await supabase
         .from('sp_modules')
         .select(`
@@ -97,7 +266,6 @@ export default function AdminSPModuleDetail() {
       if (modError) throw modError;
       setModule(modData);
 
-      // Fetch lessons
       const { data: lessonData, error: lessonError } = await supabase
         .from('sp_lessons')
         .select('*')
@@ -159,6 +327,42 @@ export default function AdminSPModuleDetail() {
     } finally {
       setDeleting(false);
       setDeleteId(null);
+    }
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = lessons.findIndex(l => l.id === active.id);
+    const newIndex = lessons.findIndex(l => l.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newLessons = arrayMove(lessons, oldIndex, newIndex);
+    setLessons(newLessons);
+
+    try {
+      const updates = newLessons.map((lesson, index) => ({
+        id: lesson.id,
+        display_order: index,
+      }));
+
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('sp_lessons')
+          .update({ display_order: update.display_order })
+          .eq('id', update.id);
+
+        if (error) throw error;
+      }
+
+      toast({ title: 'Order saved' });
+    } catch (err) {
+      console.error('Error saving order:', err);
+      toast({ title: 'Failed to save order', variant: 'destructive' });
+      fetchData();
     }
   };
 
@@ -225,118 +429,36 @@ export default function AdminSPModuleDetail() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {lessons.map((lesson, index) => (
-            <Card
-              key={lesson.id}
-              className={`transition-opacity ${!lesson.is_published ? 'opacity-60' : ''}`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  {/* Drag Handle */}
-                  <div className="text-muted-foreground/40 cursor-grab">
-                    <GripVertical className="h-5 w-5" />
-                  </div>
-
-                  {/* Lesson Number */}
-                  <div className="w-8 h-8 rounded-lg bg-muted/50 flex items-center justify-center text-sm font-medium">
-                    {index + 1}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium truncate">{lesson.name}</h3>
-                      {!lesson.is_published && (
-                        <Badge variant="outline" className="text-xs">Draft</Badge>
-                      )}
-                    </div>
-                    
-                    {/* Content indicators */}
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground/70">
-                      {lesson.video_url && (
-                        <span className="flex items-center gap-1">
-                          <Video className="h-3 w-3" /> Video
-                        </span>
-                      )}
-                      {lesson.content_html && (
-                        <span className="flex items-center gap-1">
-                          <FileText className="h-3 w-3" /> Content
-                        </span>
-                      )}
-                      {lesson.document_url && (
-                        <span className="flex items-center gap-1">
-                          <FileDown className="h-3 w-3" /> Document
-                        </span>
-                      )}
-                      {lesson.has_quiz && (
-                        <span className="flex items-center gap-1">
-                          <HelpCircle className="h-3 w-3" /> Quiz
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> {lesson.estimated_minutes} min
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={lesson.is_published}
-                      onCheckedChange={() => toggleLessonPublished(lesson)}
-                    />
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => navigate(`/training/standard/${module.category?.slug}/${module.slug}/${lesson.slug}`)}
-                        >
-                          <Eye className="h-4 w-4" strokeWidth={1.5} />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Preview Lesson</TooltipContent>
-                    </Tooltip>
-
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            setShareLesson(lesson);
-                            setShareModalOpen(true);
-                          }}
-                        >
-                          <Share2 className="h-4 w-4" strokeWidth={1.5} />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Share to The Exchange</TooltipContent>
-                    </Tooltip>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => navigate(`/admin/standard-playbook/lesson/${lesson.id}`)}
-                    >
-                      <Pencil className="h-4 w-4" strokeWidth={1.5} />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteId(lesson.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" strokeWidth={1.5} />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={lessons.map(l => l.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-3">
+              {lessons.map((lesson, index) => (
+                <SortableLesson
+                  key={lesson.id}
+                  lesson={lesson}
+                  index={index}
+                  moduleSlug={module.slug}
+                  categorySlug={module.category?.slug}
+                  onTogglePublished={toggleLessonPublished}
+                  onEdit={(id) => navigate(`/admin/standard-playbook/lesson/${id}`)}
+                  onDelete={setDeleteId}
+                  onShare={(l) => {
+                    setShareLesson(l);
+                    setShareModalOpen(true);
+                  }}
+                  onPreview={(l) => navigate(`/training/standard/${module.category?.slug}/${module.slug}/${l.slug}`)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       {/* Delete Confirmation */}

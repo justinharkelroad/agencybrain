@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 export interface SalesExperienceAssignment {
   id: string;
@@ -63,10 +64,12 @@ function calculateCurrentWeek(startDate: string): number {
  */
 export function useSalesExperienceAccess(): SalesExperienceAccess {
   const { user, isAgencyOwner, isKeyEmployee, keyEmployeeAgencyId, isAdmin } = useAuth();
+  const { effectiveRole, agencyId: permissionAgencyId, loading: permissionsLoading } = useUserPermissions();
+  const isManager = effectiveRole === 'manager';
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['sales-experience-access', user?.id],
-    enabled: !!user && (isAgencyOwner || isKeyEmployee || isAdmin),
+    enabled: !!user && !permissionsLoading && (isAgencyOwner || isKeyEmployee || isAdmin || isManager),
     staleTime: 5 * 60 * 1000, // 5 minutes
     queryFn: async () => {
       // First, get the user's agency ID
@@ -85,6 +88,8 @@ export function useSalesExperienceAccess(): SalesExperienceAccess {
           return { assignment: null };
         }
         agencyId = profile.agency_id;
+      } else if (isManager && permissionAgencyId) {
+        agencyId = permissionAgencyId;
       } else if (isAdmin) {
         // Admins can access but don't have a personal assignment
         // They'll access via admin routes
@@ -127,7 +132,7 @@ export function useSalesExperienceAccess(): SalesExperienceAccess {
     currentWeek,
     isActive,
     isPending,
-    isLoading,
+    isLoading: isLoading || permissionsLoading,
     error: error as Error | null,
   };
 }

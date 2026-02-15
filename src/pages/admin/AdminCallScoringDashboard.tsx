@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -25,9 +25,11 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  ReferenceDot,
 } from 'recharts';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, subMonths, addMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { PulseMarker } from '@/components/charts/PulseMarker';
 
 type DatePreset = 'this-month' | 'last-month' | 'this-week' | 'last-30-days' | 'custom';
 
@@ -71,6 +73,7 @@ interface CallRecord {
 }
 
 const AdminCallScoringDashboard = () => {
+  const chartId = useId().replace(/:/g, '');
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<CostSummary | null>(null);
   const [agencyCosts, setAgencyCosts] = useState<AgencyCosts[]>([]);
@@ -81,6 +84,7 @@ const AdminCallScoringDashboard = () => {
   const [startDate, setStartDate] = useState<Date>(() => startOfMonth(new Date()));
   const [endDate, setEndDate] = useState<Date>(() => endOfMonth(new Date()));
   const [activePreset, setActivePreset] = useState<DatePreset>('this-month');
+  const latestCostPoint = [...dailyCosts].reverse().find((row) => typeof row.cost === 'number');
 
   useEffect(() => {
     fetchDashboardData();
@@ -95,11 +99,12 @@ const AdminCallScoringDashboard = () => {
         setStartDate(startOfMonth(now));
         setEndDate(endOfMonth(now));
         break;
-      case 'last-month':
+      case 'last-month': {
         const lastMonth = subMonths(now, 1);
         setStartDate(startOfMonth(lastMonth));
         setEndDate(endOfMonth(lastMonth));
         break;
+      }
       case 'this-week':
         setStartDate(startOfWeek(now, { weekStartsOn: 0 }));
         setEndDate(endOfWeek(now, { weekStartsOn: 0 }));
@@ -456,20 +461,58 @@ const AdminCallScoringDashboard = () => {
               {dailyCosts.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={dailyCosts}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <defs>
+                      <linearGradient id={`${chartId}-daily-cost-line`} x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor="hsl(var(--chart-1))" stopOpacity={0.55} />
+                        <stop offset="100%" stopColor="hsl(var(--chart-1))" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid vertical={false} strokeDasharray="8 8" className="stroke-border/70" />
                     <XAxis 
                       dataKey="date" 
                       className="text-muted-foreground"
                       tick={{ fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
                       tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     />
-                    <YAxis className="text-muted-foreground" tick={{ fontSize: 10 }} tickFormatter={(v) => `$${v.toFixed(2)}`} />
+                    <YAxis
+                      className="text-muted-foreground"
+                      tick={{ fontSize: 10 }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => `$${v.toFixed(2)}`}
+                    />
                     <Tooltip 
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                       formatter={(value: number) => [`$${value.toFixed(4)}`, 'Cost']}
                       labelFormatter={(label) => new Date(label).toLocaleDateString()}
                     />
-                    <Line type="monotone" dataKey="cost" stroke="hsl(var(--chart-1))" strokeWidth={2} dot={false} />
+                    <Line
+                      type="natural"
+                      dataKey="cost"
+                      stroke="hsl(var(--chart-1))"
+                      strokeOpacity={0.22}
+                      strokeWidth={7}
+                      dot={false}
+                      activeDot={false}
+                    />
+                    <Line
+                      type="natural"
+                      dataKey="cost"
+                      stroke={`url(#${chartId}-daily-cost-line)`}
+                      strokeWidth={3.2}
+                      dot={false}
+                      activeDot={{ r: 5, fill: 'hsl(var(--chart-1))', strokeWidth: 0 }}
+                    />
+                    {latestCostPoint && (
+                      <ReferenceDot
+                        x={latestCostPoint.date}
+                        y={latestCostPoint.cost}
+                        ifOverflow="visible"
+                        shape={<PulseMarker color="hsl(var(--chart-1))" />}
+                      />
+                    )}
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
@@ -492,7 +535,7 @@ const AdminCallScoringDashboard = () => {
             <div className="h-64">
               {dailyCosts.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dailyCosts}>
+                  <BarChart data={dailyCosts} barCategoryGap="38%">
                     <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                     <XAxis 
                       dataKey="date" 
@@ -501,11 +544,12 @@ const AdminCallScoringDashboard = () => {
                       tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     />
                     <YAxis className="text-muted-foreground" tick={{ fontSize: 10 }} />
-                    <Tooltip 
+                    <Tooltip
+                      cursor={false}
                       contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }}
                       labelFormatter={(label) => new Date(label).toLocaleDateString()}
                     />
-                    <Bar dataKey="calls" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="calls" fill="hsl(var(--chart-2))" radius={[8, 8, 0, 0]} maxBarSize={18} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (

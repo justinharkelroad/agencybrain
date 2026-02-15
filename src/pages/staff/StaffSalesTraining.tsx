@@ -32,6 +32,7 @@ interface SalesExperienceLesson {
   day_of_week: number;
   week_number: number;
   video_url: string | null;
+  is_discovery_flow?: boolean;
   is_unlocked: boolean;
   quiz_questions: QuizQuestion[];
   progress: {
@@ -360,6 +361,11 @@ function LessonCard({ lesson, onStart }: LessonCardProps) {
                 <BookOpen className="h-3 w-3" />
                 Quiz
               </span>
+            )}
+            {lesson.is_discovery_flow && (
+              <Badge variant="outline" className="text-xs">
+                Discovery Flow
+              </Badge>
             )}
             {lesson.progress?.quiz_score_percent !== null && lesson.progress?.quiz_score_percent !== undefined && (
               <span className="flex items-center gap-1">

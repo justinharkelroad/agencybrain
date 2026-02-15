@@ -4,10 +4,11 @@ import { useAuth } from '@/lib/auth';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import SharedInsights from '@/components/client/SharedInsights';
+import { useQueryClient } from '@tanstack/react-query';
+// SharedInsights — hidden (being phased out)
 import PerformanceMetrics from '@/components/client/PerformanceMetrics';
 import MonthOverMonthTrends from '@/components/client/MonthOverMonthTrends';
-import ReportingPeriods from '@/components/client/ReportingPeriods';
+// ReportingPeriods — hidden (being phased out)
 import RoleplaySessionsCard from '@/components/client/RoleplaySessionsCard';
 import { MyCurrentFocus } from '@/components/focus/MyCurrentFocus';
 import { TeamCore4Overview } from '@/components/core4/TeamCore4Overview';
@@ -16,7 +17,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { versionLabel } from "@/version";
 import EnvironmentStatusBadge from "@/components/EnvironmentStatusBadge";
 import { getEnvironmentOverride, type EnvOverride } from "@/lib/environment";
-import { enableMetrics } from "@/lib/featureFlags";
+// enableMetrics — hidden (being phased out)
 import { HelpButton } from '@/components/HelpButton';
 import { PeriodRefreshProvider } from '@/contexts/PeriodRefreshContext';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
@@ -25,16 +26,17 @@ import { SalesDashboardWidget } from '@/components/sales/SalesDashboardWidget';
 import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { useLqsObjections } from '@/hooks/useLqsObjections';
+import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Plus } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, signOut, isAdmin, membershipTier, isAgencyOwner, isKeyEmployee, hasTierAccess } = useAuth();
   const {
     canViewPerformanceMetrics,
     canViewMonthOverMonthTrends,
-    canViewSharedInsights,
-    canViewReportingPeriods,
     canSubmitCoachingCall,
     canSubmitMetrics,
     canViewFocusTargets,
@@ -45,13 +47,15 @@ const Dashboard = () => {
   // ALL useState hooks MUST be declared before any conditional returns (React Rules of Hooks)
   const [agencyName, setAgencyName] = useState<string | null>(null);
   const [agencyId, setAgencyId] = useState<string | null>(null);
+  const [agencySlug, setAgencySlug] = useState<string | null>(null);
   const [envOverride, setEnvOverride] = useState<EnvOverride | null>(getEnvironmentOverride());
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
+  const [dashboardCallMetricsEnabled, setDashboardCallMetricsEnabled] = useState(false);
 
-  // Fetch objections for quote modal
-  const { data: objections = [] } = useLqsObjections();
+  // Fetch objections for quote modal — must scope by agencyId so admins don't see all agencies
+  const { data: objections = [] } = useLqsObjections(agencyId);
 
   // ALL useEffect hooks MUST also be declared before any conditional returns (React Rules of Hooks)
 
@@ -75,15 +79,18 @@ const Dashboard = () => {
         setAgencyId(profile.agency_id);
         const { data: agency, error: agencyError } = await supabase
           .from('agencies')
-          .select('name')
+          .select('*')
           .eq('id', profile.agency_id)
           .maybeSingle();
-        if (!agencyError) {
-          setAgencyName(agency?.name || null);
+        if (!agencyError && agency) {
+          setAgencyName(agency.name || null);
+          setAgencySlug(agency.slug || null);
+          setDashboardCallMetricsEnabled((agency as any).dashboard_call_metrics_enabled ?? false);
         }
       } else {
         setAgencyName(null);
         setAgencyId(null);
+        setAgencySlug(null);
       }
     };
 
@@ -179,50 +186,93 @@ const Dashboard = () => {
           </div>
         </div>
         <PeriodRefreshProvider>
-          {/* 0. Sales Dashboard Widget - admin and beta agencies */}
-          {(isAdmin || hasSalesAccess(agencyId)) && <SalesDashboardWidget agencyId={agencyId} />}
-          
-          {/* 1. Core 4 + Flow */}
-          <Core4Card />
-          {(isAgencyOwner || isKeyEmployee) && <TeamCore4Overview />}
-          
-          {/* 2. Performance Metrics */}
-          {canViewPerformanceMetrics && <PerformanceMetrics />}
-          
-          {/* 3. Month Over Month Trends */}
-          {canViewMonthOverMonthTrends && <MonthOverMonthTrends />}
-          
-          {/* 4. Focus Targets */}
-          {canViewFocusTargets && <MyCurrentFocus />}
-          
-          {/* 5. Renewal Summary Widget */}
-          <RenewalSummaryWidget agencyId={agencyId} />
-          
-          {/* 6. Roleplay Sessions */}
-          {canViewRoleplaySessions && <RoleplaySessionsCard />}
-          
-          {/* 6. Metrics Dashboard */}
-          {enableMetrics && (
-            <section>
-              <Card className="border-border/10 bg-muted/20">
-                <CardHeader>
-                  <CardTitle className="font-medium">Metrics Dashboard</CardTitle>
-                  <CardDescription className="text-muted-foreground/70">View team performance and analytics</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button variant="ghost" className="w-full text-muted-foreground hover:text-foreground" asChild>
-                    <Link to="/metrics">View Metrics Dashboard</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            </section>
+          {dashboardCallMetricsEnabled ? (
+            <>
+              {/* Agency-wide metric rings */}
+              {agencySlug && agencyId && (
+                <AgencyMetricRings
+                  agencySlug={agencySlug}
+                  agencyId={agencyId}
+                  canFilterByMember={isAdmin || isAgencyOwner || isKeyEmployee}
+                />
+              )}
+
+              <Accordion type="multiple" defaultValue={["sales-performance"]}>
+                {/* 0. Sales Dashboard Widget */}
+                {(isAdmin || hasSalesAccess(agencyId)) && (
+                  <AccordionItem value="sales-performance">
+                    <AccordionTrigger className="text-lg font-semibold">Agency Sales Performance</AccordionTrigger>
+                    <AccordionContent>
+                      <SalesDashboardWidget agencyId={agencyId} />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                {/* 1. Core 4 + Flow */}
+                <AccordionItem value="core4">
+                  <AccordionTrigger className="text-lg font-semibold">Core 4 + Flow</AccordionTrigger>
+                  <AccordionContent className="space-y-6">
+                    <Core4Card />
+                    {(isAgencyOwner || isKeyEmployee) && <TeamCore4Overview />}
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 2. Performance Metrics + Month Over Month Trends (combined) */}
+                {(canViewPerformanceMetrics || canViewMonthOverMonthTrends) && (
+                  <AccordionItem value="performance-metrics">
+                    <AccordionTrigger className="text-lg font-semibold">Performance Metrics</AccordionTrigger>
+                    <AccordionContent className="space-y-6">
+                      {canViewPerformanceMetrics && <PerformanceMetrics />}
+                      {canViewMonthOverMonthTrends && <MonthOverMonthTrends />}
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                {/* 4. Focus Targets */}
+                {canViewFocusTargets && (
+                  <AccordionItem value="focus">
+                    <AccordionTrigger className="text-lg font-semibold">Focus Targets</AccordionTrigger>
+                    <AccordionContent>
+                      <MyCurrentFocus />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                {/* 5. Renewal Summary */}
+                <AccordionItem value="renewals">
+                  <AccordionTrigger className="text-lg font-semibold">Renewal Summary</AccordionTrigger>
+                  <AccordionContent>
+                    <RenewalSummaryWidget agencyId={agencyId} />
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* 6. Roleplay Sessions */}
+                {canViewRoleplaySessions && (
+                  <AccordionItem value="roleplay">
+                    <AccordionTrigger className="text-lg font-semibold">Roleplay Sessions</AccordionTrigger>
+                    <AccordionContent>
+                      <RoleplaySessionsCard />
+                    </AccordionContent>
+                  </AccordionItem>
+                )}
+
+                {/* Metrics Dashboard, Shared Insights, Reporting Periods — hidden (being phased out) */}
+              </Accordion>
+            </>
+          ) : (
+            <>
+              {/* Original flat layout for non-redesign agencies */}
+              {(isAdmin || hasSalesAccess(agencyId)) && <SalesDashboardWidget agencyId={agencyId} />}
+              <Core4Card />
+              {(isAgencyOwner || isKeyEmployee) && <TeamCore4Overview />}
+              {canViewPerformanceMetrics && <PerformanceMetrics />}
+              {canViewMonthOverMonthTrends && <MonthOverMonthTrends />}
+              {canViewFocusTargets && <MyCurrentFocus />}
+              <RenewalSummaryWidget agencyId={agencyId} />
+              {canViewRoleplaySessions && <RoleplaySessionsCard />}
+              {/* Metrics Dashboard, Shared Insights, Reporting Periods — hidden (being phased out) */}
+            </>
           )}
-          
-          {/* 7. Shared Insights */}
-          {canViewSharedInsights && <SharedInsights />}
-          
-          {/* 8. Reporting Periods */}
-          {canViewReportingPeriods && <ReportingPeriods />}
         </PeriodRefreshProvider>
         <div className="mt-8 pt-4 border-t border-border text-xs text-muted-foreground">
           Version: {versionLabel}
@@ -239,7 +289,9 @@ const Dashboard = () => {
           teamMembers={teamMembers}
           objections={objections}
           currentTeamMemberId={null}
-          onSuccess={() => {}}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] });
+          }}
         />
       )}
     </div>

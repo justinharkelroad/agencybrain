@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
-import { normalizeTier, isCallScoringTier } from '@/utils/tierAccess';
+import { normalizeTier, isCallScoringTier, isChallengeTier } from '@/utils/tierAccess';
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsAgencyOwner(false);
       }
 
-      // Check if user is a key employee and get inviter's tier
+      // Check if user is a key employee
       const { data: keyEmployeeData, error: keyEmployeeError } = await supabase
         .from('key_employees')
         .select('agency_id, invited_by')
@@ -116,8 +116,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsKeyEmployee(true);
         setKeyEmployeeAgencyId(keyEmployeeData.agency_id);
 
-        // KEY FIX: Inherit membership tier from the inviting owner
-        if (keyEmployeeData.invited_by) {
+        // Resolve tier from an owner-level profile in the same agency.
+        // This avoids incorrect inheritance when invited_by is stale or self-referential.
+        const { data: ownerTierProfile } = await supabase
+          .from('profiles')
+          .select('id, membership_tier, role, created_at')
+          .eq('agency_id', keyEmployeeData.agency_id)
+          .not('membership_tier', 'is', null)
+          .order('created_at', { ascending: true })
+          .abortSignal(signal);
+
+        if (signal?.aborted) return;
+
+        let resolvedTier: string | null = null;
+
+        if (Array.isArray(ownerTierProfile) && ownerTierProfile.length > 0) {
+          const ownerCandidate =
+            ownerTierProfile.find((p: any) => p?.role === 'admin') ||
+            ownerTierProfile.find((p: any) => p?.id && p.id !== userId) ||
+            ownerTierProfile[0];
+
+          resolvedTier = ownerCandidate?.membership_tier ?? null;
+          if (resolvedTier) {
+            console.log('[Auth] Key employee inheriting tier from agency profile:', resolvedTier);
+          }
+        }
+
+        // Fallback to inviter tier if agency-level owner lookup did not resolve.
+        if (!resolvedTier && keyEmployeeData.invited_by) {
           const { data: inviterProfile } = await supabase
             .from('profiles')
             .select('membership_tier')
@@ -128,15 +154,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (signal?.aborted) return;
 
           if (inviterProfile?.membership_tier) {
-            console.log('[Auth] Key employee inheriting tier from inviter:', inviterProfile.membership_tier);
-            setMembershipTier(inviterProfile.membership_tier);
-          } else {
-            // Fallback to user's own tier if inviter has none
-            setMembershipTier(data?.membership_tier ?? null);
+            resolvedTier = inviterProfile.membership_tier;
+            console.log('[Auth] Key employee inheriting tier from inviter fallback:', resolvedTier);
           }
-        } else {
-          setMembershipTier(data?.membership_tier ?? null);
         }
+
+        // Final fallback to user's own tier if no source resolved.
+        setMembershipTier(resolvedTier ?? data?.membership_tier ?? null);
       } else {
         setIsKeyEmployee(false);
         setKeyEmployeeAgencyId(null);
@@ -290,6 +314,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!session) return;
 
+    // Avoid token refresh logic while running in staff mode.
+    // Staff users are authenticated through staff sessions, not Supabase Auth.
+    if (localStorage.getItem('auth_mode') === 'staff') {
+      return;
+    }
+
     // Get token expiry time
     const expiresAt = session.expires_at;
     if (!expiresAt) return;
@@ -418,6 +448,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isCallScoringTier(membershipTier)) {
       const callScoringAllowed = ['call-scoring', 'exchange', 'agency', 'my-agency', 'account-settings'];
       return callScoringAllowed.includes(feature);
+    }
+
+    // Challenge tier: limited access to challenge, training, exchange, and agency
+    if (isChallengeTier(membershipTier)) {
+      const challengeAllowed = ['challenge', 'training', 'agency', 'my-agency', 'account-settings', 'exchange'];
+      return challengeAllowed.includes(feature);
     }
     
     // AI Roleplay only for 1:1 Coaching (not Boardroom)

@@ -17,6 +17,7 @@ import { ServiceCallReportCard } from '@/components/call-scoring/ServiceCallRepo
 import { CallScoringAnalytics } from '@/components/CallScoringAnalytics';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
+import type { Database, Json } from '@/integrations/supabase/types';
 
 interface UsageInfo {
   calls_used: number;
@@ -48,10 +49,21 @@ interface AnalyticsCall {
   template_name: string;
   potential_rank: string | null;
   overall_score: number | null;
-  skill_scores: any;
-  discovery_wins: any;
+  skill_scores: Json | null;
+  discovery_wins: Json | null;
   analyzed_at: string | null;
 }
+
+type TeamMemberOption = Pick<Database['public']['Tables']['team_members']['Row'], 'id' | 'name'>;
+type TemplateOption = Pick<Database['public']['Tables']['call_scoring_templates']['Row'], 'id' | 'name'>;
+type ScorecardCall = Database['public']['Tables']['agency_calls']['Row'] & { team_member_name?: string | null };
+type AnalyticsRow = Pick<
+  Database['public']['Tables']['agency_calls']['Row'],
+  'id' | 'team_member_id' | 'template_id' | 'potential_rank' | 'overall_score' | 'skill_scores' | 'discovery_wins' | 'analyzed_at'
+> & {
+  call_scoring_templates: { name: string | null } | null;
+};
+type CallScoringError = { message?: string } | null;
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg'];
 const ALLOWED_TYPES = ['audio/mpeg', 'audio/wav', 'audio/x-m4a', 'audio/ogg', 'audio/mp4'];
@@ -109,6 +121,7 @@ export default function CallScoring() {
   // Access control state
   const [accessChecked, setAccessChecked] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
+  const [callScoringQaEnabled, setCallScoringQaEnabled] = useState(false);
   
   // Processing queue for showing uploads in progress
   const [processingCalls, setProcessingCalls] = useState<Array<{
@@ -121,8 +134,8 @@ export default function CallScoring() {
   // Upload form state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
-  const [templates, setTemplates] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([]);
+  const [templates, setTemplates] = useState<TemplateOption[]>([]);
   const [selectedTeamMember, setSelectedTeamMember] = useState<string>('');
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
 
@@ -132,7 +145,7 @@ export default function CallScoring() {
   const [secondaryFileError, setSecondaryFileError] = useState<string | null>(null);
   
   // Scorecard modal state
-  const [selectedCall, setSelectedCall] = useState<any>(null);
+  const [selectedCall, setSelectedCall] = useState<ScorecardCall | null>(null);
   const [scorecardOpen, setScorecardOpen] = useState(false);
   const [loadingCallDetails, setLoadingCallDetails] = useState(false);
 
@@ -152,9 +165,10 @@ export default function CallScoring() {
 
   // Clean up all polling timeouts on unmount
   useEffect(() => {
+    const timeouts = pollingTimeoutsRef.current;
     return () => {
-      pollingTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
-      pollingTimeoutsRef.current.clear();
+      timeouts.forEach((timeout) => clearTimeout(timeout));
+      timeouts.clear();
     };
   }, []);
 
@@ -174,6 +188,13 @@ export default function CallScoring() {
   useEffect(() => {
     const detectStaffUser = async () => {
       console.log('=== CallScoring Staff Detection ===');
+      const authMode = localStorage.getItem('auth_mode');
+      if (authMode !== 'staff') {
+        console.log('Auth mode is not staff, using owner/admin mode');
+        setStaffDataLoaded(true);
+        return;
+      }
+
       const token = localStorage.getItem('staff_session_token');
       console.log('staff_session_token exists:', !!token);
       
@@ -204,7 +225,10 @@ export default function CallScoring() {
         setAgencyId(data.user.agency_id);
         setUserTeamMemberId(data.user.team_member_id);
         // Set role based on team member role from session
-        const staffRole = data.user.role === 'Manager' ? 'manager' : 'staff';
+        const normalizedStaffRole = (data.user.role || '').toLowerCase();
+        const staffRole = normalizedStaffRole === 'manager' || normalizedStaffRole === 'owner'
+          ? 'manager'
+          : 'staff';
         setUserRole(staffRole);
         setStaffDataLoaded(true);
       } catch (err) {
@@ -229,9 +253,13 @@ export default function CallScoring() {
       if (!isStaffUser || !staffAgencyId) return;
 
       console.log('Checking staff access for agency:', staffAgencyId);
+      const sessionToken = localStorage.getItem('staff_session_token');
 
       const { data: isEnabled, error } = await supabase
-        .rpc('is_call_scoring_enabled', { p_agency_id: staffAgencyId });
+        .rpc('is_call_scoring_enabled', {
+          p_agency_id: staffAgencyId,
+          p_staff_session_token: sessionToken,
+        });
 
       console.log('Staff call scoring access:', isEnabled, error);
 
@@ -239,6 +267,7 @@ export default function CallScoring() {
         setHasAccess(true);
         setAccessChecked(true);
       } else {
+        setCallScoringQaEnabled(false);
         // Set checked BEFORE navigating to prevent re-checking
         setAccessChecked(true);
         toast.error('Call Scoring is not enabled for your agency');
@@ -273,67 +302,73 @@ export default function CallScoring() {
     const sessionToken = localStorage.getItem('staff_session_token');
     if (!sessionToken) {
       console.log('No session token, aborting fetch');
+      toast.error('Missing staff session. Please sign in again.');
+      setLoading(false);
       return;
     }
 
     setLoading(true);
 
-    // Call edge function with server-side session validation
-    // The edge function enforces role-based access: staff sees own calls, managers see all
-    const { data, error } = await supabase.functions.invoke('get-staff-call-scoring-data', {
-      body: { page: currentPage, pageSize: CALLS_PER_PAGE },
-      headers: { 'x-staff-session': sessionToken }
-    });
+    try {
+      // Call edge function with server-side session validation
+      // The edge function enforces role-based access: staff sees own calls, managers see all
+      const { data, error } = await supabase.functions.invoke('get-staff-call-scoring-data', {
+        body: { page: currentPage, pageSize: CALLS_PER_PAGE },
+        headers: { 'x-staff-session': sessionToken }
+      });
 
-    console.log('Edge function response data:', data);
-    console.log('Edge function error:', error);
-    console.log('Recent calls returned:', data?.recent_calls);
-    console.log('Team members returned:', data?.team_members);
-    console.log('Templates returned:', data?.templates);
-    console.log('Usage returned:', data?.usage);
-    console.log('Total calls returned:', data?.total_calls);
-    console.log('Is manager (server-determined):', data?.is_manager);
+      console.log('Edge function response data:', data);
+      console.log('Edge function error:', error);
+      console.log('Recent calls returned:', data?.recent_calls);
+      console.log('Team members returned:', data?.team_members);
+      console.log('Templates returned:', data?.templates);
+      console.log('Usage returned:', data?.usage);
+      console.log('Total calls returned:', data?.total_calls);
+      console.log('Is manager (server-determined):', data?.is_manager);
 
-    if (error) {
-      console.error('Failed to fetch call scoring data:', error);
+      if (error) {
+        console.error('Failed to fetch call scoring data:', error);
+        toast.error('Failed to load call scoring data');
+        return;
+      }
+
+      // Check for error in response body (edge function returns errors in body)
+      if (data?.error) {
+        console.error('Call scoring data error:', data.error);
+        if (data.error === 'User account is not active') {
+          toast.error('Your account is not active. Please contact your administrator.');
+        } else if (data.error === 'Invalid or expired session') {
+          toast.error('Your session has expired. Please log in again.');
+        } else {
+          toast.error(data.error);
+        }
+        return;
+      }
+
+      if (data) {
+        setTemplates((data.templates as TemplateOption[]) || []);
+        setTeamMembers((data.team_members as TeamMemberOption[]) || []);
+        setRecentCalls(data.recent_calls || []);
+        setUsage(data.usage || { calls_used: 0, calls_limit: 20 });
+        setTotalCalls(data.total_calls || 0);
+        setCallScoringQaEnabled(Boolean(data.has_call_scoring_qa));
+
+        // Set analytics calls for managers (server determines manager status)
+        if (data.is_manager) {
+          setAnalyticsCalls(data.analytics_calls || []);
+        }
+
+        // Auto-select team member for staff
+        if (data.team_members?.length === 1) {
+          setSelectedTeamMember(data.team_members[0].id);
+        }
+      }
+    } catch (err) {
+      console.error('Unexpected error while fetching staff call scoring data:', err);
       toast.error('Failed to load call scoring data');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    // Check for error in response body (edge function returns errors in body)
-    if (data?.error) {
-      console.error('Call scoring data error:', data.error);
-      if (data.error === 'User account is not active') {
-        toast.error('Your account is not active. Please contact your administrator.');
-      } else if (data.error === 'Invalid or expired session') {
-        toast.error('Your session has expired. Please log in again.');
-      } else {
-        toast.error(data.error);
-      }
-      setLoading(false);
-      return;
-    }
-
-    if (data) {
-      setTemplates(data.templates || []);
-      setTeamMembers(data.team_members || []);
-      setRecentCalls(data.recent_calls || []);
-      setUsage(data.usage || { calls_used: 0, calls_limit: 20 });
-      setTotalCalls(data.total_calls || 0);
-
-      // Set analytics calls for managers (server determines manager status)
-      if (data.is_manager) {
-        setAnalyticsCalls(data.analytics_calls || []);
-      }
-
-      // Auto-select team member for staff
-      if (data.team_members?.length === 1) {
-        setSelectedTeamMember(data.team_members[0].id);
-      }
-    }
-
-    setLoading(false);
   }, [hasAccess, staffAgencyId, staffTeamMemberId, currentPage]);
 
   // Fetch data for staff users via RPC
@@ -353,10 +388,27 @@ export default function CallScoring() {
       if (isStaffUser) return;
       if (!user) return;
 
-      // Admins always have access
+      // Admins always have access to the page
       if (isAdmin) {
         setHasAccess(true);
         setAccessChecked(true);
+
+        // Still check if the admin's agency actually has QA enabled
+        const { data: adminProfile } = await supabase
+          .from('profiles')
+          .select('agency_id')
+          .eq('id', user.id)
+          .single();
+
+        if (adminProfile?.agency_id) {
+          const { data: callScoringQaFeature } = await supabase
+            .from('agency_feature_access')
+            .select('id')
+            .eq('agency_id', adminProfile.agency_id)
+            .eq('feature_key', 'call_scoring_qa')
+            .maybeSingle();
+          setCallScoringQaEnabled(Boolean(callScoringQaFeature?.id));
+        }
         return;
       }
 
@@ -368,22 +420,34 @@ export default function CallScoring() {
         .single();
 
       if (profile?.agency_id) {
-        const { data: settings } = await supabase
-          .from('agency_call_scoring_settings')
-          .select('enabled')
-          .eq('agency_id', profile.agency_id)
-          .maybeSingle();
+        const [{ data: settings }, { data: callScoringQaFeature }] = await Promise.all([
+          supabase
+            .from('agency_call_scoring_settings')
+            .select('enabled')
+            .eq('agency_id', profile.agency_id)
+            .maybeSingle(),
+          supabase
+            .from('agency_feature_access')
+            .select('id')
+            .eq('agency_id', profile.agency_id)
+            .eq('feature_key', 'call_scoring_qa')
+            .maybeSingle(),
+        ]);
+
+        setCallScoringQaEnabled(Boolean(callScoringQaFeature?.id));
 
         if (settings?.enabled) {
           setHasAccess(true);
           setAccessChecked(true);
         } else {
+          setCallScoringQaEnabled(false);
           // Set checked BEFORE navigating to prevent re-checking
           setAccessChecked(true);
           toast.error('Call Scoring is not enabled for your agency');
           navigate('/');
         }
       } else {
+        setCallScoringQaEnabled(false);
         setAccessChecked(true);
         toast.error('No agency found');
         navigate('/');
@@ -393,63 +457,7 @@ export default function CallScoring() {
     checkAccess();
   }, [user, isAdmin, navigate, isStaffUser, accessChecked]);
 
-  // Fetch data once access is confirmed (regular users only)
-  useEffect(() => {
-    if (hasAccess && user && !isStaffUser) {
-      fetchAgencyAndData();
-    }
-  }, [hasAccess, user, isStaffUser]);
-
-  // Refetch when page changes (regular users)
-  useEffect(() => {
-    if (hasAccess && user && !isStaffUser && agencyId) {
-      fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
-    }
-  }, [currentPage]);
-
-  const fetchAgencyAndData = async () => {
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('agency_id, role')
-        .eq('id', user!.id)
-        .single();
-
-      if (profile?.agency_id) {
-        setAgencyId(profile.agency_id);
-        const role = profile.role || 'user';
-        setUserRole(role);
-        
-        // Find user's team member ID via staff_users link (for staff/manager roles)
-        let teamMemberId: string | null = null;
-        
-        if (role !== 'admin') {
-          const { data: staffUser, error: staffError } = await supabase
-            .from('staff_users')
-            .select('team_member_id')
-            .eq('agency_id', profile.agency_id)
-            .eq('email', user!.email)
-            .maybeSingle();
-
-          console.log('Staff user lookup:', { staffUser, staffError, userId: user!.id, email: user!.email });
-          
-          if (staffUser?.team_member_id) {
-            teamMemberId = staffUser.team_member_id;
-            setUserTeamMemberId(teamMemberId);
-          }
-        }
-        
-        await Promise.all([
-          fetchUsageAndCalls(profile.agency_id, role, teamMemberId),
-          fetchFormData(profile.agency_id, role, teamMemberId)
-        ]);
-      }
-    } catch (err) {
-      console.error('Error fetching agency data:', err);
-    }
-  };
-
-  const fetchUsageAndCalls = async (agency: string, role: string, teamMemberId?: string | null) => {
+  const fetchUsageAndCalls = useCallback(async (agency: string, role: string, teamMemberId?: string | null) => {
     setLoading(true);
     
     try {
@@ -551,7 +559,7 @@ export default function CallScoring() {
 
       // Enrich analytics calls with team member names and template info
       if (analyticsData && analyticsData.length > 0) {
-        const enrichedAnalytics: AnalyticsCall[] = analyticsData.map((call: any) => ({
+        const enrichedAnalytics: AnalyticsCall[] = (analyticsData as AnalyticsRow[]).map((call: AnalyticsRow) => ({
           id: call.id,
           team_member_id: call.team_member_id,
           team_member_name: memberMap.get(call.team_member_id) || 'Unknown',
@@ -572,12 +580,12 @@ export default function CallScoring() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage]);
 
-  const fetchFormData = async (agency: string, role: string, teamMemberId?: string | null) => {
+  const fetchFormData = useCallback(async (agency: string, role: string, teamMemberId?: string | null) => {
     // Staff see only their own record; Managers see all team members (like owners)
     // Agency owners (role=user or null) and admins see all active team members
-    let members: { id: string; name: string }[] = [];
+    let members: TeamMemberOption[] = [];
     
     if (role === 'staff' && teamMemberId) {
       // Staff can only select themselves
@@ -588,7 +596,7 @@ export default function CallScoring() {
         .single();
       
       console.log('Staff team member fetch:', { data, error, teamMemberId });
-      if (data) members = [data];
+      if (data) members = [data as TeamMemberOption];
     } else {
       // Managers, agency owners (role='user', 'admin', or null) see all active team members
       const { data, error } = await supabase
@@ -599,7 +607,7 @@ export default function CallScoring() {
         .order('name');
       
       console.log('All team members fetch:', { data, error, agency });
-      members = data || [];
+      members = (data as TeamMemberOption[]) || [];
     }
     
     setTeamMembers(members);
@@ -625,12 +633,70 @@ export default function CallScoring() {
 
     // Combine both
     const allTemplates = [
-      ...(globalTemplates || []),
-      ...(agencyTemplates || [])
+      ...((globalTemplates as TemplateOption[]) || []),
+      ...((agencyTemplates as TemplateOption[]) || [])
     ];
     
     setTemplates(allTemplates);
-  };
+  }, []);
+
+  const fetchAgencyAndData = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('agency_id, role')
+        .eq('id', user.id)
+        .single();
+
+      if (profile?.agency_id) {
+        setAgencyId(profile.agency_id);
+        const role = profile.role || 'user';
+        setUserRole(role);
+        
+        // Find user's team member ID via staff_users link (for staff/manager roles)
+        let teamMemberId: string | null = null;
+        
+        if (role !== 'admin') {
+          const { data: staffUser, error: staffError } = await supabase
+            .from('staff_users')
+            .select('team_member_id')
+            .eq('agency_id', profile.agency_id)
+            .eq('email', user.email)
+            .maybeSingle();
+
+          console.log('Staff user lookup:', { staffUser, staffError, userId: user.id, email: user.email });
+          
+          if (staffUser?.team_member_id) {
+            teamMemberId = staffUser.team_member_id;
+            setUserTeamMemberId(teamMemberId);
+          }
+        }
+        
+        await Promise.all([
+          fetchUsageAndCalls(profile.agency_id, role, teamMemberId),
+          fetchFormData(profile.agency_id, role, teamMemberId)
+        ]);
+      }
+    } catch (err) {
+      console.error('Error fetching agency data:', err);
+    }
+  }, [user, fetchUsageAndCalls, fetchFormData]);
+
+  // Fetch data once access is confirmed (regular users only)
+  useEffect(() => {
+    if (hasAccess && user && !isStaffUser) {
+      fetchAgencyAndData();
+    }
+  }, [hasAccess, user, isStaffUser, fetchAgencyAndData]);
+
+  // Refetch when page changes (regular users)
+  useEffect(() => {
+    if (hasAccess && user && !isStaffUser && agencyId) {
+      fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
+    }
+  }, [currentPage, hasAccess, user, isStaffUser, agencyId, userRole, userTeamMemberId, fetchUsageAndCalls]);
 
   const handleFileSelect = async (file: File | null) => {
     setFileError(null);
@@ -1126,9 +1192,11 @@ export default function CallScoring() {
       
       if (isStaffUser) {
         // Staff users: use RPC to bypass RLS
+        const sessionToken = localStorage.getItem('staff_session_token');
         const { data: rpcData, error } = await supabase.rpc('get_staff_call_status', {
           p_call_id: callId,
-          p_agency_id: originalAgencyId
+          p_agency_id: originalAgencyId,
+          p_staff_session_token: sessionToken,
         });
         
         if (!error && rpcData) {
@@ -1175,7 +1243,7 @@ export default function CallScoring() {
     pollingTimeoutsRef.current.add(initialTimeout);
   };
 
-  const handleCallClick = async (call: RecentCall | any) => {
+  const handleCallClick = async (call: RecentCall) => {
     console.log('=== Call clicked ===');
     console.log('Call ID:', call.id);
     
@@ -1190,15 +1258,17 @@ export default function CallScoring() {
 
         // For staff viewing their own calls, use their team_member_id
         // For managers viewing other calls, try with agency_id first, fallback to team_member_id for their own
-        let fullCall = null;
-        let error = null;
+        let fullCall: ScorecardCall | null = null;
+        let error: CallScoringError = null;
 
         if (isStaffManager) {
+          const sessionToken = localStorage.getItem('staff_session_token');
           // Managers: try to view any agency call first (requires updated RPC)
           const result = await supabase.rpc('get_staff_call_details', {
             p_call_id: call.id,
             p_team_member_id: null,
-            p_agency_id: staffAgencyId
+            p_agency_id: staffAgencyId,
+            p_staff_session_token: sessionToken,
           });
           fullCall = result.data;
           error = result.error;
@@ -1208,19 +1278,30 @@ export default function CallScoring() {
             console.log('Manager agency-wide call failed, trying with own team_member_id...');
             const fallbackResult = await supabase.rpc('get_staff_call_details', {
               p_call_id: call.id,
-              p_team_member_id: staffTeamMemberId
+              p_team_member_id: staffTeamMemberId,
+              p_staff_session_token: sessionToken,
             });
             fullCall = fallbackResult.data;
             error = fallbackResult.error;
           }
         } else {
+          const sessionToken = localStorage.getItem('staff_session_token');
           // Regular staff: only view their own calls
           const result = await supabase.rpc('get_staff_call_details', {
             p_call_id: call.id,
-            p_team_member_id: staffTeamMemberId
+            p_team_member_id: staffTeamMemberId,
+            p_staff_session_token: sessionToken,
           });
           fullCall = result.data;
           error = result.error;
+        }
+
+        if (!fullCall) {
+          const detailError = error ? new Error(`Could not load call details: ${error.message}`) : new Error('Call details were not returned by the server.');
+          console.error(detailError);
+          toast.error('Failed to load call details');
+          setScorecardOpen(false);
+          return;
         }
 
         if (error) {
@@ -1235,7 +1316,7 @@ export default function CallScoring() {
         setSelectedCall({
           ...fullCall,
           team_member_name: fullCall?.team_member_name || call.team_member_name
-        });
+        } as ScorecardCall);
       } else {
         // Regular users fetch directly from database
         console.log('Regular user - fetching full call from database...');
@@ -1260,6 +1341,7 @@ export default function CallScoring() {
             notable_quotes,
             summary,
             transcript,
+            transcript_segments,
             created_at,
             analyzed_at,
             acknowledged_at,
@@ -1287,6 +1369,13 @@ export default function CallScoring() {
           setScorecardOpen(false);
           return;
         }
+
+        if (!fullCall) {
+          console.error('Fetched full call is null with no error');
+          toast.error('Call details were not found');
+          setScorecardOpen(false);
+          return;
+        }
         
         // Merge with team member name
         const mergedCall = {
@@ -1295,7 +1384,7 @@ export default function CallScoring() {
         };
         console.log('Merged call for scorecard:', mergedCall);
         
-        setSelectedCall(mergedCall);
+        setSelectedCall(mergedCall as ScorecardCall);
       }
     } finally {
       setLoadingCallDetails(false);
@@ -1327,11 +1416,13 @@ export default function CallScoring() {
 
     // Refresh calls list
     if (isStaffUser && staffAgencyId) {
+      const sessionToken = localStorage.getItem('staff_session_token');
       const { data: refreshData } = await supabase.rpc('get_staff_call_scoring_data', {
         p_agency_id: staffAgencyId,
         p_team_member_id: staffTeamMemberId,
         p_page: currentPage,
-        p_page_size: CALLS_PER_PAGE
+        p_page_size: CALLS_PER_PAGE,
+        p_staff_session_token: sessionToken,
       });
       if (refreshData) {
         setRecentCalls(refreshData.recent_calls || []);
@@ -1341,6 +1432,18 @@ export default function CallScoring() {
       fetchUsageAndCalls(agencyId, userRole, userTeamMemberId);
     }
   };
+
+  // Legacy tab cleanup: coaching settings moved to Admin > Call Scoring.
+  useEffect(() => {
+    const canSeeAnalytics = userRole !== 'staff' || isStaffManager;
+    if (activeTab === 'coaching') {
+      setActiveTab(canSeeAnalytics ? 'analytics' : 'upload');
+      return;
+    }
+    if (activeTab === 'analytics' && !canSeeAnalytics) {
+      setActiveTab('upload');
+    }
+  }, [activeTab, userRole, isStaffManager]);
 
   // Show loading while checking access
   if (!accessChecked) {
@@ -1352,7 +1455,19 @@ export default function CallScoring() {
   }
 
   if (!hasAccess) {
-    return null;
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <Card className="max-w-xl w-full">
+          <CardContent className="pt-6 text-center space-y-3">
+            <h2 className="text-lg font-semibold">Call Scoring unavailable</h2>
+            <p className="text-sm text-muted-foreground">
+              You currently do not have access to Call Scoring. Ask your agency admin to enable it in
+              the One-on-One client access settings.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -1379,7 +1494,7 @@ export default function CallScoring() {
 
       {/* Tabs - hide Analytics for staff users (except managers) */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className={`grid w-full max-w-md ${userRole === 'staff' && !isStaffManager ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        <TabsList className={`grid w-full max-w-lg ${userRole === 'staff' && !isStaffManager ? 'grid-cols-1' : 'grid-cols-2'}`}>
           <TabsTrigger value="upload" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
             {userRole === 'staff' ? 'My Calls' : 'Upload & Calls'}
@@ -1786,12 +1901,13 @@ export default function CallScoring() {
 
         {(userRole !== 'staff' || isStaffManager) && (
           <TabsContent value="analytics" className="mt-6">
-            <CallScoringAnalytics 
-              calls={analyticsCalls} 
-              teamMembers={teamMembers} 
+            <CallScoringAnalytics
+              calls={analyticsCalls}
+              teamMembers={teamMembers}
             />
           </TabsContent>
         )}
+
       </Tabs>
       
       {selectedCall?.call_type === 'service' ? (
@@ -1800,6 +1916,7 @@ export default function CallScoring() {
           open={scorecardOpen}
           onClose={() => setScorecardOpen(false)}
           isReadOnly={false}
+          qaEnabled={callScoringQaEnabled}
           isStaffUser={isStaffUser}
           staffTeamMemberId={staffTeamMemberId || undefined}
           acknowledgedAt={selectedCall?.acknowledged_at}
@@ -1819,6 +1936,7 @@ export default function CallScoring() {
           staffFeedbackImprovement={selectedCall?.staff_feedback_improvement}
           onAcknowledge={handleStaffAcknowledge}
           loading={loadingCallDetails}
+          qaEnabled={callScoringQaEnabled}
         />
       )}
     </div>

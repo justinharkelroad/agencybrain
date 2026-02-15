@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { verifyRequest, isVerifyError } from "../_shared/verifyRequest.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,33 +14,24 @@ serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    // JWT-auth only endpoint. Staff users do not have profiles-backed user IDs for saved_reports.
+    const authResult = await verifyRequest(req);
+    if (isVerifyError(authResult) || authResult.mode !== 'supabase' || !authResult.userId) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
     // Get user's agency_id
     const { data: profile } = await supabase
       .from('profiles')
       .select('agency_id')
-      .eq('id', user.id)
+      .eq('id', authResult.userId)
       .single();
 
     if (!profile?.agency_id) {
@@ -69,7 +61,7 @@ serve(async (req) => {
     const { data: report, error: insertError } = await supabase
       .from('saved_reports')
       .insert({
-        user_id: user.id,
+        user_id: authResult.userId,
         agency_id: profile.agency_id,
         report_type,
         title,
@@ -87,7 +79,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Report saved: ${report.id} by user ${user.id}`);
+    console.log(`Report saved: ${report.id} by user ${authResult.userId}`);
 
     return new Response(
       JSON.stringify({ success: true, report }),

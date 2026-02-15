@@ -64,6 +64,7 @@ type Sale = {
   total_premium: number | null;
   total_points: number | null;
   is_vc_qualifying: boolean | null;
+  is_one_call_close: boolean | null;
   is_bundle: boolean | null;
   bundle_type: string | null;
   lead_source_id: string | null;
@@ -169,6 +170,7 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
           total_premium,
           total_points,
           is_vc_qualifying,
+          is_one_call_close,
           is_bundle,
           bundle_type,
           lead_source_id,
@@ -335,8 +337,8 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
                     mode="range"
                     selected={dateRange}
                     onSelect={(range) => {
-                      if (range?.from && range?.to) {
-                        setDateRange({ from: range.from, to: range.to });
+                      if (range?.from) {
+                        setDateRange({ from: range.from, to: range.to ?? range.from });
                       }
                     }}
                     numberOfMonths={2}
@@ -445,6 +447,11 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
                             {sale.is_bundle && (
                               <Badge variant="outline" className="text-xs">
                                 {sale.bundle_type || "Bundle"}
+                              </Badge>
+                            )}
+                            {sale.is_one_call_close && (
+                              <Badge variant="outline" className="text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 border-green-300 dark:border-green-700">
+                                OCC
                               </Badge>
                             )}
                           </div>

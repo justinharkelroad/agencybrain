@@ -4,6 +4,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import Stripe from 'https://esm.sh/stripe@13.10.0?target=deno'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { verifyRequest, isVerifyError } from '../_shared/verifyRequest.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2023-10-16',
@@ -27,17 +28,16 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
     )
 
-    // Get user from auth header
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      throw new Error('No authorization header')
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
-
-    if (authError || !user) {
-      throw new Error('Unauthorized')
+    // JWT-auth only endpoint. Use standardized verifier.
+    const authResult = await verifyRequest(req)
+    if (isVerifyError(authResult) || authResult.mode !== 'supabase' || !authResult.userId) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 401,
+        }
+      )
     }
 
     const { call_pack_id, success_url, cancel_url } = await req.json()
@@ -50,7 +50,7 @@ serve(async (req) => {
     const { data: profile } = await supabase
       .from('profiles')
       .select('agency_id, display_name')
-      .eq('id', user.id)
+      .eq('id', authResult.userId)
       .single()
 
     if (!profile?.agency_id) {
@@ -94,7 +94,7 @@ serve(async (req) => {
         call_count: callPack.call_count,
         price_cents: callPack.price_cents,
         status: 'pending',
-        purchased_by: user.id
+        purchased_by: authResult.userId
       })
       .select()
       .single()
@@ -144,7 +144,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error creating call pack checkout:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400

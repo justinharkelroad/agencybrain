@@ -73,6 +73,7 @@ interface SPModule {
   slug: string;
   description: string | null;
   icon: string;
+  image_url: string | null;
   display_order: number;
   is_published: boolean;
   lesson_count?: number;
@@ -198,6 +199,8 @@ export default function AdminSPCategoryDetail() {
   const [moduleSlug, setModuleSlug] = useState('');
   const [moduleDescription, setModuleDescription] = useState('');
   const [moduleIcon, setModuleIcon] = useState('📦');
+  const [moduleImageUrl, setModuleImageUrl] = useState('');
+  const [uploadingModuleImage, setUploadingModuleImage] = useState(false);
   const [savingModule, setSavingModule] = useState(false);
   
   // Delete state
@@ -277,12 +280,14 @@ export default function AdminSPCategoryDetail() {
       setModuleSlug(module.slug);
       setModuleDescription(module.description || '');
       setModuleIcon(module.icon || '📦');
+      setModuleImageUrl(module.image_url || '');
     } else {
       setEditingModule(null);
       setModuleName('');
       setModuleSlug('');
       setModuleDescription('');
       setModuleIcon('📦');
+      setModuleImageUrl('');
     }
     setModuleDialogOpen(true);
   };
@@ -294,6 +299,7 @@ export default function AdminSPCategoryDetail() {
     setModuleSlug('');
     setModuleDescription('');
     setModuleIcon('📦');
+    setModuleImageUrl('');
   };
 
   const handleModuleNameChange = (value: string) => {
@@ -315,12 +321,15 @@ export default function AdminSPCategoryDetail() {
 
     setSavingModule(true);
     try {
+      // Strip cache-busting params before saving
+      const cleanImageUrl = moduleImageUrl ? moduleImageUrl.split('?')[0] : null;
       const moduleData = {
         category_id: categoryId,
         name: moduleName.trim(),
         slug: moduleSlug.trim(),
         description: moduleDescription.trim() || null,
         icon: moduleIcon,
+        image_url: cleanImageUrl,
       };
 
       if (editingModule) {
@@ -540,7 +549,7 @@ export default function AdminSPCategoryDetail() {
 
       {/* Module Dialog */}
       <Dialog open={moduleDialogOpen} onOpenChange={setModuleDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingModule ? 'Edit Module' : 'New Module'}
@@ -600,6 +609,79 @@ export default function AdminSPCategoryDetail() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Cover Image */}
+            <div>
+              <Label>Cover Image</Label>
+              <p className="text-xs text-muted-foreground/70 mb-2">Recommended: 1200×400px (3:1)</p>
+              {moduleImageUrl ? (
+                <div className="relative rounded-lg overflow-hidden border border-border/50">
+                  <img
+                    src={moduleImageUrl}
+                    alt="Module cover"
+                    className="w-full aspect-[3/1] object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setModuleImageUrl('')}
+                    className="absolute top-2 right-2 bg-background/80 backdrop-blur rounded-md px-2 py-1 text-xs hover:bg-background"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('moduleImageInput')?.click()}
+                  className="w-full aspect-[3/1] rounded-lg border-2 border-dashed border-border/50 flex flex-col items-center justify-center gap-2 text-muted-foreground/50 hover:border-border hover:text-muted-foreground transition-colors"
+                >
+                  {uploadingModuleImage ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <>
+                      <Package className="h-6 w-6" />
+                      <span className="text-sm">Upload cover image</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <input
+                id="moduleImageInput"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  setUploadingModuleImage(true);
+                  try {
+                    const ext = file.name.split('.').pop() || 'png';
+                    const id = editingModule?.id || crypto.randomUUID();
+                    const path = `module-images/${id}.${ext}`;
+
+                    const { error: uploadError } = await supabase.storage
+                      .from('training-assets')
+                      .upload(path, file, { upsert: true });
+
+                    if (uploadError) throw uploadError;
+
+                    const { data: publicUrlData } = supabase.storage
+                      .from('training-assets')
+                      .getPublicUrl(path);
+
+                    setModuleImageUrl(`${publicUrlData.publicUrl}?t=${Date.now()}`);
+                    toast({ title: 'Image uploaded' });
+                  } catch (err) {
+                    console.error('Image upload error:', err);
+                    toast({ title: 'Failed to upload image', variant: 'destructive' });
+                  } finally {
+                    setUploadingModuleImage(false);
+                    e.target.value = '';
+                  }
+                }}
+              />
             </div>
           </div>
 

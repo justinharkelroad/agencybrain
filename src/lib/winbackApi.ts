@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { getStaffToken, hasStaffToken, fetchWithAuth } from './staffRequest';
+import { hasStaffToken, fetchWithAuth } from './staffRequest';
 import { startOfWeek, endOfWeek } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 
@@ -89,11 +89,9 @@ interface UploadStats {
 
 // Helper to call staff edge function using fetchWithAuth to avoid invalid JWT issues
 async function callStaffWinback<T>(operation: string, params: Record<string, any> = {}): Promise<T> {
-  const token = getStaffToken();
-  if (!token) throw new Error('No staff token');
-
   const response = await fetchWithAuth('get_staff_winback', {
     method: 'POST',
+    prefer: 'auto',
     body: { operation, params },
   });
 
@@ -105,9 +103,32 @@ async function callStaffWinback<T>(operation: string, params: Record<string, any
   return await response.json() as T;
 }
 
+async function hasStaffWinbackAccess(): Promise<boolean> {
+  if (hasStaffToken()) return true;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  return !!session;
+}
+
 // Check if current user is staff
+// Check if current user should use staff API path
 export function isStaffUser(): boolean {
-  return hasStaffToken();
+  const hasToken = hasStaffToken();
+  if (!hasToken) return false;
+
+  const staffTokenExpiresAt = (() => {
+    try {
+      const expiry = window.localStorage.getItem("staff_session_expiry");
+      return expiry ? new Date(expiry) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  if (staffTokenExpiresAt && Number.isNaN(staffTokenExpiresAt.getTime())) return true;
+  if (staffTokenExpiresAt) return staffTokenExpiresAt.getTime() > Date.now();
+
+  return true;
 }
 
 // ============ Settings ============
@@ -677,22 +698,32 @@ export async function permanentDeleteHousehold(householdId: string): Promise<voi
   }
 
   // Delete policies
-  await supabase
+  const { error: policiesError } = await supabase
     .from('winback_policies')
     .delete()
     .eq('household_id', householdId);
+  if (policiesError) throw policiesError;
 
   // Delete activities
-  await supabase
+  const { error: activitiesError } = await supabase
     .from('winback_activities')
     .delete()
     .eq('household_id', householdId);
+  if (activitiesError) throw activitiesError;
 
   // Clear renewal_records references
-  await supabase
+  const { error: renewalError } = await supabase
     .from('renewal_records')
     .update({ winback_household_id: null, sent_to_winback_at: null })
     .eq('winback_household_id', householdId);
+  if (renewalError) throw renewalError;
+
+  // Clear cancel_audit_records references
+  const { error: cancelAuditError } = await supabase
+    .from('cancel_audit_records')
+    .update({ winback_household_id: null })
+    .eq('winback_household_id', householdId);
+  if (cancelAuditError) throw cancelAuditError;
 
   // Delete household
   const { error } = await supabase
@@ -812,6 +843,156 @@ export async function uploadTerminations(
   // For non-staff, use the existing direct approach
   // This keeps the existing behavior for agency owners
   throw new Error('Use WinbackUploadModal direct implementation for non-staff users');
+}
+
+// ============ List Uploads ============
+
+export async function listUploads(agencyId: string): Promise<any[]> {
+  if (await hasStaffWinbackAccess()) {
+    const result = await callStaffWinback<{ uploads: any[] }>('list_uploads', {});
+    return result.uploads;
+  }
+
+  const { data, error } = await supabase
+    .from('winback_uploads')
+    .select('*')
+    .eq('agency_id', agencyId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (error) throw error;
+  return data || [];
+}
+
+// ============ Delete Upload ============
+
+export interface DeleteUploadResult {
+  success: boolean;
+  deleted: number;
+  message?: string;
+}
+
+export async function deleteUpload(uploadId: string, agencyId: string): Promise<DeleteUploadResult> {
+  if (await hasStaffWinbackAccess()) {
+    const result = await callStaffWinback<DeleteUploadResult>(
+      'delete_upload',
+      { uploadId }
+    );
+
+    return result;
+  }
+
+  // Find all households linked to this upload
+  const { data: households, error: fetchError } = await supabase
+    .from('winback_households')
+    .select('id')
+    .eq('last_upload_id', uploadId)
+    .eq('agency_id', agencyId);
+
+  if (fetchError) throw fetchError;
+
+  const householdIds = (households || []).map(h => h.id);
+
+  if (householdIds.length > 0) {
+    // Delete policies
+    const { error: policiesError } = await supabase
+      .from('winback_policies')
+      .delete()
+      .in('household_id', householdIds);
+    if (policiesError) throw policiesError;
+
+    // Delete activities
+    const { error: activitiesError } = await supabase
+      .from('winback_activities')
+      .delete()
+      .in('household_id', householdIds);
+    if (activitiesError) throw activitiesError;
+
+    // Clear renewal_records references
+    const { error: renewalError } = await supabase
+      .from('renewal_records')
+      .update({ winback_household_id: null, sent_to_winback_at: null })
+      .in('winback_household_id', householdIds);
+    if (renewalError) throw renewalError;
+
+    // Clear cancel_audit_records references
+    const { error: cancelAuditError } = await supabase
+      .from('cancel_audit_records')
+      .update({ winback_household_id: null })
+      .in('winback_household_id', householdIds);
+    if (cancelAuditError) throw cancelAuditError;
+
+    // Delete households
+    const { error: householdsError } = await supabase
+      .from('winback_households')
+      .delete()
+      .in('id', householdIds);
+    if (householdsError) throw householdsError;
+  }
+
+  // Delete the upload record
+  const { error } = await supabase
+    .from('winback_uploads')
+    .delete()
+    .eq('id', uploadId);
+
+  if (error) throw error;
+
+  return {
+    success: true,
+    deleted: householdIds.length,
+    message:
+      householdIds.length === 0
+        ? 'Upload removed from list, but no linked households were found for that upload'
+        : undefined,
+  };
+}
+
+// ============ Bulk Delete Households ============
+
+export async function bulkDeleteHouseholds(householdIds: string[]): Promise<void> {
+  if (isStaffUser()) {
+    await callStaffWinback('bulk_delete_households', { householdIds });
+    return;
+  }
+
+  if (householdIds.length === 0) return;
+
+  // Delete policies
+  const { error: policiesError } = await supabase
+    .from('winback_policies')
+    .delete()
+    .in('household_id', householdIds);
+  if (policiesError) throw policiesError;
+
+  // Delete activities
+  const { error: activitiesError } = await supabase
+    .from('winback_activities')
+    .delete()
+    .in('household_id', householdIds);
+  if (activitiesError) throw activitiesError;
+
+  // Clear renewal_records references
+  const { error: renewalError } = await supabase
+    .from('renewal_records')
+    .update({ winback_household_id: null, sent_to_winback_at: null })
+    .in('winback_household_id', householdIds);
+  if (renewalError) throw renewalError;
+
+  // Clear cancel_audit_records references
+  const { error: cancelAuditError } = await supabase
+    .from('cancel_audit_records')
+    .update({ winback_household_id: null })
+    .in('winback_household_id', householdIds);
+  if (cancelAuditError) throw cancelAuditError;
+
+  // Delete households
+  const { error } = await supabase
+    .from('winback_households')
+    .delete()
+    .in('id', householdIds);
+
+  if (error) throw error;
 }
 
 // ============ Termination Analytics ============

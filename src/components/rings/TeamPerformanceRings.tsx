@@ -7,7 +7,7 @@ import PersonSnapshotModal from "@/components/PersonSnapshotModal";
 import { useKpiLabels } from "@/hooks/useKpiLabels";
 import { getMetricValue, normalizeMetricKey } from "@/lib/kpiKeyMapping";
 import { getTeamRingsData } from "@/lib/scorecardsApi";
-import { hasStaffToken } from "@/lib/staffRequest";
+import { fetchWithAuth, hasStaffToken } from "@/lib/staffRequest";
 import { supabase } from '@/integrations/supabase/client';
 
 type RingMetric = {
@@ -194,14 +194,28 @@ export default function TeamPerformanceRings({
           }
 
           if (slug) {
-            const { data: metricsData } = await supabase
-              .rpc('get_dashboard_daily', {
-                p_agency_slug: slug,
-                p_role: role,
-                p_start: date,
-                p_end: date
-              });
-            teamMetrics = metricsData || [];
+            const response = await fetchWithAuth("get_dashboard_daily", {
+              method: "GET",
+              prefer: "supabase",
+              queryParams: {
+                agencySlug: slug,
+                role,
+                workDate: date,
+              },
+            });
+
+            let payload: any = null;
+            try {
+              payload = await response.json();
+            } catch {
+              payload = null;
+            }
+
+            if (!response.ok) {
+              throw new Error(payload?.error || `Failed to fetch dashboard daily (${response.status})`);
+            }
+
+            teamMetrics = payload?.rows || [];
           }
 
           const { data: targetsData } = await supabase
@@ -228,7 +242,8 @@ export default function TeamPerformanceRings({
           });
         
         setRingMetrics(normalizedMetrics);
-        setNRequired(rules?.n_required || 2);
+        const requiredHits = rules?.n_required || 2;
+        setNRequired(requiredHits);
 
         // Role-based default targets and metrics (use STANDARD UI keys)
         const getDefaultTarget = (metricKey: string) => {
@@ -282,16 +297,16 @@ export default function TeamPerformanceRings({
             metric.target > 0 && metric.actual >= metric.target
           ).length;
 
-          // Determine if member passes based on n_required
-          const passes = hitsCount >= nRequired;
+          // Determine if member passes based on the current rules value fetched in this request
+          const passes = hitsCount >= requiredHits;
 
           return {
             id: member.team_member_id,
-            name: member.team_member_name,
+            name: member.team_member_name || member.rep_name || 'Team Member',
             metrics: memberMetrics,
             passes,
             hitsCount,
-            requiredHits: nRequired
+            requiredHits
           };
         });
 

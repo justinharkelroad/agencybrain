@@ -1,13 +1,14 @@
 import { useState, useMemo } from 'react';
 import {
   LineChart,
+  Area,
   Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend,
+  ReferenceDot,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,7 +26,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useLqsPerformanceTrend, type BucketTrendData } from '@/hooks/useLqsPerformanceTrend';
+import { useLqsPerformanceTrend } from '@/hooks/useLqsPerformanceTrend';
+import { PulseMarker } from '@/components/charts/PulseMarker';
 
 interface LqsPerformanceTrendChartProps {
   agencyId: string | null;
@@ -105,6 +107,10 @@ function formatCompactCurrency(cents: number): string {
   return `$${dollars.toFixed(0)}`;
 }
 
+function getMetricNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
 // Custom tooltip
 function CustomTooltip({
   active,
@@ -156,6 +162,28 @@ export function LqsPerformanceTrendChart({ agencyId }: LqsPerformanceTrendChartP
   }, [trendData]);
 
   const metricConfig = METRIC_CONFIG[selectedMetric];
+
+  const chartId = `lqs-trend-${selectedMetric}`;
+  const metricValues = chartData
+    .map((row) => getMetricNumber(row[metricConfig.dataKey as keyof typeof row]))
+    .filter((value): value is number => value !== null);
+  const maxMetricValue = metricValues.length ? Math.max(...metricValues) : null;
+  const latestPoint = [...chartData].reverse().find((row) =>
+    getMetricNumber(row[metricConfig.dataKey as keyof typeof row]) !== null
+  );
+  const highlightedMonths = useMemo(() => {
+    const labels = new Set<string>();
+    if (chartData.length > 0) labels.add(chartData[0].monthLabel);
+    if (chartData.length > 1) labels.add(chartData[chartData.length - 1].monthLabel);
+    if (maxMetricValue !== null) {
+      const peakMonth = chartData.find((row) => {
+        const value = getMetricNumber(row[metricConfig.dataKey as keyof typeof row]);
+        return value === maxMetricValue;
+      });
+      if (peakMonth) labels.add(peakMonth.monthLabel);
+    }
+    return labels;
+  }, [chartData, metricConfig.dataKey, maxMetricValue]);
 
   if (isLoading) {
     return (
@@ -210,7 +238,7 @@ export function LqsPerformanceTrendChart({ agencyId }: LqsPerformanceTrendChartP
   }
 
   return (
-    <Card>
+    <Card className="border-0 bg-card/60 backdrop-blur-sm shadow-[inset_0_1px_0_hsl(var(--border)/0.65)]">
       <CardHeader>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-2">
@@ -261,15 +289,40 @@ export function LqsPerformanceTrendChart({ agencyId }: LqsPerformanceTrendChartP
         </p>
       </CardHeader>
       <CardContent>
-        <div className="h-[350px]">
+        <div className="h-[350px] rounded-2xl border border-border/50 bg-[radial-gradient(120%_90%_at_50%_0%,hsl(var(--primary)/0.2),transparent_48%),hsl(var(--background)/0.78)] px-2 py-3 shadow-[inset_0_0_0_1px_hsl(var(--border)/0.25)]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 20, right: 30, bottom: 20, left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+              <defs>
+                <linearGradient id={`${chartId}-line`} x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor={metricConfig.color} stopOpacity={0.7} />
+                  <stop offset="100%" stopColor="hsl(var(--chart-2))" />
+                </linearGradient>
+                <linearGradient id={`${chartId}-fill`} x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor={metricConfig.color} stopOpacity={0.42} />
+                  <stop offset="100%" stopColor={metricConfig.color} stopOpacity={0.02} />
+                </linearGradient>
+                <filter id={`${chartId}-glow`} x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur stdDeviation="3.2" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <CartesianGrid
+                vertical={false}
+                strokeDasharray="8 8"
+                stroke="hsl(var(--border))"
+                opacity={0.55}
+              />
               <XAxis
                 dataKey="monthLabel"
                 tick={{ fontSize: 12 }}
                 className="text-muted-foreground"
                 tickLine={false}
+                axisLine={false}
+                tickFormatter={(value: string) => (highlightedMonths.has(value) ? value : '')}
+                interval={0}
               />
               <YAxis
                 tickFormatter={metricConfig.yAxisFormatter}
@@ -277,17 +330,45 @@ export function LqsPerformanceTrendChart({ agencyId }: LqsPerformanceTrendChartP
                 className="text-muted-foreground"
                 tickLine={false}
                 axisLine={false}
+                tickMargin={8}
               />
               <Tooltip content={<CustomTooltip metric={selectedMetric} />} />
+              <Area
+                type="natural"
+                dataKey={metricConfig.dataKey}
+                fill={`url(#${chartId}-fill)`}
+                stroke="none"
+                connectNulls
+                isAnimationActive={false}
+              />
               <Line
-                type="monotone"
+                type="natural"
                 dataKey={metricConfig.dataKey}
                 stroke={metricConfig.color}
-                strokeWidth={2}
-                dot={{ fill: metricConfig.color, strokeWidth: 0, r: 4 }}
-                activeDot={{ r: 6, strokeWidth: 0 }}
+                strokeOpacity={0.22}
+                strokeWidth={7}
+                dot={false}
+                activeDot={false}
                 connectNulls
               />
+              <Line
+                type="natural"
+                dataKey={metricConfig.dataKey}
+                stroke={`url(#${chartId}-line)`}
+                strokeWidth={3.2}
+                filter={`url(#${chartId}-glow)`}
+                dot={false}
+                activeDot={{ r: 5, fill: metricConfig.color, strokeWidth: 0 }}
+                connectNulls
+              />
+              {latestPoint && (
+                <ReferenceDot
+                  x={latestPoint.monthLabel}
+                  y={latestPoint[metricConfig.dataKey as keyof typeof latestPoint] as number}
+                  ifOverflow="visible"
+                  shape={<PulseMarker color={metricConfig.color} />}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </div>

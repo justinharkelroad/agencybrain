@@ -138,6 +138,7 @@ export function useCancelAuditUpload() {
             p_account_type: record.account_type,
             p_report_type: record.report_type,
             p_amount_due_cents: record.amount_due_cents,
+            p_cancel_status: record.cancel_status,
             p_cancel_date: record.cancel_date,
             p_renewal_effective_date: record.renewal_effective_date,
             p_pending_cancel_date: record.pending_cancel_date,

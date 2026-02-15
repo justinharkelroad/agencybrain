@@ -1,94 +1,178 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Working Rules
 
-## Project Overview
+- **NEVER fabricate or invent information.** Say "I don't know" if uncertain.
+- **After fixing a production bug**, add a rule here preventing recurrence.
+- **Before modifying a function** that writes to a constrained table, check this file and `supabase/CLAUDE.md` for rules about that table.
+- **Never re-create a function from scratch** — read the current version first and preserve all protective patterns (GREATEST, COALESCE, exception handlers, required columns).
 
-AgencyBrain is a production-ready insurance agency management platform. It's a multi-tenant SaaS application with sales tracking, training, compensation analysis, and staff management features.
+## Tech Stack
 
-**Tech Stack**: React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui + Supabase (PostgreSQL + Edge Functions)
+React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui + Supabase (PostgreSQL + Edge Functions + Deno)
 
-## Development Commands
+## Commands
 
 ```bash
-npm run dev          # Start dev server (localhost:8080)
+npm run dev          # Dev server (localhost:8080)
 npm run build        # Production build
 npm run lint         # ESLint
-npm run test         # Run Vitest unit tests
-npm run test:watch   # Vitest watch mode
+npm run test         # Vitest unit tests
 npm run test:e2e     # Playwright E2E tests
-```
-
-Run a single test file:
-```bash
-npx vitest run src/tests/your-test.test.ts
-```
-
-Run tests matching a pattern:
-```bash
-npx vitest run -t "pattern"
+npx vitest run src/tests/your-test.test.ts  # Single file
+npx vitest run -t "pattern"                 # By pattern
 ```
 
 ## Architecture
 
-### Data Flow
 ```
 React Components → React Query hooks → Supabase SDK → Edge Functions → PostgreSQL (RLS)
 ```
 
-### Key Directories
-- `src/components/` - 424 React components, including `ui/` for shadcn/ui
-- `src/pages/` - Route-level pages (`admin/`, `agency/`, `staff/`)
-- `src/hooks/` - 127 custom React hooks
-- `src/lib/` - Core utilities (`auth.tsx`, `supabaseClient.ts`, `utils.ts`)
-- `src/config/navigation.ts` - Hierarchical navigation with role-based access
-- `supabase/functions/` - 113 Deno edge functions
-- `supabase/migrations/` - 548 database migrations
+- `src/components/` — React components (includes `ui/` for shadcn/ui)
+- `src/pages/` — Route-level pages (`admin/`, `agency/`, `staff/`)
+- `src/hooks/` — Custom React hooks
+- `src/lib/` — Core utilities (`auth.tsx`, `supabaseClient.ts`, `utils.ts`)
+- `src/config/navigation.ts` — Hierarchical nav with role-based access
+- `supabase/functions/` — Deno edge functions
+- `supabase/migrations/` — Database migrations
 
-### State Management
-- **AuthProvider** (`src/lib/auth.tsx`): User session and roles
-- **Zustand**: Global stores (bonus grid state, chat persistence)
-- **React Query**: Server state and caching
+State: AuthProvider (`src/lib/auth.tsx`) + Zustand (global stores) + React Query (server state)
 
-### Multi-Tenant Security
-- All data is agency-scoped via Row-Level Security (RLS) policies
-- User roles: admin, agency owner, key employee, staff
-- Edge functions use `SECURITY INVOKER` (run with caller privileges)
-- `has_agency_access(auth.uid(), agency_id)` validates access in RLS policies
-
-### Public Form System
-- Token-based access without authentication
-- Edge functions: `submit_public_form`, `resolve_public_form`
-- Versioned KPI tracking (`kpi_versions`, `forms_kpi_bindings`)
+Path alias: `@/*` → `./src/*`
 
 ## CI/CD
 
-Deployments are gated by GitHub Actions (`.github/workflows/edge-deploy-gates.yml`):
-
-- **Gate A** (blocking): Verify functions on disk match `supabase/config.toml`
-- **Gate B** (non-blocking): Resolve function schema validation
-- **Gate C** (non-blocking): KPI smoke test
-
-Edge functions auto-deploy to Supabase on push to `main`.
-
-## Database Conventions
-
-- All tables have RLS policies enforcing agency isolation
-- Use `FOR SELECT` for read-only dashboard queries
-- Never use `SECURITY DEFINER` without explicit justification
-- Migrations in `supabase/migrations/` are versioned and reversible
+Edge functions auto-deploy on push to `main`. Gated by `.github/workflows/edge-deploy-gates.yml` (Gate A: functions match config.toml; Gate B: schema validation; Gate C: KPI smoke test).
 
 ## Testing
 
-- **Vitest**: Unit tests with jsdom, setup in `src/tests/setup.ts`
-- **Playwright**: E2E tests in `src/tests/e2e/`
-- Supabase client is auto-mocked in tests
+- **Vitest** with jsdom, setup in `src/tests/setup.ts`. Supabase client auto-mocked.
+- **Playwright** E2E in `src/tests/e2e/`
+- Co-located unit tests: `src/utils/*.test.ts`
 
-Test locations:
-- `src/tests/` - Main test directory (security, edge functions, integration)
-- `src/tests/e2e/` - Playwright E2E tests
-- `src/utils/*.test.ts` - Unit tests co-located with utilities
+## Multi-Tenant Auth (4 User Types — MANDATORY)
 
-## Path Aliases
+Every RLS policy, edge function, and frontend component must account for all four user types.
 
-`@/*` maps to `./src/*` (configured in `tsconfig.json` and `vite.config.ts`)
+| User Type | Auth Method | ID Source | Agency Resolution |
+|-----------|------------|-----------|-------------------|
+| Admin | JWT | `profiles.id` | `profiles.role = 'admin'` (all agencies) |
+| Agency Owner | JWT | `profiles.id` | `profiles.agency_id` |
+| Key Employee | JWT | `profiles.id` + `key_employees.user_id` | `key_employees.agency_id` |
+| Staff User | `x-staff-session` header OR `session_token` body | `staff_users.id` (NOT in `auth.users`) | `staff_users.agency_id` |
+
+### Rule 1: ALWAYS use `has_agency_access()` in RLS
+
+```sql
+-- CORRECT:
+CREATE POLICY "x" ON t FOR SELECT USING (has_agency_access(auth.uid(), agency_id));
+
+-- WRONG (blocks key employees + staff):
+... WHERE agency_id IN (SELECT agency_id FROM profiles WHERE id = auth.uid())
+```
+
+**NEVER** write `FROM profiles WHERE id = auth.uid()` in any RLS policy. It's always a bug.
+
+### Rule 2: Edge functions MUST include staff CORS headers
+
+Import `corsHeaders` from `../_shared/cors.ts`, or include `x-staff-session, x-staff-session-token` in `Access-Control-Allow-Headers`.
+
+### Rule 3: Use `verifyRequest()` for dual-mode auth in edge functions
+
+```typescript
+import { verifyRequest, isVerifyError } from '../_shared/verifyRequest.ts';
+const authResult = await verifyRequest(req);
+if (isVerifyError(authResult)) {
+  return new Response(JSON.stringify({ error: authResult.error }), {
+    status: authResult.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+const { mode, agencyId, staffUserId, userId, isManager } = authResult;
+```
+
+Exceptions: admin-only functions (JWT-only OK), staff-specific functions (direct header validation OK).
+
+### Rule 3b: ALWAYS pass JWT explicitly to `getUser()`
+
+```typescript
+const jwt = authHeader.replace("Bearer ", "");
+const { data: { user } } = await userClient.auth.getUser(jwt); // CORRECT
+// getUser() without arg returns null in throwaway edge function clients
+```
+
+### Rule 4: Staff portal uses `useStaffAuth()`, not `useAuth()`
+
+- `useAuth().user.id` → `auth.users.id` (owners/admins only)
+- `useStaffAuth().user.id` → `staff_users.id` (staff only)
+- Dual-portal components: accept user ID as prop
+
+### Rule 5: New tables tracking users MUST support staff
+
+```sql
+created_by_user_id uuid REFERENCES auth.users(id),
+created_by_staff_id uuid REFERENCES staff_users(id),
+CONSTRAINT must_have_creator CHECK (created_by_user_id IS NOT NULL OR created_by_staff_id IS NOT NULL)
+```
+
+## SECURITY DEFINER RPC Patterns
+
+### Deny-by-default auth branching
+
+```sql
+IF auth.uid() IS NOT NULL THEN
+  -- JWT path: has_agency_access(auth.uid(), p_agency_id)
+ELSIF p_staff_session_token IS NOT NULL THEN
+  -- Staff path: verify_staff_session(p_staff_session_token, p_agency_id)
+ELSE
+  RAISE EXCEPTION 'unauthorized' USING ERRCODE = '28000';
+END IF;
+```
+
+Never return data based only on `p_agency_id` input.
+
+### Enum-safe comparisons
+
+```sql
+lower(coalesce(tm.status::text, '')) = 'active'  -- SQL
+```
+```ts
+.eq('status', 'active')                           // Supabase JS
+```
+
+Never use `'Active'` (wrong case). Always cast enum to text before coalesce.
+
+### Function privilege changes
+
+Keep REVOKE+GRANT adjacent in same migration:
+
+```sql
+REVOKE EXECUTE ON FUNCTION ... FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ... TO authenticated;
+GRANT EXECUTE ON FUNCTION ... TO anon;
+```
+
+### Post-deploy requirement
+
+After any auth/RLS/RPC change, run cross-agency tamper tests (same-agency expect 200, different-agency expect 401/403) before marking complete.
+
+## Cross-Cutting Gotchas
+
+- `sale_policies` column is `policy_type_name`, NOT `policy_type` — wrong name silently kills PostgREST nested selects
+- Always verify PostgREST nested select column names against `src/integrations/supabase/types.ts`
+- Fire-and-forget edge functions swallow errors — always test end-to-end after changes
+- Duplicate migration timestamps cause `supabase db push` PK conflicts on `schema_migrations`
+- `include_in_metrics` filters in RPC functions but NOT in `vw_metrics_with_team` view
+- All scheduled email functions MUST have a GitHub Actions cron trigger (never external cron)
+- Email functions MUST use `Intl.DateTimeFormat` for timezone, NOT hardcoded UTC offsets
+- Must use Resend batch API (`/emails/batch`), NOT single endpoint with `to: [array]`
+- Cron spanning midnight UTC must NOT filter by day-of-week in cron — filter inside function using local timezone
+- `onSuccess` callbacks that write metrics data MUST invalidate `['dashboard-daily']` query cache
+
+## Database Rules
+
+See `supabase/CLAUDE.md` for detailed rules on: `metrics_daily`, `lqs_households`, sales emails, and migration safety.
+
+## Historical Decisions
+
+See `docs/DECISIONS.md` for: access hardening reports (2026-02-08), Monday morning runbook, GIC implementation plan.

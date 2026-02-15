@@ -1,17 +1,31 @@
 import { useAuth } from '@/lib/auth';
 import { Navigate } from 'react-router-dom';
 import { PendingActivationGuard } from '@/components/PendingActivationGuard';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
   requireAgencyOwner?: boolean;
+  requireManager?: boolean;
 }
 
-export function ProtectedRoute({ children, requireAdmin = false, requireAgencyOwner = false }: ProtectedRouteProps) {
+export function ProtectedRoute({
+  children,
+  requireAdmin = false,
+  requireAgencyOwner = false,
+  requireManager = false
+}: ProtectedRouteProps) {
   const { user, loading, isAdmin, isAgencyOwner, isKeyEmployee, adminLoading, roleLoading, membershipTier } = useAuth();
+  const { effectiveRole, loading: permissionsLoading } = useUserPermissions();
+  const isManagerRole = effectiveRole === 'manager';
 
-  if (loading || (requireAdmin && adminLoading) || (requireAgencyOwner && roleLoading)) {
+  if (
+    loading ||
+    (requireAdmin && adminLoading) ||
+    (requireAgencyOwner && roleLoading) ||
+    (requireManager && (roleLoading || permissionsLoading))
+  ) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
@@ -30,6 +44,11 @@ export function ProtectedRoute({ children, requireAdmin = false, requireAgencyOw
 
   // Agency owner routes: allow if admin OR agency owner OR key employee
   if (requireAgencyOwner && !isAdmin && !isAgencyOwner && !isKeyEmployee) {
+    return <Navigate to="/dashboard" />;
+  }
+
+  // Manager routes: allow if admin OR owner OR key employee OR manager role
+  if (requireManager && !isAdmin && !isAgencyOwner && !isKeyEmployee && !isManagerRole) {
     return <Navigate to="/dashboard" />;
   }
 

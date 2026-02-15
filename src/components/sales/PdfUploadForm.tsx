@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -27,10 +28,13 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
+import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
 import { 
   Upload, 
   FileText, 
@@ -44,12 +48,15 @@ import {
   Package,
   Car,
   Home,
-  AlertTriangle
+  AlertTriangle,
+  Users
 } from "lucide-react";
 import { cn, todayLocal, formatPhoneNumber } from "@/lib/utils";
 
 interface ExtractedSaleData {
   customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
   customerZip: string;
   policyNumber: string;
   effectiveDate: string;
@@ -76,10 +83,25 @@ interface StagedPolicy {
 interface ProductType {
   id: string;
   name: string;
+  allow_multiple_items: boolean;
   category: string;
   default_points: number | null;
   is_vc_item: boolean | null;
   canonical_name: string | null; // From linked product_types, used for matching
+}
+
+interface ProductTypeLinkedRecord {
+  name: string | null;
+  category: string | null;
+  default_points: number | null;
+  is_vc_item: boolean | null;
+}
+
+interface PolicyTypeQueryRow {
+  id: string;
+  name: string;
+  allow_multiple_items: boolean | null;
+  product_type: ProductTypeLinkedRecord | ProductTypeLinkedRecord[] | null;
 }
 
 interface TeamMember {
@@ -101,6 +123,38 @@ interface PdfUploadFormProps {
 // Auto products for Preferred Bundle detection
 const AUTO_PRODUCTS = ['Standard Auto', 'Non-Standard Auto', 'Specialty Auto'];
 const HOME_PRODUCTS = ['Homeowners', 'North Light Homeowners', 'Condo', 'North Light Condo'];
+const DEFAULT_MULTI_ITEM_PRODUCTS = [
+  'Standard Auto',
+  'Non-Standard Auto',
+  'Specialty Auto',
+  'Boatowners',
+  'Motorcycle',
+  'Off-Road Vehicle',
+];
+
+const detectBundleType = (
+  policyProductNames: string[],
+  existingTypes: string[] = []
+): { isBundle: boolean; bundleType: string | null } => {
+  const hasAuto = policyProductNames.some(name =>
+    AUTO_PRODUCTS.some(auto => name.toLowerCase() === auto.toLowerCase())
+  ) || existingTypes.includes('auto');
+
+  const hasHome = policyProductNames.some(name =>
+    HOME_PRODUCTS.some(home => name.toLowerCase() === home.toLowerCase())
+  ) || existingTypes.includes('home');
+
+  if (hasAuto && hasHome) {
+    return { isBundle: true, bundleType: 'Preferred' };
+  }
+
+  const totalPolicies = policyProductNames.filter(Boolean).length + existingTypes.length;
+  if (totalPolicies > 1) {
+    return { isBundle: true, bundleType: 'Standard' };
+  }
+
+  return { isBundle: false, bundleType: null };
+};
 
 // Product type mapping for normalization
 const PRODUCT_TYPE_MAPPING: Record<string, string> = {
@@ -115,9 +169,20 @@ const PRODUCT_TYPE_MAPPING: Record<string, string> = {
   'condo': 'Condo',
   'your condo policy': 'Condo',
   'umbrella': 'Personal Umbrella',
+  'pup': 'Personal Umbrella',
+  'personal umbrella policy': 'Personal Umbrella',
   'personal umbrella': 'Personal Umbrella',
+  'llp': 'Landlord Package',
+  'landlord': 'Landlord Package',
+  'landlord package': 'Landlord Package',
+  'landlord package policy': 'Landlord Package',
+  'motorcycle': 'Motorcycle',
+  'mc': 'Motorcycle',
   'boat': 'Boatowners',
   'boatowners': 'Boatowners',
+  'off road vehicle': 'Off-Road Vehicle',
+  'off-road vehicle': 'Off-Road Vehicle',
+  'atv': 'Off-Road Vehicle',
 };
 
 // Icon mapping for product types
@@ -135,15 +200,52 @@ const PRODUCT_ICONS: Record<string, React.ReactNode> = {
 function matchProductType(extracted: string, productTypes: ProductType[]): ProductType | null {
   const normalized = extracted.toLowerCase().trim();
   const mappedName = PRODUCT_TYPE_MAPPING[normalized] || extracted;
-  // Match against canonical_name (from linked product_types) first, then display name
+  const normalizePolicyLabel = (value: string | null | undefined) =>
+    (value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+  // 1) Exact canonical/display match
+  const exact = productTypes.find(pt =>
+    (pt.canonical_name && normalizePolicyLabel(pt.canonical_name) === normalizePolicyLabel(mappedName)) ||
+    normalizePolicyLabel(pt.name) === normalizePolicyLabel(mappedName)
+  );
+  if (exact) return exact;
+
+  // 2) Substring match to tolerate labels like "Landlord Package Policy"
+  const contains = productTypes.find(pt => {
+    const canonical = normalizePolicyLabel(pt.canonical_name);
+    const display = normalizePolicyLabel(pt.name);
+    const normalizedMapped = normalizePolicyLabel(mappedName);
+    return (
+      (!!canonical && (canonical.includes(normalizedMapped) || normalizedMapped.includes(canonical))) ||
+      display.includes(normalizedMapped) ||
+      normalizedMapped.includes(display)
+    );
+  });
+  if (contains) return contains;
+
+  // 3) Last attempt on raw extracted text
   return productTypes.find(pt =>
-    (pt.canonical_name && pt.canonical_name.toLowerCase() === mappedName.toLowerCase()) ||
-    pt.name.toLowerCase() === mappedName.toLowerCase()
+    (pt.canonical_name && normalizePolicyLabel(pt.canonical_name).includes(normalized)) ||
+    normalizePolicyLabel(pt.name).includes(normalized)
   ) || null;
 }
 
 function generateId(): string {
   return Math.random().toString(36).substring(2, 9);
+}
+
+function isMultiItemProduct(productType?: ProductType | null): boolean {
+  if (!productType) return false;
+  if (typeof productType.allow_multiple_items === 'boolean') {
+    return productType.allow_multiple_items;
+  }
+  const nameToCheck = productType.canonical_name || productType.name;
+  return DEFAULT_MULTI_ITEM_PRODUCTS.some(
+    (name) => nameToCheck.toLowerCase() === name.toLowerCase()
+  );
 }
 
 export function PdfUploadForm({
@@ -193,6 +295,8 @@ export function PdfUploadForm({
   const [customerZip, setCustomerZip] = useState('');
   const [producerId, setProducerId] = useState('');
   const [leadSourceId, setLeadSourceId] = useState('');
+  const [hasExistingPolicies, setHasExistingPolicies] = useState(false);
+  const [existingPolicyTypes, setExistingPolicyTypes] = useState<string[]>([]);
 
   // Edit modal state
   const [editingPolicy, setEditingPolicy] = useState<StagedPolicy | null>(null);
@@ -207,9 +311,27 @@ export function PdfUploadForm({
 
   // Customer name mismatch warning
   const [showNameMismatchWarning, setShowNameMismatchWarning] = useState(false);
+  const [showPolicyTypeReviewDialog, setShowPolicyTypeReviewDialog] = useState(false);
   const [pendingPolicyData, setPendingPolicyData] = useState<{
     data: ExtractedSaleData;
     filename: string;
+  } | null>(null);
+  const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
+  const [breakupChoiceModalOpen, setBreakupChoiceModalOpen] = useState(false);
+  const [breakupLetterModalOpen, setBreakupLetterModalOpen] = useState(false);
+  const [newSaleData, setNewSaleData] = useState<{
+    saleId: string;
+    customerName: string;
+    customerPhone?: string;
+    customerEmail?: string;
+    customerZip?: string;
+    breakupPolicies: Array<{
+      id: string;
+      policyTypeName: string;
+      policyNumber: string;
+      effectiveDate: string;
+      carrierName: string;
+    }>;
   } | null>(null);
 
   // Fetch policy types with linked product_types for comp fields
@@ -221,6 +343,7 @@ export function PdfUploadForm({
         .select(`
           id,
           name,
+          allow_multiple_items,
           product_type:product_types(
             name,
             category,
@@ -232,14 +355,18 @@ export function PdfUploadForm({
         .eq("is_active", true)
         .order("order_index", { ascending: true });
       if (error) throw error;
-      return (data || []).map(pt => ({
+      return ((data || []) as PolicyTypeQueryRow[]).map(pt => {
+        const linked = Array.isArray(pt.product_type) ? pt.product_type[0] : pt.product_type;
+        return {
         id: pt.id,
         name: pt.name,
-        category: (pt.product_type as any)?.category || 'General',
-        default_points: (pt.product_type as any)?.default_points ?? 0,
-        is_vc_item: (pt.product_type as any)?.is_vc_item ?? false,
-        canonical_name: (pt.product_type as any)?.name || null,
-      }));
+        allow_multiple_items: pt.allow_multiple_items ?? false,
+        category: linked?.category || 'General',
+        default_points: linked?.default_points ?? 0,
+        is_vc_item: linked?.is_vc_item ?? false,
+        canonical_name: linked?.name || null,
+      };
+    });
     },
     enabled: !!effectiveAgencyId,
   });
@@ -263,6 +390,7 @@ export function PdfUploadForm({
   // Add policy to staged list
   const addPolicyToStaged = (data: ExtractedSaleData, filename: string) => {
     const matched = matchProductType(data.productType, productTypes);
+    const supportsMultipleItems = isMultiItemProduct(matched);
     
     const newPolicy: StagedPolicy = {
       id: generateId(),
@@ -271,7 +399,7 @@ export function PdfUploadForm({
       policyNumber: data.policyNumber || '',
       effectiveDate: data.effectiveDate ? new Date(data.effectiveDate) : undefined,
       premium: data.premium || 0,
-      itemCount: data.itemCount || 1,
+      itemCount: supportsMultipleItems ? (data.itemCount || 1) : 1,
       vehicles: data.vehicles,
       confidence: data.confidence,
       filename,
@@ -311,6 +439,8 @@ export function PdfUploadForm({
       // If this is the first policy, set customer info from it
       if (stagedPolicies.length === 0) {
         setCustomerName(extractedData.customerName || '');
+        setCustomerEmail(extractedData.customerEmail || '');
+        setCustomerPhone(formatPhoneNumber(extractedData.customerPhone || ''));
         setCustomerZip(extractedData.customerZip || '');
         addPolicyToStaged(extractedData, filename);
         setUploadState('review');
@@ -367,21 +497,11 @@ export function PdfUploadForm({
         return sum + ((pt?.default_points || 0) * p.itemCount);
       }, 0);
 
-      // Detect bundle type
       const productNames = stagedPolicies.map(p => p.productTypeName);
-      const hasAuto = productNames.some(name => 
-        AUTO_PRODUCTS.some(a => a.toLowerCase() === name.toLowerCase())
+      const bundleInfo = detectBundleType(
+        productNames,
+        hasExistingPolicies ? existingPolicyTypes : []
       );
-      const hasHome = productNames.some(name => 
-        HOME_PRODUCTS.some(h => h.toLowerCase() === name.toLowerCase())
-      );
-      const isBundle = stagedPolicies.length > 1;
-      let bundleType = null;
-      if (hasAuto && hasHome) {
-        bundleType = 'preferred_bundle';
-      } else if (isBundle) {
-        bundleType = 'multi_policy';
-      }
 
       // Check if any policy is VC qualifying
       const isVcQualifying = stagedPolicies.some(p => {
@@ -451,8 +571,9 @@ export function PdfUploadForm({
         vc_items: vcItems,
         vc_premium: vcPremium,
         vc_points: vcPoints,
-        is_bundle: isBundle,
-        bundle_type: bundleType,
+        is_bundle: bundleInfo.isBundle,
+        bundle_type: bundleInfo.bundleType,
+        existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
         policies: policiesPayload
       };
 
@@ -489,8 +610,9 @@ export function PdfUploadForm({
             vc_items: vcItems,
             vc_premium: vcPremium,
             vc_points: vcPoints,
-            is_bundle: isBundle,
-            bundle_type: bundleType,
+            is_bundle: bundleInfo.isBundle,
+            bundle_type: bundleInfo.bundleType,
+            existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
             source: 'pdf_upload',
             source_details: {
               filenames: stagedPolicies.map(p => p.filename),
@@ -544,12 +666,40 @@ export function PdfUploadForm({
           if (itemError) throw itemError;
         }
 
+        // Create or find unified contact so this customer appears in Contacts
+        if (customerName.trim()) {
+          try {
+            const nameParts = customerName.trim().split(/\s+/);
+            const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
+            const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : '';
+
+            const { data: contactId } = await supabase.rpc('find_or_create_contact', {
+              p_agency_id: effectiveAgencyId,
+              p_first_name: firstName || null,
+              p_last_name: lastName,
+              p_zip_code: customerZip.trim() || null,
+              p_phone: customerPhone.trim() || null,
+              p_email: customerEmail.trim() || null,
+            });
+
+            if (contactId) {
+              await supabase
+                .from('sales')
+                .update({ contact_id: contactId })
+                .eq('id', sale.id)
+                .is('contact_id', null);
+            }
+          } catch (contactErr) {
+            console.warn('[PdfUploadForm] Failed to create contact:', contactErr);
+          }
+        }
+
         // Trigger sale notification email (fire and forget)
         if (profile?.agency_id) {
           supabase.functions.invoke('send-sale-notification', {
-            body: { 
-              sale_id: sale.id, 
-              agency_id: profile.agency_id 
+            body: {
+              sale_id: sale.id,
+              agency_id: profile.agency_id
             }
           }).catch(err => {
             console.error('[PdfUploadForm] Failed to trigger sale notification:', err);
@@ -559,16 +709,40 @@ export function PdfUploadForm({
         return { sale_id: sale.id };
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success('Sale created successfully!');
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['staff-sales'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
       // Invalidate promo widgets so progress refreshes immediately
       queryClient.invalidateQueries({ queryKey: ['admin-promo-goals-widget'] });
       queryClient.invalidateQueries({ queryKey: ['promo-goals'] });
       queryClient.invalidateQueries({ queryKey: ['staff-promo-goals'] });
-      resetForm();
-      onSuccess?.();
+
+      const saleId = result?.sale_id;
+      if (!saleId || !effectiveAgencyId) {
+        resetForm();
+        onSuccess?.();
+        return;
+      }
+
+      const breakupPolicies = stagedPolicies.map((policy) => ({
+        id: policy.id,
+        policyTypeName: policy.productTypeName,
+        policyNumber: "",
+        effectiveDate: format(policy.effectiveDate || todayLocal(), "yyyy-MM-dd"),
+        carrierName: "Prior Carrier",
+      }));
+
+      setNewSaleData({
+        saleId,
+        customerName: customerName.trim(),
+        customerPhone: customerPhone.trim() || undefined,
+        customerEmail: customerEmail.trim() || undefined,
+        customerZip: customerZip.trim() || undefined,
+        breakupPolicies,
+      });
+      setBreakupChoiceModalOpen(true);
     },
     onError: (error) => {
       console.error('Create sale error:', error);
@@ -584,7 +758,10 @@ export function PdfUploadForm({
     setCustomerZip('');
     setProducerId('');
     setLeadSourceId('');
+    setHasExistingPolicies(false);
+    setExistingPolicyTypes([]);
     setShowUploadDropzone(false);
+    setShowPolicyTypeReviewDialog(false);
     setEditingPolicy(null);
     setEditModalOpen(false);
   };
@@ -642,6 +819,7 @@ export function PdfUploadForm({
     if (!editingPolicy) return;
 
     const pt = productTypes.find(t => t.id === editProductTypeId);
+    const supportsMultipleItems = isMultiItemProduct(pt);
     const existingIndex = stagedPolicies.findIndex(p => p.id === editingPolicy.id);
     
     const updatedPolicy: StagedPolicy = {
@@ -651,7 +829,9 @@ export function PdfUploadForm({
       policyNumber: editPolicyNumber,
       effectiveDate: editEffectiveDate,
       premium: parseFloat(editPremium) || 0,
-      itemCount: editItemCount,
+      itemCount: supportsMultipleItems ? editItemCount : 1,
+      // Treat manual edits as user-reviewed so confidence prompts do not persist unnecessarily.
+      confidence: 'high',
     };
     
     if (existingIndex >= 0) {
@@ -713,26 +893,49 @@ export function PdfUploadForm({
     disabled: uploadState === 'uploading'
   });
 
-  // Calculate bundle info
   const productNames = stagedPolicies.map(p => p.productTypeName);
-  const hasAuto = productNames.some(name => 
-    AUTO_PRODUCTS.some(a => a.toLowerCase() === name.toLowerCase())
+  const selectedEditProductType = productTypes.find((pt) => pt.id === editProductTypeId);
+  const canEditMultipleItems = isMultiItemProduct(selectedEditProductType);
+  const bundleInfo = detectBundleType(
+    productNames,
+    hasExistingPolicies ? existingPolicyTypes : []
   );
-  const hasHome = productNames.some(name => 
-    HOME_PRODUCTS.some(h => h.toLowerCase() === name.toLowerCase())
-  );
-  const isBundle = stagedPolicies.length > 1;
-  const bundleLabel = hasAuto && hasHome 
-    ? `Bundle: ${productNames.join(' + ')}`
-    : isBundle 
-      ? `Multi-Policy: ${productNames.join(' + ')}`
-      : null;
+
+  useEffect(() => {
+    if (selectedEditProductType && !canEditMultipleItems && editItemCount !== 1) {
+      setEditItemCount(1);
+    }
+  }, [selectedEditProductType, canEditMultipleItems, editItemCount]);
+  const bundleLabel = bundleInfo.bundleType
+    ? `${bundleInfo.bundleType} Bundle: ${productNames.join(' + ')}`
+    : null;
 
   const totalPremium = stagedPolicies.reduce((sum, p) => sum + (p.premium || 0), 0);
   const totalItems = stagedPolicies.reduce((sum, p) => sum + (p.itemCount || 0), 0);
 
   const getProductIcon = (productName: string) => {
     return PRODUCT_ICONS[productName] || <FileText className="h-4 w-4" />;
+  };
+
+  const getConfidenceMeta = (confidence: StagedPolicy['confidence']) => {
+    if (confidence === 'high') {
+      return { label: 'High confidence', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+    }
+    if (confidence === 'medium') {
+      return { label: 'Needs review', className: 'bg-amber-50 text-amber-700 border-amber-200' };
+    }
+    return { label: 'Low confidence', className: 'bg-red-50 text-red-700 border-red-200' };
+  };
+
+  const policiesNeedingTypeReview = stagedPolicies.filter((p) => p.confidence !== 'high');
+  const hasPolicyTypeUncertainty = policiesNeedingTypeReview.length > 0;
+
+  const handleCreateSaleClick = () => {
+    if (hasPolicyTypeUncertainty) {
+      setShowPolicyTypeReviewDialog(true);
+      return;
+    }
+    createSale.mutate();
   };
 
   // Idle state - show initial upload dropzone
@@ -803,6 +1006,7 @@ export function PdfUploadForm({
 
   // Review state - show staged policies and customer info
   return (
+    <>
     <div className="space-y-6">
       {/* Customer Information Card */}
       <Card>
@@ -860,6 +1064,76 @@ export function PdfUploadForm({
               maxLength={10}
               required
             />
+          </div>
+          <div className="space-y-3 sm:col-span-2">
+            <div className={cn(
+              "p-4 rounded-lg border transition-colors",
+              hasExistingPolicies
+                ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20"
+                : "border-muted bg-muted/30"
+            )}>
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="hasExistingPolicies"
+                  checked={hasExistingPolicies}
+                  onCheckedChange={(checked) => {
+                    setHasExistingPolicies(checked === true);
+                    if (!checked) {
+                      setExistingPolicyTypes([]);
+                    }
+                  }}
+                />
+                <Label
+                  htmlFor="hasExistingPolicies"
+                  className="flex items-center gap-2 cursor-pointer font-medium"
+                >
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                  Customer has existing policies with us
+                </Label>
+              </div>
+
+              {hasExistingPolicies && (
+                <div className="mt-4 pl-7 space-y-3">
+                  <Label className="text-sm text-muted-foreground">
+                    What products do they already have?
+                  </Label>
+                  <div className="flex flex-wrap gap-4">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="existingAuto"
+                        checked={existingPolicyTypes.includes('auto')}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setExistingPolicyTypes([...existingPolicyTypes, 'auto']);
+                          } else {
+                            setExistingPolicyTypes(existingPolicyTypes.filter(t => t !== 'auto'));
+                          }
+                        }}
+                      />
+                      <Label htmlFor="existingAuto" className="cursor-pointer">
+                        Auto
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="existingHome"
+                        checked={existingPolicyTypes.includes('home')}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setExistingPolicyTypes([...existingPolicyTypes, 'home']);
+                          } else {
+                            setExistingPolicyTypes(existingPolicyTypes.filter(t => t !== 'home'));
+                          }
+                        }}
+                      />
+                      <Label htmlFor="existingHome" className="cursor-pointer">
+                        Home/Property
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="leadSource">
@@ -936,6 +1210,9 @@ export function PdfUploadForm({
                   <div>
                     <div className="font-medium flex items-center gap-2">
                       {policy.productTypeName || 'Unknown Product'}
+                      <Badge variant="outline" className={getConfidenceMeta(policy.confidence).className}>
+                        {getConfidenceMeta(policy.confidence).label}
+                      </Badge>
                       {!policy.productTypeId && (
                         <Badge variant="destructive" className="text-xs">
                           <AlertCircle className="h-3 w-3 mr-1" />
@@ -953,6 +1230,11 @@ export function PdfUploadForm({
                       <span>${policy.premium.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                       <span>{policy.itemCount} item{policy.itemCount !== 1 ? 's' : ''}</span>
                     </div>
+                    {policy.confidence !== 'high' && (
+                      <p className="text-xs text-amber-700 mt-2">
+                        Please confirm policy type before saving. You can edit it if needed.
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -1092,7 +1374,7 @@ export function PdfUploadForm({
           Cancel
         </Button>
         <Button
-          onClick={() => createSale.mutate()}
+          onClick={handleCreateSaleClick}
           disabled={
             createSale.isPending || 
             stagedPolicies.length === 0 || 
@@ -1115,6 +1397,13 @@ export function PdfUploadForm({
           )}
         </Button>
       </div>
+
+      {hasPolicyTypeUncertainty && (
+        <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+          We are not fully confident about {policiesNeedingTypeReview.length} uploaded policy
+          {policiesNeedingTypeReview.length > 1 ? ' types' : ' type'}. Please review before saving.
+        </div>
+      )}
 
       {/* Edit/Add Policy Modal */}
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
@@ -1192,7 +1481,13 @@ export function PdfUploadForm({
                   min="1"
                   value={editItemCount}
                   onChange={(e) => setEditItemCount(parseInt(e.target.value) || 1)}
+                  disabled={!!selectedEditProductType && !canEditMultipleItems}
                 />
+                {!!selectedEditProductType && !canEditMultipleItems && (
+                  <p className="text-xs text-muted-foreground">
+                    This policy type is configured as single-item in Admin settings.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -1244,6 +1539,145 @@ export function PdfUploadForm({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Policy Type Review Dialog */}
+      <Dialog open={showPolicyTypeReviewDialog} onOpenChange={setShowPolicyTypeReviewDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Please confirm policy type
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              We are not fully confident about the detected policy type for the items below.
+              Review or edit before saving.
+            </p>
+            <div className="space-y-2">
+              {policiesNeedingTypeReview.map((policy) => (
+                <div key={policy.id} className="rounded-md border p-2 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-medium">{policy.productTypeName || 'Unknown Product'}</span>
+                    <Badge variant="outline" className={getConfidenceMeta(policy.confidence).className}>
+                      {getConfidenceMeta(policy.confidence).label}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Policy: {policy.policyNumber || 'N/A'} {policy.effectiveDate ? `• Eff ${format(policy.effectiveDate, 'MM/dd/yyyy')}` : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPolicyTypeReviewDialog(false)}>
+              Review Fields
+            </Button>
+            <Button
+              onClick={() => {
+                setShowPolicyTypeReviewDialog(false);
+                createSale.mutate();
+              }}
+              disabled={createSale.isPending}
+            >
+              Save Anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+
+    {newSaleData && effectiveAgencyId && (
+      <ApplySequenceModal
+        open={applySequenceModalOpen}
+        onOpenChange={(open) => {
+          setApplySequenceModalOpen(open);
+          if (!open) {
+            setNewSaleData(null);
+            resetForm();
+            onSuccess?.();
+          }
+        }}
+        saleId={newSaleData.saleId}
+        customerName={newSaleData.customerName}
+        customerPhone={newSaleData.customerPhone}
+        customerEmail={newSaleData.customerEmail}
+        agencyId={effectiveAgencyId}
+        staffSessionToken={staffSessionToken || null}
+        onSuccess={() => {
+          setNewSaleData(null);
+          setApplySequenceModalOpen(false);
+          resetForm();
+          onSuccess?.();
+        }}
+      />
+    )}
+
+    {newSaleData && effectiveAgencyId && (
+      <Dialog
+        open={breakupChoiceModalOpen}
+        onOpenChange={(open) => {
+          setBreakupChoiceModalOpen(open);
+          if (!open && !breakupLetterModalOpen) {
+            setApplySequenceModalOpen(true);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Generate Breakup Letter?</DialogTitle>
+            <DialogDescription>
+              Generate a cancellation letter before sequence assignment. You can skip this and continue.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setBreakupChoiceModalOpen(false);
+                setApplySequenceModalOpen(true);
+              }}
+            >
+              Skip for Now
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setBreakupLetterModalOpen(true);
+                setBreakupChoiceModalOpen(false);
+              }}
+            >
+              Generate Letter
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )}
+
+    {newSaleData && effectiveAgencyId && (
+      <BreakupLetterModal
+        open={breakupLetterModalOpen}
+        onOpenChange={(open) => {
+          setBreakupLetterModalOpen(open);
+          if (!open) {
+            setApplySequenceModalOpen(true);
+          }
+        }}
+        agencyId={effectiveAgencyId}
+        customerName={newSaleData.customerName}
+        customerZip={newSaleData.customerZip}
+        customerEmail={newSaleData.customerEmail}
+        customerPhone={newSaleData.customerPhone}
+        policies={newSaleData.breakupPolicies}
+        sourceContext="sale_upload"
+        onContinueToSequence={() => {
+          setBreakupLetterModalOpen(false);
+          setApplySequenceModalOpen(true);
+        }}
+      />
+    )}
+    </>
   );
 }

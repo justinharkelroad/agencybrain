@@ -137,13 +137,13 @@ export default function FlowSession() {
   }, [template?.name]);
 
   useEffect(() => {
-    if (currentQuestion) {
+    if (currentQuestion && !isTyping) {
       setCurrentValue(responses[currentQuestion.id] || '');
       setShowChallenge(false);
       setChallengeText('');
       setShowCurrentQuestion(true);
     }
-  }, [currentQuestion?.id, responses]);
+  }, [currentQuestion?.id, responses, isTyping]);
 
   // Auto-scroll to current question bubble (center it so footer doesn't cover it)
   const scrollToCurrentQuestion = useCallback(() => {
@@ -318,8 +318,9 @@ export default function FlowSession() {
 
     console.log('[FlowSession] Saving response:', currentQuestion.id, valueToSubmit);
     
-    // Save immediately
+    // Save immediately and clear input
     forceScrollRef.current = true;
+    setCurrentValue('');
     await saveResponse(currentQuestion.id, valueToSubmit);
     setAnsweredQuestions(prev => new Set(prev).add(currentQuestion.id));
 
@@ -426,7 +427,7 @@ export default function FlowSession() {
     );
   }
 
-  if (!template || !currentQuestion) {
+  if (!template) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card>
@@ -437,6 +438,20 @@ export default function FlowSession() {
             </Button>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  // If all questions are answered (currentQuestion is undefined), navigate to completion
+  if (!currentQuestion) {
+    if (session?.id) {
+      navigate(`/flows/complete/${session.id}`, { replace: true });
+    } else {
+      navigate('/flows', { replace: true });
+    }
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }

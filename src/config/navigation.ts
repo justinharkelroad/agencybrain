@@ -62,6 +62,7 @@ export type NavItem = {
   trialRestricted?: boolean;  // Some functionality restricted during trial (shows indicator)
   salesExperienceAccess?: boolean;  // Requires agency to have active sales experience assignment
   salesProcessBuilderAccess?: boolean;  // Requires agency to have sales_process_builder feature flag
+  coachingInsightsAccess?: boolean;     // Requires agency to be in coaching insights beta list
   callGapsAccess?: boolean;  // Requires agency to have call_gaps feature flag
 };
 
@@ -176,6 +177,15 @@ export const navigationConfig: NavEntry[] = [
         type: 'link',
         url: '/objection-manager',
         access: { staff: false, manager: true, owner: true },
+      },
+      {
+        id: 'coaching-insights',
+        title: 'Coaching Insights',
+        icon: Sparkles,
+        type: 'link',
+        url: '/coaching-insights',
+        access: { staff: true, manager: true, owner: true },
+        coachingInsightsAccess: true,
       },
       {
         id: 'ai-sales-bot',
@@ -709,6 +719,15 @@ export const navigationConfig: NavEntry[] = [
         url: '/call-gaps',
         access: { staff: false, manager: true, owner: true },
         callGapsAccess: true,
+      },
+      {
+        id: 'growth-center',
+        title: 'Growth Center',
+        icon: TrendingUp,
+        type: 'link',
+        url: '/growth-center',
+        access: { staff: false, manager: true, owner: true },
+        requiresTier: '1:1',
       },
       {
         id: 'producer-quote-dashboard',

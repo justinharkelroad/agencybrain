@@ -14,17 +14,21 @@ export interface LqsObjection {
 
 /**
  * Hook to fetch active objections for use in forms (dropdown selection)
- * Returns only active objections, accessible by all authenticated users
+ * Returns only active objections scoped to a specific agency.
+ * @param agencyId - The agency to fetch objections for. Required to prevent
+ *   admins from seeing all agencies' objections (RLS passes for all agencies
+ *   when caller is admin).
  * @param enabled - Set to false to disable the query (e.g., in staff context)
  */
-export function useLqsObjections(enabled: boolean = true) {
+export function useLqsObjections(agencyId: string | null | undefined, enabled: boolean = true) {
   return useQuery({
-    queryKey: ['lqs-objections-active'],
-    enabled,
+    queryKey: ['lqs-objections-active', agencyId],
+    enabled: enabled && !!agencyId,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('lqs_objections')
         .select('*')
+        .eq('agency_id', agencyId!)
         .eq('is_active', true)
         .order('sort_order')
         .order('name');

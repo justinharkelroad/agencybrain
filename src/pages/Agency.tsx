@@ -18,7 +18,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings, Target, AlertTriangle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings, Target, AlertTriangle, CircleHelp } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import { PolicyTypeManager } from "@/components/PolicyTypeManager";
@@ -31,10 +32,11 @@ import { HelpButton } from '@/components/HelpButton';
 import { ProcessVaultContent } from "@/components/ProcessVaultContent";
 import { SavedReportsHistory } from "@/components/reports/SavedReportsHistory";
 import { MeetingFrameTab } from "@/components/agency/MeetingFrameTab";
-import { RingCentralConnect } from "@/components/RingCentralConnect";
+import { RingCentralReportUpload } from "@/components/RingCentralReportUpload";
 import { Core4Tab } from "@/components/agency/Core4Tab";
 import { EmailDeliveryNoticeButton, EmailDeliveryNoticeModal } from "@/components/EmailDeliveryNoticeModal";
 import { SalesEmailSettings } from "@/components/settings/SalesEmailSettings";
+import { BreakupLetterSettings } from "@/components/settings/BreakupLetterSettings";
 import { hasSalesAccess } from "@/lib/salesBetaAccess";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
@@ -44,6 +46,161 @@ const MEMBER_STATUS = ["active", "inactive"] as const;
 type Role = (typeof MEMBER_ROLES)[number];
 type Employment = (typeof EMPLOYMENT_TYPES)[number];
 type MemberStatus = (typeof MEMBER_STATUS)[number];
+
+function DashboardCallMetricsToggle({ agencyId }: { agencyId: string }) {
+  const [enabled, setEnabled] = useState(false);
+  const [mode, setMode] = useState<'off' | 'shadow' | 'on'>('off');
+  const [loading, setLoading] = useState(true);
+  const [savingMode, setSavingMode] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from('agencies')
+      .select('dashboard_call_metrics_enabled, call_metrics_mode')
+      .eq('id', agencyId)
+      .single()
+      .then(({ data, error }) => {
+        if (error) {
+          toast.error('Failed to load call metrics settings');
+          setLoading(false);
+          return;
+        }
+
+        const nextEnabled = (data as any)?.dashboard_call_metrics_enabled ?? false;
+        const nextMode = ((data as any)?.call_metrics_mode as 'off' | 'shadow' | 'on' | null) || (nextEnabled ? 'shadow' : 'off');
+        setEnabled(nextEnabled);
+        setMode(nextMode);
+        setLoading(false);
+      });
+  }, [agencyId]);
+
+  const updateMode = async (nextMode: 'off' | 'shadow' | 'on') => {
+    setSavingMode(true);
+    const prevMode = mode;
+    const prevEnabled = enabled;
+    setMode(nextMode);
+    setEnabled(nextMode !== 'off');
+
+    const { error } = await supabase
+      .from('agencies')
+      .update({ call_metrics_mode: nextMode } as any)
+      .eq('id', agencyId);
+
+    setSavingMode(false);
+    if (error) {
+      setMode(prevMode);
+      setEnabled(prevEnabled);
+      toast.error('Failed to update call metrics mode');
+      return;
+    }
+
+    if (nextMode === 'off') {
+      toast.success('Call metrics mode set to Off (manual only)');
+    } else if (nextMode === 'shadow') {
+      toast.success('Call metrics mode set to Shadow (manual scoring + auto visibility)');
+    } else {
+      toast.success('Call metrics mode set to On (auto call metrics enabled)');
+    }
+  };
+
+  const handleToggle = async (value: boolean) => {
+    const targetMode: 'off' | 'shadow' | 'on' = value ? (mode === 'on' ? 'on' : 'shadow') : 'off';
+    await updateMode(targetMode);
+  };
+
+  if (loading) return null;
+
+  return (
+    <TooltipProvider delayDuration={200}>
+      <div className="rounded-lg border p-4 mb-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <Label htmlFor="dashboard-call-metrics" className="text-sm font-medium">Show Call Metrics on Dashboard</Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="Show Call Metrics help">
+                    <CircleHelp className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs text-xs">
+                  Controls whether call-metric rings are visible on dashboard pages. This is display-only and separate from call data mode.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <p className="text-xs text-muted-foreground">Display call metric rings and accordion layout on the main dashboard</p>
+          </div>
+          <Switch
+            id="dashboard-call-metrics"
+            checked={enabled}
+            onCheckedChange={handleToggle}
+            disabled={savingMode}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <Label htmlFor="call-metrics-mode" className="text-sm font-medium">Call Metrics Data Mode</Label>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="text-muted-foreground hover:text-foreground" aria-label="Call Metrics Data Mode help">
+                  <CircleHelp className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs text-xs">
+                Choose how call data is used for daily metrics and pass/fail scoring.
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <Select
+            value={mode}
+            onValueChange={(value) => updateMode(value as 'off' | 'shadow' | 'on')}
+            disabled={savingMode}
+          >
+            <SelectTrigger id="call-metrics-mode" className="w-full md:w-[360px]">
+              <SelectValue placeholder="Select mode" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="off">Off (Manual Scorecard Only)</SelectItem>
+              <SelectItem value="shadow">Shadow (Manual Scoring + Auto Visibility)</SelectItem>
+              <SelectItem value="on">On (Use Auto Call Metrics)</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex flex-wrap items-center gap-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="cursor-help">Off</Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                Stable/manual mode. Uses scorecard-submitted calls and talk time for dashboard scoring.
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="cursor-help">Shadow</Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                Safe rollout mode. Keep manual scoring, while validating imported phone data before full automation.
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="cursor-help">On</Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                Automation mode. RingCentral/Ricochet call data drives outbound calls and talk time metrics.
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Off keeps calls/talk from scorecard submissions only. Shadow keeps scoring manual while still surfacing auto call data for comparison.
+            On lets RingCentral/Ricochet call metrics drive outbound calls and talk time.
+          </p>
+        </div>
+      </div>
+    </TooltipProvider>
+  );
+}
 
 interface StaffUser {
   id: string;
@@ -119,6 +276,8 @@ export default function Agency() {
   });
   const [editingMemberOriginalRole, setEditingMemberOriginalRole] = useState<Role | null>(null);
   const [editingMemberHasStaffUser, setEditingMemberHasStaffUser] = useState(false);
+  const [memberLoginUsername, setMemberLoginUsername] = useState("");
+  const [memberLoginUsernameOriginal, setMemberLoginUsernameOriginal] = useState("");
 
   // Staff Invite dialog state
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
@@ -126,6 +285,12 @@ export default function Agency() {
   const [manageLoginDialogOpen, setManageLoginDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [selectedStaffUser, setSelectedStaffUser] = useState<StaffUser | null>(null);
+  const [usernameDialogOpen, setUsernameDialogOpen] = useState(false);
+  const [usernameDialogStaffUser, setUsernameDialogStaffUser] = useState<StaffUser | null>(null);
+  const [usernameDialogValue, setUsernameDialogValue] = useState("");
+  const [usernameDialogSaving, setUsernameDialogSaving] = useState(false);
+  const [editableUsername, setEditableUsername] = useState("");
+  const [savingUsername, setSavingUsername] = useState(false);
 
   // Manual password creation state
   const [inviteMode, setInviteMode] = useState<'email' | 'manual'>('manual');
@@ -199,7 +364,7 @@ export default function Agency() {
         if (aId) {
           const { data: agency, error: aErr } = await supabase
             .from("agencies")
-            .select("id,name,agency_email,phone,logo_url,staff_can_upload_calls")
+            .select("id,name,agency_email,phone,logo_url,staff_can_upload_calls,rc_ingest_key")
             .eq("id", aId)
             .maybeSingle();
           if (aErr) throw aErr;
@@ -284,10 +449,14 @@ export default function Agency() {
         toastHook({ title: "Name required", description: "Enter your agency name.", variant: "destructive" });
         return;
       }
+      if (!agencyEmail.trim()) {
+        toastHook({ title: "Email required", description: "Agency email is required for notifications.", variant: "destructive" });
+        return;
+      }
       if (agencyId) {
       const { error } = await supabase
           .from("agencies")
-          .update({ name: agencyName.trim(), agency_email: agencyEmail.trim() || null, phone: agencyPhone.trim() || null })
+          .update({ name: agencyName.trim(), agency_email: agencyEmail.trim(), phone: agencyPhone.trim() || null })
           .eq("id", agencyId);
         if (error) throw error;
         toastHook({ title: "Saved", description: "Agency updated" });
@@ -308,7 +477,7 @@ export default function Agency() {
             },
             body: JSON.stringify({
               name: agencyName.trim(),
-              agency_email: agencyEmail.trim() || null,
+              agency_email: agencyEmail.trim() || undefined,
               phone: agencyPhone.trim() || null,
             }),
           }
@@ -333,10 +502,13 @@ export default function Agency() {
     setMemberForm({ name: "", email: "", role: MEMBER_ROLES[0], employment: EMPLOYMENT_TYPES[0], status: MEMBER_STATUS[0], notes: "", hybridTeamAssignments: [], subProducerCode: "", includeInMetrics: true });
     setEditingMemberOriginalRole(null);
     setEditingMemberHasStaffUser(false);
+    setMemberLoginUsername("");
+    setMemberLoginUsernameOriginal("");
     setMemberDialogOpen(true);
   };
 
   const startEdit = (m: any) => {
+    const linkedStaffUser = staffByTeamMemberId.get(m.id);
     setEditingId(m.id);
     setMemberForm({
       name: m.name,
@@ -351,6 +523,8 @@ export default function Agency() {
     });
     setEditingMemberOriginalRole(m.role);
     setEditingMemberHasStaffUser(staffByTeamMemberId.has(m.id));
+    setMemberLoginUsername(linkedStaffUser?.username || "");
+    setMemberLoginUsernameOriginal(linkedStaffUser?.username || "");
     setMemberDialogOpen(true);
   };
 
@@ -375,13 +549,29 @@ export default function Agency() {
         if (error) throw error;
         
         // Sync email to linked staff_users record
-        const { error: staffError } = await supabase
-          .from("staff_users")
-          .update({ email: memberForm.email })
-          .eq("team_member_id", editingId);
-        
-        if (staffError) {
-          console.error("Failed to sync email to staff_users:", staffError);
+        const linkedStaffUser = staffByTeamMemberId.get(editingId);
+        if (linkedStaffUser) {
+          const staffUpdate: Record<string, unknown> = {
+            email: memberForm.email
+          };
+
+          const trimmedUsername = memberLoginUsername.trim();
+          if (trimmedUsername && trimmedUsername !== memberLoginUsernameOriginal) {
+            staffUpdate.username = trimmedUsername;
+          }
+
+          const { error: staffError } = await supabase
+            .from("staff_users")
+            .update(staffUpdate)
+            .eq("id", linkedStaffUser.id);
+
+          if (staffError) {
+            if ((staffError as any)?.code === "23505") {
+              throw new Error("This username is already taken. Please choose a different one.");
+            }
+            console.error("Failed to sync email/username to staff_users:", staffError);
+            throw staffError;
+          }
         }
       } else {
         const { error } = await supabase.from("team_members").insert([{ agency_id: agencyId, ...updateData }]);
@@ -634,7 +824,97 @@ export default function Agency() {
   const openManageLoginModal = (member: any, staffUser: StaffUser) => {
     setSelectedMember(member);
     setSelectedStaffUser(staffUser);
+    setEditableUsername(staffUser.username || "");
     setManageLoginDialogOpen(true);
+  };
+
+  const handleSaveUsername = async () => {
+    try {
+      if (!selectedStaffUser || !agencyId) return;
+
+      const trimmedUsername = editableUsername.trim();
+      if (!trimmedUsername) {
+        toast.error("Username is required");
+        return;
+      }
+
+      if (trimmedUsername === selectedStaffUser.username) {
+        toast("Username is unchanged");
+        return;
+      }
+
+      setSavingUsername(true);
+
+      const { error } = await supabase
+        .from("staff_users")
+        .update({ username: trimmedUsername })
+        .eq("id", selectedStaffUser.id);
+
+      if (error) {
+        if ((error as any)?.code === "23505") {
+          toast.error("This username is already taken. Please choose a different one.");
+          return;
+        }
+        throw error;
+      }
+
+      setSelectedStaffUser({ ...selectedStaffUser, username: trimmedUsername });
+      toast.success("Username updated");
+      await refreshData(agencyId);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Failed to update username");
+    } finally {
+      setSavingUsername(false);
+    }
+  };
+
+  const openUsernameDialog = (staffUser: StaffUser) => {
+    setUsernameDialogStaffUser(staffUser);
+    setUsernameDialogValue(staffUser.username || "");
+    setUsernameDialogOpen(true);
+  };
+
+  const handleSaveUsernameFromTable = async () => {
+    try {
+      if (!usernameDialogStaffUser || !agencyId) return;
+
+      const trimmedUsername = usernameDialogValue.trim();
+      if (!trimmedUsername) {
+        toast.error("Username is required");
+        return;
+      }
+
+      if (trimmedUsername === usernameDialogStaffUser.username) {
+        setUsernameDialogOpen(false);
+        return;
+      }
+
+      setUsernameDialogSaving(true);
+
+      const { error } = await supabase
+        .from("staff_users")
+        .update({ username: trimmedUsername })
+        .eq("id", usernameDialogStaffUser.id);
+
+      if (error) {
+        if ((error as any)?.code === "23505") {
+          toast.error("This username is already taken. Please choose a different one.");
+          return;
+        }
+        throw error;
+      }
+
+      toast.success("Username updated");
+      setUsernameDialogOpen(false);
+      setUsernameDialogStaffUser(null);
+      await refreshData(agencyId);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Failed to update username");
+    } finally {
+      setUsernameDialogSaving(false);
+    }
   };
 
   const handleSendInvite = async () => {
@@ -1081,6 +1361,18 @@ export default function Agency() {
                     <Label className="sm:text-right" htmlFor="email">Email</Label>
                     <Input id="email" type="email" value={memberForm.email} onChange={(e) => setMemberForm((f) => ({ ...f, email: e.target.value }))} className="col-span-1 sm:col-span-3" />
                   </div>
+                  {editingMemberHasStaffUser && (
+                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
+                      <Label className="sm:text-right" htmlFor="member-username">Username</Label>
+                      <Input
+                        id="member-username"
+                        value={memberLoginUsername}
+                        onChange={(e) => setMemberLoginUsername(e.target.value)}
+                        className="col-span-1 sm:col-span-3"
+                        placeholder="Staff portal username"
+                      />
+                    </div>
+                  )}
                    <div className="grid grid-cols-1 sm:grid-cols-4 items-center gap-3">
                      <Label className="sm:text-right">Role</Label>
                      <Select value={memberForm.role} onValueChange={(v) => setMemberForm((f) => ({ ...f, role: v as Role }))}>
@@ -1231,7 +1523,7 @@ export default function Agency() {
                       <TableCell>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {m.status === 'inactive' ? (
-                            <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">Inactive</Badge>
+                            <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">Deactivated</Badge>
                           ) : (
                             <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">Active</Badge>
                           )}
@@ -1265,7 +1557,7 @@ export default function Agency() {
                                 className="bg-amber-500/10 text-amber-600 border-amber-500/20"
                               >
                                 <Clock className="h-3 w-3 mr-1" />
-                                Access Pending
+                                Deactivated
                               </Badge>
                               <Button 
                                 variant="ghost" 
@@ -1283,8 +1575,8 @@ export default function Agency() {
                             size="sm" 
                             onClick={() => openInviteModal(m)}
                           >
-                            <Send className="h-3 w-3 mr-1" />
-                            Access
+                            <Key className="h-3 w-3 mr-1" />
+                            Password Setup
                           </Button>
                         )}
                       </TableCell>
@@ -1295,6 +1587,17 @@ export default function Agency() {
                               <ArrowRight className="h-4 w-4" />
                             </Button>
                           </Link>
+                          {staffUser && (
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="rounded-full"
+                              aria-label="Edit Username"
+                              onClick={() => openUsernameDialog(staffUser)}
+                            >
+                              <Key className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button variant="secondary" size="icon" className="rounded-full" aria-label="Edit" onClick={() => startEdit(m)}>
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -1399,7 +1702,7 @@ export default function Agency() {
       <TabsContent value="settings" className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Agency Settings</CardTitle>
+            <CardTitle>Agency Settings <span className="text-xs font-semibold text-destructive ml-1">BETA</span></CardTitle>
             <CardDescription>Configure settings for your agency</CardDescription>
           </CardHeader>
           <CardContent>
@@ -1506,14 +1809,28 @@ export default function Agency() {
                 </AccordionItem>
               )}
 
+              {(isAdmin || hasSalesAccess(agencyId)) && (
+                <AccordionItem value="breakup-letter-settings">
+                  <AccordionTrigger>Breakup Letter</AccordionTrigger>
+                  <AccordionContent>
+                    <BreakupLetterSettings agencyId={agencyId} />
+                  </AccordionContent>
+                </AccordionItem>
+              )}
+
               {/* Phone System Integrations */}
               <AccordionItem value="phone-integrations">
-                <AccordionTrigger>Phone System Integrations</AccordionTrigger>
+                <AccordionTrigger>Phone System Integrations <span className="text-xs font-semibold text-destructive ml-1">BETA</span></AccordionTrigger>
                 <AccordionContent>
                   <p className="text-sm text-muted-foreground mb-4">
                     Connect your phone system to automatically sync call logs and track team performance.
                   </p>
-                  <RingCentralConnect />
+                  {agencyId && (
+                    <DashboardCallMetricsToggle agencyId={agencyId} />
+                  )}
+                  {agencyId && (
+                    <RingCentralReportUpload agencyId={agencyId} />
+                  )}
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
@@ -1610,6 +1927,7 @@ export default function Agency() {
                     {inviteMode === 'email' && <div className="w-2 h-2 rounded-full bg-primary" />}
                   </div>
                   <span className="font-medium">Send Email Access</span>
+                  <Badge variant="outline" className="ml-auto text-xs bg-destructive/10 text-destructive border-destructive/20">Not Recommended</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1 ml-6">
                   {selectedMember?.email 
@@ -1816,6 +2134,31 @@ export default function Agency() {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label htmlFor="edit-staff-username">Username</Label>
+            <div className="flex gap-2">
+              <Input
+                id="edit-staff-username"
+                value={editableUsername}
+                onChange={(e) => setEditableUsername(e.target.value)}
+                placeholder="Enter username"
+              />
+              <Button
+                variant="outline"
+                onClick={handleSaveUsername}
+                disabled={savingUsername || !editableUsername.trim() || editableUsername.trim() === (selectedStaffUser?.username || "")}
+              >
+                {savingUsername ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save"
+                )}
+              </Button>
+            </div>
+          </div>
           <div className="flex justify-between items-center">
             <span className="text-muted-foreground">Status</span>
             <Badge 
@@ -1887,6 +2230,43 @@ export default function Agency() {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setManageLoginDialogOpen(false)}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Quick Edit Username Dialog */}
+    <Dialog open={usernameDialogOpen} onOpenChange={setUsernameDialogOpen}>
+      <DialogContent className="glass-surface max-w-md">
+        <DialogHeader>
+          <DialogTitle>Edit Username</DialogTitle>
+          <DialogDescription>
+            Update staff login username for {selectedMember?.name || usernameDialogStaffUser?.email || "staff user"}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2 py-2">
+          <Label htmlFor="table-username-edit">Username</Label>
+          <Input
+            id="table-username-edit"
+            value={usernameDialogValue}
+            onChange={(e) => setUsernameDialogValue(e.target.value)}
+            placeholder="Enter username"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setUsernameDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={handleSaveUsernameFromTable}
+            disabled={usernameDialogSaving || !usernameDialogValue.trim() || usernameDialogValue.trim() === (usernameDialogStaffUser?.username || "")}
+          >
+            {usernameDialogSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save Username"
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

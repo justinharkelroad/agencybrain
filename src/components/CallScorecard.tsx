@@ -1,4 +1,4 @@
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,19 +12,77 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   User, Users, Target, AlertTriangle, CheckCircle2, XCircle,
-  FileAudio, Clock, ChevronDown, ChevronUp, Download,
+  FileAudio, Clock, ChevronDown, ChevronUp, Download, Search,
   Image, FileText, Share2, Loader2, CheckCircle, Mic, VolumeX,
   MessageSquareQuote, Sparkles, Mail, MessageSquare
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer } from 'recharts';
 import { toast } from 'sonner';
 import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecard';
 import { parseFeedback } from '@/lib/utils/feedback-parser';
 import { FollowUpTemplateDisplay } from '@/components/call-scoring/FollowUpTemplateDisplay';
+import { supabase } from '@/integrations/supabase/client';
+import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
+import type { Json } from '@/integrations/supabase/types';
+
+interface CallScorecardCall {
+  id: string;
+  team_member_name?: string | null;
+  section_scores: Json | null;
+  transcript_segments: Json | null;
+  discovery_wins: Json | null;
+  closing_attempts: Json | null;
+  client_profile: Json | null;
+  skill_scores: Json | null;
+  agent_talk_percent: number | null;
+  customer_talk_percent: number | null;
+  dead_air_percent: number | null;
+  agent_talk_seconds: number | null;
+  customer_talk_seconds: number | null;
+  dead_air_seconds: number | null;
+  overall_score: number | null;
+  potential_rank: string | null;
+  critical_gaps: Json | null;
+  summary: string | null;
+  notable_quotes: Json | null;
+  original_filename: string | null;
+  created_at: string | null;
+  analyzed_at: string | null;
+  generated_email_template: string | null;
+  generated_text_template: string | null;
+  [key: string]: unknown;
+}
+
+interface SectionScoreEntry {
+  score?: number;
+  wins?: string[];
+  failures?: string[];
+  coaching?: string | null;
+  tip?: string | null;
+  feedback?: string | null;
+}
+
+type SectionScoreMap = Record<string, SectionScoreEntry | undefined>;
+
+interface RawSkillScoreRow {
+  skill_name?: string | null;
+  score?: number | null;
+  max_score?: number | null;
+  feedback?: string | null;
+  tip?: string | null;
+}
+
+interface NormalizedSkillScore {
+  skill_name: string;
+  score: number;
+  max_score: number;
+  feedback?: string | null;
+  tip?: string | null;
+}
 
 interface CallScorecardProps {
-  call: any;
+  call: CallScorecardCall | null;
   open: boolean;
   onClose: () => void;
   isStaffUser?: boolean;
@@ -34,6 +92,7 @@ interface CallScorecardProps {
   staffFeedbackImprovement?: string | null;
   onAcknowledge?: (positive: string, improvement: string) => Promise<void>;
   loading?: boolean;
+  qaEnabled?: boolean;
 }
 
 export function CallScorecard({ 
@@ -46,7 +105,8 @@ export function CallScorecard({
   staffFeedbackPositive,
   staffFeedbackImprovement,
   onAcknowledge,
-  loading = false
+  loading = false,
+  qaEnabled = false
 }: CallScorecardProps) {
   const [showCrmNotes, setShowCrmNotes] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -55,7 +115,87 @@ export function CallScorecard({
   const [feedbackImprovement, setFeedbackImprovement] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
+  const QA_QUESTION_LIMIT = 10;
+  const [qaQuestion, setQaQuestion] = useState('');
+  const [qaQuestionsUsed, setQaQuestionsUsed] = useState(0);
+  const [qaLoading, setQaLoading] = useState(false);
+  const [qaError, setQaError] = useState<string | null>(null);
+  const [qaResult, setQaResult] = useState<{
+    question: string;
+    verdict: 'found' | 'partial' | 'not_found';
+    confidence: number;
+    summary: string;
+    matches: Array<{
+      timestamp_seconds?: number | null;
+      speaker?: string | null;
+      quote: string;
+      context?: string | null;
+    }>;
+  } | null>(null);
   const scorecardRef = useRef<HTMLDivElement>(null);
+
+  // Reset QA state when switching calls
+  useEffect(() => {
+    setQaQuestion('');
+    setQaQuestionsUsed(0);
+    setQaLoading(false);
+    setQaError(null);
+    setQaResult(null);
+  }, [call?.id]);
+
+  const handleQaQuery = async () => {
+    if (!qaEnabled || qaLoading) return;
+
+    if (qaQuestionsUsed >= QA_QUESTION_LIMIT) {
+      toast.error(`You've reached the ${QA_QUESTION_LIMIT}-question limit for this call.`);
+      return;
+    }
+
+    const question = qaQuestion.trim();
+    if (!question) {
+      toast.error('Please enter a question first.');
+      return;
+    }
+
+    setQaLoading(true);
+    setQaError(null);
+    setQaResult(null);
+
+    try {
+      const headers: Record<string, string> = {};
+      const staffSession = localStorage.getItem('staff_session_token');
+      if (staffSession) {
+        headers['x-staff-session'] = staffSession;
+      }
+
+      const { data, error } = await supabase.functions.invoke('call-scoring-qa', {
+        body: {
+          call_id: call.id,
+          question,
+        },
+        headers,
+      });
+
+      if (error) {
+        const message = await resolveFunctionErrorMessage(error);
+        throw new Error(message);
+      }
+
+      if (!data?.question) {
+        throw new Error('QA service returned an unexpected response.');
+      }
+
+      setQaResult(data);
+      setQaQuestionsUsed(prev => prev + 1);
+      toast.success('Q&A complete.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to run QA query';
+      setQaError(message);
+      toast.error(message);
+    } finally {
+      setQaLoading(false);
+    }
+  };
 
   const handleAcknowledge = async () => {
     if (!feedbackPositive.trim() || !feedbackImprovement.trim()) {
@@ -81,6 +221,7 @@ export function CallScorecard({
     return (
       <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogTitle className="sr-only">Call Scorecard</DialogTitle>
           <div className="flex items-center justify-center gap-3 py-10 text-muted-foreground">
             {loading ? (
               <>
@@ -135,6 +276,11 @@ export function CallScorecard({
     toast.success(`Timestamp ${formatted} copied`);
   };
 
+  const toMmSs = (seconds: number | null | undefined) => {
+    if (seconds === null || seconds === undefined || Number.isNaN(seconds)) return '--:--';
+    return formatTimestamp(seconds);
+  };
+
   const sectionScoresRaw = call.section_scores || {};
   const executionChecklist = call.discovery_wins || {};
 
@@ -150,12 +296,37 @@ export function CallScorecard({
   };
 
   // Build a normalized lookup map from section_scores (handles both object and array formats)
-  const sectionScoresMap: Record<string, any> = (() => {
+  const isObject = (value: Json | null | undefined): value is Record<string, Json> =>
+    typeof value === 'object' && value !== null && !Array.isArray(value);
+
+  const toNumber = (value: Json | null | undefined): number | null =>
+    typeof value === 'number' ? value : null;
+
+  const toStringArray = (value: Json | null | undefined): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value.filter((entry): entry is string => typeof entry === 'string');
+  };
+
+  const asSectionScoreEntry = (value: Json | null | undefined): SectionScoreEntry | null => {
+    if (!isObject(value)) return null;
+    return {
+      score: toNumber(value.score) ?? undefined,
+      wins: toStringArray(value.wins),
+      failures: toStringArray(value.failures),
+      coaching: typeof value.coaching === 'string' ? value.coaching : null,
+      tip: typeof value.tip === 'string' ? value.tip : null,
+      feedback: typeof value.feedback === 'string' ? value.feedback : null,
+    };
+  };
+
+  const sectionScoresMap: SectionScoreMap = (() => {
     // If it's already an object with normalized keys
-    if (sectionScoresRaw && typeof sectionScoresRaw === 'object' && !Array.isArray(sectionScoresRaw)) {
-      const map: Record<string, any> = {};
-      for (const [key, value] of Object.entries(sectionScoresRaw)) {
+    if (isObject(sectionScoresRaw)) {
+      const map: SectionScoreMap = {};
+      for (const [key, rawValue] of Object.entries(sectionScoresRaw)) {
         const normalizedKey = normalizeKey(key);
+        const value = asSectionScoreEntry(rawValue);
+        if (!value) continue;
         map[normalizedKey] = value;
         // Also store with original key for backward compatibility
         if (key !== normalizedKey) {
@@ -166,11 +337,13 @@ export function CallScorecard({
     }
     // If it's an array (service calls), convert to object using section_name
     if (Array.isArray(sectionScoresRaw)) {
-      const map: Record<string, any> = {};
+      const map: SectionScoreMap = {};
       for (const section of sectionScoresRaw) {
-        if (section.section_name) {
+        if (isObject(section) && typeof section.section_name === 'string') {
           const normalizedKey = normalizeKey(section.section_name);
-          map[normalizedKey] = section;
+          const value = asSectionScoreEntry(section);
+          if (!value) continue;
+          map[normalizedKey] = value;
         }
       }
       return map;
@@ -180,23 +353,74 @@ export function CallScorecard({
 
   // Backward compatible alias
   const sectionScores = sectionScoresMap;
-  const crmNotes = call.closing_attempts || {};
-  const extractedData = call.client_profile || {};
+  const crmNotes = isObject(call.closing_attempts) ? call.closing_attempts : {};
+  const extractedData = isObject(call.client_profile) ? call.client_profile : {};
+
+  const getClientProfileText = (value: Json | undefined) => {
+    return typeof value === 'string' ? value : '';
+  };
+
+  const getClientProfileList = (value: Json | undefined): string[] => {
+    return toStringArray(value);
+  };
+
+  const yourQuote = getClientProfileText(extractedData.your_quote);
+  const budgetIndicators = getClientProfileText(extractedData.budget_indicators);
+  const competitorQuote = getClientProfileText(extractedData.competitor_quote);
+  const currentCoverage = getClientProfileText(extractedData.current_coverage);
+  const householdSize = getClientProfileText(extractedData.household_size);
+  const timeline = getClientProfileText(extractedData.timeline);
+  const clientFirstName = getClientProfileText(extractedData.client_first_name);
+  const salespersonNameFromProfile = getClientProfileText(extractedData.salesperson_name);
+  const assets = getClientProfileList(extractedData.assets);
+  const painPoints = getClientProfileList(extractedData.pain_points);
 
   // Get salesperson name from various possible locations
-  const salespersonName = call.team_member_name || 
-    extractedData?.salesperson_name || 
+  const salespersonName = call.team_member_name ||
+    salespersonNameFromProfile ||
     'Agent';
+
+  const toNormalizedSkillScores = (scores: Json | null | undefined): NormalizedSkillScore[] => {
+    if (Array.isArray(scores)) {
+      return scores
+        .filter((row): row is RawSkillScoreRow => isObject(row))
+        .map((row) => ({
+          skill_name: row.skill_name?.trim() || 'Skill',
+          score: typeof row.score === 'number' ? row.score : 0,
+          max_score: typeof row.max_score === 'number' && row.max_score > 0 ? row.max_score : 10,
+          feedback: row.feedback ?? null,
+          tip: row.tip ?? null
+        }));
+    }
+
+    if (!isObject(scores)) return [];
+
+    return Object.entries(scores).flatMap(([key, value]) => {
+      const numericValue = toNumber(value);
+      if (numericValue === null) {
+        return [];
+      }
+      const normalizedScore = numericValue <= 10 ? numericValue : Math.round(numericValue / 10);
+      return [{
+        skill_name: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+        score: normalizedScore,
+        max_score: 10,
+        feedback: null,
+        tip: null
+      }];
+    });
+  };
 
   // Prepare radar chart data - handles both array and object formats
   const getRadarData = () => {
     const scores = call.skill_scores;
+    const normalizedScores = toNormalizedSkillScores(scores as Json | null | undefined);
     
     // Handle array format (new): [{skill_name, score (0-10), max_score}]
     if (Array.isArray(scores) && scores.length > 0) {
       const findScore = (keywords: string[]) => {
-        const match = scores.find((s: any) => 
-          keywords.some(k => s.skill_name?.toLowerCase().includes(k.toLowerCase()))
+        const match = normalizedScores.find((s) =>
+          keywords.some((k) => s.skill_name?.toLowerCase().includes(k.toLowerCase()))
         );
         return match ? (match.score / (match.max_score || 10)) * 100 : 50;
       };
@@ -211,18 +435,24 @@ export function CallScorecard({
     }
     
     // Handle object format (legacy): {rapport: 75, discovery: 60, ...}
-    const scoresObj = scores || {};
+    const scoresObj = isObject(scores) ? scores : {};
     return [
-      { skill: 'Rapport', score: sectionScores.rapport?.score || scoresObj.rapport || 50, fullMark: 100 },
-      { skill: 'Discovery', score: scoresObj.discovery || 50, fullMark: 100 },
-      { skill: 'Coverage', score: sectionScores.coverage?.score || scoresObj.coverage || 50, fullMark: 100 },
-      { skill: 'Objection', score: scoresObj.objection_handling || 50, fullMark: 100 },
-      { skill: 'Closing', score: sectionScores.closing?.score || scoresObj.closing || 50, fullMark: 100 },
+      { skill: 'Rapport', score: sectionScores.rapport?.score ?? toNumber(scoresObj.rapport) ?? 50, fullMark: 100 },
+      { skill: 'Discovery', score: toNumber(scoresObj.discovery) ?? 50, fullMark: 100 },
+      { skill: 'Coverage', score: sectionScores.coverage?.score ?? toNumber(scoresObj.coverage) ?? 50, fullMark: 100 },
+      { skill: 'Objection', score: toNumber(scoresObj.objection_handling) ?? 50, fullMark: 100 },
+      { skill: 'Closing', score: sectionScores.closing?.score ?? toNumber(scoresObj.closing) ?? 50, fullMark: 100 },
     ];
   };
 
   // Parse price for comparison bars
-  const parsePrice = (priceStr: string) => {
+  const parsePrice = (priceValue: unknown) => {
+    const priceStr =
+      typeof priceValue === 'string'
+        ? priceValue
+        : typeof priceValue === 'number'
+          ? priceValue.toString()
+          : '';
     if (!priceStr) return 0;
     return parseFloat(priceStr.replace(/[^0-9.]/g, '')) || 0;
   };
@@ -243,8 +473,8 @@ export function CallScorecard({
   const customerTalkSeconds = call.customer_talk_seconds;
   const deadAirSeconds = call.dead_air_seconds;
 
-  const yourQuoteValue = parsePrice(extractedData.your_quote);
-  const competitorQuoteValue = parsePrice(extractedData.competitor_quote);
+  const yourQuoteValue = parsePrice(yourQuote || budgetIndicators);
+  const competitorQuoteValue = parsePrice(competitorQuote || currentCoverage);
   const maxQuote = Math.max(yourQuoteValue, competitorQuoteValue, 1);
 
   const handleExportPNG = async () => {
@@ -277,6 +507,7 @@ export function CallScorecard({
     return (
       <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+          <DialogTitle className="sr-only">Loading call details</DialogTitle>
           <div className="flex items-center justify-center py-24">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
@@ -288,6 +519,7 @@ export function CallScorecard({
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+        <DialogTitle className="sr-only">Call scorecard details</DialogTitle>
         {/* Export buttons - OUTSIDE the ref so they don't appear in export */}
         <div className="absolute top-4 right-12 z-10 flex gap-2">
           <DropdownMenu>
@@ -377,10 +609,10 @@ export function CallScorecard({
             <Card className="bg-muted/30">
               <CardContent className="pt-4 text-center">
                 <p className="text-xs text-muted-foreground mb-1">
-                  {extractedData.your_quote ? 'YOUR QUOTE' : extractedData.budget_indicators ? 'BUDGET' : 'YOUR QUOTE'}
+                  {yourQuote ? 'YOUR QUOTE' : budgetIndicators ? 'BUDGET' : 'YOUR QUOTE'}
                 </p>
                 <p className="text-xl sm:text-2xl font-bold break-words">
-                  {extractedData.your_quote || extractedData.budget_indicators || '--'}
+                  {yourQuote || budgetIndicators || '--'}
                 </p>
               </CardContent>
             </Card>
@@ -389,10 +621,10 @@ export function CallScorecard({
             <Card className="bg-muted/30">
               <CardContent className="pt-4 text-center">
                 <p className="text-xs text-muted-foreground mb-1">
-                  {extractedData.competitor_quote ? 'COMPETITOR AVG' : extractedData.current_coverage ? 'CURRENT COVERAGE' : 'COMPETITOR AVG'}
+                  {competitorQuote ? 'COMPETITOR AVG' : currentCoverage ? 'CURRENT COVERAGE' : 'COMPETITOR AVG'}
                 </p>
                 <p className="text-xl sm:text-2xl font-bold text-green-400 break-words">
-                  {extractedData.competitor_quote ? `~${extractedData.competitor_quote}` : extractedData.current_coverage || '--'}
+                  {competitorQuote ? `~${competitorQuote}` : currentCoverage || '--'}
                 </p>
               </CardContent>
             </Card>
@@ -401,12 +633,16 @@ export function CallScorecard({
             <Card className="bg-muted/30">
               <CardContent className="pt-4">
                 <p className="text-xs text-muted-foreground mb-1 text-center sm:text-left">
-                  {extractedData.assets ? 'ASSET PROFILE' : extractedData.household_size ? 'HOUSEHOLD' : 'ASSET PROFILE'}
+                  {assets.length ? 'ASSET PROFILE' : householdSize ? 'HOUSEHOLD' : 'ASSET PROFILE'}
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-2 text-xs sm:text-sm">
-                  {extractedData.assets?.slice(0, 2).map((asset: string, i: number) => (
-                    <span key={i} className="truncate max-w-full sm:max-w-[120px]">{asset}</span>
-                  )) || <span className="truncate max-w-full">{extractedData.household_size || '--'}</span>}
+                  {assets.length > 0 ? (
+                    assets.slice(0, 2).map((asset: string, i: number) => (
+                      <span key={i} className="truncate max-w-full sm:max-w-[120px]">{asset}</span>
+                    ))
+                  ) : (
+                    <span className="truncate max-w-full">{householdSize || '--'}</span>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -541,67 +777,67 @@ export function CallScorecard({
                   </p>
                   
                   {/* Legacy: Quote Comparison OR New: Budget Info */}
-                  {extractedData.your_quote ? (
+                  {yourQuote ? (
                     <div>
                       <p className="text-xs text-muted-foreground">QUOTE COMPARISON</p>
                       <p className="text-lg font-bold">
-                        {extractedData.your_quote}
-                        {extractedData.competitor_quote && (
+                        {yourQuote}
+                        {competitorQuote && (
                           <span className="text-sm text-muted-foreground ml-2">
-                            vs <span className="text-green-400">{extractedData.competitor_quote}</span>
+                            vs <span className="text-green-400">{competitorQuote}</span>
                           </span>
                         )}
                       </p>
                     </div>
-                  ) : extractedData.budget_indicators && (
+                  ) : budgetIndicators && (
                     <div>
                       <p className="text-xs text-muted-foreground">BUDGET</p>
-                      <p className="text-sm font-medium">{extractedData.budget_indicators}</p>
+                      <p className="text-sm font-medium">{budgetIndicators}</p>
                     </div>
                   )}
 
                   {/* Legacy: Assets OR New: Current Coverage */}
-                  {extractedData.assets?.length > 0 ? (
+                  {assets.length > 0 ? (
                     <div>
                       <p className="text-xs text-muted-foreground">ASSETS</p>
-                      {extractedData.assets.map((asset: string, i: number) => (
+                      {assets.map((asset: string, i: number) => (
                         <p key={i} className="text-sm flex items-center gap-1">
                           <span className="w-1 h-4 bg-blue-500 rounded" />
                           {asset}
                         </p>
                       ))}
                     </div>
-                  ) : extractedData.current_coverage && (
+                  ) : currentCoverage && (
                     <div>
                       <p className="text-xs text-muted-foreground">CURRENT COVERAGE</p>
                       <p className="text-sm flex items-center gap-1">
                         <span className="w-1 h-4 bg-blue-500 rounded" />
-                        {extractedData.current_coverage}
+                        {currentCoverage}
                       </p>
                     </div>
                   )}
 
                   {/* Legacy: Timeline OR New: Household */}
-                  {extractedData.timeline ? (
+                  {timeline ? (
                     <div>
                       <p className="text-xs text-muted-foreground">FOLLOW UP PLAN</p>
                       <p className="text-sm text-yellow-400 flex items-center gap-1">
                         <Clock className="h-3 w-3" />
-                        {extractedData.timeline}
+                        {timeline}
                       </p>
                     </div>
-                  ) : extractedData.household_size && (
+                  ) : householdSize && (
                     <div>
                       <p className="text-xs text-muted-foreground">HOUSEHOLD</p>
-                      <p className="text-sm">{extractedData.household_size}</p>
+                      <p className="text-sm">{householdSize}</p>
                     </div>
                   )}
 
                   {/* New: Pain Points (no legacy equivalent) */}
-                  {extractedData.pain_points?.length > 0 && (
+                  {painPoints.length > 0 && (
                     <div>
                       <p className="text-xs text-muted-foreground">PAIN POINTS</p>
-                      {extractedData.pain_points.map((point: string, i: number) => (
+                      {painPoints.map((point: string, i: number) => (
                         <p key={i} className="text-sm flex items-center gap-1 text-orange-400">
                           <span className="w-1 h-4 bg-orange-500 rounded" />
                           {point}
@@ -616,43 +852,40 @@ export function CallScorecard({
           {/* Three Section Scores OR Skill Breakdown */}
           {(() => {
             // Check for both normalized keys and alternate GPT output keys
-            const rapportData = sectionScores.rapport || (sectionScores as any).opening__rapport || (sectionScores as any).opening_rapport;
-            const coverageData = sectionScores.coverage || (sectionScores as any).coverage_education || (sectionScores as any).coverage__education;
+            const rapportData = sectionScores.rapport || sectionScores.opening__rapport || sectionScores.opening_rapport;
+            const coverageData = sectionScores.coverage || sectionScores.coverage_education || sectionScores.coverage__education;
             const closingData = sectionScores.closing;
             const hasLegacySections = rapportData || coverageData || closingData;
             
-            // Handle both array and object formats for skill_scores
-            // CRITICAL: Always enrich with feedback/tip from section_scores using normalized keys
-            const skillScoresArray = (() => {
-              // If skill_scores is an array, enrich each entry with section_scores data
-              if (Array.isArray(call.skill_scores)) {
-                return call.skill_scores.map((row: any) => {
-                  const key = normalizeKey(row.skill_name || '');
-                  const sectionData = sectionScoresMap[key];
-                  return {
-                    ...row,
-                    // Use existing feedback/tip if present, otherwise pull from section_scores
-                    feedback: row.feedback ?? sectionData?.feedback ?? sectionData?.coaching ?? null,
-                    tip: row.tip ?? sectionData?.tip ?? null
-                  };
-                });
-              }
-              // Convert object format {closing: 50, rapport: 60} to array format
-              if (call.skill_scores && typeof call.skill_scores === 'object') {
-                return Object.entries(call.skill_scores as Record<string, number>).map(([key, value]) => {
-                  const normalizedKey = normalizeKey(key);
-                  const sectionData = sectionScoresMap[normalizedKey];
-                  return {
-                    skill_name: key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                    score: typeof value === 'number' ? (value <= 10 ? value : Math.round(value / 10)) : 0,
-                    max_score: 10,
-                    feedback: sectionData?.feedback ?? sectionData?.coaching ?? null,
-                    tip: sectionData?.tip ?? null
-                  };
-                });
-              }
-              return [];
-            })();
+              // Handle both array and object formats for skill_scores
+              // CRITICAL: Always enrich with feedback/tip from section_scores using normalized keys
+              const skillScoresArray = (() => {
+                const normalizedSkillScores = toNormalizedSkillScores(call.skill_scores as Json | null | undefined);
+
+                // If skill_scores is an array, enrich each entry with section_scores data
+                if (Array.isArray(call.skill_scores)) {
+                  return normalizedSkillScores.map((row) => {
+                    const key = normalizeKey(row.skill_name || '');
+                    const sectionData = sectionScoresMap[key];
+                    return {
+                      ...row,
+                      // Use existing feedback/tip if present, otherwise pull from section_scores
+                      feedback: row.feedback ?? sectionData?.feedback ?? sectionData?.coaching ?? null,
+                      tip: row.tip ?? sectionData?.tip ?? null
+                    };
+                  });
+                  }
+                  return normalizedSkillScores.map((row) => {
+                    const normalizedKey = normalizeKey(row.skill_name);
+                    const sectionData = sectionScoresMap[normalizedKey];
+                    return {
+                      ...row,
+                      feedback: row.feedback ?? sectionData?.feedback ?? sectionData?.coaching ?? null,
+                      tip: row.tip ?? sectionData?.tip ?? null
+                    };
+                  });
+                  return [];
+                })();
             
             if (hasLegacySections) {
               return (
@@ -880,7 +1113,7 @@ export function CallScorecard({
                   <CardContent className="pt-4">
                     <h3 className="font-bold text-sm mb-4">SKILL BREAKDOWN</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {skillScoresArray.map((skill: any, idx: number) => (
+                      {skillScoresArray.map((skill: NormalizedSkillScore, idx: number) => (
                         <div key={idx} className="p-3 bg-muted/30 rounded-lg">
                           <div className="flex justify-between items-start mb-2">
                             <span className="font-medium text-sm">{skill.skill_name}</span>
@@ -938,7 +1171,7 @@ export function CallScorecard({
           {/* Visual Charts Row */}
           <div className="grid md:grid-cols-2 gap-4">
             {/* Price Resistance Gap */}
-            {extractedData.your_quote && extractedData.competitor_quote && (
+            {yourQuote && competitorQuote && (
               <Card>
                 <CardContent className="pt-4">
                   <div className="flex items-center gap-2 mb-4">
@@ -956,7 +1189,7 @@ export function CallScorecard({
                         }}
                       />
                       <p className="text-xs text-muted-foreground mt-2">Competitor</p>
-                      <p className="text-sm font-medium text-green-400">{extractedData.competitor_quote}</p>
+                        <p className="text-sm font-medium text-green-400">{competitorQuote}</p>
                     </div>
                     
                     {/* Your Quote Bar */}
@@ -966,7 +1199,7 @@ export function CallScorecard({
                         style={{ height: `${Math.max(20, (yourQuoteValue / maxQuote) * 100)}px` }}
                       />
                       <p className="text-xs text-muted-foreground mt-2">Your Quote</p>
-                      <p className="text-sm font-medium text-red-400">{extractedData.your_quote}</p>
+                      <p className="text-sm font-medium text-red-400">{yourQuote}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -974,7 +1207,7 @@ export function CallScorecard({
             )}
 
             {/* Skill Execution Gap - Radar Chart */}
-            <Card className={!extractedData.your_quote || !extractedData.competitor_quote ? 'md:col-span-2' : ''}>
+            <Card className={!yourQuote || !competitorQuote ? 'md:col-span-2' : ''}>
               <CardContent className="pt-4">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-2 h-2 rounded-full bg-red-500" />
@@ -1025,15 +1258,14 @@ export function CallScorecard({
           {/* Corrective Action Plan */}
           {(() => {
             // Get relevant tips from skill_scores based on keywords
-            const getRelevantTips = (keywords: string[]) => {
-              if (!Array.isArray(call.skill_scores)) return [];
-              return call.skill_scores
-                .filter((s: any) => keywords.some(k => 
-                  s.skill_name?.toLowerCase().includes(k.toLowerCase())
-                ))
-                .map((s: any) => s.tip)
-                .filter(Boolean);
-            };
+                const getRelevantTips = (keywords: string[]) => {
+                  if (!Array.isArray(call.skill_scores)) return [];
+                  return call.skill_scores
+                    .filter((rawSkill): rawSkill is RawSkillScoreRow => isObject(rawSkill))
+                    .filter((s) => keywords.some(k => s.skill_name?.toLowerCase().includes(k.toLowerCase())))
+                    .map((s) => s.tip)
+                    .filter((tip): tip is string => typeof tip === 'string');
+                };
 
             // Group tips by coaching category
             const rapportTips = getRelevantTips(['rapport', 'thanking', 'greeting', 'frame']);
@@ -1323,8 +1555,102 @@ export function CallScorecard({
                   ))}
                 </div>
               </CardContent>
-            </Card>
+          </Card>
           )}
+
+          {/* Time-Based Q&A */}
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="pt-4">
+              <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
+                <Search className="h-4 w-4 text-blue-400" />
+                CALL TIMELINE Q&A
+              </h3>
+              {qaEnabled && (
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs text-blue-400/90">
+                    Ask timeline questions right here (for example: "When did we discuss liability limits?")
+                  </p>
+                  <span className={`text-xs font-medium ${qaQuestionsUsed >= QA_QUESTION_LIMIT ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {qaQuestionsUsed}/{QA_QUESTION_LIMIT} questions
+                  </span>
+                </div>
+              )}
+
+              {!qaEnabled ? (
+                <p className="text-sm text-muted-foreground">
+                  Ask-specific timeline questions are not enabled for your agency.
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="qa-question">Ask about a moment in this call</Label>
+                    <Textarea
+                      id="qa-question"
+                      value={qaQuestion}
+                      onChange={(e) => setQaQuestion(e.target.value)}
+                      placeholder="Example: When did they discuss liability limits?"
+                      className="min-h-[80px]"
+                    />
+                  </div>
+                  <div className="mt-3 flex items-center justify-end">
+                    <Button onClick={handleQaQuery} disabled={qaLoading || !qaQuestion.trim() || qaQuestionsUsed >= QA_QUESTION_LIMIT}>
+                      {qaLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Searching...
+                        </>
+                      ) : (
+                        <>
+                          <Search className="h-4 w-4 mr-2" />
+                          Ask
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {qaError && (
+                    <p className="mt-3 text-sm text-destructive">{qaError}</p>
+                  )}
+
+                  {qaResult && (
+                    <div className="mt-4 space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        {qaResult.summary} (confidence: {(qaResult.confidence * 100).toFixed(0)}%)
+                      </p>
+                      {qaResult.matches.length > 0 ? (
+                        qaResult.matches.map((match, idx) => (
+                          <div key={`${match.timestamp_seconds}-${idx}`} className="rounded-lg border border-border bg-muted/20 p-3">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              {match.timestamp_seconds !== null && match.timestamp_seconds !== undefined && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleTimestampClick(match.timestamp_seconds!)}
+                                  className="px-2 py-1 text-xs font-mono bg-background/80 rounded border border-border hover:bg-muted"
+                                >
+                                  {toMmSs(match.timestamp_seconds)}
+                                </button>
+                              )}
+                              {match.speaker && (
+                                <Badge variant="outline" className="text-xs">{match.speaker}</Badge>
+                              )}
+                            </div>
+                            <p className="text-sm italic">"{match.quote}"</p>
+                            {match.context && (
+                              <p className="text-xs text-muted-foreground mt-2">Context: {match.context}</p>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No matching moments were found for this question.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Staff Acknowledgment Section */}
           <div className="mt-6 pt-6 border-t border-border">
@@ -1451,7 +1777,7 @@ export function CallScorecard({
         callId={call.id}
         existingEmail={call.generated_email_template}
         existingText={call.generated_text_template}
-        clientName={extractedData?.client_first_name || 'Client'}
+        clientName={clientFirstName || 'Client'}
       />
     </Dialog>
   );

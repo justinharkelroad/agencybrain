@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format, subDays } from 'date-fns';
+import { useQueryClient } from '@tanstack/react-query';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +19,7 @@ import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { ChallengeDashboardWidget } from '@/components/challenge/ChallengeDashboardWidget';
+import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
 interface KPIData {
   key: string;
   slug: string;
@@ -26,6 +28,20 @@ interface KPIData {
   target: number;
   passed: boolean;
   progress: number;
+}
+
+interface SchemaKpi {
+  key: string;
+  selectedKpiSlug?: string;
+  label: string;
+  target?: { goal?: number };
+}
+
+interface LeadSourceRow {
+  id: string;
+  name: string;
+  is_self_generated?: boolean | null;
+  bucket?: { id: string; name: string } | null;
 }
 
 function getPreviousBusinessDay(): Date {
@@ -96,12 +112,15 @@ function CompactRing({
 
 export function StaffDashboard() {
   const { user, sessionToken } = useStaffAuth();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(true);
   const [hasSubmission, setHasSubmission] = useState(false);
   const [kpiData, setKpiData] = useState<KPIData[]>([]);
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
+  const [dashboardCallMetricsEnabled, setDashboardCallMetricsEnabled] = useState(false);
+  const [agencySlug, setAgencySlug] = useState<string | null>(null);
 
   // Fetch objections for quote modal (via edge function for staff users)
   const { data: objections = [] } = useStaffLqsObjections(sessionToken);
@@ -139,7 +158,17 @@ export function StaffDashboard() {
           return;
         }
 
-        const { submission, submissionSchema, formTemplateSchema, targets: targetsMap } = data;
+        const {
+          submission,
+          submissionSchema,
+          formTemplateSchema,
+          targets: targetsMap,
+          dashboard_call_metrics_enabled,
+          agency_slug,
+        } = data;
+
+        setDashboardCallMetricsEnabled(Boolean(dashboard_call_metrics_enabled));
+        setAgencySlug(agency_slug || null);
 
         const hasData = !!submission;
         setHasSubmission(hasData);
@@ -152,7 +181,7 @@ export function StaffDashboard() {
         const kpis = schema?.kpis || [];
         const payload = hasData ? (submission.payload_json || {}) : {};
 
-        const kpiResults: KPIData[] = kpis.map((kpi: any) => {
+        const kpiResults: KPIData[] = (kpis as SchemaKpi[]).map((kpi) => {
           const actual = hasData ? (Number(payload[kpi.selectedKpiSlug]) || Number(payload[kpi.key]) || 0) : 0;
           const target = kpi.target?.goal ?? targetsMap[kpi.selectedKpiSlug] ?? targetsMap[kpi.key] ?? 0;
           const progress = target > 0 ? Math.min(actual / target, 1) : 0;
@@ -197,7 +226,7 @@ export function StaffDashboard() {
         }
         
         if (data?.lead_sources) {
-          setLeadSources(data.lead_sources.map((s: any) => ({
+          setLeadSources((data.lead_sources as LeadSourceRow[]).map((s) => ({
             ...s,
             is_self_generated: s.is_self_generated ?? false,
             bucket: s.bucket ?? null
@@ -244,6 +273,15 @@ export function StaffDashboard() {
           agencyId={user.agency_id}
           teamMemberId={user.team_member_id}
           showViewAll
+        />
+      )}
+
+      {/* RingCentral call rings (same agency toggle behavior as owner dashboard) */}
+      {user?.agency_id && agencySlug && dashboardCallMetricsEnabled && (
+        <AgencyMetricRings
+          agencyId={user.agency_id}
+          agencySlug={agencySlug}
+          canFilterByMember={false}
         />
       )}
 
@@ -398,7 +436,9 @@ export function StaffDashboard() {
           teamMembers={teamMembers}
           objections={objections}
           currentTeamMemberId={user.team_member_id}
-          onSuccess={() => {}}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] });
+          }}
           staffSessionToken={sessionToken}
         />
       )}

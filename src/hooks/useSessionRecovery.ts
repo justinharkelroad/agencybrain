@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { toast } from 'sonner';
 import { isSessionError } from '@/lib/sessionRecovery';
+import { isStaffModeEnabled } from '@/lib/sessionMode';
 
 /**
  * Hook that monitors for session errors and handles recovery
@@ -65,7 +66,7 @@ export function useSessionRecovery() {
     // Only check for staff token presence - don't check route because
     // staff users may access shared components that aren't under /staff/
     const isStaffSession = () => {
-      return !!localStorage.getItem('staff_session_token');
+      return !!localStorage.getItem('staff_session_token') || isStaffModeEnabled();
     };
 
     // Set up global error handler for fetch to catch 401s

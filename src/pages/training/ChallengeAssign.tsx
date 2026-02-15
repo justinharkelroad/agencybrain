@@ -4,9 +4,11 @@ import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -22,9 +24,13 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronRight,
+  UserPlus,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, addDays, startOfWeek, getDay } from 'date-fns';
+import { isChallengeTier } from '@/utils/tierAccess';
+import { CredentialDisplay } from '@/components/challenge/CredentialDisplay';
 
 interface ChallengePurchase {
   id: string;
@@ -82,9 +88,21 @@ function generateMondayOptions(): Date[] {
   return options;
 }
 
+interface NewTeamMember {
+  name: string;
+  email: string;
+}
+
+interface CreatedCredential {
+  name: string;
+  username: string;
+  password: string;
+}
+
 export default function ChallengeAssign() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, membershipTier } = useAuth();
+  const isChallengeTierUser = isChallengeTier(membershipTier);
 
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
@@ -95,6 +113,11 @@ export default function ChallengeAssign() {
   const [selectedPurchaseId, setSelectedPurchaseId] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
   const [timezone, setTimezone] = useState<string>('America/New_York');
+
+  // New team member form state (for challenge tier users)
+  const [newMembers, setNewMembers] = useState<NewTeamMember[]>([{ name: '', email: '' }]);
+  const [selfParticipating, setSelfParticipating] = useState(false);
+  const [createdCredentials, setCreatedCredentials] = useState<CreatedCredential[]>([]);
 
   const mondayOptions = generateMondayOptions();
 
@@ -226,6 +249,62 @@ export default function ChallengeAssign() {
     }
   };
 
+  // Handlers for new team member form
+  const addMemberRow = () => {
+    setNewMembers(prev => [...prev, { name: '', email: '' }]);
+  };
+
+  const removeMemberRow = (index: number) => {
+    setNewMembers(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateMember = (index: number, field: keyof NewTeamMember, value: string) => {
+    setNewMembers(prev => prev.map((m, i) => i === index ? { ...m, [field]: value } : m));
+  };
+
+  const handleCreateTeam = async () => {
+    const validMembers = newMembers.filter(m => m.name.trim());
+    if (validMembers.length === 0 && !selfParticipating) {
+      toast.error('Please add at least one team member');
+      return;
+    }
+
+    if (!selectedPurchaseId || !startDate) {
+      toast.error('Please select a purchase and start date');
+      return;
+    }
+
+    setAssigning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('challenge-setup-team', {
+        body: {
+          purchase_id: selectedPurchaseId,
+          team_members: validMembers.map(m => ({ name: m.name.trim(), email: m.email.trim() || undefined })),
+          self_participating: selfParticipating,
+          start_date: startDate,
+          timezone,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      if (data?.credentials) {
+        setCreatedCredentials(data.credentials);
+        toast.success(`Successfully created ${data.credentials.length} team member(s)`);
+      }
+    } catch (err) {
+      console.error('Team creation error:', err);
+      toast.error('Failed to create team members');
+    } finally {
+      setAssigning(false);
+    }
+  };
+
   const availableStaff = staffUsers.filter(s => !isStaffAlreadyAssigned(s.id));
   const alreadyAssignedStaff = staffUsers.filter(s => isStaffAlreadyAssigned(s.id));
 
@@ -279,10 +358,232 @@ export default function ChallengeAssign() {
       <div>
         <h1 className="text-2xl font-bold">Assign Staff to The Challenge</h1>
         <p className="text-muted-foreground mt-1">
-          Select staff members and set their start date
+          {isChallengeTierUser && availableStaff.length === 0
+            ? 'Add your team members to get started'
+            : 'Select staff members and set their start date'
+          }
         </p>
       </div>
 
+      {/* Show credentials after team creation */}
+      {createdCredentials.length > 0 && (
+        <div className="space-y-4">
+          <CredentialDisplay credentials={createdCredentials} />
+          <div className="flex gap-3">
+            <Button asChild>
+              <Link to="/training/challenge/progress">
+                View Team Progress
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Link>
+            </Button>
+            <Button variant="outline" onClick={() => {
+              setCreatedCredentials([]);
+              fetchData(); // Refresh to show updated state
+            }}>
+              Add More Members
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* New Team Member Form (Challenge Tier - no existing staff users) */}
+      {isChallengeTierUser && availableStaff.length === 0 && createdCredentials.length === 0 && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserPlus className="h-5 w-5" />
+                  Add Team Members
+                </CardTitle>
+                <CardDescription>
+                  Enter names for your team. Credentials will be shown on screen after creation.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Self-participating toggle */}
+                <div className="flex items-center justify-between p-3 rounded-lg border">
+                  <div>
+                    <Label className="font-medium">Include yourself</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Join the challenge alongside your team
+                    </p>
+                  </div>
+                  <Switch
+                    checked={selfParticipating}
+                    onCheckedChange={setSelfParticipating}
+                  />
+                </div>
+
+                {/* Team member rows */}
+                {newMembers.map((member, index) => (
+                  <div key={index} className="flex items-start gap-3">
+                    <div className="flex-1 grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Name *</Label>
+                        <Input
+                          placeholder="Team member name"
+                          value={member.name}
+                          onChange={e => updateMember(index, 'name', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground">Email (optional)</Label>
+                        <Input
+                          type="email"
+                          placeholder="email@example.com"
+                          value={member.email}
+                          onChange={e => updateMember(index, 'email', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    {newMembers.length > 1 && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="mt-5 h-9 w-9 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeMemberRow(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addMemberRow}
+                  disabled={newMembers.length + (selfParticipating ? 1 : 0) >= getAvailableSeats()}
+                >
+                  <UserPlus className="h-4 w-4 mr-1" />
+                  Add Another Member
+                </Button>
+
+                {newMembers.length + (selfParticipating ? 1 : 0) > getAvailableSeats() && (
+                  <p className="text-sm text-destructive">
+                    You have {getAvailableSeats()} available seats. Remove some members or purchase more seats.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Settings column */}
+          <div className="space-y-6">
+            {/* Purchase Selection */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Purchase to Use</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Select value={selectedPurchaseId} onValueChange={setSelectedPurchaseId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select purchase" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {purchases.map((purchase) => {
+                      const available = purchase.quantity - purchase.seats_used;
+                      return (
+                        <SelectItem key={purchase.id} value={purchase.id}>
+                          {available} seat{available !== 1 ? 's' : ''} available
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+
+            {/* Start Date */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Start Date</CardTitle>
+                <CardDescription>Challenge starts on a Monday</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Select value={startDate} onValueChange={setStartDate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select start date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mondayOptions.map((monday) => (
+                      <SelectItem key={monday.toISOString()} value={format(monday, 'yyyy-MM-dd')}>
+                        {format(monday, 'MMMM d, yyyy')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+
+            {/* Timezone */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Timezone</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Select value={timezone} onValueChange={setTimezone}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select timezone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIMEZONES.map((tz) => (
+                      <SelectItem key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+
+            {/* Create Team Button */}
+            <Card>
+              <CardContent className="p-4 space-y-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Team members</span>
+                    <span className="font-medium">
+                      {newMembers.filter(m => m.name.trim()).length + (selfParticipating ? 1 : 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Available seats</span>
+                    <span className="font-medium">{getAvailableSeats()}</span>
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full"
+                  onClick={handleCreateTeam}
+                  disabled={
+                    assigning ||
+                    (newMembers.filter(m => m.name.trim()).length === 0 && !selfParticipating) ||
+                    newMembers.filter(m => m.name.trim()).length + (selfParticipating ? 1 : 0) > getAvailableSeats() ||
+                    !startDate
+                  }
+                >
+                  {assigning ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creating Team...
+                    </>
+                  ) : (
+                    <>
+                      Create Team & Get Credentials
+                      <ChevronRight className="h-4 w-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Original staff selection grid (for non-challenge tier or when staff exist) */}
+      {createdCredentials.length === 0 && !(isChallengeTierUser && availableStaff.length === 0) && (
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Staff Selection */}
         <div className="lg:col-span-2 space-y-6">
@@ -479,6 +780,7 @@ export default function ChallengeAssign() {
           </Card>
         </div>
       </div>
+      )}
     </div>
   );
 }

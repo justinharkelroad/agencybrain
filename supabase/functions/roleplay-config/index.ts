@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { supaFromReq } from "../_shared/client.ts";
 import { corsHeaders } from "../_shared/cors.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import { verifyRequest, isVerifyError } from "../_shared/verifyRequest.ts";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -22,72 +22,25 @@ serve(async (req) => {
       }
     }
     
-    // Check for staff session header
-    const staffSessionToken = req.headers.get('x-staff-session');
-    
-    // Allow either authenticated users OR valid token OR valid staff session
+    // Allow either authenticated users/staff session OR valid token
     const supabase = supaFromReq(req);
-    const { data: { user } } = await supabase.auth.getUser();
+    const hasAuthHeader = !!req.headers.get('Authorization');
+    const hasStaffSession = !!req.headers.get('x-staff-session');
+    let hasVerifiedAuth = false;
 
-    // If authenticated user, allow access
-    if (user) {
-      console.log('Authenticated user accessing roleplay-config:', user.id);
-    } 
-    // If staff session header present, validate it
-    else if (staffSessionToken) {
-      console.log('Validating staff session token...');
-      
-      // Create admin client to query staff sessions
-      const supabaseAdmin = createClient(
-        Deno.env.get('SUPABASE_URL')!,
-        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-      );
-      
-      // Query staff_sessions table directly (same logic as staff_verify_session)
-      const { data: sessionData, error: sessionError } = await supabaseAdmin
-        .from('staff_sessions')
-        .select(`
-          *,
-          staff_users!inner (
-            id,
-            username,
-            display_name,
-            agency_id,
-            email,
-            is_active
-          )
-        `)
-        .eq('session_token', staffSessionToken)
-        .gt('expires_at', new Date().toISOString())
-        .single() as { data: any; error: any };
-
-      if (sessionError || !sessionData) {
-        console.log('Invalid staff session token:', sessionError?.message);
-        return new Response(
-          JSON.stringify({ error: 'Invalid staff session' }),
-          { 
-            status: 401, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
+    if (hasAuthHeader || hasStaffSession) {
+      const authResult = await verifyRequest(req);
+      if (!isVerifyError(authResult)) {
+        hasVerifiedAuth = true;
+        if (authResult.mode === 'supabase' && authResult.userId) {
+          console.log('Authenticated user accessing roleplay-config:', authResult.userId);
+        } else if (authResult.mode === 'staff' && authResult.staffUserId) {
+          console.log('Staff session authenticated accessing roleplay-config:', authResult.staffUserId);
+        }
       }
-
-      // Check if staff user is active
-      if (!sessionData.staff_users?.is_active) {
-        console.log('Staff user is inactive');
-        return new Response(
-          JSON.stringify({ error: 'Staff account is inactive' }),
-          { 
-            status: 403, 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-          }
-        );
-      }
-
-      console.log('Staff session authenticated:', sessionData.staff_users.display_name, 'Agency:', sessionData.staff_users.agency_id);
     }
-    // If not authenticated, require and validate token
-    else if (token) {
+
+    if (!hasVerifiedAuth && token) {
       // Validate token from roleplay_access_tokens table
       const { data: tokenData, error: tokenError } = await supabase
         .from('roleplay_access_tokens')
@@ -137,7 +90,7 @@ serve(async (req) => {
           }
         );
       }
-    } else {
+    } else if (!hasVerifiedAuth) {
       // No user and no token and no staff session - unauthorized
       return new Response(
         JSON.stringify({ error: 'Unauthorized: No user, token, or staff session provided' }),

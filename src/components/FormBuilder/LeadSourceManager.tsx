@@ -231,7 +231,7 @@ export function LeadSourceManager({ agencyId }: LeadSourceManagerProps) {
   };
 
   // Bucket handlers
-  const handleCreateBucket = async (data: { name: string; commission_rate_percent: number }) => {
+  const handleCreateBucket = async (data: { name: string }) => {
     const result = await createBucket(data);
     if (result) {
       toast.success("Marketing bucket created");
@@ -241,7 +241,7 @@ export function LeadSourceManager({ agencyId }: LeadSourceManagerProps) {
     return false;
   };
 
-  const handleUpdateBucket = async (id: string, data: { name: string; commission_rate_percent: number }) => {
+  const handleUpdateBucket = async (id: string, data: { name: string }) => {
     const result = await updateBucket(id, data);
     if (result) {
       toast.success("Marketing bucket updated");

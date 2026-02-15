@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { shouldSendDailySummary, getDayName } from '../_shared/business-days.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,14 +20,38 @@ const BRAND = {
   fromEmail: 'Agency Brain <info@agencybrain.standardplaybook.com>',
 };
 
-// Timezone to hour offset map for common US timezones
-const TIMEZONE_OFFSETS: Record<string, number> = {
-  'America/New_York': -5,
-  'America/Chicago': -6,
-  'America/Denver': -7,
-  'America/Los_Angeles': -8,
-  'America/Phoenix': -7,
-};
+function summarizePolicyTypes(policies: Array<{ policy_type_name?: string | null }> | null | undefined): string {
+  if (!policies || policies.length === 0) return '—';
+  const counts = new Map<string, number>();
+  for (const p of policies) {
+    const key = (p.policy_type_name || '').trim() || 'Unknown';
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([name, count]) => `${name} x${count}`)
+    .join(', ');
+}
+
+// DST-aware local hour using Intl (replaces hardcoded offsets)
+function getLocalHour(timezone: string): number {
+  try {
+    const hour = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date());
+    return parseInt(hour, 10);
+  } catch {
+    // Fallback for unknown timezone: assume Eastern
+    const fallbackHour = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour: 'numeric',
+      hour12: false,
+    }).format(new Date());
+    return parseInt(fallbackHour, 10);
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -78,28 +101,14 @@ serve(async (req) => {
     
     console.log('[send-daily-sales-summary] Starting daily summary check');
 
-    // Check if today is a valid day to send summary
-    // Skip Sunday (would report on Saturday) and Monday (would report on Sunday)
-    const now = new Date();
-    if (!forceTest && !shouldSendDailySummary(now)) {
-      const dayName = getDayName(now);
-      console.log(`[send-daily-sales-summary] Skipping - today is ${dayName}, yesterday was not a business day`);
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          skipped: true, 
-          reason: 'Yesterday was not a business day (weekend)',
-          today: dayName
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get current UTC time
+    // Business day check: only send Mon-Fri (local time).
+    // This check uses UTC day-of-week as a fast pre-filter. The per-agency
+    // localHour === 19 check handles the exact timing. We skip Saturday (6)
+    // and Sunday (0) in UTC, which covers most cases. Edge cases near midnight
+    // UTC (e.g. Friday 7 PM EST = Saturday 0 UTC) are handled by the per-agency
+    // local day check below.
     const nowUtc = new Date();
-    const currentUtcHour = nowUtc.getUTCHours();
-    
-    console.log('[send-daily-sales-summary] Current UTC hour:', currentUtcHour);
+    console.log('[send-daily-sales-summary] Current UTC time:', nowUtc.toISOString());
 
     // Fetch agencies with daily summary enabled (or specific agency if testing)
     let agencyQuery = supabase
@@ -126,13 +135,9 @@ serve(async (req) => {
     for (const agency of agencies || []) {
       try {
         const timezone = agency.timezone || 'America/New_York';
-        
-        // Calculate local hour for this agency
-        // Note: This is a simplified calculation; DST not handled perfectly
-        const offset = TIMEZONE_OFFSETS[timezone] || -5;
-        let localHour = currentUtcHour + offset;
-        if (localHour < 0) localHour += 24;
-        if (localHour >= 24) localHour -= 24;
+
+        // Calculate local hour for this agency (DST-aware)
+        const localHour = getLocalHour(timezone);
 
         console.log(`[send-daily-sales-summary] Agency ${agency.name}: timezone=${timezone}, localHour=${localHour}`);
 
@@ -145,6 +150,17 @@ serve(async (req) => {
 
         // Get today's date in agency timezone
         const todayStr = nowUtc.toLocaleDateString('en-CA', { timeZone: timezone }); // YYYY-MM-DD
+
+        // Skip weekends (local time) - only send Mon-Fri
+        // This is checked here (not globally) because the local day depends on agency timezone
+        if (!forceTest) {
+          const localDay = new Date(todayStr + 'T12:00:00').getDay(); // 0=Sun, 6=Sat
+          if (localDay === 0 || localDay === 6) {
+            console.log(`[send-daily-sales-summary] Skipping ${agency.name} - weekend (local day ${localDay})`);
+            results.push({ agency: agency.name, status: 'skipped - weekend' });
+            continue;
+          }
+        }
 
         // Get ALL active team members (not just Sales/Hybrid)
         const { data: allTeamMembers, error: teamError } = await supabase
@@ -187,6 +203,8 @@ serve(async (req) => {
             total_policies,
             total_points,
             created_at,
+            lead_source:lead_sources(name),
+            sale_policies(policy_type_name),
             team_member:team_members!sales_team_member_id_fkey(name)
           `)
           .eq('agency_id', agency.id)
@@ -281,7 +299,10 @@ serve(async (req) => {
           recipients = [testEmail];
           console.log(`[send-daily-sales-summary] TEST MODE: Sending ONLY to ${testEmail} (not to staff users)`);
         } else {
-          // Normal production mode: get all active staff users
+          // Normal production mode: collect recipients from all sources (deduplicated)
+          const recipientSet = new Set<string>();
+
+          // 1. Active staff users
           const { data: staffUsers } = await supabase
             .from('staff_users')
             .select('email')
@@ -289,9 +310,55 @@ serve(async (req) => {
             .eq('is_active', true)
             .not('email', 'is', null);
 
-          recipients = (staffUsers || [])
-            .filter(u => u.email)
-            .map(u => u.email as string);
+          for (const u of staffUsers || []) {
+            if (u.email) recipientSet.add(u.email.toLowerCase());
+          }
+
+          // 2. All profiles linked to this agency (agency owner + any linked users)
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('email')
+            .eq('agency_id', agency.id)
+            .not('email', 'is', null);
+
+          for (const p of profiles || []) {
+            if (p.email) recipientSet.add(p.email.toLowerCase());
+          }
+
+          // 3. Key employees (managers with elevated access)
+          const { data: keyEmployees } = await supabase
+            .from('key_employees')
+            .select('user_id')
+            .eq('agency_id', agency.id);
+
+          if (keyEmployees && keyEmployees.length > 0) {
+            const userIds = keyEmployees.map((ke: any) => ke.user_id);
+            const { data: keProfiles } = await supabase
+              .from('profiles')
+              .select('email')
+              .in('id', userIds)
+              .not('email', 'is', null);
+
+            for (const p of keProfiles || []) {
+              if (p.email) recipientSet.add(p.email.toLowerCase());
+            }
+          }
+
+          // 4. Managers from team_members
+          const { data: managers } = await supabase
+            .from('team_members')
+            .select('id, email')
+            .eq('agency_id', agency.id)
+            .eq('role', 'Manager');
+
+          for (const m of managers || []) {
+            if (m.email && !m.email.includes('@staff.placeholder')) {
+              recipientSet.add(m.email.toLowerCase());
+            }
+          }
+
+          recipients = Array.from(recipientSet);
+          console.log(`[send-daily-sales-summary] Resolved ${recipients.length} unique recipients from staff_users, profiles, key_employees, and managers`);
         }
 
         if (recipients.length === 0) {
@@ -326,10 +393,12 @@ serve(async (req) => {
               <td style="padding: 6px 12px; color: #6b7280;">${formatTime(s.created_at)}</td>
               <td style="padding: 6px 12px;">${(s.team_member as { name: string } | null)?.name || 'Unknown'}</td>
               <td style="padding: 6px 12px;">${s.customer_name}</td>
+              <td style="padding: 6px 12px;">${(s.lead_source as { name: string } | null)?.name || '—'}</td>
+              <td style="padding: 6px 12px;">${(s.total_policies || 0)} (${summarizePolicyTypes(s.sale_policies as Array<{ policy_type_name?: string | null }> | null)})</td>
               <td style="padding: 6px 12px; text-align: right;">${formatCurrency(s.total_premium || 0)}</td>
             </tr>
           `).join('')
-          : '<tr><td colspan="4" style="padding: 16px; text-align: center; color: #6b7280;">No sales recorded today</td></tr>';
+          : '<tr><td colspan="6" style="padding: 16px; text-align: center; color: #6b7280;">No sales recorded today</td></tr>';
 
         const emailHtml = `<!DOCTYPE html>
 <html>
@@ -341,8 +410,10 @@ serve(async (req) => {
   <div style="max-width: 700px; margin: 0 auto; padding: 20px;">
     
     <!-- Header -->
-    <div style="background: linear-gradient(135deg, ${BRAND.colors.primary}, ${BRAND.colors.secondary}); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
-      <img src="${BRAND.logo}" alt="${BRAND.name}" style="height: 40px; margin-bottom: 16px; display: block;">
+    <div style="background-color: ${BRAND.colors.secondary}; background: linear-gradient(135deg, ${BRAND.colors.primary}, ${BRAND.colors.secondary}); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
+      <div style="display: inline-block; padding: 8px 10px; background-color: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.28); border-radius: 8px; margin-bottom: 16px;">
+        <img src="${BRAND.logo}" alt="${BRAND.name}" style="height: 40px; display: block;">
+      </div>
       <h1 style="margin: 0; font-size: 24px;">📊 Daily Sales Summary</h1>
       <p style="margin: 8px 0 0 0; opacity: 0.9;">${todayFormatted}</p>
     </div>
@@ -404,6 +475,8 @@ serve(async (req) => {
             <th style="padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Time</th>
             <th style="padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Producer</th>
             <th style="padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Customer</th>
+            <th style="padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Lead Source</th>
+            <th style="padding: 8px 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Policies (Types)</th>
             <th style="padding: 8px 12px; text-align: right; font-weight: 600; border-bottom: 2px solid #e5e7eb;">Premium</th>
           </tr>
         </thead>

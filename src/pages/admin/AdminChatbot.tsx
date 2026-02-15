@@ -64,7 +64,7 @@ const SUPABASE_URL = "https://wjqyccbytctqwceuhzhk.supabase.co";
 // Default categories
 const DEFAULT_CATEGORIES = [
   'dashboard', 'submit', 'metrics', 'agency', 'training',
-  'bonus-grid', 'snapshot-planner', 'roleplay', 'call-scoring',
+  'growth-center', 'roleplay', 'call-scoring',
   'exchange', 'staff-portal', 'settings', 'navigation', 'troubleshooting', 'general'
 ];
 

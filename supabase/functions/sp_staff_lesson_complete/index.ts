@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session, x-staff-session-token',
 };
 
 serve(async (req) => {
@@ -19,9 +19,40 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { staff_user_id, lesson_id, quiz_score, quiz_answers, reflections } = await req.json();
+    const { session_token, staff_user_id, lesson_id, quiz_score, quiz_answers, reflections } = await req.json();
 
-    console.log('Processing staff lesson completion:', { staff_user_id, lesson_id });
+    // Validate session token
+    if (!session_token) {
+      return new Response(
+        JSON.stringify({ error: 'Session token required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { data: session, error: sessionError } = await supabase
+      .from('staff_sessions')
+      .select('staff_user_id, expires_at, is_valid')
+      .eq('session_token', session_token)
+      .single();
+
+    if (sessionError || !session) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid session' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!session.is_valid || new Date(session.expires_at) < new Date()) {
+      return new Response(
+        JSON.stringify({ error: 'Session expired' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Use the authenticated staff_user_id from the session, not from the request body
+    const authenticatedStaffUserId = session.staff_user_id;
+
+    console.log('Processing staff lesson completion:', { staff_user_id: authenticatedStaffUserId, lesson_id });
 
     // Fetch staff user info with team_member and agency
     const { data: staffUser, error: staffError } = await supabase
@@ -33,7 +64,7 @@ serve(async (req) => {
         team_member_id,
         agency_id
       `)
-      .eq('id', staff_user_id)
+      .eq('id', authenticatedStaffUserId)
       .single();
 
     if (staffError || !staffUser) {
@@ -109,7 +140,7 @@ Expected Result: ${reflections.result}`,
     const { error: progressError } = await supabase
       .from('sp_progress_staff')
       .upsert({
-        staff_user_id,
+        staff_user_id: authenticatedStaffUserId,
         lesson_id,
         video_watched: true,
         content_viewed: true,
@@ -273,7 +304,7 @@ Expected Result: ${reflections.result}`,
                   completion_email_sent: true,
                   completion_email_sent_at: new Date().toISOString(),
                 })
-                .eq('staff_user_id', staff_user_id)
+                .eq('staff_user_id', authenticatedStaffUserId)
                 .eq('lesson_id', lesson_id);
             } else {
               const errorText = await emailResponse.text();

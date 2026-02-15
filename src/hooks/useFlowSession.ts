@@ -119,8 +119,9 @@ export function useFlowSession({ templateSlug, sessionId }: UseFlowSessionProps)
       const newIndex = firstUnanswered === -1 ? visibleQuestions.length - 1 : firstUnanswered;
       console.log('[useFlowSession] Resuming session from DB, setting index to:', newIndex);
       setCurrentQuestionIndex(newIndex);
+      setSessionLoadedFromDb(false);
     }
-  }, [loading, template, session, sessionLoadedFromDb, visibleQuestions, responses]);
+  }, [loading, template, session, sessionLoadedFromDb]);
 
   const createSession = async () => {
     if (!user?.id || !template) return null;

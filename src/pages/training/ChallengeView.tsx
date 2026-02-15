@@ -100,10 +100,11 @@ export default function ChallengeView() {
   const getVideoEmbedUrl = (url: string | null): string | null => {
     if (!url) return null;
 
-    // Vimeo
-    const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    // Vimeo (capture optional privacy hash for private videos)
+    const vimeoMatch = url.match(/vimeo\.com\/(?:video\/)?(\d+)(?:\/([a-zA-Z0-9]+))?/);
     if (vimeoMatch) {
-      return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+      const hash = vimeoMatch[2] ? `?h=${vimeoMatch[2]}` : '';
+      return `https://player.vimeo.com/video/${vimeoMatch[1]}${hash}`;
     }
 
     // YouTube

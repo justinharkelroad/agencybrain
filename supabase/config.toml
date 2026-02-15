@@ -231,6 +231,9 @@ verify_jwt = true
 [functions.get-daily-agency-progress]
 verify_jwt = false
 
+[functions.get-sales-experience-team-progress]
+verify_jwt = true
+
 [functions.send-exchange-notification]
 verify_jwt = true
 
@@ -295,6 +298,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.get-staff-call-scoring-data]
+verify_jwt = false
+
+[functions.call-scoring-qa]
 verify_jwt = false
 
 [functions.get-staff-commission]
@@ -381,19 +387,13 @@ verify_jwt = false
 [functions.challenge-send-credentials]
 verify_jwt = false
 
+[functions.challenge-setup-team]
+verify_jwt = false
+
 [functions.submit-landing-lead]
 verify_jwt = false
 
 [functions.challenge-verify-session]
-verify_jwt = false
-
-[functions.ringcentral-oauth-init]
-verify_jwt = true
-
-[functions.ringcentral-oauth-callback]
-verify_jwt = false
-
-[functions.ringcentral-sync-calls]
 verify_jwt = false
 
 [functions.analyze_staff_flow_session]
@@ -493,6 +493,18 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.ricochet-webhook]
+verify_jwt = false
+
+[functions.ringcentral-report-ingest]
+verify_jwt = false
+
+[functions.get_metrics_snapshot]
+verify_jwt = false
+
+[functions.parse_business_metrics]
+verify_jwt = false
+
+[functions.analyze_growth_metrics]
 verify_jwt = false
 
 [functions.call-gap-data]

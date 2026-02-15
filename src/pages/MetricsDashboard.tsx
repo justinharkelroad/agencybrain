@@ -21,6 +21,7 @@ import { RING_LABELS } from "@/components/rings/colors";
 import { HelpButton } from '@/components/HelpButton';
 import { AgencyDailyGoals } from '@/components/dashboard/AgencyDailyGoals';
 import SalespersonDailyReport from '@/components/metrics/SalespersonDailyReport';
+import { MetricsSnapshotPanel } from '@/components/metrics/MetricsSnapshotPanel';
 
 
 type Role = "Sales" | "Service";
@@ -79,11 +80,6 @@ interface MetricsDashboardProps {
 export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: MetricsDashboardProps) {
   const { user } = useAuth();
   const isStaffMode = !!staffAgencyProfile;
-  
-  // For staff users, skip the redirect - they authenticate differently
-  if (!user && !isStaffMode) {
-    return <Navigate to="/auth" replace />;
-  }
 
   const [role, setRole] = useState<Role>("Sales");
   const [selectedDate, setSelectedDate] = useState<Date>(defaultDate || new Date());
@@ -114,6 +110,11 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
   // Load KPI labels from database (replaces hardcoded labels)
   // Pass role to get role-specific labels (e.g., Service's "Life Referrals" vs Sales's "Outbound Calls")
   const { data: kpiLabels } = useKpiLabels(agencyProfile?.agencyId, role);
+
+  // For staff users, skip the redirect - they authenticate differently
+  if (!user && !isStaffMode) {
+    return <Navigate to="/auth" replace />;
+  }
 
   // Show loading skeleton on first load
   if (agencyLoading || (dashboardLoading && !dashboardData)) {
@@ -243,8 +244,8 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
 
         <Tabs defaultValue="overview" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="overview">Team Overview</TabsTrigger>
-            <TabsTrigger value="daily-report">Daily Report</TabsTrigger>
+            <TabsTrigger value="overview">{isStaffMode ? "My Metrics" : "Team Overview"}</TabsTrigger>
+            {!isStaffMode && <TabsTrigger value="daily-report">Daily Report</TabsTrigger>}
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -304,12 +305,22 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
         </Card>
 
         {/* Agency Daily Goals */}
-        {agencyId && (
+        {!isStaffMode && agencyId && (
           <AgencyDailyGoals agencyId={agencyId} date={format(selectedDate, "yyyy-MM-dd")} showDate />
         )}
 
+        {/* Locked snapshot (canonical source) */}
+        {!isStaffMode && agencyId && (
+          <MetricsSnapshotPanel
+            date={format(selectedDate, "yyyy-MM-dd")}
+            role={role}
+            prefer="supabase"
+            title="Team Locked Metrics Snapshot"
+          />
+        )}
+
         {/* Team Member Performance Rings */}
-        {agencyId && (
+        {!isStaffMode && agencyId && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Team Performance Overview</h2>
@@ -329,7 +340,7 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
         )}
 
         {/* Tiles - Dynamic based on role */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {!isStaffMode && <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {metricConfig.selectedMetrics.includes('outbound_calls') && (
             <MetricTile title={metricConfig.getKpiLabel('outbound_calls')} value={tilesObject.outbound_calls} icon={<Target className="h-5 w-5" />} />
           )}
@@ -348,10 +359,10 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
           {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && tilesObject.mini_reviews !== undefined && (
             <MetricTile title={metricConfig.soldTitle} value={tilesObject.mini_reviews || 0} icon={<Award className="h-5 w-5" />} />
           )}
-        </div>
+        </div>}
 
         {/* Table */}
-        <Card className="glass-surface">
+        {!isStaffMode && <Card className="glass-surface">
           <CardHeader>
             <CardTitle className="text-lg">Team Member Performance</CardTitle>
             <p className="text-xs text-muted-foreground mt-1">
@@ -420,7 +431,7 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
             </div>
           )}
         </CardContent>
-        </Card>
+        </Card>}
 
         {/* Contest board */}
         {contestEnabled && contest.length > 0 && (
@@ -456,7 +467,7 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
 
           </TabsContent>
 
-          <TabsContent value="daily-report">
+          {!isStaffMode && <TabsContent value="daily-report">
             {agencyId && (
               <SalespersonDailyReport
                 agencyId={agencyId}
@@ -465,7 +476,7 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
                 scorecardRules={scorecardRules}
               />
             )}
-          </TabsContent>
+          </TabsContent>}
         </Tabs>
       </main>
     </div>

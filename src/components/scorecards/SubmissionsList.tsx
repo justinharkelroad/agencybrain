@@ -33,7 +33,7 @@ import {
   ArrowDown,
   FileText,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 interface SubmissionsListProps {
@@ -61,6 +61,7 @@ export function SubmissionsList({ staffAgencyId }: SubmissionsListProps) {
     filteredCount,
   } = useSubmissions(staffAgencyId || undefined, filters);
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Sorting state
   const [sortField, setSortField] = useState<SortField>("submitted_at");
@@ -86,8 +87,8 @@ export function SubmissionsList({ staffAgencyId }: SubmissionsListProps) {
           bVal = (b.team_members?.name || "").toLowerCase();
           break;
         case "work_date":
-          aVal = new Date(a.work_date).getTime();
-          bVal = new Date(b.work_date).getTime();
+          aVal = new Date(a.work_date || a.submission_date || a.submitted_at).getTime();
+          bVal = new Date(b.work_date || b.submission_date || b.submitted_at).getTime();
           break;
         case "submitted_at":
           aVal = new Date(a.submitted_at).getTime();
@@ -258,12 +259,14 @@ export function SubmissionsList({ staffAgencyId }: SubmissionsListProps) {
                         key={submission.id}
                         className="cursor-pointer hover:bg-muted/50 transition-colors"
                         onClick={() => {
+                          const from = `${location.pathname}${location.search}`;
                           if (staffAgencyId) {
                             navigate(
-                              `/staff/scorecards/submissions/${submission.id}`
+                              `/staff/scorecards/submissions/${submission.id}`,
+                              { state: { from } }
                             );
                           } else {
-                            navigate(`/submissions/${submission.id}`);
+                            navigate(`/submissions/${submission.id}`, { state: { from } });
                           }
                         }}
                       >
@@ -295,10 +298,10 @@ export function SubmissionsList({ staffAgencyId }: SubmissionsListProps) {
                         </TableCell>
                         <TableCell>
                           <div className="text-sm">
-                            {format(parseISO(submission.work_date), "MMM d, yyyy")}
+                            {format(parseISO(submission.work_date || submission.submission_date || submission.submitted_at), "MMM d, yyyy")}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {format(parseISO(submission.work_date), "EEEE")}
+                            {format(parseISO(submission.work_date || submission.submission_date || submission.submitted_at), "EEEE")}
                           </div>
                         </TableCell>
                         <TableCell>

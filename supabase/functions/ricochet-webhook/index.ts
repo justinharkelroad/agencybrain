@@ -14,6 +14,23 @@ interface RicochetPayload {
 }
 
 /**
+ * Validate and sanitize a timestamp string for PostgreSQL timestamptz.
+ * Returns the original string if valid, or the fallback value if invalid/missing.
+ * Catches garbage values like "-0001-11-30" that Ricochet may send for null dates.
+ */
+function safeTimestamp(value: string | null | undefined, fallback: string | null): string | null {
+  if (!value || typeof value !== "string" || value.trim() === "") return fallback;
+  const d = new Date(value);
+  // Invalid date, or year out of reasonable range (postgres timestamptz supports 4713 BC–294276 AD
+  // but call data should never predate ~2000)
+  if (isNaN(d.getTime()) || d.getFullYear() < 2000 || d.getFullYear() > 2100) {
+    console.warn(`[ricochet-webhook] Invalid timestamp rejected: "${value}"`);
+    return fallback;
+  }
+  return value;
+}
+
+/**
  * Normalize phone number: strip non-digits, remove leading 1 if 11 digits
  */
 function normalizePhone(phone: string | null | undefined): string | null {
@@ -26,46 +43,61 @@ function normalizePhone(phone: string | null | undefined): string | null {
 }
 
 /**
- * Match team member by name (case-insensitive) or email
+ * Match team member by email (case-insensitive) or name, returning id + name
  */
 async function matchTeamMember(
   supabase: SupabaseClient,
   agencyId: string,
   userName: string | null,
   userEmail: string | null
-): Promise<string | null> {
-  if (!userName && !userEmail) return null;
+): Promise<{ id: string; name: string } | null> {
+  const trimmedEmail = userEmail?.trim() || null;
+  const trimmedName = userName?.trim() || null;
 
-  // Try matching by name first (case-insensitive)
-  if (userName) {
-    const { data: byName } = await supabase
-      .from("team_members")
-      .select("id")
-      .eq("agency_id", agencyId)
-      .ilike("name", userName)
-      .limit(1)
-      .single();
-
-    if (byName?.id) {
-      return byName.id;
-    }
+  if (!trimmedName && !trimmedEmail) {
+    console.log(`[ricochet-webhook] matchTeamMember: no name or email provided`);
+    return null;
   }
 
-  // Fallback: try matching by email
-  if (userEmail) {
-    const { data: byEmail } = await supabase
+  // Try matching by email first (most reliable identifier)
+  if (trimmedEmail) {
+    const { data: byEmail, error: emailErr } = await supabase
       .from("team_members")
-      .select("id")
+      .select("id, name")
       .eq("agency_id", agencyId)
-      .ilike("email", userEmail)
+      .ilike("email", trimmedEmail)
       .limit(1)
-      .single();
+      .maybeSingle();
 
+    if (emailErr) {
+      console.error(`[ricochet-webhook] matchTeamMember email query error:`, emailErr.message);
+    }
     if (byEmail?.id) {
-      return byEmail.id;
+      console.log(`[ricochet-webhook] Matched team member by email: ${trimmedEmail} -> ${byEmail.id}`);
+      return { id: byEmail.id, name: byEmail.name };
     }
   }
 
+  // Fallback: try matching by name (case-insensitive)
+  if (trimmedName) {
+    const { data: byName, error: nameErr } = await supabase
+      .from("team_members")
+      .select("id, name")
+      .eq("agency_id", agencyId)
+      .ilike("name", trimmedName)
+      .limit(1)
+      .maybeSingle();
+
+    if (nameErr) {
+      console.error(`[ricochet-webhook] matchTeamMember name query error:`, nameErr.message);
+    }
+    if (byName?.id) {
+      console.log(`[ricochet-webhook] Matched team member by name: ${trimmedName} -> ${byName.id}`);
+      return { id: byName.id, name: byName.name };
+    }
+  }
+
+  console.warn(`[ricochet-webhook] No team member match for agency=${agencyId} email=${trimmedEmail} name=${trimmedName}`);
   return null;
 }
 
@@ -111,52 +143,6 @@ async function matchProspect(
   }
 
   return { prospectId: null, customerPhone: null };
-}
-
-/**
- * Upsert call metrics for a team member on a given date
- */
-async function upsertCallMetrics(
-  supabase: SupabaseClient,
-  agencyId: string,
-  teamMemberId: string
-): Promise<void> {
-  const today = new Date().toISOString().split("T")[0];
-
-  // Get all calls for this team member today
-  const { data: calls } = await supabase
-    .from("call_events")
-    .select("direction, duration_seconds")
-    .eq("agency_id", agencyId)
-    .eq("matched_team_member_id", teamMemberId)
-    .gte("call_started_at", `${today}T00:00:00Z`)
-    .lt("call_started_at", `${today}T23:59:59Z`);
-
-  if (!calls?.length) return;
-
-  // Aggregate metrics
-  const metrics = {
-    total_calls: calls.length,
-    inbound_calls: calls.filter(c => c.direction === "Inbound").length,
-    outbound_calls: calls.filter(c => c.direction === "Outbound").length,
-    answered_calls: calls.filter(c => (c.duration_seconds || 0) > 0).length,
-    missed_calls: calls.filter(c => (c.duration_seconds || 0) === 0).length,
-    total_talk_seconds: calls.reduce((sum, c) => sum + (c.duration_seconds || 0), 0),
-  };
-
-  // Upsert the daily metrics
-  await supabase
-    .from("call_metrics_daily")
-    .upsert({
-      agency_id: agencyId,
-      team_member_id: teamMemberId,
-      date: today,
-      ...metrics,
-      last_calculated_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    }, {
-      onConflict: "agency_id,team_member_id,date",
-    });
 }
 
 /**
@@ -273,7 +259,8 @@ Deno.serve(async (req) => {
     // Match team member
     const userName = payload["User's name"] || null;
     const userEmail = payload["User's email"] || null;
-    const matchedTeamMemberId = await matchTeamMember(supabase, agencyId, userName, userEmail);
+    const matchedMember = await matchTeamMember(supabase, agencyId, userName, userEmail);
+    const matchedTeamMemberId = matchedMember?.id ?? null;
 
     // Match prospect
     const { prospectId: matchedProspectId } = await matchProspect(
@@ -286,6 +273,10 @@ Deno.serve(async (req) => {
     // Determine direction
     const direction = payload.outbound ? "Outbound" : "Inbound";
 
+    // Validate timestamps — fall back to now() for created_at if Ricochet sends garbage like "-0001-11-30"
+    const now = new Date().toISOString();
+    const callStartedAt = safeTimestamp(payload.created_at, now) ?? now;
+
     // Insert call event
     const { data: insertedCall, error: insertError } = await supabase
       .from("call_events")
@@ -297,10 +288,10 @@ Deno.serve(async (req) => {
         from_number: payload.phone,
         to_number: payload.to,
         duration_seconds: payload.Duration || 0,
-        call_started_at: payload.created_at,
+        call_started_at: callStartedAt,
         call_ended_at: null,
         result: "completed",
-        extension_name: userName,
+        extension_name: matchedMember?.name ?? userName,
         matched_team_member_id: matchedTeamMemberId,
         matched_prospect_id: matchedProspectId,
         raw_payload: payload,
@@ -318,15 +309,8 @@ Deno.serve(async (req) => {
 
     console.log(`[ricochet-webhook] Inserted call: ${insertedCall.id}`);
 
-    // Post-insert: Update daily metrics if team member matched
-    if (matchedTeamMemberId) {
-      try {
-        await upsertCallMetrics(supabase, agencyId, matchedTeamMemberId);
-        console.log(`[ricochet-webhook] Updated metrics for team member: ${matchedTeamMemberId}`);
-      } catch (err) {
-        console.error(`[ricochet-webhook] Metrics update error:`, err);
-      }
-    }
+    // call_metrics_daily is now aggregated by DB trigger
+    // trg_call_events_aggregate_daily (migration 20260211200000)
 
     // Post-insert: Add contact activity if prospect matched
     if (matchedProspectId) {
@@ -339,7 +323,7 @@ Deno.serve(async (req) => {
           direction,
           payload.Duration || 0,
           payload.id,
-          payload.created_at
+          callStartedAt
         );
         console.log(`[ricochet-webhook] Added contact activity for prospect: ${matchedProspectId}`);
       } catch (err) {

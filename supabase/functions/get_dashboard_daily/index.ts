@@ -27,6 +27,21 @@ interface DashboardDailyRow {
   status: string | null;
 }
 
+interface MetricsDailyFactRow {
+  team_member_id: string | null;
+  call_metrics_mode: string | null;
+  outbound_calls_manual: number | null;
+  talk_minutes_manual: number | null;
+  outbound_calls_auto: number | null;
+  talk_minutes_auto: number | null;
+}
+
+interface CallMetricsDailyRow {
+  team_member_id: string | null;
+  outbound_calls: number | null;
+  total_talk_seconds: number | null;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -127,15 +142,15 @@ serve(async (req) => {
       agencyId = agency.id;
     }
 
-    // Query vw_metrics_with_team view directly, filtering by role
-    // Include the selected role, Hybrid (hybrid team members appear in both tabs),
-    // and Manager (managers have scorecard form access parity with Hybrid)
+    // Query vw_metrics_with_team view directly, filtering by role.
+    // Include selected role + Hybrid only. Including Manager here can cause
+    // enum/view mismatch errors in some environments and trigger 500s.
     const { data, error } = await supabase
       .from('vw_metrics_with_team')
       .select('*')
       .eq('agency_id', agencyId)
       .eq('date', workDate)
-      .or(`role.eq.${role},role.eq.Hybrid,role.eq.Manager`)
+      .or(`role.eq.${role},role.eq.Hybrid`)
       .order('rep_name', { ascending: true, nullsFirst: false });
 
     if (error) {
@@ -149,30 +164,163 @@ serve(async (req) => {
       );
     }
 
-    // Transform view data to match expected interface
-    const rows: DashboardDailyRow[] = (data || []).map(row => ({
-      team_member_id: row.team_member_id,
-      rep_name: row.rep_name || 'Unassigned',
-      work_date: row.date,
-      outbound_calls: row.outbound_calls || 0,
-      talk_minutes: row.talk_minutes || 0,
-      quoted_count: row.quoted_households || row.quoted_count || 0,
-      sold_items: row.items_sold || row.sold_items || 0,
-      sold_policies: row.sold_policies || 0,
-      sold_premium_cents: row.sold_premium_cents || 0,
-      cross_sells_uncovered: row.cross_sells_uncovered || 0,
-      mini_reviews: row.mini_reviews || 0,
-      pass: row.pass || false,
-      hits: row.hits || 0,
-      daily_score: row.daily_score || 0,
-      is_late: row.is_late || false,
-      status: row.status || 'final'
-    }));
+    const { data: agencyModeData, error: agencyModeError } = await supabase
+      .from('agencies')
+      .select('call_metrics_mode, timezone')
+      .eq('id', agencyId)
+      .single();
+
+    if (agencyModeError) {
+      console.error('Dashboard daily agency mode query error:', agencyModeError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch agency call metrics mode' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const agencyCallMetricsMode = (agencyModeData?.call_metrics_mode || 'off') as 'off' | 'shadow' | 'on';
+
+    const { data: factsData, error: factsError } = await supabase
+      .from('metrics_daily_facts')
+      .select('team_member_id, call_metrics_mode, outbound_calls_manual, talk_minutes_manual, outbound_calls_auto, talk_minutes_auto')
+      .eq('agency_id', agencyId)
+      .eq('date', workDate);
+
+    if (factsError) {
+      console.error('Dashboard daily facts query error:', factsError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch dashboard facts data' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const factsByTeamMember = new Map<string, MetricsDailyFactRow>();
+    for (const fact of (factsData || []) as MetricsDailyFactRow[]) {
+      if (fact.team_member_id) {
+        factsByTeamMember.set(fact.team_member_id, fact);
+      }
+    }
+
+    const { data: callDailyData, error: callDailyError } = await supabase
+      .from('call_metrics_daily')
+      .select('team_member_id, outbound_calls, total_talk_seconds')
+      .eq('agency_id', agencyId)
+      .eq('date', workDate);
+
+    if (callDailyError) {
+      console.error('Dashboard daily call_metrics_daily query error:', callDailyError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch call metrics daily data' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    const callDailyByTeamMember = new Map<string, { outbound: number; talkMinutes: number }>();
+    for (const callRow of (callDailyData || []) as CallMetricsDailyRow[]) {
+      if (!callRow.team_member_id) continue;
+      callDailyByTeamMember.set(callRow.team_member_id, {
+        outbound: callRow.outbound_calls || 0,
+        talkMinutes: Math.round((callRow.total_talk_seconds || 0) / 60),
+      });
+    }
+
+    let agencyCallTotals: { outbound_calls: number; talk_minutes: number } | null = null;
+    if (agencyCallMetricsMode === 'on') {
+      // Build agency-wide totals from call_metrics_daily first.
+      // For RingCentral, this is authoritative (Users sheet).
+      const callDailyAgencyTotals = (callDailyData || []).reduce(
+        (acc, row) => {
+          acc.outbound_calls += Number(row.outbound_calls) || 0;
+          acc.talk_minutes += Math.round((Number(row.total_talk_seconds) || 0) / 60);
+          return acc;
+        },
+        { outbound_calls: 0, talk_minutes: 0 }
+      );
+
+      if (callDailyAgencyTotals.outbound_calls > 0 || callDailyAgencyTotals.talk_minutes > 0) {
+        agencyCallTotals = callDailyAgencyTotals;
+      }
+
+      // Fallback: query agency-wide call totals from raw call_events.
+      // This includes ALL calls (matched + unmatched) for providers without
+      // authoritative daily summary rows.
+      const { data: totalsData, error: totalsError } = await supabase
+        .rpc('get_agency_call_totals_from_events', {
+          p_agency_id: agencyId,
+          p_date: workDate,
+          p_timezone: agencyModeData?.timezone || 'America/New_York',
+        })
+        .single();
+
+      if (totalsError) {
+        console.error('Dashboard daily agency call totals error:', totalsError);
+        // Non-fatal — fall back to per-member sums in the frontend
+      } else if (totalsData) {
+        const outboundCalls = Number(totalsData.outbound_calls) || 0;
+        const talkMinutes = Number(totalsData.talk_minutes) || 0;
+
+        // Use raw event totals only when we do not already have authoritative
+        // daily summary totals from call_metrics_daily.
+        if (!agencyCallTotals && (outboundCalls > 0 || talkMinutes > 0)) {
+          agencyCallTotals = {
+            outbound_calls: outboundCalls,
+            talk_minutes: talkMinutes,
+          };
+        }
+      }
+    }
+
+    // Transform view data to match expected interface and enforce call metrics mode.
+    // In non-on modes, call fields should only come from actual submitted scorecards.
+    const rows: DashboardDailyRow[] = (data || []).map((row) => {
+      const fact = row.team_member_id ? factsByTeamMember.get(row.team_member_id) : undefined;
+      const mode = agencyCallMetricsMode;
+      const manualOutbound = fact?.outbound_calls_manual || 0;
+      const manualTalk = fact?.talk_minutes_manual || 0;
+      const callDaily = row.team_member_id ? callDailyByTeamMember.get(row.team_member_id) : undefined;
+      const autoOutbound = callDaily?.outbound ?? fact?.outbound_calls_auto ?? 0;
+      const autoTalk = callDaily?.talkMinutes ?? fact?.talk_minutes_auto ?? 0;
+      const hasSubmittedScorecard = Boolean(row.final_submission_id);
+      const outboundCalls = mode === 'on'
+        ? Math.max(autoOutbound, manualOutbound)
+        : (hasSubmittedScorecard ? manualOutbound : 0);
+      const talkMinutes = mode === 'on'
+        ? Math.max(autoTalk, manualTalk)
+        : (hasSubmittedScorecard ? manualTalk : 0);
+
+      return {
+        team_member_id: row.team_member_id,
+        rep_name: row.rep_name || 'Unassigned',
+        work_date: row.date,
+        outbound_calls: outboundCalls,
+        talk_minutes: talkMinutes,
+        quoted_count: row.quoted_households || row.quoted_count || 0,
+        sold_items: row.items_sold || row.sold_items || 0,
+        sold_policies: row.sold_policies || 0,
+        sold_premium_cents: row.sold_premium_cents || 0,
+        cross_sells_uncovered: row.cross_sells_uncovered || 0,
+        mini_reviews: row.mini_reviews || 0,
+        pass: row.pass || false,
+        hits: row.hits || 0,
+        daily_score: row.daily_score || 0,
+        is_late: row.is_late || false,
+        status: row.status || 'final'
+      };
+    });
 
     console.log(`Dashboard daily [${authResult.mode}]: Found ${rows.length} rows for agency ${agencySlug || agencyId} on ${workDate} with role ${role}`);
 
     return new Response(
-      JSON.stringify({ rows }),
+      JSON.stringify({ rows, agencyCallTotals }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

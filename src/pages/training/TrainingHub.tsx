@@ -23,6 +23,7 @@ interface SPCategory {
   description: string | null;
   icon: string;
   color: string;
+  image_url: string | null;
   module_count: number;
   lesson_count: number;
   completed_count: number;
@@ -114,6 +115,7 @@ export default function TrainingHub() {
           description: cat.description,
           icon: cat.icon,
           color: cat.color,
+          image_url: cat.image_url || null,
           module_count: cat.sp_modules?.length || 0,
           lesson_count: lessonCount,
           completed_count: completedCount,
@@ -318,9 +320,16 @@ export default function TrainingHub() {
             return (
               <Card
                 key={category.id}
-                className="cursor-pointer hover:bg-accent/5 transition-colors"
+                className="cursor-pointer hover:bg-accent/5 transition-colors border border-border overflow-hidden"
                 onClick={() => navigate(`/training/standard/${category.slug}`)}
               >
+                {category.image_url && (
+                  <img
+                    src={category.image_url}
+                    alt={category.name}
+                    className="w-full aspect-[3/1] object-cover"
+                  />
+                )}
                 <CardContent className="p-6">
                   <div className="flex items-start gap-4">
                     <div className="text-4xl">{category.icon}</div>

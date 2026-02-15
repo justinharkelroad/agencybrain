@@ -1,12 +1,12 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { getStaffSessionToken } from '@/lib/cancel-audit-api';
+import { getStaffToken } from '@/lib/staffRequest';
 import type { Contact, ContactWithStatus, ContactFilters, LifecycleStage } from '@/types/contact';
 
 const PAGE_SIZE = 100;
 
 export function useContacts(agencyId: string | null, filters: ContactFilters = {}) {
-  const staffSessionToken = getStaffSessionToken();
+  const staffSessionToken = getStaffToken();
 
   return useInfiniteQuery({
     queryKey: ['contacts', agencyId, filters, !!staffSessionToken],
@@ -16,7 +16,7 @@ export function useContacts(agencyId: string | null, filters: ContactFilters = {
       // Use server-side function for stage filtering - scales to any number of contacts
       const stageParam = filters.stage?.length === 1 ? filters.stage[0] : null;
 
-      const { data, error } = await supabase.rpc('get_contacts_by_stage', {
+      const { data, error } = await (supabase as any).rpc('get_contacts_by_stage', {
         p_agency_id: agencyId,
         p_stage: stageParam,
         p_search: filters.search || null,
@@ -24,6 +24,7 @@ export function useContacts(agencyId: string | null, filters: ContactFilters = {
         p_offset: pageParam,
         p_sort_by: filters.sortBy || 'name',
         p_sort_direction: filters.sortDirection || 'asc',
+        p_staff_session_token: staffSessionToken || null,
       });
 
       if (error) {
@@ -75,7 +76,7 @@ export function useContactSearch(agencyId: string | null, searchTerm: string) {
       if (!agencyId || !searchTerm || searchTerm.length < 2) return [];
 
       // Use the same server-side function with search parameter
-      const { data, error } = await supabase.rpc('get_contacts_by_stage', {
+      const { data, error } = await (supabase as any).rpc('get_contacts_by_stage', {
         p_agency_id: agencyId,
         p_stage: null,
         p_search: searchTerm,
@@ -83,6 +84,7 @@ export function useContactSearch(agencyId: string | null, searchTerm: string) {
         p_offset: 0,
         p_sort_by: 'name',
         p_sort_direction: 'asc',
+        p_staff_session_token: getStaffToken() || null,
       });
 
       if (error) throw error;

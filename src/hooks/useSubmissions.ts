@@ -314,7 +314,9 @@ export function useSubmissions(staffAgencyId?: string, filters?: SubmissionFilte
     const dateRange = getDateRange(filters.dateRangePreset, filters.customDateRange);
     if (dateRange) {
       result = result.filter(s => {
-        const workDate = parseISO(s.work_date);
+        const dateStr = s.work_date || s.submission_date || s.submitted_at;
+        if (!dateStr) return false;
+        const workDate = parseISO(dateStr);
         return isWithinInterval(workDate, { start: dateRange.start, end: dateRange.end });
       });
     }

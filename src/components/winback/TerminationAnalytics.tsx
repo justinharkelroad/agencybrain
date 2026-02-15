@@ -659,9 +659,9 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                       }}
                       cursor={false}
                     />
-                    <Bar 
-                      dataKey="negativeItems" 
-                      radius={[4, 4, 0, 0]} 
+                    <Bar
+                      dataKey="negativeItems"
+                      radius={[8, 8, 0, 0]}
                       className="cursor-pointer"
                       onClick={(data) => handleProducerBarClick(data)}
                     >
@@ -917,10 +917,10 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                       }}
                       cursor={false}
                     />
-                      <Bar 
-                        dataKey="items" 
-                        fill="#10b981" 
-                        radius={[0, 4, 4, 0]} 
+                      <Bar
+                        dataKey="items"
+                        fill="#10b981"
+                        radius={[0, 8, 8, 0]}
                         className="cursor-pointer"
                         onClick={(data) => handleTypeBarClick(data)}
                       />
@@ -969,10 +969,10 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                       }}
                       cursor={false}
                     />
-                    <Bar 
-                      dataKey="count" 
-                      fill="#8b5cf6" 
-                      radius={[0, 4, 4, 0]} 
+                    <Bar
+                      dataKey="count"
+                      fill="#8b5cf6"
+                      radius={[0, 8, 8, 0]}
                       className="cursor-pointer"
                       onClick={(data) => handleReasonBarClick(data)}
                     />

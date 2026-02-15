@@ -695,7 +695,7 @@ serve(async (req) => {
       case 'agency_goals_get': {
         const { data, error } = await supabase
           .from('agencies')
-          .select('daily_quoted_households_target, daily_sold_items_target')
+          .select('daily_quoted_households_target, daily_sold_items_target, daily_written_premium_target_cents')
           .eq('id', agencyId)
           .single();
 
@@ -705,14 +705,19 @@ serve(async (req) => {
       }
 
       case 'agency_goals_update': {
-        const { daily_quoted_households_target, daily_sold_items_target } = params;
+        const { daily_quoted_households_target, daily_sold_items_target, daily_written_premium_target_cents } = params;
+
+        const updatePayload: Record<string, unknown> = {
+          daily_quoted_households_target,
+          daily_sold_items_target,
+        };
+        if (daily_written_premium_target_cents !== undefined) {
+          updatePayload.daily_written_premium_target_cents = daily_written_premium_target_cents;
+        }
 
         const { error } = await supabase
           .from('agencies')
-          .update({
-            daily_quoted_households_target,
-            daily_sold_items_target,
-          })
+          .update(updatePayload)
           .eq('id', agencyId);
 
         if (error) throw error;
@@ -1079,6 +1084,92 @@ serve(async (req) => {
 
         if (error) throw error;
         result = { call: data };
+        break;
+      }
+
+      case 'meeting_frame_mode_aware_call_totals': {
+        const { team_member_id, start_date, end_date } = params;
+
+        if (!team_member_id || !start_date || !end_date) {
+          return new Response(
+            JSON.stringify({ error: 'team_member_id, start_date, and end_date are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: agencyData, error: agencyError } = await supabase
+          .from('agencies')
+          .select('call_metrics_mode, dashboard_call_metrics_enabled')
+          .eq('id', agencyId)
+          .single();
+
+        if (agencyError) throw agencyError;
+
+        const mode = (agencyData?.call_metrics_mode
+          || ((agencyData as any)?.dashboard_call_metrics_enabled ? 'shadow' : 'off')
+          || 'off') as 'off' | 'shadow' | 'on';
+
+        const { data: factsData, error: factsError } = await supabase
+          .from('metrics_daily_facts')
+          .select('date, outbound_calls_manual, talk_minutes_manual, outbound_calls_auto, talk_minutes_auto')
+          .eq('agency_id', agencyId)
+          .eq('team_member_id', team_member_id)
+          .gte('date', start_date)
+          .lte('date', end_date);
+
+        if (factsError) throw factsError;
+
+        const { data: callDailyData, error: callDailyError } = await supabase
+          .from('call_metrics_daily')
+          .select('date, outbound_calls, total_talk_seconds')
+          .eq('agency_id', agencyId)
+          .eq('team_member_id', team_member_id)
+          .gte('date', start_date)
+          .lte('date', end_date);
+
+        if (callDailyError) throw callDailyError;
+
+        const factsByDate = new Map<string, any>();
+        for (const row of (factsData || [])) {
+          factsByDate.set(row.date, row);
+        }
+
+        const callDailyByDate = new Map<string, { outbound: number; talkMinutes: number }>();
+        for (const row of (callDailyData || [])) {
+          callDailyByDate.set(row.date, {
+            outbound: row.outbound_calls || 0,
+            talkMinutes: Math.round((row.total_talk_seconds || 0) / 60),
+          });
+        }
+
+        const allDates = new Set<string>([
+          ...(factsData || []).map((r: any) => r.date),
+          ...(callDailyData || []).map((r: any) => r.date),
+        ]);
+
+        let outboundTotal = 0;
+        let talkMinutesTotal = 0;
+
+        for (const date of allDates) {
+          const fact = factsByDate.get(date);
+          const callDaily = callDailyByDate.get(date);
+
+          const manualOutbound = fact?.outbound_calls_manual || 0;
+          const manualTalk = fact?.talk_minutes_manual || 0;
+          const autoOutbound = callDaily?.outbound ?? fact?.outbound_calls_auto ?? 0;
+          const autoTalk = callDaily?.talkMinutes ?? fact?.talk_minutes_auto ?? 0;
+
+          outboundTotal += mode === 'on' ? Math.max(autoOutbound, manualOutbound) : manualOutbound;
+          talkMinutesTotal += mode === 'on' ? Math.max(autoTalk, manualTalk) : manualTalk;
+        }
+
+        result = {
+          mode,
+          call_totals: {
+            outbound_calls: outboundTotal,
+            talk_minutes: talkMinutesTotal,
+          },
+        };
         break;
       }
 

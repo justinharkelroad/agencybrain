@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { isCallScoringTier as checkIsCallScoringTier, getStaffHomePath, hasOneOnOneAccess } from "@/utils/tierAccess";
+import { isCallScoringTier as checkIsCallScoringTier, isChallengeTier as checkIsChallengeTier, getStaffHomePath, hasOneOnOneAccess } from "@/utils/tierAccess";
 import { hasSalesAccess } from "@/lib/salesBetaAccess";
 import { useChallengeAccessGrant } from "@/hooks/useChallengeAccessGrant";
 import { useStaffOverdueTaskCount } from "@/hooks/useStaffOverdueTaskCount";
@@ -108,8 +108,10 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
       }, 5000);
 
       try {
+        const sessionToken = localStorage.getItem('staff_session_token');
         const { data: isEnabled, error } = await supabase.rpc('is_call_scoring_enabled', {
           p_agency_id: user.agency_id,
+          p_staff_session_token: sessionToken,
         });
 
         clearTimeout(timeoutId);
@@ -138,35 +140,45 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
     };
   }, [loading, user?.agency_id]);
 
-  // Check if call gaps is enabled for staff user's agency
-  // Uses SECURITY DEFINER RPC function (not direct table query) because
-  // agency_feature_access RLS is TO authenticated only — staff anon key can't SELECT it
+  // Check if call gaps analyzer is enabled for staff user's agency
   useEffect(() => {
-    if (!user?.agency_id) {
+    if (loading || !user?.agency_id) {
       setCallGapsEnabled(false);
       return;
     }
 
     let cancelled = false;
 
-    supabase
-      .rpc('has_feature_access', {
-        p_agency_id: user.agency_id,
-        p_feature_key: 'call_gaps',
-      })
-      .then(({ data, error }) => {
-        if (!cancelled) {
-          if (error) {
-            console.error('[StaffSidebar] Call gaps access check error:', error);
-            setCallGapsEnabled(false);
-          } else {
-            setCallGapsEnabled(data === true);
-          }
-        }
-      });
+    const checkCallGapsAccess = async () => {
+      try {
+        const { data, error } = await supabase.rpc('has_feature_access', {
+          p_agency_id: user.agency_id,
+          p_feature_key: 'call_gaps',
+        });
 
-    return () => { cancelled = true; };
-  }, [user?.agency_id]);
+        if (cancelled) return;
+
+        if (error) {
+          console.warn('[StaffSidebar] Call gaps access check failed:', error);
+          setCallGapsEnabled(false);
+          return;
+        }
+
+        setCallGapsEnabled(data === true);
+      } catch (err) {
+        if (!cancelled) {
+          console.warn('[StaffSidebar] Call gaps access check error:', err);
+          setCallGapsEnabled(false);
+        }
+      }
+    };
+
+    checkCallGapsAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, user?.agency_id]);
 
   // Determine user access level based on role
   const userAccess = useMemo(() => {
@@ -193,6 +205,12 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   // Helper to check if agency is on Call Scoring tier
   const isCallScoringTier = checkIsCallScoringTier(user?.agency_membership_tier);
 
+  // Helper to check if agency is on Challenge tier
+  const isChallengeTierUser = checkIsChallengeTier(user?.agency_membership_tier);
+
+  // Determine if user is on any restricted tier
+  const isRestrictedTier = isCallScoringTier || isChallengeTierUser;
+
   // Check if staff user has temporary access grants from challenge assignment
   const { grantedIds: challengeGrantedIds } = useChallengeAccessGrant(user?.id);
 
@@ -203,12 +221,19 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   const { data: subscription } = useSubscription();
   const isTrialing = subscription?.isTrialing ?? false;
 
-  // Items that Call Scoring tier users can actually access (not just see)
-  // Merge base IDs with any challenge-granted IDs (Core 4, Flows)
-  const callScoringAccessibleIds = useMemo(() => {
+  // Gate return path for tier modals
+  const gateReturnPath = isChallengeTierUser ? '/staff/challenge' : '/staff/call-scoring';
+
+  // Items that restricted tier users can actually access (not just see)
+  // For Call Scoring: merge base IDs with any challenge-granted IDs (Core 4, Flows)
+  // For Challenge tier: challenge, core4, flows are the accessible items
+  const restrictedAccessibleIds = useMemo(() => {
+    if (isChallengeTierUser) {
+      return ['staff-six-week-challenge', 'core4', 'flows'];
+    }
     const baseIds = ['call-scoring', 'call-scoring-top'];
     return [...baseIds, ...challengeGrantedIds];
-  }, [challengeGrantedIds]);
+  }, [isChallengeTierUser, challengeGrantedIds]);
 
   // Check if agency has sales beta access
   const salesEnabled = hasSalesAccess(user?.agency_id ?? null);
@@ -227,9 +252,9 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
             return canAccessItem(item.access);
           }
           
-          // For Call Scoring tier: remove call-scoring from inside Accountability folder
-          // (we show it as top-level call-scoring-top instead)
-          if (isCallScoringTier && folderId === 'accountability' && item.id === 'call-scoring') {
+          // For restricted tiers: remove call-scoring from inside Accountability folder
+          // (we show it as top-level call-scoring-top instead for Call Scoring tier)
+          if (isRestrictedTier && folderId === 'accountability' && item.id === 'call-scoring') {
             return false;
           }
           
@@ -248,20 +273,20 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
             return false;
           }
           
+          // Check callGapsAccess - only show if agency has feature flag
+          if (item.callGapsAccess && !callGapsEnabled) {
+            return false;
+          }
+
           // Check role-based access
           const canAccess = canAccessItem(item.access);
           if (!canAccess) {
             return false;
           }
-          
+
           // Check settingCheck for callScoringEnabled
           if (item.settingCheck === 'callScoringEnabled') {
             return callScoringEnabled === true;
-          }
-
-          // Check callGapsAccess feature flag
-          if (item.callGapsAccess && !callGapsEnabled) {
-            return false;
           }
 
           return true;
@@ -280,14 +305,14 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
               if (salesBetaRequiredIds.includes(subItem.id) && !salesEnabled) {
                 return false;
               }
+              if (subItem.callGapsAccess && !callGapsEnabled) {
+                return false;
+              }
               if (!canAccessItem(subItem.access)) {
                 return false;
               }
               if (subItem.settingCheck === 'callScoringEnabled') {
                 return callScoringEnabled === true;
-              }
-              if (subItem.callGapsAccess && !callGapsEnabled) {
-                return false;
               }
               return true;
             });
@@ -321,13 +346,13 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
 
         // NOTE: challengeAccess items are NOT filtered - shown to everyone, gated at click-time
 
-        // Check settingCheck for root-level items
-        if (entry.settingCheck === 'callScoringEnabled' && !callScoringEnabled) {
+        // Check callGapsAccess for root-level items
+        if (entry.callGapsAccess && !callGapsEnabled) {
           return false;
         }
 
-        // Check callGapsAccess for root-level items
-        if (entry.callGapsAccess && !callGapsEnabled) {
+        // Check settingCheck for root-level items
+        if (entry.settingCheck === 'callScoringEnabled' && !callScoringEnabled) {
           return false;
         }
 
@@ -349,13 +374,46 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
       const callScoringTopIndex = filtered.findIndex(
         entry => !isNavFolder(entry) && entry.id === 'call-scoring-top'
       );
-      
+
       if (callScoringTopIndex > 0) {
         const [callScoringTop] = filtered.splice(callScoringTopIndex, 1);
         filtered.unshift(callScoringTop);
       }
+    } else if (isChallengeTierUser) {
+      // For Challenge tier:
+      // 1. Remove call-scoring-top (not relevant)
+      // 2. Promote staff-six-week-challenge from Training folder to top
+      filtered = filtered.filter(entry => {
+        if (!isNavFolder(entry) && entry.id === 'call-scoring-top') {
+          return false;
+        }
+        return true;
+      });
+
+      // Extract staff-six-week-challenge from Training folder and promote to top
+      let challengeItem: NavEntry | null = null;
+      filtered = filtered.map(entry => {
+        if (isNavFolder(entry) && entry.id === 'training') {
+          const remaining = entry.items.filter(item => {
+            if (!isNavSubFolder(item) && item.id === 'staff-six-week-challenge') {
+              challengeItem = item;
+              return false;
+            }
+            return true;
+          });
+          return { ...entry, items: remaining };
+        }
+        return entry;
+      }).filter(entry => {
+        if (isNavFolder(entry)) return entry.items.length > 0;
+        return true;
+      });
+
+      if (challengeItem) {
+        filtered.unshift(challengeItem);
+      }
     } else {
-      // For NON-Call-Scoring tier users:
+      // For NON-restricted tier users:
       // Remove call-scoring-top from navigation (they should only see it in Accountability folder)
       filtered = filtered.filter(entry => {
         if (!isNavFolder(entry) && entry.id === 'call-scoring-top') {
@@ -366,7 +424,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
     }
 
     return filtered;
-  }, [callScoringEnabled, callGapsEnabled, canAccessItem, isCallScoringTier, salesEnabled, user?.email]);
+  }, [callScoringEnabled, callGapsEnabled, canAccessItem, isCallScoringTier, isChallengeTierUser, isRestrictedTier, salesEnabled, user?.email]);
 
   const isActive = (path: string) => {
     if (path === "/staff/submit") {
@@ -511,17 +569,18 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
                           membershipTier={user?.agency_membership_tier}
                           openFolderId={openFolderId}
                           onFolderToggle={handleFolderToggle}
-                          isCallScoringTier={isCallScoringTier}
-                          callScoringAccessibleIds={callScoringAccessibleIds}
+                          isCallScoringTier={isRestrictedTier}
+                          callScoringAccessibleIds={restrictedAccessibleIds}
                           agencyId={user?.agency_id}
                           isTrialing={isTrialing}
+                          gateReturnPath={gateReturnPath}
                         />
                       );
                     }
 
                     // Direct nav item (Dashboard, Submit Form, Call Scoring)
                     const active = entry.url ? isActive(entry.url) : false;
-                    const isGatedForCallScoring = isCallScoringTier && !callScoringAccessibleIds.includes(entry.id);
+                    const isGatedForCallScoring = isRestrictedTier && !restrictedAccessibleIds.includes(entry.id);
                     const hasTrialRestriction = isTrialing && entry.trialRestricted;
 
                     // Badge for onboarding tasks
@@ -645,7 +704,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
           featureDescription={getFeatureGateConfig(gatedItemId).featureDescription}
           videoKey={getFeatureGateConfig(gatedItemId).videoKey}
           gateType="call_scoring_upsell"
-          returnPath="/staff/call-scoring"
+          returnPath={isChallengeTierUser ? "/staff/challenge" : "/staff/call-scoring"}
         />
       )}
     </Sidebar>

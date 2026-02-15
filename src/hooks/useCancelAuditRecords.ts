@@ -4,6 +4,7 @@ import { CancelAuditRecord, ReportType } from '@/types/cancel-audit';
 import { callCancelAuditApi, getStaffSessionToken } from '@/lib/cancel-audit-api';
 
 export type ViewMode = 'needs_attention' | 'all';
+export type CancelStatusFilter = 'all' | 'cancel' | 'cancelled' | 's-cancel' | 'saved' | 'unmatched';
 
 interface UseCancelAuditRecordsOptions {
   agencyId: string | null;
@@ -12,6 +13,7 @@ interface UseCancelAuditRecordsOptions {
   searchQuery: string;
   sortBy: 'urgency' | 'name' | 'date_added' | 'cancel_status' | 'original_year' | 'policy_number' | 'premium';
   showCurrentOnly?: boolean;
+  cancelStatusFilter?: CancelStatusFilter;
 }
 
 export interface RecordWithActivityCount extends CancelAuditRecord {
@@ -27,12 +29,13 @@ export function useCancelAuditRecords({
   reportTypeFilter,
   searchQuery,
   sortBy,
-  showCurrentOnly = true
+  showCurrentOnly = true,
+  cancelStatusFilter = 'all'
 }: UseCancelAuditRecordsOptions) {
   const staffSessionToken = getStaffSessionToken();
 
   return useQuery({
-    queryKey: ['cancel-audit-records', agencyId, viewMode, reportTypeFilter, searchQuery, sortBy, showCurrentOnly],
+    queryKey: ['cancel-audit-records', agencyId, viewMode, reportTypeFilter, searchQuery, sortBy, showCurrentOnly, cancelStatusFilter],
     queryFn: async (): Promise<RecordWithActivityCount[]> => {
       if (!agencyId) return [];
 
@@ -45,6 +48,7 @@ export function useCancelAuditRecords({
             reportTypeFilter,
             searchQuery,
             sortBy,
+            cancelStatusFilter,
           },
           sessionToken: staffSessionToken,
         });
@@ -81,6 +85,11 @@ export function useCancelAuditRecords({
       if (searchQuery.trim()) {
         const search = searchQuery.trim();
         query = query.or(`insured_first_name.ilike.%${search}%,insured_last_name.ilike.%${search}%,policy_number.ilike.%${search}%`);
+      }
+
+      // Apply cancel status filter (including fallback from report_type when cancel_status is missing)
+      if (cancelStatusFilter !== 'all') {
+        query = applyCancelStatusFilter(query, cancelStatusFilter);
       }
 
       // Apply sorting
@@ -139,4 +148,21 @@ export function useCancelAuditRecords({
     enabled: !!agencyId,
     staleTime: 30000,
   });
+}
+
+function applyCancelStatusFilter(query: any, cancelStatusFilter: CancelStatusFilter) {
+  switch (cancelStatusFilter) {
+    case 'cancel':
+      return query.or("cancel_status.ilike.Cancel,and(cancel_status.is.null,report_type.eq.pending_cancel)");
+    case 'cancelled':
+      return query.or("cancel_status.ilike.Cancelled,and(cancel_status.is.null,report_type.eq.cancellation)");
+    case 's-cancel':
+      return query.ilike('cancel_status', 'S-cancel');
+    case 'saved':
+      return query.ilike('cancel_status', 'Saved');
+    case 'unmatched':
+      return query.is('cancel_status', null);
+    default:
+      return query;
+  }
 }

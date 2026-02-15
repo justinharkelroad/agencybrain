@@ -436,7 +436,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const agency = assignment.agencies as { name: string; logo_url: string | null } | null;
+    const agency = (assignment.agencies as unknown as Array<{ name: string; logo_url: string | null }> | null)?.[0] ?? null;
     const agencyName = agency?.name || 'Agency';
     const agencyLogoUrl = agency?.logo_url || null;
     const generatedDate = new Date().toLocaleDateString('en-US', {

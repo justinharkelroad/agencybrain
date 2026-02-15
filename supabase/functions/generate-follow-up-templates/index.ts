@@ -194,7 +194,7 @@ serve(async (req) => {
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-3-5-haiku-20241022",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 500,
           messages: [
             { role: "user", content: emailPrompt }
@@ -210,7 +210,7 @@ serve(async (req) => {
 
       const emailResult = await emailResponse.json();
       results.email = emailResult.content?.[0]?.text || '';
-      console.log('Email template generated:', results.email.substring(0, 100));
+      console.log('Email template generated:', results.email?.substring(0, 100));
     } else if (generateEmail && !emailEnabled) {
       console.log('Email template disabled in config');
     }
@@ -228,7 +228,7 @@ serve(async (req) => {
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-3-5-haiku-20241022",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 100,
           messages: [
             { role: "user", content: textPrompt }

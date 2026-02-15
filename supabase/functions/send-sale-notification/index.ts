@@ -25,6 +25,19 @@ interface SaleNotificationRequest {
   agency_id: string;
 }
 
+function summarizePolicyTypes(policies: Array<{ policy_type_name?: string | null }> | null | undefined): string {
+  if (!policies || policies.length === 0) return '';
+  const counts = new Map<string, number>();
+  for (const p of policies) {
+    const key = (p.policy_type_name || '').trim() || 'Unknown';
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([name, count]) => `${name} x${count}`)
+    .join(', ');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -88,6 +101,7 @@ serve(async (req) => {
         source,
         created_at,
         lead_source_id,
+        sale_policies(policy_type_name),
         lead_source:lead_sources(name, is_self_generated),
         team_member:team_members!sales_team_member_id_fkey(id, name)
       `)
@@ -228,7 +242,10 @@ serve(async (req) => {
       { premium: 0, items: 0, policies: 0, households: 0 }
     );
 
-    // 5. Get recipients (all active staff users with email)
+    // 5. Get recipients from all sources (deduplicated)
+    const recipientSet = new Set<string>();
+
+    // 5a. Active staff users
     const { data: staffUsers, error: staffError } = await supabase
       .from('staff_users')
       .select('id, email')
@@ -240,9 +257,53 @@ serve(async (req) => {
       console.error('[send-sale-notification] Staff users lookup failed:', staffError);
     }
 
-    const recipients = (staffUsers || [])
-      .filter(u => u.email)
-      .map(u => u.email as string);
+    for (const u of staffUsers || []) {
+      if (u.email) recipientSet.add(u.email.toLowerCase());
+    }
+
+    // 5b. All profiles linked to this agency (agency owner + any linked users)
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('agency_id', body.agency_id)
+      .not('email', 'is', null);
+
+    for (const p of profiles || []) {
+      if (p.email) recipientSet.add(p.email.toLowerCase());
+    }
+
+    // 5c. Key employees (managers with elevated access)
+    const { data: keyEmployees } = await supabase
+      .from('key_employees')
+      .select('user_id')
+      .eq('agency_id', body.agency_id);
+
+    if (keyEmployees && keyEmployees.length > 0) {
+      const userIds = keyEmployees.map((ke: any) => ke.user_id);
+      const { data: keProfiles } = await supabase
+        .from('profiles')
+        .select('email')
+        .in('id', userIds)
+        .not('email', 'is', null);
+
+      for (const p of keProfiles || []) {
+        if (p.email) recipientSet.add(p.email.toLowerCase());
+      }
+    }
+
+    // 5d. Managers from team_members
+    const { data: tmManagers } = await supabase
+      .from('team_members')
+      .select('id, email')
+      .eq('agency_id', body.agency_id)
+      .eq('role', 'Manager');
+
+    for (const m of tmManagers || []) {
+      if (m.email) recipientSet.add(m.email.toLowerCase());
+    }
+
+    const recipients = Array.from(recipientSet);
+    console.log(`[send-sale-notification] Resolved ${recipients.length} unique recipients from staff_users, profiles, key_employees, and managers`);
 
     if (recipients.length === 0) {
       console.log('[send-sale-notification] No recipients found');
@@ -267,6 +328,11 @@ serve(async (req) => {
     const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
     const submittedTime = new Date(sale.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone });
     const todayDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: timezone });
+    const policyTypesSummary = summarizePolicyTypes(
+      (sale as { sale_policies?: Array<{ policy_type_name?: string | null }> }).sale_policies
+    );
+    const policyCount = sale.total_policies || 0;
+    const policyDisplay = policyTypesSummary ? `${policyCount} (${policyTypesSummary})` : `${policyCount}`;
 
     // Build scoreboard rows
     const scoreboardRowsHtml = scoreboardArray.map((entry, idx) => `
@@ -290,8 +356,10 @@ serve(async (req) => {
   <div style="max-width: 650px; margin: 0 auto; padding: 20px;">
     
     <!-- Header -->
-    <div style="background: linear-gradient(135deg, ${BRAND.colors.primary}, ${BRAND.colors.secondary}); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
-      <img src="${BRAND.logo}" alt="${BRAND.name}" style="height: 40px; margin-bottom: 16px; display: block;">
+    <div style="background-color: ${BRAND.colors.secondary}; background: linear-gradient(135deg, ${BRAND.colors.primary}, ${BRAND.colors.secondary}); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
+      <div style="display: inline-block; padding: 8px 10px; background-color: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.28); border-radius: 8px; margin-bottom: 16px;">
+        <img src="${BRAND.logo}" alt="${BRAND.name}" style="height: 40px; display: block;">
+      </div>
       <h1 style="margin: 0; font-size: 24px;">🎉 New Sale Recorded</h1>
       <p style="margin: 8px 0 0 0; opacity: 0.9;">${agency.name}</p>
     </div>
@@ -324,7 +392,7 @@ serve(async (req) => {
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #6b7280;">Policies:</td>
-            <td style="padding: 6px 0;">${sale.total_policies || 0}</td>
+            <td style="padding: 6px 0;">${policyDisplay}</td>
           </tr>
           <tr>
             <td style="padding: 6px 0; color: #6b7280;">Households:</td>

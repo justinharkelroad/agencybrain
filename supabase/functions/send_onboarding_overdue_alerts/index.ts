@@ -153,7 +153,7 @@ serve(async (req) => {
         due_date: task.due_date,
         day_number: task.day_number,
         action_type: task.action_type,
-        instance: task.instance as { customer_name: string; customer_phone: string | null },
+        instance: (Array.isArray(task.instance) ? task.instance[0] : task.instance) as { customer_name: string; customer_phone: string | null },
       });
     }
 
@@ -189,7 +189,7 @@ serve(async (req) => {
           staff_user_id: staff.id,
           email: staff.email,
           display_name: staff.display_name || staff.username,
-          agency_name: (staff.agency as { name: string })?.name || 'Your Agency',
+          agency_name: ((staff.agency as unknown as Array<{ name: string }> | null)?.[0])?.name || 'Your Agency',
           tasks,
         });
       }
@@ -266,8 +266,10 @@ serve(async (req) => {
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
 
     <!-- Header -->
-    <div style="background: linear-gradient(135deg, ${BRAND.colors.red}, #991b1b); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
-      <img src="${BRAND.logo}" alt="${BRAND.name}" style="height: 36px; margin-bottom: 16px; display: block;">
+    <div style="background-color: #991b1b; background: linear-gradient(135deg, ${BRAND.colors.red}, #991b1b); color: white; padding: 24px; border-radius: 8px 8px 0 0;">
+      <div style="display: inline-block; padding: 8px 10px; background-color: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.28); border-radius: 8px; margin-bottom: 16px;">
+        <img src="${BRAND.logo}" alt="${BRAND.name}" style="height: 36px; display: block;">
+      </div>
       <h1 style="margin: 0; font-size: 22px;">⚠️ Overdue Tasks Alert</h1>
       <p style="margin: 8px 0 0 0; opacity: 0.9;">You have ${staffData.tasks.length} overdue follow-up task${staffData.tasks.length !== 1 ? 's' : ''}</p>
     </div>

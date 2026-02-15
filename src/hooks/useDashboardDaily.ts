@@ -25,6 +25,11 @@ interface DailyMetric {
   date?: string;
 }
 
+interface AgencyCallTotals {
+  outbound_calls: number;
+  talk_minutes: number;
+}
+
 interface DashboardDailyResult {
   rows: DailyMetric[];
   tiles: Array<{
@@ -33,6 +38,7 @@ interface DashboardDailyResult {
     icon: string;
   }>;
   table: Array<DailyMetric & { name: string }>;
+  agencyCallTotals: AgencyCallTotals | null;
 }
 
 /**
@@ -79,23 +85,28 @@ export function useDashboardDaily(
         throw new Error(errorData.error || `Dashboard API error ${response.status}`);
       }
 
-      const { rows } = await response.json();
+      const { rows, agencyCallTotals } = await response.json();
       
       console.log("Raw dashboard data:", rows);
 
       // Role filtering now handled by backend
       const filteredRows = rows;
 
-      // Generate summary tiles from the actual data
+      // Generate summary tiles from the actual data.
+      // For call metrics (Outbound Calls, Talk Minutes), use agency-wide totals
+      // from call_events when available — these include unmatched calls.
+      // Fall back to summing per-member rows if the RPC didn't return data.
       const tiles = [
         {
           title: "Outbound Calls",
-          value: filteredRows.reduce((sum: number, row: DailyMetric) => sum + (row.outbound_calls || 0), 0),
+          value: agencyCallTotals?.outbound_calls
+            ?? filteredRows.reduce((sum: number, row: DailyMetric) => sum + (row.outbound_calls || 0), 0),
           icon: "📞"
         },
         {
-          title: "Talk Minutes", 
-          value: filteredRows.reduce((sum: number, row: DailyMetric) => sum + (row.talk_minutes || 0), 0),
+          title: "Talk Minutes",
+          value: agencyCallTotals?.talk_minutes
+            ?? filteredRows.reduce((sum: number, row: DailyMetric) => sum + (row.talk_minutes || 0), 0),
           icon: "⏱️"
         },
         {
@@ -130,7 +141,7 @@ export function useDashboardDaily(
 
       console.log("Processed dashboard result:", { rows: filteredRows.length, tiles, table: table.length });
 
-      return { rows: filteredRows, tiles, table };
+      return { rows: filteredRows, tiles, table, agencyCallTotals: agencyCallTotals || null };
     },
     enabled: !!agencySlug && !!role,
     staleTime: 30000, // 30 seconds

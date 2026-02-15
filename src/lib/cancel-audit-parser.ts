@@ -173,15 +173,17 @@ export function parseCancelAuditExcel(
       const lastName = getValue('Insured Last Name') ? String(getValue('Insured Last Name')).trim() : null;
 
       // Note: "Insured Preferred  Phone" has double space in original Allstate report
-      // Read the Status column from Excel: "Cancel" (pending/savable) vs "Cancelled" (already lost)
+      // Read the Status column from Excel. We preserve whatever status text is provided
+      // (e.g. Cancel, Cancelled, S-cancel) so reporting can sort by the exact report value.
       const excelStatus = getValue('Status') ? String(getValue('Status')).trim() : null;
+      const statusKey = excelStatus?.toLowerCase();
       
       // Derive report_type from Excel Status column if present
       // "Cancel" = pending cancellation (savable), "Cancelled" = already cancelled
       const derivedReportType: 'cancellation' | 'pending_cancel' = 
-        excelStatus?.toLowerCase() === 'cancel' 
-          ? 'pending_cancel' 
-          : excelStatus?.toLowerCase() === 'cancelled'
+        statusKey === 'cancel'
+          ? 'pending_cancel'
+          : statusKey === 'cancelled'
             ? 'cancellation'
             : reportType; // fallback to parameter if Status column missing/unrecognized
 

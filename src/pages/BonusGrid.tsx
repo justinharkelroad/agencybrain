@@ -33,7 +33,11 @@ const PPI_DEFAULTS: Record<CellAddr, number> = {
 };
 
 
-export default function BonusGridPage(){
+interface BonusGridPageProps {
+  embedded?: boolean;
+}
+
+export default function BonusGridPage({ embedded = false }: BonusGridPageProps){
   const { hasTierAccess } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -332,7 +336,7 @@ export default function BonusGridPage(){
   const isGridSaved = !isDirty;
 
   return (
-    <main className="p-6 max-w-7xl mx-auto space-y-6">
+    <main className={embedded ? "space-y-6" : "p-6 max-w-7xl mx-auto space-y-6"}>
       {/* Loading State */}
       {isLoading && (
         <div className="flex items-center justify-center py-20">
@@ -348,23 +352,29 @@ export default function BonusGridPage(){
           {/* Navigation Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" className="gap-2" onClick={handleReturnToDashboard}>
-                <ArrowLeft className="h-4 w-4" />
-                Return to Dashboard
-              </Button>
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem>
-                    <BreadcrumbLink asChild>
-                      <Link to="/dashboard">Dashboard</Link>
-                    </BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>Bonus Grid</BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
+              {!embedded ? (
+                <>
+                  <Button variant="ghost" size="sm" className="gap-2" onClick={handleReturnToDashboard}>
+                    <ArrowLeft className="h-4 w-4" />
+                    Return to Dashboard
+                  </Button>
+                  <Breadcrumb>
+                    <BreadcrumbList>
+                      <BreadcrumbItem>
+                        <BreadcrumbLink asChild>
+                          <Link to="/dashboard">Dashboard</Link>
+                        </BreadcrumbLink>
+                      </BreadcrumbItem>
+                      <BreadcrumbSeparator />
+                      <BreadcrumbItem>
+                        <BreadcrumbPage>Bonus Grid</BreadcrumbPage>
+                      </BreadcrumbItem>
+                    </BreadcrumbList>
+                  </Breadcrumb>
+                </>
+              ) : (
+                <h3 className="text-lg font-medium">Allstate Bonus Grid</h3>
+              )}
             </div>
             
             {/* Save Status with Error Handling */}
@@ -398,39 +408,36 @@ export default function BonusGridPage(){
             </div>
           </div>
 
-      {/* Prominent Dashboard Header */}
-      <div className="relative rounded-lg border border-border bg-card p-6">
-        {/* Glow effect */}
-        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/20 via-transparent to-accent/20 blur-xl -z-10"></div>
-        
-        {/* Trophy Badge */}
-        <div className="absolute -top-3 -right-3 bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-900 px-4 py-2 rounded-full text-sm font-bold shadow-lg">
-          🏆🏆🏆🏆
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent">
-              Allstate Bonus Grid
-            </h1>
-            <p className="text-muted-foreground">Track your path to maximum earnings</p>
-          </div>
+      {!embedded ? (
+        <div className="relative rounded-lg border border-border bg-card p-6">
+          <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-primary/20 via-transparent to-accent/20 blur-xl -z-10"></div>
           
-          {/* Highest Bonus Display */}
-          <div className="text-right space-y-1">
-            <p className="text-sm text-muted-foreground uppercase tracking-wide">Maximum Bonus Potential</p>
-            <div className="text-4xl font-bold text-primary">
-              {(() => {
-                // Find the maximum bonus dollar amount across all rows
-                const bonusAmounts = outputsMap.bonus_dollars.map(addr => outputs[addr] ?? 0);
-                const maxBonus = Math.max(...bonusAmounts);
-                return maxBonus.toLocaleString(undefined, { style: "currency", currency: "USD" });
-              })()}
+          <div className="absolute -top-3 -right-3 bg-gradient-to-br from-yellow-400 to-yellow-600 text-yellow-900 px-4 py-2 rounded-full text-sm font-bold shadow-lg">
+            🏆🏆🏆🏆
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold bg-gradient-to-br from-primary to-accent bg-clip-text text-transparent">
+                Allstate Bonus Grid
+              </h1>
+              <p className="text-muted-foreground">Track your path to maximum earnings</p>
             </div>
-            <p className="text-xs text-muted-foreground">Top tier achievement</p>
+            
+            <div className="text-right space-y-1">
+              <p className="text-sm text-muted-foreground uppercase tracking-wide">Maximum Bonus Potential</p>
+              <div className="text-4xl font-bold text-primary">
+                {(() => {
+                  const bonusAmounts = outputsMap.bonus_dollars.map(addr => outputs[addr] ?? 0);
+                  const maxBonus = Math.max(...bonusAmounts);
+                  return maxBonus.toLocaleString(undefined, { style: "currency", currency: "USD" });
+                })()}
+              </div>
+              <p className="text-xs text-muted-foreground">Top tier achievement</p>
+            </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       <header className="flex items-end justify-between">
         <div className="flex gap-2 items-center">
@@ -470,7 +477,7 @@ export default function BonusGridPage(){
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="space-y-4">
           <BonusCard title="Baseline" subtitle="Enter your current TOTAL Items In Force for each line here.\n(this data is best found in the Item Portfolio Growth Detail + Business Metrics Printable View Dash Report)" 
-            headerAction={
+            headerAction={!embedded ? (
               <Button 
                 onClick={() => navigate('/snapshot-planner')}
                 disabled={!isGridValid || !isGridSaved}
@@ -479,7 +486,7 @@ export default function BonusGridPage(){
                 <Target className="h-4 w-4" />
                 Snapshot Planner
               </Button>
-            }
+            ) : null}
           >
             <BaselineTable state={state} setState={setField} computedValues={allOutputs} />
           </BonusCard>

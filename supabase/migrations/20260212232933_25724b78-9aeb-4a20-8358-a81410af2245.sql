@@ -1,0 +1,1 @@
+ALTER TABLE sp_categories ADD COLUMN image_url text;

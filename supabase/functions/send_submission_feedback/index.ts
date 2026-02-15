@@ -7,37 +7,38 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const SYSTEM_PROMPT = `You are the "Agency Brain," an expert Sales & Service Performance Coach. Your goal is to analyze daily employee statistics, provide immediate feedback, celebrate wins, and offer actionable coaching for missed targets. Your tone should be professional, encouraging, but accountability-focused.
+const SYSTEM_PROMPT = `You are the Agency Brain, a high-stakes Performance Coach. Your tone is direct, supportive, and results-obsessed.
 
-Logic & Instructions:
+The Rules:
+- No Excessive Formatting: Avoid over-using bolding or asterisks. Keep it clean.
+- Human Language: Use "I" and "you." Avoid robotic wording.
+- The 150-Word Wall: Keep it punchy.
 
-Step 1: Analyze Performance
-Compare the Actual against the Target for every metric provided.
-- Win: Actual >= Target
-- Near Miss: Actual is 80%–99% of Target
-- Miss: Actual is 50%–79% of Target
-- Critical Miss: Actual is < 50% of Target
+Output Structure:
+- A one-sentence summary.
+- One short paragraph about what went well and what needs improvement.
+- One clear action for tomorrow.
 
-Step 2: Determine The Feedback Tier
-Based on the analysis, choose one of the following approaches:
+Never use these labels or phrases:
+- "Champion"
+- "Grinder"
+- "The Alert"
+- "Pulse Check"
+- "Hard Truth"
+- "Actionable Shift"`;
 
-Tier A: The Champion (All targets met or exceeded)
-- Tone: High energy, celebratory.
-- Action: Congratulate them specifically on the metrics they crushed. Tell them they "won the day."
+function sanitizeAiFeedback(raw: string): string {
+  if (!raw) return '';
 
-Tier B: The Grinder (Mixed results, mostly Wins or Near Misses)
-- Tone: Encouraging and analytical.
-- Action: Call out the specific wins first. For the misses, offer a specific time-management tip (e.g., "To hit that talk time, try blocking out your first hour solely for dial-time.").
-
-Tier C: The Alert (Critical Misses on Key Metrics)
-- Trigger: If the user scores a "Critical Miss" (<50%) on a Required Metric (like Sales or Quotes).
-- Tone: Serious, supportive, solution-oriented.
-- Action: Acknowledge the effort, but clearly state that the results are below standard. Suggest they schedule a brief check-in with leadership to build a plan so this doesn't happen again. Frame this not as punishment, but as "getting back on track."
-
-Output Guidelines:
-- Keep the response under 150 words.
-- Use bullet points for readability.
-- Address the user directly as "you."`;
+  return raw
+    .replace(/^\s*(Champion|Grinder|The Alert)\s*(\([^)]+\))?\s*:\s*/gim, '')
+    .replace(/\bPulse Check\b\s*:\s*/gi, '')
+    .replace(/\bHard Truth\b\s*:\s*/gi, 'Action for tomorrow: ')
+    .replace(/\bActionable Shift\b\s*:\s*/gi, 'Action for tomorrow: ')
+    .replace(/\b(Get after it\.?)\b/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 // ========== Discrepancy Detection Types ==========
 interface PerformanceMetric {
@@ -414,17 +415,11 @@ Deno.serve(async (req) => {
                           enabledKpis.has('policies_quoted') ||
                           enabledKpis.has('households_quoted');
 
-    // Also check if there's a target configured (fallback if scorecard_rules doesn't match)
-    const hasQuotedTarget = targetsMap['quoted_households'] !== undefined ||
-                            targetsMap['quoted_count'] !== undefined ||
-                            targetsMap['policies_quoted'] !== undefined ||
-                            targetsMap['households_quoted'] !== undefined;
-
-    // Add Quoted Households if:
-    // 1. It's enabled for agency, OR
-    // 2. There's a target configured, OR
-    // 3. There are tracked quotes in lqs_households (dashboard data exists)
-    const shouldAddQuoted = quotedEnabled || hasQuotedTarget || totalTrackedQuotes > 0;
+    // Only add Quoted Households if it's enabled in the role's scorecard_rules.
+    // Previously also checked targets table and tracked quotes, but targets are
+    // agency-wide (not role-scoped), which caused Service team members to get
+    // Quoted Households from Sales targets.
+    const shouldAddQuoted = quotedEnabled;
 
     if (!quotedInForm && shouldAddQuoted) {
       // Use MAX of metrics_daily and lqs_households for actual value
@@ -452,7 +447,6 @@ Deno.serve(async (req) => {
         trackedCount: totalTrackedQuotes,
         hasDiscrepancy,
         quotedEnabled,
-        hasQuotedTarget,
         totalTrackedQuotes,
         enabled_via: Array.from(enabledKpis).filter(k =>
           ['quoted_households', 'quoted_count', 'policies_quoted', 'households_quoted'].includes(k)
@@ -546,7 +540,7 @@ Provide your coaching feedback based on these results.`;
           error: openaiData
         });
       } else {
-        aiFeedback = openaiData.choices?.[0]?.message?.content || '';
+        aiFeedback = sanitizeAiFeedback(openaiData.choices?.[0]?.message?.content || '');
         logStructured('info', 'openai_success', {
           request_id: requestId,
           feedback_length: aiFeedback.length
@@ -560,17 +554,17 @@ Provide your coaching feedback based on these results.`;
       // Continue without AI feedback - email will still be sent with stats
     }
 
-    // 9. Build recipient list
-    const recipients: string[] = [];
+    // 9. Build recipient list: Submitter + Agency Owner + Additional Recipients (from settings)
+    const recipientSet = new Set<string>();
 
     // Submitter email (use staff_users email if available, else team_members email)
     if (submitterEmail && !submitterEmail.includes('@staff.placeholder')) {
-      recipients.push(submitterEmail);
+      recipientSet.add(submitterEmail.toLowerCase());
     }
 
     // Agency owner email (from agencies.agency_email)
-    if (agency?.agency_email && !recipients.includes(agency.agency_email)) {
-      recipients.push(agency.agency_email);
+    if (agency?.agency_email) {
+      recipientSet.add(agency.agency_email.toLowerCase());
     }
 
     // Additional recipients from settings
@@ -582,12 +576,27 @@ Provide your coaching feedback based on these results.`;
         .in('id', additionalIds);
 
       additionalMembers?.forEach(m => {
-        // Skip placeholder emails
-        if (m.email && !m.email.includes('@staff.placeholder') && !recipients.includes(m.email)) {
-          recipients.push(m.email);
+        if (m.email && !m.email.includes('@staff.placeholder')) {
+          recipientSet.add(m.email.toLowerCase());
+        }
+      });
+
+      // Also check staff_users for real emails (team_members may have @staff.placeholder)
+      const { data: additionalStaff } = await supabase
+        .from('staff_users')
+        .select('email, team_member_id')
+        .in('team_member_id', additionalIds)
+        .eq('is_active', true)
+        .not('email', 'is', null);
+
+      additionalStaff?.forEach(s => {
+        if (s.email && !s.email.includes('@staff.placeholder')) {
+          recipientSet.add(s.email.toLowerCase());
         }
       });
     }
+
+    const recipients = Array.from(recipientSet);
 
     logStructured('info', 'recipients_resolved', { request_id: requestId, count: recipients.length, recipients });
 
@@ -620,21 +629,24 @@ Provide your coaching feedback based on these results.`;
       footerAgencyName: agency?.name,
     });
 
-    // 11. Send email via Resend
-    logStructured('info', 'sending_email', { request_id: requestId, recipient_count: recipients.length });
+    // 11. Send email via Resend batch API (individual email per recipient for proper tracking)
+    const subject = `📊 Daily Report: ${passedCount}/${totalCount} targets met - ${teamMember?.name || 'Team Member'}`;
+    const emailBatch = recipients.map(email => ({
+      from: BRAND.fromEmail,
+      to: email,
+      subject,
+      html: emailHtml,
+    }));
 
-    const emailResponse = await fetch('https://api.resend.com/emails', {
+    logStructured('info', 'sending_email', { request_id: requestId, recipient_count: recipients.length, recipients });
+
+    const emailResponse = await fetch('https://api.resend.com/emails/batch', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('RESEND_API_KEY')}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        from: BRAND.fromEmail,
-        to: recipients,
-        subject: `📊 Daily Report: ${passedCount}/${totalCount} targets met - ${teamMember?.name || 'Team Member'}`,
-        html: emailHtml,
-      }),
+      body: JSON.stringify(emailBatch),
     });
 
     const emailResult = await emailResponse.json();
@@ -650,7 +662,7 @@ Provide your coaching feedback based on these results.`;
 
     logStructured('info', 'feedback_complete', {
       request_id: requestId,
-      email_id: emailResult?.id,
+      email_ids: emailResult?.data?.map((e: { id: string }) => e.id),
       recipients,
       passed_count: passedCount,
       total_count: totalCount,
@@ -660,7 +672,7 @@ Provide your coaching feedback based on these results.`;
     return new Response(
       JSON.stringify({
         success: true,
-        emailId: emailResult?.id,
+        emailIds: emailResult?.data?.map((e: { id: string }) => e.id),
         recipients,
         passedCount,
         totalCount,

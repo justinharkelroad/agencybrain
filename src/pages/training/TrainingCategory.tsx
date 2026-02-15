@@ -33,6 +33,7 @@ interface SPModule {
   slug: string;
   description: string | null;
   icon: string;
+  image_url: string | null;
   display_order: number;
   lessons: SPLesson[];
 }
@@ -124,15 +125,6 @@ export default function TrainingCategory() {
 
       setModules(modulesWithProgress);
 
-      // Auto-expand first incomplete module
-      const firstIncomplete = modulesWithProgress.find(m => 
-        m.lessons.some((l: SPLesson) => !l.completed)
-      );
-      if (firstIncomplete) {
-        setExpandedModules(new Set([firstIncomplete.id]));
-      } else if (modulesWithProgress.length > 0) {
-        setExpandedModules(new Set([modulesWithProgress[0].id]));
-      }
     } catch (err) {
       console.error('Error fetching category:', err);
       navigate('/training/standard');
@@ -213,8 +205,18 @@ export default function TrainingCategory() {
             const isExpanded = expandedModules.has(module.id);
 
             return (
-              <Card key={module.id}>
+              <Card key={module.id} className="overflow-hidden">
                 <CardContent className="p-0">
+                  {/* Module Cover Image */}
+                  {module.image_url && (
+                    <div className="px-4 pt-4">
+                      <img
+                        src={module.image_url}
+                        alt={module.name}
+                        className="h-16 w-auto object-contain"
+                      />
+                    </div>
+                  )}
                   {/* Module Header */}
                   <button
                     className="w-full p-4 flex items-center gap-4 text-left hover:bg-accent/5 transition-colors"

@@ -261,9 +261,12 @@ serve(async (req) => {
       }
     } else {
       // Policy exists - still recalculate to ensure earliest_winback_date is set
-      await supabase.rpc("recalculate_winback_household_aggregates", {
+      const { error: recalcError } = await supabase.rpc("recalculate_winback_household_aggregates", {
         p_household_id: householdId,
-      }).catch(e => console.error("Failed to recalc for existing policy:", e));
+      });
+      if (recalcError) {
+        console.error("Failed to recalc for existing policy:", recalcError);
+      }
     }
 
     // Update cancel audit record
