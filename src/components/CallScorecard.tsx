@@ -23,6 +23,7 @@ import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecar
 import { parseFeedback } from '@/lib/utils/feedback-parser';
 import { FollowUpTemplateDisplay } from '@/components/call-scoring/FollowUpTemplateDisplay';
 import { supabase } from '@/integrations/supabase/client';
+import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
 import type { Json } from '@/integrations/supabase/types';
 
 interface CallScorecardCall {
@@ -114,7 +115,9 @@ export function CallScorecard({
   const [feedbackImprovement, setFeedbackImprovement] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
+  const QA_QUESTION_LIMIT = 10;
   const [qaQuestion, setQaQuestion] = useState('');
+  const [qaQuestionsUsed, setQaQuestionsUsed] = useState(0);
   const [qaLoading, setQaLoading] = useState(false);
   const [qaError, setQaError] = useState<string | null>(null);
   const [qaResult, setQaResult] = useState<{
@@ -134,6 +137,7 @@ export function CallScorecard({
   // Reset QA state when switching calls
   useEffect(() => {
     setQaQuestion('');
+    setQaQuestionsUsed(0);
     setQaLoading(false);
     setQaError(null);
     setQaResult(null);
@@ -141,6 +145,12 @@ export function CallScorecard({
 
   const handleQaQuery = async () => {
     if (!qaEnabled || qaLoading) return;
+
+    if (qaQuestionsUsed >= QA_QUESTION_LIMIT) {
+      toast.error(`You've reached the ${QA_QUESTION_LIMIT}-question limit for this call.`);
+      return;
+    }
+
     const question = qaQuestion.trim();
     if (!question) {
       toast.error('Please enter a question first.');
@@ -152,56 +162,6 @@ export function CallScorecard({
     setQaResult(null);
 
     try {
-      const resolveFunctionErrorMessage = async (fnError: unknown): Promise<string> => {
-        const maybeError = fnError as {
-          message?: string;
-          status?: number;
-          code?: string;
-          context?: {
-            status?: number;
-            json?: () => Promise<{ error?: string }>;
-          };
-        };
-
-        const message =
-          typeof maybeError?.message === "string" ? maybeError.message : "Unable to run QA search";
-
-        const status = maybeError?.status ?? maybeError?.context?.status;
-        let bodyMessage = message;
-
-        if (maybeError?.context?.json) {
-          try {
-            const errorBody = await maybeError.context.json();
-            if (errorBody?.error && typeof errorBody.error === "string") {
-              bodyMessage = errorBody.error;
-            }
-          } catch (_e) {
-            // ignore body parse failures; fall back to status/message handling
-          }
-        }
-
-        const normalized = bodyMessage.toLowerCase();
-
-        if (status === 401 || status === 403) {
-          if (normalized.includes("session") || normalized.includes("authorization") || normalized.includes("token")) {
-            return "Session expired or missing. Please re-login and try again.";
-          }
-          return "Access denied for call Q&A. Verify your login and feature permissions.";
-        }
-
-        if (status === 409) {
-          if (normalized.includes("timestamped")) {
-            return "This call needs to be reprocessed to generate timestamped transcript segments before timeline Q&A works.";
-          }
-          if (normalized.includes("transcript segments")) {
-            return "This call does not have timestamped transcript segments yet. Reprocess this call and try again.";
-          }
-          return bodyMessage || "Timeline Q&A cannot process this call yet.";
-        }
-
-        return bodyMessage;
-      };
-
       const headers: Record<string, string> = {};
       const staffSession = localStorage.getItem('staff_session_token');
       if (staffSession) {
@@ -226,6 +186,7 @@ export function CallScorecard({
       }
 
       setQaResult(data);
+      setQaQuestionsUsed(prev => prev + 1);
       toast.success('Q&A complete.');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to run QA query';
@@ -1605,9 +1566,14 @@ export function CallScorecard({
                 CALL TIMELINE Q&A
               </h3>
               {qaEnabled && (
-                <p className="text-xs text-blue-400/90 mb-3">
-                  Ask timeline questions right here (for example: “When did we discuss liability limits?”)
-                </p>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs text-blue-400/90">
+                    Ask timeline questions right here (for example: "When did we discuss liability limits?")
+                  </p>
+                  <span className={`text-xs font-medium ${qaQuestionsUsed >= QA_QUESTION_LIMIT ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {qaQuestionsUsed}/{QA_QUESTION_LIMIT} questions
+                  </span>
+                </div>
               )}
 
               {!qaEnabled ? (
@@ -1627,7 +1593,7 @@ export function CallScorecard({
                     />
                   </div>
                   <div className="mt-3 flex items-center justify-end">
-                    <Button onClick={handleQaQuery} disabled={qaLoading || !qaQuestion.trim()}>
+                    <Button onClick={handleQaQuery} disabled={qaLoading || !qaQuestion.trim() || qaQuestionsUsed >= QA_QUESTION_LIMIT}>
                       {qaLoading ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />

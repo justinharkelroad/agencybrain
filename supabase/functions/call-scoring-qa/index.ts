@@ -177,7 +177,7 @@ Deno.serve(async (req) => {
     // ── Load call ────────────────────────────────────────────────
     const { data: rawCallRecord, error: callError } = await supabase
       .from("agency_calls")
-      .select("*")
+      .select("id, agency_id, team_member_id, transcript_segments")
       .eq("id", callId)
       .single();
 
@@ -273,7 +273,7 @@ Return ONLY valid JSON:
         model: "gpt-4o-mini",
         temperature: 0.1,
         response_format: { type: "json_object" },
-        max_tokens: 1500,
+        max_tokens: 3000,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },

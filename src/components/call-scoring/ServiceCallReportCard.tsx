@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecard';
 import { FollowUpTemplateDisplay } from './FollowUpTemplateDisplay';
 import { supabase } from '@/integrations/supabase/client';
+import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
 
 interface ServiceSectionScore {
   section_name: string;
@@ -119,7 +120,9 @@ export function ServiceCallReportCard({
   const [exporting, setExporting] = useState(false);
   const [showFollowUpDialog, setShowFollowUpDialog] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
+  const QA_QUESTION_LIMIT = 10;
   const [qaQuestion, setQaQuestion] = useState('');
+  const [qaQuestionsUsed, setQaQuestionsUsed] = useState(0);
   const [qaLoading, setQaLoading] = useState(false);
   const [qaError, setQaError] = useState<string | null>(null);
   const [qaResult, setQaResult] = useState<{
@@ -138,6 +141,7 @@ export function ServiceCallReportCard({
   // Reset QA state when switching calls
   useEffect(() => {
     setQaQuestion('');
+    setQaQuestionsUsed(0);
     setQaLoading(false);
     setQaError(null);
     setQaResult(null);
@@ -170,6 +174,11 @@ export function ServiceCallReportCard({
   const handleQaQuery = async () => {
     if (!qaEnabled || qaLoading) return;
 
+    if (qaQuestionsUsed >= QA_QUESTION_LIMIT) {
+      toast.error(`You've reached the ${QA_QUESTION_LIMIT}-question limit for this call.`);
+      return;
+    }
+
     const question = qaQuestion.trim();
     if (!question) {
       toast.error('Please enter a question first.');
@@ -181,41 +190,6 @@ export function ServiceCallReportCard({
     setQaResult(null);
 
     try {
-      const resolveFunctionErrorMessage = async (fnError: unknown): Promise<string> => {
-        const maybeError = fnError as {
-          message?: string;
-          status?: number;
-          context?: { status?: number; json?: () => Promise<{ error?: string }> };
-        };
-        const message = typeof maybeError?.message === 'string' ? maybeError.message : 'Unable to run QA search';
-        const status = maybeError?.status ?? maybeError?.context?.status;
-        let bodyMessage = message;
-        if (maybeError?.context?.json) {
-          try {
-            const errorBody = await maybeError.context.json();
-            if (errorBody?.error && typeof errorBody.error === 'string') {
-              bodyMessage = errorBody.error;
-            }
-          } catch {
-            // ignore body parse failures
-          }
-        }
-        const normalized = bodyMessage.toLowerCase();
-        if (status === 401 || status === 403) {
-          if (normalized.includes('session') || normalized.includes('authorization') || normalized.includes('token')) {
-            return 'Session expired or missing. Please re-login and try again.';
-          }
-          return 'Access denied for call Q&A. Verify your login and feature permissions.';
-        }
-        if (status === 409) {
-          if (normalized.includes('transcript segments')) {
-            return 'This call needs to be reprocessed to generate timestamped segments before timeline Q&A works.';
-          }
-          return bodyMessage || 'Timeline Q&A cannot process this call yet.';
-        }
-        return bodyMessage;
-      };
-
       const headers: Record<string, string> = {};
       const staffSession = localStorage.getItem('staff_session_token');
       if (staffSession) {
@@ -240,6 +214,7 @@ export function ServiceCallReportCard({
       }
 
       setQaResult(data);
+      setQaQuestionsUsed(prev => prev + 1);
       toast.success('Q&A complete.');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to run QA query';
@@ -769,9 +744,14 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
               </h3>
               {qaEnabled ? (
                 <>
-                  <p className="text-xs" style={{ color: COLORS.textMuted }}>
-                    Ask timeline questions right here (for example: “When did we discuss liability limits?”)
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>
+                      Ask timeline questions right here (for example: "When did we discuss liability limits?")
+                    </p>
+                    <span className="text-xs font-medium" style={{ color: qaQuestionsUsed >= QA_QUESTION_LIMIT ? '#f87171' : COLORS.textMuted }}>
+                      {qaQuestionsUsed}/{QA_QUESTION_LIMIT} questions
+                    </span>
+                  </div>
                   <div className="space-y-2 mt-3">
                     <Label htmlFor="qa-question-service" style={{ color: COLORS.text }}>
                       Ask about a moment in this call
@@ -787,7 +767,7 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
                   <div className="mt-3 flex items-center justify-end">
                     <Button
                       onClick={handleQaQuery}
-                      disabled={qaLoading || !qaQuestion.trim()}
+                      disabled={qaLoading || !qaQuestion.trim() || qaQuestionsUsed >= QA_QUESTION_LIMIT}
                       className="bg-primary"
                     >
                       {qaLoading ? (

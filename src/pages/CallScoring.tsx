@@ -388,11 +388,27 @@ export default function CallScoring() {
       if (isStaffUser) return;
       if (!user) return;
 
-      // Admins always have access
+      // Admins always have access to the page
       if (isAdmin) {
         setHasAccess(true);
-        setCallScoringQaEnabled(true);
         setAccessChecked(true);
+
+        // Still check if the admin's agency actually has QA enabled
+        const { data: adminProfile } = await supabase
+          .from('profiles')
+          .select('agency_id')
+          .eq('id', user.id)
+          .single();
+
+        if (adminProfile?.agency_id) {
+          const { data: callScoringQaFeature } = await supabase
+            .from('agency_feature_access')
+            .select('id')
+            .eq('agency_id', adminProfile.agency_id)
+            .eq('feature_key', 'call_scoring_qa')
+            .maybeSingle();
+          setCallScoringQaEnabled(Boolean(callScoringQaFeature?.id));
+        }
         return;
       }
 
