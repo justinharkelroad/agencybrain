@@ -65,6 +65,7 @@ import { navigationConfig, isNavFolder, isNavSubFolder, NavEntry, NavItem } from
 import { useSidebarAccess } from "@/hooks/useSidebarAccess";
 import { useSalesExperienceAccess } from "@/hooks/useSalesExperienceAccess";
 import { useSalesProcessBuilderAccess } from "@/hooks/useStandaloneSalesProcess";
+import { useCallGapsAccess } from "@/hooks/useCallGapsAccess";
 import { SidebarNavItem, SidebarFolder, SidebarSubFolder } from "@/components/sidebar";
 import type { CalcKey } from "@/components/ROIForecastersModal";
 import { hasCoachingInsightsAccess } from "@/lib/coachingInsightsAccess";
@@ -113,6 +114,8 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   // If there's an error (like 403), treat as no access - don't crash the app
   const hasSalesProcessBuilderAccess = (!salesProcessBuilderError && salesProcessBuilderData?.hasAccess) ?? false;
   const canAccessCoachingInsights = hasCoachingInsightsAccess(user?.email);
+  const { data: callGapsAccessData, isError: callGapsAccessError } = useCallGapsAccess(agencyId);
+  const hasCallGapsAccess = (!callGapsAccessError && callGapsAccessData?.hasAccess) ?? false;
   const location = useLocation();
   const { data: subscription } = useSubscription();
 
@@ -325,6 +328,7 @@ const toggleFolder = useCallback((folderId: string) => {
       hasSalesExperienceAccess,
       hasSalesProcessBuilderAccess,
       hasCoachingInsightsAccess: canAccessCoachingInsights,
+      hasCallGapsAccess,
     });
     
     if (isCallScoringTier) {
@@ -403,7 +407,7 @@ const toggleFolder = useCallback((folderId: string) => {
     }
     
     return filtered;
-  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, isChallengeTierUser, hasSalesExperienceAccess, hasSalesProcessBuilderAccess, canAccessCoachingInsights]);
+  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, isChallengeTierUser, hasSalesExperienceAccess, hasSalesProcessBuilderAccess, canAccessCoachingInsights, hasCallGapsAccess]);
 
 // Auto-expand folder containing active route
 useEffect(() => {

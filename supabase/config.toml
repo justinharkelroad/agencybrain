@@ -506,3 +506,6 @@ verify_jwt = false
 
 [functions.analyze_growth_metrics]
 verify_jwt = false
+
+[functions.call-gap-data]
+verify_jwt = false

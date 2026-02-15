@@ -63,6 +63,7 @@ export type NavItem = {
   salesExperienceAccess?: boolean;  // Requires agency to have active sales experience assignment
   salesProcessBuilderAccess?: boolean;  // Requires agency to have sales_process_builder feature flag
   coachingInsightsAccess?: boolean;     // Requires agency to be in coaching insights beta list
+  callGapsAccess?: boolean;  // Requires agency to have call_gaps feature flag
 };
 
 // Sub-folder that can appear inside a NavFolder
@@ -711,6 +712,15 @@ export const navigationConfig: NavEntry[] = [
         access: { staff: false, manager: true, owner: true },
       },
       {
+        id: 'call-gaps-analyzer',
+        title: 'Call Gaps Analyzer',
+        icon: BarChart3,
+        type: 'link',
+        url: '/call-gaps',
+        access: { staff: false, manager: true, owner: true },
+        callGapsAccess: true,
+      },
+      {
         id: 'growth-center',
         title: 'Growth Center',
         icon: TrendingUp,
@@ -971,6 +981,15 @@ export const staffNavigationConfig: NavEntry[] = [
         url: '/staff/call-scoring',
         access: { staff: true, manager: true, owner: true },
         settingCheck: 'callScoringEnabled',
+      },
+      {
+        id: 'call-gaps-analyzer',
+        title: 'Call Gaps Analyzer',
+        icon: BarChart3,
+        type: 'link',
+        url: '/staff/call-gaps',
+        access: { staff: false, manager: true, owner: true },
+        callGapsAccess: true,
       },
     ],
   },

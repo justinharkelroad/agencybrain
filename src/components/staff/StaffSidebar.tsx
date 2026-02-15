@@ -50,6 +50,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
   const navigate = useNavigate();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const [callScoringEnabled, setCallScoringEnabled] = useState<boolean | null>(null);
+  const [callGapsEnabled, setCallGapsEnabled] = useState(false);
   const [showCallScoringGate, setShowCallScoringGate] = useState(false);
   const [gatedItemId, setGatedItemId] = useState<string | null>(null);
   
@@ -133,6 +134,46 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
     };
 
     checkCallScoringAccess();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, user?.agency_id]);
+
+  // Check if call gaps analyzer is enabled for staff user's agency
+  useEffect(() => {
+    if (loading || !user?.agency_id) {
+      setCallGapsEnabled(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const checkCallGapsAccess = async () => {
+      try {
+        const { data, error } = await supabase.rpc('has_feature_access', {
+          p_agency_id: user.agency_id,
+          p_feature_key: 'call_gaps',
+        });
+
+        if (cancelled) return;
+
+        if (error) {
+          console.warn('[StaffSidebar] Call gaps access check failed:', error);
+          setCallGapsEnabled(false);
+          return;
+        }
+
+        setCallGapsEnabled(data === true);
+      } catch (err) {
+        if (!cancelled) {
+          console.warn('[StaffSidebar] Call gaps access check error:', err);
+          setCallGapsEnabled(false);
+        }
+      }
+    };
+
+    checkCallGapsAccess();
 
     return () => {
       cancelled = true;
@@ -232,17 +273,22 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
             return false;
           }
           
+          // Check callGapsAccess - only show if agency has feature flag
+          if (item.callGapsAccess && !callGapsEnabled) {
+            return false;
+          }
+
           // Check role-based access
           const canAccess = canAccessItem(item.access);
           if (!canAccess) {
             return false;
           }
-          
+
           // Check settingCheck for callScoringEnabled
           if (item.settingCheck === 'callScoringEnabled') {
             return callScoringEnabled === true;
           }
-          
+
           return true;
         })
         .map(item => {
@@ -257,6 +303,9 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
               }
               // NOTE: challengeAccess items are NOT filtered - shown to everyone, gated at click-time
               if (salesBetaRequiredIds.includes(subItem.id) && !salesEnabled) {
+                return false;
+              }
+              if (subItem.callGapsAccess && !callGapsEnabled) {
                 return false;
               }
               if (!canAccessItem(subItem.access)) {
@@ -297,11 +346,16 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
 
         // NOTE: challengeAccess items are NOT filtered - shown to everyone, gated at click-time
 
+        // Check callGapsAccess for root-level items
+        if (entry.callGapsAccess && !callGapsEnabled) {
+          return false;
+        }
+
         // Check settingCheck for root-level items
         if (entry.settingCheck === 'callScoringEnabled' && !callScoringEnabled) {
           return false;
         }
-        
+
         return canAccessItem(entry.access);
       })
       .map((entry): NavEntry | null => {
@@ -370,7 +424,7 @@ export function StaffSidebar({ onOpenROI }: StaffSidebarProps) {
     }
 
     return filtered;
-  }, [callScoringEnabled, canAccessItem, isCallScoringTier, isChallengeTierUser, isRestrictedTier, salesEnabled, user?.email]);
+  }, [callScoringEnabled, callGapsEnabled, canAccessItem, isCallScoringTier, isChallengeTierUser, isRestrictedTier, salesEnabled, user?.email]);
 
   const isActive = (path: string) => {
     if (path === "/staff/submit") {

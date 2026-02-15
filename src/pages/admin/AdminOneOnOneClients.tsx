@@ -29,6 +29,7 @@ import {
   Loader2,
   CheckCircle2,
   MessageSquare,
+  BarChart3,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
@@ -50,10 +51,10 @@ interface FeatureAccess {
   agency?: Agency;
 }
 
-type FeatureKey = 'sales_process_builder' | 'call_scoring_qa';
+type FeatureKey = 'sales_process_builder' | 'call_scoring_qa' | 'call_gaps';
 
 const isFeatureKey = (value: string | null): value is FeatureKey =>
-  value === 'sales_process_builder' || value === 'call_scoring_qa';
+  value === 'sales_process_builder' || value === 'call_scoring_qa' || value === 'call_gaps';
 
 const FEATURE_META: Record<
   FeatureKey,
@@ -73,9 +74,14 @@ const FEATURE_META: Record<
     description: 'Ask timestamped questions against call transcripts',
     icon: MessageSquare,
   },
+  call_gaps: {
+    title: 'Call Gaps Analyzer',
+    description: 'Phone system call gap analysis tool',
+    icon: BarChart3,
+  },
 };
 
-const FEATURE_OPTIONS: FeatureKey[] = ['sales_process_builder', 'call_scoring_qa'];
+const FEATURE_OPTIONS: FeatureKey[] = ['sales_process_builder', 'call_scoring_qa', 'call_gaps'];
 
 export default function AdminOneOnOneClients() {
   const { user } = useAuth();
