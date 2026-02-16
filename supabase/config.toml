@@ -512,3 +512,6 @@ verify_jwt = false
 
 [functions.call-gap-data]
 verify_jwt = false
+
+[functions.challenge-admin-comp]
+verify_jwt = true

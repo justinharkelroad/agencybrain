@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChallengeContentTab } from "./challenge-tabs/ChallengeContentTab";
 import { ChallengeAssignmentsTab } from "./challenge-tabs/ChallengeAssignmentsTab";
 import { ChallengeAnalyticsTab } from "./challenge-tabs/ChallengeAnalyticsTab";
+import { ChallengeCompTab } from "./challenge-tabs/ChallengeCompTab";
 
 export default function AdminChallenge() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -26,10 +27,11 @@ export default function AdminChallenge() {
       </div>
 
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="comp">Comp Access</TabsTrigger>
         </TabsList>
         
         <TabsContent value="content">
@@ -42,6 +44,10 @@ export default function AdminChallenge() {
         
         <TabsContent value="analytics">
           <ChallengeAnalyticsTab />
+        </TabsContent>
+
+        <TabsContent value="comp">
+          <ChallengeCompTab />
         </TabsContent>
       </Tabs>
     </div>
