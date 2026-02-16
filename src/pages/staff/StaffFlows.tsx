@@ -11,7 +11,7 @@ import { format } from 'date-fns';
 
 export default function StaffFlows() {
   const navigate = useNavigate();
-  const { sessionToken, user } = useStaffAuth();
+  const { sessionToken, user, loading: authLoading } = useStaffAuth();
   const { loading: profileLoading, hasProfile } = useStaffFlowProfile();
   
   const [templates, setTemplates] = useState<FlowTemplate[]>([]);
@@ -19,10 +19,13 @@ export default function StaffFlows() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (sessionToken) {
-      fetchData();
+    if (authLoading) return;
+    if (!sessionToken) {
+      navigate('/staff/login');
+      return;
     }
-  }, [sessionToken]);
+    fetchData();
+  }, [sessionToken, authLoading]);
 
   const fetchData = async () => {
     if (!sessionToken) return;
@@ -58,7 +61,7 @@ export default function StaffFlows() {
     }
   };
 
-  if (loading || profileLoading) {
+  if (authLoading || loading || profileLoading) {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">

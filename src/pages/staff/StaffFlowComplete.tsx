@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useToast } from '@/hooks/use-toast';
-import { FlowTemplate, FlowAnalysis, FlowQuestion } from '@/types/flows';
+import { generateFlowPDF } from '@/lib/generateFlowPDF';
+import { FlowTemplate, FlowAnalysis, FlowQuestion, FlowSession } from '@/types/flows';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, Sparkles, Download, RotateCcw, Home, CheckCircle2, Lightbulb, Target, Tags, Brain, HelpCircle } from 'lucide-react';
@@ -27,7 +28,9 @@ interface StaffFlowSession {
 export default function StaffFlowComplete() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const { sessionToken, loading: authLoading } = useStaffAuth();
+  const location = useLocation();
+  const isViewMode = location.pathname.includes('/view/');
+  const { sessionToken, user: staffUser, loading: authLoading } = useStaffAuth();
   const { toast } = useToast();
   const celebrationShownRef = useRef(false);
   
@@ -38,6 +41,7 @@ const [session, setSession] = useState<StaffFlowSession | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
   // Interpolate placeholders in question prompts
   const interpolatePrompt = (prompt: string): string => {
@@ -59,9 +63,9 @@ const [session, setSession] = useState<StaffFlowSession | null>(null);
     return result;
   };
 
-  // Celebration effect
+  // Celebration effect (only on fresh completion, not when re-viewing from library)
   useEffect(() => {
-    if (!loading && session && !celebrationShownRef.current) {
+    if (!loading && session && !celebrationShownRef.current && !isViewMode) {
       celebrationShownRef.current = true;
       confetti({
         particleCount: 100,
@@ -73,7 +77,7 @@ const [session, setSession] = useState<StaffFlowSession | null>(null);
         description: 'Great job on your reflection.',
       });
     }
-  }, [loading, session, toast]);
+  }, [loading, session, toast, isViewMode]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -171,6 +175,30 @@ const [session, setSession] = useState<StaffFlowSession | null>(null);
       setAnalysisError('Unable to generate AI insights. Your flow has been saved.');
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!session || !template) return;
+
+    setGeneratingPDF(true);
+    try {
+      await generateFlowPDF({
+        session: session as unknown as FlowSession,
+        template,
+        questions,
+        analysis,
+        userName: staffUser?.display_name || undefined,
+      });
+    } catch (err) {
+      console.error('PDF generation error:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate PDF. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingPDF(false);
     }
   };
 
@@ -400,16 +428,30 @@ const [session, setSession] = useState<StaffFlowSession | null>(null);
 
         {/* Actions */}
         <div className="space-y-3">
-          <Button 
+          <Button
+            className="w-full"
+            variant="outline"
+            onClick={handleDownloadPDF}
+            disabled={generatingPDF}
+          >
+            {generatingPDF ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" strokeWidth={1.5} />
+            )}
+            {generatingPDF ? 'Generating PDF...' : 'Download PDF'}
+          </Button>
+
+          <Button
             className="w-full"
             onClick={() => navigate(`/staff/flows/start/${template.slug}`)}
           >
             <RotateCcw className="h-4 w-4 mr-2" strokeWidth={1.5} />
             Start New {template.name} Flow
           </Button>
-          
-          <Button 
-            className="w-full" 
+
+          <Button
+            className="w-full"
             variant="ghost"
             onClick={() => navigate('/staff/flows')}
           >

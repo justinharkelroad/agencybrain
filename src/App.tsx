@@ -1253,7 +1253,7 @@ const App = () => {
             } />
             <Route path="/staff/flows/view/:sessionId" element={
               <StaffProtectedRoute>
-                <FlowView />
+                <StaffFlowComplete />
               </StaffProtectedRoute>
             } />
             
