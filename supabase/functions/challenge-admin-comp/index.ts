@@ -184,6 +184,7 @@ Deno.serve(async (req) => {
           .from('agencies')
           .insert({
             name: agency_name,
+            agency_email: owner_email,
             description: 'Created via admin comp access',
           })
           .select()
