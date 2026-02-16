@@ -360,7 +360,6 @@ Deno.serve(async (req) => {
             .from('sales_experience_email_queue')
             .insert({
               assignment_id: assignment.id,
-              lesson_id: todaysLesson.id,
               template_key: 'lesson_available',
               recipient_email: recipient.email,
               recipient_name: recipient.name,

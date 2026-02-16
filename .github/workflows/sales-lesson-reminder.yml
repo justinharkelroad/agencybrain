@@ -15,8 +15,16 @@ jobs:
     steps:
       - name: Trigger Sales Lesson Reminder
         run: |
-          curl -X POST \
+          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
             'https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/send-sales-lesson-reminder' \
             -H 'Content-Type: application/json' \
             -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}' \
-            -d '{}'
+            -d '{}')
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -1 | sed 's/HTTP_STATUS://')
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "Status: $HTTP_STATUS"
+          echo "Response: $BODY"
+          if [ "$HTTP_STATUS" -ge 400 ]; then
+            echo "::error::Edge function returned $HTTP_STATUS"
+            exit 1
+          fi
