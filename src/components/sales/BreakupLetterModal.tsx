@@ -175,8 +175,12 @@ const createBreakupLetterPdf = (params: {
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text(`Subject: Cancellation of Policies for ${customerFullName}`, marginX, y);
-  y += 30;
+  const subjectLines = doc.splitTextToSize(
+    `Subject: Cancellation of Policies for ${customerFullName}`,
+    pageWidth - marginX * 2
+  );
+  doc.text(subjectLines, marginX, y);
+  y += (subjectLines.length - 1) * 22 + 30;
 
   writeParagraph(letterBody, 12, 18);
 
