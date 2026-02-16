@@ -63,6 +63,26 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const now = new Date().toISOString();
 
+    // Only process emails created within the last 24 hours to prevent
+    // sending stale/outdated lesson reminders after outages
+    const staleThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // Mark stale pending emails so they don't pile up
+    const { count: staleCount } = await supabase
+      .from('sales_experience_email_queue')
+      .update({
+        status: 'failed',
+        error_message: 'Stale email - older than 24 hours, skipped to prevent outdated content',
+        updated_at: now,
+      })
+      .eq('status', 'pending')
+      .lt('created_at', staleThreshold)
+      .lt('retry_count', MAX_RETRIES);
+
+    if (staleCount && staleCount > 0) {
+      console.log(`[process-se-emails] Marked ${staleCount} stale emails as failed`);
+    }
+
     // Fetch pending emails that are due (scheduled_for <= now)
     const { data: pendingEmails, error: fetchError } = await supabase
       .from('sales_experience_email_queue')
