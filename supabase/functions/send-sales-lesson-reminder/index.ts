@@ -76,11 +76,13 @@ Deno.serve(async (req) => {
   try {
     // Parse optional test params
     let forceTest = false;
+    let forceSend = false;
     let testEmail: string | null = null;
     let testAgencyId: string | null = null;
     try {
       const body = await req.json();
       forceTest = body?.forceTest === true;
+      forceSend = body?.forceSend === true;
       testEmail = body?.testEmail || null;
       testAgencyId = body?.agencyId || null;
 
@@ -93,6 +95,9 @@ Deno.serve(async (req) => {
 
       if (forceTest) {
         console.log(`[send-sales-lesson-reminder] FORCE TEST MODE: sending ONLY to ${testEmail}`, testAgencyId ? `for agency ${testAgencyId}` : '');
+      }
+      if (forceSend) {
+        console.log('[send-sales-lesson-reminder] FORCE SEND MODE: bypassing time/day gates, sending to real recipients');
       }
     } catch {
       // No body or invalid JSON — normal cron invocation
@@ -175,14 +180,14 @@ Deno.serve(async (req) => {
         console.log(`[send-sales-lesson-reminder] Assignment ${assignment.id}: tz=${timezone}, localHour=${localHour}, localDow=${localDow}, localDate=${localDateStr}`);
 
         // Gate: only send at 7 AM local
-        if (!forceTest && localHour !== 7) {
+        if (!forceTest && !forceSend && localHour !== 7) {
           console.log(`[send-sales-lesson-reminder] Skipping ${assignment.id} — not 7 AM local`);
           results.push({ agency_id: assignment.agency_id, status: 'skipped - not 7AM' });
           continue;
         }
 
         // Gate: only Mon(1)/Wed(3)/Fri(5)
-        if (!forceTest && ![1, 3, 5].includes(localDow)) {
+        if (!forceTest && !forceSend && ![1, 3, 5].includes(localDow)) {
           console.log(`[send-sales-lesson-reminder] Skipping ${assignment.id} — not Mon/Wed/Fri`);
           results.push({ agency_id: assignment.agency_id, status: 'skipped - not lesson day' });
           continue;
