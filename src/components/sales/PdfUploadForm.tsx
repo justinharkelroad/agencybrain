@@ -51,7 +51,7 @@ import {
   AlertTriangle,
   Users
 } from "lucide-react";
-import { cn, todayLocal, formatPhoneNumber } from "@/lib/utils";
+import { cn, todayLocal, toLocalDate, formatPhoneNumber } from "@/lib/utils";
 
 interface ExtractedSaleData {
   customerName: string;
@@ -297,6 +297,7 @@ export function PdfUploadForm({
   const [leadSourceId, setLeadSourceId] = useState('');
   const [hasExistingPolicies, setHasExistingPolicies] = useState(false);
   const [existingPolicyTypes, setExistingPolicyTypes] = useState<string[]>([]);
+  const [saleDate, setSaleDate] = useState<Date>(todayLocal());
 
   // Edit modal state
   const [editingPolicy, setEditingPolicy] = useState<StagedPolicy | null>(null);
@@ -555,7 +556,7 @@ export function PdfUploadForm({
         customer_email: customerEmail.trim(),
         customer_phone: customerPhone.trim(),
         customer_zip: customerZip.trim(),
-        sale_date: format(todayLocal(), 'yyyy-MM-dd'),
+        sale_date: format(saleDate, 'yyyy-MM-dd'),
         effective_date: format(firstEffectiveDate, 'yyyy-MM-dd'),
         source: 'pdf_upload',
         source_details: {
@@ -600,7 +601,7 @@ export function PdfUploadForm({
             customer_email: customerEmail.trim(),
             customer_phone: customerPhone.trim(),
             customer_zip: customerZip.trim(),
-            sale_date: format(todayLocal(), 'yyyy-MM-dd'),
+            sale_date: format(saleDate, 'yyyy-MM-dd'),
             effective_date: format(firstEffectiveDate, 'yyyy-MM-dd'),
             total_policies: stagedPolicies.length,
             total_items: totalItems,
@@ -756,6 +757,7 @@ export function PdfUploadForm({
     setStagedPolicies([]);
     setCustomerName('');
     setCustomerZip('');
+    setSaleDate(todayLocal());
     setProducerId('');
     setLeadSourceId('');
     setHasExistingPolicies(false);
@@ -1064,6 +1066,28 @@ export function PdfUploadForm({
               maxLength={10}
               required
             />
+          </div>
+          <div className="space-y-2">
+            <Label>
+              Sale Date <span className="text-destructive">*</span>
+            </Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !saleDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {saleDate ? format(saleDate, "MMM d, yyyy") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={saleDate} onSelect={(d) => { const local = toLocalDate(d); if (local) setSaleDate(local); }} />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-3 sm:col-span-2">
             <div className={cn(
