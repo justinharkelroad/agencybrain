@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchWithAuth } from '@/lib/staffRequest';
+import { fetchWithAuth, type AuthPreference } from '@/lib/staffRequest';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -43,12 +43,13 @@ export interface SaveUploadPayload {
 
 // ─── Hooks ──────────────────────────────────────────────────────────────────
 
-export function useCallGapUploads(agencyId: string | undefined) {
+export function useCallGapUploads(agencyId: string | undefined, prefer?: AuthPreference) {
   return useQuery({
     queryKey: ['call-gap-uploads', agencyId],
     queryFn: async () => {
       const res = await fetchWithAuth('call-gap-data', {
         body: { operation: 'get_uploads' },
+        prefer,
       });
       if (!res.ok) throw new Error('Failed to fetch uploads');
       const data = await res.json();
@@ -58,12 +59,13 @@ export function useCallGapUploads(agencyId: string | undefined) {
   });
 }
 
-export function useCallGapRecords(agencyId: string | undefined, uploadId: string | undefined) {
+export function useCallGapRecords(agencyId: string | undefined, uploadId: string | undefined, prefer?: AuthPreference) {
   return useQuery({
     queryKey: ['call-gap-records', agencyId, uploadId],
     queryFn: async () => {
       const res = await fetchWithAuth('call-gap-data', {
         body: { operation: 'get_records', uploadId },
+        prefer,
       });
       if (!res.ok) throw new Error('Failed to fetch records');
       const data = await res.json();
@@ -76,7 +78,7 @@ export function useCallGapRecords(agencyId: string | undefined, uploadId: string
   });
 }
 
-export function useSaveCallGapUpload() {
+export function useSaveCallGapUpload(prefer?: AuthPreference) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -89,6 +91,7 @@ export function useSaveCallGapUpload() {
           rawCallCount: payload.rawCallCount,
           records: payload.records,
         },
+        prefer,
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -102,13 +105,14 @@ export function useSaveCallGapUpload() {
   });
 }
 
-export function useDeleteCallGapUpload() {
+export function useDeleteCallGapUpload(prefer?: AuthPreference) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (uploadId: string) => {
       const res = await fetchWithAuth('call-gap-data', {
         body: { operation: 'delete_upload', uploadId },
+        prefer,
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

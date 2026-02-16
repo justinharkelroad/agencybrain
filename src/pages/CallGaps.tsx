@@ -26,7 +26,7 @@ import CallGapsHistory from '@/components/call-gaps/CallGapsHistory';
 import { useAuth } from '@/lib/auth';
 import { HelpButton } from '@/components/HelpButton';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
-import { fetchWithAuth } from '@/lib/staffRequest';
+import { fetchWithAuth, type AuthPreference } from '@/lib/staffRequest';
 import {
   useCallGapUploads,
   useSaveCallGapUpload,
@@ -79,6 +79,7 @@ export default function CallGaps() {
   const { user } = useAuth();
   const { user: staffUser } = useStaffAuth();
   const agencyId = isStaffPortal ? staffUser?.agency_id : (user?.id ? 'authenticated' : undefined);
+  const authPrefer: AuthPreference = isStaffPortal ? 'staff' : 'auto';
 
   // Local state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -95,9 +96,9 @@ export default function CallGaps() {
   const allDbRecordsRef = useRef<{ records: CallGapDbRecord[]; sourceFormat: 'ringcentral' | 'ricochet' } | null>(null);
 
   // Persistence hooks
-  const { data: uploads, isLoading: uploadsLoading } = useCallGapUploads(agencyId);
-  const saveUpload = useSaveCallGapUpload();
-  const deleteUpload = useDeleteCallGapUpload();
+  const { data: uploads, isLoading: uploadsLoading } = useCallGapUploads(agencyId, authPrefer);
+  const saveUpload = useSaveCallGapUpload(authPrefer);
+  const deleteUpload = useDeleteCallGapUpload(authPrefer);
 
   // Recompute gaps when office hours change
   const agentsWithGaps: AgentSummary[] = useMemo(() => {
@@ -219,6 +220,7 @@ export default function CallGaps() {
       try {
         const res = await fetchWithAuth('call-gap-data', {
           body: { operation: 'get_records', uploadId },
+          prefer: authPrefer,
         });
         if (!res.ok) throw new Error('Failed to load records');
         const data = await res.json();
@@ -255,7 +257,7 @@ export default function CallGaps() {
         setLoadingUploadId(null);
       }
     },
-    [officeHours]
+    [officeHours, authPrefer]
   );
 
   const handleDeleteUpload = useCallback(
