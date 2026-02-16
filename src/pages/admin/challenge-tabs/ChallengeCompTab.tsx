@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,35 +27,6 @@ interface CompResult {
   credentials: Array<{ name: string; username: string; password: string }>;
 }
 
-// Get next 8 Mondays from today
-function getNextMondays(count: number): Date[] {
-  const mondays: Date[] = [];
-  const today = new Date();
-  const current = new Date(today);
-  const dayOfWeek = current.getDay();
-  // Get to next Monday
-  const daysUntilMonday = dayOfWeek === 0 ? 1 : dayOfWeek === 1 ? 7 : (8 - dayOfWeek);
-  current.setDate(current.getDate() + daysUntilMonday);
-  current.setHours(0, 0, 0, 0);
-
-  for (let i = 0; i < count; i++) {
-    mondays.push(new Date(current));
-    current.setDate(current.getDate() + 7);
-  }
-  return mondays;
-}
-
-function formatMonday(date: Date): string {
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function toISODate(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
 const TIMEZONES = [
   'America/New_York',
   'America/Chicago',
@@ -79,8 +50,6 @@ export function ChallengeCompTab() {
   const [teamMembers, setTeamMembers] = useState<TeamMemberInput[]>([]);
   const [result, setResult] = useState<CompResult | null>(null);
   const [copiedUrl, setCopiedUrl] = useState(false);
-
-  const mondays = useMemo(() => getNextMondays(8), []);
 
   // Fetch agencies for dropdown
   const { data: agencies } = useQuery({
@@ -341,19 +310,15 @@ export function ChallengeCompTab() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Start Date (Monday)</Label>
-              <Select value={startDate} onValueChange={setStartDate}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a Monday..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {mondays.map(m => (
-                    <SelectItem key={toISODate(m)} value={toISODate(m)}>
-                      {formatMonday(m)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="start-date">Start Date</Label>
+              <Input
+                id="start-date"
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                required
+              />
+              <p className="text-xs text-muted-foreground">Admin: any date allowed (including past dates)</p>
             </div>
             <div className="space-y-2">
               <Label>Timezone</Label>

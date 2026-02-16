@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     });
 
     // Verify JWT and get user
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser(jwt);
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: 'Invalid or expired token' }),
@@ -52,18 +52,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate start_date is a weekday (Mon-Fri)
-    const startDateObj = new Date(start_date);
-    const dayOfWeek = startDateObj.getDay(); // 0 = Sunday, 6 = Saturday
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      return new Response(
-        JSON.stringify({ error: 'Start date must be a weekday (Monday-Friday)' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     // Create service role client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check if caller is admin (admins can set any date, including past dates)
+    const { data: isAdmin } = await supabaseUser.rpc('has_role', { _user_id: user.id, _role: 'admin' });
+
+    // Non-admin: validate start_date is a weekday (Mon-Fri)
+    if (!isAdmin) {
+      const startDateObj = new Date(start_date);
+      const dayOfWeek = startDateObj.getDay(); // 0 = Sunday, 6 = Saturday
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        return new Response(
+          JSON.stringify({ error: 'Start date must be a weekday (Monday-Friday)' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
 
     // Get user's profile
     const { data: profile, error: profileError } = await supabase

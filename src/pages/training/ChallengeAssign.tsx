@@ -101,7 +101,7 @@ interface CreatedCredential {
 
 export default function ChallengeAssign() {
   const navigate = useNavigate();
-  const { user, membershipTier } = useAuth();
+  const { user, membershipTier, isAdmin } = useAuth();
   const isChallengeTierUser = isChallengeTier(membershipTier);
 
   const [loading, setLoading] = useState(true);
@@ -499,21 +499,30 @@ export default function ChallengeAssign() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Start Date</CardTitle>
-                <CardDescription>Challenge starts on a Monday</CardDescription>
+                {!isAdmin && <CardDescription>Challenge starts on a Monday</CardDescription>}
+                {isAdmin && <CardDescription>Admin: any date allowed</CardDescription>}
               </CardHeader>
               <CardContent>
-                <Select value={startDate} onValueChange={setStartDate}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select start date" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mondayOptions.map((monday) => (
-                      <SelectItem key={monday.toISOString()} value={format(monday, 'yyyy-MM-dd')}>
-                        {format(monday, 'MMMM d, yyyy')}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {isAdmin ? (
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={e => setStartDate(e.target.value)}
+                  />
+                ) : (
+                  <Select value={startDate} onValueChange={setStartDate}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select start date" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {mondayOptions.map((monday) => (
+                        <SelectItem key={monday.toISOString()} value={format(monday, 'yyyy-MM-dd')}>
+                          {format(monday, 'MMMM d, yyyy')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </CardContent>
             </Card>
 
@@ -689,24 +698,33 @@ export default function ChallengeAssign() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Start Date</CardTitle>
-              <CardDescription>Challenge starts on a Monday</CardDescription>
+              {!isAdmin && <CardDescription>Challenge starts on a Monday</CardDescription>}
+              {isAdmin && <CardDescription>Admin: any date allowed</CardDescription>}
             </CardHeader>
             <CardContent className="space-y-3">
-              <Select value={startDate} onValueChange={setStartDate}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select start date" />
-                </SelectTrigger>
-                <SelectContent>
-                  {mondayOptions.map((monday) => (
-                    <SelectItem
-                      key={monday.toISOString()}
-                      value={format(monday, 'yyyy-MM-dd')}
-                    >
-                      {format(monday, 'MMMM d, yyyy')}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isAdmin ? (
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                />
+              ) : (
+                <Select value={startDate} onValueChange={setStartDate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select start date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {mondayOptions.map((monday) => (
+                      <SelectItem
+                        key={monday.toISOString()}
+                        value={format(monday, 'yyyy-MM-dd')}
+                      >
+                        {format(monday, 'MMMM d, yyyy')}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </CardContent>
           </Card>
 
