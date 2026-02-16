@@ -24,6 +24,7 @@ import CallGapsTimeline from '@/components/call-gaps/CallGapsTimeline';
 import CallGapsTable from '@/components/call-gaps/CallGapsTable';
 import CallGapsHistory from '@/components/call-gaps/CallGapsHistory';
 import { useAuth } from '@/lib/auth';
+import { HelpButton } from '@/components/HelpButton';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { fetchWithAuth } from '@/lib/staffRequest';
 import {
@@ -286,6 +287,7 @@ export default function CallGaps() {
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <BarChart3 className="h-6 w-6" />
             Call Gaps Analyzer
+            <HelpButton videoKey="Call_Gap" />
           </h1>
           <p className="text-muted-foreground">
             Upload phone system exports to visualize call activity and identify idle gaps
