@@ -106,8 +106,8 @@ export const useLeadSourceMonthlySpend = (leadSourceId: string | null, agencyId:
         const { error: updateError } = await supabase
           .from('lead_source_monthly_spend')
           .update({
-            cost_per_unit_cents: data.cost_per_unit_cents,
-            units_count: data.units_count,
+            cost_per_unit_cents: data.cost_per_unit_cents ?? 0,
+            units_count: data.units_count ?? 0,
             total_spend_cents: data.total_spend_cents,
             notes: data.notes,
             updated_at: new Date().toISOString()
@@ -123,8 +123,8 @@ export const useLeadSourceMonthlySpend = (leadSourceId: string | null, agencyId:
             lead_source_id: leadSourceId,
             agency_id: agencyId,
             month: monthStr,
-            cost_per_unit_cents: data.cost_per_unit_cents,
-            units_count: data.units_count,
+            cost_per_unit_cents: data.cost_per_unit_cents ?? 0,
+            units_count: data.units_count ?? 0,
             total_spend_cents: data.total_spend_cents,
             notes: data.notes
           });
