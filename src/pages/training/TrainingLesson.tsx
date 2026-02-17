@@ -372,7 +372,7 @@ export default function TrainingLesson() {
           <CardContent className="p-6">
             {/<[^>]+>/.test(lesson.content_html) ? (
               <div 
-                className="prose prose-invert max-w-none"
+                className="prose prose-sm dark:prose-invert max-w-none"
                 dangerouslySetInnerHTML={{ __html: lesson.content_html }} 
               />
             ) : (

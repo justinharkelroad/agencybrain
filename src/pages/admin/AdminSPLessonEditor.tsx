@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import {
@@ -514,15 +515,14 @@ export default function AdminSPLessonEditor() {
               Lesson Content
             </CardTitle>
             <CardDescription>
-              Add written content below the video (supports basic HTML)
+              Add written content below the video using the rich text editor
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Textarea
+            <RichTextEditor
               value={contentHtml}
-              onChange={e => setContentHtml(e.target.value)}
-              placeholder="Write your lesson content here... You can use basic HTML tags like <b>, <i>, <ul>, <li>, <h3>, etc."
-              rows={8}
+              onChange={setContentHtml}
+              placeholder="Write your lesson content here..."
             />
           </CardContent>
         </Card>

@@ -818,7 +818,7 @@ const AdminAnalysis = () => {
                             </div>
                           )}
                           
-                          <div className="prose prose-sm max-w-none mb-4">
+                          <div className="prose prose-sm dark:prose-invert max-w-none mb-4">
                             <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed">
                               {analysis.analysis_result}
                             </pre>

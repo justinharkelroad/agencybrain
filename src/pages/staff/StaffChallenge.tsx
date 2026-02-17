@@ -445,7 +445,7 @@ export default function StaffChallenge() {
                 {selectedLesson.content_html && (
                   /<[^>]+>/.test(selectedLesson.content_html) ? (
                     <div
-                      className="prose prose-sm max-w-none"
+                      className="prose prose-sm dark:prose-invert max-w-none"
                       dangerouslySetInnerHTML={{ __html: selectedLesson.content_html }}
                     />
                   ) : (

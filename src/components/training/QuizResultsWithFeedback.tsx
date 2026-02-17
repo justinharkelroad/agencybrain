@@ -159,7 +159,7 @@ export function QuizResultsWithFeedback({
               </p>
             </div>
           </div>
-          <div className="prose prose-sm max-w-none text-foreground leading-relaxed">
+          <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed">
             {formatAIFeedback(results.ai_feedback)}
           </div>
         </Card>

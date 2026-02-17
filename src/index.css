@@ -293,6 +293,38 @@
     outline: none;
   }
 
+  /* Prose dark-theme overrides for rich text rendering */
+  .dark .prose {
+    --tw-prose-body: hsl(210 40% 90%);
+    --tw-prose-headings: hsl(0 0% 100%);
+    --tw-prose-links: hsl(220 80% 69%);
+    --tw-prose-bold: hsl(0 0% 100%);
+    --tw-prose-bullets: hsl(215 20% 65%);
+    --tw-prose-counters: hsl(215 20% 65%);
+  }
+
+  .prose p {
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+  }
+
+  .prose h2 {
+    font-weight: 700;
+  }
+
+  .prose h3 {
+    font-weight: 600;
+  }
+
+  .prose a {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .dark .prose a {
+    color: hsl(220 80% 69%);
+  }
+
   .tiptap h2 {
     font-size: 1.25rem;
     font-weight: 600;

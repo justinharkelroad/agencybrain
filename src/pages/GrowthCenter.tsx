@@ -650,7 +650,7 @@ export default function GrowthCenter() {
                   )}
 
                   {latestAnalysis && (
-                    <div className="prose prose-sm max-w-none">
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
                       <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted/40 border border-border rounded-md p-3">
                         {latestAnalysis.analysis_result}
                       </pre>

@@ -282,7 +282,7 @@ const SharedInsights: React.FC = () => {
                               <Badge variant="outline">Shared</Badge>
                             </DialogTitle>
                           </DialogHeader>
-                          <div className="prose prose-sm max-w-none">
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
                             <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted/50 text-foreground border border-border rounded-md p-3">{a.analysis_result}</pre>
                           </div>
                           <div className="mt-6">
@@ -386,7 +386,7 @@ const SharedInsights: React.FC = () => {
                               <Badge variant="outline">Shared</Badge>
                             </DialogTitle>
                           </DialogHeader>
-                          <div className="prose prose-sm max-w-none">
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
                             <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed bg-muted/50 text-foreground border border-border rounded-md p-3">{a.analysis_result}</pre>
                           </div>
                           <div className="mt-6">

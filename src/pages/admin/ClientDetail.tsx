@@ -1703,7 +1703,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
                         </div>
                       </div>
 
-                      <div className="prose prose-sm max-w-none mb-4">
+                      <div className="prose prose-sm dark:prose-invert max-w-none mb-4">
                       <div className="whitespace-pre-wrap text-sm bg-muted/50 text-foreground border border-border p-3 rounded-lg">
                         {analysis.analysis_result && analysis.analysis_result.trim().length > 0 ? analysis.analysis_result : 'No analysis content available.'}
                       </div>
