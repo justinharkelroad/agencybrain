@@ -113,6 +113,11 @@ export function CallBalanceIndicator({
                   ? "No call scores remaining. Click to buy more."
                   : `${balance.totalRemaining} call scores remaining`}
               </p>
+              {balance.bonusRemaining > 0 && (
+                <p className="text-emerald-400 text-xs">
+                  Includes {balance.bonusRemaining} bonus credits
+                </p>
+              )}
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -191,6 +196,16 @@ export function CallBalanceIndicator({
                 Resets at the start of each billing period
               </p>
             </div>
+
+            {/* Bonus calls */}
+            {balance.bonusRemaining > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Bonus credits</span>
+                <span className="text-emerald-500 font-medium">
+                  +{balance.bonusRemaining}
+                </span>
+              </div>
+            )}
 
             {/* Purchased calls */}
             {balance.purchasedRemaining > 0 && (

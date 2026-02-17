@@ -12,6 +12,7 @@ import {
   Loader2,
   Calendar,
   Package,
+  Gift,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -342,6 +343,19 @@ export default function BillingSettings() {
                       <p className="text-xs text-muted-foreground mt-1">
                         Resets at the start of each billing period
                       </p>
+                    </div>
+                  )}
+
+                  {/* Bonus Credits */}
+                  {(callBalance?.bonusRemaining || 0) > 0 && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                      <div className="flex items-center gap-2">
+                        <Gift className="w-4 h-4 text-emerald-500" />
+                        <span>Bonus Credits</span>
+                      </div>
+                      <span className="font-medium text-emerald-500">
+                        +{callBalance?.bonusRemaining}
+                      </span>
                     </div>
                   )}
 
