@@ -23,6 +23,7 @@ interface UsageInfo {
   calls_used: number;
   calls_limit: number;
   period_end?: string | null;
+  bonus_remaining?: number;
 }
 
 interface RecentCall {
@@ -465,14 +466,26 @@ export default function CallScoring() {
       const { data: usageData } = await supabase
         .rpc('check_and_reset_call_usage', { p_agency_id: agency });
       
+      // Also fetch bonus balance
+      const { data: balanceData } = await supabase
+        .from('agency_call_balance')
+        .select('bonus_calls_remaining, bonus_calls_expires_at')
+        .eq('agency_id', agency)
+        .single();
+
+      const bonusRemaining = (balanceData?.bonus_calls_expires_at && new Date(balanceData.bonus_calls_expires_at) > new Date())
+        ? (balanceData?.bonus_calls_remaining || 0)
+        : 0;
+
       if (usageData && usageData[0]) {
         setUsage({
           calls_used: usageData[0].calls_used || 0,
           calls_limit: usageData[0].calls_limit || 20,
-          period_end: usageData[0].period_end
+          period_end: usageData[0].period_end,
+          bonus_remaining: bonusRemaining,
         });
       } else {
-        setUsage({ calls_used: 0, calls_limit: 20 });
+        setUsage({ calls_used: 0, calls_limit: 20, bonus_remaining: bonusRemaining });
       }
 
       // Calculate pagination offset
@@ -832,8 +845,9 @@ export default function CallScoring() {
     return `${mins}:${String(secs).padStart(2, '0')}`;
   };
 
+  const effectiveLimit = usage.calls_limit + (usage.bonus_remaining || 0);
   const canUpload = selectedFile && selectedTeamMember && selectedTemplate &&
-    usage.calls_used < usage.calls_limit &&
+    usage.calls_used < effectiveLimit &&
     (!isSplitCall || secondaryFile);
 
   const handleUpload = async () => {
@@ -1484,12 +1498,19 @@ export default function CallScoring() {
             Upload sales calls for AI-powered coaching analysis
           </p>
         </div>
-        <Badge variant="outline" className="text-sm px-3 py-1">
-          {usage.calls_used} / {usage.calls_limit} calls
-          {usage.period_end && (
-            <span className="ml-2 text-muted-foreground">• Resets {new Date(usage.period_end).toLocaleDateString()}</span>
+        <div className="flex items-center gap-2">
+          {(usage.bonus_remaining || 0) > 0 && (
+            <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-500/30 text-emerald-500">
+              +{usage.bonus_remaining} bonus
+            </Badge>
           )}
-        </Badge>
+          <Badge variant="outline" className="text-sm px-3 py-1">
+            {usage.calls_used} / {usage.calls_limit + (usage.bonus_remaining || 0)} calls
+            {usage.period_end && (
+              <span className="ml-2 text-muted-foreground">• Resets {new Date(usage.period_end).toLocaleDateString()}</span>
+            )}
+          </Badge>
+        </div>
       </div>
 
       {/* Tabs - hide Analytics for staff users (except managers) */}
@@ -1703,7 +1724,7 @@ export default function CallScoring() {
             </div>
 
             {/* Usage Warning */}
-            {usage.calls_used >= usage.calls_limit && (
+            {usage.calls_used >= effectiveLimit && (
               <p className="text-sm text-destructive flex items-center gap-1">
                 <AlertCircle className="h-4 w-4" />
                 Monthly limit reached. Upgrade to analyze more calls.
