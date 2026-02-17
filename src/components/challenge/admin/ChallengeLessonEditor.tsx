@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, GripVertical, Save, FileText, ExternalLink } from "lucide-react";
 import { useUpdateChallengeLesson, type ChallengeLesson, type LessonDocument } from "@/hooks/useChallengeAdmin";
@@ -177,14 +178,11 @@ export function ChallengeLessonEditor({ lesson, weekNumber, onClose }: Challenge
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="content">Content (HTML)</Label>
-              <Textarea
-                id="content"
-                placeholder="<p>Full lesson content...</p>"
+              <Label>Content</Label>
+              <RichTextEditor
                 value={form.content_html}
-                onChange={(e) => setForm({ ...form, content_html: e.target.value })}
-                rows={8}
-                className="font-mono text-sm"
+                onChange={(html) => setForm({ ...form, content_html: html })}
+                placeholder="Write lesson content here..."
               />
             </div>
 

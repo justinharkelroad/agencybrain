@@ -443,10 +443,16 @@ export default function StaffChallenge() {
 
                 {/* Content HTML */}
                 {selectedLesson.content_html && (
-                  <div
-                    className="prose prose-sm max-w-none"
-                    dangerouslySetInnerHTML={{ __html: selectedLesson.content_html }}
-                  />
+                  /<[^>]+>/.test(selectedLesson.content_html) ? (
+                    <div
+                      className="prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: selectedLesson.content_html }}
+                    />
+                  ) : (
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                      {selectedLesson.content_html}
+                    </div>
+                  )
                 )}
 
                 {/* Questions/Reflection */}
