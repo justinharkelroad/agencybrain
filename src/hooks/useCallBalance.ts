@@ -6,6 +6,8 @@ export interface CallBalance {
   canScore: boolean;
   subscriptionRemaining: number;
   purchasedRemaining: number;
+  bonusRemaining: number;
+  bonusExpiresAt: string | null;
   totalRemaining: number;
   message: string;
   isUnlimited: boolean;
@@ -25,7 +27,7 @@ export interface CallPack {
 export interface UseCallScoreResult {
   success: boolean;
   remaining: number;
-  source: 'subscription' | 'purchased' | 'unlimited' | 'none';
+  source: 'subscription' | 'purchased' | 'bonus' | 'unlimited' | 'none';
   message: string;
 }
 
@@ -52,6 +54,8 @@ export function useCallBalance() {
           canScore: false,
           subscriptionRemaining: 0,
           purchasedRemaining: 0,
+          bonusRemaining: 0,
+          bonusExpiresAt: null,
           totalRemaining: 0,
           message: 'No agency found',
           isUnlimited: false,
@@ -79,6 +83,8 @@ export function useCallBalance() {
             canScore: true,
             subscriptionRemaining: 999999,
             purchasedRemaining: 0,
+            bonusRemaining: 0,
+            bonusExpiresAt: null,
             totalRemaining: 999999,
             message: 'Unlimited call scoring',
             isUnlimited: true,
@@ -94,6 +100,8 @@ export function useCallBalance() {
             canScore: true,
             subscriptionRemaining: 20, // Default to standard allowance
             purchasedRemaining: 0,
+            bonusRemaining: 0,
+            bonusExpiresAt: null,
             totalRemaining: 20,
             message: '20 calls remaining (legacy access)',
             isUnlimited: false,
@@ -116,6 +124,8 @@ export function useCallBalance() {
             canScore: true,
             subscriptionRemaining: 20,
             purchasedRemaining: 0,
+            bonusRemaining: 0,
+            bonusExpiresAt: null,
             totalRemaining: 20,
             message: 'Default access (error fallback)',
             isUnlimited: false,
@@ -126,6 +136,8 @@ export function useCallBalance() {
           canScore: false,
           subscriptionRemaining: 0,
           purchasedRemaining: 0,
+          bonusRemaining: 0,
+          bonusExpiresAt: null,
           totalRemaining: 0,
           message: 'Unable to check call balance',
           isUnlimited: false,
@@ -137,6 +149,7 @@ export function useCallBalance() {
         can_score: false,
         subscription_remaining: 0,
         purchased_remaining: 0,
+        bonus_remaining: 0,
         total_remaining: 0,
         message: 'No balance found',
       };
@@ -145,6 +158,8 @@ export function useCallBalance() {
         canScore: result.can_score,
         subscriptionRemaining: result.subscription_remaining,
         purchasedRemaining: result.purchased_remaining,
+        bonusRemaining: result.bonus_remaining ?? 0,
+        bonusExpiresAt: null, // Expiration not returned by check_call_scoring_access
         totalRemaining: result.total_remaining,
         message: result.message,
         isUnlimited: result.total_remaining >= 999999,
