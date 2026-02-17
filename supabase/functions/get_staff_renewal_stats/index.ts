@@ -15,8 +15,8 @@ serve(async (req) => {
     const sessionToken = req.headers.get('x-staff-session');
     if (!sessionToken) {
       console.error('[get_staff_renewal_stats] Missing session token');
-      return new Response(JSON.stringify({ error: 'Missing session token' }), { 
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      return new Response(JSON.stringify({ error: 'Missing session token' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
@@ -52,72 +52,43 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { dateRange } = body;
 
-    // Build query
-    let query = supabase
-      .from('renewal_records')
-      .select('current_status, multi_line_indicator, premium_new, product_name')
-      .eq('agency_id', agencyId)
-      .eq('is_active', true);
+    // Call the RPC — counts server-side, no 1,000-row PostgREST cap
+    const { data, error } = await supabase.rpc('get_renewal_stats', {
+      p_agency_id: agencyId,
+      p_date_start: dateRange?.start || null,
+      p_date_end: dateRange?.end || null,
+    });
 
-    if (dateRange?.start) {
-      query = query.gte('renewal_effective_date', dateRange.start);
-    }
-    if (dateRange?.end) {
-      query = query.lte('renewal_effective_date', dateRange.end);
-    }
-
-    const { data, error } = await query;
-    
     if (error) {
-      console.error('[get_staff_renewal_stats] Query error:', error);
-      return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Query failed' }), {
+      console.error('[get_staff_renewal_stats] RPC error:', error);
+      return new Response(JSON.stringify({ error: error.message || 'Query failed' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
-    // Calculate stats - return flat structure matching non-staff path
-    const records = data || [];
+    // RPC returns a JSON object with stats + productNames
+    const result = data || {};
     const stats = {
-      total: records.length,
-      uncontacted: 0,
-      pending: 0,
-      success: 0,
-      unsuccessful: 0,
-      bundled: 0,
-      monoline: 0,
-      unknown: 0,
+      total: result.total || 0,
+      uncontacted: result.uncontacted || 0,
+      pending: result.pending || 0,
+      success: result.success || 0,
+      unsuccessful: result.unsuccessful || 0,
+      bundled: result.bundled || 0,
+      monoline: result.monoline || 0,
+      unknown: result.unknown || 0,
     };
+    const productNames = result.productNames || [];
 
-    const productNameSet = new Set<string>();
-
-    records.forEach((r: any) => {
-      // Count by status
-      const status = r.current_status || 'unknown';
-      if (status === 'uncontacted') stats.uncontacted++;
-      else if (status === 'pending') stats.pending++;
-      else if (status === 'success') stats.success++;
-      else if (status === 'unsuccessful') stats.unsuccessful++;
-
-      // Count by bundling (multi_line_indicator is TEXT: 'yes'/'no'/'n/a')
-      if (r.multi_line_indicator === 'yes') stats.bundled++;
-      else if (r.multi_line_indicator === 'no') stats.monoline++;
-      else stats.unknown++;
-
-      // Collect distinct product names
-      if (r.product_name) productNameSet.add(r.product_name);
-    });
-
-    const productNames = [...productNameSet].sort();
-
-    console.log('[get_staff_renewal_stats] Returning stats for', records.length, 'records,', productNames.length, 'products');
+    console.log('[get_staff_renewal_stats] Returning stats: total=', stats.total, ', products=', productNames.length);
     return new Response(JSON.stringify({ stats, productNames }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (err) {
     console.error('[get_staff_renewal_stats] Unexpected error:', err);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), { 
-      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });

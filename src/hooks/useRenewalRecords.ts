@@ -133,28 +133,24 @@ export function useRenewalStats(agencyId: string | null, dateRange?: { start: st
         return data?.stats || null;
       }
       
-      // Regular users: direct query
-      let query = supabase
-        .from('renewal_records')
-        .select('current_status, multi_line_indicator')
-        .eq('agency_id', agencyId)
-        .eq('is_active', true);
-      
-      if (dateRange?.start) query = query.gte('renewal_effective_date', dateRange.start);
-      if (dateRange?.end) query = query.lte('renewal_effective_date', dateRange.end);
-      
-      const { data, error } = await query;
+      // Regular users: call RPC to count server-side (avoids 1,000-row PostgREST cap)
+      const { data, error } = await supabase.rpc('get_renewal_stats', {
+        p_agency_id: agencyId,
+        p_date_start: dateRange?.start || null,
+        p_date_end: dateRange?.end || null,
+      });
       if (error) throw error;
-      
+
+      const result = data || {};
       return {
-        total: data.length,
-        uncontacted: data.filter(r => r.current_status === 'uncontacted').length,
-        pending: data.filter(r => r.current_status === 'pending').length,
-        success: data.filter(r => r.current_status === 'success').length,
-        unsuccessful: data.filter(r => r.current_status === 'unsuccessful').length,
-        bundled: data.filter(r => r.multi_line_indicator === 'yes').length,
-        monoline: data.filter(r => r.multi_line_indicator === 'no').length,
-        unknown: data.filter(r => r.multi_line_indicator === 'n/a').length,
+        total: result.total || 0,
+        uncontacted: result.uncontacted || 0,
+        pending: result.pending || 0,
+        success: result.success || 0,
+        unsuccessful: result.unsuccessful || 0,
+        bundled: result.bundled || 0,
+        monoline: result.monoline || 0,
+        unknown: result.unknown || 0,
       };
     },
     enabled: !!agencyId,
@@ -458,14 +454,14 @@ export function useRenewalProductNames(agencyId: string | null) {
         return (data?.productNames || []) as string[];
       }
 
-      // Regular users: direct query (RLS handles access)
-      const { data, error } = await supabase.from('renewal_records')
-        .select('product_name')
-        .eq('agency_id', agencyId)
-        .eq('is_active', true)
-        .not('product_name', 'is', null);
+      // Regular users: call RPC to avoid 1,000-row PostgREST cap
+      const { data, error } = await supabase.rpc('get_renewal_stats', {
+        p_agency_id: agencyId,
+        p_date_start: null,
+        p_date_end: null,
+      });
       if (error) throw error;
-      return [...new Set(data.map(r => r.product_name))].filter(Boolean).sort() as string[];
+      return ((data as any)?.productNames || []) as string[];
     },
     enabled: !!agencyId,
   });
