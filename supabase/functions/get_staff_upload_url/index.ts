@@ -29,11 +29,11 @@ Deno.serve(async (req) => {
     // Validate staff session
     const { data: session, error: sessionError } = await supabase
       .from('staff_sessions')
-      .select('staff_user_id, expires_at')
+      .select('staff_user_id, expires_at, is_valid')
       .eq('session_token', staffSessionToken)
       .single();
 
-    if (sessionError || !session || new Date(session.expires_at) < new Date()) {
+    if (sessionError || !session || !session.is_valid || new Date(session.expires_at) < new Date()) {
       console.error('Session validation failed:', sessionError?.message || 'expired');
       return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
         status: 401,

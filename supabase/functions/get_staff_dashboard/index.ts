@@ -29,6 +29,7 @@ serve(async (req) => {
       .from('staff_sessions')
       .select('staff_user_id, expires_at')
       .eq('session_token', sessionToken)
+      .eq('is_valid', true)
       .gt('expires_at', new Date().toISOString())
       .maybeSingle();
 

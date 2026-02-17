@@ -76,7 +76,7 @@ serve(async (req) => {
     // Verify staff session
     const { data: sessionData, error: sessionVerifyError } = await supabase
       .from('staff_sessions')
-      .select('staff_user_id, expires_at')
+      .select('staff_user_id, expires_at, is_valid')
       .eq('session_token', staffSessionToken)
       .maybeSingle()
 
@@ -87,7 +87,7 @@ serve(async (req) => {
       )
     }
 
-    if (new Date(sessionData.expires_at) < new Date()) {
+    if (!sessionData.is_valid || new Date(sessionData.expires_at) < new Date()) {
       return new Response(
         JSON.stringify({ error: 'Staff session expired' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
