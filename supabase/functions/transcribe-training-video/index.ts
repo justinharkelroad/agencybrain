@@ -4,9 +4,6 @@ import { corsHeaders } from '../_shared/cors.ts';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
-const USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-
 // --- URL Parsing (mirrors VideoEmbed.tsx) ---
 
 type Platform = 'youtube' | 'unknown';
@@ -79,59 +76,63 @@ function cleanTranscript(rawText: string): string {
   return paragraphs.join('\n\n');
 }
 
-// --- YouTube transcript fetch ---
+// --- YouTube transcript fetch via InnerTube API ---
+// The HTML-scraping approach fails on Deno Deploy because YouTube serves
+// different page content to data-center IPs. The InnerTube API is a proper
+// JSON endpoint that works reliably server-side.
 
 const RE_XML_TRANSCRIPT = /<text start="([^"]*)" dur="([^"]*)">([^<]*)<\/text>/g;
 
-async function fetchYouTubeTranscript(videoId: string): Promise<string> {
-  // Step 1: Fetch the YouTube watch page
-  const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-    headers: { 'User-Agent': USER_AGENT, 'Accept-Language': 'en' },
-  });
+const INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'; // Public YouTube web client key
+const INNERTUBE_CLIENT = {
+  clientName: 'WEB',
+  clientVersion: '2.20240313.05.00',
+  hl: 'en',
+};
 
-  if (!pageRes.ok) {
+async function fetchYouTubeTranscript(videoId: string): Promise<string> {
+  // Step 1: Get video player response via InnerTube API
+  const playerRes = await fetch(
+    `https://www.youtube.com/youtubei/v1/player?key=${INNERTUBE_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        context: { client: INNERTUBE_CLIENT },
+        videoId,
+      }),
+    }
+  );
+
+  if (!playerRes.ok) {
     throw new Error('Could not access YouTube video. Make sure the video is publicly accessible.');
   }
 
-  const html = await pageRes.text();
+  const playerData = await playerRes.json();
 
-  // Check for rate limiting
-  if (html.includes('class="g-recaptcha"')) {
-    throw new Error('Rate limited. Try again in a minute.');
+  // Check for playability issues
+  const status = playerData?.playabilityStatus?.status;
+  if (status === 'LOGIN_REQUIRED' || status === 'UNPLAYABLE') {
+    throw new Error('Could not access YouTube video. Make sure the video is publicly accessible.');
   }
 
-  // Step 2: Extract captionTracks from embedded JSON
-  const split = html.split('"captions":');
-  if (split.length <= 1) {
-    throw new Error('No transcript available for this video. You can paste one manually.');
-  }
-
-  let captionsJson: string;
-  try {
-    captionsJson = split[1].split(',"videoDetails')[0].replace(/\\n/g, '');
-  } catch {
-    throw new Error('No transcript available for this video. You can paste one manually.');
-  }
-
-  let captions: any;
-  try {
-    captions = JSON.parse(captionsJson);
-  } catch {
-    throw new Error('No transcript available for this video. You can paste one manually.');
-  }
-
-  const tracks = captions?.playerCaptionsTracklistRenderer?.captionTracks;
+  const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
   if (!tracks || tracks.length === 0) {
     throw new Error('No transcript available for this video. You can paste one manually.');
   }
 
-  // Prefer English, fall back to first track
-  const track = tracks.find((t: any) => t.languageCode === 'en') || tracks[0];
+  // Prefer English, fall back to first available track
+  const track =
+    tracks.find((t: any) => t.languageCode === 'en') ||
+    tracks.find((t: any) => t.languageCode?.startsWith('en')) ||
+    tracks[0];
 
-  // Step 3: Fetch the transcript XML
-  const transcriptRes = await fetch(track.baseUrl, {
-    headers: { 'User-Agent': USER_AGENT },
-  });
+  if (!track?.baseUrl) {
+    throw new Error('No transcript available for this video. You can paste one manually.');
+  }
+
+  // Step 2: Fetch the transcript XML from the caption track URL
+  const transcriptRes = await fetch(track.baseUrl);
 
   if (!transcriptRes.ok) {
     throw new Error('Failed to fetch video transcript. Try again later.');
@@ -139,9 +140,9 @@ async function fetchYouTubeTranscript(videoId: string): Promise<string> {
 
   const xml = await transcriptRes.text();
 
-  // Step 4: Parse segments from XML
+  // Step 3: Parse segments from XML
   const segments: string[] = [];
-  RE_XML_TRANSCRIPT.lastIndex = 0; // Reset — module-scoped /g regex retains state across calls
+  RE_XML_TRANSCRIPT.lastIndex = 0;
   let match;
   while ((match = RE_XML_TRANSCRIPT.exec(xml)) !== null) {
     segments.push(decodeHtmlEntities(match[3]));
@@ -234,8 +235,6 @@ Deno.serve(async (req) => {
     let videoId: string | null = null;
     let transcript: string;
 
-    // Platform-specific transcript fetch — errors returned as 200 + { error }
-    // so supabase-js puts them in `data` (not the opaque `error` field from 4xx/5xx).
     switch (platform) {
       case 'youtube': {
         videoId = extractYouTubeId(video_url);
