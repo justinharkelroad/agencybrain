@@ -43,13 +43,10 @@ function decodeHtmlEntities(text: string): string {
 // --- Transcript cleanup: raw caption segments → readable paragraphs ---
 
 function cleanTranscript(rawText: string): string {
-  // Normalize whitespace
   const text = rawText.replace(/\s+/g, ' ').trim();
 
-  // Try splitting into sentences (works when punctuation exists)
   const sentences = text.split(/(?<=[.!?])\s+/);
 
-  // If punctuation-based splitting produced real paragraphs, use it
   if (sentences.length >= 4) {
     const paragraphs: string[] = [];
     let current: string[] = [];
@@ -66,8 +63,6 @@ function cleanTranscript(rawText: string): string {
     return paragraphs.join('\n\n');
   }
 
-  // Fallback for auto-generated captions with little/no punctuation:
-  // split by word count (~80 words per paragraph)
   const words = text.split(' ');
   const paragraphs: string[] = [];
   for (let i = 0; i < words.length; i += 80) {
@@ -76,24 +71,59 @@ function cleanTranscript(rawText: string): string {
   return paragraphs.join('\n\n');
 }
 
-// --- YouTube transcript fetch via InnerTube API ---
-// The HTML-scraping approach fails on Deno Deploy because YouTube serves
-// different page content to data-center IPs. The InnerTube API is a proper
-// JSON endpoint that works reliably server-side.
+// --- YouTube transcript XML parsers ---
 
-const RE_XML_TRANSCRIPT = /<text start="([^"]*)" dur="([^"]*)">([^<]*)<\/text>/g;
+// Format 1: Simple <text> elements (older/some tracks)
+const RE_SIMPLE_TEXT = /<text start="[^"]*" dur="[^"]*">([^<]*)<\/text>/g;
 
-const USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+// Format 2: srv3 format with <p> containing <s> children (ANDROID client)
+const RE_P_TAG = /<p[^>]*>([^]*?)<\/p>/g;
+const RE_S_TAG = />([^<]+)</g;
 
 function parseTranscriptXml(xml: string): string[] {
-  const segments: string[] = [];
-  RE_XML_TRANSCRIPT.lastIndex = 0;
+  // Try simple <text> format first
+  RE_SIMPLE_TEXT.lastIndex = 0;
+  const simpleSegments: string[] = [];
   let match;
-  while ((match = RE_XML_TRANSCRIPT.exec(xml)) !== null) {
-    segments.push(decodeHtmlEntities(match[3]));
+  while ((match = RE_SIMPLE_TEXT.exec(xml)) !== null) {
+    const text = decodeHtmlEntities(match[1]).trim();
+    if (text) simpleSegments.push(text);
   }
-  return segments;
+  if (simpleSegments.length > 0) {
+    console.log(`Parsed ${simpleSegments.length} segments (simple format)`);
+    return simpleSegments;
+  }
+
+  // Try srv3 <p>/<s> format
+  RE_P_TAG.lastIndex = 0;
+  const srv3Segments: string[] = [];
+  while ((match = RE_P_TAG.exec(xml)) !== null) {
+    const pContent = match[1];
+    // Extract text from within the <p> tag, handling <s> children
+    RE_S_TAG.lastIndex = 0;
+    const words: string[] = [];
+    let sMatch;
+    while ((sMatch = RE_S_TAG.exec(pContent)) !== null) {
+      const word = decodeHtmlEntities(sMatch[1]).trim();
+      if (word) words.push(word);
+    }
+    if (words.length > 0) {
+      srv3Segments.push(words.join(' '));
+    }
+  }
+  if (srv3Segments.length > 0) {
+    console.log(`Parsed ${srv3Segments.length} segments (srv3 format)`);
+    return srv3Segments;
+  }
+
+  // Last resort: strip all XML tags and grab text content
+  const stripped = xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (stripped.length > 50) {
+    console.log(`Parsed via tag-stripping fallback (${stripped.length} chars)`);
+    return [stripped];
+  }
+
+  return [];
 }
 
 function findCaptionTracks(playerData: any): any[] | null {
@@ -109,29 +139,81 @@ function pickBestTrack(tracks: any[]): any {
   );
 }
 
-async function fetchTranscriptFromTrack(track: any): Promise<string> {
-  if (!track?.baseUrl) {
-    throw new Error('No transcript URL available.');
-  }
+async function fetchTranscriptFromTrack(track: any): Promise<string | null> {
+  if (!track?.baseUrl) return null;
 
   const res = await fetch(track.baseUrl);
   if (!res.ok) {
-    throw new Error('Failed to fetch video transcript. Try again later.');
+    console.log(`Track fetch: HTTP ${res.status}`);
+    return null;
   }
 
   const xml = await res.text();
-  const segments = parseTranscriptXml(xml);
+  if (!xml || xml.length < 10) {
+    console.log(`Track fetch: empty response (${xml.length} bytes)`);
+    return null;
+  }
 
+  const segments = parseTranscriptXml(xml);
   if (segments.length === 0) {
-    throw new Error('No transcript available for this video. You can paste one manually.');
+    console.log('Track fetch: no segments parsed from XML');
+    return null;
   }
 
   return cleanTranscript(segments.join(' '));
 }
 
-// --- Strategy 1: InnerTube embedded player client ---
-// The embedded player client bypasses many restrictions that block the
-// standard WEB client on server-side requests (LOGIN_REQUIRED, etc.)
+// --- Strategy 1: InnerTube ANDROID client ---
+// The ANDROID client returns OK + caption tracks for videos that WEB and
+// WEB_EMBEDDED_PLAYER mark as UNPLAYABLE. Uses its own API key.
+
+async function tryInnerTubeAndroid(videoId: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      'https://www.youtube.com/youtubei/v1/player?key=AIzaSyA8eiZmM1FaDVjRy-df2KTyQ_vz_yYM39w&prettyPrint=false',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          context: {
+            client: {
+              clientName: 'ANDROID',
+              clientVersion: '19.09.37',
+              androidSdkVersion: 30,
+              hl: 'en',
+            },
+          },
+          videoId,
+        }),
+      }
+    );
+
+    if (!res.ok) {
+      console.log(`InnerTube ANDROID: HTTP ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    const status = data?.playabilityStatus?.status;
+    console.log(`InnerTube ANDROID: status=${status}`);
+
+    if (status !== 'OK') return null;
+
+    const tracks = findCaptionTracks(data);
+    if (!tracks) {
+      console.log('InnerTube ANDROID: no caption tracks');
+      return null;
+    }
+
+    console.log(`InnerTube ANDROID: found ${tracks.length} track(s), lang=${tracks.map((t: any) => t.languageCode).join(',')}`);
+    return await fetchTranscriptFromTrack(pickBestTrack(tracks));
+  } catch (e) {
+    console.log('InnerTube ANDROID failed:', e);
+    return null;
+  }
+}
+
+// --- Strategy 2: InnerTube WEB_EMBEDDED_PLAYER client ---
 
 async function tryInnerTubeEmbedded(videoId: string): Promise<string | null> {
   try {
@@ -172,7 +254,7 @@ async function tryInnerTubeEmbedded(videoId: string): Promise<string | null> {
   }
 }
 
-// --- Strategy 2: InnerTube standard WEB client ---
+// --- Strategy 3: InnerTube standard WEB client ---
 
 async function tryInnerTubeWeb(videoId: string): Promise<string | null> {
   try {
@@ -212,72 +294,13 @@ async function tryInnerTubeWeb(videoId: string): Promise<string | null> {
   }
 }
 
-// --- Strategy 3: HTML page scraping ---
-// Fetches the YouTube watch page and extracts caption track URLs directly
-// from the embedded JSON. Most reliable for embedding-restricted videos.
-
-async function tryPageScrape(videoId: string): Promise<string | null> {
-  try {
-    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept': 'text/html,application/xhtml+xml',
-      },
-    });
-
-    if (!pageRes.ok) {
-      console.log(`Page scrape: HTTP ${pageRes.status}`);
-      return null;
-    }
-
-    const html = await pageRes.text();
-
-    if (html.includes('class="g-recaptcha"')) {
-      console.log('Page scrape: hit CAPTCHA');
-      return null;
-    }
-
-    // Extract captions JSON by splitting on known markers.
-    // The ytInitialPlayerResponse regex approach is fragile because non-greedy
-    // .+? stops at the first }; inside the JSON. Direct split is more reliable.
-    const split = html.split('"captions":');
-    if (split.length <= 1) {
-      console.log('Page scrape: no "captions" block in HTML');
-      return null;
-    }
-
-    let captionsObj: any = null;
-    try {
-      const captionsJson = split[1].split(',"videoDetails')[0].replace(/\\n/g, '');
-      captionsObj = JSON.parse(captionsJson);
-    } catch (e) {
-      console.log('Page scrape: JSON parse error:', e);
-      return null;
-    }
-
-    // captionsObj is the value of "captions" key — should have playerCaptionsTracklistRenderer
-    const tracks = captionsObj?.playerCaptionsTracklistRenderer?.captionTracks;
-    if (!tracks || tracks.length === 0) {
-      console.log('Page scrape: no caption tracks in parsed data');
-      return null;
-    }
-
-    console.log(`Page scrape: found ${tracks.length} caption track(s)`);
-    return await fetchTranscriptFromTrack(pickBestTrack(tracks));
-  } catch (e) {
-    console.log('Page scrape failed:', e);
-    return null;
-  }
-}
-
 // --- Main transcript fetch: tries all strategies ---
 
 async function fetchYouTubeTranscript(videoId: string): Promise<string> {
-  // Try strategies in order: page scrape first (most reliable for
-  // embedding-restricted videos), then InnerTube API fallbacks
+  // ANDROID client is most reliable — works for embedding-restricted videos
+  // where WEB and WEB_EMBEDDED_PLAYER return UNPLAYABLE
   const transcript =
-    await tryPageScrape(videoId) ||
+    await tryInnerTubeAndroid(videoId) ||
     await tryInnerTubeEmbedded(videoId) ||
     await tryInnerTubeWeb(videoId);
 
