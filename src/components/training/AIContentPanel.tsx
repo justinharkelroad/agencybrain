@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Sparkles, ChevronDown, ChevronUp, Loader2, Video, AlertTriangle } from 'lucide-react';
-import { useGenerateLessonContent, useGenerateQuizFromLesson, useGenerateSPQuiz, useRewriteLessonContent, useTranscribeVideo } from '@/hooks/useTrainingAI';
+import { Sparkles, ChevronDown, ChevronUp, Loader2, Video } from 'lucide-react';
+import { useGenerateLessonContent, useGenerateQuizFromLesson, useGenerateSPQuiz, useRewriteLessonContent } from '@/hooks/useTrainingAI';
 import type { SPQuizQuestion } from '@/hooks/useTrainingAI';
 
 interface AIContentPanelProps {
@@ -20,7 +20,7 @@ interface AIContentPanelProps {
   onQuizGenerated: () => void;
   /** SP mode: receives quiz questions in sp_quizzes JSON format instead of writing to training_quizzes */
   onSPQuizGenerated?: (questions: SPQuizQuestion[]) => void;
-  /** The lesson's video URL (if any) — enables "Transcribe Video" button */
+  /** The lesson's video URL (if any) — shows transcript paste guidance */
   videoUrl?: string;
 }
 
@@ -51,33 +51,13 @@ export function AIContentPanel({
   const [rewriteMode, setRewriteMode] = useState<RewriteMode>('clearer');
   const [quizSuccess, setQuizSuccess] = useState(false);
   const [rewriteNote, setRewriteNote] = useState(false);
-  const [transcribeError, setTranscribeError] = useState(false);
 
-  const transcribeVideo = useTranscribeVideo();
   const generateLesson = useGenerateLessonContent();
   const generateQuiz = useGenerateQuizFromLesson();
   const generateSPQuiz = useGenerateSPQuiz();
   const rewriteContent = useRewriteLessonContent();
 
-  const handleTranscribeVideo = () => {
-    if (!videoUrl) return;
-    setTranscribeError(false);
-    transcribeVideo.mutate(
-      { video_url: videoUrl, agency_id: agencyId },
-      {
-        onSuccess: (transcript) => {
-          // Put transcript into the topic field so the AI can generate polished content from it
-          setTopic(transcript);
-        },
-        onError: () => {
-          setTranscribeError(true);
-        },
-      }
-    );
-  };
-
   const hasVideoUrl = !!videoUrl?.trim();
-  const isYouTube = hasVideoUrl && /youtube\.com|youtu\.be/i.test(videoUrl!);
 
   const handleGenerateLesson = () => {
     if (!topic.trim()) return;
@@ -98,7 +78,6 @@ export function AIContentPanel({
     setQuizSuccess(false);
 
     if (isSPMode) {
-      // SP mode: call edge function only, return transformed questions to parent
       generateSPQuiz.mutate(
         {
           lesson_content: contentHtml,
@@ -114,7 +93,6 @@ export function AIContentPanel({
         }
       );
     } else {
-      // Agency training mode: write to training_quizzes tables
       if (!lessonId) return;
       generateQuiz.mutate(
         {
@@ -208,64 +186,36 @@ export function AIContentPanel({
 
             {/* Generate Draft */}
             <TabsContent value="generate" className="space-y-3 mt-3">
-              {hasVideoUrl && isYouTube && (
-                <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3 space-y-2">
-                  <div className="flex items-start gap-2">
-                    <Video className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                    <p className="text-sm text-muted-foreground">
-                      This lesson has a video. Transcribe it to auto-fill the topic below, then generate content from it.
-                    </p>
-                  </div>
-                  <Button
-                    onClick={handleTranscribeVideo}
-                    disabled={transcribeVideo.isPending}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {transcribeVideo.isPending ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-4 w-4 mr-2" />
-                    )}
-                    {transcribeVideo.isPending ? 'Transcribing...' : 'Transcribe Video'}
-                  </Button>
-                  {transcribeError && (
-                    <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2.5 space-y-1.5">
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 shrink-0" />
-                        <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
-                          Auto-transcription unavailable for this video
-                        </p>
-                      </div>
-                      <p className="text-xs text-amber-700 dark:text-amber-300 pl-6">
-                        You can copy the transcript directly from YouTube: open the video, click the <strong>"..."</strong> button below the video, select <strong>"Show transcript"</strong>, then copy and paste the text into the topic field below and click <strong>"Generate Lesson Content"</strong>.
-                      </p>
-                    </div>
-                  )}
-                  {!transcribeError && (
-                    <p className="text-xs text-muted-foreground">Or describe the topic manually below.</p>
-                  )}
-                </div>
-              )}
-              {hasVideoUrl && !isYouTube && (
+              {hasVideoUrl && (
                 <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3">
                   <div className="flex items-start gap-2">
                     <Video className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-                    <p className="text-sm text-muted-foreground">
-                      This lesson has a video. Paste a transcript or summary of what the video covers into the topic field below, then click <strong>"Generate Lesson Content"</strong> to create training material from it.
-                    </p>
+                    <div className="text-sm text-muted-foreground space-y-1">
+                      <p>
+                        This lesson has a video. To generate training content from it:
+                      </p>
+                      <ol className="list-decimal list-inside text-xs space-y-0.5 pl-1">
+                        <li>Open the video and copy the transcript or a summary of what it covers</li>
+                        <li>Paste it into the field below</li>
+                        <li>Click <strong>"Generate Lesson Content"</strong> to create polished training material</li>
+                      </ol>
+                    </div>
                   </div>
                 </div>
               )}
               <div>
-                <Label htmlFor="ai-topic" className="text-sm">What should this lesson cover?</Label>
+                <Label htmlFor="ai-topic" className="text-sm">
+                  {hasVideoUrl ? 'Paste transcript or describe the topic' : 'What should this lesson cover?'}
+                </Label>
                 <Textarea
                   id="ai-topic"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
-                  placeholder="e.g. How to handle an irate caller, step-by-step objection handling for price pushback, bullet points welcome"
+                  placeholder={hasVideoUrl
+                    ? 'Paste your video transcript here, or describe the topic you want covered...'
+                    : 'e.g. How to handle an irate caller, step-by-step objection handling for price pushback, bullet points welcome'}
                   className="mt-1"
-                  rows={3}
+                  rows={hasVideoUrl ? 6 : 3}
                 />
               </div>
               <Button
