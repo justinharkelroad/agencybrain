@@ -90,6 +90,9 @@ verify_jwt = false
 [functions.generate_affirmations]
 verify_jwt = false
 
+[functions.generate-training-content]
+verify_jwt = false
+
 [functions.generate_voice_sample]
 verify_jwt = false
 

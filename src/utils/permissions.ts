@@ -4,6 +4,7 @@ export type EffectiveRole = 'admin' | 'owner' | 'manager' | 'staff';
 
 export interface AgencySettings {
   staff_can_upload_calls: boolean;
+  ai_training_enabled?: boolean;
 }
 
 // Permission helper functions

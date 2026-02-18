@@ -23,6 +23,8 @@ import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface Agency {
   id: string;
@@ -91,6 +93,7 @@ const [isDeleting, setIsDeleting] = useState(false);
 // Edit tier state
 const [editingClient, setEditingClient] = useState<Profile | null>(null);
 const [newTier, setNewTier] = useState<string>('1:1 Coaching');
+const [aiTrainingEnabled, setAiTrainingEnabled] = useState(false);
 
 // Pagination
 const [currentPage, setCurrentPage] = useState(1);
@@ -418,6 +421,20 @@ const getSubmissionStatus = (profile: Profile) => {
     const matchesTier = tierFilter === 'all' || client.membership_tier === tierFilter;
     return matchesSearch && matchesTier;
   });
+
+  // Fetch ai_training_enabled when editing dialog opens
+  useEffect(() => {
+    if (!editingClient?.agency?.id) return;
+    const fetchAiFlag = async () => {
+      const { data } = await supabase
+        .from('agencies')
+        .select('ai_training_enabled')
+        .eq('id', editingClient.agency.id)
+        .single();
+      setAiTrainingEnabled(data?.ai_training_enabled ?? false);
+    };
+    fetchAiFlag();
+  }, [editingClient?.agency?.id]);
 
   // Reset to first page when searching
   useEffect(() => {
@@ -849,6 +866,38 @@ const getSubmissionStatus = (profile: Profile) => {
                     </SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t">
+                <Label htmlFor="ai-training-toggle" className="text-sm font-medium">
+                  AI Training Content
+                </Label>
+                <Switch
+                  id="ai-training-toggle"
+                  checked={aiTrainingEnabled}
+                  onCheckedChange={async (checked) => {
+                    if (!editingClient?.agency?.id) return;
+                    setAiTrainingEnabled(checked);
+                    const { error } = await supabase
+                      .from('agencies')
+                      .update({ ai_training_enabled: checked })
+                      .eq('id', editingClient.agency.id);
+                    if (error) {
+                      console.error('Failed to update AI training flag:', error);
+                      setAiTrainingEnabled(!checked);
+                      toast({
+                        title: 'Failed to update setting',
+                        description: error.message,
+                        variant: 'destructive',
+                      });
+                    } else {
+                      toast({
+                        title: checked ? 'AI Training enabled' : 'AI Training disabled',
+                        description: `${editingClient.agency?.name || 'Agency'} ${checked ? 'can now' : 'can no longer'} use AI content generation`,
+                      });
+                    }
+                  }}
+                />
               </div>
             </div>
 

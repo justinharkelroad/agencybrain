@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { useTrainingQuizzes } from "@/hooks/useTrainingQuizzes";
 import { AttachmentUploader } from "@/components/training/AttachmentUploader";
 import { QuizBuilder } from "@/components/training/QuizBuilder";
 import { ExchangeShareModal } from "@/components/exchange/ExchangeShareModal";
+import { AIContentPanel } from "@/components/training/AIContentPanel";
 
 interface TrainingContentTabProps {
   agencyId: string;
@@ -140,6 +142,20 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
   const { attachments, deleteAttachment, getDownloadUrl } = useTrainingAttachments(editingLesson?.id, agencyId);
   const { quizzes, createQuizWithQuestions, deleteQuiz, isCreating: isCreatingQuiz } = useTrainingQuizzes(editingLesson?.id, agencyId);
   
+  // AI feature flag
+  const { data: aiEnabled = false } = useQuery({
+    queryKey: ['agency-ai-training-enabled', agencyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('agencies')
+        .select('ai_training_enabled')
+        .eq('id', agencyId)
+        .single();
+      return data?.ai_training_enabled ?? false;
+    },
+    enabled: !!agencyId,
+  });
+
   // Ref to prevent duplicate lesson creation race condition
   const isSavingLessonRef = useRef(false);
 
@@ -1036,6 +1052,16 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                   className="font-mono text-sm min-h-[150px]"
                 />
               </div>
+              {aiEnabled && (
+                <AIContentPanel
+                  agencyId={agencyId}
+                  lessonId={editingLesson?.id || null}
+                  lessonName={lessonForm.name}
+                  contentHtml={lessonForm.content_html}
+                  onContentGenerated={(html) => setLessonForm(prev => ({ ...prev, content_html: html }))}
+                  onQuizGenerated={() => {}}
+                />
+              )}
               <div className="flex items-center gap-2">
                 <Switch
                   checked={lessonForm.is_active}

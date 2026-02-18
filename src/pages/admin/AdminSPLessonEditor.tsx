@@ -23,6 +23,7 @@ import {
   X,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { AIContentPanel } from '@/components/training/AIContentPanel';
 
 interface QuizQuestion {
   id: string;
@@ -526,6 +527,20 @@ export default function AdminSPLessonEditor() {
             />
           </CardContent>
         </Card>
+
+        {/* AI Content Generator */}
+        <AIContentPanel
+          agencyId={null}
+          lessonId={lessonId && !isNew ? lessonId : null}
+          lessonName={name}
+          contentHtml={contentHtml}
+          onContentGenerated={setContentHtml}
+          onQuizGenerated={() => {}}
+          onSPQuizGenerated={(questions) => {
+            setQuizQuestions(questions);
+            setHasQuiz(true);
+          }}
+        />
 
         {/* Documents */}
         <Card>
