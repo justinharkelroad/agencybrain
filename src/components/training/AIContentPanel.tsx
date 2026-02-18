@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Sparkles, ChevronDown, ChevronUp, Loader2, Video } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, Loader2, Video, AlertTriangle } from 'lucide-react';
 import { useGenerateLessonContent, useGenerateQuizFromLesson, useGenerateSPQuiz, useRewriteLessonContent, useTranscribeVideo } from '@/hooks/useTrainingAI';
 import type { SPQuizQuestion } from '@/hooks/useTrainingAI';
 
@@ -51,6 +51,7 @@ export function AIContentPanel({
   const [rewriteMode, setRewriteMode] = useState<RewriteMode>('clearer');
   const [quizSuccess, setQuizSuccess] = useState(false);
   const [rewriteNote, setRewriteNote] = useState(false);
+  const [transcribeError, setTranscribeError] = useState(false);
 
   const transcribeVideo = useTranscribeVideo();
   const generateLesson = useGenerateLessonContent();
@@ -60,11 +61,15 @@ export function AIContentPanel({
 
   const handleTranscribeVideo = () => {
     if (!videoUrl) return;
+    setTranscribeError(false);
     transcribeVideo.mutate(
       { video_url: videoUrl, agency_id: agencyId },
       {
         onSuccess: (transcript) => {
           onContentGenerated(transcript);
+        },
+        onError: () => {
+          setTranscribeError(true);
         },
       }
     );
@@ -223,7 +228,22 @@ export function AIContentPanel({
                     )}
                     {transcribeVideo.isPending ? 'Transcribing...' : 'Transcribe Video'}
                   </Button>
-                  <p className="text-xs text-muted-foreground">Or describe the topic manually below.</p>
+                  {transcribeError && (
+                    <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 p-2.5 space-y-1.5">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                        <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                          Auto-transcription unavailable for this video
+                        </p>
+                      </div>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 pl-6">
+                        You can copy the transcript directly from YouTube: open the video, click the <strong>"..."</strong> button below the video, select <strong>"Show transcript"</strong>, then copy and paste the text into the content field above.
+                      </p>
+                    </div>
+                  )}
+                  {!transcribeError && (
+                    <p className="text-xs text-muted-foreground">Or describe the topic manually below.</p>
+                  )}
                 </div>
               )}
               {hasVideoUrl && !isYouTube && (

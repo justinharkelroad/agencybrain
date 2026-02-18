@@ -277,10 +277,10 @@ function encodeGetTranscriptParams(videoId: string): string {
   // Protobuf: field 1 (message) { field 2 (string): videoId }
   const videoIdBytes = new TextEncoder().encode(videoId);
 
-  // Inner message: field 2 (tag=0x12), length, value
-  const innerPayload = new Uint8Array([0x12, videoIdBytes.length, ...videoIdBytes]);
-  // Outer message: field 1 (tag=0x0a), length, inner
-  const outerPayload = new Uint8Array([0x0a, innerPayload.length, ...innerPayload]);
+  // Protobuf: outer { field1 { field1 { field1: videoId } } } — 3 levels of nesting
+  const inner = new Uint8Array([0x0a, videoIdBytes.length, ...videoIdBytes]);
+  const middle = new Uint8Array([0x0a, inner.length, ...inner]);
+  const outerPayload = new Uint8Array([0x0a, middle.length, ...middle]);
 
   return btoa(String.fromCharCode(...outerPayload));
 }
@@ -536,6 +536,151 @@ async function tryDirectTimedText(videoId: string, debugLog: string[]): Promise<
   return null;
 }
 
+// --- Strategy 5: Invidious / Piped API ---
+// Open-source YouTube frontends that proxy captions through their own servers.
+// These run on different infrastructure that YouTube doesn't block the same way.
+
+function parseSrtVtt(text: string): string | null {
+  const lines = text.split('\n');
+  const textLines: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed === 'WEBVTT') continue;
+    if (/^\d+$/.test(trimmed)) continue;
+    if (/-->/.test(trimmed)) continue;
+    if (/^Kind:/i.test(trimmed)) continue;
+    if (/^Language:/i.test(trimmed)) continue;
+    if (/^NOTE/i.test(trimmed)) continue;
+    // Remove VTT position/alignment tags like <c> </c> and timestamps
+    const cleaned = trimmed.replace(/<[^>]+>/g, '').trim();
+    if (cleaned) textLines.push(cleaned);
+  }
+
+  return textLines.length > 0 ? textLines.join(' ') : null;
+}
+
+async function tryInvidiousApi(videoId: string, debugLog: string[]): Promise<string | null> {
+  // Invidious instances — try multiple for redundancy
+  const invidiousInstances = [
+    'https://vid.puffyan.us',
+    'https://inv.nadeko.net',
+    'https://invidious.nerdvpn.de',
+    'https://invidious.privacyredirect.com',
+  ];
+
+  for (const instance of invidiousInstances) {
+    try {
+      // Step 1: List captions for the video
+      const listRes = await fetch(`${instance}/api/v1/captions/${videoId}`, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!listRes.ok) continue;
+
+      const data = await listRes.json();
+      const captions = data?.captions;
+      if (!captions || captions.length === 0) continue;
+
+      // Find best English track
+      const track =
+        captions.find((c: any) => c.languageCode === 'en') ||
+        captions.find((c: any) => c.languageCode?.startsWith('en')) ||
+        captions[0];
+
+      if (!track?.url) continue;
+
+      // Step 2: Fetch caption text (proxied through the Invidious instance)
+      const captionUrl = track.url.startsWith('http')
+        ? track.url
+        : `${instance}${track.url}`;
+
+      const captionRes = await fetch(captionUrl, {
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!captionRes.ok) continue;
+
+      const captionText = await captionRes.text();
+      if (!captionText || captionText.length < 50) continue;
+
+      // Try parsing as XML first (YouTube native format)
+      const xmlSegments = parseTranscriptXml(captionText);
+      if (xmlSegments.length > 0) {
+        debugLog.push(`invidious(${new URL(instance).hostname}): ${xmlSegments.length} xml segments`);
+        return cleanTranscript(xmlSegments.join(' '));
+      }
+
+      // Try parsing as SRT/VTT
+      const srtText = parseSrtVtt(captionText);
+      if (srtText && srtText.length > 50) {
+        debugLog.push(`invidious(${new URL(instance).hostname}): vtt ok`);
+        return cleanTranscript(srtText);
+      }
+    } catch {
+      // Instance timed out or errored — try next
+      continue;
+    }
+  }
+
+  // Also try Piped API (different implementation, different infrastructure)
+  const pipedInstances = [
+    'https://pipedapi.kavin.rocks',
+    'https://pipedapi.adminforge.de',
+  ];
+
+  for (const instance of pipedInstances) {
+    try {
+      const res = await fetch(`${instance}/streams/${videoId}`, {
+        headers: { 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(8000),
+      });
+
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      const subtitles = data?.subtitles;
+      if (!subtitles || subtitles.length === 0) continue;
+
+      // Find English subtitle
+      const sub =
+        subtitles.find((s: any) => s.code === 'en') ||
+        subtitles.find((s: any) => s.code?.startsWith('en')) ||
+        subtitles[0];
+
+      if (!sub?.url) continue;
+
+      // Fetch the subtitle content
+      const subRes = await fetch(sub.url, {
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!subRes.ok) continue;
+
+      const subText = await subRes.text();
+      if (!subText || subText.length < 50) continue;
+
+      // Parse (could be VTT, SRT, or XML)
+      const xmlSegments = parseTranscriptXml(subText);
+      if (xmlSegments.length > 0) {
+        debugLog.push(`piped(${new URL(instance).hostname}): ${xmlSegments.length} segments`);
+        return cleanTranscript(xmlSegments.join(' '));
+      }
+
+      const vttText = parseSrtVtt(subText);
+      if (vttText && vttText.length > 50) {
+        debugLog.push(`piped(${new URL(instance).hostname}): vtt ok`);
+        return cleanTranscript(vttText);
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  debugLog.push('invidious/piped: all instances failed');
+  return null;
+}
+
 // --- Main transcript fetch: tries all strategies in order ---
 
 async function fetchYouTubeTranscript(videoId: string): Promise<string> {
@@ -560,7 +705,11 @@ async function fetchYouTubeTranscript(videoId: string): Promise<string> {
   const t4 = await tryDirectTimedText(videoId, debugLog);
   if (t4) return t4;
 
-  throw new Error(`No transcript available for this video. Debug: [${debugLog.join(' | ')}]`);
+  // Strategy 5: Invidious / Piped open-source YouTube proxies
+  const t5 = await tryInvidiousApi(videoId, debugLog);
+  if (t5) return t5;
+
+  throw new Error(`Auto-transcription unavailable — YouTube is blocking server access for this video. You can copy the transcript directly from YouTube: open the video, click "..." below it, select "Show transcript", then copy and paste the text into the content field above.`);
 }
 
 // --- Main handler ---
