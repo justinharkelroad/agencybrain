@@ -498,9 +498,13 @@ export function PdfUploadForm({
         return sum + ((pt?.default_points || 0) * p.itemCount);
       }, 0);
 
-      const productNames = stagedPolicies.map(p => p.productTypeName);
+      // Use canonical names (from linked product_types) for bundle detection, fallback to display name
+      const canonicalNames = stagedPolicies.map(p => {
+        const pt = productTypes.find(t => t.id === p.productTypeId);
+        return pt?.canonical_name || p.productTypeName;
+      });
       const bundleInfo = detectBundleType(
-        productNames,
+        canonicalNames,
         hasExistingPolicies ? existingPolicyTypes : []
       );
 
@@ -895,11 +899,16 @@ export function PdfUploadForm({
     disabled: uploadState === 'uploading'
   });
 
-  const productNames = stagedPolicies.map(p => p.productTypeName);
+  const displayNames = stagedPolicies.map(p => p.productTypeName);
+  // Use canonical names (from linked product_types) for accurate bundle detection
+  const canonicalNames = stagedPolicies.map(p => {
+    const pt = productTypes.find(t => t.id === p.productTypeId);
+    return pt?.canonical_name || p.productTypeName;
+  });
   const selectedEditProductType = productTypes.find((pt) => pt.id === editProductTypeId);
   const canEditMultipleItems = isMultiItemProduct(selectedEditProductType);
   const bundleInfo = detectBundleType(
-    productNames,
+    canonicalNames,
     hasExistingPolicies ? existingPolicyTypes : []
   );
 
@@ -909,7 +918,7 @@ export function PdfUploadForm({
     }
   }, [selectedEditProductType, canEditMultipleItems, editItemCount]);
   const bundleLabel = bundleInfo.bundleType
-    ? `${bundleInfo.bundleType} Bundle: ${productNames.join(' + ')}`
+    ? `${bundleInfo.bundleType} Bundle: ${displayNames.join(' + ')}`
     : null;
 
   const totalPremium = stagedPolicies.reduce((sum, p) => sum + (p.premium || 0), 0);
