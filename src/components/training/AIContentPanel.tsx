@@ -66,7 +66,8 @@ export function AIContentPanel({
       { video_url: videoUrl, agency_id: agencyId },
       {
         onSuccess: (transcript) => {
-          onContentGenerated(transcript);
+          // Put transcript into the topic field so the AI can generate polished content from it
+          setTopic(transcript);
         },
         onError: () => {
           setTranscribeError(true);
@@ -212,7 +213,7 @@ export function AIContentPanel({
                   <div className="flex items-start gap-2">
                     <Video className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                     <p className="text-sm text-muted-foreground">
-                      This lesson has a video. Transcribe it to generate content from what's covered in the video.
+                      This lesson has a video. Transcribe it to auto-fill the topic below, then generate content from it.
                     </p>
                   </div>
                   <Button
@@ -237,7 +238,7 @@ export function AIContentPanel({
                         </p>
                       </div>
                       <p className="text-xs text-amber-700 dark:text-amber-300 pl-6">
-                        You can copy the transcript directly from YouTube: open the video, click the <strong>"..."</strong> button below the video, select <strong>"Show transcript"</strong>, then copy and paste the text into the content field above.
+                        You can copy the transcript directly from YouTube: open the video, click the <strong>"..."</strong> button below the video, select <strong>"Show transcript"</strong>, then copy and paste the text into the topic field below and click <strong>"Generate Lesson Content"</strong>.
                       </p>
                     </div>
                   )}
@@ -251,7 +252,7 @@ export function AIContentPanel({
                   <div className="flex items-start gap-2">
                     <Video className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
                     <p className="text-sm text-muted-foreground">
-                      This lesson has a video. To use the AI tools, paste a transcript or summary of what the video covers into the content field, then come back here to generate a quiz or rewrite.
+                      This lesson has a video. Paste a transcript or summary of what the video covers into the topic field below, then click <strong>"Generate Lesson Content"</strong> to create training material from it.
                     </p>
                   </div>
                 </div>

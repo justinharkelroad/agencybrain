@@ -709,7 +709,7 @@ async function fetchYouTubeTranscript(videoId: string): Promise<string> {
   const t5 = await tryInvidiousApi(videoId, debugLog);
   if (t5) return t5;
 
-  throw new Error(`Auto-transcription unavailable — YouTube is blocking server access for this video. You can copy the transcript directly from YouTube: open the video, click "..." below it, select "Show transcript", then copy and paste the text into the content field above.`);
+  throw new Error(`Auto-transcription unavailable — YouTube is blocking server access for this video. You can copy the transcript directly from YouTube: open the video, click "..." below it, select "Show transcript", then copy and paste the text into the topic field and click "Generate Lesson Content".`);
 }
 
 // --- Main handler ---
