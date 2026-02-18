@@ -1937,7 +1937,7 @@ export default function CallScoring() {
           open={scorecardOpen}
           onClose={() => setScorecardOpen(false)}
           isReadOnly={false}
-          qaEnabled={callScoringQaEnabled}
+          qaEnabled={callScoringQaEnabled && !(isStaffUser && !isStaffManager)}
           isStaffUser={isStaffUser}
           staffTeamMemberId={staffTeamMemberId || undefined}
           acknowledgedAt={selectedCall?.acknowledged_at}
@@ -1946,7 +1946,7 @@ export default function CallScoring() {
           onAcknowledge={handleStaffAcknowledge}
         />
       ) : (
-        <CallScorecard 
+        <CallScorecard
           call={selectedCall}
           open={scorecardOpen}
           onClose={() => setScorecardOpen(false)}
@@ -1957,7 +1957,7 @@ export default function CallScoring() {
           staffFeedbackImprovement={selectedCall?.staff_feedback_improvement}
           onAcknowledge={handleStaffAcknowledge}
           loading={loadingCallDetails}
-          qaEnabled={callScoringQaEnabled}
+          qaEnabled={callScoringQaEnabled && !(isStaffUser && !isStaffManager)}
         />
       )}
     </div>
