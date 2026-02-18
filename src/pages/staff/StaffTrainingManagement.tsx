@@ -47,7 +47,10 @@ export default function StaffTrainingManagement() {
     <div className="container mx-auto py-6 space-y-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">Training Management</h1>
-        <p className="text-muted-foreground">Create and manage training content for your team</p>
+        <p className="text-sm text-muted-foreground">
+          As a manager, you can create lessons, assign training modules, and track your team's progress from here.
+          Agency owners can also manage training from the main app.
+        </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
