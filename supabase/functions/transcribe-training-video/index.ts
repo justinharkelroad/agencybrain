@@ -212,9 +212,9 @@ async function tryInnerTubeWeb(videoId: string): Promise<string | null> {
   }
 }
 
-// --- Strategy 3: HTML page scraping fallback ---
-// Fetches the YouTube watch page and extracts caption tracks from the
-// embedded ytInitialPlayerResponse JSON.
+// --- Strategy 3: HTML page scraping ---
+// Fetches the YouTube watch page and extracts caption track URLs directly
+// from the embedded JSON. Most reliable for embedding-restricted videos.
 
 async function tryPageScrape(videoId: string): Promise<string | null> {
   try {
@@ -226,7 +226,10 @@ async function tryPageScrape(videoId: string): Promise<string | null> {
       },
     });
 
-    if (!pageRes.ok) return null;
+    if (!pageRes.ok) {
+      console.log(`Page scrape: HTTP ${pageRes.status}`);
+      return null;
+    }
 
     const html = await pageRes.text();
 
@@ -235,43 +238,32 @@ async function tryPageScrape(videoId: string): Promise<string | null> {
       return null;
     }
 
-    // Try ytInitialPlayerResponse first (more reliable than splitting on "captions":)
-    let playerData: any = null;
-
-    const ytInitMatch = html.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});/s);
-    if (ytInitMatch) {
-      try {
-        playerData = JSON.parse(ytInitMatch[1]);
-      } catch { /* continue to fallback */ }
-    }
-
-    // Fallback: split on "captions":
-    if (!playerData) {
-      const split = html.split('"captions":');
-      if (split.length > 1) {
-        try {
-          const captionsJson = split[1].split(',"videoDetails')[0].replace(/\\n/g, '');
-          const captions = JSON.parse(`{"captions":${captionsJson}}`);
-          playerData = captions;
-        } catch { /* give up */ }
-      }
-    }
-
-    if (!playerData) {
-      console.log('Page scrape: could not extract player data');
+    // Extract captions JSON by splitting on known markers.
+    // The ytInitialPlayerResponse regex approach is fragile because non-greedy
+    // .+? stops at the first }; inside the JSON. Direct split is more reliable.
+    const split = html.split('"captions":');
+    if (split.length <= 1) {
+      console.log('Page scrape: no "captions" block in HTML');
       return null;
     }
 
-    // playerData might be the full response or just the captions wrapper
-    const tracks =
-      findCaptionTracks(playerData) ||
-      findCaptionTracks({ captions: playerData.captions || playerData });
-
-    if (!tracks) {
-      console.log('Page scrape: no caption tracks found');
+    let captionsObj: any = null;
+    try {
+      const captionsJson = split[1].split(',"videoDetails')[0].replace(/\\n/g, '');
+      captionsObj = JSON.parse(captionsJson);
+    } catch (e) {
+      console.log('Page scrape: JSON parse error:', e);
       return null;
     }
 
+    // captionsObj is the value of "captions" key — should have playerCaptionsTracklistRenderer
+    const tracks = captionsObj?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (!tracks || tracks.length === 0) {
+      console.log('Page scrape: no caption tracks in parsed data');
+      return null;
+    }
+
+    console.log(`Page scrape: found ${tracks.length} caption track(s)`);
     return await fetchTranscriptFromTrack(pickBestTrack(tracks));
   } catch (e) {
     console.log('Page scrape failed:', e);
@@ -282,11 +274,12 @@ async function tryPageScrape(videoId: string): Promise<string | null> {
 // --- Main transcript fetch: tries all strategies ---
 
 async function fetchYouTubeTranscript(videoId: string): Promise<string> {
-  // Try strategies in order of reliability for server-side requests
+  // Try strategies in order: page scrape first (most reliable for
+  // embedding-restricted videos), then InnerTube API fallbacks
   const transcript =
+    await tryPageScrape(videoId) ||
     await tryInnerTubeEmbedded(videoId) ||
-    await tryInnerTubeWeb(videoId) ||
-    await tryPageScrape(videoId);
+    await tryInnerTubeWeb(videoId);
 
   if (!transcript) {
     throw new Error('No transcript available for this video. You can paste one manually.');
