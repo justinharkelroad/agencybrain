@@ -1119,9 +1119,26 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
             <TabsContent value="quiz" className="mt-4">
               {editingLesson && (
                           <QuizBuilder
+                            key={quizzes?.[0]?.id || 'new'}
                             lessonId={editingLesson.id}
                             agencyId={agencyId}
                             onSave={handleQuizSave}
+                            initialData={quizzes?.[0] ? {
+                              name: quizzes[0].name || 'AI Generated Quiz',
+                              description: quizzes[0].description || '',
+                              questions: (quizzes[0].questions || [])
+                                .filter((q: any) => !q.is_required_reflection)
+                                .map((q: any) => ({
+                                  question_text: q.question_text,
+                                  question_type: q.question_type,
+                                  sort_order: q.sort_order ?? 0,
+                                  options: (q.options || []).map((o: any) => ({
+                                    option_text: o.option_text,
+                                    is_correct: o.is_correct ?? false,
+                                    sort_order: o.sort_order ?? 0,
+                                  })),
+                                })),
+                            } : undefined}
                           />
               )}
             </TabsContent>
