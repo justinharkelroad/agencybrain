@@ -299,13 +299,24 @@ async function tryInnerTubeWeb(videoId: string): Promise<string | null> {
 async function fetchYouTubeTranscript(videoId: string): Promise<string> {
   // ANDROID client is most reliable — works for embedding-restricted videos
   // where WEB and WEB_EMBEDDED_PLAYER return UNPLAYABLE
+  const debugLog: string[] = [];
+
+  const origLog = console.log;
+  console.log = (...args: any[]) => {
+    const msg = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ');
+    debugLog.push(msg);
+    origLog(...args);
+  };
+
   const transcript =
     await tryInnerTubeAndroid(videoId) ||
     await tryInnerTubeEmbedded(videoId) ||
     await tryInnerTubeWeb(videoId);
 
+  console.log = origLog;
+
   if (!transcript) {
-    throw new Error('No transcript available for this video. You can paste one manually.');
+    throw new Error(`No transcript available for this video. Debug: [${debugLog.join(' | ')}]`);
   }
 
   return transcript;
