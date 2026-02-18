@@ -234,7 +234,7 @@ serve(async (req) => {
     }
 
     let agencyCallTotals: { outbound_calls: number; talk_minutes: number } | null = null;
-    if (agencyCallMetricsMode === 'on') {
+    if (agencyCallMetricsMode === 'on' || agencyCallMetricsMode === 'shadow') {
       // Build agency-wide totals from call_metrics_daily first.
       // For RingCentral, this is authoritative (Users sheet).
       const callDailyAgencyTotals = (callDailyData || []).reduce(
@@ -280,7 +280,8 @@ serve(async (req) => {
     }
 
     // Transform view data to match expected interface and enforce call metrics mode.
-    // In non-on modes, call fields should only come from actual submitted scorecards.
+    // In 'on' and 'shadow' modes, auto call values are surfaced (shadow = visible but no scoring impact).
+    // In 'off' mode, call fields only come from actual submitted scorecards.
     const rows: DashboardDailyRow[] = (data || []).map((row) => {
       const fact = row.team_member_id ? factsByTeamMember.get(row.team_member_id) : undefined;
       const mode = agencyCallMetricsMode;
@@ -290,10 +291,10 @@ serve(async (req) => {
       const autoOutbound = callDaily?.outbound ?? fact?.outbound_calls_auto ?? 0;
       const autoTalk = callDaily?.talkMinutes ?? fact?.talk_minutes_auto ?? 0;
       const hasSubmittedScorecard = Boolean(row.final_submission_id);
-      const outboundCalls = mode === 'on'
+      const outboundCalls = (mode === 'on' || mode === 'shadow')
         ? Math.max(autoOutbound, manualOutbound)
         : (hasSubmittedScorecard ? manualOutbound : 0);
-      const talkMinutes = mode === 'on'
+      const talkMinutes = (mode === 'on' || mode === 'shadow')
         ? Math.max(autoTalk, manualTalk)
         : (hasSubmittedScorecard ? manualTalk : 0);
 

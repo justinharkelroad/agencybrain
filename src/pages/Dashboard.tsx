@@ -33,7 +33,7 @@ import { Plus } from 'lucide-react';
 const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, signOut, isAdmin, membershipTier, isAgencyOwner, isKeyEmployee, hasTierAccess } = useAuth();
+  const { user, signOut, isAdmin, membershipTier, isAgencyOwner, isKeyEmployee, keyEmployeeAgencyId, hasTierAccess } = useAuth();
   const {
     canViewPerformanceMetrics,
     canViewMonthOverMonthTrends,
@@ -67,21 +67,38 @@ const Dashboard = () => {
   }, [membershipTier, navigate]);
 
   // Fetch agency name - moved BEFORE early returns to fix hooks order
+  // Key employees resolve agency via key_employees table, not profiles.agency_id
   useEffect(() => {
+    let ignore = false;
+
     const fetchAgencyName = async () => {
       if (!user) return;
+
+      // Resolve agency_id: try profiles first, then key_employees fallback
+      let resolvedAgencyId: string | null = null;
+
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user.id)
         .maybeSingle();
+
+      if (ignore) return;
+
       if (!error && profile?.agency_id) {
-        setAgencyId(profile.agency_id);
+        resolvedAgencyId = profile.agency_id;
+      } else if (keyEmployeeAgencyId) {
+        resolvedAgencyId = keyEmployeeAgencyId;
+      }
+
+      if (resolvedAgencyId) {
+        setAgencyId(resolvedAgencyId);
         const { data: agency, error: agencyError } = await supabase
           .from('agencies')
           .select('*')
-          .eq('id', profile.agency_id)
+          .eq('id', resolvedAgencyId)
           .maybeSingle();
+        if (ignore) return;
         if (!agencyError && agency) {
           setAgencyName(agency.name || null);
           setAgencySlug(agency.slug || null);
@@ -95,7 +112,9 @@ const Dashboard = () => {
     };
 
     fetchAgencyName();
-  }, [user?.id]);
+
+    return () => { ignore = true; };
+  }, [user?.id, keyEmployeeAgencyId]);
 
   // Fetch lead sources and team members for the quote modal - moved BEFORE early returns
   useEffect(() => {
