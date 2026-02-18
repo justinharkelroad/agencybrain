@@ -28,7 +28,7 @@ import {
   HouseholdWithRelations
 } from '@/hooks/useLqsData';
 import { useLqsObjections } from '@/hooks/useLqsObjections';
-import { useStaffLqsData, useStaffLqsObjections, useStaffLqsLeadSources } from '@/hooks/useStaffLqsData';
+import { useStaffLqsData, useStaffLqsObjections, useStaffLqsLeadSources, useStaffAssignLeadSource, useStaffBulkAssignLeadSource } from '@/hooks/useStaffLqsData';
 import { LqsMetricTiles } from '@/components/lqs/LqsMetricTiles';
 import { LqsFilters } from '@/components/lqs/LqsFilters';
 import { LqsHouseholdTable } from '@/components/lqs/LqsHouseholdTable';
@@ -231,8 +231,12 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const { data: staffObjections = [] } = useStaffLqsObjections(isStaffPortal ? staffSessionToken : null);
   const { data: agencyObjections = [] } = useLqsObjections(agencyProfile?.agencyId, !isStaffPortal);
   const objections = isStaffPortal ? staffObjections : agencyObjections;
-  const assignMutation = useAssignLeadSource();
-  const bulkAssignMutation = useBulkAssignLeadSource();
+  const agencyAssignMutation = useAssignLeadSource();
+  const agencyBulkAssignMutation = useBulkAssignLeadSource();
+  const staffAssignMutation = useStaffAssignLeadSource(isStaffPortal ? staffSessionToken : null);
+  const staffBulkAssignMutation = useStaffBulkAssignLeadSource(isStaffPortal ? staffSessionToken : null);
+  const assignMutation = isStaffPortal ? staffAssignMutation : agencyAssignMutation;
+  const bulkAssignMutation = isStaffPortal ? staffBulkAssignMutation : agencyBulkAssignMutation;
 
   const statusRank = useCallback((status: string | null | undefined): number => {
     const normalized = (status || '').toLowerCase();
@@ -700,7 +704,12 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
             onUploadComplete={() => refetch()}
             onSalesUploadResults={(result) => {
               setSalesUploadResults(result);
-              if (result.unmatchedProducers.length > 0 || result.householdsNeedingAttention > 0) {
+              if (
+                result.unmatchedProducers.length > 0 ||
+                result.householdsNeedingAttention > 0 ||
+                result.errors.length > 0 ||
+                result.needsReview > 0
+              ) {
                 setShowSalesResultsModal(true);
               }
             }}

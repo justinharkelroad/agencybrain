@@ -317,7 +317,7 @@ serve(async (req) => {
     // Fetch lead sources for the agency
     const { data: leadSources, error: leadSourcesError } = await supabase
       .from('lead_sources')
-      .select('id, name, is_self_generated')
+      .select('id, name, is_self_generated, bucket:marketing_buckets(id, name)')
       .eq('agency_id', agencyId)
       .eq('is_active', true)
       .order('order_index', { ascending: true });

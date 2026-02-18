@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { HouseholdWithRelations, LqsMetrics, LqsLeadSource } from './useLqsData';
 import { LqsObjection } from './useLqsObjections';
@@ -131,6 +131,71 @@ export function useStaffLqsObjections(sessionToken: string | null) {
       }
 
       return data?.objections || [];
+    },
+  });
+}
+
+export function useStaffAssignLeadSource(sessionToken: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      leadSourceId,
+    }: {
+      householdId: string;
+      leadSourceId: string;
+    }) => {
+      if (!sessionToken) throw new Error('No staff session');
+
+      const { data, error } = await supabase.functions.invoke('staff_assign_lead_source', {
+        headers: {
+          'x-staff-session': sessionToken,
+        },
+        body: {
+          household_id: householdId,
+          lead_source_id: leadSourceId,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
+    },
+  });
+}
+
+export function useStaffBulkAssignLeadSource(sessionToken: string | null) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      householdIds,
+      leadSourceId,
+    }: {
+      householdIds: string[];
+      leadSourceId: string;
+    }) => {
+      if (!sessionToken) throw new Error('No staff session');
+
+      const { data, error } = await supabase.functions.invoke('staff_assign_lead_source', {
+        headers: {
+          'x-staff-session': sessionToken,
+        },
+        body: {
+          household_ids: householdIds,
+          lead_source_id: leadSourceId,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return { updated: householdIds.length };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
     },
   });
 }
