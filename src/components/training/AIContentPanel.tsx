@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Sparkles, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
-import { useGenerateLessonContent, useGenerateQuizFromLesson, useGenerateSPQuiz, useRewriteLessonContent } from '@/hooks/useTrainingAI';
+import { Sparkles, ChevronDown, ChevronUp, Loader2, Video } from 'lucide-react';
+import { useGenerateLessonContent, useGenerateQuizFromLesson, useGenerateSPQuiz, useRewriteLessonContent, useTranscribeVideo } from '@/hooks/useTrainingAI';
 import type { SPQuizQuestion } from '@/hooks/useTrainingAI';
 
 interface AIContentPanelProps {
@@ -20,6 +20,8 @@ interface AIContentPanelProps {
   onQuizGenerated: () => void;
   /** SP mode: receives quiz questions in sp_quizzes JSON format instead of writing to training_quizzes */
   onSPQuizGenerated?: (questions: SPQuizQuestion[]) => void;
+  /** The lesson's video URL (if any) — enables "Transcribe Video" button */
+  videoUrl?: string;
 }
 
 type RewriteMode = 'clearer' | 'concise' | 'actionable' | 'beginner_friendly';
@@ -39,6 +41,7 @@ export function AIContentPanel({
   onContentGenerated,
   onQuizGenerated,
   onSPQuizGenerated,
+  videoUrl,
 }: AIContentPanelProps) {
   const isSPMode = agencyId === null;
   const [expanded, setExpanded] = useState(false);
@@ -49,10 +52,26 @@ export function AIContentPanel({
   const [quizSuccess, setQuizSuccess] = useState(false);
   const [rewriteNote, setRewriteNote] = useState(false);
 
+  const transcribeVideo = useTranscribeVideo();
   const generateLesson = useGenerateLessonContent();
   const generateQuiz = useGenerateQuizFromLesson();
   const generateSPQuiz = useGenerateSPQuiz();
   const rewriteContent = useRewriteLessonContent();
+
+  const handleTranscribeVideo = () => {
+    if (!videoUrl) return;
+    transcribeVideo.mutate(
+      { video_url: videoUrl, agency_id: agencyId },
+      {
+        onSuccess: (transcript) => {
+          onContentGenerated(transcript);
+        },
+      }
+    );
+  };
+
+  const hasVideoUrl = !!videoUrl?.trim();
+  const isYouTube = hasVideoUrl && /youtube\.com|youtu\.be/i.test(videoUrl!);
 
   const handleGenerateLesson = () => {
     if (!topic.trim()) return;
@@ -183,6 +202,40 @@ export function AIContentPanel({
 
             {/* Generate Draft */}
             <TabsContent value="generate" className="space-y-3 mt-3">
+              {hasVideoUrl && isYouTube && (
+                <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <Video className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                    <p className="text-sm text-muted-foreground">
+                      This lesson has a video. Transcribe it to generate content from what's covered in the video.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleTranscribeVideo}
+                    disabled={transcribeVideo.isPending}
+                    size="sm"
+                    variant="outline"
+                  >
+                    {transcribeVideo.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-2" />
+                    )}
+                    {transcribeVideo.isPending ? 'Transcribing...' : 'Transcribe Video'}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">Or describe the topic manually below.</p>
+                </div>
+              )}
+              {hasVideoUrl && !isYouTube && (
+                <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-3">
+                  <div className="flex items-start gap-2">
+                    <Video className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
+                    <p className="text-sm text-muted-foreground">
+                      This lesson has a video. To use the AI tools, paste a transcript or summary of what the video covers into the content field, then come back here to generate a quiz or rewrite.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div>
                 <Label htmlFor="ai-topic" className="text-sm">What should this lesson cover?</Label>
                 <Textarea

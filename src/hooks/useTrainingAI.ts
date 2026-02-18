@@ -4,6 +4,11 @@ import { toast } from 'sonner';
 
 // --- Types ---
 
+interface TranscribeVideoParams {
+  video_url: string;
+  agency_id: string | null;
+}
+
 interface GenerateLessonParams {
   topic: string;
   lesson_name?: string;
@@ -30,6 +35,34 @@ interface AIQuestion {
 }
 
 // --- Mutations ---
+
+export function useTranscribeVideo() {
+  return useMutation({
+    mutationFn: async ({ video_url, agency_id }: TranscribeVideoParams) => {
+      const { data, error } = await supabase.functions.invoke('transcribe-training-video', {
+        body: { video_url, agency_id },
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw error;
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      return data.transcript as string;
+    },
+    onSuccess: () => {
+      toast.success('Video transcribed successfully');
+    },
+    onError: (error) => {
+      console.error('Transcribe video error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to transcribe video');
+    },
+  });
+}
 
 export function useGenerateLessonContent() {
   return useMutation({

@@ -1060,6 +1060,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                   contentHtml={lessonForm.content_html}
                   onContentGenerated={(html) => setLessonForm(prev => ({ ...prev, content_html: html }))}
                   onQuizGenerated={() => {}}
+                  videoUrl={lessonForm.video_url}
                 />
               )}
               <div className="flex items-center gap-2">

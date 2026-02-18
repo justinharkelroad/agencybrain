@@ -540,6 +540,7 @@ export default function AdminSPLessonEditor() {
             setQuizQuestions(questions);
             setHasQuiz(true);
           }}
+          videoUrl={videoUrl}
         />
 
         {/* Documents */}
