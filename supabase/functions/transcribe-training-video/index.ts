@@ -83,76 +83,216 @@ function cleanTranscript(rawText: string): string {
 
 const RE_XML_TRANSCRIPT = /<text start="([^"]*)" dur="([^"]*)">([^<]*)<\/text>/g;
 
-const INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8'; // Public YouTube web client key
-const INNERTUBE_CLIENT = {
-  clientName: 'WEB',
-  clientVersion: '2.20240313.05.00',
-  hl: 'en',
-};
+const USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-async function fetchYouTubeTranscript(videoId: string): Promise<string> {
-  // Step 1: Get video player response via InnerTube API
-  const playerRes = await fetch(
-    `https://www.youtube.com/youtubei/v1/player?key=${INNERTUBE_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        context: { client: INNERTUBE_CLIENT },
-        videoId,
-      }),
-    }
-  );
-
-  if (!playerRes.ok) {
-    throw new Error('Could not access YouTube video. Make sure the video is publicly accessible.');
-  }
-
-  const playerData = await playerRes.json();
-
-  // Check for playability issues
-  const status = playerData?.playabilityStatus?.status;
-  if (status === 'LOGIN_REQUIRED' || status === 'UNPLAYABLE') {
-    throw new Error('Could not access YouTube video. Make sure the video is publicly accessible.');
-  }
-
-  const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
-  if (!tracks || tracks.length === 0) {
-    throw new Error('No transcript available for this video. You can paste one manually.');
-  }
-
-  // Prefer English, fall back to first available track
-  const track =
-    tracks.find((t: any) => t.languageCode === 'en') ||
-    tracks.find((t: any) => t.languageCode?.startsWith('en')) ||
-    tracks[0];
-
-  if (!track?.baseUrl) {
-    throw new Error('No transcript available for this video. You can paste one manually.');
-  }
-
-  // Step 2: Fetch the transcript XML from the caption track URL
-  const transcriptRes = await fetch(track.baseUrl);
-
-  if (!transcriptRes.ok) {
-    throw new Error('Failed to fetch video transcript. Try again later.');
-  }
-
-  const xml = await transcriptRes.text();
-
-  // Step 3: Parse segments from XML
+function parseTranscriptXml(xml: string): string[] {
   const segments: string[] = [];
   RE_XML_TRANSCRIPT.lastIndex = 0;
   let match;
   while ((match = RE_XML_TRANSCRIPT.exec(xml)) !== null) {
     segments.push(decodeHtmlEntities(match[3]));
   }
+  return segments;
+}
+
+function findCaptionTracks(playerData: any): any[] | null {
+  const tracks = playerData?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+  return tracks && tracks.length > 0 ? tracks : null;
+}
+
+function pickBestTrack(tracks: any[]): any {
+  return (
+    tracks.find((t: any) => t.languageCode === 'en') ||
+    tracks.find((t: any) => t.languageCode?.startsWith('en')) ||
+    tracks[0]
+  );
+}
+
+async function fetchTranscriptFromTrack(track: any): Promise<string> {
+  if (!track?.baseUrl) {
+    throw new Error('No transcript URL available.');
+  }
+
+  const res = await fetch(track.baseUrl);
+  if (!res.ok) {
+    throw new Error('Failed to fetch video transcript. Try again later.');
+  }
+
+  const xml = await res.text();
+  const segments = parseTranscriptXml(xml);
 
   if (segments.length === 0) {
     throw new Error('No transcript available for this video. You can paste one manually.');
   }
 
   return cleanTranscript(segments.join(' '));
+}
+
+// --- Strategy 1: InnerTube embedded player client ---
+// The embedded player client bypasses many restrictions that block the
+// standard WEB client on server-side requests (LOGIN_REQUIRED, etc.)
+
+async function tryInnerTubeEmbedded(videoId: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      'https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          context: {
+            client: {
+              clientName: 'WEB_EMBEDDED_PLAYER',
+              clientVersion: '1.20240313.00.00',
+              hl: 'en',
+            },
+            thirdParty: { embedUrl: 'https://www.google.com' },
+          },
+          videoId,
+        }),
+      }
+    );
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const status = data?.playabilityStatus?.status;
+    console.log(`InnerTube embedded: status=${status}`);
+
+    if (status !== 'OK') return null;
+
+    const tracks = findCaptionTracks(data);
+    if (!tracks) return null;
+
+    return await fetchTranscriptFromTrack(pickBestTrack(tracks));
+  } catch (e) {
+    console.log('InnerTube embedded failed:', e);
+    return null;
+  }
+}
+
+// --- Strategy 2: InnerTube standard WEB client ---
+
+async function tryInnerTubeWeb(videoId: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      'https://www.youtube.com/youtubei/v1/player?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8&prettyPrint=false',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          context: {
+            client: {
+              clientName: 'WEB',
+              clientVersion: '2.20240313.05.00',
+              hl: 'en',
+            },
+          },
+          videoId,
+        }),
+      }
+    );
+
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const status = data?.playabilityStatus?.status;
+    console.log(`InnerTube WEB: status=${status}`);
+
+    if (status !== 'OK') return null;
+
+    const tracks = findCaptionTracks(data);
+    if (!tracks) return null;
+
+    return await fetchTranscriptFromTrack(pickBestTrack(tracks));
+  } catch (e) {
+    console.log('InnerTube WEB failed:', e);
+    return null;
+  }
+}
+
+// --- Strategy 3: HTML page scraping fallback ---
+// Fetches the YouTube watch page and extracts caption tracks from the
+// embedded ytInitialPlayerResponse JSON.
+
+async function tryPageScrape(videoId: string): Promise<string | null> {
+  try {
+    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+    });
+
+    if (!pageRes.ok) return null;
+
+    const html = await pageRes.text();
+
+    if (html.includes('class="g-recaptcha"')) {
+      console.log('Page scrape: hit CAPTCHA');
+      return null;
+    }
+
+    // Try ytInitialPlayerResponse first (more reliable than splitting on "captions":)
+    let playerData: any = null;
+
+    const ytInitMatch = html.match(/var ytInitialPlayerResponse\s*=\s*(\{.+?\});/s);
+    if (ytInitMatch) {
+      try {
+        playerData = JSON.parse(ytInitMatch[1]);
+      } catch { /* continue to fallback */ }
+    }
+
+    // Fallback: split on "captions":
+    if (!playerData) {
+      const split = html.split('"captions":');
+      if (split.length > 1) {
+        try {
+          const captionsJson = split[1].split(',"videoDetails')[0].replace(/\\n/g, '');
+          const captions = JSON.parse(`{"captions":${captionsJson}}`);
+          playerData = captions;
+        } catch { /* give up */ }
+      }
+    }
+
+    if (!playerData) {
+      console.log('Page scrape: could not extract player data');
+      return null;
+    }
+
+    // playerData might be the full response or just the captions wrapper
+    const tracks =
+      findCaptionTracks(playerData) ||
+      findCaptionTracks({ captions: playerData.captions || playerData });
+
+    if (!tracks) {
+      console.log('Page scrape: no caption tracks found');
+      return null;
+    }
+
+    return await fetchTranscriptFromTrack(pickBestTrack(tracks));
+  } catch (e) {
+    console.log('Page scrape failed:', e);
+    return null;
+  }
+}
+
+// --- Main transcript fetch: tries all strategies ---
+
+async function fetchYouTubeTranscript(videoId: string): Promise<string> {
+  // Try strategies in order of reliability for server-side requests
+  const transcript =
+    await tryInnerTubeEmbedded(videoId) ||
+    await tryInnerTubeWeb(videoId) ||
+    await tryPageScrape(videoId);
+
+  if (!transcript) {
+    throw new Error('No transcript available for this video. You can paste one manually.');
+  }
+
+  return transcript;
 }
 
 // --- Main handler ---
