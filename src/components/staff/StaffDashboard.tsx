@@ -20,6 +20,7 @@ import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { ChallengeDashboardWidget } from '@/components/challenge/ChallengeDashboardWidget';
 import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
+import { StaffChallengeBanner } from './StaffChallengeBanner';
 interface KPIData {
   key: string;
   slug: string;
@@ -266,6 +267,8 @@ export function StaffDashboard() {
           <span className="sm:hidden">Add Quote</span>
         </Button>
       </div>
+
+      <StaffChallengeBanner />
 
       {/* Sales Summary Widget - At Top (only for whitelisted agencies) */}
       {user?.agency_id && user?.team_member_id && hasSalesAccess(user.agency_id) && (
