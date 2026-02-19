@@ -429,20 +429,39 @@ serve(async (req) => {
 
         if (error) throw error;
 
-        const grouped: Record<string, { bundle_type: string; items: number; premium: number; households: Set<string> }> = {};
-        
+        // Determine best bundle type per customer (Preferred > Standard > Monoline)
+        // Cross-sells create multiple sale records; classify each customer by highest type.
+        const customerBestBundle: Record<string, string> = {};
         for (const sale of sales || []) {
-          const bundleType = sale.bundle_type || "Monoline";
-          
-          if (!grouped[bundleType]) {
-            grouped[bundleType] = { bundle_type: bundleType, items: 0, premium: 0, households: new Set() };
+          if (!sale.customer_name) continue;
+          const key = sale.customer_name.toLowerCase().trim();
+          const saleType = sale.bundle_type || "Monoline";
+          const current = customerBestBundle[key];
+          if (saleType === "Preferred") {
+            customerBestBundle[key] = "Preferred";
+          } else if (saleType === "Standard" && current !== "Preferred") {
+            customerBestBundle[key] = "Standard";
+          } else if (!current) {
+            customerBestBundle[key] = "Monoline";
           }
-          
+        }
+
+        // Aggregate everything by customer's best bundle type so items/premium/households stay consistent
+        const grouped: Record<string, { bundle_type: string; items: number; premium: number; households: Set<string> }> = {};
+
+        for (const sale of sales || []) {
+          const customerKey = (sale.customer_name || "").toLowerCase().trim();
+          const bestType = customerKey ? (customerBestBundle[customerKey] || "Monoline") : (sale.bundle_type || "Monoline");
+
+          if (!grouped[bestType]) {
+            grouped[bestType] = { bundle_type: bestType, items: 0, premium: 0, households: new Set() };
+          }
+
           const countable = calculateCountableTotals(sale.sale_policies || []);
-          grouped[bundleType].items += countable.items;
-          grouped[bundleType].premium += countable.premium;
-          if (sale.customer_name) {
-            grouped[bundleType].households.add(sale.customer_name.toLowerCase().trim());
+          grouped[bestType].items += countable.items;
+          grouped[bestType].premium += countable.premium;
+          if (customerKey) {
+            grouped[bestType].households.add(customerKey);
           }
         }
 

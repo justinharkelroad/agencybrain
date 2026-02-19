@@ -97,65 +97,66 @@ async function fetchBundleMixData(
 
   if (salesError) throw salesError;
 
-  // Aggregate per team member
-  const aggregated: Record<string, {
-    team_member_id: string;
-    name: string;
-    preferred: Set<string>;
-    standard: Set<string>;
-    monoline: Set<string>;
-    allCustomers: Set<string>;
-  }> = {};
+  // First pass: determine best bundle type per customer per team member
+  // Priority: Preferred > Standard > Monoline (null)
+  // Cross-sells create multiple sale records for the same customer with different
+  // bundle types; we classify each customer by their highest bundle type.
+  const bestBundlePerCustomer: Record<string, Record<string, string>> = {};
 
+  const tmNames: Record<string, string> = {};
   for (const tm of teamMembers || []) {
-    aggregated[tm.id] = {
-      team_member_id: tm.id,
-      name: tm.name,
-      preferred: new Set(),
-      standard: new Set(),
-      monoline: new Set(),
-      allCustomers: new Set(),
-    };
+    bestBundlePerCustomer[tm.id] = {};
+    tmNames[tm.id] = tm.name;
   }
 
   for (const sale of sales || []) {
     const tmId = sale.team_member_id;
-    if (!tmId || !aggregated[tmId]) continue;
+    if (!tmId || !bestBundlePerCustomer[tmId]) continue;
 
     const customerKey = (sale.customer_name || "").toLowerCase().trim();
     if (!customerKey) continue;
 
-    aggregated[tmId].allCustomers.add(customerKey);
+    const current = bestBundlePerCustomer[tmId][customerKey];
+    const saleType = sale.bundle_type; // null = Monoline
 
-    if (sale.bundle_type === "Preferred") {
-      aggregated[tmId].preferred.add(customerKey);
-    } else if (sale.bundle_type === "Standard") {
-      aggregated[tmId].standard.add(customerKey);
-    } else {
-      // NULL bundle_type = Monoline
-      aggregated[tmId].monoline.add(customerKey);
+    // Upgrade to highest bundle type seen for this customer
+    if (saleType === "Preferred") {
+      bestBundlePerCustomer[tmId][customerKey] = "Preferred";
+    } else if (saleType === "Standard" && current !== "Preferred") {
+      bestBundlePerCustomer[tmId][customerKey] = "Standard";
+    } else if (!current) {
+      bestBundlePerCustomer[tmId][customerKey] = "Monoline";
     }
   }
 
-  // Convert to BundleMixEntry array
-  const entries: BundleMixEntry[] = Object.values(aggregated).map((entry) => {
-    const total = entry.allCustomers.size;
-    const preferred = entry.preferred.size;
-    const standard = entry.standard.size;
-    const monoline = entry.monoline.size;
+  // Second pass: count customers by their best bundle type
+  const entries: BundleMixEntry[] = Object.entries(bestBundlePerCustomer).map(
+    ([tmId, customers]) => {
+      let preferred = 0;
+      let standard = 0;
+      let monoline = 0;
 
-    return {
-      team_member_id: entry.team_member_id,
-      name: entry.name,
-      totalHouseholds: total,
-      preferred,
-      standard,
-      monoline,
-      preferredPct: total > 0 ? Math.round((preferred / total) * 100) : 0,
-      standardPct: total > 0 ? Math.round((standard / total) * 100) : 0,
-      monolinePct: total > 0 ? Math.round((monoline / total) * 100) : 0,
-    };
-  });
+      for (const bundleType of Object.values(customers)) {
+        if (bundleType === "Preferred") preferred++;
+        else if (bundleType === "Standard") standard++;
+        else monoline++;
+      }
+
+      const total = preferred + standard + monoline;
+
+      return {
+        team_member_id: tmId,
+        name: tmNames[tmId] || "",
+        totalHouseholds: total,
+        preferred,
+        standard,
+        monoline,
+        preferredPct: total > 0 ? Math.round((preferred / total) * 100) : 0,
+        standardPct: total > 0 ? Math.round((standard / total) * 100) : 0,
+        monolinePct: total > 0 ? Math.round((monoline / total) * 100) : 0,
+      };
+    }
+  );
 
   // Default sort: Preferred % descending
   entries.sort((a, b) => b.preferredPct - a.preferredPct || b.totalHouseholds - a.totalHouseholds);
