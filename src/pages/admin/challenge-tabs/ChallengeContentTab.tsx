@@ -4,14 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Edit, Video, FileText, HelpCircle, Zap, CheckCircle2, Circle } from "lucide-react";
+import { Edit, Video, FileText, HelpCircle, Zap, CheckCircle2, Circle, Sun } from "lucide-react";
 import {
   useChallengeProducts,
   useChallengeModules,
   useChallengeLessons,
-  type ChallengeLesson
+  useChallengeSundayModules,
+  type ChallengeLesson,
+  type ChallengeSundayModule
 } from "@/hooks/useChallengeAdmin";
 import { ChallengeLessonEditor } from "@/components/challenge/admin/ChallengeLessonEditor";
+import { ChallengeSundayEditor } from "@/components/challenge/admin/ChallengeSundayEditor";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { cn } from "@/lib/utils";
 
@@ -46,6 +49,7 @@ export function ChallengeContentTab() {
 
   // Track the actual editing lesson object (synced from lessons data)
   const [editingLesson, setEditingLessonState] = useState<ChallengeLesson | null>(null);
+  const [editingSundayModule, setEditingSundayModule] = useState<ChallengeSundayModule | null>(null);
 
   // Fetch challenge product (assuming single product for now)
   const { data: products, isLoading: productsLoading } = useChallengeProducts();
@@ -59,6 +63,9 @@ export function ChallengeContentTab() {
 
   // Fetch lessons for the current module
   const { data: lessons, isLoading: lessonsLoading } = useChallengeLessons(currentModule?.id);
+
+  // Fetch Sunday modules for this product
+  const { data: sundayModules } = useChallengeSundayModules(product?.id);
 
   // Sync editingLesson from URL param when lessons data is available
   useEffect(() => {
@@ -172,6 +179,68 @@ export function ChallengeContentTab() {
                   </CardHeader>
                 </Card>
 
+                {/* Sunday Module at TOP */}
+                {(() => {
+                  const sundayTop = sundayModules?.find(sm =>
+                    selectedWeek === 1 ? sm.sunday_number === 0 : sm.sunday_number === selectedWeek - 1
+                  );
+                  if (!sundayTop) return null;
+                  return (
+                    <Card
+                      key={`sunday-${sundayTop.sunday_number}`}
+                      className="cursor-pointer transition-colors hover:bg-amber-50/50 dark:hover:bg-amber-950/20 border-l-4 border-l-amber-400"
+                      onClick={() => setEditingSundayModule(sundayTop)}
+                    >
+                      <CardContent className="py-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="flex flex-col items-center justify-center w-16 h-16 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                              <Sun className="h-5 w-5 text-amber-600" />
+                              <span className="text-xs font-medium text-amber-700 dark:text-amber-400 mt-0.5">
+                                Sun {sundayTop.sunday_number}
+                              </span>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-medium">{sundayTop.title}</h3>
+                                <Badge variant="outline" className="text-xs border-amber-300 text-amber-700 dark:text-amber-400">
+                                  Optional
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">
+                                {sundayTop.sunday_number === 0 ? 'Set initial commitments' : 'Rate & recommit'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                              <div className="flex items-center gap-1" title="Video">
+                                <Video className={cn("h-4 w-4", sundayTop.video_url ? "text-amber-500" : "")} />
+                                {sundayTop.video_url ? (
+                                  <CheckCircle2 className="h-3 w-3 text-amber-500" />
+                                ) : (
+                                  <Circle className="h-3 w-3" />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1" title="Blurb">
+                                <FileText className={cn("h-4 w-4", sundayTop.blurb_html ? "text-amber-500" : "")} />
+                                {sundayTop.blurb_html ? (
+                                  <CheckCircle2 className="h-3 w-3 text-amber-500" />
+                                ) : (
+                                  <Circle className="h-3 w-3" />
+                                )}
+                              </div>
+                            </div>
+                            <Button variant="ghost" size="icon">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
+
                 {/* Lessons Grid */}
                 <div className="grid gap-4">
                   {lessons?.map((lesson) => (
@@ -261,6 +330,44 @@ export function ChallengeContentTab() {
                     </Card>
                   )}
                 </div>
+
+                {/* Sunday 6 FINAL at bottom of Week 6 */}
+                {selectedWeek === 6 && (() => {
+                  const sundayFinal = sundayModules?.find(sm => sm.sunday_number === 6);
+                  if (!sundayFinal) return null;
+                  return (
+                    <Card
+                      key="sunday-final"
+                      className="cursor-pointer transition-colors hover:bg-amber-50/50 dark:hover:bg-amber-950/20 border-l-4 border-l-amber-400"
+                      onClick={() => setEditingSundayModule(sundayFinal)}
+                    >
+                      <CardContent className="py-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="flex flex-col items-center justify-center w-16 h-16 rounded-lg bg-amber-100 dark:bg-amber-900/30">
+                              <Sun className="h-5 w-5 text-amber-600" />
+                              <span className="text-xs font-medium text-amber-700 dark:text-amber-400 mt-0.5">
+                                Sun 6
+                              </span>
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-medium">{sundayFinal.title}</h3>
+                                <Badge variant="outline" className="text-xs border-amber-300 text-amber-700 dark:text-amber-400">
+                                  Final
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-muted-foreground">Final reflection</p>
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="icon">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })()}
               </div>
             )}
           </TabsContent>
@@ -273,6 +380,14 @@ export function ChallengeContentTab() {
           lesson={editingLesson}
           weekNumber={selectedWeek}
           onClose={closeLessonEditor}
+        />
+      )}
+
+      {/* Sunday Module Editor Dialog */}
+      {editingSundayModule && (
+        <ChallengeSundayEditor
+          module={editingSundayModule}
+          onClose={() => setEditingSundayModule(null)}
         />
       )}
     </div>

@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_call_credit_grants: {
+        Row: {
+          agency_id: string
+          balance_after: number
+          balance_before: number
+          call_count: number
+          expires_at: string
+          granted_at: string
+          granted_by: string
+          id: string
+          notes: string | null
+        }
+        Insert: {
+          agency_id: string
+          balance_after?: number
+          balance_before?: number
+          call_count: number
+          expires_at: string
+          granted_at?: string
+          granted_by: string
+          id?: string
+          notes?: string | null
+        }
+        Update: {
+          agency_id?: string
+          balance_after?: number
+          balance_before?: number
+          call_count?: number
+          expires_at?: string
+          granted_at?: string
+          granted_by?: string
+          id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_call_credit_grants_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_call_credit_grants_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agencies: {
         Row: {
           address_city: string | null
@@ -24,6 +75,7 @@ export type Database = {
           agency_email: string
           agent_cell: string | null
           agent_name: string | null
+          ai_training_enabled: boolean
           auto_reminders_enabled: boolean | null
           breakup_letter_agency_display_name: string | null
           breakup_letter_confirmation_reply_email: string | null
@@ -75,6 +127,7 @@ export type Database = {
           agency_email: string
           agent_cell?: string | null
           agent_name?: string | null
+          ai_training_enabled?: boolean
           auto_reminders_enabled?: boolean | null
           breakup_letter_agency_display_name?: string | null
           breakup_letter_confirmation_reply_email?: string | null
@@ -126,6 +179,7 @@ export type Database = {
           agency_email?: string
           agent_cell?: string | null
           agent_name?: string | null
+          ai_training_enabled?: boolean
           auto_reminders_enabled?: boolean | null
           breakup_letter_agency_display_name?: string | null
           breakup_letter_confirmation_reply_email?: string | null
@@ -206,6 +260,8 @@ export type Database = {
       agency_call_balance: {
         Row: {
           agency_id: string
+          bonus_calls_expires_at: string | null
+          bonus_calls_remaining: number | null
           created_at: string | null
           id: string
           purchased_calls_remaining: number | null
@@ -217,6 +273,8 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          bonus_calls_expires_at?: string | null
+          bonus_calls_remaining?: number | null
           created_at?: string | null
           id?: string
           purchased_calls_remaining?: number | null
@@ -228,6 +286,8 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          bonus_calls_expires_at?: string | null
+          bonus_calls_remaining?: number | null
           created_at?: string | null
           id?: string
           purchased_calls_remaining?: number | null
@@ -864,6 +924,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      banner_dismissals: {
+        Row: {
+          banner_key: string
+          dismissed_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          banner_key: string
+          dismissed_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          banner_key?: string
+          dismissed_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       bonus_forecast_inputs: {
         Row: {
@@ -1904,6 +1985,7 @@ export type Database = {
           is_active: boolean
           last_upload_id: string | null
           no_of_items: number | null
+          original_year: string | null
           pending_cancel_date: string | null
           policy_number: string
           premium_cents: number | null
@@ -1936,6 +2018,7 @@ export type Database = {
           is_active?: boolean
           last_upload_id?: string | null
           no_of_items?: number | null
+          original_year?: string | null
           pending_cancel_date?: string | null
           policy_number: string
           premium_cents?: number | null
@@ -1968,6 +2051,7 @@ export type Database = {
           is_active?: boolean
           last_upload_id?: string | null
           no_of_items?: number | null
+          original_year?: string | null
           pending_cancel_date?: string | null
           policy_number?: string
           premium_cents?: number | null
@@ -2698,6 +2782,156 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_sunday_modules: {
+        Row: {
+          blurb_html: string | null
+          challenge_product_id: string
+          created_at: string
+          final_reflection_prompt: string | null
+          has_commitment_section: boolean
+          has_final_reflection: boolean
+          has_rating_section: boolean
+          id: string
+          sunday_number: number
+          title: string
+          updated_at: string
+          video_thumbnail_url: string | null
+          video_url: string | null
+        }
+        Insert: {
+          blurb_html?: string | null
+          challenge_product_id: string
+          created_at?: string
+          final_reflection_prompt?: string | null
+          has_commitment_section?: boolean
+          has_final_reflection?: boolean
+          has_rating_section?: boolean
+          id?: string
+          sunday_number: number
+          title: string
+          updated_at?: string
+          video_thumbnail_url?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          blurb_html?: string | null
+          challenge_product_id?: string
+          created_at?: string
+          final_reflection_prompt?: string | null
+          has_commitment_section?: boolean
+          has_final_reflection?: boolean
+          has_rating_section?: boolean
+          id?: string
+          sunday_number?: number
+          title?: string
+          updated_at?: string
+          video_thumbnail_url?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_sunday_modules_challenge_product_id_fkey"
+            columns: ["challenge_product_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_sunday_responses: {
+        Row: {
+          accomplished_balance: boolean | null
+          accomplished_being: boolean | null
+          accomplished_body: boolean | null
+          accomplished_business: boolean | null
+          assignment_id: string
+          commitment_balance: string | null
+          commitment_being: string | null
+          commitment_body: string | null
+          commitment_business: string | null
+          completed_at: string
+          created_at: string
+          final_reflection: string | null
+          id: string
+          rating_balance: number | null
+          rating_being: number | null
+          rating_body: number | null
+          rating_business: number | null
+          staff_user_id: string
+          sunday_module_id: string
+          sunday_number: number
+          updated_at: string
+        }
+        Insert: {
+          accomplished_balance?: boolean | null
+          accomplished_being?: boolean | null
+          accomplished_body?: boolean | null
+          accomplished_business?: boolean | null
+          assignment_id: string
+          commitment_balance?: string | null
+          commitment_being?: string | null
+          commitment_body?: string | null
+          commitment_business?: string | null
+          completed_at?: string
+          created_at?: string
+          final_reflection?: string | null
+          id?: string
+          rating_balance?: number | null
+          rating_being?: number | null
+          rating_body?: number | null
+          rating_business?: number | null
+          staff_user_id: string
+          sunday_module_id: string
+          sunday_number: number
+          updated_at?: string
+        }
+        Update: {
+          accomplished_balance?: boolean | null
+          accomplished_being?: boolean | null
+          accomplished_body?: boolean | null
+          accomplished_business?: boolean | null
+          assignment_id?: string
+          commitment_balance?: string | null
+          commitment_being?: string | null
+          commitment_body?: string | null
+          commitment_business?: string | null
+          completed_at?: string
+          created_at?: string
+          final_reflection?: string | null
+          id?: string
+          rating_balance?: number | null
+          rating_being?: number | null
+          rating_body?: number | null
+          rating_business?: number | null
+          staff_user_id?: string
+          sunday_module_id?: string
+          sunday_number?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_sunday_responses_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_sunday_responses_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "challenge_sunday_responses_sunday_module_id_fkey"
+            columns: ["sunday_module_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_sunday_modules"
             referencedColumns: ["id"]
           },
         ]
@@ -8727,6 +8961,7 @@ export type Database = {
           email_subject: string
           error_message: string | null
           id: string
+          lesson_id: string | null
           recipient_email: string
           recipient_name: string | null
           recipient_type: string
@@ -8746,6 +8981,7 @@ export type Database = {
           email_subject: string
           error_message?: string | null
           id?: string
+          lesson_id?: string | null
           recipient_email: string
           recipient_name?: string | null
           recipient_type?: string
@@ -8765,6 +9001,7 @@ export type Database = {
           email_subject?: string
           error_message?: string | null
           id?: string
+          lesson_id?: string | null
           recipient_email?: string
           recipient_name?: string | null
           recipient_type?: string
@@ -8783,6 +9020,13 @@ export type Database = {
             columns: ["assignment_id"]
             isOneToOne: false
             referencedRelation: "sales_experience_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_email_queue_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "sales_experience_lessons"
             referencedColumns: ["id"]
           },
         ]
@@ -12767,6 +13011,20 @@ export type Database = {
         }
         Returns: string
       }
+      admin_grant_bonus_calls: {
+        Args: {
+          p_agency_id: string
+          p_call_count: number
+          p_expires_at?: string
+          p_notes?: string
+        }
+        Returns: {
+          bonus_remaining: number
+          expires_at: string
+          message: string
+          success: boolean
+        }[]
+      }
       backfill_lqs_sales_matching: {
         Args: { p_agency_id: string }
         Returns: {
@@ -12806,6 +13064,7 @@ export type Database = {
       check_call_scoring_access: {
         Args: { p_agency_id: string }
         Returns: {
+          bonus_remaining: number
           can_score: boolean
           message: string
           purchased_remaining: number
@@ -13050,35 +13309,59 @@ export type Database = {
           subject: string
         }[]
       }
-      get_contacts_by_stage: {
-        Args: {
-          p_agency_id: string
-          p_limit?: number
-          p_offset?: number
-          p_search?: string
-          p_sort_by?: string
-          p_sort_direction?: string
-          p_staff_session_token?: string
-          p_stage?: string
-        }
-        Returns: {
-          agency_id: string
-          assigned_team_member_name: string
-          created_at: string
-          current_stage: string
-          emails: string[]
-          first_name: string
-          household_key: string
-          id: string
-          last_activity_at: string
-          last_activity_type: string
-          last_name: string
-          phones: string[]
-          total_count: number
-          updated_at: string
-          zip_code: string
-        }[]
-      }
+      get_contacts_by_stage:
+        | {
+            Args: {
+              p_agency_id: string
+              p_limit?: number
+              p_offset?: number
+              p_search?: string
+              p_stage?: string
+            }
+            Returns: {
+              agency_id: string
+              computed_stage: string
+              created_at: string
+              emails: string[]
+              first_name: string
+              household_key: string
+              id: string
+              last_name: string
+              phones: string[]
+              total_count: number
+              updated_at: string
+              zip_code: string
+            }[]
+          }
+        | {
+            Args: {
+              p_agency_id: string
+              p_limit?: number
+              p_offset?: number
+              p_search?: string
+              p_sort_by?: string
+              p_sort_direction?: string
+              p_staff_session_token?: string
+              p_stage?: string
+            }
+            Returns: {
+              agency_id: string
+              assigned_team_member_name: string
+              created_at: string
+              current_stage: string
+              emails: string[]
+              first_name: string
+              household_key: string
+              id: string
+              last_activity_at: string
+              last_activity_type: string
+              last_name: string
+              phones: string[]
+              total_count: number
+              updated_at: string
+              zip_code: string
+            }[]
+          }
       get_conversation_participants: {
         Args: { participant_ids: string[] }
         Returns: {
@@ -13143,6 +13426,14 @@ export type Database = {
       }
       get_my_agency_id: { Args: never; Returns: string }
       get_next_monday: { Args: { p_from_date?: string }; Returns: string }
+      get_renewal_stats: {
+        Args: {
+          p_agency_id: string
+          p_date_end?: string
+          p_date_start?: string
+        }
+        Returns: Json
+      }
       get_ringcentral_unmatched_alerts: {
         Args: {
           p_days?: number
@@ -13507,6 +13798,7 @@ export type Database = {
           p_agent_number: string
           p_amount_due_cents: number
           p_cancel_date: string
+          p_cancel_status?: string
           p_household_key: string
           p_insured_email: string
           p_insured_first_name: string
@@ -13515,6 +13807,7 @@ export type Database = {
           p_insured_phone_alt: string
           p_last_upload_id: string
           p_no_of_items: number
+          p_original_year?: string
           p_pending_cancel_date: string
           p_policy_number: string
           p_premium_cents: number

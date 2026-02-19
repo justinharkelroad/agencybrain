@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
     const agencyId = staffUser.agency_id;
 
     // Get active challenge assignment for this staff member
+    // Include 'completed' status so Sunday modules remain accessible after all 30 lessons are done
     const { data: assignment, error: assignmentError } = await supabase
       .from('challenge_assignments')
       .select(`
@@ -66,7 +67,7 @@ Deno.serve(async (req) => {
         )
       `)
       .eq('staff_user_id', staffUserId)
-      .in('status', ['active', 'pending'])
+      .in('status', ['active', 'pending', 'completed'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -214,6 +215,77 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Sunday Modules ──────────────────────────────────────
+    // Fetch module definitions
+    const { data: sundayModules, error: sundayModulesError } = await supabase
+      .from('challenge_sunday_modules')
+      .select('*')
+      .eq('challenge_product_id', assignment.challenge_product_id)
+      .order('sunday_number');
+
+    if (sundayModulesError) {
+      console.error('Sunday modules error:', sundayModulesError);
+    }
+
+    // Fetch existing responses for this assignment
+    const { data: sundayResponses, error: sundayResponsesError } = await supabase
+      .from('challenge_sunday_responses')
+      .select('*')
+      .eq('assignment_id', assignment.id)
+      .order('sunday_number');
+
+    if (sundayResponsesError) {
+      console.error('Sunday responses error:', sundayResponsesError);
+    }
+
+    // Build response map for quick lookup
+    const responseMap = new Map<number, any>();
+    if (sundayResponses) {
+      for (const r of sundayResponses) {
+        responseMap.set(r.sunday_number, r);
+      }
+    }
+
+    // Calculate unlock status and attach previous commitments
+    const processedSundayModules = (sundayModules || []).map((mod: any) => {
+      // Unlock logic:
+      // Sunday 0: always unlocked
+      // Sunday N (1-6): unlocked when today >= start_date + (N * 7) - 1 days
+      let isUnlocked = false;
+      if (mod.sunday_number === 0) {
+        isUnlocked = true;
+      } else {
+        const unlockDate = new Date(startDate);
+        unlockDate.setDate(unlockDate.getDate() + (mod.sunday_number * 7) - 1);
+        isUnlocked = today >= unlockDate;
+      }
+
+      const response = responseMap.get(mod.sunday_number) || null;
+      const isCompleted = !!response;
+
+      // For modules with rating section, attach previous commitments
+      let previousCommitments: { body: string | null; being: string | null; balance: string | null; business: string | null } | null = null;
+      if (mod.has_rating_section && mod.sunday_number > 0) {
+        const prevResponse = responseMap.get(mod.sunday_number - 1);
+        if (prevResponse) {
+          previousCommitments = {
+            body: prevResponse.commitment_body,
+            being: prevResponse.commitment_being,
+            balance: prevResponse.commitment_balance,
+            business: prevResponse.commitment_business,
+          };
+        }
+      }
+
+      return {
+        ...mod,
+        is_unlocked: isUnlocked,
+        is_completed: isCompleted,
+        response,
+        previous_commitments: previousCommitments,
+      };
+    });
+
     return new Response(
       JSON.stringify({
         has_assignment: true,
@@ -241,6 +313,7 @@ Deno.serve(async (req) => {
           today: core4Today || { body: false, being: false, balance: false, business: false },
           streak: core4Streak,
         },
+        sunday_modules: processedSundayModules,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

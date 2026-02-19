@@ -20,6 +20,8 @@ import {
 import { useStaffFlowProfile } from '@/hooks/useStaffFlowProfile';
 import { toast } from 'sonner';
 import { StaffCore4Card } from '@/components/staff/StaffCore4Card';
+import { SundayModuleCard } from '@/components/challenge/SundayModuleCard';
+import type { SundayModule, SundayResponse } from '@/types/challenge-sunday';
 interface ChallengeLesson {
   id: string;
   title: string;
@@ -85,6 +87,7 @@ interface ChallengeData {
     };
     streak: number;
   };
+  sunday_modules: SundayModule[];
 }
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -280,10 +283,36 @@ export default function StaffChallenge() {
     );
   }
 
-  const { assignment, current_business_day, modules, lessons, progress, core4 } = data;
+  const { assignment, current_business_day, modules, lessons, progress, core4, sunday_modules } = data;
   const weekLessons = lessons.filter(l => l.week_number === parseInt(selectedWeek));
   const currentModule = modules.find(m => m.week_number === parseInt(selectedWeek));
-  
+
+  // Sunday module placement:
+  // Week 1 tab: Sunday 0 at TOP
+  // Week N tab (2-6): Sunday N-1 at TOP
+  // Week 6 tab: Sunday 6 (FINAL) at BOTTOM
+  const weekNum = parseInt(selectedWeek);
+  const sundayTop = sunday_modules?.find((sm: SundayModule) =>
+    weekNum === 1 ? sm.sunday_number === 0 : sm.sunday_number === weekNum - 1
+  ) || null;
+  const sundayBottom = weekNum === 6
+    ? sunday_modules?.find((sm: SundayModule) => sm.sunday_number === 6) || null
+    : null;
+
+  const handleSundayComplete = (response: SundayResponse) => {
+    setData(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        sunday_modules: prev.sunday_modules.map(sm =>
+          sm.sunday_number === response.sunday_number
+            ? { ...sm, is_completed: true, response }
+            : sm
+        ),
+      };
+    });
+  };
+
 
   return (
     <div className="p-4 sm:p-6 space-y-6">
@@ -342,6 +371,19 @@ export default function StaffChallenge() {
             </TabsList>
 
             <TabsContent value={selectedWeek} className="mt-4">
+              {/* Sunday Module at TOP of week */}
+              {sundayTop && assignment && (
+                <div className="mb-4">
+                  <SundayModuleCard
+                    key={sundayTop.id}
+                    module={sundayTop}
+                    assignmentId={assignment.id}
+                    sessionToken={sessionToken}
+                    onComplete={handleSundayComplete}
+                  />
+                </div>
+              )}
+
               {/* Module Info */}
               {currentModule && (
                 <div className="mb-4">
@@ -405,6 +447,19 @@ export default function StaffChallenge() {
                   );
                 })}
               </div>
+
+              {/* Sunday Module FINAL at BOTTOM of Week 6 */}
+              {sundayBottom && assignment && (
+                <div className="mt-4">
+                  <SundayModuleCard
+                    key={sundayBottom.id}
+                    module={sundayBottom}
+                    assignmentId={assignment.id}
+                    sessionToken={sessionToken}
+                    onComplete={handleSundayComplete}
+                  />
+                </div>
+              )}
             </TabsContent>
           </Tabs>
 

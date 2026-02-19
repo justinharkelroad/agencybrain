@@ -181,6 +181,75 @@ export function useUpdateChallengeLesson() {
   });
 }
 
+// ── Sunday Modules ──────────────────────────────────────
+
+export interface ChallengeSundayModule {
+  id: string;
+  challenge_product_id: string;
+  sunday_number: number;
+  title: string;
+  blurb_html: string | null;
+  video_url: string | null;
+  video_thumbnail_url: string | null;
+  has_rating_section: boolean;
+  has_commitment_section: boolean;
+  has_final_reflection: boolean;
+  final_reflection_prompt: string | null;
+}
+
+// Fetch Sunday modules for a product
+export function useChallengeSundayModules(productId: string | undefined) {
+  return useQuery({
+    queryKey: ["challenge-sunday-modules", productId],
+    queryFn: async () => {
+      if (!productId) return [];
+
+      const { data, error } = await supabase
+        .from("challenge_sunday_modules")
+        .select("*")
+        .eq("challenge_product_id", productId)
+        .order("sunday_number");
+
+      if (error) throw error;
+      return data as ChallengeSundayModule[];
+    },
+    enabled: !!productId,
+  });
+}
+
+// Update a Sunday module
+export function useUpdateChallengeSundayModule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: Partial<ChallengeSundayModule>;
+    }) => {
+      const { data, error } = await supabase
+        .from("challenge_sunday_modules")
+        .update(updates)
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["challenge-sunday-modules"] });
+      toast.success("Sunday module updated successfully");
+    },
+    onError: (error: any) => {
+      console.error("Failed to update Sunday module:", error);
+      toast.error("Failed to update Sunday module");
+    },
+  });
+}
+
 // Update a module
 export function useUpdateChallengeModule() {
   const queryClient = useQueryClient();
