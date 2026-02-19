@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Loader2,
   Play,
@@ -16,6 +17,7 @@ import {
   Flame,
   ChevronRight,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 import { useStaffFlowProfile } from '@/hooks/useStaffFlowProfile';
 import { toast } from 'sonner';
@@ -46,6 +48,7 @@ interface ChallengeLesson {
     reflection_response: Record<string, string>;
     is_unlocked: boolean;
     is_today: boolean;
+    discovery_flow_completed?: boolean;
   };
 }
 
@@ -103,7 +106,8 @@ export default function StaffChallenge() {
   
   const [completing, setCompleting] = useState(false);
   const [reflectionAnswers, setReflectionAnswers] = useState<Record<string, string>>({});
-  
+  const [discoveryFlowConfirmed, setDiscoveryFlowConfirmed] = useState(false);
+
   const { hasProfile } = useStaffFlowProfile();
 
   const fetchChallengeData = useCallback(async () => {
@@ -150,12 +154,63 @@ export default function StaffChallenge() {
     }
   }, [authLoading, isAuthenticated, fetchChallengeData]);
 
+  // Re-fetch when returning from discovery flow (page visibility change)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isAuthenticated) {
+        fetchChallengeData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isAuthenticated, fetchChallengeData]);
+
+  // Compute whether the Mark as Complete button should be enabled
+  const canComplete = (() => {
+    if (!selectedLesson) return false;
+    if (selectedLesson.challenge_progress?.status === 'completed') return false;
+
+    // All reflection questions must be answered
+    const questions = selectedLesson.questions || [];
+    if (questions.length > 0) {
+      const allAnswered = questions.every((_, i) => {
+        const answer = reflectionAnswers[`q${i}`];
+        return answer && answer.trim().length > 0;
+      });
+      if (!allAnswered) return false;
+    }
+
+    // Discovery flow lessons require confirmed checkbox
+    if (selectedLesson.is_discovery_flow && !discoveryFlowConfirmed) return false;
+
+    return true;
+  })();
+
   const handleMarkComplete = async () => {
     if (!selectedLesson || !data?.assignment?.id) return;
 
     // Prevent duplicate completions
     if (selectedLesson.challenge_progress?.status === 'completed') {
       toast.info('Lesson already completed');
+      return;
+    }
+
+    // Validate reflection questions
+    const questions = selectedLesson.questions || [];
+    if (questions.length > 0) {
+      const unanswered = questions.some((_, i) => {
+        const answer = reflectionAnswers[`q${i}`];
+        return !answer || !answer.trim();
+      });
+      if (unanswered) {
+        toast.error('Please answer all reflection questions before completing');
+        return;
+      }
+    }
+
+    // Validate discovery flow confirmation for Friday lessons
+    if (selectedLesson.is_discovery_flow && !discoveryFlowConfirmed) {
+      toast.error('Please complete your Discovery Flow first');
       return;
     }
 
@@ -214,6 +269,7 @@ export default function StaffChallenge() {
       if (nextLesson) {
         setSelectedLesson(nextLesson);
         setReflectionAnswers(nextLesson.challenge_progress?.reflection_response || {});
+        setDiscoveryFlowConfirmed(false);
       }
     } catch (err) {
       console.error('Complete error:', err);
@@ -227,6 +283,7 @@ export default function StaffChallenge() {
     if (!lesson.challenge_progress?.is_unlocked) return;
     setSelectedLesson(lesson);
     setReflectionAnswers(lesson.challenge_progress?.reflection_response || {});
+    setDiscoveryFlowConfirmed(false);
   };
 
   const getVideoEmbedUrl = (url: string | null): string | null => {
@@ -544,32 +601,74 @@ export default function StaffChallenge() {
                   </div>
                 )}
 
-                {/* Discovery Flow Button - for Friday lessons that are not completed */}
+                {/* Discovery Flow Section - for Friday lessons that are not completed */}
                 {selectedLesson.is_discovery_flow && selectedLesson.challenge_progress?.status !== 'completed' && (
-                  <Button
-                    className="w-full mb-2"
-                    onClick={() => {
-                      if (!hasProfile) {
-                        navigate('/staff/flows/profile', { 
-                          state: { redirectTo: '/staff/flows/start/discovery' } 
-                        });
-                      } else {
-                        navigate('/staff/flows/start/discovery');
-                      }
-                    }}
-                  >
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Start Discovery Flow
-                  </Button>
+                  <div className="space-y-3">
+                    <Button
+                      className="w-full"
+                      onClick={() => {
+                        if (!hasProfile) {
+                          navigate('/staff/flows/profile', {
+                            state: { redirectTo: '/staff/flows/start/discovery' }
+                          });
+                        } else {
+                          navigate('/staff/flows/start/discovery');
+                        }
+                      }}
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Start Discovery Flow
+                    </Button>
+
+                    {/* Discovery Flow Confirmation Checkbox */}
+                    <div className={`flex items-start gap-3 p-3 rounded-lg border ${
+                      selectedLesson.challenge_progress?.discovery_flow_completed
+                        ? 'border-green-500/30 bg-green-500/5'
+                        : 'border-muted bg-muted/30'
+                    }`}>
+                      <Checkbox
+                        id="discovery-flow-confirm"
+                        checked={discoveryFlowConfirmed}
+                        onCheckedChange={(checked) => setDiscoveryFlowConfirmed(checked === true)}
+                        disabled={!selectedLesson.challenge_progress?.discovery_flow_completed}
+                        className="mt-0.5"
+                      />
+                      <label
+                        htmlFor="discovery-flow-confirm"
+                        className={`text-sm leading-snug ${
+                          selectedLesson.challenge_progress?.discovery_flow_completed
+                            ? 'text-foreground cursor-pointer'
+                            : 'text-muted-foreground cursor-not-allowed'
+                        }`}
+                      >
+                        I completed my Discovery Flow
+                        {!selectedLesson.challenge_progress?.discovery_flow_completed && (
+                          <span className="block text-xs text-muted-foreground/70 mt-1">
+                            Complete a Discovery Flow above to unlock this checkbox
+                          </span>
+                        )}
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Validation hint for unanswered questions */}
+                {selectedLesson.challenge_progress?.status !== 'completed' &&
+                  selectedLesson.questions?.length > 0 &&
+                  !canComplete &&
+                  !(selectedLesson.is_discovery_flow && !discoveryFlowConfirmed) && (
+                  <div className="flex items-center gap-2 text-sm text-amber-500">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    <span>Answer all reflection questions to complete this lesson</span>
+                  </div>
                 )}
 
                 {/* Mark Complete Button */}
                 {selectedLesson.challenge_progress?.status !== 'completed' && (
                   <Button
-                    variant={selectedLesson.is_discovery_flow ? "outline" : "default"}
                     className="w-full"
                     onClick={handleMarkComplete}
-                    disabled={completing}
+                    disabled={completing || !canComplete}
                   >
                     {completing ? (
                       <>

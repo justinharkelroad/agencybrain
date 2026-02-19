@@ -114,6 +114,71 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Validate reflection questions are answered if the lesson has them
+    const lessonQuestions = (lesson.questions || []) as Array<string | { text: string }>;
+    if (lessonQuestions.length > 0) {
+      const missingAnswers = lessonQuestions.some((_, i) => {
+        const answer = reflection_response?.[`q${i}`];
+        return !answer || (typeof answer === 'string' && !answer.trim());
+      });
+
+      if (missingAnswers) {
+        return new Response(
+          JSON.stringify({ error: 'All reflection questions must be answered before completing this lesson' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // For discovery flow lessons, verify a completed discovery flow session exists on or after unlock date
+    const lessonFull = await supabase
+      .from('challenge_lessons')
+      .select('is_discovery_flow')
+      .eq('id', lesson_id)
+      .single();
+
+    if (lessonFull.data?.is_discovery_flow) {
+      const { data: discoveryTemplate } = await supabase
+        .from('flow_templates')
+        .select('id')
+        .eq('slug', 'discovery')
+        .single();
+
+      if (discoveryTemplate) {
+        // Calculate the lesson unlock date (business day N from start_date)
+        let bDay = 0;
+        const unlockCalc = new Date(assignment.start_date);
+        while (bDay < lesson.day_number) {
+          const dow = unlockCalc.getDay();
+          if (dow !== 0 && dow !== 6) {
+            bDay++;
+          }
+          if (bDay < lesson.day_number) {
+            unlockCalc.setDate(unlockCalc.getDate() + 1);
+          }
+        }
+        const lessonUnlockDate = new Date(unlockCalc);
+        lessonUnlockDate.setHours(0, 0, 0, 0);
+
+        const { data: flowSession } = await supabase
+          .from('staff_flow_sessions')
+          .select('id')
+          .eq('staff_user_id', staffUserId)
+          .eq('flow_template_id', discoveryTemplate.id)
+          .eq('status', 'completed')
+          .gte('completed_at', lessonUnlockDate.toISOString())
+          .limit(1)
+          .maybeSingle();
+
+        if (!flowSession) {
+          return new Response(
+            JSON.stringify({ error: 'You must complete a Discovery Flow before marking this lesson as complete' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+    }
+
     // Get existing progress record
     const { data: existingProgress, error: progressError } = await supabase
       .from('challenge_progress')

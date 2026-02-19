@@ -166,6 +166,50 @@ Deno.serve(async (req) => {
     // Get today's lesson
     const todaysLesson = lessons?.find(l => l.day_number === businessDay);
 
+    // Look up discovery flow template for Friday lesson detection
+    let discoveryTemplateId: string | null = null;
+    const hasDiscoveryLessons = lessons?.some(l => l.is_discovery_flow);
+    if (hasDiscoveryLessons) {
+      const { data: discoveryTemplate } = await supabase
+        .from('flow_templates')
+        .select('id')
+        .eq('slug', 'discovery')
+        .single();
+      discoveryTemplateId = discoveryTemplate?.id || null;
+    }
+
+    // Fetch all completed discovery flow sessions for this staff user (for Friday lesson gating)
+    let completedDiscoverySessions: Array<{ id: string; completed_at: string }> = [];
+    if (discoveryTemplateId) {
+      const { data: sessions } = await supabase
+        .from('staff_flow_sessions')
+        .select('id, completed_at')
+        .eq('staff_user_id', staffUserId)
+        .eq('flow_template_id', discoveryTemplateId)
+        .eq('status', 'completed')
+        .not('completed_at', 'is', null)
+        .order('completed_at', { ascending: true });
+      completedDiscoverySessions = sessions || [];
+    }
+
+    // Helper: calculate the calendar date when a given business day unlocks
+    const getUnlockDate = (dayNumber: number): Date => {
+      let bDay = 0;
+      const d = new Date(startDate);
+      while (bDay < dayNumber) {
+        const dow = d.getDay();
+        if (dow !== 0 && dow !== 6) {
+          bDay++;
+        }
+        if (bDay < dayNumber) {
+          d.setDate(d.getDate() + 1);
+        }
+      }
+      const result = new Date(d);
+      result.setHours(0, 0, 0, 0);
+      return result;
+    };
+
     // Update lesson statuses based on current business day
     const processedLessons = lessons?.map(lesson => {
       const progress = (lesson.challenge_progress as any[])?.[0];
@@ -176,6 +220,15 @@ Deno.serve(async (req) => {
         status = 'available';
       }
 
+      // For discovery flow lessons, check if staff completed a discovery flow on or after unlock date
+      let discoveryFlowCompleted = false;
+      if (lesson.is_discovery_flow && completedDiscoverySessions.length > 0) {
+        const unlockDate = getUnlockDate(lesson.day_number);
+        discoveryFlowCompleted = completedDiscoverySessions.some(
+          s => new Date(s.completed_at) >= unlockDate
+        );
+      }
+
       return {
         ...lesson,
         challenge_progress: {
@@ -183,6 +236,7 @@ Deno.serve(async (req) => {
           status,
           is_unlocked: lesson.day_number <= businessDay,
           is_today: lesson.day_number === businessDay,
+          discovery_flow_completed: lesson.is_discovery_flow ? discoveryFlowCompleted : undefined,
         },
       };
     });
