@@ -29,6 +29,7 @@ import { useLqsObjections } from '@/hooks/useLqsObjections';
 import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Plus } from 'lucide-react';
+import { ProducerPowerUpBanner } from '@/components/dashboard/ProducerPowerUpBanner';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -204,6 +205,7 @@ const Dashboard = () => {
             )}
           </div>
         </div>
+        {(isAgencyOwner || isKeyEmployee) && <ProducerPowerUpBanner />}
         <PeriodRefreshProvider>
           {dashboardCallMetricsEnabled ? (
             <>

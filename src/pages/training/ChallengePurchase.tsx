@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
@@ -12,7 +12,6 @@ import {
   Loader2,
   Users,
   Calendar,
-  Sparkles,
   ChevronRight,
   Minus,
   Plus,
@@ -23,6 +22,8 @@ import {
   BarChart3,
   UserPlus,
   ArrowRight,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isChallengeTier } from '@/utils/tierAccess';
@@ -59,6 +60,15 @@ export default function ChallengePurchase() {
   const [purchases, setPurchases] = useState<ChallengePurchase[]>([]);
   const [membershipTier, setMembershipTier] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isMuted, setIsMuted] = useState(true);
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setIsMuted(videoRef.current.muted);
+    }
+  };
 
   useEffect(() => {
     if (user?.id) {
@@ -239,18 +249,32 @@ export default function ChallengePurchase() {
 
       {/* Hero Section */}
       <div
-        className="rounded-xl p-6 sm:p-8"
+        className="rounded-xl overflow-hidden"
         style={{
           background: 'linear-gradient(135deg, #1e283a 0%, #020817 100%)',
         }}
       >
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-          <div className="flex-shrink-0">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
-              <Sparkles className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-2">
+          {/* Video */}
+          <div className="relative aspect-video md:aspect-auto bg-black group">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-cover"
+              src="/promo-images/Challenge Hero.mp4"
+            />
+            <button
+              onClick={toggleMute}
+              className="absolute bottom-3 right-3 w-9 h-9 rounded-full bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white hover:bg-black/80 transition-all opacity-0 group-hover:opacity-100 focus:opacity-100"
+            >
+              {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </button>
           </div>
-          <div className="flex-1">
+          {/* Content */}
+          <div className="p-6 sm:p-8 flex flex-col justify-center">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white">{product.name}</h1>
             <p className="text-muted-foreground mt-2">{product.description}</p>
             <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-slate-300">
