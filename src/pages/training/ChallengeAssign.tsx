@@ -210,8 +210,8 @@ export default function ChallengeAssign() {
   };
 
   const handleAssign = async () => {
-    if (!selectedPurchaseId || selectedStaff.size === 0 || !startDate) {
-      toast.error('Please select staff members and a start date');
+    if (!selectedPurchaseId || (selectedStaff.size === 0 && !selfParticipating) || !startDate) {
+      toast.error('Please select staff members or include yourself, and choose a start date');
       return;
     }
 
@@ -223,24 +223,46 @@ export default function ChallengeAssign() {
 
     setAssigning(true);
     try {
-      const { data, error } = await supabase.functions.invoke('challenge-assign-staff', {
-        body: {
-          purchase_id: selectedPurchaseId,
-          staff_user_ids: Array.from(selectedStaff),
-          start_date: startDate,
-          timezone,
-        },
-      });
+      // If self-participating, create owner assignment via challenge-setup-team
+      if (selfParticipating) {
+        const { data: setupData, error: setupError } = await supabase.functions.invoke('challenge-setup-team', {
+          body: {
+            purchase_id: selectedPurchaseId,
+            team_members: [],
+            self_participating: true,
+            start_date: startDate,
+            timezone,
+          },
+        });
 
-      if (error) throw error;
-
-      if (data?.error) {
-        toast.error(data.error);
-        return;
+        if (setupError) throw setupError;
+        if (setupData?.error) {
+          toast.error(setupData.error);
+          return;
+        }
       }
 
-      toast.success(`Successfully assigned ${selectedStaff.size} staff member(s) to The Challenge`);
-      navigate('/training/challenge');
+      // Assign selected existing staff via challenge-assign-staff
+      if (selectedStaff.size > 0) {
+        const { data, error } = await supabase.functions.invoke('challenge-assign-staff', {
+          body: {
+            purchase_id: selectedPurchaseId,
+            staff_user_ids: Array.from(selectedStaff),
+            start_date: startDate,
+            timezone,
+          },
+        });
+
+        if (error) throw error;
+        if (data?.error) {
+          toast.error(data.error);
+          return;
+        }
+      }
+
+      const total = selectedStaff.size + (selfParticipating ? 1 : 0);
+      toast.success(`Successfully assigned ${total} member(s) to The Challenge`);
+      navigate('/training/challenge/progress');
     } catch (err) {
       console.error('Assignment error:', err);
       toast.error('Failed to assign staff members');
@@ -406,7 +428,7 @@ export default function ChallengeAssign() {
                   <div>
                     <Label className="font-medium">Include yourself</Label>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Join the challenge alongside your team
+                      Join the challenge alongside your team (doesn't use a seat)
                     </p>
                   </div>
                   <Switch
@@ -454,13 +476,13 @@ export default function ChallengeAssign() {
                   variant="outline"
                   size="sm"
                   onClick={addMemberRow}
-                  disabled={newMembers.length + (selfParticipating ? 1 : 0) >= getAvailableSeats()}
+                  disabled={newMembers.length >= getAvailableSeats()}
                 >
                   <UserPlus className="h-4 w-4 mr-1" />
                   Add Another Member
                 </Button>
 
-                {newMembers.length + (selfParticipating ? 1 : 0) > getAvailableSeats() && (
+                {newMembers.filter(m => m.name.trim()).length > getAvailableSeats() && (
                   <p className="text-sm text-destructive">
                     You have {getAvailableSeats()} available seats. Remove some members or purchase more seats.
                   </p>
@@ -552,15 +574,17 @@ export default function ChallengeAssign() {
               <CardContent className="p-4 space-y-4">
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Team members</span>
+                    <span className="text-muted-foreground">Staff seats</span>
                     <span className="font-medium">
-                      {newMembers.filter(m => m.name.trim()).length + (selfParticipating ? 1 : 0)}
+                      {newMembers.filter(m => m.name.trim()).length} of {getAvailableSeats()}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Available seats</span>
-                    <span className="font-medium">{getAvailableSeats()}</span>
-                  </div>
+                  {selfParticipating && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">You (free)</span>
+                      <span className="font-medium text-green-600">Included</span>
+                    </div>
+                  )}
                 </div>
 
                 <Button
@@ -569,7 +593,7 @@ export default function ChallengeAssign() {
                   disabled={
                     assigning ||
                     (newMembers.filter(m => m.name.trim()).length === 0 && !selfParticipating) ||
-                    newMembers.filter(m => m.name.trim()).length + (selfParticipating ? 1 : 0) > getAvailableSeats() ||
+                    newMembers.filter(m => m.name.trim()).length > getAvailableSeats() ||
                     !startDate
                   }
                 >
@@ -596,6 +620,24 @@ export default function ChallengeAssign() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Staff Selection */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Self-participation toggle */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="font-medium">Include yourself</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Join the challenge alongside your team (doesn't use a seat)
+                  </p>
+                </div>
+                <Switch
+                  checked={selfParticipating}
+                  onCheckedChange={setSelfParticipating}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Available Staff */}
           <Card>
             <CardHeader>
@@ -755,15 +797,17 @@ export default function ChallengeAssign() {
             <CardContent className="p-4 space-y-4">
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Selected</span>
+                  <span className="text-muted-foreground">Staff seats</span>
                   <span className="font-medium">
-                    {selectedStaff.size} staff member{selectedStaff.size !== 1 ? 's' : ''}
+                    {selectedStaff.size} of {getAvailableSeats()}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Available seats</span>
-                  <span className="font-medium">{getAvailableSeats()}</span>
-                </div>
+                {selfParticipating && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">You (free)</span>
+                    <span className="font-medium text-green-600">Included</span>
+                  </div>
+                )}
               </div>
 
               {selectedStaff.size > getAvailableSeats() && (
@@ -777,7 +821,7 @@ export default function ChallengeAssign() {
                 onClick={handleAssign}
                 disabled={
                   assigning ||
-                  selectedStaff.size === 0 ||
+                  (selectedStaff.size === 0 && !selfParticipating) ||
                   selectedStaff.size > getAvailableSeats() ||
                   !startDate
                 }
@@ -789,7 +833,7 @@ export default function ChallengeAssign() {
                   </>
                 ) : (
                   <>
-                    Assign {selectedStaff.size} Staff
+                    Assign {selectedStaff.size + (selfParticipating ? 1 : 0)} to Challenge
                     <ChevronRight className="h-4 w-4 ml-2" />
                   </>
                 )}

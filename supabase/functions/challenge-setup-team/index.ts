@@ -48,13 +48,6 @@ async function hashPassword(password: string): Promise<string> {
   return `pbkdf2_sha256$100000$${saltHex}$${hashHex}`;
 }
 
-// Calculate end date (6 weeks from start, ending on Friday)
-function getChallengeEndDate(startDate: Date): Date {
-  const endDate = new Date(startDate);
-  endDate.setDate(startDate.getDate() + 32); // 6 weeks * 5 days + buffer
-  return endDate;
-}
-
 interface TeamMember {
   name: string;
   email?: string;
@@ -94,9 +87,16 @@ Deno.serve(async (req) => {
       selfParticipating: self_participating,
     });
 
-    if (!purchase_id || !team_members || team_members.length === 0) {
+    if (!purchase_id || !team_members) {
       return new Response(
         JSON.stringify({ error: 'purchase_id and team_members are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (team_members.length === 0 && !self_participating) {
+      return new Response(
+        JSON.stringify({ error: 'Add at least one team member or include yourself' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -106,7 +106,7 @@ Deno.serve(async (req) => {
     // 1. Verify purchase belongs to this agency and has available seats
     const { data: purchase, error: purchaseError } = await supabaseAdmin
       .from('challenge_purchases')
-      .select('id, agency_id, quantity, seats_used, product_id, purchased_by')
+      .select('id, agency_id, quantity, seats_used, challenge_product_id, purchaser_id')
       .eq('id', purchase_id)
       .single();
 
@@ -124,41 +124,50 @@ Deno.serve(async (req) => {
       );
     }
 
-    const totalNeeded = team_members.length + (self_participating ? 1 : 0);
+    // Owner self-participation is free — only staff members use seats
+    const totalSeatsNeeded = team_members.length;
     const availableSeats = purchase.quantity - (purchase.seats_used || 0);
 
-    if (totalNeeded > availableSeats) {
+    if (totalSeatsNeeded > availableSeats) {
       return new Response(
         JSON.stringify({
-          error: `Not enough seats. Need ${totalNeeded} but only ${availableSeats} available.`,
+          error: `Not enough seats. Need ${totalSeatsNeeded} but only ${availableSeats} available.`,
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const startDateObj = new Date(start_date);
-    const endDate = getChallengeEndDate(startDateObj);
+    const timezone = input.timezone || 'America/New_York';
     const createdCredentials: Array<{ name: string; username: string; password: string }> = [];
 
-    // 2. If self_participating: create a staff_user for the owner linked to their profile
+    // 2. If self_participating: create a staff_user for the owner (or reuse existing) and assign
     if (self_participating) {
       // Check if a staff user already exists for this owner
       const { data: existingStaffUser } = await supabaseAdmin
         .from('staff_users')
-        .select('id')
+        .select('id, display_name, username, team_member_id')
         .eq('agency_id', agencyId)
-        .eq('linked_profile_id', purchase.purchased_by)
+        .eq('linked_profile_id', purchase.purchaser_id)
         .maybeSingle();
 
-      if (!existingStaffUser) {
-        // Get owner info
+      let ownerStaffId: string | null = null;
+      let ownerTeamMemberId: string | null = null;
+      let ownerCredential: { name: string; username: string; password: string } | null = null;
+
+      if (existingStaffUser) {
+        // Reuse existing staff user — no new credentials needed
+        ownerStaffId = existingStaffUser.id;
+        ownerTeamMemberId = existingStaffUser.team_member_id;
+        console.log('[challenge-setup-team] Reusing existing staff user for owner:', ownerStaffId);
+      } else {
+        // Create new staff user for owner
         const { data: ownerProfile } = await supabaseAdmin
           .from('profiles')
           .select('full_name')
-          .eq('id', purchase.purchased_by)
+          .eq('id', purchase.purchaser_id)
           .maybeSingle();
 
-        const { data: ownerUser } = await supabaseAdmin.auth.admin.getUserById(purchase.purchased_by);
+        const { data: ownerUser } = await supabaseAdmin.auth.admin.getUserById(purchase.purchaser_id);
         const ownerEmail = ownerUser?.user?.email || '';
         const ownerName = ownerProfile?.full_name || ownerEmail.split('@')[0];
 
@@ -181,7 +190,6 @@ Deno.serve(async (req) => {
           .single();
 
         if (tm) {
-          // Create staff user linked to owner profile
           const { data: staffUser, error: staffErr } = await supabaseAdmin
             .from('staff_users')
             .insert({
@@ -191,33 +199,62 @@ Deno.serve(async (req) => {
               display_name: ownerName,
               email: ownerEmail,
               team_member_id: tm.id,
-              linked_profile_id: purchase.purchased_by,
+              linked_profile_id: purchase.purchaser_id,
               is_active: true,
             })
             .select()
             .single();
 
           if (staffUser) {
-            // Create challenge assignment
-            await supabaseAdmin.from('challenge_assignments').insert({
-              agency_id: agencyId,
-              staff_user_id: staffUser.id,
-              product_id: purchase.product_id,
-              purchase_id: purchase.id,
-              assigned_by: purchase.purchased_by,
-              start_date: start_date,
-              end_date: endDate.toISOString().split('T')[0],
-              status: 'pending',
-            });
-
-            createdCredentials.push({
+            ownerStaffId = staffUser.id;
+            ownerTeamMemberId = tm.id;
+            ownerCredential = {
               name: `${ownerName} (You)`,
               username: staffUsername,
               password: staffPassword,
-            });
+            };
           } else if (staffErr) {
             console.error('[challenge-setup-team] Owner staff user creation error:', staffErr);
           }
+        }
+      }
+
+      // Create assignment for owner (whether staff user was new or existing)
+      if (ownerStaffId) {
+        // Check if already assigned to this purchase (idempotent)
+        const { data: existingAssignment } = await supabaseAdmin
+          .from('challenge_assignments')
+          .select('id')
+          .eq('purchase_id', purchase.id)
+          .eq('staff_user_id', ownerStaffId)
+          .maybeSingle();
+
+        if (!existingAssignment) {
+          const { error: ownerAssignErr } = await supabaseAdmin.from('challenge_assignments').insert({
+            agency_id: agencyId,
+            staff_user_id: ownerStaffId,
+            team_member_id: ownerTeamMemberId,
+            challenge_product_id: purchase.challenge_product_id,
+            purchase_id: purchase.id,
+            assigned_by: purchase.purchaser_id,
+            start_date: start_date,
+            timezone,
+            status: 'active',
+          });
+
+          if (ownerAssignErr) {
+            console.error('[challenge-setup-team] Owner assignment insert error:', JSON.stringify(ownerAssignErr));
+          } else {
+            // Trigger auto-incremented seats_used — undo it because owner is free
+            await supabaseAdmin
+              .from('challenge_purchases')
+              .update({ seats_used: Math.max(0, (purchase.seats_used || 0)) })
+              .eq('id', purchase.id);
+          }
+        }
+
+        if (ownerCredential) {
+          createdCredentials.push(ownerCredential);
         }
       }
     }
@@ -290,12 +327,13 @@ Deno.serve(async (req) => {
           await supabaseAdmin.from('challenge_assignments').insert({
             agency_id: agencyId,
             staff_user_id: altStaff.id,
-            product_id: purchase.product_id,
+            team_member_id: tm.id,
+            challenge_product_id: purchase.challenge_product_id,
             purchase_id: purchase.id,
-            assigned_by: purchase.purchased_by,
+            assigned_by: purchase.purchaser_id,
             start_date: start_date,
-            end_date: endDate.toISOString().split('T')[0],
-            status: 'pending',
+            timezone,
+            status: 'active',
           });
 
           createdCredentials.push({
@@ -308,17 +346,24 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Create challenge assignment
-      await supabaseAdmin.from('challenge_assignments').insert({
+      // Create challenge assignment (end_date is GENERATED ALWAYS — omit it)
+      const { error: assignError } = await supabaseAdmin.from('challenge_assignments').insert({
         agency_id: agencyId,
         staff_user_id: staffUser.id,
-        product_id: purchase.product_id,
+        team_member_id: tm.id,
+        challenge_product_id: purchase.challenge_product_id,
         purchase_id: purchase.id,
-        assigned_by: purchase.purchased_by,
+        assigned_by: purchase.purchaser_id,
         start_date: start_date,
-        end_date: endDate.toISOString().split('T')[0],
-        status: 'pending',
+        timezone,
+        status: 'active',
       });
+
+      if (assignError) {
+        console.error('[challenge-setup-team] Assignment insert error:', JSON.stringify(assignError));
+      } else {
+        console.log('[challenge-setup-team] Assignment created for staff:', staffUser.id);
+      }
 
       createdCredentials.push({
         name: member.name,
@@ -327,21 +372,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 4. Update seats_used on the purchase
-    const newSeatsUsed = (purchase.seats_used || 0) + createdCredentials.length;
-    await supabaseAdmin
+    // 4. seats_used is auto-incremented by trigger_update_challenge_purchase_seats on assignment insert
+    // Re-fetch the purchase to get the trigger-updated seats_used
+    const { data: updatedPurchase } = await supabaseAdmin
       .from('challenge_purchases')
-      .update({ seats_used: newSeatsUsed })
-      .eq('id', purchase.id);
+      .select('seats_used')
+      .eq('id', purchase.id)
+      .single();
+    const newSeatsUsed = updatedPurchase?.seats_used ?? (purchase.seats_used || 0);
 
-    // 5. Send credential emails as backup (if any members have emails)
-    const membersWithEmail = createdCredentials.filter((_, i) => {
-      const originalMember = i < (self_participating ? 1 : 0)
-        ? null // self-participating entry
-        : team_members[i - (self_participating ? 1 : 0)];
-      return originalMember?.email;
-    });
-
+    // 5. Send credential emails as backup
     if (createdCredentials.length > 0) {
       try {
         const { data: agencyData } = await supabaseAdmin
@@ -350,14 +390,23 @@ Deno.serve(async (req) => {
           .eq('id', agencyId)
           .single();
 
-        await supabaseAdmin.functions.invoke('challenge-send-credentials', {
-          body: {
-            email: (await supabaseAdmin.auth.admin.getUserById(purchase.purchased_by))?.data?.user?.email || '',
-            staff_credentials: createdCredentials,
-            agency_name: agencyData?.name || 'Your Agency',
-            start_date: start_date,
-          },
-        });
+        const ownerUser = await supabaseAdmin.auth.admin.getUserById(purchase.purchaser_id);
+        await fetch(
+          `${supabaseUrl}/functions/v1/challenge-send-credentials`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              email: ownerUser?.data?.user?.email || '',
+              staff_credentials: createdCredentials,
+              agency_name: agencyData?.name || 'Your Agency',
+              start_date: start_date,
+            }),
+          }
+        );
       } catch (emailError) {
         console.error('[challenge-setup-team] Email send error:', emailError);
       }
