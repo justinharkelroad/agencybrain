@@ -264,7 +264,7 @@ export default function ChallengePurchase() {
               loop
               playsInline
               className="w-full h-full object-cover"
-              src="/promo-images/Challenge Hero.mp4"
+              src="/promo-images/challenge-hero.mp4"
             />
             <button
               onClick={toggleMute}

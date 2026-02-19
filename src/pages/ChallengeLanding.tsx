@@ -181,7 +181,7 @@ export default function ChallengeLanding() {
                     loop
                     playsInline
                     className="w-full h-full object-cover"
-                    src="/promo-images/Challenge Hero.mp4"
+                    src="/promo-images/challenge-hero.mp4"
                   />
                   <button
                     onClick={toggleMute}
@@ -297,19 +297,19 @@ export default function ChallengeLanding() {
                 step: '01',
                 title: 'Watch & Reflect',
                 desc: 'They start their day with a 5-10 min training video. Getting clear on one of the 30 Standard Skillsets. Then they answer reflection questions — forcing them to internalize it.',
-                image: '/promo-images/WATCH & REFLECT.png',
+                image: '/promo-images/watch-and-reflect.png',
               },
               {
                 step: '02',
                 title: 'Execute & Track',
                 desc: 'The training is tied to a specific, measurable action item they execute that day. Then they complete their Core 4 — Body, Being, Balance, Business.',
-                image: '/promo-images/EXECUTE &  TRACK.png',
+                image: '/promo-images/execute-and-track.png',
               },
               {
                 step: '03',
                 title: 'You See Everything',
                 desc: 'After they submit, AI analyzes their reflections and emails you a coaching report. You see quality, engagement, and areas to push — without micromanaging.',
-                image: '/promo-images/YOU SEE EVERYTHING.png',
+                image: '/promo-images/you-see-everything.png',
               },
             ].map((item) => (
               <div key={item.step} className="border border-cyan-900/30 bg-[#0a1020] rounded-xl overflow-hidden">
@@ -387,7 +387,7 @@ export default function ChallengeLanding() {
                   </p>
                 </div>
                 <div className="bg-[#0d1525] p-3">
-                  <img src="/promo-images/DASHBOARD.png" alt="Staff Dashboard" className="w-full rounded-lg shadow-2xl" />
+                  <img src="/promo-images/challenge-dashboard.png" alt="Staff Dashboard" className="w-full rounded-lg shadow-2xl" />
                 </div>
               </div>
 
@@ -399,7 +399,7 @@ export default function ChallengeLanding() {
                   </p>
                 </div>
                 <div className="bg-[#0d1525] p-3">
-                  <img src="/promo-images/CORE 4.png" alt="Core 4 Tracker" className="w-full rounded-lg shadow-2xl" />
+                  <img src="/promo-images/core-4.png" alt="Core 4 Tracker" className="w-full rounded-lg shadow-2xl" />
                 </div>
               </div>
             </div>
@@ -414,7 +414,7 @@ export default function ChallengeLanding() {
                   </p>
                 </div>
                 <div className="bg-[#0d1525] p-3">
-                  <img src="/promo-images/DISCOVERY FLOWS.png" alt="Discovery Flows" className="w-full rounded-lg shadow-2xl" />
+                  <img src="/promo-images/discovery-flows.png" alt="Discovery Flows" className="w-full rounded-lg shadow-2xl" />
                 </div>
               </div>
 
@@ -426,7 +426,7 @@ export default function ChallengeLanding() {
                   </p>
                 </div>
                 <div className="bg-[#0d1525] p-3">
-                  <img src="/promo-images/OWNER VISIBILITY.png" alt="Owner Dashboard" className="w-full rounded-lg shadow-2xl" />
+                  <img src="/promo-images/owner-visibility.png" alt="Owner Dashboard" className="w-full rounded-lg shadow-2xl" />
                 </div>
               </div>
             </div>
