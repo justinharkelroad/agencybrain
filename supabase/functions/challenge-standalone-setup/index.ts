@@ -238,18 +238,33 @@ Deno.serve(async (req) => {
     }
 
     // 10. Send welcome email with owner setup link as backup
+    // Use direct fetch instead of supabase.functions.invoke() to avoid Deno runtime bug
     try {
-      await supabaseAdmin.functions.invoke('challenge-send-credentials', {
-        body: {
-          email,
-          staff_credentials: [], // No staff credentials yet
-          agency_name: agencyName,
-          start_date: startDate.toISOString().split('T')[0],
-          owner_setup_url: ownerSetupUrl,
-          quantity,
-        },
-      });
-      console.log('[challenge-standalone-setup] Welcome email sent');
+      const credentialsPayload = {
+        email,
+        staff_credentials: [], // No staff credentials yet
+        agency_name: agencyName,
+        start_date: startDate.toISOString().split('T')[0],
+        owner_setup_url: ownerSetupUrl,
+        quantity,
+      };
+      const emailRes = await fetch(
+        `${supabaseUrl}/functions/v1/challenge-send-credentials`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify(credentialsPayload),
+        }
+      );
+      if (!emailRes.ok) {
+        const errBody = await emailRes.text();
+        console.error('[challenge-standalone-setup] Email send failed:', emailRes.status, errBody);
+      } else {
+        console.log('[challenge-standalone-setup] Welcome email sent');
+      }
     } catch (emailError) {
       console.error('[challenge-standalone-setup] Email send error:', emailError);
       // Don't fail the whole operation if email fails

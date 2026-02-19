@@ -69,29 +69,37 @@ Deno.serve(async (req) => {
           );
         }
 
-        // Invoke the standalone setup function
-        const { data: setupResult, error: setupError } = await supabase.functions.invoke(
-          'challenge-standalone-setup',
+        // Invoke the standalone setup function via direct fetch to avoid Deno runtime bug
+        const setupPayload = {
+          email: customerEmail,
+          tier,
+          quantity,
+          stripe_session_id: session.id,
+          stripe_payment_intent_id: session.payment_intent,
+          amount_paid_cents: session.amount_total,
+        };
+        const setupRes = await fetch(
+          `${supabaseUrl}/functions/v1/challenge-standalone-setup`,
           {
-            body: {
-              email: customerEmail,
-              tier,
-              quantity,
-              stripe_session_id: session.id,
-              stripe_payment_intent_id: session.payment_intent,
-              amount_paid_cents: session.amount_total,
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
             },
+            body: JSON.stringify(setupPayload),
           }
         );
 
-        if (setupError) {
-          console.error('Standalone setup error:', setupError);
+        if (!setupRes.ok) {
+          const errBody = await setupRes.text();
+          console.error('Standalone setup error:', setupRes.status, errBody);
           return new Response(
             JSON.stringify({ error: 'Failed to setup standalone purchase' }),
             { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
+        const setupResult = await setupRes.json();
         console.log('Standalone setup completed:', setupResult);
         return new Response(
           JSON.stringify({ received: true, standalone: true }),
