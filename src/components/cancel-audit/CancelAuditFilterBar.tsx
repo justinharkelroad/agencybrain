@@ -1,4 +1,4 @@
-import { Search, X, CircleDot, Flame, Archive, FileCheck } from 'lucide-react';
+import { Search, X, CircleDot, Flame, Archive, FileCheck, AlertTriangle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
@@ -48,7 +48,10 @@ interface CancelAuditFilterBarProps {
   untouchedCount: number;
   showCurrentOnly: boolean;
   onShowCurrentOnlyChange: (show: boolean) => void;
+  showDroppedOnly: boolean;
+  onShowDroppedOnlyChange: (show: boolean) => void;
   supersededCount: number;
+  droppedUnresolvedCount?: number;
 }
 
 export function CancelAuditFilterBar({
@@ -73,7 +76,10 @@ export function CancelAuditFilterBar({
   untouchedCount,
   showCurrentOnly,
   onShowCurrentOnlyChange,
+  showDroppedOnly,
+  onShowDroppedOnlyChange,
   supersededCount,
+  droppedUnresolvedCount = 0,
 }: CancelAuditFilterBarProps) {
   const filterTabs: { value: ReportType | 'all'; label: string; count: number }[] = [
     { value: 'all', label: 'All', count: counts.all },
@@ -178,8 +184,13 @@ export function CancelAuditFilterBar({
                 )}
               >
                 <FileCheck className="h-3.5 w-3.5" />
-                Current
-                {supersededCount > 0 && !showCurrentOnly && (
+                Current Only
+                {!showCurrentOnly && droppedUnresolvedCount > 0 && viewMode === 'needs_attention' && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded text-xs bg-amber-500/20 text-amber-400">
+                    +{droppedUnresolvedCount} dropped
+                  </span>
+                )}
+                {supersededCount > 0 && !showCurrentOnly && viewMode === 'all' && (
                   <span className="ml-1 px-1.5 py-0.5 rounded text-xs bg-muted-foreground/10">
                     +{supersededCount}
                   </span>
@@ -188,14 +199,48 @@ export function CancelAuditFilterBar({
             </TooltipTrigger>
             <TooltipContent side="bottom" className="max-w-xs">
               <p>
-                {showCurrentOnly 
-                  ? `Showing records from latest uploads only. ${supersededCount > 0 ? `${supersededCount} superseded records hidden.` : ''}`
-                  : 'Toggle to show only records from the latest uploads (hides superseded records from previous uploads)'
+                {showCurrentOnly
+                  ? `Showing records from latest uploads only. ${droppedUnresolvedCount > 0 ? `${droppedUnresolvedCount} dropped records hidden that still need attention.` : ''}`
+                  : 'Toggle to hide records that dropped off the latest carrier report. Dropped records with unresolved status are shown by default so they can still be worked.'
                 }
               </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+
+        {/* Dropped toggle */}
+        {droppedUnresolvedCount > 0 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Toggle
+                  pressed={showDroppedOnly}
+                  onPressedChange={onShowDroppedOnlyChange}
+                  size="sm"
+                  variant="outline"
+                  className={cn(
+                    'gap-1.5',
+                    showDroppedOnly && 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                  )}
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  Dropped
+                  <span className={cn(
+                    'ml-1 px-1.5 py-0.5 rounded text-xs',
+                    showDroppedOnly
+                      ? 'bg-amber-500/20 text-amber-400'
+                      : 'bg-muted-foreground/10'
+                  )}>
+                    {droppedUnresolvedCount}
+                  </span>
+                </Toggle>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                <p>Show only records that dropped off the latest carrier report but haven't been resolved yet.</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
 
         {/* Untouched toggle */}
         <Toggle
@@ -213,8 +258,8 @@ export function CancelAuditFilterBar({
           {untouchedCount > 0 && (
             <span className={cn(
               'ml-1 px-1.5 py-0.5 rounded text-xs',
-              showUntouchedOnly 
-                ? 'bg-orange-500/20 text-orange-400' 
+              showUntouchedOnly
+                ? 'bg-orange-500/20 text-orange-400'
                 : 'bg-muted-foreground/10'
             )}>
               {untouchedCount}

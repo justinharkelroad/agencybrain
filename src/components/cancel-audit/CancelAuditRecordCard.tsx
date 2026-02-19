@@ -12,13 +12,14 @@ import { QuickActions } from './QuickActions';
 import { ActivityTimeline } from './ActivityTimeline';
 import { HouseholdPolicies } from './HouseholdPolicies';
 import { useHouseholdActivities, useUpdateCancelAuditAssignment } from '@/hooks/useCancelAuditActivities';
-import { 
-  formatCentsToCurrency, 
-  formatDate, 
+import {
+  formatCentsToCurrency,
+  formatDate,
   formatDateShort,
   getDisplayName,
-  formatPhone 
+  formatPhone
 } from '@/lib/cancel-audit-utils';
+import { formatDistanceToNow } from 'date-fns';
 
 const STATUS_STYLES: Record<RecordStatus, string> = {
   new: 'bg-gray-500/10 text-gray-400 border-gray-500/30',
@@ -87,7 +88,7 @@ export function CancelAuditRecordCard({
           {/* Inactive badge */}
           {isInactive && (
             <Badge variant="outline" className="text-xs text-muted-foreground border-dashed flex-shrink-0">
-              Not in latest
+              Not in latest{record.dropped_from_report_at ? ` (${formatDistanceToNow(new Date(record.dropped_from_report_at), { addSuffix: false })} ago)` : ''}
             </Badge>
           )}
 

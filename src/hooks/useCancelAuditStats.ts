@@ -80,9 +80,9 @@ export function useCancelAuditStats({ agencyId, weekOffset }: UseCancelAuditStat
 
       if (recordsError) throw recordsError;
 
-      // Filter for active records only for actionable stats
+      // Filter for actionable stats — driven by status, not is_active
       const activeRecords = records?.filter(r => r.is_active) || [];
-      const needsAttentionRecords = activeRecords.filter(r => 
+      const needsAttentionRecords = (records || []).filter(r =>
         ['new', 'in_progress'].includes(r.status)
       );
 

@@ -169,7 +169,6 @@ serve(async (req) => {
             `)
             .eq('household_key', cancelAuditHouseholdKey)
             .eq('agency_id', agencyId)
-            .eq('is_active', true)
             .order('created_at', { ascending: false })
         : supabase
             .from('cancel_audit_records')
@@ -195,7 +194,6 @@ serve(async (req) => {
             `)
             .eq('contact_id', contactId)
             .eq('agency_id', agencyId)
-            .eq('is_active', true)
             .order('created_at', { ascending: false }),
 
       // Winback records - use ID if provided, otherwise contact_id

@@ -77,7 +77,7 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
         .from('cancel_audit_records')
         .select('id, status, premium_cents, created_at')
         .eq('agency_id', agencyId)
-        .eq('is_active', true)
+        .in('status', ['new', 'in_progress'])
         .gte('created_at', currentWeekStart.toISOString())
         .lte('created_at', currentWeekEnd.toISOString());
 
@@ -102,7 +102,7 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
         .from('cancel_audit_records')
         .select('id, status, premium_cents, created_at')
         .eq('agency_id', agencyId)
-        .eq('is_active', true)
+        .in('status', ['new', 'in_progress'])
         .gte('created_at', priorWeekStart.toISOString())
         .lte('created_at', priorWeekEnd.toISOString());
 
@@ -127,7 +127,7 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
         .from('cancel_audit_records')
         .select('id, status, premium_cents')
         .eq('agency_id', agencyId)
-        .eq('is_active', true);
+        .in('status', ['new', 'in_progress']);
 
       if (error) {
         console.error('Error fetching all records:', error);
@@ -241,11 +241,10 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
       };
     }
 
-    const workingList = allRecords.filter(r => r.status !== 'resolved' && r.status !== 'lost');
-
+    // allRecords already filtered to new/in_progress only
     return {
-      workingListCount: workingList.length,
-      atRiskPremium: workingList.reduce((sum, r) => sum + (r.premium_cents || 0), 0),
+      workingListCount: allRecords.length,
+      atRiskPremium: allRecords.reduce((sum, r) => sum + (r.premium_cents || 0), 0),
       savedPremium: currentWeekSaved || 0,
     };
   }, [inStaffContext, staffHeroData, allRecords, currentWeekSaved]);
@@ -265,12 +264,11 @@ export function CancelAuditHeroStats({ agencyId }: CancelAuditHeroStatsProps) {
     const currentCount = currentWeekData?.length || 0;
     const priorCount = priorWeekData?.length || 0;
 
+    // Queries already filter to new/in_progress only
     const currentAtRisk = currentWeekData
-      ?.filter(r => r.status !== 'resolved' && r.status !== 'lost')
-      .reduce((sum, r) => sum + (r.premium_cents || 0), 0) || 0;
+      ?.reduce((sum, r) => sum + (r.premium_cents || 0), 0) || 0;
     const priorAtRisk = priorWeekData
-      ?.filter(r => r.status !== 'resolved' && r.status !== 'lost')
-      .reduce((sum, r) => sum + (r.premium_cents || 0), 0) || 0;
+      ?.reduce((sum, r) => sum + (r.premium_cents || 0), 0) || 0;
 
     const calcChange = (current: number, prior: number) => {
       if (prior === 0) return current > 0 ? 100 : 0;

@@ -21,6 +21,7 @@ export interface RecordWithActivityCount extends CancelAuditRecord {
   last_activity_at: string | null;
   household_policy_count: number;
   is_active: boolean;
+  dropped_from_report_at: string | null;
 }
 
 export function useCancelAuditRecords({
@@ -49,6 +50,7 @@ export function useCancelAuditRecords({
             searchQuery,
             sortBy,
             cancelStatusFilter,
+            showCurrentOnly,
           },
           sessionToken: staffSessionToken,
         });
@@ -64,16 +66,18 @@ export function useCancelAuditRecords({
         `)
         .eq('agency_id', agencyId);
 
-      // Filter to current records only (from latest upload)
-      if (showCurrentOnly) {
-        query = query.eq('is_active', true);
-      }
-
       // View mode filtering
       if (viewMode === 'needs_attention') {
-        query = query
-          .eq('is_active', true)
-          .in('status', ['new', 'in_progress']);
+        query = query.in('status', ['new', 'in_progress']);
+        // showCurrentOnly is additive — additionally filter to latest upload only
+        if (showCurrentOnly) {
+          query = query.eq('is_active', true);
+        }
+      } else {
+        // "All Records" view: filter to current records only when toggled
+        if (showCurrentOnly) {
+          query = query.eq('is_active', true);
+        }
       }
 
       // Apply report type filter

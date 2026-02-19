@@ -171,7 +171,16 @@ async function getRecords(supabase: any, agencyId: string, params: any) {
     .eq("agency_id", agencyId);
 
   if (viewMode === "needs_attention") {
-    query = query.eq("is_active", true).in("status", ["new", "in_progress"]);
+    query = query.in("status", ["new", "in_progress"]);
+    // showCurrentOnly is additive — additionally filter to latest upload only
+    if (params?.showCurrentOnly) {
+      query = query.eq("is_active", true);
+    }
+  } else {
+    // "All Records" view: filter to current records only when toggled
+    if (params?.showCurrentOnly) {
+      query = query.eq("is_active", true);
+    }
   }
 
   if (reportTypeFilter && reportTypeFilter !== "all") {
@@ -307,9 +316,9 @@ async function getStats(supabase: any, agencyId: string, params: any) {
 
   if (recordsError) throw recordsError;
 
-  // Filter for active records only for actionable stats
+  // Filter for actionable stats — driven by status, not is_active
   const activeRecords = records?.filter((r: any) => r.is_active) || [];
-  const needsAttentionRecords = activeRecords.filter((r: any) =>
+  const needsAttentionRecords = (records || []).filter((r: any) =>
     ["new", "in_progress"].includes(r.status)
   );
 
@@ -396,11 +405,11 @@ async function getStats(supabase: any, agencyId: string, params: any) {
 
 // Get counts for view toggle
 async function getCounts(supabase: any, agencyId: string) {
+  // Needs attention: driven by status, not is_active
   const { count: needsAttention } = await supabase
     .from("cancel_audit_records")
     .select("*", { count: "exact", head: true })
     .eq("agency_id", agencyId)
-    .eq("is_active", true)
     .in("status", ["new", "in_progress"]);
 
   const { count: all } = await supabase
@@ -412,7 +421,6 @@ async function getCounts(supabase: any, agencyId: string) {
     .from("cancel_audit_records")
     .select("*", { count: "exact", head: true })
     .eq("agency_id", agencyId)
-    .eq("is_active", true)
     .eq("report_type", "pending_cancel")
     .in("status", ["new", "in_progress"]);
 
@@ -420,13 +428,29 @@ async function getCounts(supabase: any, agencyId: string) {
     .from("cancel_audit_records")
     .select("*", { count: "exact", head: true })
     .eq("agency_id", agencyId)
-    .eq("is_active", true)
     .eq("report_type", "cancellation")
+    .in("status", ["new", "in_progress"]);
+
+  // Superseded (not current) records count
+  const { count: superseded } = await supabase
+    .from("cancel_audit_records")
+    .select("*", { count: "exact", head: true })
+    .eq("agency_id", agencyId)
+    .eq("is_active", false);
+
+  // Dropped but unresolved: dropped from report but still needs work
+  const { count: droppedUnresolved } = await supabase
+    .from("cancel_audit_records")
+    .select("*", { count: "exact", head: true })
+    .eq("agency_id", agencyId)
+    .eq("is_active", false)
     .in("status", ["new", "in_progress"]);
 
   return {
     needsAttention: needsAttention || 0,
     all: all || 0,
+    superseded: superseded || 0,
+    droppedUnresolved: droppedUnresolved || 0,
     activeByType: {
       pending_cancel: pendingCancel || 0,
       cancellation: cancellation || 0,
@@ -651,10 +675,10 @@ async function uploadRecords(supabase: any, agencyId: string, teamMemberId: stri
   const uploadId = uploadData.id;
   console.log(`[upload_records] Created upload record: ${uploadId}`);
 
-  // 2. Deactivate all existing records of this report type
+  // 2. Deactivate all existing records of this report type and stamp drop time
   const { data: deactivatedData, error: deactivateError } = await supabase
     .from("cancel_audit_records")
-    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .update({ is_active: false, dropped_from_report_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq("agency_id", agencyId)
     .eq("report_type", reportType)
     .eq("is_active", true)
@@ -782,12 +806,11 @@ async function getHeroStats(supabase: any, agencyId: string, params?: any) {
     console.log(`[getHeroStats] Using server dates (fallback)`);
   }
 
-  // Get all active records (for working list and at risk)
+  // Get all working-list records (driven by status, not is_active)
   const { data: activeRecords, error: activeError } = await supabase
     .from("cancel_audit_records")
     .select("id, premium_cents, household_key")
     .eq("agency_id", agencyId)
-    .eq("is_active", true)
     .in("status", ["new", "in_progress"]);
 
   if (activeError) throw activeError;
@@ -797,7 +820,6 @@ async function getHeroStats(supabase: any, agencyId: string, params?: any) {
     .from("cancel_audit_records")
     .select("id, premium_cents")
     .eq("agency_id", agencyId)
-    .eq("is_active", true)
     .in("status", ["new", "in_progress"])
     .gte("created_at", currentWeekStartISO)
     .lte("created_at", currentWeekEndISO);
@@ -809,7 +831,6 @@ async function getHeroStats(supabase: any, agencyId: string, params?: any) {
     .from("cancel_audit_records")
     .select("id, premium_cents")
     .eq("agency_id", agencyId)
-    .eq("is_active", true)
     .in("status", ["new", "in_progress"])
     .gte("created_at", priorWeekStartISO)
     .lte("created_at", priorWeekEndISO);
@@ -1212,11 +1233,11 @@ async function bulkDeleteRecords(supabase: any, agencyId: string, params: any) {
 async function getActivePolicyNumbers(supabase: any, agencyId: string) {
   console.log(`[getActivePolicyNumbers] Fetching active cancel audit policies for agency ${agencyId}`);
 
+  // Dropped-but-unresolved records are still being worked — keep them hidden from Renewals
   const { data, error } = await supabase
     .from("cancel_audit_records")
     .select("policy_number")
     .eq("agency_id", agencyId)
-    .eq("is_active", true)
     .in("status", ["new", "in_progress"]);
 
   if (error) {

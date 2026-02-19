@@ -6,6 +6,7 @@ interface CancelAuditCounts {
   needsAttention: number;
   all: number;
   superseded: number;
+  droppedUnresolved: number;
   activeByType: {
     pending_cancel: number;
     cancellation: number;
@@ -19,7 +20,7 @@ export function useCancelAuditCounts(agencyId: string | null) {
     queryKey: ['cancel-audit-counts', agencyId],
     queryFn: async (): Promise<CancelAuditCounts> => {
       if (!agencyId) {
-        return { needsAttention: 0, all: 0, superseded: 0, activeByType: { pending_cancel: 0, cancellation: 0 } };
+        return { needsAttention: 0, all: 0, superseded: 0, droppedUnresolved: 0, activeByType: { pending_cancel: 0, cancellation: 0 } };
       }
 
       // Staff portal: use edge function
@@ -32,12 +33,11 @@ export function useCancelAuditCounts(agencyId: string | null) {
       }
 
       // Regular auth: use direct Supabase query
-      // Get needs attention count (active + new/in_progress)
+      // Get needs attention count (new/in_progress regardless of is_active)
       const { count: needsAttention, error: needsAttentionError } = await supabase
         .from('cancel_audit_records')
         .select('*', { count: 'exact', head: true })
         .eq('agency_id', agencyId)
-        .eq('is_active', true)
         .in('status', ['new', 'in_progress']);
 
       if (needsAttentionError) throw needsAttentionError;
@@ -59,23 +59,31 @@ export function useCancelAuditCounts(agencyId: string | null) {
 
       if (supersededError) throw supersededError;
 
-      // Get active pending cancel count
+      // Get dropped but unresolved count (dropped from report but still needs work)
+      const { count: droppedUnresolved, error: droppedError } = await supabase
+        .from('cancel_audit_records')
+        .select('*', { count: 'exact', head: true })
+        .eq('agency_id', agencyId)
+        .eq('is_active', false)
+        .in('status', ['new', 'in_progress']);
+
+      if (droppedError) throw droppedError;
+
+      // Get pending cancel count (new/in_progress)
       const { count: pendingCancel, error: pendingError } = await supabase
         .from('cancel_audit_records')
         .select('*', { count: 'exact', head: true })
         .eq('agency_id', agencyId)
-        .eq('is_active', true)
         .eq('report_type', 'pending_cancel')
         .in('status', ['new', 'in_progress']);
 
       if (pendingError) throw pendingError;
 
-      // Get active cancellation count
+      // Get cancellation count (new/in_progress)
       const { count: cancellation, error: cancellationError } = await supabase
         .from('cancel_audit_records')
         .select('*', { count: 'exact', head: true })
         .eq('agency_id', agencyId)
-        .eq('is_active', true)
         .eq('report_type', 'cancellation')
         .in('status', ['new', 'in_progress']);
 
@@ -85,6 +93,7 @@ export function useCancelAuditCounts(agencyId: string | null) {
         needsAttention: needsAttention || 0,
         all: all || 0,
         superseded: superseded || 0,
+        droppedUnresolved: droppedUnresolved || 0,
         activeByType: {
           pending_cancel: pendingCancel || 0,
           cancellation: cancellation || 0,

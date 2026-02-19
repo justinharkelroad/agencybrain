@@ -36,6 +36,7 @@ export interface CancelAuditRecord {
   original_year: string | null;
   status: RecordStatus;
   is_active: boolean;
+  dropped_from_report_at: string | null;
   last_upload_id: string | null;
   assigned_team_member_id: string | null;
   contact_id?: string | null;

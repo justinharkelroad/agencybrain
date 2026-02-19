@@ -121,10 +121,10 @@ async function processInBackground(
 
     const uploadId = uploadData.id;
 
-    // 2. Deactivate all existing records of this report type
+    // 2. Deactivate all existing records of this report type and stamp drop time
     await supabase
       .from('cancel_audit_records')
-      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .update({ is_active: false, dropped_from_report_at: new Date().toISOString(), updated_at: new Date().toISOString() })
       .eq('agency_id', agencyId)
       .eq('report_type', reportType)
       .eq('is_active', true);

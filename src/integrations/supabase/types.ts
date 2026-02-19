@@ -1893,6 +1893,7 @@ export type Database = {
           cancel_status: string | null
           contact_id: string | null
           created_at: string
+          dropped_from_report_at: string | null
           household_key: string
           id: string
           insured_email: string | null
@@ -1924,6 +1925,7 @@ export type Database = {
           cancel_status?: string | null
           contact_id?: string | null
           created_at?: string
+          dropped_from_report_at?: string | null
           household_key: string
           id?: string
           insured_email?: string | null
@@ -1955,6 +1957,7 @@ export type Database = {
           cancel_status?: string | null
           contact_id?: string | null
           created_at?: string
+          dropped_from_report_at?: string | null
           household_key?: string
           id?: string
           insured_email?: string | null

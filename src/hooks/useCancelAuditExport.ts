@@ -21,7 +21,7 @@ export async function exportRecordsToCSV(options: ExportOptions): Promise<string
 
   // Apply view mode filtering
   if (viewMode === 'needs_attention') {
-    query = query.eq('is_active', true).in('status', ['new', 'in_progress']);
+    query = query.in('status', ['new', 'in_progress']);
   }
   // 'all' mode includes everything (active and inactive)
 
@@ -130,7 +130,7 @@ export async function exportSummaryReport(
     .from('cancel_audit_records')
     .select('*')
     .eq('agency_id', agencyId)
-    .eq('is_active', true);
+    .in('status', ['new', 'in_progress', 'resolved', 'lost']);
 
   const { data: activities } = await supabase
     .from('cancel_audit_activities')

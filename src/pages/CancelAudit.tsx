@@ -85,7 +85,13 @@ const CancelAuditPage = () => {
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
 
   // View mode - default to "Needs Attention"
-  const [viewMode, setViewMode] = useState<ViewMode>('needs_attention');
+  const [viewMode, setViewModeRaw] = useState<ViewMode>('needs_attention');
+  const setViewMode = useCallback((mode: ViewMode) => {
+    setViewModeRaw(mode);
+    // needs_attention: show dropped records by default; all: hide old resolved/lost by default
+    setShowCurrentOnly(mode === 'all');
+    setShowDroppedOnly(false);
+  }, []);
 
   // Filter and UI state
   const [reportTypeFilter, setReportTypeFilter] = useState<ReportType | 'all'>('all');
@@ -98,7 +104,8 @@ const CancelAuditPage = () => {
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
   const [weekOffset, setWeekOffset] = useState(0);
   const [showUntouchedOnly, setShowUntouchedOnly] = useState(false);
-  const [showCurrentOnly, setShowCurrentOnly] = useState(true);
+  const [showCurrentOnly, setShowCurrentOnly] = useState(false);
+  const [showDroppedOnly, setShowDroppedOnly] = useState(false);
   const [urgencyFilter, setUrgencyFilter] = useState<string | null>(null);
   
   // Selection state for bulk actions
@@ -131,6 +138,17 @@ const CancelAuditPage = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchQuery]);
+
+  // Mutual exclusion: "Current Only" and "Dropped" are opposites
+  const handleShowCurrentOnlyChange = useCallback((value: boolean) => {
+    setShowCurrentOnly(value);
+    if (value) setShowDroppedOnly(false);
+  }, []);
+
+  const handleShowDroppedOnlyChange = useCallback((value: boolean) => {
+    setShowDroppedOnly(value);
+    if (value) setShowCurrentOnly(false);
+  }, []);
 
   // Fetch records with viewMode
   const { data: records, isLoading: recordsLoading, refetch } = useCancelAuditRecords({
@@ -202,6 +220,11 @@ const CancelAuditPage = () => {
       filtered = filtered.filter(r => r.status === statusFilter);
     }
     
+    // Dropped-only filter (records no longer in latest report)
+    if (showDroppedOnly) {
+      filtered = filtered.filter(r => !r.is_active);
+    }
+
     // Untouched filter
     if (showUntouchedOnly) {
       filtered = filtered.filter(r => r.activity_count === 0);
@@ -252,7 +275,7 @@ const CancelAuditPage = () => {
     }
     
     return filtered;
-  }, [records, viewMode, statusFilter, cancelStatusFilter, showUntouchedOnly, urgencyFilter]);
+  }, [records, viewMode, statusFilter, cancelStatusFilter, showUntouchedOnly, showDroppedOnly, urgencyFilter]);
 
   // Count untouched records
   const untouchedCount = useMemo(() => {
@@ -413,7 +436,7 @@ const CancelAuditPage = () => {
   // Clear selection when filters change
   useEffect(() => {
     setSelectedRecordIds([]);
-  }, [viewMode, reportTypeFilter, statusFilter, showUntouchedOnly, showCurrentOnly, debouncedSearch, urgencyFilter]);
+  }, [viewMode, reportTypeFilter, statusFilter, showUntouchedOnly, showCurrentOnly, showDroppedOnly, debouncedSearch, urgencyFilter]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -572,9 +595,10 @@ const CancelAuditPage = () => {
     setSearchQuery('');
     setDebouncedSearch('');
     setShowUntouchedOnly(false);
-    setShowCurrentOnly(true);
+    setShowCurrentOnly(viewMode === 'all');
+    setShowDroppedOnly(false);
     setUrgencyFilter(null);
-  }, []);
+  }, [viewMode]);
 
   const handleSelectRecord = useCallback((recordId: string, selected: boolean) => {
     setSelectedRecordIds(prev => 
@@ -626,7 +650,8 @@ const CancelAuditPage = () => {
 
   const hasRecords = (viewCounts?.all || 0) > 0;
   const hasFilteredRecords = filteredRecords.length > 0;
-  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || cancelStatusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly || !showCurrentOnly || urgencyFilter !== null;
+  const defaultShowCurrentOnly = viewMode === 'all';
+  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || cancelStatusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly || showDroppedOnly || showCurrentOnly !== defaultShowCurrentOnly || urgencyFilter !== null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -766,8 +791,11 @@ const CancelAuditPage = () => {
               onShowUntouchedOnlyChange={setShowUntouchedOnly}
               untouchedCount={untouchedCount}
               showCurrentOnly={showCurrentOnly}
-              onShowCurrentOnlyChange={setShowCurrentOnly}
+              onShowCurrentOnlyChange={handleShowCurrentOnlyChange}
+              showDroppedOnly={showDroppedOnly}
+              onShowDroppedOnlyChange={handleShowDroppedOnlyChange}
               supersededCount={viewCounts?.superseded || 0}
+              droppedUnresolvedCount={viewCounts?.droppedUnresolved || 0}
             />
 
             {/* Records List */}

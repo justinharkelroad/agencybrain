@@ -27,11 +27,11 @@ export function useActiveCancelAuditPolicies(agencyId: string | null) {
       }
 
       // Regular auth: direct Supabase query
+      // Dropped-but-unresolved records are still being worked — keep them hidden from Renewals
       const { data, error } = await supabase
         .from('cancel_audit_records')
         .select('policy_number')
         .eq('agency_id', agencyId)
-        .eq('is_active', true)
         .in('status', ['new', 'in_progress']);
 
       if (error) throw error;
