@@ -159,6 +159,14 @@ export default {
 						opacity: '0.6',
 						transform: 'scale(1.2)'
 					}
+				},
+				'marquee': {
+					'0%': {
+						transform: 'translateX(0)'
+					},
+					'100%': {
+						transform: 'translateX(-50%)'
+					}
 				}
 			},
 			animation: {
@@ -167,7 +175,8 @@ export default {
 				'typing-bounce': 'typing-bounce 1s ease-in-out infinite',
 				'chat-message-in': 'chat-message-in 0.3s ease-out',
 				'float': 'float 3s ease-in-out infinite',
-				'glow-pulse': 'glow-pulse 3s ease-in-out infinite'
+				'glow-pulse': 'glow-pulse 3s ease-in-out infinite',
+				'marquee': 'marquee 35s linear infinite'
 			}
 		}
 	},

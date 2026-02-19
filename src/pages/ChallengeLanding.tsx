@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
   ChevronDown,
+  Volume2,
+  VolumeX,
   ChevronRight,
   ArrowRight,
   CheckCircle2,
@@ -100,12 +102,22 @@ function FAQItem({ q, a }: { q: string; a: string }) {
 }
 
 export default function ChallengeLanding() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isMuted, setIsMuted] = useState(true);
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !videoRef.current.muted;
+      setIsMuted(videoRef.current.muted);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#050a14] text-white">
       {/* ─── NAV ─── */}
       <nav className="sticky top-0 z-50 border-b border-white/5 bg-[#050a14]/90 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <img src={standardLogo} alt="Standard Playbook" className="h-6 sm:h-7 brightness-200" />
+          <img src={standardLogo} alt="Standard Playbook" className="h-8 sm:h-9 brightness-200" />
           <div className="flex items-center gap-4">
             <Link to="/auth" className="text-sm text-slate-400 hover:text-white transition-colors hidden sm:block">
               Sign In
@@ -121,25 +133,74 @@ export default function ChallengeLanding() {
 
       {/* ─── HERO ─── */}
       <section className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-20"
-          style={{ backgroundImage: 'url(/assets/hero-poster-1920.jpg)' }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#050a14]/60 via-[#050a14]/80 to-[#050a14]" />
-        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-20 sm:pb-32">
-          <div className="text-center space-y-6">
-            <p className="uppercase tracking-[0.25em] text-cyan-400 text-xs sm:text-sm font-semibold">
-              6 Weeks &middot; 30 Trainings &middot; Per Seat
+        <div className="absolute inset-0 bg-gradient-to-b from-[#050a14] via-[#050a14]/95 to-[#050a14]" />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-20 sm:pb-32">
+          <div className="text-center space-y-6 mb-12 sm:mb-16">
+            <p className="uppercase tracking-[0.3em] text-cyan-400 text-xl sm:text-2xl lg:text-3xl font-black max-w-2xl mx-auto">
+              6 Weeks &middot; 30 Trainings
             </p>
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black uppercase leading-[0.95] tracking-tight">
-              Producer<br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">
-                Power Up
-              </span>
-            </h1>
+          </div>
+
+          {/* Scrolling Marquee */}
+          <div className="relative w-screen left-1/2 -translate-x-1/2 overflow-hidden py-4 sm:py-6 mb-10 sm:mb-14">
+            <div className="flex whitespace-nowrap animate-marquee">
+              {[...Array(6)].map((_, i) => (
+                <span
+                  key={i}
+                  className="text-5xl sm:text-7xl lg:text-9xl font-black uppercase tracking-tight text-white/[0.07] mx-4 sm:mx-8 shrink-0 select-none"
+                >
+                  Producer Power Up Challenge
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="text-center mb-12 sm:mb-16">
             <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
               Transform your producer from reactive chaos to systematic execution — in 42 days. You'll see every step.
             </p>
+          </div>
+
+          {/* Laptop Mockup with Video */}
+          <div className="relative max-w-4xl mx-auto">
+            {/* Glow effect behind the laptop */}
+            <div className="absolute -inset-8 bg-gradient-to-r from-orange-500/10 via-cyan-500/10 to-orange-500/10 blur-3xl rounded-full opacity-60" />
+
+            {/* Laptop frame */}
+            <div className="relative">
+              {/* Screen bezel */}
+              <div className="relative bg-[#1a1a1a] rounded-t-xl sm:rounded-t-2xl border border-[#333] border-b-0 p-[6px] sm:p-[10px]">
+                {/* Camera notch */}
+                <div className="absolute top-[3px] sm:top-[4px] left-1/2 -translate-x-1/2 w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-[#0d0d0d] border border-[#2a2a2a]" />
+                {/* Screen */}
+                <div className="relative rounded-sm sm:rounded-md overflow-hidden bg-black aspect-video group">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="w-full h-full object-cover"
+                    src="/promo-images/Challenge Hero.mp4"
+                  />
+                  <button
+                    onClick={toggleMute}
+                    className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white hover:bg-black/80 transition-all cursor-pointer"
+                  >
+                    {isMuted ? <VolumeX className="h-4 w-4 sm:h-5 sm:w-5" /> : <Volume2 className="h-4 w-4 sm:h-5 sm:w-5" />}
+                  </button>
+                </div>
+              </div>
+              {/* Keyboard base */}
+              <div className="relative h-3 sm:h-5 bg-gradient-to-b from-[#2a2a2a] to-[#1f1f1f] rounded-b-lg sm:rounded-b-xl border border-t-0 border-[#333] overflow-hidden">
+                {/* Hinge line */}
+                <div className="absolute top-0 left-[10%] right-[10%] h-[1px] bg-[#444]" />
+                {/* Trackpad indent */}
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1/4 h-[2px] bg-[#1a1a1a] rounded-t-sm" />
+              </div>
+              {/* Base shadow */}
+              <div className="mx-[5%] h-2 sm:h-3 bg-gradient-to-b from-black/40 to-transparent rounded-b-full" />
+            </div>
           </div>
 
           {/* Problem / Possibility cards */}
@@ -236,19 +297,19 @@ export default function ChallengeLanding() {
                 step: '01',
                 title: 'Watch & Reflect',
                 desc: 'They start their day with a 5-10 min training video. Getting clear on one of the 30 Standard Skillsets. Then they answer reflection questions — forcing them to internalize it.',
-                image: '/promo-images/Standard Training1.png',
+                image: '/promo-images/WATCH & REFLECT.png',
               },
               {
                 step: '02',
                 title: 'Execute & Track',
                 desc: 'The training is tied to a specific, measurable action item they execute that day. Then they complete their Core 4 — Body, Being, Balance, Business.',
-                image: '/promo-images/Core4.png',
+                image: '/promo-images/EXECUTE &  TRACK.png',
               },
               {
                 step: '03',
                 title: 'You See Everything',
                 desc: 'After they submit, AI analyzes their reflections and emails you a coaching report. You see quality, engagement, and areas to push — without micromanaging.',
-                image: '/promo-images/Metrics1.png',
+                image: '/promo-images/YOU SEE EVERYTHING.png',
               },
             ].map((item) => (
               <div key={item.step} className="border border-cyan-900/30 bg-[#0a1020] rounded-xl overflow-hidden">
@@ -326,7 +387,7 @@ export default function ChallengeLanding() {
                   </p>
                 </div>
                 <div className="bg-[#0d1525] p-3">
-                  <img src="/promo-images/staff-dashboard.png" alt="Staff Dashboard" className="w-full rounded-lg shadow-2xl" />
+                  <img src="/promo-images/DASHBOARD.png" alt="Staff Dashboard" className="w-full rounded-lg shadow-2xl" />
                 </div>
               </div>
 
@@ -338,7 +399,7 @@ export default function ChallengeLanding() {
                   </p>
                 </div>
                 <div className="bg-[#0d1525] p-3">
-                  <img src="/promo-images/Core4.png" alt="Core 4 Tracker" className="w-full rounded-lg shadow-2xl" />
+                  <img src="/promo-images/CORE 4.png" alt="Core 4 Tracker" className="w-full rounded-lg shadow-2xl" />
                 </div>
               </div>
             </div>
@@ -353,7 +414,7 @@ export default function ChallengeLanding() {
                   </p>
                 </div>
                 <div className="bg-[#0d1525] p-3">
-                  <img src="/promo-images/Flows1.png" alt="Discovery Flows" className="w-full rounded-lg shadow-2xl" />
+                  <img src="/promo-images/DISCOVERY FLOWS.png" alt="Discovery Flows" className="w-full rounded-lg shadow-2xl" />
                 </div>
               </div>
 
@@ -365,7 +426,7 @@ export default function ChallengeLanding() {
                   </p>
                 </div>
                 <div className="bg-[#0d1525] p-3">
-                  <img src="/promo-images/Metrics1.png" alt="Owner Dashboard" className="w-full rounded-lg shadow-2xl" />
+                  <img src="/promo-images/OWNER VISIBILITY.png" alt="Owner Dashboard" className="w-full rounded-lg shadow-2xl" />
                 </div>
               </div>
             </div>
@@ -503,23 +564,24 @@ export default function ChallengeLanding() {
             Ready to Build Your Next Top Producer?
           </p>
           <h2 className="text-3xl sm:text-4xl font-black text-center uppercase tracking-tight">
-            Choose Your Tier
+            Enroll Your Team
           </h2>
           <p className="text-slate-400 text-center mt-4 max-w-xl mx-auto">
             Enroll your producer by Friday to secure their spot for Monday's start.
           </p>
 
-          <div className="mt-12 grid lg:grid-cols-3 gap-6">
-            {/* 1:1 Coaching */}
-            <div className="border border-cyan-900/30 bg-[#0a1020] rounded-xl overflow-hidden flex flex-col">
-              <div className="p-6 sm:p-8 flex-1 space-y-4">
-                <p className="uppercase text-xs font-bold tracking-wider text-green-400">1:1 Coaching Member</p>
+          <div className="mt-12 max-w-lg mx-auto">
+            <div className="border-2 border-orange-500 bg-[#0a1020] rounded-xl overflow-hidden flex flex-col">
+              <div className="bg-orange-500 text-center py-2">
+                <span className="text-sm font-bold uppercase tracking-wider text-white">Full Access</span>
+              </div>
+              <div className="p-8 sm:p-10 flex-1 space-y-5 text-center">
                 <div>
-                  <span className="text-4xl font-black text-white">$50</span>
-                  <span className="text-slate-500 ml-1">/seat</span>
+                  <span className="text-5xl sm:text-6xl font-black text-white">$299</span>
+                  <span className="text-slate-500 ml-2 text-lg">/seat</span>
                 </div>
-                <p className="text-sm text-slate-400">Best value for premium coaching members.</p>
-                <ul className="space-y-2.5 pt-2">
+                <p className="text-sm text-slate-400">Everything your producer needs for 6 weeks of guided transformation.</p>
+                <ul className="space-y-3 pt-2 text-left max-w-xs mx-auto">
                   {[
                     '30 daily video lessons',
                     'Reflection + AI coaching feedback',
@@ -527,90 +589,19 @@ export default function ChallengeLanding() {
                     'Weekly Discovery Flows',
                     'Progress dashboard',
                     'Daily email reminders',
+                    'Full Core 4 + Flows access',
                   ].map((f, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm text-slate-300">
-                      <CheckCircle2 className="h-4 w-4 text-green-400 shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="p-6 pt-0">
-                <a href={STRIPE_LINKS.oneOnOne} className="block">
-                  <Button className="w-full bg-slate-700 hover:bg-slate-600 text-white font-semibold h-12">
-                    Buy Now <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </a>
-              </div>
-            </div>
-
-            {/* Boardroom - Popular */}
-            <div className="border-2 border-orange-500 bg-[#0a1020] rounded-xl overflow-hidden flex flex-col relative">
-              <div className="bg-orange-500 text-center py-1.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-white">Most Popular</span>
-              </div>
-              <div className="p-6 sm:p-8 flex-1 space-y-4">
-                <p className="uppercase text-xs font-bold tracking-wider text-orange-400">Boardroom Member</p>
-                <div>
-                  <span className="text-4xl font-black text-white">$99</span>
-                  <span className="text-slate-500 ml-1">/seat</span>
-                </div>
-                <p className="text-sm text-slate-400">Perfect for growing agencies in the Boardroom.</p>
-                <ul className="space-y-2.5 pt-2">
-                  {[
-                    '30 daily video lessons',
-                    'Reflection + AI coaching feedback',
-                    'Core 4 habit tracker',
-                    'Weekly Discovery Flows',
-                    'Progress dashboard',
-                    'Daily email reminders',
-                  ].map((f, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm text-slate-300">
+                    <li key={i} className="flex items-center gap-2.5 text-sm text-slate-300">
                       <CheckCircle2 className="h-4 w-4 text-orange-400 shrink-0" />
                       {f}
                     </li>
                   ))}
                 </ul>
               </div>
-              <div className="p-6 pt-0">
-                <a href={STRIPE_LINKS.boardroom} className="block">
-                  <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold h-12">
-                    Buy Now <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </a>
-              </div>
-            </div>
-
-            {/* Standalone */}
-            <div className="border border-cyan-900/30 bg-[#0a1020] rounded-xl overflow-hidden flex flex-col">
-              <div className="p-6 sm:p-8 flex-1 space-y-4">
-                <p className="uppercase text-xs font-bold tracking-wider text-cyan-400">Standalone Access</p>
-                <div>
-                  <span className="text-4xl font-black text-white">$299</span>
-                  <span className="text-slate-500 ml-1">/seat</span>
-                </div>
-                <p className="text-sm text-slate-400">Full access for any agency — no membership required.</p>
-                <ul className="space-y-2.5 pt-2">
-                  {[
-                    '30 daily video lessons',
-                    'Reflection + AI coaching feedback',
-                    'Core 4 habit tracker',
-                    'Weekly Discovery Flows',
-                    'Progress dashboard',
-                    'Daily email reminders',
-                    'Includes Core 4 + Flows access',
-                  ].map((f, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm text-slate-300">
-                      <CheckCircle2 className="h-4 w-4 text-cyan-400 shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div className="p-6 pt-0">
+              <div className="px-8 pb-8">
                 <a href={STRIPE_LINKS.callScoring} className="block">
-                  <Button className="w-full bg-slate-700 hover:bg-slate-600 text-white font-semibold h-12">
-                    Buy Now <ArrowRight className="ml-2 h-4 w-4" />
+                  <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold h-14 text-base">
+                    Buy Now <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </a>
               </div>
@@ -618,11 +609,11 @@ export default function ChallengeLanding() {
           </div>
 
           <p className="text-center text-sm text-slate-500 mt-8">
-            Already have an Agency Brain account?{' '}
+            Already a Standard Playbook member?{' '}
             <Link to="/auth" className="text-cyan-400 hover:underline">
               Sign in
             </Link>{' '}
-            to purchase at your member rate.
+            for your member pricing.
           </p>
         </div>
       </section>
