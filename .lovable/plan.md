@@ -1,36 +1,53 @@
 
 
-## Fix Module Cover Images: Show Full Image, Scaled Down
+## Set Custom OG Share Image for the Six-Week Challenge Page
 
 ### The Problem
-The current CSS class `max-h-24 object-cover` does two bad things:
-1. Caps the image height at 96px
-2. `object-cover` crops the image to fill that space, cutting off the top and bottom (which is why "Opening" is getting clipped)
 
-### The Fix
-Replace `max-h-24 object-cover` with `aspect-[4/1] object-contain` on both files.
+When you share the `/six-week-challenge` URL via iMessage or social media, crawlers (iMessage, Facebook, Twitter) only read the raw HTML served by the server -- they do NOT execute JavaScript. Since this is a single-page React app, every route serves the same `index.html` with the generic "AGENCY BRAIN" OG image. Dynamically updating meta tags in React has no effect on link previews.
 
-Here is exactly what each property does:
-- `w-full` -- image spans the full card width (unchanged)
-- `aspect-[4/1]` -- constrains the image container to a 4:1 width-to-height ratio, making it roughly 50% shorter than the original 3:1 while providing a defined space
-- `object-contain` -- scales the entire image down to fit inside that container **without cropping**. The full image will always be visible
-- A dark background (`bg-black/90`) is added so any letterbox space around the image blends with the dark image backgrounds
+### The Solution
 
-This means a card on a 400px wide screen would show the image in a 400x100 box. On 800px wide, it would be 800x200. The image always shows in full, never cropped.
+Create a lightweight Supabase Edge Function that acts as a **shareable link proxy**. It detects social media crawlers and serves them a minimal HTML page with the correct OG meta tags and your uploaded image. Real human visitors get instantly redirected to the actual `/six-week-challenge` page.
 
-### Exact Changes
+### Steps
 
-**File 1: `src/pages/training/TrainingCategory.tsx` (line 215)**
-- Change: `className="w-full max-h-24 object-cover"`
-- To: `className="w-full aspect-[4/1] object-contain bg-black/90"`
+1. **Upload the image to Supabase Storage** -- Copy the uploaded `CORE_4.png` into a public Supabase storage bucket so it has a permanent, publicly accessible URL for crawlers to fetch.
 
-**File 2: `src/pages/staff/StaffSPCategory.tsx` (line 184)**
-- Change: `className="w-full max-h-24 object-cover"`
-- To: `className="w-full aspect-[4/1] object-contain bg-black/90"`
+2. **Create an edge function `challenge-og-redirect`** -- This function will:
+   - Check the `User-Agent` header for known social crawlers (iMessage/Facebook/Twitter/LinkedIn/Slack bots)
+   - If it is a crawler: return a minimal HTML page containing the proper `og:title`, `og:description`, `og:image`, and `twitter:image` meta tags pointing to the uploaded image
+   - If it is a real browser: return an instant `<meta http-equiv="refresh">` redirect (plus a JavaScript redirect fallback) to the real `/six-week-challenge` page on the published site
 
-### Result
-- Every module cover image will display fully (no cropping of text like "Opening Objections")
-- Images will be roughly 33% shorter than the original `aspect-[3/1]` sizing
-- Consistent sizing across all screen widths
-- No distortion or stretching
+3. **Use the edge function URL as the share link** -- The shareable URL becomes:
+   `https://agencybrain.lovable.app/functions/v1/challenge-og-redirect`
+   When pasted into iMessage or social media, the crawler sees the custom image and title. When a person taps the link, they land on the real challenge landing page instantly.
+
+### Technical Details
+
+**Edge function (`supabase/functions/challenge-og-redirect/index.ts`):**
+
+```text
+Request comes in
+    |
+    v
+Is User-Agent a social crawler?
+    |               |
+   YES             NO
+    |               |
+    v               v
+Serve HTML with    Redirect to
+OG meta tags +     /six-week-challenge
+challenge image    via meta refresh
+```
+
+- Crawler detection: match against known bot user-agent strings (facebookexternalhit, Twitterbot, LinkedInBot, Slackbot, WhatsApp, iMessage/Applebot)
+- The OG tags will include:
+  - `og:title`: "Standard Producer Challenge -- 6-Week Training"
+  - `og:description`: Compelling description of the challenge
+  - `og:image`: Public URL of the uploaded CORE_4.png from Supabase storage
+  - `twitter:card`: "summary_large_image"
+- Image dimensions: The uploaded image is high-resolution which is ideal for `summary_large_image` card type
+
+**Image storage:** The image will be uploaded to the existing `chatbot-assets` public bucket (or a similar public bucket) so it has a stable URL that crawlers can fetch without authentication.
 
