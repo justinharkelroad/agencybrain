@@ -527,3 +527,6 @@ verify_jwt = false
 
 [functions.challenge-admin-comp]
 verify_jwt = true
+
+[functions.challenge-og-redirect]
+verify_jwt = false
