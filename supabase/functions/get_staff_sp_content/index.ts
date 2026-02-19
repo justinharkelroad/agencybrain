@@ -284,6 +284,7 @@ serve(async (req) => {
         description: cat.description,
         icon: cat.icon,
         color: cat.color || '#1e283a',
+        image_url: cat.image_url || null,
         module_count: cat.sp_modules?.length || 0,
         lesson_count: lessonCount,
         completed_count: completedCount,
