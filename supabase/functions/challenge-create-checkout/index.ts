@@ -28,8 +28,8 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: `Bearer ${jwt}` } },
     });
 
-    // Verify JWT and get user
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+    // Verify JWT and get user — MUST pass jwt explicitly (throwaway clients have no session)
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser(jwt);
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: 'Invalid or expired token' }),
