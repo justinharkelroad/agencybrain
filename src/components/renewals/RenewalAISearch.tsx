@@ -1,9 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
-import { Sparkles, Send, X, MessageSquare } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { Send, X, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { StanAvatar } from '@/components/chatbot/StanAvatar';
+import type { StanVariant } from '@/components/chatbot/StanAvatar';
 import type { AIQueryResponse } from '@/types/renewalAIQuery';
 
 interface RenewalAISearchProps {
@@ -35,6 +37,12 @@ export function RenewalAISearch({
   const [inputValue, setInputValue] = useState('');
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const stanVariant: StanVariant = useMemo(() => {
+    if (isLoading) return 'thinking';
+    if (isActive && currentResult) return 'talking';
+    return 'idle';
+  }, [isLoading, isActive, currentResult]);
 
   // Rotate placeholder examples
   useEffect(() => {
@@ -77,15 +85,13 @@ export function RenewalAISearch({
     <div className="rounded-xl border border-yellow-500/30 bg-gradient-to-r from-yellow-500/5 via-amber-500/5 to-yellow-500/5 p-4 space-y-3">
       {/* Header callout */}
       <div className="flex items-center gap-2">
-        <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-yellow-500/20">
-          <Sparkles className="h-4 w-4 text-yellow-400" />
-        </div>
+        <StanAvatar variant={stanVariant} size="sm" />
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-yellow-400">
-            AI-Powered Search
+            Ask Stan
           </span>
           <span className="text-xs text-muted-foreground">
-            by AgencyBrain AI
+            your renewals assistant
           </span>
         </div>
         {turnCount > 0 && (
@@ -99,21 +105,17 @@ export function RenewalAISearch({
       {/* Input bar */}
       <form onSubmit={handleSubmit} className="relative flex items-center gap-2">
         <div className={cn(
-          "relative flex-1 flex items-center",
+          "relative flex-1",
           isLoading && "animate-pulse"
         )}>
-          <Sparkles className={cn(
-            "absolute left-3 h-4 w-4 z-10 text-yellow-400",
-            isLoading && "animate-spin"
-          )} />
           <Input
             ref={inputRef}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={`Try: "${PLACEHOLDER_EXAMPLES[placeholderIndex]}"`}
+            placeholder={`Ask Stan: "${PLACEHOLDER_EXAMPLES[placeholderIndex]}"`}
             className={cn(
-              "pl-10 pr-4 bg-background/60 border-yellow-500/20 focus-visible:ring-yellow-500/30",
+              "pr-4 bg-background/60 border-yellow-500/20 focus-visible:ring-yellow-500/30",
               isLoading && "border-yellow-500/50",
               isActive && !isLoading && "border-yellow-500/30"
             )}
@@ -146,29 +148,36 @@ export function RenewalAISearch({
         )}
       </form>
 
-      {/* Active AI filter summary banner */}
+      {/* Active AI filter summary — speech bubble from Stan */}
       {isActive && currentResult && (
-        <div className="flex items-start gap-3 px-4 py-2.5 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-          <Sparkles className="h-4 w-4 text-yellow-400 mt-0.5 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-yellow-200">
-              {currentResult.summary}
-            </p>
-            {currentResult.tip && (
-              <p className="text-xs text-yellow-300/60 mt-1">
-                {currentResult.tip}
-              </p>
-            )}
+        <div className="flex items-start gap-2">
+          <StanAvatar variant="talking" size="sm" className="shrink-0 mt-1" />
+          <div className="relative flex-1 min-w-0 px-4 py-2.5 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
+            {/* Speech bubble tail */}
+            <div className="absolute left-[-6px] top-3 w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-r-[6px] border-r-yellow-500/20" />
+            <div className="absolute left-[-4px] top-3 w-0 h-0 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent border-r-[6px] border-r-yellow-500/10" />
+            <div className="flex items-start gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-yellow-200">
+                  {currentResult.summary}
+                </p>
+                {currentResult.tip && (
+                  <p className="text-xs text-yellow-300/60 mt-1">
+                    {currentResult.tip}
+                  </p>
+                )}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs text-yellow-400 hover:text-white hover:bg-yellow-500/20 shrink-0"
+                onClick={handleClear}
+              >
+                <X className="h-3 w-3 mr-1" />
+                Clear
+              </Button>
+            </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs text-yellow-400 hover:text-white hover:bg-yellow-500/20 shrink-0"
-            onClick={handleClear}
-          >
-            <X className="h-3 w-3 mr-1" />
-            Clear
-          </Button>
         </div>
       )}
     </div>
