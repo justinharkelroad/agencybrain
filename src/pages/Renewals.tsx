@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, EyeOff, Phone, Calendar, Star, X, Clock, AlertTriangle } from 'lucide-react';
@@ -24,9 +24,12 @@ import { ScheduleActivityModal } from '@/components/renewals/ScheduleActivityMod
 import { RenewalsDashboard } from '@/components/renewals/RenewalsDashboard';
 import { RenewalsPagination } from '@/components/renewals/RenewalsPagination';
 import { ActivitySummaryBar } from '@/components/renewals/ActivitySummaryBar';
+import { RenewalAISearch } from '@/components/renewals/RenewalAISearch';
 import { ContactProfileModal } from '@/components/contacts';
 import { DroppedRenewalsInfoModal } from '@/components/renewals/DroppedRenewalsInfoModal';
+import { useRenewalAIQuery } from '@/hooks/useRenewalAIQuery';
 import type { RenewalRecord, RenewalUploadContext, WorkflowStatus, BundledStatus } from '@/types/renewal';
+import type { AIQueryResponse, AIExtendedFilters } from '@/types/renewalAIQuery';
 import { isFirstTermRenewal } from '@/lib/renewalParser';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -146,6 +149,9 @@ export default function Renewals() {
   const [showDroppedOnly, setShowDroppedOnly] = useState(false);
   const [droppedInfoOpen, setDroppedInfoOpen] = useState(false);
 
+  // AI query extended filters (range checks, geo, etc. not covered by RenewalFilters)
+  const [aiExtendedFilters, setAiExtendedFilters] = useState<AIExtendedFilters>({});
+
   // Chart filter state
   const [chartDateFilter, setChartDateFilter] = useState<string | null>(null);
   const [chartDayFilter, setChartDayFilter] = useState<number | null>(null);
@@ -158,6 +164,112 @@ export default function Renewals() {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+
+  // Product names (must be defined before AI query hook which uses it)
+  const { data: productNames = [] } = useRenewalProductNames(context?.agencyId || null);
+
+  // AI query hook
+  const aiQuery = useRenewalAIQuery({
+    teamMembers,
+    productNames,
+  });
+
+  // Handle AI query result — maps AIQueryResponse to existing state
+  const handleAIResult = (result: AIQueryResponse) => {
+    const { filters: aiFilters, sort, activeTab: tab } = result;
+
+    // Build complete server-side filters object before calling setFilters once
+    const newFilters: typeof filters = {};
+    if (aiFilters.productName?.length) newFilters.productName = aiFilters.productName;
+    if (aiFilters.bundledStatus && aiFilters.bundledStatus !== 'all') newFilters.bundledStatus = aiFilters.bundledStatus;
+    if (aiFilters.accountType?.length) newFilters.accountType = aiFilters.accountType;
+    if (aiFilters.assignedTeamMemberId) newFilters.assignedTeamMemberId = aiFilters.assignedTeamMemberId;
+    if (aiFilters.dateRangeStart) newFilters.dateRangeStart = aiFilters.dateRangeStart;
+    if (aiFilters.dateRangeEnd) newFilters.dateRangeEnd = aiFilters.dateRangeEnd;
+    if (aiFilters.renewalStatus?.length) newFilters.renewalStatus = aiFilters.renewalStatus;
+    if (aiFilters.zipCode?.length) newFilters.zipCode = aiFilters.zipCode;
+    if (aiFilters.city?.length) newFilters.city = aiFilters.city;
+    if (aiFilters.state?.length) newFilters.state = aiFilters.state;
+
+    // Tab + currentStatus: determine tab and whether currentStatus goes in server filters
+    if (tab) {
+      setActiveTab(tab);
+    } else if (aiFilters.currentStatus?.length === 1) {
+      // Single status → switch to that tab (effectiveFilters derives currentStatus from tab)
+      setActiveTab(aiFilters.currentStatus[0]);
+    } else if (aiFilters.currentStatus?.length) {
+      // Multiple statuses → stay on "all" tab, pass as server filter
+      setActiveTab('all');
+      newFilters.currentStatus = aiFilters.currentStatus;
+    } else {
+      setActiveTab('all');
+    }
+
+    // Apply filters once with complete object
+    setFilters(newFilters);
+
+    // Clear chart filters so they don't override AI's date range in effectiveFilters
+    setChartDateFilter(null);
+    setChartDayFilter(null);
+
+    // Search
+    setSearchQuery(aiFilters.search || '');
+
+    // Reset all toggles to defaults first, then apply AI overrides.
+    // This prevents stale toggles from a previous AI query persisting
+    // when a new query doesn't mention them.
+    setShowPriorityOnly(aiFilters.showPriorityOnly ?? false);
+    setHideRenewalTaken(aiFilters.hideRenewalTaken ?? false);
+    setHideInCancelAudit(aiFilters.hideInCancelAudit ?? true);
+    setShowFirstTermOnly(aiFilters.showFirstTermOnly ?? false);
+    setShowDroppedOnly(aiFilters.showDroppedOnly ?? false);
+
+    // Sort — reset if AI doesn't specify
+    if (sort?.column) {
+      setSortCriteria([{ column: sort.column, direction: sort.direction || 'asc' }]);
+    } else {
+      setSortCriteria([]);
+    }
+
+    // Extended filters (client-side range checks, carrier status, agent number)
+    setAiExtendedFilters({
+      premiumChangePercentMin: aiFilters.premiumChangePercentMin,
+      premiumChangePercentMax: aiFilters.premiumChangePercentMax,
+      premiumNewMin: aiFilters.premiumNewMin,
+      premiumNewMax: aiFilters.premiumNewMax,
+      amountDueMin: aiFilters.amountDueMin,
+      amountDueMax: aiFilters.amountDueMax,
+      carrierStatus: aiFilters.carrierStatus,
+      agentNumber: aiFilters.agentNumber,
+    });
+  };
+
+  // Clear all AI-set state (restore each toggle to its default value)
+  const handleAIClear = () => {
+    setFilters({});
+    setSearchQuery('');
+    setActiveTab('all');
+    setSortCriteria([]);
+    setShowPriorityOnly(false);
+    setHideRenewalTaken(false);
+    setHideInCancelAudit(true); // default is true
+    setShowFirstTermOnly(false);
+    setShowDroppedOnly(false);
+    setAiExtendedFilters({});
+    setChartDateFilter(null);
+    setChartDayFilter(null);
+  };
+
+  // Apply AI results when they arrive (ref avoids effect re-firing on handler identity change)
+  const handleAIResultRef = useRef(handleAIResult);
+  handleAIResultRef.current = handleAIResult;
+  const aiCurrentResult = aiQuery.currentResult;
+  const aiResultVersion = aiQuery.resultVersion;
+  useEffect(() => {
+    if (aiCurrentResult && aiResultVersion > 0) {
+      handleAIResultRef.current(aiCurrentResult);
+    }
+  }, [aiResultVersion, aiCurrentResult]);
 
   const handleSort = (column: string, event?: React.MouseEvent) => {
     const isShiftClick = event?.shiftKey;
@@ -323,7 +435,6 @@ export default function Renewals() {
   const records = recordsData?.records || [];
   const totalCount = recordsData?.totalCount || 0;
   const { data: stats } = useRenewalStats(context?.agencyId || null);
-  const { data: productNames = [] } = useRenewalProductNames(context?.agencyId || null);
   const { data: activeCancelPolicies } = useActiveCancelAuditPolicies(context?.agencyId || null);
   const { data: droppedData, isLoading: droppedLoading } = useDroppedRenewalRecords(context?.agencyId || null, currentPage, pageSize, showDroppedOnly);
   const droppedRecords = droppedData?.records || [];
@@ -447,6 +558,33 @@ export default function Renewals() {
       result = result.filter(r => isFirstTermRenewal(r.product_code, r.original_year, r.renewal_effective_date));
     }
 
+    // AI extended filters (client-side range checks)
+    if (aiExtendedFilters.premiumChangePercentMin != null) {
+      result = result.filter(r => r.premium_change_percent != null && r.premium_change_percent >= aiExtendedFilters.premiumChangePercentMin!);
+    }
+    if (aiExtendedFilters.premiumChangePercentMax != null) {
+      result = result.filter(r => r.premium_change_percent != null && r.premium_change_percent <= aiExtendedFilters.premiumChangePercentMax!);
+    }
+    if (aiExtendedFilters.premiumNewMin != null) {
+      result = result.filter(r => r.premium_new != null && r.premium_new >= aiExtendedFilters.premiumNewMin!);
+    }
+    if (aiExtendedFilters.premiumNewMax != null) {
+      result = result.filter(r => r.premium_new != null && r.premium_new <= aiExtendedFilters.premiumNewMax!);
+    }
+    if (aiExtendedFilters.amountDueMin != null) {
+      result = result.filter(r => r.amount_due != null && r.amount_due >= aiExtendedFilters.amountDueMin!);
+    }
+    if (aiExtendedFilters.amountDueMax != null) {
+      result = result.filter(r => r.amount_due != null && r.amount_due <= aiExtendedFilters.amountDueMax!);
+    }
+    if (aiExtendedFilters.carrierStatus?.length) {
+      const statuses = aiExtendedFilters.carrierStatus.map(s => s.toLowerCase());
+      result = result.filter(r => r.carrier_status && statuses.includes(r.carrier_status.toLowerCase()));
+    }
+    if (aiExtendedFilters.agentNumber?.length) {
+      result = result.filter(r => r.agent_number && aiExtendedFilters.agentNumber!.includes(r.agent_number));
+    }
+
     // Comparator used for both default and column sorting
     const compare = (a: RenewalRecord, b: RenewalRecord) => {
       // When Priority Only is active, always group starred items first
@@ -526,7 +664,7 @@ export default function Renewals() {
     if (sortCriteria.length === 0) return result;
 
     return [...result].sort(compare);
-  }, [records, sortCriteria, showPriorityOnly, hideRenewalTaken, hideInCancelAudit, showFirstTermOnly, activeCancelPolicies, chartDateFilter, chartDayFilter]);
+  }, [records, sortCriteria, showPriorityOnly, hideRenewalTaken, hideInCancelAudit, showFirstTermOnly, activeCancelPolicies, chartDateFilter, chartDayFilter, aiExtendedFilters]);
 
   const displayedRecords = showDroppedOnly ? droppedRecords : filteredAndSortedRecords;
   const toggleSelectAll = () => { selectedIds.size === displayedRecords.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(displayedRecords.map(r => r.id))); };
@@ -737,7 +875,18 @@ export default function Renewals() {
           <TabsTrigger value="unsuccessful">Unsuccessful <Badge variant="secondary" className="ml-2">{stats?.unsuccessful || 0}</Badge></TabsTrigger>
         </TabsList>
       </Tabs>
-      
+
+      {/* AI-powered natural language search */}
+      <RenewalAISearch
+        onClear={handleAIClear}
+        sendQuery={aiQuery.sendQuery}
+        clearAIQuery={aiQuery.clearAIQuery}
+        currentResult={aiQuery.currentResult}
+        isLoading={aiQuery.isLoading}
+        isActive={aiQuery.isActive}
+        turnCount={aiQuery.turnCount}
+      />
+
       {/* Mobile filter toggle */}
       <div className="md:hidden">
         <Button

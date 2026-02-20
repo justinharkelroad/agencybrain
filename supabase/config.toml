@@ -533,3 +533,6 @@ verify_jwt = true
 
 [functions.challenge-og-redirect]
 verify_jwt = false
+
+[functions.parse_renewal_query]
+verify_jwt = false

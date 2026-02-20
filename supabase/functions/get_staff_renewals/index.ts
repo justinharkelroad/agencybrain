@@ -477,6 +477,15 @@ serve(async (req) => {
     if (filters.searchQuery) {
       query = query.or(`first_name.ilike.%${filters.searchQuery}%,last_name.ilike.%${filters.searchQuery}%,policy_number.ilike.%${filters.searchQuery}%,email.ilike.%${filters.searchQuery}%,phone.ilike.%${filters.searchQuery}%`);
     }
+    if (filters.zipCode?.length) {
+      query = query.in('zip_code', filters.zipCode);
+    }
+    if (filters.city?.length) {
+      query = query.or(filters.city.map((c: string) => `city.ilike.${c}`).join(','));
+    }
+    if (filters.state?.length) {
+      query = query.or(filters.state.map((s: string) => `state.ilike.${s}`).join(','));
+    }
 
     // Apply pagination
     query = query.range(from, to);

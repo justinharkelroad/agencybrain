@@ -15,6 +15,9 @@ export interface RenewalFilters {
   dateRangeStart?: string;
   dateRangeEnd?: string;
   search?: string;
+  zipCode?: string[];
+  city?: string[];
+  state?: string[];
 }
 
 export interface RenewalRecordsResult {
@@ -42,7 +45,7 @@ export function useRenewalRecords(
       if (staffSessionToken) {
         console.log('[useRenewalRecords] Staff user detected, calling edge function with pagination:', { page, pageSize });
         const { data, error } = await supabase.functions.invoke('get_staff_renewals', {
-          body: { 
+          body: {
             page,
             pageSize,
             filters: {
@@ -56,7 +59,10 @@ export function useRenewalRecords(
                 start: filters.dateRangeStart,
                 end: filters.dateRangeEnd
               } : undefined,
-              searchQuery: filters.search
+              searchQuery: filters.search,
+              zipCode: filters.zipCode,
+              city: filters.city,
+              state: filters.state,
             }
           },
           headers: { 'x-staff-session': staffSessionToken }
@@ -100,7 +106,14 @@ export function useRenewalRecords(
       if (filters.search) {
         query = query.or(`first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,policy_number.ilike.%${filters.search}%,email.ilike.%${filters.search}%,phone.ilike.%${filters.search}%`);
       }
-      
+      if (filters.zipCode?.length) query = query.in('zip_code', filters.zipCode);
+      if (filters.city?.length) {
+        query = query.or(filters.city.map(c => `city.ilike.${c}`).join(','));
+      }
+      if (filters.state?.length) {
+        query = query.or(filters.state.map(s => `state.ilike.${s}`).join(','));
+      }
+
       const { data, error, count } = await query;
       if (error) throw error;
       return { records: data as RenewalRecord[], totalCount: count || 0 };
