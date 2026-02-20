@@ -71,14 +71,37 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get lqs_households count for this team member on the work date
-    const { count: quotedCount } = await supabase
+    // Get lqs_households with full details for this team member on the work date
+    const { data: quotedHouseholds } = await supabase
       .from('lqs_households')
-      .select('*', { count: 'exact', head: true })
+      .select(`
+        id, first_name, last_name, lead_source_id, notes, objection_id, zip_code,
+        lqs_objections(name),
+        lqs_quotes(product_type, items_quoted, premium_cents)
+      `)
       .eq('team_member_id', staffUser.team_member_id)
       .eq('agency_id', staffUser.agency_id)
       .eq('first_quote_date', workDate)
-      .in('status', ['quoted', 'sold']);
+      .in('status', ['quoted', 'sold'])
+      .order('created_at');
+
+    const quotedCount = quotedHouseholds?.length || 0;
+
+    // Map to form repeater format
+    const quotedDetails = (quotedHouseholds || []).map(h => ({
+      prospect_name: `${h.first_name || ''} ${h.last_name || ''}`.trim(),
+      lead_source: h.lead_source_id || '',
+      zip_code: h.zip_code || '',
+      detailed_notes: [
+        h.notes || '',
+        h.objection_id ? `[Objection: ${(h as any).lqs_objections?.name || 'Unknown'}]` : ''
+      ].filter(Boolean).join('\n') || '',
+      policies_quoted: (h as any).lqs_quotes?.length || 0,
+      items_quoted: (h as any).lqs_quotes?.reduce((sum: number, q: any) => sum + (q.items_quoted || 0), 0) || 0,
+      premium_potential: ((h as any).lqs_quotes?.reduce((sum: number, q: any) => sum + (q.premium_cents || 0), 0) || 0) / 100,
+      _lqs_household_id: h.id,
+      _from_dashboard: true,
+    }));
 
     // Get metrics_daily for any pre-existing values
     const { data: metricsDaily } = await supabase
@@ -120,7 +143,8 @@ Deno.serve(async (req) => {
         success: true,
         dashboardQuotedCount,
         dashboardSoldCount,
-        targets
+        targets,
+        quotedDetails,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

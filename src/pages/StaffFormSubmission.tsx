@@ -201,6 +201,45 @@ export default function StaffFormSubmission() {
           if (data.targets) {
             setTargets(prev => ({ ...prev, ...data.targets }));
           }
+
+          // Pre-populate repeater section with dashboard quote details
+          if (data.quotedDetails?.length > 0 && formTemplate?.schema_json) {
+            const schema = formTemplate.schema_json;
+            const repeaterSections = schema.repeaterSections || {};
+
+            // Find the quoted details repeater section
+            let targetSectionKey: string | null = null;
+            let targetTriggerKPI: string | null = null;
+
+            for (const [sectionKey, section] of Object.entries(repeaterSections) as [string, any][]) {
+              if (sectionKey === 'customCollections') continue;
+              if (!section.enabled) continue;
+              // Match by section key name or by triggerKPI slug
+              if (sectionKey === 'quotedDetails' || sectionKey === 'quoted_details' ||
+                  section.triggerKPI === 'quoted_count') {
+                targetSectionKey = sectionKey;
+                targetTriggerKPI = section.triggerKPI;
+                break;
+              }
+            }
+
+            if (targetSectionKey && targetTriggerKPI) {
+              setValues(prev => {
+                // Keep only manually-added rows (drop old dashboard rows from previous date)
+                const manualRows = (prev[targetSectionKey!] || []).filter(
+                  (r: any) => !r._from_dashboard
+                );
+                const dashboardRows = data.quotedDetails;
+                const allRows = [...dashboardRows, ...manualRows];
+
+                return {
+                  ...prev,
+                  [targetTriggerKPI!]: allRows.length,
+                  [targetSectionKey!]: allRows,
+                };
+              });
+            }
+          }
         }
       } catch (err) {
         console.error('Error fetching dashboard metrics:', err);
@@ -208,7 +247,7 @@ export default function StaffFormSubmission() {
     }
 
     fetchDashboardMetrics();
-  }, [sessionToken, values.work_date]);
+  }, [sessionToken, values.work_date, formTemplate?.schema_json]);
 
   // Helper function to convert string to Title Case (for prospect names)
   const toTitleCase = (str: string): string => {
@@ -841,9 +880,16 @@ export default function StaffFormSubmission() {
                     <h3 className="text-lg font-semibold text-foreground mb-4">{section.title}</h3>
                     <div className="bg-muted/30 border border-border rounded-lg p-4">
                       {rows.map((row, i) => (
-                        <div key={i} className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 items-end p-3 bg-background rounded-md mb-3 last:mb-0">
-                          <div className="md:col-span-2 lg:col-span-4 text-sm font-medium text-foreground mb-2">
+                        <div key={i} className={`grid gap-4 md:grid-cols-2 lg:grid-cols-4 items-end p-3 rounded-md mb-3 last:mb-0 ${
+                          row._from_dashboard ? 'bg-primary/5 border border-primary/20' : 'bg-background'
+                        }`}>
+                          <div className="md:col-span-2 lg:col-span-4 text-sm font-medium text-foreground mb-2 flex items-center gap-2">
                             {section.title.slice(0, -1)} #{i + 1}
+                            {row._from_dashboard && (
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                                From Dashboard
+                              </span>
+                            )}
                           </div>
                           {section.fields?.map((field: any) => (
                             <div key={field.key} className={`space-y-1 ${field.type === "longtext" ? "md:col-span-2 lg:col-span-4" : ""}`}>
