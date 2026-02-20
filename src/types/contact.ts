@@ -149,6 +149,8 @@ export interface LinkedRenewalRecord {
   amount_due: number | null;
   easy_pay: boolean | null;
   multi_line_indicator: BundledStatus | null;
+  is_active: boolean;
+  auto_resolved_reason: string | null;
 }
 
 export interface LinkedCancelAuditRecord {

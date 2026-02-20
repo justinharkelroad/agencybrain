@@ -150,6 +150,7 @@ Deno.serve(async (req) => {
 
     // Deactivate existing active records in the date range (mark as "dropped")
     let deactivatedCount = 0;
+    let autoPromotedCount = 0;
     if (dateRangeStart && dateRangeEnd) {
       const { data: deactivated, error: deactivateError } = await supabase
         .from('renewal_records')
@@ -169,6 +170,7 @@ Deno.serve(async (req) => {
         deactivatedCount = deactivated?.length || 0;
         console.log(`Deactivated ${deactivatedCount} existing records in date range ${dateRangeStart} to ${dateRangeEnd}`);
       }
+
     }
 
     let newCount = 0;
@@ -297,6 +299,52 @@ Deno.serve(async (req) => {
     const droppedCount = Math.max(0, deactivatedCount - updatedCount);
     console.log(`Dropped records: ${droppedCount} (deactivated ${deactivatedCount} - reactivated ${updatedCount})`);
 
+    // Auto-promote dropped records that were already "Renewal Taken" to success.
+    // MUST run AFTER batch processing so reactivated records (is_active=true,
+    // dropped_from_report_at=null) don't get incorrectly promoted.
+    if (dateRangeStart && dateRangeEnd) {
+      const { data: autoPromoted, error: autoPromoteError } = await supabase
+        .from('renewal_records')
+        .update({
+          current_status: 'success',
+          auto_resolved_reason: 'renewal_taken_dropped',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('agency_id', staffUser.agency_id)
+        .eq('is_active', false)
+        .not('dropped_from_report_at', 'is', null)
+        .eq('renewal_status', 'Renewal Taken')
+        .in('current_status', ['uncontacted', 'pending'])
+        .select('id');
+
+      if (autoPromoteError) {
+        console.error('Auto-promote error:', autoPromoteError);
+      } else {
+        autoPromotedCount = autoPromoted?.length || 0;
+        if (autoPromotedCount > 0) {
+          console.log(`Auto-promoted ${autoPromotedCount} "Renewal Taken" dropped records to success`);
+
+          // Log activity entries so the timeline shows why status changed
+          const activityRows = autoPromoted.map((r: { id: string }) => ({
+            renewal_record_id: r.id,
+            agency_id: staffUser.agency_id,
+            activity_type: 'status_change',
+            subject: 'Auto-resolved: Carrier confirmed renewal',
+            comments: 'Record dropped from report with "Renewal Taken" status. Automatically marked as successful.',
+            created_by_display_name: 'System',
+          }));
+
+          const { error: activityError } = await supabase
+            .from('renewal_activities')
+            .insert(activityRows);
+
+          if (activityError) {
+            console.error('Failed to log auto-promote activities:', activityError);
+          }
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -304,6 +352,7 @@ Deno.serve(async (req) => {
         updatedCount,
         errorCount,
         deactivatedCount: droppedCount,
+        autoPromotedCount,
         uploadId: upload.id,
       }),
       {

@@ -120,7 +120,7 @@ serve(async (req) => {
         .eq('agency_id', agencyId)
         .order('created_at', { ascending: false }),
 
-      // Renewal records
+      // Renewal records — include active + auto-promoted dropped records
       supabase
         .from('renewal_records')
         .select(`
@@ -136,11 +136,13 @@ serve(async (req) => {
           amount_due,
           easy_pay,
           multi_line_indicator,
+          is_active,
+          auto_resolved_reason,
           assigned_team_member:team_members!renewal_records_assigned_team_member_id_fkey (id, name)
         `)
         .eq('contact_id', contactId)
         .eq('agency_id', agencyId)
-        .eq('is_active', true)
+        .or('is_active.eq.true,auto_resolved_reason.not.is.null')
         .order('renewal_effective_date', { ascending: false }),
 
       // Cancel audit records - use household_key if provided, otherwise contact_id

@@ -272,6 +272,11 @@ function RenewalRecordCard({
               >
                 {record.current_status}
               </Badge>
+              {record.auto_resolved_reason && (
+                <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200">
+                  Auto-renewed
+                </Badge>
+              )}
             </div>
             {record.assigned_team_member_name && (
               <span className="text-xs text-muted-foreground">
@@ -284,6 +289,9 @@ function RenewalRecordCard({
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             {record.product_name && <span>{record.product_name}</span>}
             <span>Due: {format(new Date(record.renewal_effective_date), 'MMM d, yyyy')}</span>
+            {!record.is_active && (
+              <span className="text-amber-500">Dropped from report</span>
+            )}
           </div>
 
           {/* Premium change - the main enhancement */}
