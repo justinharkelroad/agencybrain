@@ -32,6 +32,12 @@ const COLUMN_MAP: Record<string, keyof ParsedRenewalRecord> = {
   'Item Count': 'itemCount',
   'Years Prior Insurance': 'yearsPriorInsurance',
 
+  // Additional Allstate columns
+  'Status': 'carrierStatus',
+  'Zip Code': 'zipCode',
+  'City': 'city',
+  'State': 'state',
+
   // Fallback mappings for other report formats
   'First Name': 'firstName',
   'Last Name': 'lastName',
@@ -200,6 +206,10 @@ export function parseRenewalExcel(workbook: XLSX.WorkBook): ParsedRenewalRecord[
         case 'renewalStatus':
         case 'accountType':
         case 'householdKey':
+        case 'carrierStatus':
+        case 'zipCode':
+        case 'city':
+        case 'state':
           record[fieldName] = value ? String(value).trim() : null;
           break;
         case 'originalYear':

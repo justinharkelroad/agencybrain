@@ -77,6 +77,7 @@ serve(async (req) => {
       bundled: result.bundled || 0,
       monoline: result.monoline || 0,
       unknown: result.unknown || 0,
+      droppedUnresolved: result.droppedUnresolved || 0,
     };
     const productNames = result.productNames || [];
 

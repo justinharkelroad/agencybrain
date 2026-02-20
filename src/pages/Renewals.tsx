@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, EyeOff, Phone, Calendar, Star, X, Clock } from 'lucide-react';
+import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, EyeOff, Phone, Calendar, Star, X, Clock, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { clearStaffTokenIfNotStaffRoute } from '@/lib/cancel-audit-api';
 import { useAuth } from '@/lib/auth';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
-import { useRenewalRecords, useRenewalStats, useRenewalProductNames, useBulkUpdateRenewals, useBulkDeleteRenewals, useUpdateRenewalRecord, useRenewalChartData, type RenewalFilters, type RenewalRecordsResult } from '@/hooks/useRenewalRecords';
+import { useRenewalRecords, useRenewalStats, useRenewalProductNames, useBulkUpdateRenewals, useBulkDeleteRenewals, useUpdateRenewalRecord, useRenewalChartData, useDroppedRenewalRecords, type RenewalFilters, type RenewalRecordsResult } from '@/hooks/useRenewalRecords';
 import { useActiveCancelAuditPolicies } from '@/hooks/useActiveCancelAuditPolicies';
 import { RenewalUploadModal } from '@/components/renewals/RenewalUploadModal';
 import { RenewalDetailDrawer } from '@/components/renewals/RenewalDetailDrawer';
@@ -25,6 +25,7 @@ import { RenewalsDashboard } from '@/components/renewals/RenewalsDashboard';
 import { RenewalsPagination } from '@/components/renewals/RenewalsPagination';
 import { ActivitySummaryBar } from '@/components/renewals/ActivitySummaryBar';
 import { ContactProfileModal } from '@/components/contacts';
+import { DroppedRenewalsInfoModal } from '@/components/renewals/DroppedRenewalsInfoModal';
 import type { RenewalRecord, RenewalUploadContext, WorkflowStatus, BundledStatus } from '@/types/renewal';
 import { isFirstTermRenewal } from '@/lib/renewalParser';
 import { cn } from '@/lib/utils';
@@ -140,6 +141,10 @@ export default function Renewals() {
   useEffect(() => {
     sessionStorage.setItem('renewals_first_term_only', String(showFirstTermOnly));
   }, [showFirstTermOnly]);
+
+  // Dropped records state
+  const [showDroppedOnly, setShowDroppedOnly] = useState(false);
+  const [droppedInfoOpen, setDroppedInfoOpen] = useState(false);
 
   // Chart filter state
   const [chartDateFilter, setChartDateFilter] = useState<string | null>(null);
@@ -320,6 +325,9 @@ export default function Renewals() {
   const { data: stats } = useRenewalStats(context?.agencyId || null);
   const { data: productNames = [] } = useRenewalProductNames(context?.agencyId || null);
   const { data: activeCancelPolicies } = useActiveCancelAuditPolicies(context?.agencyId || null);
+  const { data: droppedData, isLoading: droppedLoading } = useDroppedRenewalRecords(context?.agencyId || null, currentPage, pageSize, showDroppedOnly);
+  const droppedRecords = droppedData?.records || [];
+  const droppedTotalCount = droppedData?.totalCount || 0;
   const { data: chartData = [] } = useRenewalChartData(context?.agencyId || null);
   const { data: latestUpload, isLoading: latestUploadLoading } = useQuery({
     queryKey: ['renewal-uploads', context?.agencyId, 'latest'],
@@ -348,10 +356,15 @@ export default function Renewals() {
   const bulkDelete = useBulkDeleteRenewals();
   const updateRecord = useUpdateRenewalRecord();
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 and clear selection when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [effectiveFilters, activeTab, searchQuery, hideRenewalTaken, hideInCancelAudit, showFirstTermOnly]);
+  }, [effectiveFilters, activeTab, searchQuery, hideRenewalTaken, hideInCancelAudit, showFirstTermOnly, showDroppedOnly]);
+
+  // Clear selection when switching between active and dropped views
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [showDroppedOnly]);
 
   // Phase 3: Priority toggle handler with optimistic update
   const handleTogglePriority = async (recordId: string, isPriority: boolean) => {
@@ -515,7 +528,8 @@ export default function Renewals() {
     return [...result].sort(compare);
   }, [records, sortCriteria, showPriorityOnly, hideRenewalTaken, hideInCancelAudit, showFirstTermOnly, activeCancelPolicies, chartDateFilter, chartDayFilter]);
 
-  const toggleSelectAll = () => { selectedIds.size === records.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(records.map(r => r.id))); };
+  const displayedRecords = showDroppedOnly ? droppedRecords : filteredAndSortedRecords;
+  const toggleSelectAll = () => { selectedIds.size === displayedRecords.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(displayedRecords.map(r => r.id))); };
   const toggleSelect = (id: string) => { const s = new Set(selectedIds); s.has(id) ? s.delete(id) : s.add(id); setSelectedIds(s); };
   const handleBulkDelete = () => { bulkDelete.mutate(Array.from(selectedIds), { onSuccess: () => { setSelectedIds(new Set()); setShowDeleteDialog(false); } }); };
   const handleBulkStatus = (status: WorkflowStatus) => { if (!context) return; bulkUpdate.mutate({ ids: Array.from(selectedIds), updates: { current_status: status }, displayName: context.displayName, userId: context.userId }, { onSuccess: () => setSelectedIds(new Set()) }); };
@@ -567,6 +581,37 @@ export default function Renewals() {
         </Card>
       )}
       
+      {/* Dropped Records Banner */}
+      {stats?.droppedUnresolved > 0 && !showDroppedOnly && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+          <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-400">
+              {stats.droppedUnresolved} renewal record{stats.droppedUnresolved === 1 ? '' : 's'} dropped from the latest report
+            </p>
+            <p className="text-xs text-amber-400/70">
+              These records were in a previous upload but not in the latest one for the same date range.
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/20"
+            onClick={() => setDroppedInfoOpen(true)}
+          >
+            Learn more
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-amber-500/40 text-amber-400 hover:bg-amber-500/20"
+            onClick={() => setShowDroppedOnly(true)}
+          >
+            View dropped
+          </Button>
+        </div>
+      )}
+
       {/* Dashboard Charts */}
       <RenewalsDashboard
         chartRecords={chartData}
@@ -656,6 +701,33 @@ export default function Renewals() {
         </div>
       )}
       
+      {/* Showing Dropped Records Indicator */}
+      {showDroppedOnly && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+          <AlertTriangle className="h-4 w-4 text-amber-400" />
+          <span className="text-sm text-amber-400">
+            Showing {droppedTotalCount} dropped unresolved record{droppedTotalCount === 1 ? '' : 's'}
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-amber-400 hover:text-white hover:bg-amber-500/20"
+            onClick={() => setShowDroppedOnly(false)}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Show Active
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-amber-400 hover:text-white hover:bg-amber-500/20"
+            onClick={() => setDroppedInfoOpen(true)}
+          >
+            What is this?
+          </Button>
+        </div>
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="all">All <Badge variant="secondary" className="ml-2">{stats?.total || 0}</Badge></TabsTrigger>
@@ -746,6 +818,21 @@ export default function Renewals() {
         >
           1st Term Only
         </Button>
+
+        {/* Dropped records toggle */}
+        {(stats?.droppedUnresolved || 0) > 0 && (
+          <Button
+            variant={showDroppedOnly ? "default" : "outline"}
+            onClick={() => setShowDroppedOnly(!showDroppedOnly)}
+            className={cn(
+              "gap-2",
+              showDroppedOnly && "bg-amber-600 hover:bg-amber-700 text-white"
+            )}
+          >
+            <AlertTriangle className="h-4 w-4" />
+            Dropped ({stats?.droppedUnresolved})
+          </Button>
+        )}
       </div>
       
       {/* Premium Change Legend */}
@@ -805,7 +892,7 @@ export default function Renewals() {
           <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[40px]"><Checkbox checked={selectedIds.size === records.length && records.length > 0} onCheckedChange={toggleSelectAll} /></TableHead>
+                <TableHead className="w-[40px]"><Checkbox checked={selectedIds.size === displayedRecords.length && displayedRecords.length > 0} onCheckedChange={toggleSelectAll} /></TableHead>
                 <SortableHeader column="renewal_effective_date" label="Effective" />
                 <SortableHeader column="first_name" label="Customer" />
                 <TableHead>Policy</TableHead>
@@ -821,16 +908,17 @@ export default function Renewals() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recordsLoading ? <TableRow><TableCell colSpan={13} className="text-center py-8"><RefreshCw className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-              : filteredAndSortedRecords.length === 0 ? <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">No records. Upload a report to start.</TableCell></TableRow>
-              : filteredAndSortedRecords.map((r) => (
-                <TableRow 
-                  key={r.id} 
+              {(showDroppedOnly ? droppedLoading : recordsLoading) ? <TableRow><TableCell colSpan={13} className="text-center py-8"><RefreshCw className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+              : (showDroppedOnly ? droppedRecords : filteredAndSortedRecords).length === 0 ? <TableRow><TableCell colSpan={13} className="text-center py-8 text-muted-foreground">{showDroppedOnly ? 'No dropped records.' : 'No records. Upload a report to start.'}</TableCell></TableRow>
+              : (showDroppedOnly ? droppedRecords : filteredAndSortedRecords).map((r) => (
+                <TableRow
+                  key={r.id}
                   className={cn(
                     "cursor-pointer hover:bg-muted/50",
-                    r.premium_change_percent !== null && r.premium_change_percent > 15 && "bg-red-500/10",
-                    r.premium_change_percent !== null && r.premium_change_percent > 5 && r.premium_change_percent <= 15 && "bg-orange-500/5",
-                    r.premium_change_percent !== null && r.premium_change_percent < -5 && "bg-green-500/10",
+                    showDroppedOnly && "opacity-60 border-dashed border-l-2 border-l-amber-500/50",
+                    !showDroppedOnly && r.premium_change_percent !== null && r.premium_change_percent > 15 && "bg-red-500/10",
+                    !showDroppedOnly && r.premium_change_percent !== null && r.premium_change_percent > 5 && r.premium_change_percent <= 15 && "bg-orange-500/5",
+                    !showDroppedOnly && r.premium_change_percent !== null && r.premium_change_percent < -5 && "bg-green-500/10",
                     r.is_priority && "ring-2 ring-yellow-500/50 ring-inset"
                   )}
                   onClick={() => setSelectedRecord(r)}
@@ -839,6 +927,11 @@ export default function Renewals() {
                   <TableCell>{r.renewal_effective_date}</TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-1.5">
+                      {showDroppedOnly && r.dropped_from_report_at && (
+                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-amber-100 text-amber-700 border-amber-200 shrink-0 whitespace-nowrap">
+                          Not in latest ({formatDistanceToNow(new Date(r.dropped_from_report_at), { addSuffix: false })} ago)
+                        </Badge>
+                      )}
                       {isFirstTermRenewal(r.product_code, r.original_year, r.renewal_effective_date) && (
                         <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-blue-100 text-blue-700 border-blue-200 shrink-0">1st</Badge>
                       )}
@@ -960,7 +1053,7 @@ export default function Renewals() {
         <RenewalsPagination
           currentPage={currentPage}
           pageSize={pageSize}
-          totalCount={totalCount}
+          totalCount={showDroppedOnly ? droppedTotalCount : totalCount}
           onPageChange={setCurrentPage}
           onPageSizeChange={(size) => {
             setPageSize(size);
@@ -987,6 +1080,13 @@ export default function Renewals() {
       )}
       
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Records</AlertDialogTitle><AlertDialogDescription>Delete {selectedIds.size} record(s)?</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleBulkDelete}>Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+
+      {/* Dropped Records Info Modal */}
+      <DroppedRenewalsInfoModal
+        open={droppedInfoOpen}
+        onOpenChange={setDroppedInfoOpen}
+        droppedCount={stats?.droppedUnresolved || 0}
+      />
 
       {/* Contact Profile Modal */}
       {context && (

@@ -62,17 +62,19 @@ async function processStaffUpload(
     queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
     queryClient.invalidateQueries({ queryKey: ['renewal-uploads'] });
     queryClient.invalidateQueries({ queryKey: ['renewal-activities'] });
+    queryClient.invalidateQueries({ queryKey: ['renewal-dropped-records'] });
 
     const totalProcessed = data.newCount + data.updatedCount;
+    const staffDroppedMsg = data.deactivatedCount > 0 ? `, ${data.deactivatedCount} dropped` : '';
     if (data.errorCount === 0) {
       toast({
         title: 'Renewal Upload Complete!',
-        description: `${totalProcessed} records processed (${data.newCount} new, ${data.updatedCount} updated) from ${filename}`,
+        description: `${totalProcessed} records processed (${data.newCount} new, ${data.updatedCount} updated${staffDroppedMsg}) from ${filename}`,
       });
     } else {
       toast({
         title: 'Upload completed with issues',
-        description: `${totalProcessed} succeeded, ${data.errorCount} failed from ${filename}`,
+        description: `${totalProcessed} succeeded, ${data.errorCount} failed${staffDroppedMsg} from ${filename}`,
         variant: 'destructive',
       });
     }
@@ -114,6 +116,29 @@ async function processInBackground(
     
     if (uploadError) throw uploadError;
 
+    // Deactivate existing active records in the date range (mark as "dropped")
+    let deactivatedCount = 0;
+    if (dateRange?.start && dateRange?.end) {
+      const { data: deactivated, error: deactivateError } = await supabase
+        .from('renewal_records')
+        .update({
+          is_active: false,
+          dropped_from_report_at: new Date().toISOString(),
+        })
+        .eq('agency_id', agencyId)
+        .eq('is_active', true)
+        .gte('renewal_effective_date', dateRange.start)
+        .lte('renewal_effective_date', dateRange.end)
+        .select('id');
+
+      if (deactivateError) {
+        console.error('Deactivation error:', deactivateError);
+      } else {
+        deactivatedCount = deactivated?.length || 0;
+        console.log(`Deactivated ${deactivatedCount} existing records in date range ${dateRange.start} to ${dateRange.end}`);
+      }
+    }
+
     let newCount = 0;
     let updatedCount = 0;
     let errorCount = 0;
@@ -125,14 +150,13 @@ async function processInBackground(
       // Process each record in the batch
       const batchResults = await Promise.allSettled(
         batch.map(async (r) => {
-          // Check if record exists
+          // Check if record exists (no is_active filter — records may have been deactivated above)
           const { data: existing } = await supabase
             .from('renewal_records')
-            .select('id')
+            .select('id, contact_id')
             .eq('agency_id', agencyId)
             .eq('policy_number', r.policyNumber)
             .eq('renewal_effective_date', r.renewalEffectiveDate)
-            .eq('is_active', true)
             .maybeSingle();
 
           // Find or create a unified contact for this record
@@ -143,7 +167,7 @@ async function processInBackground(
                 p_agency_id: agencyId,
                 p_first_name: r.firstName || null,
                 p_last_name: r.lastName,
-                p_zip_code: null, // renewal records don't have zip
+                p_zip_code: r.zipCode || null,
                 p_phone: r.phone || null,
                 p_email: r.email || null,
               });
@@ -179,8 +203,14 @@ async function processInBackground(
                 item_count: r.itemCount,
                 years_prior_insurance: r.yearsPriorInsurance,
                 household_key: r.householdKey,
+                carrier_status: r.carrierStatus,
+                zip_code: r.zipCode,
+                city: r.city,
+                state: r.state,
                 last_upload_id: upload.id,
                 contact_id: contactId || existing.contact_id, // preserve existing if new fails
+                is_active: true,
+                dropped_from_report_at: null,
                 updated_at: new Date().toISOString(),
               })
               .eq('id', existing.id);
@@ -218,6 +248,10 @@ async function processInBackground(
                 item_count: r.itemCount,
                 years_prior_insurance: r.yearsPriorInsurance,
                 household_key: r.householdKey,
+                carrier_status: r.carrierStatus,
+                zip_code: r.zipCode,
+                city: r.city,
+                state: r.state,
                 uploaded_by: userId,
                 uploaded_by_display_name: displayName,
                 current_status: 'uncontacted',
@@ -248,18 +282,23 @@ async function processInBackground(
     queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
     queryClient.invalidateQueries({ queryKey: ['renewal-uploads'] });
     queryClient.invalidateQueries({ queryKey: ['renewal-activities'] });
+    queryClient.invalidateQueries({ queryKey: ['renewal-dropped-records'] });
+
+    // Records that were deactivated but not reactivated are truly "dropped"
+    const droppedCount = Math.max(0, deactivatedCount - updatedCount);
 
     // Show completion toast
     const totalProcessed = newCount + updatedCount;
+    const droppedMsg = droppedCount > 0 ? `, ${droppedCount} dropped` : '';
     if (errorCount === 0) {
       toast({
         title: 'Renewal Upload Complete!',
-        description: `${totalProcessed} records processed (${newCount} new, ${updatedCount} updated) from ${filename}`,
+        description: `${totalProcessed} records processed (${newCount} new, ${updatedCount} updated${droppedMsg}) from ${filename}`,
       });
     } else {
       toast({
         title: 'Upload completed with issues',
-        description: `${totalProcessed} succeeded, ${errorCount} failed from ${filename}`,
+        description: `${totalProcessed} succeeded, ${errorCount} failed${droppedMsg} from ${filename}`,
         variant: 'destructive',
       });
     }

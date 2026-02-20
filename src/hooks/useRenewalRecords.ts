@@ -151,6 +151,7 @@ export function useRenewalStats(agencyId: string | null, dateRange?: { start: st
         bundled: result.bundled || 0,
         monoline: result.monoline || 0,
         unknown: result.unknown || 0,
+        droppedUnresolved: result.droppedUnresolved || 0,
       };
     },
     enabled: !!agencyId,
@@ -219,6 +220,7 @@ export function useUpdateRenewalRecord() {
       }
       if (result?.invalidateStats !== false) {
         queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
+        queryClient.invalidateQueries({ queryKey: ['renewal-dropped-records'] });
       }
       if (!result?.silent) {
         toast.success('Record updated');
@@ -312,7 +314,8 @@ export function useBulkUpdateRenewals() {
     onSuccess: (result, { ids, updates }) => {
       queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
-      
+      queryClient.invalidateQueries({ queryKey: ['renewal-dropped-records'] });
+
       if (updates.current_status === 'unsuccessful' && result.winbackCount > 0) {
         queryClient.invalidateQueries({ queryKey: ['winback-households'] });
         toast.success(`${ids.length} records updated, ${result.winbackCount} sent to Win-Back HQ`);
@@ -388,6 +391,7 @@ export function useBulkDeleteRenewals() {
       queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-uploads'] });
+      queryClient.invalidateQueries({ queryKey: ['renewal-dropped-records'] });
       toast.success(`${count} records deleted`);
     },
     onError: (error) => {
@@ -427,6 +431,7 @@ export function useDeleteAllRenewalData() {
       queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
       queryClient.invalidateQueries({ queryKey: ['renewal-uploads'] });
+      queryClient.invalidateQueries({ queryKey: ['renewal-dropped-records'] });
       toast.success('All renewal data deleted');
     },
     onError: (error) => {
@@ -515,5 +520,58 @@ export function useRenewalChartData(agencyId: string | null) {
       return data as { renewal_effective_date: string }[];
     },
     enabled: !!agencyId,
+  });
+}
+
+export function useDroppedRenewalRecords(
+  agencyId: string | null,
+  page: number = 1,
+  pageSize: number = 50,
+  enabled: boolean = false
+) {
+  const staffSessionToken = getStaffSessionToken();
+
+  return useQuery({
+    queryKey: ['renewal-dropped-records', agencyId, page, pageSize, !!staffSessionToken],
+    queryFn: async (): Promise<RenewalRecordsResult> => {
+      if (!agencyId) return { records: [], totalCount: 0 };
+
+      const from = (page - 1) * pageSize;
+      const to = from + pageSize - 1;
+
+      // Staff users: call edge function
+      if (staffSessionToken) {
+        const { data, error } = await supabase.functions.invoke('get_staff_renewals', {
+          body: {
+            operation: 'get_dropped',
+            page,
+            pageSize,
+          },
+          headers: { 'x-staff-session': staffSessionToken },
+        });
+
+        if (error) throw error;
+        return {
+          records: (data?.records || []) as RenewalRecord[],
+          totalCount: data?.totalCount || 0,
+        };
+      }
+
+      // Regular users: direct query
+      const { data, error, count } = await supabase
+        .from('renewal_records')
+        .select('*, assigned_team_member:team_members!renewal_records_assigned_team_member_id_fkey(id, name)', { count: 'exact' })
+        .eq('agency_id', agencyId)
+        .eq('is_active', false)
+        .not('dropped_from_report_at', 'is', null)
+        .in('current_status', ['uncontacted', 'pending'])
+        .order('dropped_from_report_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(from, to);
+
+      if (error) throw error;
+      return { records: data as RenewalRecord[], totalCount: count || 0 };
+    },
+    enabled: !!agencyId && enabled,
   });
 }

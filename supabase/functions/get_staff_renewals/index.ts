@@ -387,6 +387,47 @@ serve(async (req) => {
       });
     }
 
+    // Handle get_dropped operation — fetch dropped unresolved records
+    if (operation === 'get_dropped') {
+      const droppedFrom = (page - 1) * pageSize;
+      const droppedTo = droppedFrom + pageSize - 1;
+
+      let droppedQuery = supabase
+        .from('renewal_records')
+        .select('*, assigned_team_member:team_members!renewal_records_assigned_team_member_id_fkey(id, name)', { count: 'exact' })
+        .eq('agency_id', agencyId)
+        .eq('is_active', false)
+        .not('dropped_from_report_at', 'is', null)
+        .in('current_status', ['uncontacted', 'pending'])
+        .order('dropped_from_report_at', { ascending: false })
+        .order('id', { ascending: true })
+        .range(droppedFrom, droppedTo);
+
+      if (filters.dateRange?.start) {
+        droppedQuery = droppedQuery.gte('renewal_effective_date', filters.dateRange.start);
+      }
+      if (filters.dateRange?.end) {
+        droppedQuery = droppedQuery.lte('renewal_effective_date', filters.dateRange.end);
+      }
+      if (filters.searchQuery) {
+        droppedQuery = droppedQuery.or(`first_name.ilike.%${filters.searchQuery}%,last_name.ilike.%${filters.searchQuery}%,policy_number.ilike.%${filters.searchQuery}%`);
+      }
+
+      const { data: droppedData, error: droppedError, count: droppedCount } = await droppedQuery;
+
+      if (droppedError) {
+        console.error('[get_staff_renewals] Dropped query error:', droppedError);
+        return new Response(JSON.stringify({ error: droppedError.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      console.log('[get_staff_renewals] Returning', droppedData?.length || 0, 'dropped records');
+      return new Response(JSON.stringify({ records: droppedData || [], totalCount: droppedCount || 0 }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     // Calculate pagination offsets
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;

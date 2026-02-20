@@ -31,6 +31,10 @@ interface ParsedRenewalRecord {
   itemCount: number | null;
   yearsPriorInsurance: number | null;
   householdKey: string | null;
+  carrierStatus: string | null;
+  zipCode: string | null;
+  city: string | null;
+  state: string | null;
 }
 
 const BATCH_SIZE = 50;
@@ -144,6 +148,29 @@ Deno.serve(async (req) => {
 
     console.log(`Created upload record: ${upload.id}`);
 
+    // Deactivate existing active records in the date range (mark as "dropped")
+    let deactivatedCount = 0;
+    if (dateRangeStart && dateRangeEnd) {
+      const { data: deactivated, error: deactivateError } = await supabase
+        .from('renewal_records')
+        .update({
+          is_active: false,
+          dropped_from_report_at: new Date().toISOString(),
+        })
+        .eq('agency_id', staffUser.agency_id)
+        .eq('is_active', true)
+        .gte('renewal_effective_date', dateRangeStart)
+        .lte('renewal_effective_date', dateRangeEnd)
+        .select('id');
+
+      if (deactivateError) {
+        console.error('Deactivation error:', deactivateError);
+      } else {
+        deactivatedCount = deactivated?.length || 0;
+        console.log(`Deactivated ${deactivatedCount} existing records in date range ${dateRangeStart} to ${dateRangeEnd}`);
+      }
+    }
+
     let newCount = 0;
     let updatedCount = 0;
     let errorCount = 0;
@@ -159,12 +186,11 @@ Deno.serve(async (req) => {
         renewal_effective_date: r.renewalEffectiveDate,
       }));
 
-      // Check which records already exist
+      // Check which records already exist (no is_active filter — records may have been deactivated above)
       const { data: existingRecords, error: existingError } = await supabase
         .from('renewal_records')
         .select('id, policy_number, renewal_effective_date')
         .eq('agency_id', staffUser.agency_id)
-        .eq('is_active', true)
         .in('policy_number', policyKeys.map(k => k.policy_number));
 
       if (existingError) {
@@ -210,12 +236,16 @@ Deno.serve(async (req) => {
           item_count: r.itemCount,
           years_prior_insurance: r.yearsPriorInsurance,
           household_key: r.householdKey,
+          carrier_status: r.carrierStatus,
+          zip_code: r.zipCode,
+          city: r.city,
+          state: r.state,
           last_upload_id: upload.id,
           updated_at: new Date().toISOString(),
         };
 
         if (existingId) {
-          toUpdate.push({ id: existingId, data: recordData });
+          toUpdate.push({ id: existingId, data: { ...recordData, is_active: true, dropped_from_report_at: null } });
         } else {
           toInsert.push({
             agency_id: staffUser.agency_id,
@@ -263,12 +293,17 @@ Deno.serve(async (req) => {
 
     console.log(`Upload complete: ${newCount} new, ${updatedCount} updated, ${errorCount} errors`);
 
+    // Records that were deactivated but not reactivated are truly "dropped"
+    const droppedCount = Math.max(0, deactivatedCount - updatedCount);
+    console.log(`Dropped records: ${droppedCount} (deactivated ${deactivatedCount} - reactivated ${updatedCount})`);
+
     return new Response(
       JSON.stringify({
         success: true,
         newCount,
         updatedCount,
         errorCount,
+        deactivatedCount: droppedCount,
         uploadId: upload.id,
       }),
       {

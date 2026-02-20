@@ -27,6 +27,11 @@ export interface RenewalRecord {
   last_activity_at: string | null; last_activity_by: string | null;
   last_activity_by_display_name: string | null; uploaded_by: string | null;
   uploaded_by_display_name: string | null; is_active: boolean;
+  dropped_from_report_at: string | null;
+  carrier_status: string | null;
+  zip_code: string | null;
+  city: string | null;
+  state: string | null;
   is_priority?: boolean;
   winback_household_id?: string | null;
   sent_to_winback_at?: string | null;
@@ -54,6 +59,10 @@ export interface ParsedRenewalRecord {
   premiumChangePercent: number | null; amountDue: number | null; easyPay: boolean;
   multiLineIndicator: BundledStatus; itemCount: number | null; yearsPriorInsurance: number | null;
   householdKey: string | null;
+  carrierStatus: string | null;
+  zipCode: string | null;
+  city: string | null;
+  state: string | null;
 }
 
 export interface RenewalUploadContext {
