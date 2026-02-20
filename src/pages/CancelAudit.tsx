@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { hasOneOnOneAccess } from "@/utils/tierAccess";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Upload, Loader2, ChevronUp, ChevronDown, ChevronsUpDown, Clock } from "lucide-react";
+import { Upload, Loader2, ChevronUp, ChevronDown, ChevronsUpDown, Clock, AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
@@ -13,6 +13,8 @@ import { CancelAuditRecordCard } from "@/components/cancel-audit/CancelAuditReco
 import { ContactProfileModal } from "@/components/contacts";
 import { CancelAuditRecordSkeletonList } from "@/components/cancel-audit/CancelAuditRecordSkeleton";
 import { CancelAuditEmptyState } from "@/components/cancel-audit/CancelAuditEmptyState";
+import { CancelAuditPagination } from "@/components/cancel-audit/CancelAuditPagination";
+import { DroppedRecordsInfoModal } from "@/components/cancel-audit/DroppedRecordsInfoModal";
 import { WeeklyStatsSummary } from "@/components/cancel-audit/WeeklyStatsSummary";
 import { CancelAuditHeroStats } from "@/components/cancel-audit/CancelAuditHeroStats";
 import { CancelAuditActivitySummary } from "@/components/cancel-audit/CancelAuditActivitySummary";
@@ -26,6 +28,9 @@ import { useCancelAuditCounts } from "@/hooks/useCancelAuditCounts";
 import { useBulkDeleteCancelAuditRecords } from "@/hooks/useCancelAuditDelete";
 import { useBulkUpdateCancelAuditStatus } from "@/hooks/useBulkCancelAuditOperations";
 import { useToast } from "@/hooks/use-toast";
+import { useCancelAuditAIQuery } from "@/hooks/useCancelAuditAIQuery";
+import { CancelAuditAISearch } from "@/components/cancel-audit/CancelAuditAISearch";
+import type { AICancelAuditExtendedFilters } from "@/types/cancelAuditAIQuery";
 import { ReportType, RecordStatus as RecordStatusType, CancelAuditUpload } from "@/types/cancel-audit";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -108,8 +113,18 @@ const CancelAuditPage = () => {
   const [showDroppedOnly, setShowDroppedOnly] = useState(false);
   const [urgencyFilter, setUrgencyFilter] = useState<string | null>(null);
   
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
   // Selection state for bulk actions
   const [selectedRecordIds, setSelectedRecordIds] = useState<string[]>([]);
+
+  // Dropped records info modal
+  const [droppedInfoOpen, setDroppedInfoOpen] = useState(false);
+
+  // AI search extended filters (client-side filtering from AI results)
+  const [aiExtendedFilters, setAiExtendedFilters] = useState<AICancelAuditExtendedFilters>({});
 
   // Contact profile modal state
   const [profileContactId, setProfileContactId] = useState<string | null>(null);
@@ -160,6 +175,31 @@ const CancelAuditPage = () => {
     showCurrentOnly,
     cancelStatusFilter,
   });
+
+  // Compute distinct values from loaded records for AI context
+  const aiDistinctValues = useMemo(() => {
+    if (!records?.length) return undefined;
+    const unique = (arr: (string | null | undefined)[]) =>
+      [...new Set(arr.filter((v): v is string => !!v))].sort();
+    return {
+      productNames: unique(records.map(r => r.product_name)),
+      companyCodes: unique(records.map(r => r.company_code)),
+      cities: unique(records.map(r => r.city)),
+      states: unique(records.map(r => r.state)),
+      agentNumbers: unique(records.map(r => r.agent_number)),
+    };
+  }, [records]);
+
+  // AI search hook
+  const {
+    sendQuery: aiSendQuery,
+    clearAIQuery: aiClearQuery,
+    currentResult: aiCurrentResult,
+    resultVersion: aiResultVersion,
+    isActive: aiIsActive,
+    isLoading: aiIsLoading,
+    turnCount: aiTurnCount,
+  } = useCancelAuditAIQuery({ teamMembers, distinctValues: aiDistinctValues });
 
   // Fetch stats to get week range
   const { data: stats } = useCancelAuditStats({ agencyId, weekOffset });
@@ -247,14 +287,14 @@ const CancelAuditPage = () => {
     // Urgency filter
     if (urgencyFilter) {
       const today = startOfDay(new Date());
-      
+
       filtered = filtered.filter(record => {
         const dateStr = record.pending_cancel_date || record.cancel_date;
         if (!dateStr) return false;
-        
+
         const cancelDate = startOfDay(parseISO(dateStr));
         const daysUntil = differenceInDays(cancelDate, today);
-        
+
         switch (urgencyFilter) {
           case 'overdue':
             return daysUntil <= 0; // Past due or due today
@@ -273,9 +313,79 @@ const CancelAuditPage = () => {
         }
       });
     }
-    
+
+    // AI extended filters (client-side)
+    const ext = aiExtendedFilters;
+    if (ext.premiumMin !== undefined) {
+      const minCents = ext.premiumMin * 100;
+      filtered = filtered.filter(r => (r.premium_cents || 0) >= minCents);
+    }
+    if (ext.premiumMax !== undefined) {
+      const maxCents = ext.premiumMax * 100;
+      filtered = filtered.filter(r => (r.premium_cents || 0) <= maxCents);
+    }
+    if (ext.premiumChangeMin !== undefined) {
+      const minChangeCents = ext.premiumChangeMin * 100;
+      filtered = filtered.filter(r => {
+        const change = (r.premium_cents || 0) - (r.premium_old_cents || 0);
+        return change >= minChangeCents;
+      });
+    }
+    if (ext.premiumChangeMax !== undefined) {
+      const maxChangeCents = ext.premiumChangeMax * 100;
+      filtered = filtered.filter(r => {
+        const change = (r.premium_cents || 0) - (r.premium_old_cents || 0);
+        return change <= maxChangeCents;
+      });
+    }
+    if (ext.originalYearMin) {
+      filtered = filtered.filter(r => r.original_year && r.original_year >= ext.originalYearMin!);
+    }
+    if (ext.originalYearMax) {
+      filtered = filtered.filter(r => r.original_year && r.original_year <= ext.originalYearMax!);
+    }
+    if (ext.productName?.length) {
+      const names = ext.productName.map(n => n.toLowerCase());
+      filtered = filtered.filter(r => {
+        if (!r.product_name) return false;
+        const pn = r.product_name.toLowerCase();
+        // Substring match: AI says "Home" should match "Homeowners", "Auto" should match "Auto - Private Passenger"
+        return names.some(n => pn.includes(n) || n.includes(pn));
+      });
+    }
+    if (ext.agentNumber?.length) {
+      filtered = filtered.filter(r => r.agent_number && ext.agentNumber!.includes(r.agent_number));
+    }
+    if (ext.city?.length) {
+      const cities = ext.city.map(c => c.toLowerCase());
+      filtered = filtered.filter(r => r.city && cities.includes(r.city.toLowerCase()));
+    }
+    if (ext.state?.length) {
+      const states = ext.state.map(s => s.toLowerCase());
+      filtered = filtered.filter(r => r.state && states.includes(r.state.toLowerCase()));
+    }
+    if (ext.zipCode?.length) {
+      filtered = filtered.filter(r => r.zip_code && ext.zipCode!.includes(r.zip_code));
+    }
+    if (ext.companyCode?.length) {
+      const codes = ext.companyCode.map(c => c.toLowerCase());
+      filtered = filtered.filter(r => {
+        if (!r.company_code) return false;
+        const cc = r.company_code.toLowerCase();
+        // Substring match: AI says "Allstate" should match "010 - Allstate Insurance Company"
+        return codes.some(c => cc.includes(c) || c.includes(cc));
+      });
+    }
+    if (ext.assignedTeamMemberId) {
+      if (ext.assignedTeamMemberId === 'unassigned') {
+        filtered = filtered.filter(r => !r.assigned_team_member_id);
+      } else {
+        filtered = filtered.filter(r => r.assigned_team_member_id === ext.assignedTeamMemberId);
+      }
+    }
+
     return filtered;
-  }, [records, viewMode, statusFilter, cancelStatusFilter, showUntouchedOnly, showDroppedOnly, urgencyFilter]);
+  }, [records, viewMode, statusFilter, cancelStatusFilter, showUntouchedOnly, showDroppedOnly, urgencyFilter, aiExtendedFilters]);
 
   // Count untouched records
   const untouchedCount = useMemo(() => {
@@ -342,6 +452,12 @@ const CancelAuditPage = () => {
       return 0;
     });
   }, [filteredRecords, sortBy, sortDirection]);
+
+  // Paginate sorted records
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return sortedRecords.slice(start, start + pageSize);
+  }, [sortedRecords, currentPage, pageSize]);
 
   // Sortable header row component
   const SortableHeaderRow = () => {
@@ -433,10 +549,11 @@ const CancelAuditPage = () => {
     );
   };
 
-  // Clear selection when filters change
+  // Clear selection and reset pagination when filters change
   useEffect(() => {
     setSelectedRecordIds([]);
-  }, [viewMode, reportTypeFilter, statusFilter, showUntouchedOnly, showCurrentOnly, showDroppedOnly, debouncedSearch, urgencyFilter]);
+    setCurrentPage(1);
+  }, [viewMode, reportTypeFilter, statusFilter, showUntouchedOnly, showCurrentOnly, showDroppedOnly, debouncedSearch, urgencyFilter, cancelStatusFilter]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -600,6 +717,64 @@ const CancelAuditPage = () => {
     setUrgencyFilter(null);
   }, [viewMode]);
 
+  // AI result → page state bridge
+  // Each new AI result first resets all AI-controllable filters to defaults,
+  // then applies the non-empty values from the result. This ensures "clear"/"reset"
+  // queries (which return empty filters) properly reset everything, while refinement
+  // queries only set the fields they specify.
+  const prevAiVersionRef = useRef(0);
+  useEffect(() => {
+    if (aiResultVersion === prevAiVersionRef.current) return;
+    prevAiVersionRef.current = aiResultVersion;
+    if (!aiCurrentResult) return;
+
+    const f = aiCurrentResult.filters;
+    // Reset all AI-controllable page-level state to defaults first
+    setReportTypeFilter(f.reportType || 'all');
+    setCancelStatusFilter((f.cancelStatus?.toLowerCase() as CancelStatusFilter) || 'all');
+    setStatusFilter((f.workflowStatus?.toLowerCase() as RecordStatusType) || 'all');
+    setSearchQuery(f.search || '');
+    setUrgencyFilter(f.urgencyFilter || null);
+    setShowUntouchedOnly(f.showUntouchedOnly || false);
+    setShowCurrentOnly(f.showCurrentOnly ?? (viewMode === 'all'));
+    setShowDroppedOnly(f.showDroppedOnly || false);
+
+    // View mode (top-level, not in filters)
+    if (aiCurrentResult.viewMode) setViewModeRaw(aiCurrentResult.viewMode as ViewMode);
+
+    // Sort
+    if (aiCurrentResult.sort) {
+      const col = aiCurrentResult.sort.column as typeof sortBy;
+      if (['urgency', 'name', 'date_added', 'cancel_status', 'original_year', 'policy_number', 'premium'].includes(col)) {
+        setSortBy(col);
+      }
+      setSortDirection(aiCurrentResult.sort.direction);
+    }
+
+    // Extended filters (client-side) — always fully replaced
+    setAiExtendedFilters({
+      premiumMin: f.premiumMin,
+      premiumMax: f.premiumMax,
+      premiumChangeMin: f.premiumChangeMin,
+      premiumChangeMax: f.premiumChangeMax,
+      originalYearMin: f.originalYearMin,
+      originalYearMax: f.originalYearMax,
+      productName: f.productName,
+      agentNumber: f.agentNumber,
+      city: f.city,
+      state: f.state,
+      zipCode: f.zipCode,
+      companyCode: f.companyCode,
+      assignedTeamMemberId: f.assignedTeamMemberId,
+    });
+  }, [aiResultVersion, aiCurrentResult, viewMode]);
+
+  const handleAIClear = useCallback(() => {
+    aiClearQuery();
+    handleClearFilters();
+    setAiExtendedFilters({});
+  }, [aiClearQuery, handleClearFilters]);
+
   const handleSelectRecord = useCallback((recordId: string, selected: boolean) => {
     setSelectedRecordIds(prev => 
       selected 
@@ -651,7 +826,7 @@ const CancelAuditPage = () => {
   const hasRecords = (viewCounts?.all || 0) > 0;
   const hasFilteredRecords = filteredRecords.length > 0;
   const defaultShowCurrentOnly = viewMode === 'all';
-  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || cancelStatusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly || showDroppedOnly || showCurrentOnly !== defaultShowCurrentOnly || urgencyFilter !== null;
+  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || cancelStatusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly || showDroppedOnly || showCurrentOnly !== defaultShowCurrentOnly || urgencyFilter !== null || aiIsActive;
 
   return (
     <div className="min-h-screen bg-background">
@@ -769,6 +944,17 @@ const CancelAuditPage = () => {
       <div className="container mx-auto px-4 pb-12">
         {hasRecords ? (
           <div className="space-y-6">
+            {/* AI Search */}
+            <CancelAuditAISearch
+              onClear={handleAIClear}
+              sendQuery={aiSendQuery}
+              clearAIQuery={aiClearQuery}
+              currentResult={aiCurrentResult}
+              isLoading={aiIsLoading}
+              isActive={aiIsActive}
+              turnCount={aiTurnCount}
+            />
+
             {/* Filter Bar */}
             <CancelAuditFilterBar
               viewMode={viewMode}
@@ -798,20 +984,53 @@ const CancelAuditPage = () => {
               droppedUnresolvedCount={viewCounts?.droppedUnresolved || 0}
             />
 
+            {/* Dropped Records Banner */}
+            {(viewCounts?.droppedUnresolved || 0) > 0 && !showCurrentOnly && (
+              <div className="flex items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+                <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                <div className="flex-1 text-sm">
+                  <span className="font-medium text-foreground">
+                    {viewCounts!.droppedUnresolved} record{viewCounts!.droppedUnresolved === 1 ? '' : 's'} dropped off the latest carrier report
+                  </span>
+                  <span className="text-muted-foreground">
+                    {' '}and still need{viewCounts!.droppedUnresolved === 1 ? 's' : ''} attention. These records weren't in the latest upload — review and update their status.
+                  </span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5 text-amber-500 hover:text-amber-400 flex-shrink-0"
+                  onClick={() => setDroppedInfoOpen(true)}
+                >
+                  <Info className="h-4 w-4" />
+                  Learn more
+                </Button>
+              </div>
+            )}
+
             {/* Records List */}
             {recordsLoading ? (
               <CancelAuditRecordSkeletonList count={5} />
             ) : hasFilteredRecords ? (
               <div className="space-y-3">
+                {/* Top Pagination */}
+                <CancelAuditPagination
+                  currentPage={currentPage}
+                  pageSize={pageSize}
+                  totalCount={sortedRecords.length}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                />
+
                 {/* Sortable Header Row */}
                 <SortableHeaderRow />
                 {/* Select All Header */}
                 <div className="flex items-center gap-2 px-1 py-2 border-b border-border">
                   <Checkbox
-                    checked={selectedRecordIds.length === sortedRecords.length && sortedRecords.length > 0}
+                    checked={selectedRecordIds.length === paginatedRecords.length && paginatedRecords.length > 0}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setSelectedRecordIds(sortedRecords.map(r => r.id));
+                        setSelectedRecordIds(paginatedRecords.map(r => r.id));
                       } else {
                         setSelectedRecordIds([]);
                       }
@@ -819,10 +1038,10 @@ const CancelAuditPage = () => {
                     className="flex-shrink-0"
                   />
                   <span className="text-sm text-muted-foreground">
-                    Select all ({sortedRecords.length})
+                    Select page ({paginatedRecords.length} of {sortedRecords.length})
                   </span>
                 </div>
-                {sortedRecords.map((record) => (
+                {paginatedRecords.map((record) => (
                   <div key={record.id} className="flex items-start gap-2">
                     <Checkbox
                       checked={selectedRecordIds.includes(record.id)}
@@ -844,6 +1063,15 @@ const CancelAuditPage = () => {
                     </div>
                   </div>
                 ))}
+
+                {/* Bottom Pagination */}
+                <CancelAuditPagination
+                  currentPage={currentPage}
+                  pageSize={pageSize}
+                  totalCount={sortedRecords.length}
+                  onPageChange={setCurrentPage}
+                  onPageSizeChange={setPageSize}
+                />
               </div>
             ) : (
               <CancelAuditEmptyState
@@ -886,6 +1114,13 @@ const CancelAuditPage = () => {
           onUploadComplete={handleUploadComplete}
         />
       )}
+
+      {/* Dropped Records Info Modal */}
+      <DroppedRecordsInfoModal
+        open={droppedInfoOpen}
+        onOpenChange={setDroppedInfoOpen}
+        droppedCount={viewCounts?.droppedUnresolved || 0}
+      />
 
       {/* Contact Profile Modal */}
       {agencyId && (

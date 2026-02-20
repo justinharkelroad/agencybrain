@@ -34,6 +34,11 @@ export interface CancelAuditRecord {
   pending_cancel_date: string | null;
   cancel_status: string | null;
   original_year: string | null;
+  city: string | null;
+  state: string | null;
+  zip_code: string | null;
+  company_code: string | null;
+  premium_old_cents: number;
   status: RecordStatus;
   is_active: boolean;
   dropped_from_report_at: string | null;

@@ -20,6 +20,11 @@ export interface ParsedCancelAuditRecord {
   pending_cancel_date: string | null;
   cancel_status: string | null;
   original_year: string | null;
+  city: string | null;
+  state: string | null;
+  zip_code: string | null;
+  company_code: string | null;
+  premium_old_cents: number;
 }
 
 export interface ParseResult {
@@ -207,6 +212,11 @@ export function parseCancelAuditExcel(
         pending_cancel_date: derivedReportType === 'pending_cancel' ? parseDate(getValue('Pending Cancel Date')) : null,
         cancel_status: excelStatus,
         original_year: getValue('Original Year') ? String(getValue('Original Year')).trim() : null,
+        city: getValue('City') ? String(getValue('City')).trim() : null,
+        state: getValue('State') ? String(getValue('State')).trim() : null,
+        zip_code: getValue('Zip Code') ? String(getValue('Zip Code')).trim() : null,
+        company_code: getValue('Company Code') ? String(getValue('Company Code')).trim() : null,
+        premium_old_cents: parseCurrencyToCents(getValue('Premium Old($)')),
       };
 
       records.push(record);

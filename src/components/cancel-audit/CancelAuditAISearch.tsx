@@ -6,26 +6,26 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { StanAvatar } from '@/components/chatbot/StanAvatar';
 import type { StanVariant } from '@/components/chatbot/StanAvatar';
-import type { AIQueryResponse } from '@/types/renewalAIQuery';
+import type { AICancelAuditQueryResponse } from '@/types/cancelAuditAIQuery';
 
-interface RenewalAISearchProps {
+interface CancelAuditAISearchProps {
   onClear: () => void;
   sendQuery: (query: string) => void;
   clearAIQuery: () => void;
-  currentResult: AIQueryResponse | null;
+  currentResult: AICancelAuditQueryResponse | null;
   isLoading: boolean;
   isActive: boolean;
   turnCount: number;
 }
 
 const PLACEHOLDER_EXAMPLES = [
-  'show me monolines with big increases',
-  'uncontacted auto policies in 43210',
-  'bundled renewals assigned to Sarah',
-  'premium over $2000 sorted by change',
+  'show me overdue cancellations',
+  'Allstate policies still savable',
+  'untouched records in Houston',
+  'high premium policies sort by urgency',
 ];
 
-export function RenewalAISearch({
+export function CancelAuditAISearch({
   onClear,
   sendQuery,
   clearAIQuery,
@@ -33,7 +33,7 @@ export function RenewalAISearch({
   isLoading,
   isActive,
   turnCount,
-}: RenewalAISearchProps) {
+}: CancelAuditAISearchProps) {
   const [inputValue, setInputValue] = useState('');
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
