@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { ParsedQuoteRow, QuoteUploadContext, QuoteUploadResult } from '@/types/lqs';
-import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
+import { generateHouseholdKey, splitFullNameIfDuplicated } from '@/lib/lqs-quote-parser';
 
 interface TeamMember {
   id: string;
@@ -172,6 +172,11 @@ async function processInBackground(
             unmatchedProducerSet.add(primaryRecord.subProducerRaw);
           }
 
+          // Fix doubled names before household upsert (defense-in-depth)
+          const fixedName = splitFullNameIfDuplicated(primaryRecord.firstName, primaryRecord.lastName);
+          // Regenerate key to match the fixed names
+          const fixedHouseholdKey = generateHouseholdKey(fixedName.firstName, fixedName.lastName, primaryRecord.zipCode);
+
           // ATOMIC UPSERT for household - prevents race conditions
           // Note: We don't set needs_attention here to avoid overwriting existing false values
           const { data: household, error: hhError } = await supabase
@@ -179,9 +184,9 @@ async function processInBackground(
             .upsert(
               {
                 agency_id: context.agencyId,
-                household_key: householdKey,
-                first_name: primaryRecord.firstName,
-                last_name: primaryRecord.lastName,
+                household_key: fixedHouseholdKey,
+                first_name: fixedName.firstName,
+                last_name: fixedName.lastName,
                 zip_code: primaryRecord.zipCode,
                 status: 'lead',
                 lead_received_date: primaryRecord.quoteDate,

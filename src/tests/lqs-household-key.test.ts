@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateHouseholdKey as quoteParserGenerateKey } from '@/lib/lqs-quote-parser';
+import { generateHouseholdKey as quoteParserGenerateKey, splitFullNameIfDuplicated } from '@/lib/lqs-quote-parser';
 import { generateHouseholdKey as salesParserGenerateKey } from '@/lib/lqs-sales-parser';
 
 describe('Household Key Generation', () => {
@@ -59,6 +59,43 @@ describe('Household Key Generation', () => {
     it('should use 00000 when zip is empty string', () => {
       const key = salesParserGenerateKey('John', 'Smith', '');
       expect(key).toBe('SMITH_JOHN_00000');
+    });
+  });
+
+  describe('splitFullNameIfDuplicated', () => {
+    it('should split when both fields have same full name', () => {
+      const result = splitFullNameIfDuplicated('Gwendolyn Smith', 'Gwendolyn Smith');
+      expect(result).toEqual({ firstName: 'Gwendolyn', lastName: 'Smith' });
+    });
+
+    it('should be case-insensitive when comparing', () => {
+      const result = splitFullNameIfDuplicated('Gwendolyn smith', 'GWENDOLYN SMITH');
+      expect(result).toEqual({ firstName: 'Gwendolyn', lastName: 'smith' });
+    });
+
+    it('should handle "Last, First" comma format', () => {
+      const result = splitFullNameIfDuplicated('Smith, Gwendolyn', 'Smith, Gwendolyn');
+      expect(result).toEqual({ firstName: 'Gwendolyn', lastName: 'Smith' });
+    });
+
+    it('should handle multi-word last names', () => {
+      const result = splitFullNameIfDuplicated('Mary Jane Watson', 'Mary Jane Watson');
+      expect(result).toEqual({ firstName: 'Mary', lastName: 'Jane Watson' });
+    });
+
+    it('should not modify when names are different', () => {
+      const result = splitFullNameIfDuplicated('John', 'Smith');
+      expect(result).toEqual({ firstName: 'John', lastName: 'Smith' });
+    });
+
+    it('should not modify when names are empty', () => {
+      const result = splitFullNameIfDuplicated('', '');
+      expect(result).toEqual({ firstName: '', lastName: '' });
+    });
+
+    it('should return same value for single-word duplicates', () => {
+      const result = splitFullNameIfDuplicated('Madonna', 'Madonna');
+      expect(result).toEqual({ firstName: 'Madonna', lastName: 'Madonna' });
     });
   });
 

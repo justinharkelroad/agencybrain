@@ -78,6 +78,47 @@ function parseDate(value: any): string | null {
 }
 
 /**
+ * Detect and fix doubled names where the full name appears in both first and last name fields.
+ * e.g., firstName="Gwendolyn Smith", lastName="Gwendolyn Smith" → firstName="Gwendolyn", lastName="Smith"
+ * Also handles "Last, First" comma format in both fields.
+ */
+export function splitFullNameIfDuplicated(
+  firstName: string,
+  lastName: string
+): { firstName: string; lastName: string } {
+  const normFirst = firstName.toLowerCase().trim();
+  const normLast = lastName.toLowerCase().trim();
+
+  // Only act when the two fields are essentially the same
+  if (!normFirst || !normLast || normFirst !== normLast) {
+    return { firstName, lastName };
+  }
+
+  const value = firstName.trim(); // preserve original casing
+
+  // Handle "Last, First" comma format
+  if (value.includes(',')) {
+    const [last, ...rest] = value.split(',');
+    const first = rest.join(',').trim();
+    if (first && last.trim()) {
+      return { firstName: first, lastName: last.trim() };
+    }
+  }
+
+  // Split on first space: first word = firstName, rest = lastName
+  const spaceIndex = value.indexOf(' ');
+  if (spaceIndex > 0) {
+    return {
+      firstName: value.substring(0, spaceIndex),
+      lastName: value.substring(spaceIndex + 1).trim(),
+    };
+  }
+
+  // Single word — keep as lastName, copy to firstName
+  return { firstName: value, lastName: value };
+}
+
+/**
  * Parse ZIP code: take first 5 characters, handle "18702-1234" format
  */
 function parseZipCode(value: any): string {
@@ -272,9 +313,14 @@ export function parseLqsQuoteExcel(file: ArrayBuffer): QuoteParseResult {
       };
 
       // Extract fields
-      const firstName = String(getValue('Customer First Name') || '').trim();
-      const lastName = String(getValue('Customer Last Name') || '').trim();
-      
+      let firstName = String(getValue('Customer First Name') || '').trim();
+      let lastName = String(getValue('Customer Last Name') || '').trim();
+
+      // Fix doubled names: when source file has full name in both columns
+      const splitResult = splitFullNameIfDuplicated(firstName, lastName);
+      firstName = splitResult.firstName;
+      lastName = splitResult.lastName;
+
       if (!firstName && !lastName) {
         errors.push(`Row ${absoluteRowNum}: Missing customer name, skipped`);
         continue;

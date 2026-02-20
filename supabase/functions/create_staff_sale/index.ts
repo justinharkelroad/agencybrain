@@ -281,7 +281,7 @@ serve(async (req) => {
         }
       }
 
-      // Create quote and sale records for each policy (this auto-updates household status via triggers)
+      // Create quote records for each policy (lqs_sales are created later, after the main sales row)
       if (lqsHouseholdId) {
         let lqsErrors = 0;
         for (const policy of body.policies) {
@@ -308,32 +308,14 @@ serve(async (req) => {
             lqsErrors++;
           }
 
-          // Create sale (triggers status → 'sold')
-          const { error: saleErr } = await supabase
-            .from('lqs_sales')
-            .insert({
-              household_id: lqsHouseholdId,
-              agency_id: staffUser.agency_id,
-              team_member_id: staffUser.team_member_id,
-              sale_date: body.sale_date,
-              product_type: policy.policy_type_name,
-              items_sold: itemsCount,
-              policies_sold: 1,
-              premium_cents: premiumCents,
-              policy_number: policy.policy_number || null,
-              source: 'sales_dashboard',
-              is_one_call_close: body.is_one_call_close ?? false,
-            });
-
-          if (saleErr) {
-            console.error('[create_staff_sale] Failed to create LQS sale:', saleErr);
-            lqsErrors++;
-          }
+          // NOTE: lqs_sales records are created AFTER the main sales row
+          // so we can set source_reference_id and prevent the sale_policies
+          // trigger from creating duplicates.
         }
         if (lqsErrors > 0) {
           console.warn(`[create_staff_sale] LQS pipeline completed with ${lqsErrors} error(s)`);
         } else {
-          console.log('[create_staff_sale] LQS quotes and sales created');
+          console.log('[create_staff_sale] LQS quotes created');
         }
       }
     } catch (lqsErr) {
@@ -381,6 +363,41 @@ serve(async (req) => {
     }
 
     console.log('[create_staff_sale] Sale created:', sale.id);
+
+    // Create lqs_sales records BEFORE sale_policies so the trigger guard
+    // (which checks source_reference_id) detects them and skips.
+    if (lqsHouseholdId) {
+      try {
+        for (const policy of body.policies) {
+          const premiumCents = Math.round((policy.items.reduce((sum: number, i: LineItem) => sum + i.premium, 0)) * 100);
+          const itemsCount = policy.items.reduce((sum: number, i: LineItem) => sum + i.item_count, 0);
+
+          const { error: lqsSaleErr } = await supabase
+            .from('lqs_sales')
+            .insert({
+              household_id: lqsHouseholdId,
+              agency_id: staffUser.agency_id,
+              team_member_id: staffUser.team_member_id,
+              sale_date: body.sale_date,
+              product_type: policy.policy_type_name,
+              items_sold: itemsCount,
+              policies_sold: 1,
+              premium_cents: premiumCents,
+              policy_number: policy.policy_number || null,
+              source: 'sales_dashboard',
+              source_reference_id: sale.id,
+            });
+
+          if (lqsSaleErr) {
+            console.error('[create_staff_sale] Failed to create LQS sale:', lqsSaleErr);
+          }
+        }
+        console.log('[create_staff_sale] LQS sales created with source_reference_id:', sale.id);
+      } catch (lqsSalesErr) {
+        console.warn('[create_staff_sale] LQS sales creation failed:', lqsSalesErr);
+        // Continue - LQS tracking is non-critical
+      }
+    }
 
     // Insert policies and items
     for (const policy of body.policies) {
