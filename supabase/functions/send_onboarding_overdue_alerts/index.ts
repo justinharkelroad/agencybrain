@@ -6,6 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://myagencybrain.com';
+
 const BRAND = {
   colors: {
     primary: '#1e283a',
@@ -298,7 +300,7 @@ serve(async (req) => {
       <p style="margin: 0 0 20px 0;">Please complete these tasks as soon as possible to ensure a great customer experience.</p>
 
       <div style="text-align: center; margin: 24px 0;">
-        <a href="https://app.agencybrain.io/staff/onboarding-tasks" style="display: inline-block; background: ${BRAND.colors.primary}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">View My Tasks</a>
+        <a href="${SITE_URL}/staff/onboarding-tasks" style="display: inline-block; background: ${BRAND.colors.primary}; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">View My Tasks</a>
       </div>
 
     </div>

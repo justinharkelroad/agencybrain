@@ -8,6 +8,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://myagencybrain.com';
+
 // DST-aware local hour using Intl (replaces hardcoded offsets)
 function getLocalHour(timezone: string): number {
   try {
@@ -833,7 +835,7 @@ function buildEmailHtml(
 
       <!-- CTA Button -->
       <div style="text-align: center; margin: 24px 0 8px 0;">
-        <a href="https://app.agencybrain.io" style="background: ${BRAND.colors.primary}; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">
+        <a href="${SITE_URL}" style="background: ${BRAND.colors.primary}; color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">
           View Full Dashboard
         </a>
       </div>

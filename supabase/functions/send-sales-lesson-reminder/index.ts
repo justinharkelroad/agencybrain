@@ -345,11 +345,13 @@ Deno.serve(async (req) => {
         const weekNum = todaysLesson.module.week_number;
         let queued = 0;
 
+        const siteUrl = Deno.env.get('SITE_URL') || 'https://myagencybrain.com';
+
         for (const recipient of recipients) {
           // Build lesson URL based on recipient type
           const lessonUrl = recipient.type === 'staff'
-            ? `https://app.agencybrain.io/staff/sales-training/week/${weekNum}`
-            : `https://app.agencybrain.io/sales-experience/week/${weekNum}`;
+            ? `${siteUrl}/staff/sales-training/week/${weekNum}`
+            : `${siteUrl}/sales-experience/week/${weekNum}`;
 
           const subject = template.subject_template.replace('{{lesson_title}}', todaysLesson.title);
 

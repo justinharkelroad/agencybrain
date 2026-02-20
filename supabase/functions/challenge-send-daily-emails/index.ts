@@ -4,6 +4,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const resendApiKey = Deno.env.get('RESEND_API_KEY')!;
+const SITE_URL = Deno.env.get('SITE_URL') || 'https://myagencybrain.com';
 
 const MAX_RETRY_COUNT = 3;
 const BATCH_SIZE = 10;
@@ -88,7 +89,7 @@ async function generateEmailHtml(
   ` : ''}
 
   <div style="text-align: center; margin: 32px 0;">
-    <a href="https://app.agencybrain.io/staff/challenge" style="background: #2563eb; color: #fff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">Start Today's Lesson</a>
+    <a href="${SITE_URL}/staff/challenge" style="background: #2563eb; color: #fff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; display: inline-block;">Start Today's Lesson</a>
   </div>
 
   <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;">
