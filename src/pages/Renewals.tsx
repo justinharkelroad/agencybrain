@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, EyeOff, Phone, Calendar, Star, X, Clock, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, EyeOff, Phone, Calendar, Star, X, Clock, AlertTriangle, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -135,6 +135,15 @@ export default function Renewals() {
   useEffect(() => {
     sessionStorage.setItem('renewals_hide_in_cancel', String(hideInCancelAudit));
   }, [hideInCancelAudit]);
+
+  // Assigned to Me toggle with session persistence
+  const [showAssignedToMe, setShowAssignedToMe] = useState(() => {
+    return sessionStorage.getItem('renewals_assigned_to_me') === 'true';
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('renewals_assigned_to_me', String(showAssignedToMe));
+  }, [showAssignedToMe]);
 
   // First Term Only toggle with session persistence
   const [showFirstTermOnly, setShowFirstTermOnly] = useState(() => {
@@ -376,17 +385,21 @@ export default function Renewals() {
           .single();
 
         if (p?.agency_id) {
-          // Try to get display name from team_members if profile full_name is missing
+          // Look up the owner's team_member record by email for display name + assignment filter
           let displayName = p.full_name;
-          if (!displayName && user.email) {
+          let ownerTeamMemberId: string | null = null;
+          if (user.email) {
             const { data: teamMember } = await supabase
               .from('team_members')
-              .select('name')
+              .select('id, name')
               .eq('agency_id', p.agency_id)
               .eq('email', user.email)
               .single();
-            if (teamMember?.name) {
-              displayName = teamMember.name;
+            if (teamMember) {
+              ownerTeamMemberId = teamMember.id;
+              if (!displayName && teamMember.name) {
+                displayName = teamMember.name;
+              }
             }
           }
 
@@ -394,7 +407,7 @@ export default function Renewals() {
             agencyId: p.agency_id,
             userId: user.id,
             staffMemberId: null,
-            staffTeamMemberId: null,
+            staffTeamMemberId: ownerTeamMemberId,
             displayName: displayName || user.email || 'Unknown'
           });
 
@@ -428,8 +441,12 @@ export default function Renewals() {
       f.dateRangeStart = chartDateFilter;
       f.dateRangeEnd = chartDateFilter;
     }
+    // Assigned to Me filter
+    if (showAssignedToMe && context?.staffTeamMemberId) {
+      f.assignedTeamMemberId = context.staffTeamMemberId;
+    }
     return f;
-  }, [filters, activeTab, searchQuery, chartDateFilter]);
+  }, [filters, activeTab, searchQuery, chartDateFilter, showAssignedToMe, context?.staffTeamMemberId]);
 
   const { data: recordsData, isLoading: recordsLoading } = useRenewalRecords(context?.agencyId || null, effectiveFilters, currentPage, pageSize);
   const records = recordsData?.records || [];
@@ -470,7 +487,7 @@ export default function Renewals() {
   // Reset to page 1 and clear selection when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [effectiveFilters, activeTab, searchQuery, hideRenewalTaken, hideInCancelAudit, showFirstTermOnly, showDroppedOnly]);
+  }, [effectiveFilters, activeTab, searchQuery, hideRenewalTaken, hideInCancelAudit, showFirstTermOnly, showDroppedOnly, showAssignedToMe]);
 
   // Clear selection when switching between active and dropped views
   useEffect(() => {
@@ -639,6 +656,10 @@ export default function Renewals() {
             bVal = bundledOrder[b.multi_line_indicator] ?? 0;
             break;
           }
+          case 'assigned_team_member':
+            aVal = (a.assigned_team_member?.name || '').toLowerCase();
+            bVal = (b.assigned_team_member?.name || '').toLowerCase();
+            break;
           default:
             aVal = 0;
             bVal = 0;
@@ -672,11 +693,11 @@ export default function Renewals() {
   const handleBulkDelete = () => { bulkDelete.mutate(Array.from(selectedIds), { onSuccess: () => { setSelectedIds(new Set()); setShowDeleteDialog(false); } }); };
   const handleBulkStatus = (status: WorkflowStatus) => { if (!context) return; bulkUpdate.mutate({ ids: Array.from(selectedIds), updates: { current_status: status }, displayName: context.displayName, userId: context.userId }, { onSuccess: () => setSelectedIds(new Set()) }); };
 
-  if (loading || staffLoading) return <div className="container mx-auto p-6 flex items-center justify-center h-64"><RefreshCw className="h-8 w-8 animate-spin" /></div>;
-  if (!context) return <div className="container mx-auto p-6"><Card className="p-6 text-center text-muted-foreground">Unable to load context.</Card></div>;
+  if (loading || staffLoading) return <div className="mx-auto px-6 py-6 max-w-[1800px] flex items-center justify-center h-64"><RefreshCw className="h-8 w-8 animate-spin" /></div>;
+  if (!context) return <div className="mx-auto px-6 py-6 max-w-[1800px]"><Card className="p-6 text-center text-muted-foreground">Unable to load context.</Card></div>;
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="mx-auto px-6 max-w-[1800px] py-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3"><RefreshCw className="h-8 w-8" /><h1 className="text-3xl font-bold">Renewals</h1></div>
         <Button onClick={() => setShowUploadModal(true)}><Upload className="h-4 w-4 mr-2" />Upload Report</Button>
@@ -813,6 +834,25 @@ export default function Renewals() {
             size="sm"
             className="h-6 px-2 text-xs text-orange-400 hover:text-white hover:bg-orange-500/20"
             onClick={() => setHideInCancelAudit(false)}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Show All
+          </Button>
+        </div>
+      )}
+
+      {/* Assigned to Me Indicator */}
+      {showAssignedToMe && context?.staffTeamMemberId && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-violet-500/10 border border-violet-500/20 rounded-lg">
+          <UserCheck className="h-4 w-4 text-violet-400" />
+          <span className="text-sm text-violet-400">
+            Showing records assigned to me
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-violet-400 hover:text-white hover:bg-violet-500/20"
+            onClick={() => setShowAssignedToMe(false)}
           >
             <X className="h-3 w-3 mr-1" />
             Show All
@@ -968,6 +1008,21 @@ export default function Renewals() {
           1st Term Only
         </Button>
 
+        {/* Assigned to Me button */}
+        {context?.staffTeamMemberId && (
+          <Button
+            variant={showAssignedToMe ? "default" : "outline"}
+            onClick={() => setShowAssignedToMe(!showAssignedToMe)}
+            className={cn(
+              "gap-2",
+              showAssignedToMe && "bg-violet-600 hover:bg-violet-700 text-white"
+            )}
+          >
+            <UserCheck className="h-4 w-4" />
+            Assigned to Me
+          </Button>
+        )}
+
         {/* Dropped records toggle */}
         {(stats?.droppedUnresolved || 0) > 0 && (
           <Button
@@ -1052,7 +1107,7 @@ export default function Renewals() {
                 <SortableHeader column="amount_due" label="Amount Due" />
                 <SortableHeader column="multi_line_indicator" label="Bundled" />
                 <TableHead>Status</TableHead>
-                <TableHead>Assigned</TableHead>
+                <SortableHeader column="assigned_team_member" label="Assigned" />
                 <TableHead className="w-[140px] sticky right-0 bg-background">Actions</TableHead>
               </TableRow>
             </TableHeader>
