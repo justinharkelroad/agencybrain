@@ -9,12 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3, CheckCircle, Lock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3, CheckCircle, Lock, ChevronLeft, ChevronRight, GraduationCap } from 'lucide-react';
 import { HelpButton } from '@/components/HelpButton';
 import { toast } from 'sonner';
 import { CallScorecard } from '@/components/CallScorecard';
 import { ServiceCallReportCard } from '@/components/call-scoring/ServiceCallReportCard';
 import { CallScoringAnalytics } from '@/components/CallScoringAnalytics';
+import { CallCoachingTab } from '@/components/call-scoring/CallCoachingTab';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
 import type { Database, Json } from '@/integrations/supabase/types';
@@ -1447,17 +1448,13 @@ export default function CallScoring() {
     }
   };
 
-  // Legacy tab cleanup: coaching settings moved to Admin > Call Scoring.
+  // Tab access guard: analytics and compare-coach require manager/owner/admin
+  const canSeeAdvancedTabs = userRole !== 'staff' || isStaffManager;
   useEffect(() => {
-    const canSeeAnalytics = userRole !== 'staff' || isStaffManager;
-    if (activeTab === 'coaching') {
-      setActiveTab(canSeeAnalytics ? 'analytics' : 'upload');
-      return;
-    }
-    if (activeTab === 'analytics' && !canSeeAnalytics) {
+    if ((activeTab === 'analytics' || activeTab === 'compare-coach') && !canSeeAdvancedTabs) {
       setActiveTab('upload');
     }
-  }, [activeTab, userRole, isStaffManager]);
+  }, [activeTab, canSeeAdvancedTabs]);
 
   // Show loading while checking access
   if (!accessChecked) {
@@ -1515,15 +1512,21 @@ export default function CallScoring() {
 
       {/* Tabs - hide Analytics for staff users (except managers) */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className={`grid w-full max-w-lg ${userRole === 'staff' && !isStaffManager ? 'grid-cols-1' : 'grid-cols-2'}`}>
+        <TabsList className={`grid w-full ${canSeeAdvancedTabs ? 'max-w-xl grid-cols-3' : 'max-w-lg grid-cols-1'}`}>
           <TabsTrigger value="upload" className="flex items-center gap-2">
             <Upload className="h-4 w-4" />
             {userRole === 'staff' ? 'My Calls' : 'Upload & Calls'}
           </TabsTrigger>
-          {(userRole !== 'staff' || isStaffManager) && (
+          {canSeeAdvancedTabs && (
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               Analytics
+            </TabsTrigger>
+          )}
+          {canSeeAdvancedTabs && (
+            <TabsTrigger value="compare-coach" className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4" />
+              Coaching
             </TabsTrigger>
           )}
         </TabsList>
@@ -1920,11 +1923,22 @@ export default function CallScoring() {
           </div>
         </TabsContent>
 
-        {(userRole !== 'staff' || isStaffManager) && (
+        {canSeeAdvancedTabs && (
           <TabsContent value="analytics" className="mt-6">
             <CallScoringAnalytics
               calls={analyticsCalls}
               teamMembers={teamMembers}
+            />
+          </TabsContent>
+        )}
+
+        {canSeeAdvancedTabs && agencyId && (
+          <TabsContent value="compare-coach" className="mt-6">
+            <CallCoachingTab
+              analyticsCalls={analyticsCalls}
+              teamMembers={teamMembers}
+              agencyId={agencyId}
+              isStaffUser={isStaffUser}
             />
           </TabsContent>
         )}
