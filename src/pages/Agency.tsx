@@ -1070,20 +1070,32 @@ export default function Agency() {
         return;
       }
 
+      const shouldActivate = !selectedStaffUser.is_active;
+
       const { error } = await supabase.functions.invoke("admin_reset_staff_password", {
         body: {
           user_id: selectedStaffUser.id,
           new_password: newPassword,
+          ...(shouldActivate && { activate: true }),
         },
       });
 
       if (error) throw error;
 
       await copyToClipboard(newPassword);
-      toast.success("Password reset! New password copied to clipboard.");
+      toast.success(
+        shouldActivate
+          ? "Password set and account activated! Password copied to clipboard."
+          : "Password reset! New password copied to clipboard."
+      );
       setResetDialogOpen(false);
       setNewPassword("");
       setShowNewPassword(false);
+
+      // Refresh data so the row transitions to active state
+      if (shouldActivate && agencyId) {
+        await refreshData(agencyId);
+      }
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || "Failed to reset password");
@@ -1552,16 +1564,29 @@ export default function Agency() {
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <Badge 
-                                variant="outline" 
+                              <Badge
+                                variant="outline"
                                 className="bg-amber-500/10 text-amber-600 border-amber-500/20"
                               >
                                 <Clock className="h-3 w-3 mr-1" />
-                                Deactivated
+                                {staffUser.last_login_at ? "Deactivated" : "Pending"}
                               </Badge>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedMember(m);
+                                  setSelectedStaffUser(staffUser);
+                                  setNewPassword(generateRandomPassword());
+                                  setShowNewPassword(true);
+                                  setResetDialogOpen(true);
+                                }}
+                              >
+                                <Key className="h-3 w-3 mr-1" />
+                                Set Password
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => handleResendInvite(m)}
                               >
                                 <RefreshCw className="h-3 w-3 mr-1" />
@@ -2271,13 +2296,18 @@ export default function Agency() {
       </DialogContent>
     </Dialog>
 
-    {/* Reset Password Dialog */}
+    {/* Reset Password Dialog (context-aware: activate pending users vs reset active users) */}
     <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
       <DialogContent className="glass-surface">
         <DialogHeader>
-          <DialogTitle>Reset Password</DialogTitle>
+          <DialogTitle>
+            {selectedStaffUser && !selectedStaffUser.is_active ? "Set Password & Activate" : "Reset Password"}
+          </DialogTitle>
           <DialogDescription>
-            Set a new password for {selectedStaffUser?.username}
+            {selectedStaffUser && !selectedStaffUser.is_active
+              ? `Set a password to activate ${selectedStaffUser?.username}'s account`
+              : `Set a new password for ${selectedStaffUser?.username}`
+            }
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-2">
@@ -2285,10 +2315,10 @@ export default function Agency() {
             <Label className="text-right">New Password</Label>
             <div className="col-span-3 flex gap-2">
               <div className="relative flex-1">
-                <Input 
+                <Input
                   type={showNewPassword ? "text" : "password"}
-                  value={newPassword} 
-                  onChange={(e) => setNewPassword(e.target.value)} 
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                 />
                 <Button
                   type="button"
@@ -2300,9 +2330,9 @@ export default function Agency() {
                   {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
               </div>
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => {
                   const pwd = generateRandomPassword();
                   setNewPassword(pwd);
@@ -2316,7 +2346,9 @@ export default function Agency() {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setResetDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleResetPassword}>Reset Password</Button>
+          <Button onClick={handleResetPassword}>
+            {selectedStaffUser && !selectedStaffUser.is_active ? "Set Password & Activate" : "Reset Password"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

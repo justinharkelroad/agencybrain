@@ -151,15 +151,18 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
 
   // Reset password mutation
   const resetPassword = useMutation({
-    mutationFn: async ({ userId, password }: { userId: string; password: string }) => {
+    mutationFn: async ({ userId, password, activate }: { userId: string; password: string; activate?: boolean }) => {
       const { data, error } = await supabase.functions.invoke("admin_reset_staff_password", {
-        body: { user_id: userId, new_password: password },
+        body: { user_id: userId, new_password: password, ...(activate && { activate: true }) },
       });
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
-      toast.success("Password reset successfully");
+    onSuccess: (_data, variables) => {
+      // Copy password to clipboard before clearing state
+      copyToClipboard(variables.password);
+      toast.success(variables.activate ? "Password set and account activated! Password copied to clipboard." : "Password reset successfully. Password copied to clipboard.");
+      queryClient.invalidateQueries({ queryKey: ["agency-roster-with-logins"] });
       setIsResetDialogOpen(false);
       setResetStaffUser(null);
       setNewPassword("");
@@ -309,7 +312,8 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
       toast.error("Password must be at least 8 characters");
       return;
     }
-    resetPassword.mutate({ userId: resetStaffUser.id, password: newPassword });
+    const shouldActivate = !resetStaffUser.is_active;
+    resetPassword.mutate({ userId: resetStaffUser.id, password: newPassword, ...(shouldActivate && { activate: true }) });
   };
 
   const handleSendResetEmail = (staffUser: TeamMemberWithLogin['staffUser']) => {
@@ -456,10 +460,34 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
                             Grant Access
                           </Button>
                         ) : member.loginStatus === 'pending' ? (
-                          <Button size="sm" variant="outline" onClick={() => handleResendInvite(member)} disabled={sendInvite.isPending}>
-                            <Send className="h-4 w-4 mr-2" />
-                            Resend Invite
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="sm" variant="outline">
+                                <MoreVertical className="h-4 w-4 mr-1" />
+                                Pending
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => {
+                                if (!member.staffUser) return;
+                                setResetStaffUser(member.staffUser);
+                                setNewPassword(generateRandomPassword());
+                                setShowNewPassword(true);
+                                setIsResetDialogOpen(true);
+                              }}>
+                                <Key className="h-4 w-4 mr-2" />
+                                Set Password & Activate
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onSelect={() => handleResendInvite(member)}
+                                disabled={sendInvite.isPending}
+                              >
+                                <Send className="h-4 w-4 mr-2" />
+                                Resend Invite
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         ) : (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -707,13 +735,18 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Reset Password Dialog */}
+      {/* Reset Password Dialog (context-aware: activate pending vs reset active) */}
       <Dialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reset Password</DialogTitle>
+            <DialogTitle>
+              {resetStaffUser && !resetStaffUser.is_active ? "Set Password & Activate" : "Reset Password"}
+            </DialogTitle>
             <DialogDescription>
-              Set a new password for {resetStaffUser?.display_name || resetStaffUser?.username}
+              {resetStaffUser && !resetStaffUser.is_active
+                ? `Set a password to activate ${resetStaffUser?.display_name || resetStaffUser?.username}'s account`
+                : `Set a new password for ${resetStaffUser?.display_name || resetStaffUser?.username}`
+              }
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleResetPasswordSubmit} className="space-y-4">
@@ -747,7 +780,12 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
               </div>
             </div>
             <Button type="submit" disabled={resetPassword.isPending} className="w-full">
-              {resetPassword.isPending ? "Resetting..." : "Reset Password"}
+              {resetPassword.isPending
+                ? "Processing..."
+                : resetStaffUser && !resetStaffUser.is_active
+                  ? "Set Password & Activate"
+                  : "Reset Password"
+              }
             </Button>
           </form>
         </DialogContent>

@@ -56,8 +56,9 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } }
     });
 
-    // Verify user is admin
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Verify user is admin (pass JWT explicitly per CLAUDE.md Rule 3b)
+    const jwt = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: 'Invalid authentication' }),
@@ -83,7 +84,7 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { user_id, new_password } = await req.json();
+    const { user_id, new_password, activate } = await req.json();
 
     if (!user_id || !new_password) {
       return new Response(
@@ -125,10 +126,16 @@ Deno.serve(async (req) => {
     // Hash new password
     const passwordHash = await hashPassword(new_password);
 
-    // Update password hash
+    // Build update payload — optionally activate the account
+    const updatePayload: Record<string, unknown> = { password_hash: passwordHash };
+    if (activate === true) {
+      updatePayload.is_active = true;
+    }
+
+    // Update password hash (and optionally is_active)
     const { error: updateError } = await supabase
       .from('staff_users')
-      .update({ password_hash: passwordHash })
+      .update(updatePayload)
       .eq('id', user_id);
 
     if (updateError) {
@@ -139,10 +146,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Password reset for staff user: ${staffUser.username} (${user_id})`);
+    const activated = activate === true;
+    console.log(`Password ${activated ? 'set & account activated' : 'reset'} for staff user: ${staffUser.username} (${user_id})`);
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Password reset successfully' }),
+      JSON.stringify({ success: true, activated, message: activated ? 'Password set and account activated' : 'Password reset successfully' }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
