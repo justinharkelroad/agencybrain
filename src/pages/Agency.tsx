@@ -246,6 +246,10 @@ interface BulkImportCredentialRow {
 }
 
 const BULK_REQUIRED_COLUMNS = ["name", "email", "role"] as const;
+const BULK_TEMPLATE_SAMPLE_EMAILS = new Set([
+  "jane.smith@agency.com",
+  "john.davis@agency.com",
+]);
 
 const normalizeCsvHeader = (value: string) => value.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/\s+/g, "_");
 
@@ -334,6 +338,12 @@ const parseBulkTeamCsv = async (file: File): Promise<{
               issues.push({ rowNumber, message: `Duplicate email in file: ${email}` });
             } else {
               seenEmails.add(email);
+            }
+            if (BULK_TEMPLATE_SAMPLE_EMAILS.has(email)) {
+              issues.push({
+                rowNumber,
+                message: "Template sample row detected. Delete sample rows before importing.",
+              });
             }
           }
 
@@ -2448,7 +2458,13 @@ export default function Agency() {
             <p className="text-sm font-medium">Required columns</p>
             <p className="text-sm text-muted-foreground">`name`, `email`, `role`</p>
             <p className="text-xs text-muted-foreground">
+              Allowed roles only: <strong>Sales</strong>, <strong>Service</strong>, <strong>Hybrid</strong>, <strong>Manager</strong>.
+            </p>
+            <p className="text-xs text-muted-foreground">
               Bulk import sets everyone to active. Employment defaults to existing value (or Full-time for new members).
+            </p>
+            <p className="text-xs text-amber-300">
+              Important: the downloaded template includes sample rows. Delete the sample names before uploading.
             </p>
             <input
               ref={bulkFileInputRef}
