@@ -162,6 +162,7 @@ function calculateTalkMetrics(segments: any[], totalDuration: number) {
   let lastEndTime = 0;
   let deadAirSeconds = 0;
   let currentSpeaker = 'agent';
+  let unchangedSpeakerStreak = 0;
 
   segments.forEach((segment, index) => {
     const segmentDuration = segment.end - segment.start;
@@ -176,8 +177,9 @@ function calculateTalkMetrics(segments: any[], totalDuration: number) {
     lastEndTime = segment.end;
 
     const isGreeting = /^(hi|hello|hey|thank you for calling|thanks for calling|good morning|good afternoon)/i.test(text.trim());
-    const isAgentPhrase = /(let me|i can|we offer|your policy|your coverage|your premium|i'll send|i'll email|what i can do|i'm going to|looking at your)/i.test(text);
-    const isCustomerPhrase = /(i need|i want|i'm looking|how much|what about|can you|do you|i have a question|my current|i was wondering)/i.test(text);
+    const isAgentPhrase = /(let me|i can|we offer|your policy|your coverage|your premium|i'll send|i'll email|what i can do|i'm going to|looking at your|quote|deductible)/i.test(text);
+    const isCustomerPhrase = /(i need|i want|i'm looking|how much|what about|can you|do you|i have a question|my current|i was wondering|my policy|my coverage|my payment)/i.test(text);
+    const prevSpeaker = currentSpeaker;
 
     if (index === 0 && isGreeting) {
       currentSpeaker = 'agent';
@@ -189,12 +191,40 @@ function calculateTalkMetrics(segments: any[], totalDuration: number) {
       currentSpeaker = currentSpeaker === 'agent' ? 'customer' : 'agent';
     }
 
+    if (currentSpeaker === prevSpeaker) {
+      unchangedSpeakerStreak += 1;
+      if (unchangedSpeakerStreak >= 4) {
+        currentSpeaker = currentSpeaker === 'agent' ? 'customer' : 'agent';
+        unchangedSpeakerStreak = 0;
+      }
+    } else {
+      unchangedSpeakerStreak = 0;
+    }
+
     if (currentSpeaker === 'agent') {
       agentSeconds += segmentDuration;
     } else {
       customerSeconds += segmentDuration;
     }
   });
+
+  if (segments.length >= 8 && (agentSeconds === 0 || customerSeconds === 0)) {
+    agentSeconds = 0;
+    customerSeconds = 0;
+    let fallbackSpeaker = 'agent';
+    segments.forEach((segment: any, index: number) => {
+      const segmentDuration = Math.max(0, (segment.end || 0) - (segment.start || 0));
+      if (index > 0) {
+        const gap = (segment.start || 0) - (segments[index - 1].end || 0);
+        if (gap > 0.8) {
+          fallbackSpeaker = fallbackSpeaker === 'agent' ? 'customer' : 'agent';
+        }
+      }
+      if (fallbackSpeaker === 'agent') agentSeconds += segmentDuration;
+      else customerSeconds += segmentDuration;
+      fallbackSpeaker = fallbackSpeaker === 'agent' ? 'customer' : 'agent';
+    });
+  }
 
   agentSeconds = Math.round(agentSeconds);
   customerSeconds = Math.round(customerSeconds);

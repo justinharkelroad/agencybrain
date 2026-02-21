@@ -223,6 +223,7 @@ function calculateTalkMetrics(segments: any[], totalDuration: number) {
   // Determine speaker per segment with hysteresis to prevent flapping
   let currentSpeaker = 'agent';
   const SWITCH_THRESHOLD = 15; // Must differ by 15+ points from neutral (50) to switch
+  let unchangedSpeakerStreak = 0;
   
   segments.forEach((segment, index) => {
     const segmentDuration = segment.end - segment.start;
@@ -235,20 +236,41 @@ function calculateTalkMetrics(segments: any[], totalDuration: number) {
     }
     lastEndTime = segment.end;
     
-    // Speaker assignment with hysteresis
-    if (smoothedScore > 50 + SWITCH_THRESHOLD) {
+    const text = segment.text?.toLowerCase() || '';
+    const prevSpeaker = currentSpeaker;
+
+    // Strong lexical cues should override smoothing when one-sided
+    const hasStrongAgentCue = /\b(let me|i can|i'll|we can|your policy|your coverage|premium|quote)\b/i.test(text);
+    const hasStrongCustomerCue = /\b(my policy|my coverage|my payment|i need|i want|i was wondering|can you)\b/i.test(text);
+
+    if (hasStrongAgentCue && !hasStrongCustomerCue) {
+      currentSpeaker = 'agent';
+    } else if (hasStrongCustomerCue && !hasStrongAgentCue) {
+      currentSpeaker = 'customer';
+    } else if (smoothedScore > 50 + SWITCH_THRESHOLD) {
       currentSpeaker = 'agent';
     } else if (smoothedScore < 50 - SWITCH_THRESHOLD) {
       currentSpeaker = 'customer';
     }
-    // If between 35-65, keep current speaker (hysteresis prevents flapping)
+    // If between 35-65 with no strong lexical cue, keep current speaker (hysteresis)
     
     // Long gap (>2.5s) as tiebreaker only when score is neutral
     if (smoothedScore >= 35 && smoothedScore <= 65 && index > 0) {
       const gapFromPrevious = segment.start - segments[index - 1].end;
-      if (gapFromPrevious > 2.5) {
+      if (gapFromPrevious > 1.0) {
         currentSpeaker = currentSpeaker === 'agent' ? 'customer' : 'agent';
       }
+    }
+
+    // Safety valve: if we haven't switched in many segments, force a turn on neutral content.
+    if (currentSpeaker === prevSpeaker) {
+      unchangedSpeakerStreak += 1;
+      if (unchangedSpeakerStreak >= 4 && smoothedScore >= 40 && smoothedScore <= 60) {
+        currentSpeaker = currentSpeaker === 'agent' ? 'customer' : 'agent';
+        unchangedSpeakerStreak = 0;
+      }
+    } else {
+      unchangedSpeakerStreak = 0;
     }
     
     if (currentSpeaker === 'agent') {
@@ -258,6 +280,25 @@ function calculateTalkMetrics(segments: any[], totalDuration: number) {
     }
   });
   
+  // If classifier collapses to one speaker on a multi-segment call, rebalance with turn-taking fallback
+  if (segments.length >= 8 && (agentSeconds === 0 || customerSeconds === 0)) {
+    agentSeconds = 0;
+    customerSeconds = 0;
+    let fallbackSpeaker = 'agent';
+    segments.forEach((segment: any, index: number) => {
+      const segmentDuration = Math.max(0, (segment.end || 0) - (segment.start || 0));
+      if (index > 0) {
+        const gap = (segment.start || 0) - (segments[index - 1].end || 0);
+        if (gap > 0.8) {
+          fallbackSpeaker = fallbackSpeaker === 'agent' ? 'customer' : 'agent';
+        }
+      }
+      if (fallbackSpeaker === 'agent') agentSeconds += segmentDuration;
+      else customerSeconds += segmentDuration;
+      fallbackSpeaker = fallbackSpeaker === 'agent' ? 'customer' : 'agent';
+    });
+  }
+
   // Round and calculate percentages
   agentSeconds = Math.round(agentSeconds);
   customerSeconds = Math.round(customerSeconds);
