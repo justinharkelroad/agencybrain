@@ -225,8 +225,6 @@ interface BulkImportCsvRow {
   name: string;
   email: string;
   role: Role;
-  employment: Employment;
-  status: MemberStatus;
 }
 
 interface BulkImportValidationIssue {
@@ -247,7 +245,7 @@ interface BulkImportCredentialRow {
   detail: string;
 }
 
-const BULK_REQUIRED_COLUMNS = ["name", "email", "role", "employment", "status"] as const;
+const BULK_REQUIRED_COLUMNS = ["name", "email", "role"] as const;
 
 const normalizeCsvHeader = (value: string) => value.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/\s+/g, "_");
 
@@ -257,20 +255,6 @@ const toRole = (value: string): Role | null => {
   if (normalized === "service") return "Service";
   if (normalized === "hybrid") return "Hybrid";
   if (normalized === "manager") return "Manager";
-  return null;
-};
-
-const toEmployment = (value: string): Employment | null => {
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "full-time" || normalized === "full time") return "Full-time";
-  if (normalized === "part-time" || normalized === "part time") return "Part-time";
-  return null;
-};
-
-const toMemberStatus = (value: string): MemberStatus | null => {
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "active") return "active";
-  if (normalized === "inactive") return "inactive";
   return null;
 };
 
@@ -337,9 +321,6 @@ const parseBulkTeamCsv = async (file: File): Promise<{
           const name = mapped.name || "";
           const email = (mapped.email || "").toLowerCase();
           const role = toRole(mapped.role || "");
-          const employment = toEmployment(mapped.employment || "");
-          const status = toMemberStatus(mapped.status || "");
-
           if (!name) issues.push({ rowNumber, message: "Name is required" });
           if (!email) {
             issues.push({ rowNumber, message: "Email is required" });
@@ -347,8 +328,6 @@ const parseBulkTeamCsv = async (file: File): Promise<{
             issues.push({ rowNumber, message: `Invalid email format: ${email}` });
           }
           if (!role) issues.push({ rowNumber, message: "Role must be Sales, Service, Hybrid, or Manager" });
-          if (!employment) issues.push({ rowNumber, message: "Employment must be Full-time or Part-time" });
-          if (!status) issues.push({ rowNumber, message: "Status must be active or inactive" });
 
           if (email) {
             if (seenEmails.has(email)) {
@@ -358,8 +337,8 @@ const parseBulkTeamCsv = async (file: File): Promise<{
             }
           }
 
-          if (name && email && role && employment && status) {
-            parsedRows.push({ name, email, role, employment, status });
+          if (name && email && role) {
+            parsedRows.push({ name, email, role });
           }
         });
 
@@ -493,6 +472,8 @@ export default function Agency() {
   const [bulkCredentialRows, setBulkCredentialRows] = useState<BulkImportCredentialRow[]>([]);
   const [showAllCredentials, setShowAllCredentials] = useState(false);
   const [revealedCredentialRows, setRevealedCredentialRows] = useState<Set<number>>(new Set());
+  const [lastBulkTemporaryPassword, setLastBulkTemporaryPassword] = useState("");
+  const [showResultBatchPassword, setShowResultBatchPassword] = useState(false);
 
   // Build staff user lookup map
   const staffByTeamMemberId = useMemo(() => {
@@ -637,15 +618,11 @@ export default function Agency() {
         name: "Jane Smith",
         email: "jane.smith@agency.com",
         role: "Sales",
-        employment: "Full-time",
-        status: "active",
       },
       {
         name: "John Davis",
         email: "john.davis@agency.com",
         role: "Service",
-        employment: "Part-time",
-        status: "inactive",
       },
     ]);
   };
@@ -747,13 +724,15 @@ export default function Agency() {
         try {
           let teamMember = memberByEmail.get(row.email);
           let memberAction: "created" | "updated" = "updated";
+          const effectiveEmployment: Employment = teamMember?.employment || "Full-time";
+          const effectiveStatus: MemberStatus = "active";
 
           const memberPayload = {
             name: row.name,
             email: row.email,
             role: row.role,
-            employment: row.employment,
-            status: row.status,
+            employment: effectiveEmployment,
+            status: effectiveStatus,
           };
 
           if (teamMember) {
@@ -779,50 +758,6 @@ export default function Agency() {
           }
 
           const existingStaffUser = staffByTeamMemberIdLocal.get(teamMember.id);
-          if (row.status === "inactive") {
-            if (existingStaffUser?.is_active) {
-              const { error: deactivateError } = await supabase
-                .from("staff_users")
-                .update({
-                  is_active: false,
-                  email: row.email,
-                  display_name: row.name,
-                })
-                .eq("id", existingStaffUser.id);
-              if (deactivateError) throw deactivateError;
-              staffByTeamMemberIdLocal.set(teamMember.id, {
-                ...existingStaffUser,
-                is_active: false,
-                email: row.email,
-              });
-              results.push({
-                rowNumber,
-                name: row.name,
-                email: row.email,
-                role: row.role,
-                employment: row.employment,
-                status: row.status,
-                username: existingStaffUser.username,
-                temporaryPassword: null,
-                result: "updated",
-                detail: `${memberAction === "created" ? "Created" : "Updated"} team member and deactivated active login due to inactive status.`,
-              });
-            } else {
-              results.push({
-                rowNumber,
-                name: row.name,
-                email: row.email,
-                role: row.role,
-                employment: row.employment,
-                status: row.status,
-                username: existingStaffUser?.username || null,
-                temporaryPassword: null,
-                result: "skipped",
-                detail: `${memberAction === "created" ? "Created" : "Updated"} team member. Login skipped for inactive status.`,
-              });
-            }
-            continue;
-          }
 
           if (existingStaffUser?.is_active) {
             const { error: syncStaffError } = await supabase
@@ -842,8 +777,8 @@ export default function Agency() {
               name: row.name,
               email: row.email,
               role: row.role,
-              employment: row.employment,
-              status: row.status,
+              employment: effectiveEmployment,
+              status: effectiveStatus,
               username: existingStaffUser.username,
               temporaryPassword: null,
               result: "skipped",
@@ -874,8 +809,8 @@ export default function Agency() {
               name: row.name,
               email: row.email,
               role: row.role,
-              employment: row.employment,
-              status: row.status,
+              employment: effectiveEmployment,
+              status: effectiveStatus,
               username: existingStaffUser.username,
               temporaryPassword: bulkTemporaryPassword,
               result: "updated",
@@ -944,8 +879,8 @@ export default function Agency() {
             name: row.name,
             email: row.email,
             role: row.role,
-            employment: row.employment,
-            status: row.status,
+            employment: effectiveEmployment,
+            status: effectiveStatus,
             username: finalUsername,
             temporaryPassword: bulkTemporaryPassword,
             result: memberAction === "created" ? "created" : "updated",
@@ -958,8 +893,8 @@ export default function Agency() {
             name: row.name,
             email: row.email,
             role: row.role,
-            employment: row.employment,
-            status: row.status,
+            employment: effectiveEmployment,
+            status: effectiveStatus,
             username: null,
             temporaryPassword: null,
             result: "error",
@@ -975,6 +910,8 @@ export default function Agency() {
       }
 
       setBulkCredentialRows(results);
+      setLastBulkTemporaryPassword(bulkTemporaryPassword);
+      setShowResultBatchPassword(false);
       setShowAllCredentials(false);
       setRevealedCredentialRows(new Set());
       setCredentialsDialogOpen(true);
@@ -2509,7 +2446,10 @@ export default function Agency() {
 
           <div className="rounded-lg border border-border/60 p-4 space-y-2">
             <p className="text-sm font-medium">Required columns</p>
-            <p className="text-sm text-muted-foreground">`name`, `email`, `role`, `employment`, `status`</p>
+            <p className="text-sm text-muted-foreground">`name`, `email`, `role`</p>
+            <p className="text-xs text-muted-foreground">
+              Bulk import sets everyone to active. Employment defaults to existing value (or Full-time for new members).
+            </p>
             <input
               ref={bulkFileInputRef}
               type="file"
@@ -2577,7 +2517,8 @@ export default function Agency() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              This avoids invite links and reset-email deliverability issues.
+              This avoids invite links and reset-email deliverability issues. After import, you will get a credentials screen
+              with the temporary password and a downloadable CSV.
             </p>
           </div>
         </div>
@@ -2611,6 +2552,7 @@ export default function Agency() {
         if (!open) {
           setShowAllCredentials(false);
           setRevealedCredentialRows(new Set());
+          setShowResultBatchPassword(false);
         }
       }}
     >
@@ -2628,6 +2570,23 @@ export default function Agency() {
             Credentials are shown only in this session. Download the credentials CSV now.
           </AlertDescription>
         </Alert>
+
+        {lastBulkTemporaryPassword && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Batch Temporary Password</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-mono text-sm">
+                {showResultBatchPassword ? lastBulkTemporaryPassword : "••••••••••••"}
+              </span>
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowResultBatchPassword((v) => !v)}>
+                {showResultBatchPassword ? "Mask" : "Reveal"}
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => copyToClipboard(lastBulkTemporaryPassword)}>
+                Copy Password
+              </Button>
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={copyCredentialsToClipboard}>
