@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from '@/lib/supabaseClient';
@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings, Target, AlertTriangle, CircleHelp } from "lucide-react";
+import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings, Target, AlertTriangle, CircleHelp, Upload, Download } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import { PolicyTypeManager } from "@/components/PolicyTypeManager";
@@ -38,6 +38,7 @@ import { EmailDeliveryNoticeButton, EmailDeliveryNoticeModal } from "@/component
 import { SalesEmailSettings } from "@/components/settings/SalesEmailSettings";
 import { BreakupLetterSettings } from "@/components/settings/BreakupLetterSettings";
 import { hasSalesAccess } from "@/lib/salesBetaAccess";
+import Papa from "papaparse";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
 const EMPLOYMENT_TYPES = ["Full-time", "Part-time"] as const;
@@ -220,6 +221,165 @@ interface KeyEmployee {
   full_name?: string;
 }
 
+interface BulkImportCsvRow {
+  name: string;
+  email: string;
+  role: Role;
+  employment: Employment;
+  status: MemberStatus;
+}
+
+interface BulkImportValidationIssue {
+  rowNumber: number;
+  message: string;
+}
+
+interface BulkImportCredentialRow {
+  rowNumber: number;
+  name: string;
+  email: string;
+  role: Role;
+  employment: Employment;
+  status: MemberStatus;
+  username: string | null;
+  temporaryPassword: string | null;
+  result: "created" | "updated" | "skipped" | "error";
+  detail: string;
+}
+
+const BULK_REQUIRED_COLUMNS = ["name", "email", "role", "employment", "status"] as const;
+
+const normalizeCsvHeader = (value: string) => value.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/\s+/g, "_");
+
+const toRole = (value: string): Role | null => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "sales") return "Sales";
+  if (normalized === "service") return "Service";
+  if (normalized === "hybrid") return "Hybrid";
+  if (normalized === "manager") return "Manager";
+  return null;
+};
+
+const toEmployment = (value: string): Employment | null => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "full-time" || normalized === "full time") return "Full-time";
+  if (normalized === "part-time" || normalized === "part time") return "Part-time";
+  return null;
+};
+
+const toMemberStatus = (value: string): MemberStatus | null => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "active") return "active";
+  if (normalized === "inactive") return "inactive";
+  return null;
+};
+
+const escapeCsvCell = (value: string | null | undefined) => {
+  const safe = value ?? "";
+  if (safe.includes(",") || safe.includes('"') || safe.includes("\n")) {
+    return `"${safe.replace(/"/g, '""')}"`;
+  }
+  return safe;
+};
+
+const downloadCsv = (filename: string, rows: Array<Record<string, string>>) => {
+  if (rows.length === 0) return;
+  const headers = Object.keys(rows[0]);
+  const lines = [
+    headers.join(","),
+    ...rows.map((row) => headers.map((header) => escapeCsvCell(row[header])).join(",")),
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+const parseBulkTeamCsv = async (file: File): Promise<{
+  rows: BulkImportCsvRow[];
+  issues: BulkImportValidationIssue[];
+}> => {
+  return new Promise((resolve, reject) => {
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: "greedy",
+      complete: (results) => {
+        const headers = (results.meta.fields || []).map(normalizeCsvHeader);
+        const missingColumns = BULK_REQUIRED_COLUMNS.filter((column) => !headers.includes(column));
+        const issues: BulkImportValidationIssue[] = [];
+
+        if (missingColumns.length > 0) {
+          resolve({
+            rows: [],
+            issues: missingColumns.map((column) => ({
+              rowNumber: 1,
+              message: `Missing required column: ${column}`,
+            })),
+          });
+          return;
+        }
+
+        const seenEmails = new Set<string>();
+        const parsedRows: BulkImportCsvRow[] = [];
+
+        results.data.forEach((rawRow, index) => {
+          const rowNumber = index + 2;
+          const mapped: Record<string, string> = {};
+          Object.entries(rawRow).forEach(([key, value]) => {
+            mapped[normalizeCsvHeader(key)] = (value || "").trim();
+          });
+
+          const name = mapped.name || "";
+          const email = (mapped.email || "").toLowerCase();
+          const role = toRole(mapped.role || "");
+          const employment = toEmployment(mapped.employment || "");
+          const status = toMemberStatus(mapped.status || "");
+
+          if (!name) issues.push({ rowNumber, message: "Name is required" });
+          if (!email) {
+            issues.push({ rowNumber, message: "Email is required" });
+          } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            issues.push({ rowNumber, message: `Invalid email format: ${email}` });
+          }
+          if (!role) issues.push({ rowNumber, message: "Role must be Sales, Service, Hybrid, or Manager" });
+          if (!employment) issues.push({ rowNumber, message: "Employment must be Full-time or Part-time" });
+          if (!status) issues.push({ rowNumber, message: "Status must be active or inactive" });
+
+          if (email) {
+            if (seenEmails.has(email)) {
+              issues.push({ rowNumber, message: `Duplicate email in file: ${email}` });
+            } else {
+              seenEmails.add(email);
+            }
+          }
+
+          if (name && email && role && employment && status) {
+            parsedRows.push({ name, email, role, employment, status });
+          }
+        });
+
+        resolve({ rows: parsedRows, issues });
+      },
+      error: (error) => reject(error),
+    });
+  });
+};
+
+const isUsernameConflictMessage = (message: string) => {
+  const normalized = message.toLowerCase();
+  return normalized.includes("username") && (
+    normalized.includes("conflict") ||
+    normalized.includes("exists") ||
+    normalized.includes("taken") ||
+    normalized.includes("reserved")
+  );
+};
+
 const generateRandomPassword = () => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let password = '';
@@ -317,6 +477,22 @@ export default function Agency() {
   const [showKeyEmployeePassword, setShowKeyEmployeePassword] = useState(false);
   const [removeKeyEmployeeDialogOpen, setRemoveKeyEmployeeDialogOpen] = useState(false);
   const [keyEmployeeToRemove, setKeyEmployeeToRemove] = useState<KeyEmployee | null>(null);
+
+  // Bulk CSV import state
+  const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
+  const [bulkImportFileName, setBulkImportFileName] = useState("");
+  const [bulkImportRows, setBulkImportRows] = useState<BulkImportCsvRow[]>([]);
+  const [bulkImportIssues, setBulkImportIssues] = useState<BulkImportValidationIssue[]>([]);
+  const [bulkImportLoading, setBulkImportLoading] = useState(false);
+  const [bulkImportRunning, setBulkImportRunning] = useState(false);
+  const [bulkTemporaryPassword, setBulkTemporaryPassword] = useState("");
+  const [showBulkTemporaryPassword, setShowBulkTemporaryPassword] = useState(false);
+  const bulkFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
+  const [bulkCredentialRows, setBulkCredentialRows] = useState<BulkImportCredentialRow[]>([]);
+  const [showAllCredentials, setShowAllCredentials] = useState(false);
+  const [revealedCredentialRows, setRevealedCredentialRows] = useState<Set<number>>(new Set());
 
   // Build staff user lookup map
   const staffByTeamMemberId = useMemo(() => {
@@ -440,6 +616,414 @@ export default function Agency() {
       console.error('Failed to fetch key employees:', keErr);
       setKeyEmployees([]);
     }
+  };
+
+  const resetBulkImportState = () => {
+    setBulkImportFileName("");
+    setBulkImportRows([]);
+    setBulkImportIssues([]);
+    setBulkTemporaryPassword("");
+    setShowBulkTemporaryPassword(false);
+    setBulkImportLoading(false);
+    setBulkImportRunning(false);
+    if (bulkFileInputRef.current) {
+      bulkFileInputRef.current.value = "";
+    }
+  };
+
+  const downloadBulkTemplate = () => {
+    downloadCsv("team-members-template.csv", [
+      {
+        name: "Jane Smith",
+        email: "jane.smith@agency.com",
+        role: "Sales",
+        employment: "Full-time",
+        status: "active",
+      },
+      {
+        name: "John Davis",
+        email: "john.davis@agency.com",
+        role: "Service",
+        employment: "Part-time",
+        status: "inactive",
+      },
+    ]);
+  };
+
+  const downloadBulkIssues = () => {
+    if (bulkImportIssues.length === 0) return;
+    downloadCsv(
+      "team-members-import-errors.csv",
+      bulkImportIssues.map((issue) => ({
+        row_number: String(issue.rowNumber),
+        message: issue.message,
+      }))
+    );
+  };
+
+  const sanitizeUsernamePart = (value: string) => {
+    const normalized = value
+      .toLowerCase()
+      .replace(/[^a-z0-9.]/g, ".")
+      .replace(/\.+/g, ".")
+      .replace(/^\.|\.$/g, "");
+    return normalized || "staff";
+  };
+
+  const buildUsernameSeed = (row: BulkImportCsvRow, index: number) => {
+    const emailPrefix = row.email.split("@")[0] || row.name;
+    const agencySeed = sanitizeUsernamePart((agencyId || "agency").slice(0, 8));
+    return `${sanitizeUsernamePart(emailPrefix)}.${agencySeed}.${index + 1}`;
+  };
+
+  const extractFunctionErrorMessage = async (error: any, fallback: string) => {
+    if (error?.context?.json) {
+      try {
+        const payload = await error.context.json();
+        return payload?.message || payload?.error || fallback;
+      } catch {
+        return error?.message || fallback;
+      }
+    }
+    return error?.message || fallback;
+  };
+
+  const handleBulkFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setBulkImportFileName(file.name);
+    setBulkImportLoading(true);
+    try {
+      const { rows, issues } = await parseBulkTeamCsv(file);
+      setBulkImportRows(rows);
+      setBulkImportIssues(issues);
+      if (rows.length === 0 && issues.length === 0) {
+        toast.error("No rows found in CSV file");
+      }
+    } catch (error: any) {
+      console.error("Failed to parse CSV:", error);
+      toast.error(error?.message || "Failed to parse CSV file");
+      setBulkImportRows([]);
+      setBulkImportIssues([{ rowNumber: 1, message: "Unable to parse CSV file" }]);
+    } finally {
+      setBulkImportLoading(false);
+    }
+  };
+
+  const runBulkImport = async () => {
+    if (!agencyId) {
+      toast.error("No agency configured");
+      return;
+    }
+    if (bulkImportRows.length === 0) {
+      toast.error("Upload a CSV with at least one valid row");
+      return;
+    }
+    if (bulkImportIssues.length > 0) {
+      toast.error("Fix CSV validation issues before importing");
+      return;
+    }
+    if (bulkTemporaryPassword.length < 8) {
+      toast.error("Temporary password must be at least 8 characters");
+      return;
+    }
+
+    setBulkImportRunning(true);
+    try {
+      const memberByEmail = new Map<string, any>(
+        members.map((member) => [String(member.email || "").toLowerCase(), member])
+      );
+      const staffByTeamMemberIdLocal = new Map<string, StaffUser>(
+        staffUsers.filter((staff) => staff.team_member_id).map((staff) => [String(staff.team_member_id), staff])
+      );
+      const usedUsernames = new Set<string>(staffUsers.map((staff) => staff.username.toLowerCase()));
+      const results: BulkImportCredentialRow[] = [];
+
+      for (let index = 0; index < bulkImportRows.length; index += 1) {
+        const row = bulkImportRows[index];
+        const rowNumber = index + 2;
+
+        try {
+          let teamMember = memberByEmail.get(row.email);
+          let memberAction: "created" | "updated" = "updated";
+
+          const memberPayload = {
+            name: row.name,
+            email: row.email,
+            role: row.role,
+            employment: row.employment,
+            status: row.status,
+          };
+
+          if (teamMember) {
+            const { error: updateError } = await supabase
+              .from("team_members")
+              .update(memberPayload)
+              .eq("id", teamMember.id);
+            if (updateError) throw updateError;
+          } else {
+            const { data: createdMember, error: createError } = await supabase
+              .from("team_members")
+              .insert([{ agency_id: agencyId, ...memberPayload }])
+              .select("id, name, email")
+              .single();
+            if (createError) throw createError;
+            teamMember = createdMember;
+            memberByEmail.set(row.email, teamMember);
+            memberAction = "created";
+          }
+
+          if (!teamMember?.id) {
+            throw new Error("Team member ID unavailable after upsert");
+          }
+
+          const existingStaffUser = staffByTeamMemberIdLocal.get(teamMember.id);
+          if (row.status === "inactive") {
+            if (existingStaffUser?.is_active) {
+              const { error: deactivateError } = await supabase
+                .from("staff_users")
+                .update({
+                  is_active: false,
+                  email: row.email,
+                  display_name: row.name,
+                })
+                .eq("id", existingStaffUser.id);
+              if (deactivateError) throw deactivateError;
+              staffByTeamMemberIdLocal.set(teamMember.id, {
+                ...existingStaffUser,
+                is_active: false,
+                email: row.email,
+              });
+              results.push({
+                rowNumber,
+                name: row.name,
+                email: row.email,
+                role: row.role,
+                employment: row.employment,
+                status: row.status,
+                username: existingStaffUser.username,
+                temporaryPassword: null,
+                result: "updated",
+                detail: `${memberAction === "created" ? "Created" : "Updated"} team member and deactivated active login due to inactive status.`,
+              });
+            } else {
+              results.push({
+                rowNumber,
+                name: row.name,
+                email: row.email,
+                role: row.role,
+                employment: row.employment,
+                status: row.status,
+                username: existingStaffUser?.username || null,
+                temporaryPassword: null,
+                result: "skipped",
+                detail: `${memberAction === "created" ? "Created" : "Updated"} team member. Login skipped for inactive status.`,
+              });
+            }
+            continue;
+          }
+
+          if (existingStaffUser?.is_active) {
+            const { error: syncStaffError } = await supabase
+              .from("staff_users")
+              .update({
+                email: row.email,
+                display_name: row.name,
+              })
+              .eq("id", existingStaffUser.id);
+            if (syncStaffError) throw syncStaffError;
+            staffByTeamMemberIdLocal.set(teamMember.id, {
+              ...existingStaffUser,
+              email: row.email,
+            });
+            results.push({
+              rowNumber,
+              name: row.name,
+              email: row.email,
+              role: row.role,
+              employment: row.employment,
+              status: row.status,
+              username: existingStaffUser.username,
+              temporaryPassword: null,
+              result: "skipped",
+              detail: "Active login already exists. Synced profile fields and left credentials unchanged.",
+            });
+            continue;
+          }
+
+          if (existingStaffUser && !existingStaffUser.is_active) {
+            const { error: resetError } = await supabase.functions.invoke("admin_reset_staff_password", {
+              body: {
+                user_id: existingStaffUser.id,
+                new_password: bulkTemporaryPassword,
+                activate: true,
+              },
+            });
+            if (resetError) {
+              const message = await extractFunctionErrorMessage(resetError, "Failed to activate existing login");
+              throw new Error(message);
+            }
+
+            const activatedStaff: StaffUser = { ...existingStaffUser, is_active: true };
+            staffByTeamMemberIdLocal.set(teamMember.id, activatedStaff);
+            usedUsernames.add(existingStaffUser.username.toLowerCase());
+
+            results.push({
+              rowNumber,
+              name: row.name,
+              email: row.email,
+              role: row.role,
+              employment: row.employment,
+              status: row.status,
+              username: existingStaffUser.username,
+              temporaryPassword: bulkTemporaryPassword,
+              result: "updated",
+              detail: "Existing pending login activated with temporary password.",
+            });
+            continue;
+          }
+
+          const baseUsername = buildUsernameSeed(row, index);
+          let createdStaffData: any = null;
+          let finalUsername = baseUsername;
+          let attempt = 0;
+          const maxAttempts = 10;
+
+          while (attempt < maxAttempts) {
+            const candidate = attempt === 0 ? baseUsername : `${baseUsername}.${attempt + 1}`;
+            if (usedUsernames.has(candidate.toLowerCase())) {
+              attempt += 1;
+              continue;
+            }
+
+            const { data: createData, error: createStaffError } = await supabase.functions.invoke("admin_create_staff_user", {
+              body: {
+                agency_id: agencyId,
+                username: candidate,
+                password: bulkTemporaryPassword,
+                display_name: row.name,
+                email: row.email,
+                team_member_id: teamMember.id,
+              },
+            });
+
+            if (!createStaffError) {
+              createdStaffData = createData;
+              finalUsername = createData?.user?.username || candidate;
+              break;
+            }
+
+            const message = await extractFunctionErrorMessage(createStaffError, "Failed to create staff login");
+            if (isUsernameConflictMessage(message)) {
+              attempt += 1;
+              continue;
+            }
+
+            throw new Error(message);
+          }
+
+          if (!createdStaffData) {
+            throw new Error("Unable to create unique username after multiple attempts");
+          }
+
+          usedUsernames.add(finalUsername.toLowerCase());
+
+          const createdStaffUser: StaffUser = {
+            id: createdStaffData?.user?.id || crypto.randomUUID(),
+            username: finalUsername,
+            is_active: true,
+            last_login_at: null,
+            email: row.email,
+            team_member_id: teamMember.id,
+          };
+          staffByTeamMemberIdLocal.set(teamMember.id, createdStaffUser);
+
+          results.push({
+            rowNumber,
+            name: row.name,
+            email: row.email,
+            role: row.role,
+            employment: row.employment,
+            status: row.status,
+            username: finalUsername,
+            temporaryPassword: bulkTemporaryPassword,
+            result: memberAction === "created" ? "created" : "updated",
+            detail: memberAction === "created" ? "Team member and login created." : "Team member updated and login created.",
+          });
+        } catch (error: any) {
+          console.error("Bulk import row failed:", { rowNumber, error });
+          results.push({
+            rowNumber,
+            name: row.name,
+            email: row.email,
+            role: row.role,
+            employment: row.employment,
+            status: row.status,
+            username: null,
+            temporaryPassword: null,
+            result: "error",
+            detail: error?.message || "Unexpected error during import",
+          });
+        }
+      }
+
+      try {
+        await refreshData(agencyId);
+      } catch (refreshError) {
+        console.error("Failed to refresh after bulk import:", refreshError);
+      }
+
+      setBulkCredentialRows(results);
+      setShowAllCredentials(false);
+      setRevealedCredentialRows(new Set());
+      setCredentialsDialogOpen(true);
+      setBulkImportDialogOpen(false);
+      resetBulkImportState();
+
+      const createdCount = results.filter((row) => row.result === "created").length;
+      const updatedCount = results.filter((row) => row.result === "updated").length;
+      const skippedCount = results.filter((row) => row.result === "skipped").length;
+      const errorCount = results.filter((row) => row.result === "error").length;
+      toast.success(`Import complete: ${createdCount} created, ${updatedCount} updated, ${skippedCount} skipped, ${errorCount} errors`);
+    } catch (error: any) {
+      console.error("Bulk import failed unexpectedly:", error);
+      toast.error(error?.message || "Bulk import failed unexpectedly. Please try again.");
+    } finally {
+      setBulkImportRunning(false);
+    }
+  };
+
+  const downloadCredentials = () => {
+    if (bulkCredentialRows.length === 0) return;
+    downloadCsv(
+      "team-member-credentials.csv",
+      bulkCredentialRows.map((row) => ({
+        row_number: String(row.rowNumber),
+        name: row.name,
+        email: row.email,
+        role: row.role,
+        employment: row.employment,
+        status: row.status,
+        username: row.username || "",
+        temporary_password: row.temporaryPassword || "",
+        result: row.result,
+        detail: row.detail,
+      }))
+    );
+  };
+
+  const copyCredentialsToClipboard = async () => {
+    if (bulkCredentialRows.length === 0) return;
+    const lines = [
+      "Team Member Credentials",
+      "======================",
+      ...bulkCredentialRows.map((row) => {
+        const tempPassword = row.temporaryPassword || "(not changed)";
+        return `${row.name} | ${row.email} | username: ${row.username || "(none)"} | temp password: ${tempPassword} | ${row.result}`;
+      }),
+    ];
+    await copyToClipboard(lines.join("\n"));
   };
 
   const upsertAgency = async () => {
@@ -1342,6 +1926,18 @@ export default function Agency() {
                 </div>
                 <div className="flex gap-2">
                   <EmailDeliveryNoticeButton />
+                  <Button
+                    variant="outline"
+                    className="rounded-full"
+                    onClick={() => {
+                      resetBulkImportState();
+                      setBulkTemporaryPassword(generateRandomPassword());
+                      setBulkImportDialogOpen(true);
+                    }}
+                    disabled={!agencyId}
+                  >
+                    <Upload className="h-4 w-4 mr-2" /> Bulk Upload
+                  </Button>
                   <Button 
                     variant="outline" 
                     className="rounded-full" 
@@ -1880,6 +2476,257 @@ export default function Agency() {
       </TabsContent>
 
     </Tabs>
+
+    {/* Bulk Team Import Dialog */}
+    <Dialog
+      open={bulkImportDialogOpen}
+      onOpenChange={(open) => {
+        setBulkImportDialogOpen(open);
+        if (!open) resetBulkImportState();
+      }}
+    >
+      <DialogContent className="glass-surface max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Bulk Upload Team Members</DialogTitle>
+          <DialogDescription>
+            Upload a CSV with team members, then create staff logins using one shared temporary password.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={downloadBulkTemplate}>
+              <Download className="h-4 w-4 mr-2" />
+              Download Template
+            </Button>
+            {bulkImportIssues.length > 0 && (
+              <Button type="button" variant="outline" onClick={downloadBulkIssues}>
+                <Download className="h-4 w-4 mr-2" />
+                Download Errors CSV
+              </Button>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-border/60 p-4 space-y-2">
+            <p className="text-sm font-medium">Required columns</p>
+            <p className="text-sm text-muted-foreground">`name`, `email`, `role`, `employment`, `status`</p>
+            <input
+              ref={bulkFileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleBulkFileChange}
+              className="text-sm"
+            />
+            {bulkImportLoading && (
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Parsing CSV...
+              </p>
+            )}
+            {bulkImportFileName && !bulkImportLoading && (
+              <p className="text-sm text-muted-foreground">
+                File: <span className="text-foreground font-medium">{bulkImportFileName}</span>
+              </p>
+            )}
+            {bulkImportRows.length > 0 && (
+              <p className="text-sm text-green-600">
+                {bulkImportRows.length} valid row{bulkImportRows.length === 1 ? "" : "s"} ready to import.
+              </p>
+            )}
+          </div>
+
+          {bulkImportIssues.length > 0 && (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 space-y-2">
+              <p className="text-sm font-medium text-destructive">Validation Issues ({bulkImportIssues.length})</p>
+              <div className="max-h-40 overflow-y-auto space-y-1">
+                {bulkImportIssues.map((issue, idx) => (
+                  <p key={`${issue.rowNumber}-${idx}`} className="text-xs text-destructive/90">
+                    Row {issue.rowNumber}: {issue.message}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-lg border border-border/60 p-4 space-y-2">
+            <Label htmlFor="bulk-temp-password">Temporary Password (applies to all new/activated logins)</Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  id="bulk-temp-password"
+                  type={showBulkTemporaryPassword ? "text" : "password"}
+                  value={bulkTemporaryPassword}
+                  onChange={(e) => setBulkTemporaryPassword(e.target.value)}
+                  className="pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full"
+                  onClick={() => setShowBulkTemporaryPassword(!showBulkTemporaryPassword)}
+                >
+                  {showBulkTemporaryPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </Button>
+              </div>
+              <Button type="button" variant="outline" onClick={() => setBulkTemporaryPassword(generateRandomPassword())}>
+                Generate
+              </Button>
+              <Button type="button" variant="outline" onClick={() => copyToClipboard(bulkTemporaryPassword)}>
+                Copy
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              This avoids invite links and reset-email deliverability issues.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setBulkImportDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button
+            onClick={runBulkImport}
+            disabled={bulkImportRunning || bulkImportLoading || bulkImportRows.length === 0 || bulkImportIssues.length > 0}
+          >
+            {bulkImportRunning ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Importing...
+              </>
+            ) : (
+              "Run Import"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Bulk Credentials Dialog */}
+    <Dialog
+      open={credentialsDialogOpen}
+      onOpenChange={(open) => {
+        setCredentialsDialogOpen(open);
+        if (!open) {
+          setShowAllCredentials(false);
+          setRevealedCredentialRows(new Set());
+        }
+      }}
+    >
+      <DialogContent className="glass-surface max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>Import Results & Credentials</DialogTitle>
+          <DialogDescription>
+            Credentials are masked by default. Reveal only when needed and download the CSV before closing.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Alert className="border-amber-500/40 bg-amber-500/10">
+          <AlertTriangle className="h-4 w-4 text-amber-500" />
+          <AlertDescription className="text-amber-200">
+            Credentials are shown only in this session. Download the credentials CSV now.
+          </AlertDescription>
+        </Alert>
+
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={copyCredentialsToClipboard}>
+            Copy All Credentials
+          </Button>
+          <Button type="button" variant="outline" onClick={downloadCredentials}>
+            <Download className="h-4 w-4 mr-2" />
+            Download Credentials CSV
+          </Button>
+          <Button type="button" variant="outline" onClick={() => setShowAllCredentials((value) => !value)}>
+            {showAllCredentials ? "Mask All Passwords" : "Reveal All Passwords"}
+          </Button>
+        </div>
+
+        <div className="max-h-[380px] overflow-auto rounded-lg border border-border/60">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Row</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Username</TableHead>
+                <TableHead>Temp Password</TableHead>
+                <TableHead>Result</TableHead>
+                <TableHead>Detail</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {bulkCredentialRows.map((row) => {
+                const isRevealed = showAllCredentials || revealedCredentialRows.has(row.rowNumber);
+                const canReveal = !!row.temporaryPassword;
+                return (
+                  <TableRow key={`${row.rowNumber}-${row.email}-${row.name}`}>
+                    <TableCell>{row.rowNumber}</TableCell>
+                    <TableCell>{row.name}</TableCell>
+                    <TableCell>{row.email}</TableCell>
+                    <TableCell>{row.username || "-"}</TableCell>
+                    <TableCell>
+                      {row.temporaryPassword ? (
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs">{isRevealed ? row.temporaryPassword : "••••••••"}</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setRevealedCredentialRows((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(row.rowNumber)) next.delete(row.rowNumber);
+                                else next.add(row.rowNumber);
+                                return next;
+                              });
+                            }}
+                            disabled={!canReveal}
+                          >
+                            {isRevealed ? "Mask" : "Reveal"}
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">Not changed</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={
+                          row.result === "error"
+                            ? "bg-destructive/10 text-destructive border-destructive/30"
+                            : row.result === "skipped"
+                              ? "bg-muted text-muted-foreground"
+                              : "bg-green-500/10 text-green-600 border-green-500/20"
+                        }
+                      >
+                        {row.result}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{row.detail}</TableCell>
+                  </TableRow>
+                );
+              })}
+              {bulkCredentialRows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                    No import results yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => window.print()}>
+            Print
+          </Button>
+          <Button onClick={() => setCredentialsDialogOpen(false)}>Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
 
     {/* Invite Staff Dialog */}
     <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
