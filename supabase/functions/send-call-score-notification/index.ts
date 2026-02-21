@@ -156,7 +156,27 @@ function renderSkillScores(skillScores: any): string {
   `;
 }
 
-function renderTalkMetrics(agentPercent: number | null, customerPercent: number | null, deadAirPercent: number | null): string {
+function renderTalkMetrics(
+  agentPercentRaw: number | null,
+  customerPercentRaw: number | null,
+  deadAirPercentRaw: number | null,
+  agentSeconds: number | null,
+  customerSeconds: number | null,
+  deadAirSeconds: number | null,
+): string {
+  const totalSeconds = (agentSeconds || 0) + (customerSeconds || 0) + (deadAirSeconds || 0);
+  const hasUsableSeconds = totalSeconds > 0;
+
+  const agentPercent = hasUsableSeconds
+    ? ((agentSeconds || 0) / totalSeconds) * 100
+    : agentPercentRaw;
+  const customerPercent = hasUsableSeconds
+    ? ((customerSeconds || 0) / totalSeconds) * 100
+    : customerPercentRaw;
+  const deadAirPercent = hasUsableSeconds
+    ? ((deadAirSeconds || 0) / totalSeconds) * 100
+    : deadAirPercentRaw;
+
   if (agentPercent === null) return '';
 
   const getInsight = (): string => {
@@ -620,6 +640,9 @@ serve(async (req) => {
         agent_talk_percent,
         customer_talk_percent,
         dead_air_percent,
+        agent_talk_seconds,
+        customer_talk_seconds,
+        dead_air_seconds,
         analyzed_at,
         team_member:team_members!agency_calls_team_member_id_fkey(id, name)
       `)
@@ -712,7 +735,14 @@ serve(async (req) => {
     // Dynamic sections based on call type and available data
     if (callType === 'sales') {
       emailBody += renderSkillScores(call.skill_scores as Record<string, number>);
-      emailBody += renderTalkMetrics(call.agent_talk_percent, call.customer_talk_percent, call.dead_air_percent);
+      emailBody += renderTalkMetrics(
+        call.agent_talk_percent,
+        call.customer_talk_percent,
+        call.dead_air_percent,
+        call.agent_talk_seconds,
+        call.customer_talk_seconds,
+        call.dead_air_seconds,
+      );
       emailBody += renderClientProfile(call.client_profile as Record<string, any>);
       emailBody += renderCriticalAssessment(call.critical_gaps, call.summary);
       emailBody += renderSectionScoresSales(call.section_scores as Record<string, any>);

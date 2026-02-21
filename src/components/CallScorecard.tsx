@@ -502,12 +502,21 @@ export function CallScorecard({
   };
 
   // Talk ratio data from call
-  const agentTalkPercent = call.agent_talk_percent;
-  const customerTalkPercent = call.customer_talk_percent;
-  const deadAirPercent = call.dead_air_percent;
   const agentTalkSeconds = call.agent_talk_seconds;
   const customerTalkSeconds = call.customer_talk_seconds;
   const deadAirSeconds = call.dead_air_seconds;
+  const totalTalkSeconds =
+    (agentTalkSeconds ?? 0) + (customerTalkSeconds ?? 0) + (deadAirSeconds ?? 0);
+  const hasUsableSeconds = totalTalkSeconds > 0;
+  const agentTalkPercent = hasUsableSeconds
+    ? ((agentTalkSeconds ?? 0) / totalTalkSeconds) * 100
+    : call.agent_talk_percent;
+  const customerTalkPercent = hasUsableSeconds
+    ? ((customerTalkSeconds ?? 0) / totalTalkSeconds) * 100
+    : call.customer_talk_percent;
+  const deadAirPercent = hasUsableSeconds
+    ? ((deadAirSeconds ?? 0) / totalTalkSeconds) * 100
+    : call.dead_air_percent;
 
   const yourQuoteValue = parsePrice(yourQuote || budgetIndicators);
   const competitorQuoteValue = parsePrice(competitorQuote || currentCoverage);
