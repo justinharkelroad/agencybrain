@@ -407,6 +407,7 @@ function buildSectionFeedback(sectionData: any): string | null {
   const action =
     (typeof sectionData.action === 'string' && sectionData.action.trim()) ||
     (typeof sectionData.coaching === 'string' && sectionData.coaching.trim()) ||
+    (typeof sectionData.tip === 'string' && sectionData.tip.trim()) ||
     '';
 
   if (!strengths && !gaps && !action) return null;

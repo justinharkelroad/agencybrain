@@ -332,10 +332,11 @@ export function CallScorecard({
     const wins = toClaimArray(value.wins).join(' ');
     const failures = toClaimArray(value.failures).join(' ');
     const coaching = typeof value.coaching === 'string' ? value.coaching.trim() : '';
+    const tip = typeof value.tip === 'string' ? value.tip.trim() : '';
 
     const resolvedStrengths = strengths || wins;
     const resolvedGaps = gaps || failures;
-    const resolvedAction = action || coaching;
+    const resolvedAction = action || coaching || tip;
 
     if (!resolvedStrengths && !resolvedGaps && !resolvedAction) return null;
 
