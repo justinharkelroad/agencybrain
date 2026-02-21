@@ -307,15 +307,50 @@ export function CallScorecard({
     return value.filter((entry): entry is string => typeof entry === 'string');
   };
 
+  const toClaimArray = (value: Json | null | undefined): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((entry) => {
+        if (typeof entry === 'string') return entry.trim();
+        if (isObject(entry)) {
+          if (typeof entry.claim === 'string') return entry.claim.trim();
+          if (typeof entry.text === 'string') return entry.text.trim();
+        }
+        return '';
+      })
+      .filter((entry): entry is string => entry.length > 0);
+  };
+
+  const buildFeedbackFromSection = (value: Record<string, Json>): string | null => {
+    const directFeedback = typeof value.feedback === 'string' ? value.feedback.trim() : '';
+    if (directFeedback) return directFeedback;
+
+    const strengths = typeof value.strengths === 'string' ? value.strengths.trim() : '';
+    const gaps = typeof value.gaps === 'string' ? value.gaps.trim() : '';
+    const action = typeof value.action === 'string' ? value.action.trim() : '';
+
+    const wins = toClaimArray(value.wins).join(' ');
+    const failures = toClaimArray(value.failures).join(' ');
+    const coaching = typeof value.coaching === 'string' ? value.coaching.trim() : '';
+
+    const resolvedStrengths = strengths || wins;
+    const resolvedGaps = gaps || failures;
+    const resolvedAction = action || coaching;
+
+    if (!resolvedStrengths && !resolvedGaps && !resolvedAction) return null;
+
+    return `STRENGTHS: ${resolvedStrengths || 'Not clearly demonstrated in this call.'} GAPS: ${resolvedGaps || 'No clear gaps were captured in the section output.'} ACTION: ${resolvedAction || 'Practice one specific behavior tied to this section on the next call.'}`;
+  };
+
   const asSectionScoreEntry = (value: Json | null | undefined): SectionScoreEntry | null => {
     if (!isObject(value)) return null;
     return {
       score: toNumber(value.score) ?? undefined,
-      wins: toStringArray(value.wins),
-      failures: toStringArray(value.failures),
+      wins: toClaimArray(value.wins),
+      failures: toClaimArray(value.failures),
       coaching: typeof value.coaching === 'string' ? value.coaching : null,
       tip: typeof value.tip === 'string' ? value.tip : null,
-      feedback: typeof value.feedback === 'string' ? value.feedback : null,
+      feedback: buildFeedbackFromSection(value),
     };
   };
 

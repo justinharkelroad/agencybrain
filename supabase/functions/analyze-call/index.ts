@@ -376,6 +376,44 @@ function normalizeSkillScores(skillScores: any): Record<string, number> {
   return result;
 }
 
+function extractSectionClaims(value: any): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry: any) => {
+      if (typeof entry === 'string') return entry.trim();
+      if (entry && typeof entry === 'object') {
+        if (typeof entry.claim === 'string') return entry.claim.trim();
+        if (typeof entry.text === 'string') return entry.text.trim();
+      }
+      return '';
+    })
+    .filter((entry: string) => entry.length > 0);
+}
+
+function buildSectionFeedback(sectionData: any): string | null {
+  if (!sectionData || typeof sectionData !== 'object') return null;
+
+  const directFeedback = typeof sectionData.feedback === 'string' ? sectionData.feedback.trim() : '';
+  if (directFeedback) return directFeedback;
+
+  const strengths =
+    (typeof sectionData.strengths === 'string' && sectionData.strengths.trim()) ||
+    extractSectionClaims(sectionData.wins).join(' ') ||
+    '';
+  const gaps =
+    (typeof sectionData.gaps === 'string' && sectionData.gaps.trim()) ||
+    extractSectionClaims(sectionData.failures).join(' ') ||
+    '';
+  const action =
+    (typeof sectionData.action === 'string' && sectionData.action.trim()) ||
+    (typeof sectionData.coaching === 'string' && sectionData.coaching.trim()) ||
+    '';
+
+  if (!strengths && !gaps && !action) return null;
+
+  return `STRENGTHS: ${strengths || 'Not clearly demonstrated in this call.'} GAPS: ${gaps || 'No clear gaps were captured in the section output.'} ACTION: ${action || 'Practice one specific behavior tied to this section on the next call.'}`;
+}
+
 serve(async (req) => {
   console.log('analyze-call invoked');
   console.log('Request method:', req.method);
@@ -749,7 +787,7 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
             skill_name: key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
             score: typeof score === 'number' ? (score <= 10 ? score : Math.round(score / 10)) : 0,
             max_score: 10,
-            feedback: sectionData?.feedback ?? sectionData?.coaching ?? null,
+            feedback: sectionData?.feedback ?? buildSectionFeedback(sectionData) ?? sectionData?.coaching ?? null,
             tip: sectionData?.tip ?? null
           };
         });
@@ -762,7 +800,7 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
           const sectionData = sectionScoresMap[normalizedKey];
           return {
             ...row,
-            feedback: row.feedback ?? sectionData?.feedback ?? sectionData?.coaching ?? null,
+            feedback: row.feedback ?? sectionData?.feedback ?? buildSectionFeedback(sectionData) ?? sectionData?.coaching ?? null,
             tip: row.tip ?? sectionData?.tip ?? null
           };
         });
@@ -827,7 +865,18 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
           const normalized: Record<string, any> = {};
           for (const [key, value] of Object.entries(raw)) {
             const normalizedKey = keyMap[key] || key;
-            normalized[normalizedKey] = value;
+            const valueObj = value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : value;
+            if (valueObj && typeof valueObj === 'object') {
+              const typed = valueObj as Record<string, unknown>;
+              const feedback = buildSectionFeedback(typed);
+              if (feedback && (typeof typed.feedback !== 'string' || !typed.feedback.trim())) {
+                typed.feedback = feedback;
+              }
+              if ((!typed.tip || typeof typed.tip !== 'string') && typeof typed.coaching === 'string') {
+                typed.tip = typed.coaching;
+              }
+            }
+            normalized[normalizedKey] = valueObj;
           }
           console.log('[analyze-call] Normalized section_scores keys:', Object.keys(normalized));
           return normalized;

@@ -9,9 +9,9 @@ export function parseFeedback(feedback: string | null): {
   
   // More robust regex patterns that handle inline format "STRENGTHS: text. GAPS: text. ACTION: text."
   // Using [\s\S] instead of [^] for better compatibility, and making the lookahead more flexible
-  const strengthsMatch = feedback.match(/STRENGTHS?:\s*([\s\S]*?)(?=\s*GAPS?:|$)/i);
-  const gapsMatch = feedback.match(/GAPS?:\s*([\s\S]*?)(?=\s*ACTIONS?:|$)/i);
-  const actionMatch = feedback.match(/ACTIONS?:\s*([\s\S]*?)$/i);
+  const strengthsMatch = feedback.match(/STRENGTHS?\s*[:-]\s*([\s\S]*?)(?=\s*GAPS?\s*[:-]|$)/i);
+  const gapsMatch = feedback.match(/GAPS?\s*[:-]\s*([\s\S]*?)(?=\s*ACTIONS?\s*[:-]|$)/i);
+  const actionMatch = feedback.match(/ACTIONS?\s*[:-]\s*([\s\S]*?)$/i);
   
   // Clean up extracted text - remove trailing periods if they're followed by a label
   const cleanText = (text: string | null) => {
