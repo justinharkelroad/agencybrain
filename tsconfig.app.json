@@ -26,5 +26,9 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": [
+    "src/tests/e2e",
+    "src/tests/**/*.e2e.*"
+  ]
 }
