@@ -253,6 +253,28 @@ const BULK_TEMPLATE_SAMPLE_EMAILS = new Set([
 
 const normalizeCsvHeader = (value: string) => value.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/\s+/g, "_");
 
+const toDisplayNameCase = (value: string) => {
+  const cleaned = value.trim().replace(/\s+/g, " ");
+  if (!cleaned) return "";
+  return cleaned
+    .toLowerCase()
+    .split(" ")
+    .map((part) =>
+      part
+        .split("-")
+        .map((hyphenPart) =>
+          hyphenPart
+            .split("'")
+            .map((apostrophePart) =>
+              apostrophePart ? apostrophePart.charAt(0).toUpperCase() + apostrophePart.slice(1) : apostrophePart
+            )
+            .join("'")
+        )
+        .join("-")
+    )
+    .join(" ");
+};
+
 const toRole = (value: string): Role | null => {
   const normalized = value.trim().toLowerCase();
   if (normalized === "sales") return "Sales";
@@ -322,7 +344,7 @@ const parseBulkTeamCsv = async (file: File): Promise<{
             mapped[normalizeCsvHeader(key)] = (value || "").trim();
           });
 
-          const name = mapped.name || "";
+          const name = toDisplayNameCase(mapped.name || "");
           const email = (mapped.email || "").toLowerCase();
           const role = toRole(mapped.role || "");
           if (!name) issues.push({ rowNumber, message: "Name is required" });
@@ -367,6 +389,27 @@ const isUsernameConflictMessage = (message: string) => {
     normalized.includes("taken") ||
     normalized.includes("reserved")
   );
+};
+
+const sanitizeUsernamePart = (value: string) => {
+  const normalized = value
+    .toLowerCase()
+    .replace(/[^a-z0-9.]/g, ".")
+    .replace(/\.+/g, ".")
+    .replace(/^\.|\.$/g, "");
+  return normalized || "staff";
+};
+
+const buildSimpleUsernameBase = (row: BulkImportCsvRow) => {
+  const nameParts = toDisplayNameCase(row.name).split(" ").filter(Boolean);
+  if (nameParts.length >= 2) {
+    const first = sanitizeUsernamePart(nameParts[0]);
+    const last = sanitizeUsernamePart(nameParts[nameParts.length - 1]);
+    const combined = `${first}.${last}`.replace(/\.+/g, ".").replace(/^\.|\.$/g, "");
+    if (combined) return combined;
+  }
+  const emailPrefix = row.email.split("@")[0] || row.name;
+  return sanitizeUsernamePart(emailPrefix);
 };
 
 const generateRandomPassword = () => {
@@ -648,21 +691,6 @@ export default function Agency() {
     );
   };
 
-  const sanitizeUsernamePart = (value: string) => {
-    const normalized = value
-      .toLowerCase()
-      .replace(/[^a-z0-9.]/g, ".")
-      .replace(/\.+/g, ".")
-      .replace(/^\.|\.$/g, "");
-    return normalized || "staff";
-  };
-
-  const buildUsernameSeed = (row: BulkImportCsvRow, index: number) => {
-    const emailPrefix = row.email.split("@")[0] || row.name;
-    const agencySeed = sanitizeUsernamePart((agencyId || "agency").slice(0, 8));
-    return `${sanitizeUsernamePart(emailPrefix)}.${agencySeed}.${index + 1}`;
-  };
-
   const extractFunctionErrorMessage = async (error: any, fallback: string) => {
     if (error?.context?.json) {
       try {
@@ -829,7 +857,7 @@ export default function Agency() {
             continue;
           }
 
-          const baseUsername = buildUsernameSeed(row, index);
+          const baseUsername = buildSimpleUsernameBase(row);
           let createdStaffData: any = null;
           let finalUsername = baseUsername;
           let attempt = 0;
