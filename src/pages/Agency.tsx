@@ -39,6 +39,7 @@ import { SalesEmailSettings } from "@/components/settings/SalesEmailSettings";
 import { BreakupLetterSettings } from "@/components/settings/BreakupLetterSettings";
 import { hasSalesAccess } from "@/lib/salesBetaAccess";
 import Papa from "papaparse";
+import { normalizePersonName } from "@/lib/nameFormatting";
 // Reuse enums consistent with AdminTeam
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
 const EMPLOYMENT_TYPES = ["Full-time", "Part-time"] as const;
@@ -253,28 +254,6 @@ const BULK_TEMPLATE_SAMPLE_EMAILS = new Set([
 
 const normalizeCsvHeader = (value: string) => value.replace(/^\uFEFF/, "").trim().toLowerCase().replace(/\s+/g, "_");
 
-const toDisplayNameCase = (value: string) => {
-  const cleaned = value.trim().replace(/\s+/g, " ");
-  if (!cleaned) return "";
-  return cleaned
-    .toLowerCase()
-    .split(" ")
-    .map((part) =>
-      part
-        .split("-")
-        .map((hyphenPart) =>
-          hyphenPart
-            .split("'")
-            .map((apostrophePart) =>
-              apostrophePart ? apostrophePart.charAt(0).toUpperCase() + apostrophePart.slice(1) : apostrophePart
-            )
-            .join("'")
-        )
-        .join("-")
-    )
-    .join(" ");
-};
-
 const toRole = (value: string): Role | null => {
   const normalized = value.trim().toLowerCase();
   if (normalized === "sales") return "Sales";
@@ -344,7 +323,7 @@ const parseBulkTeamCsv = async (file: File): Promise<{
             mapped[normalizeCsvHeader(key)] = (value || "").trim();
           });
 
-          const name = toDisplayNameCase(mapped.name || "");
+          const name = normalizePersonName(mapped.name || "");
           const email = (mapped.email || "").toLowerCase();
           const role = toRole(mapped.role || "");
           if (!name) issues.push({ rowNumber, message: "Name is required" });
@@ -401,7 +380,7 @@ const sanitizeUsernamePart = (value: string) => {
 };
 
 const buildSimpleUsernameBase = (row: BulkImportCsvRow) => {
-  const nameParts = toDisplayNameCase(row.name).split(" ").filter(Boolean);
+  const nameParts = normalizePersonName(row.name).split(" ").filter(Boolean);
   if (nameParts.length >= 2) {
     const first = sanitizeUsernamePart(nameParts[0]);
     const last = sanitizeUsernamePart(nameParts[nameParts.length - 1]);
@@ -1091,8 +1070,9 @@ export default function Agency() {
     try {
       if (!agencyId) throw new Error("No agency configured");
       if (!memberForm.name.trim() || !memberForm.email.trim()) throw new Error("Name and email are required");
+      const normalizedName = normalizePersonName(memberForm.name);
       const updateData = {
-        name: memberForm.name,
+        name: normalizedName,
         email: memberForm.email,
         role: memberForm.role,
         employment: memberForm.employment,
@@ -1111,7 +1091,8 @@ export default function Agency() {
         const linkedStaffUser = staffByTeamMemberId.get(editingId);
         if (linkedStaffUser) {
           const staffUpdate: Record<string, unknown> = {
-            email: memberForm.email
+            email: memberForm.email,
+            display_name: normalizedName,
           };
 
           const trimmedUsername = memberLoginUsername.trim();
@@ -3315,7 +3296,7 @@ export default function Agency() {
                     agency_id: agencyId,
                     email: keyEmployeeForm.email.trim(),
                     password: keyEmployeeForm.password,
-                    display_name: keyEmployeeForm.name.trim(),
+                    display_name: normalizePersonName(keyEmployeeForm.name),
                   },
                 });
 

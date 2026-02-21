@@ -56,7 +56,8 @@ const AUTO_MATCH_GAP_REQUIRED = 20;
  * Normalize name for fuzzy matching (used for team member matching only)
  */
 function normalizeNameForMatch(name: string): string[] {
-  return name.toUpperCase().replace(/[^A-Z\s]/g, '').split(/\s+/).filter(Boolean);
+  const asciiName = name.normalize('NFD').replace(/[\u0300-\u036f]+/g, '');
+  return asciiName.toUpperCase().replace(/[^A-Z\s]/g, '').split(/\s+/).filter(Boolean);
 }
 
 /**

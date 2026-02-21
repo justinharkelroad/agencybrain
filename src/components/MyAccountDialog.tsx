@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from '@/lib/supabaseClient';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Camera, Loader2 } from "lucide-react";
+import { normalizePersonName } from "@/lib/nameFormatting";
 
 export function MyAccountDialogTriggerButton() {
   const { user, isAdmin } = useAuth();
@@ -92,7 +93,7 @@ export function MyAccountDialogTriggerButton() {
   };
 
   const onSave = async () => {
-    const full_name = name.trim();
+    const full_name = normalizePersonName(name);
     if (!full_name) {
       toast({ title: "Name required", description: "Please enter your name.", variant: "destructive" });
       return;

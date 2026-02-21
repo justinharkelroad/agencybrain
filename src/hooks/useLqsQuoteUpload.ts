@@ -18,7 +18,8 @@ const BATCH_SIZE = 50;
  * - Split into parts
  */
 function normalizeNameForMatch(name: string): string[] {
-  return name.toUpperCase().replace(/[^A-Z\s]/g, '').split(/\s+/).filter(Boolean);
+  const asciiName = name.normalize('NFD').replace(/[\u0300-\u036f]+/g, '');
+  return asciiName.toUpperCase().replace(/[^A-Z\s]/g, '').split(/\s+/).filter(Boolean);
 }
 
 /**

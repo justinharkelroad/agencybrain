@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Edit, Plus, UserX, UserCheck } from "lucide-react";
 import { EmailDeliveryNoticeButton } from "@/components/EmailDeliveryNoticeModal";
+import { normalizePersonName } from "@/lib/nameFormatting";
 
 // Enums from Supabase types
 const MEMBER_ROLES = ["Sales", "Service", "Hybrid", "Manager"] as const;
@@ -144,8 +145,9 @@ export default function AdminTeam() {
     mutationFn: async () => {
       if (!agencyId) throw new Error("No agency configured");
       if (!form.name.trim() || !form.email.trim()) throw new Error("Name and email are required");
+      const normalizedName = normalizePersonName(form.name);
       const updateData = {
-        name: form.name,
+        name: normalizedName,
         email: form.email,
         role: form.role,
         employment: form.employment,
