@@ -958,7 +958,7 @@ export function CallScorecard({
                       )}
                       
                       {/* NEW: Handle feedback string format (STRENGTHS/GAPS/ACTION) */}
-                      {rapportData?.feedback && !rapportData?.wins && (() => {
+                      {rapportData?.feedback && (!rapportData?.wins || rapportData.wins.length === 0) && (() => {
                         const parsed = parseFeedback(rapportData.feedback);
                         if (parsed.strengths || parsed.gaps || parsed.action) {
                           return (
@@ -1030,7 +1030,7 @@ export function CallScorecard({
                       )}
                       
                       {/* NEW: Handle feedback string format */}
-                      {coverageData?.feedback && !coverageData?.wins && (() => {
+                      {coverageData?.feedback && (!coverageData?.wins || coverageData.wins.length === 0) && (() => {
                         const parsed = parseFeedback(coverageData.feedback);
                         if (parsed.strengths || parsed.gaps || parsed.action) {
                           return (
@@ -1102,7 +1102,7 @@ export function CallScorecard({
                       )}
                       
                       {/* NEW: Handle feedback string format */}
-                      {closingData?.feedback && !closingData?.wins && (() => {
+                      {closingData?.feedback && (!closingData?.wins || closingData.wins.length === 0) && (() => {
                         const parsed = parseFeedback(closingData.feedback);
                         if (parsed.strengths || parsed.gaps || parsed.action) {
                           return (
