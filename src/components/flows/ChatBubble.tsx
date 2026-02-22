@@ -62,10 +62,10 @@ export function ChatBubble({
         {html ? (
           <div
             className={cn(
-              "prose prose-sm max-w-none [&_p]:my-1 [&_h2]:my-2 [&_h3]:my-2 [&_ul]:my-1 [&_ol]:my-1",
+              "max-w-none [&_p]:my-1 [&_h2]:my-2 [&_h3]:my-2 [&_ul]:my-1 [&_ol]:my-1 [&_ul]:pl-5 [&_ol]:pl-5 [&_ul]:list-disc [&_ol]:list-decimal [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:italic",
               isIncoming
-                ? "dark:prose-invert prose-headings:text-inherit prose-p:text-inherit prose-li:text-inherit prose-strong:text-inherit"
-                : "[&_*]:text-inherit [&_a]:text-inherit"
+                ? "prose prose-sm dark:prose-invert prose-headings:text-inherit prose-p:text-inherit prose-li:text-inherit prose-strong:text-inherit"
+                : "text-inherit"
             )}
             dangerouslySetInnerHTML={{
               __html: DOMPurify.sanitize(html),
