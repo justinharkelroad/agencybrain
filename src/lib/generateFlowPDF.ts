@@ -34,7 +34,23 @@ function stripHtml(html: string): string {
   // Use DOMParser when available (browser), otherwise regex fallback
   if (typeof DOMParser !== 'undefined') {
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    return doc.body.textContent || '';
+    // textContent alone smashes paragraphs together — walk block elements
+    // and insert newlines between them for readable plain text.
+    const blocks = doc.body.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, br, tr');
+    if (blocks.length > 0) {
+      const parts: string[] = [];
+      blocks.forEach((el) => {
+        const text = (el.textContent || '').trim();
+        if (el.tagName === 'BR') {
+          parts.push('');
+        } else if (text) {
+          parts.push(text);
+        }
+      });
+      return parts.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+    // No block elements — fall through to textContent
+    return (doc.body.textContent || '').trim();
   }
   // Fallback: strip tags, then decode entities
   return html

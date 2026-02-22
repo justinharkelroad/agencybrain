@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -6,6 +6,7 @@ import { Send, Mic, MicOff, Maximize2 } from 'lucide-react';
 import { FlowQuestion } from '@/types/flows';
 import { cn } from '@/lib/utils';
 import { RichTextEditorDialog } from './RichTextEditorDialog';
+import { isHtmlContent } from './ChatBubble';
 
 interface ChatInputProps {
   question: FlowQuestion;
@@ -93,6 +94,20 @@ export function ChatInput({
   const handleRichTextSubmit = (html: string) => {
     onSubmit(html);
   };
+
+  // When navigating back to a question answered with rich text, the value will
+  // contain HTML. Show stripped plain text in the textarea so the user doesn't
+  // see raw tags. The RichTextEditorDialog still receives the original HTML.
+  const valueIsHtml = isHtmlContent(value);
+  const textareaDisplayValue = useMemo(() => {
+    if (!valueIsHtml) return value;
+    try {
+      const doc = new DOMParser().parseFromString(value, 'text/html');
+      return doc.body.textContent || '';
+    } catch {
+      return value;
+    }
+  }, [value, valueIsHtml]);
 
   // Normalize question type (defensive - handle case, whitespace, undefined)
   const normalizedType = (question.type ?? '').toString().trim().toLowerCase();
@@ -182,7 +197,7 @@ export function ChatInput({
           <div className="relative flex-1">
             <Textarea
               ref={inputRef as React.RefObject<HTMLTextAreaElement>}
-              value={value}
+              value={textareaDisplayValue}
               onChange={e => onChange(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={question.placeholder || 'Type your response...'}

@@ -78,11 +78,17 @@ export function RichTextEditorDialog({
     if (!value) return '';
     if (isHtmlContent(value)) return value;
     // Escape HTML entities in plain text so Tiptap doesn't misparse <, >, &
-    const escaped = value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-    return `<p>${escaped}</p>`;
+    // Split on newlines so each line becomes its own <p> (preserves line breaks)
+    return value
+      .split('\n')
+      .map((line) => {
+        const escaped = line
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+        return `<p>${escaped}</p>`;
+      })
+      .join('');
   };
 
   const editor = useEditor({
