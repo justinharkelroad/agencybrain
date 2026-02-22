@@ -158,6 +158,12 @@ After any auth/RLS/RPC change, run cross-agency tamper tests (same-agency expect
 
 ## Cross-Cutting Gotchas
 
+- Call scoring output contract must stay consistent across analyzer, UI, and email.
+  - Never map RAPPORT display text from generic `primary_focus` first.
+  - For sales corrective plan, always route by section intent (`rapport`, `value_building`, `closing`) and keep `primary_focus/secondary_focus/closing_focus` as compatibility aliases only.
+  - Talk-to-listen ratios must be derived from seconds (`agent_talk_seconds`, `customer_talk_seconds`, `dead_air_seconds`) in both UI and email; do not let one path use stale percentages while the other uses seconds.
+  - Section detail rendering must preserve `STRENGTHS/GAPS/ACTION`; if model returns partial fields, synthesize detail from section data instead of dropping to tip-only output.
+  - Do not assume sales section keys for service calls in shared scorecard UI (service uses section arrays and different names).
 - `sale_policies` column is `policy_type_name`, NOT `policy_type` — wrong name silently kills PostgREST nested selects
 - Always verify PostgREST nested select column names against `src/integrations/supabase/types.ts`
 - Fire-and-forget edge functions swallow errors — always test end-to-end after changes
@@ -168,6 +174,15 @@ After any auth/RLS/RPC change, run cross-agency tamper tests (same-agency expect
 - Must use Resend batch API (`/emails/batch`), NOT single endpoint with `to: [array]`
 - Cron spanning midnight UTC must NOT filter by day-of-week in cron — filter inside function using local timezone
 - `onSuccess` callbacks that write metrics data MUST invalidate `['dashboard-daily']` query cache
+
+## Brand Colors
+
+- Dark gray blue: `#1e283a`
+- Dark blue: `#020817`
+- Gray: `#60626c`
+- Vivid red: `#af0000`
+
+Use these consistently across all UI components. Do not introduce new brand colors without explicit approval.
 
 ## Database Rules
 

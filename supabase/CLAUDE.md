@@ -157,6 +157,23 @@ Errors in `send-sale-notification` and `send-daily-sales-summary` are invisible.
 - Cron spanning midnight UTC: use `*` for days, filter inside function using local timezone
 - Gating flags: `settings_json.sendDailySummary`, `settings_json.sendImmediateEmail !== false`, `sales_daily_summary_enabled`, `morning_digest_enabled`
 
+## Critical Gotchas
+
+- Call scoring contract drift causes silent data/UI mismatches.
+  - Keep analyzer JSON schema aligned with frontend/email consumers for both `sales` and `service` call types.
+  - Sales corrective plans must be section-routed (`rapport`, `value_building`, `closing`) before persistence; generic fields are fallback-only.
+  - Normalize talk metrics from seconds and ensure the same derivation logic is used by all consumers.
+  - If AI omits structured section fields, synthesize stable `feedback`/`tip` values before writing to `agency_calls`.
+  - Preserve service schema expectations (`section_scores` array, `checklist` array, `suggestions` list) and avoid sales-only assumptions in shared render paths.
+
+### FunctionsHttpError response body
+
+When handling `FunctionsHttpError` from Supabase edge functions, the response body is in `error.context.json()`, NOT in `data`. Always use:
+
+```ts
+const errorBody = await error.context.json();
+```
+
 ## Auth Release Gate Checklist
 
 Before merging any auth/RLS/RPC change:

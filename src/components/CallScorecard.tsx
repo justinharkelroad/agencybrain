@@ -28,6 +28,12 @@ import type { Json } from '@/integrations/supabase/types';
 
 interface CallScorecardCall {
   id: string;
+  template_id?: string | null;
+  call_type?: string | null;
+  call_scoring_templates?: {
+    name?: string | null;
+    skill_categories?: Json | null;
+  } | null;
   team_member_name?: string | null;
   section_scores: Json | null;
   transcript_segments: Json | null;
@@ -81,6 +87,11 @@ interface NormalizedSkillScore {
   tip?: string | null;
 }
 
+interface TemplateScoredSection {
+  name: string;
+  criteria: string;
+}
+
 interface CallScorecardProps {
   call: CallScorecardCall | null;
   open: boolean;
@@ -132,6 +143,7 @@ export function CallScorecard({
       context?: string | null;
     }>;
   } | null>(null);
+  const [templateSections, setTemplateSections] = useState<TemplateScoredSection[]>([]);
   const scorecardRef = useRef<HTMLDivElement>(null);
 
   // Reset QA state when switching calls
@@ -142,6 +154,67 @@ export function CallScorecard({
     setQaError(null);
     setQaResult(null);
   }, [call?.id]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const parseTemplateSections = (rawSkillCategories: unknown): TemplateScoredSection[] => {
+      let parsed = rawSkillCategories;
+      if (typeof parsed === 'string') {
+        try {
+          parsed = JSON.parse(parsed);
+        } catch {
+          return [];
+        }
+      }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
+      const scoredSections = (parsed as Record<string, unknown>).scoredSections;
+      if (!Array.isArray(scoredSections)) return [];
+      return scoredSections
+        .filter((entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null && !Array.isArray(entry))
+        .map((entry) => ({
+          name: typeof entry.name === 'string' ? entry.name.trim() : '',
+          criteria: typeof entry.criteria === 'string' ? entry.criteria.trim() : '',
+        }))
+        .filter((entry) => entry.name.length > 0 && entry.criteria.length > 0);
+    };
+
+    const hydrateTemplateSections = async () => {
+      if (!call?.id) {
+        setTemplateSections([]);
+        return;
+      }
+
+      const embedded = parseTemplateSections(call.call_scoring_templates?.skill_categories);
+      if (embedded.length > 0) {
+        setTemplateSections(embedded);
+        return;
+      }
+
+      if (!call.template_id) {
+        setTemplateSections([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('call_scoring_templates')
+        .select('skill_categories')
+        .eq('id', call.template_id)
+        .single();
+
+      if (error || isCancelled) {
+        setTemplateSections([]);
+        return;
+      }
+
+      setTemplateSections(parseTemplateSections(data?.skill_categories));
+    };
+
+    hydrateTemplateSections();
+    return () => {
+      isCancelled = true;
+    };
+  }, [call?.id, call?.template_id, call?.call_scoring_templates]);
 
   const handleQaQuery = async () => {
     if (!qaEnabled || qaLoading) return;
@@ -293,6 +366,21 @@ export function CallScorecard({
       .replace(/\s+/g, '_')
       .replace(/_+/g, '_')
       .replace(/^_|_$/g, '');
+  };
+
+  const templateSectionsByKey = templateSections.reduce<Record<string, TemplateScoredSection>>((acc, section) => {
+    acc[normalizeKey(section.name)] = section;
+    return acc;
+  }, {});
+
+  const getSectionCriteria = (...candidateKeys: string[]): string | null => {
+    for (const key of candidateKeys) {
+      const normalized = normalizeKey(key);
+      if (templateSectionsByKey[normalized]?.criteria) {
+        return templateSectionsByKey[normalized].criteria;
+      }
+    }
+    return null;
   };
 
   // Build a normalized lookup map from section_scores (handles both object and array formats)
@@ -942,6 +1030,11 @@ export function CallScorecard({
                         <h3 className="font-bold text-sm">RAPPORT</h3>
                         <User className="h-4 w-4 text-muted-foreground" />
                       </div>
+                      {getSectionCriteria('rapport', 'opening rapport', 'opening & rapport') && (
+                        <p className="text-xs text-muted-foreground mb-3">
+                          {getSectionCriteria('rapport', 'opening rapport', 'opening & rapport')}
+                        </p>
+                      )}
                       
                       {/* Legacy: Wins */}
                       {rapportData?.wins?.map((win: string, i: number) => (
@@ -1014,6 +1107,11 @@ export function CallScorecard({
                         <h3 className="font-bold text-sm">COVERAGE</h3>
                         <Target className="h-4 w-4 text-muted-foreground" />
                       </div>
+                      {getSectionCriteria('coverage', 'coverage education', 'value building') && (
+                        <p className="text-xs text-muted-foreground mb-3">
+                          {getSectionCriteria('coverage', 'coverage education', 'value building')}
+                        </p>
+                      )}
                       
                       {/* Legacy: Wins */}
                       {coverageData?.wins?.map((win: string, i: number) => (
@@ -1086,6 +1184,11 @@ export function CallScorecard({
                         <h3 className="font-bold text-sm">CLOSING</h3>
                         <Target className="h-4 w-4 text-muted-foreground" />
                       </div>
+                      {getSectionCriteria('closing', 'closing attempts') && (
+                        <p className="text-xs text-muted-foreground mb-3">
+                          {getSectionCriteria('closing', 'closing attempts')}
+                        </p>
+                      )}
                       
                       {/* Legacy: Wins */}
                       {closingData?.wins?.map((win: string, i: number) => (
@@ -1166,6 +1269,11 @@ export function CallScorecard({
                               {skill.score}/{skill.max_score || 10}
                             </Badge>
                           </div>
+                          {getSectionCriteria(skill.skill_name) && (
+                            <p className="text-xs text-muted-foreground mb-2">
+                              {getSectionCriteria(skill.skill_name)}
+                            </p>
+                          )}
                           {skill.feedback && (() => {
                             const parsed = parseFeedback(skill.feedback);
                             if (parsed.strengths || parsed.gaps || parsed.action) {
@@ -1212,6 +1320,25 @@ export function CallScorecard({
             }
             return null;
           })()}
+
+          {templateSections.length > 0 && (
+            <Card>
+              <CardContent className="pt-4">
+                <h3 className="font-bold text-sm mb-3">SCORING CRITERIA USED</h3>
+                <div className="space-y-2">
+                  {templateSections.map((section, idx) => (
+                    <div key={`${section.name}-${idx}`} className="rounded border border-border/60 p-2 bg-muted/20">
+                      <p className="text-xs font-semibold uppercase tracking-wide">{section.name}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{section.criteria}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-3">
+                  These criteria guide AI grading; coaching quality still depends on transcript evidence.
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Visual Charts Row */}
           <div className="grid md:grid-cols-2 gap-4">
@@ -1301,7 +1428,7 @@ export function CallScorecard({
           </div>
 
           {/* Corrective Action Plan */}
-          {(() => {
+          {call.call_type !== 'service' && (() => {
             const classifyPlanDomain = (value: unknown): 'rapport' | 'value' | 'closing' | 'unknown' => {
               if (typeof value !== 'string') return 'unknown';
               const text = value.toLowerCase();
