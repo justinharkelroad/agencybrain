@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { FlowSession, FlowTemplate, FlowQuestion, FlowAnalysis } from '@/types/flows';
 import { format } from 'date-fns';
+import { isHtmlContent } from '@/components/flows/ChatBubble';
 
 interface GeneratePDFParams {
   session: FlowSession;
@@ -26,6 +27,29 @@ async function getLogoBase64(): Promise<string | null> {
     console.error('Failed to fetch logo:', error);
     return null;
   }
+}
+
+// Strip HTML tags and decode common entities for plain-text contexts (e.g. PDF)
+function stripHtml(html: string): string {
+  // Use DOMParser when available (browser), otherwise regex fallback
+  if (typeof DOMParser !== 'undefined') {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || '';
+  }
+  // Fallback: strip tags, then decode entities
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]*>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 // Strip emojis from text since jsPDF doesn't support them
@@ -176,7 +200,9 @@ export async function generateFlowPDF({
           q => q.interpolation_key === key || q.id === key
         );
         if (sourceQuestion && session.responses_json[sourceQuestion.id]) {
-          result = result.replace(match, session.responses_json[sourceQuestion.id]);
+          const val = session.responses_json[sourceQuestion.id];
+          // Strip HTML if the interpolated value is rich text
+          result = result.replace(match, isHtmlContent(val) ? stripHtml(val) : val);
         }
       });
     }
@@ -461,9 +487,10 @@ export async function generateFlowPDF({
     });
     yPosition += 2;
 
-    // Answer
+    // Answer — convert HTML to plain text for PDF rendering
+    const plainResponse = isHtmlContent(response) ? stripHtml(response) : response;
     yPosition = addWrappedText(
-      response,
+      plainResponse,
       margin,
       yPosition,
       contentWidth,

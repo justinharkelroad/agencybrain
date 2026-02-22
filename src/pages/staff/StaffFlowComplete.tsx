@@ -8,6 +8,8 @@ import { FlowTemplate, FlowAnalysis, FlowQuestion, FlowSession } from '@/types/f
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, Sparkles, Download, RotateCcw, Home, CheckCircle2, Lightbulb, Target, Tags, Brain, HelpCircle } from 'lucide-react';
+import { isHtmlContent } from '@/components/flows/ChatBubble';
+import DOMPurify from 'dompurify';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
 
@@ -386,9 +388,18 @@ const [session, setSession] = useState<StaffFlowSession | null>(null);
                       <CheckCircle2 className="h-5 w-5 text-muted-foreground" strokeWidth={1.5} />
                       <h3 className="font-medium text-muted-foreground">Your Committed Action</h3>
                     </div>
-                    <p className="text-muted-foreground/80 text-sm italic">
-                      "{session.responses_json.actions}"
-                    </p>
+                    {isHtmlContent(session.responses_json.actions) ? (
+                      <div
+                        className="text-muted-foreground/80 text-sm italic prose prose-sm dark:prose-invert max-w-none"
+                        dangerouslySetInnerHTML={{
+                          __html: DOMPurify.sanitize(session.responses_json.actions),
+                        }}
+                      />
+                    ) : (
+                      <p className="text-muted-foreground/80 text-sm italic">
+                        "{session.responses_json.actions}"
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -415,9 +426,18 @@ const [session, setSession] = useState<StaffFlowSession | null>(null);
                       <p className="text-muted-foreground/70 text-sm mb-2">
                         {interpolatePrompt(question.prompt)}
                       </p>
-                      <p className="text-foreground leading-relaxed whitespace-pre-wrap">
-                        {response}
-                      </p>
+                      {isHtmlContent(response) ? (
+                        <div
+                          className="text-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none"
+                          dangerouslySetInnerHTML={{
+                            __html: DOMPurify.sanitize(response),
+                          }}
+                        />
+                      ) : (
+                        <p className="text-foreground leading-relaxed whitespace-pre-wrap">
+                          {response}
+                        </p>
+                      )}
                     </div>
                   );
                 })}

@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { FlowSession, FlowTemplate, FlowQuestion, FlowAnalysis } from '@/types/flows';
+import { isHtmlContent } from '@/components/flows/ChatBubble';
+import DOMPurify from 'dompurify';
 
 interface FlowReportCardProps {
   session: FlowSession;
@@ -266,9 +268,18 @@ export function FlowReportCard({
               <p className="text-muted-foreground/70 text-sm mb-2">
                 {interpolatePrompt(question.prompt)}
               </p>
-              <p className="text-foreground leading-relaxed whitespace-pre-wrap">
-                {response}
-              </p>
+              {isHtmlContent(response) ? (
+                <div
+                  className="text-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{
+                    __html: DOMPurify.sanitize(response),
+                  }}
+                />
+              ) : (
+                <p className="text-foreground leading-relaxed whitespace-pre-wrap">
+                  {response}
+                </p>
+              )}
             </div>
           );
         })}

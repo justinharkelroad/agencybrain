@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useFlowSession } from '@/hooks/useFlowSession';
 import { useFlowProfile } from '@/hooks/useFlowProfile';
 import { useFocusItems } from '@/hooks/useFocusItems';
-import { ChatBubble } from '@/components/flows/ChatBubble';
+import { ChatBubble, isHtmlContent } from '@/components/flows/ChatBubble';
 import { ChatInput } from '@/components/flows/ChatInput';
 import { TypingIndicator } from '@/components/flows/TypingIndicator';
 import { FlowChallenge } from '@/components/flows/FlowChallenge';
@@ -357,6 +357,7 @@ export default function FlowSession() {
         console.log('[FlowSession] Timeout fired, advancing to next question');
         setIsTyping(false);
         setPendingAnswer(null);
+        setShowCurrentQuestion(true);
         goToNextQuestion();
         typingTimeoutRef.current = null;
       }, 2000);
@@ -397,6 +398,7 @@ export default function FlowSession() {
       typingTimeoutRef.current = setTimeout(() => {
         setIsTyping(false);
         setPendingAnswer(null);
+        setShowCurrentQuestion(true);
         goToNextQuestion();
         typingTimeoutRef.current = null;
       }, 2000);
@@ -512,11 +514,12 @@ export default function FlowSession() {
                 
                 {/* Answer bubble */}
                 {response && (
-                  <ChatBubble 
+                  <ChatBubble
                     variant="outgoing"
                     className="opacity-70"
                     avatarUrl={userPhotoUrl}
                     avatarFallback={userInitials}
+                    html={isHtmlContent(response) ? response : undefined}
                   >
                     {response}
                   </ChatBubble>
@@ -565,10 +568,11 @@ export default function FlowSession() {
               </ChatBubble>
               
               {/* Show the user's answer immediately */}
-              <ChatBubble 
+              <ChatBubble
                 variant="outgoing"
                 avatarUrl={userPhotoUrl}
                 avatarFallback={userInitials}
+                html={isHtmlContent(pendingAnswer) ? pendingAnswer : undefined}
               >
                 {pendingAnswer}
               </ChatBubble>

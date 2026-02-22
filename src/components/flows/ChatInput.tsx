@@ -2,9 +2,10 @@ import { useState, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Send, Mic, MicOff } from 'lucide-react';
+import { Send, Mic, MicOff, Maximize2 } from 'lucide-react';
 import { FlowQuestion } from '@/types/flows';
 import { cn } from '@/lib/utils';
+import { RichTextEditorDialog } from './RichTextEditorDialog';
 
 interface ChatInputProps {
   question: FlowQuestion;
@@ -24,6 +25,7 @@ export function ChatInput({
   isLast,
 }: ChatInputProps) {
   const [isRecording, setIsRecording] = useState(false);
+  const [richEditorOpen, setRichEditorOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -54,16 +56,16 @@ export function ChatInput({
       }
     } else {
       setIsRecording(true);
-      
+
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognitionRef.current = recognition;
-      
+
       recognition.continuous = true;
       recognition.interimResults = true;
-      
+
       let finalTranscript = value;
-      
+
       recognition.onresult = (event: any) => {
         let interimTranscript = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -75,22 +77,26 @@ export function ChatInput({
         }
         onChange(finalTranscript + (interimTranscript ? ' ' + interimTranscript : ''));
       };
-      
+
       recognition.onerror = () => {
         setIsRecording(false);
       };
-      
+
       recognition.onend = () => {
         setIsRecording(false);
       };
-      
+
       recognition.start();
     }
   };
 
+  const handleRichTextSubmit = (html: string) => {
+    onSubmit(html);
+  };
+
   // Normalize question type (defensive - handle case, whitespace, undefined)
   const normalizedType = (question.type ?? '').toString().trim().toLowerCase();
-  
+
   // Debug logging for select detection
   console.log('[ChatInput] Render:', {
     questionId: question.id,
@@ -106,7 +112,7 @@ export function ChatInput({
     // Normalize options - handle string[], object[], or undefined
     const rawOptions = question.options;
     let options: string[] = [];
-    
+
     if (Array.isArray(rawOptions)) {
       options = rawOptions
         .map(opt => {
@@ -119,9 +125,9 @@ export function ChatInput({
         })
         .filter(Boolean);
     }
-    
+
     console.log('[ChatInput] Select mode - normalized options:', options);
-    
+
     if (options.length === 0) {
       console.error('[ChatInput] Select question has NO valid options:', question.id, rawOptions);
       return (
@@ -132,7 +138,7 @@ export function ChatInput({
         </div>
       );
     }
-    
+
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground text-center">Choose one:</p>
@@ -170,54 +176,79 @@ export function ChatInput({
 
   // Text or Textarea input
   return (
-    <div className="flex items-end gap-2">
-      {question.type === 'textarea' ? (
-        <div className="relative flex-1">
-          <Textarea
-            ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+    <>
+      <div className="flex items-end gap-2">
+        {question.type === 'textarea' ? (
+          <div className="relative flex-1">
+            <Textarea
+              ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+              value={value}
+              onChange={e => onChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={question.placeholder || 'Type your response...'}
+              className="min-h-[80px] max-h-[200px] pr-20 text-base resize-none rounded-2xl"
+              disabled={disabled}
+            />
+            <div className="absolute bottom-2 right-2 flex gap-1">
+              {('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    'h-8 w-8',
+                    isRecording ? 'text-destructive' : 'text-muted-foreground'
+                  )}
+                  onClick={toggleRecording}
+                  disabled={disabled}
+                >
+                  {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                onClick={() => setRichEditorOpen(true)}
+                disabled={disabled}
+                title="Expand to rich text editor"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Input
+            ref={inputRef as React.RefObject<HTMLInputElement>}
             value={value}
             onChange={e => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={question.placeholder || 'Type your response...'}
-            className="min-h-[80px] max-h-[200px] pr-12 text-base resize-none rounded-2xl"
+            placeholder={question.placeholder || 'Type your answer...'}
+            className="flex-1 text-base rounded-full h-12"
             disabled={disabled}
           />
-          {('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={cn(
-                'absolute bottom-2 right-2',
-                isRecording ? 'text-destructive' : 'text-muted-foreground'
-              )}
-              onClick={toggleRecording}
-              disabled={disabled}
-            >
-              {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            </Button>
-          )}
-        </div>
-      ) : (
-        <Input
-          ref={inputRef as React.RefObject<HTMLInputElement>}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={question.placeholder || 'Type your answer...'}
-          className="flex-1 text-base rounded-full h-12"
-          disabled={disabled}
+        )}
+
+        <Button
+          onClick={() => onSubmit()}
+          disabled={!value.trim() || disabled}
+          size="icon"
+          className="h-12 w-12 rounded-full flex-shrink-0"
+        >
+          <Send className="h-5 w-5" />
+        </Button>
+      </div>
+
+      {question.type === 'textarea' && (
+        <RichTextEditorDialog
+          open={richEditorOpen}
+          onOpenChange={setRichEditorOpen}
+          initialValue={value}
+          onSubmit={handleRichTextSubmit}
+          placeholder={question.placeholder || 'Type your response...'}
         />
       )}
-      
-      <Button
-        onClick={() => onSubmit()}
-        disabled={!value.trim() || disabled}
-        size="icon"
-        className="h-12 w-12 rounded-full flex-shrink-0"
-      >
-        <Send className="h-5 w-5" />
-      </Button>
-    </div>
+    </>
   );
 }
