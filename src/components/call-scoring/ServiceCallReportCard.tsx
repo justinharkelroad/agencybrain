@@ -254,7 +254,8 @@ export function ServiceCallReportCard({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const formatChecklistLabel = (label: string) => {
+  const formatChecklistLabel = (label: unknown) => {
+    if (typeof label !== 'string') return '';
     return label.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
   };
 
@@ -300,13 +301,13 @@ Client: ${mappedClientName || 'Unknown'}
 Date: ${formatDate(call.created_at)}
 Overall Score: ${call.overall_score}/10
 
-${call.section_scores?.map(s => `${s.section_name}: ${s.score}/${s.max_score}\n${s.feedback}`).join('\n\n') || ''}
+${sectionScores.map(s => `${s.section_name}: ${s.score}/${s.max_score}\n${s.feedback}`).join('\n\n') || ''}
 
 CRM NOTES:
 ${mappedCrmNotes || 'None'}
 
 SUGGESTIONS:
-${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
+${mappedSuggestions.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
     `.trim();
     
     navigator.clipboard.writeText(text);

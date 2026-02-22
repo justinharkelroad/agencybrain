@@ -282,7 +282,8 @@ export function CallScorecard({
     return formatTimestamp(seconds);
   };
 
-  const formatChecklistLabel = (label: string) => {
+  const formatChecklistLabel = (label: unknown) => {
+    if (typeof label !== 'string') return '';
     return label.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
   };
 
@@ -911,31 +912,16 @@ export function CallScorecard({
               // CRITICAL: Always enrich with feedback/tip from section_scores using normalized keys
               const skillScoresArray = (() => {
                 const normalizedSkillScores = toNormalizedSkillScores(call.skill_scores as Json | null | undefined);
-
-                // If skill_scores is an array, enrich each entry with section_scores data
-                if (Array.isArray(call.skill_scores)) {
-                  return normalizedSkillScores.map((row) => {
-                    const key = normalizeKey(row.skill_name || '');
-                    const sectionData = sectionScoresMap[key];
-                    return {
-                      ...row,
-                      // Use existing feedback/tip if present, otherwise pull from section_scores
-                      feedback: row.feedback ?? sectionData?.feedback ?? sectionData?.coaching ?? null,
-                      tip: row.tip ?? sectionData?.tip ?? null
-                    };
-                  });
-                  }
-                  return normalizedSkillScores.map((row) => {
-                    const normalizedKey = normalizeKey(row.skill_name);
-                    const sectionData = sectionScoresMap[normalizedKey];
-                    return {
-                      ...row,
-                      feedback: row.feedback ?? sectionData?.feedback ?? sectionData?.coaching ?? null,
-                      tip: row.tip ?? sectionData?.tip ?? null
-                    };
-                  });
-                  return [];
-                })();
+                return normalizedSkillScores.map((row) => {
+                  const normalizedKey = normalizeKey(row.skill_name || '');
+                  const sectionData = sectionScoresMap[normalizedKey];
+                  return {
+                    ...row,
+                    feedback: row.feedback ?? sectionData?.feedback ?? sectionData?.coaching ?? null,
+                    tip: row.tip ?? sectionData?.tip ?? null
+                  };
+                });
+              })();
             
             if (hasLegacySections) {
               return (
@@ -1541,7 +1527,7 @@ export function CallScorecard({
                   })
                 ) : (
                   /* Legacy format: discovery_wins as object */
-                  Object.entries(executionChecklist).map(([key, value]) => (
+                  (isObject(executionChecklist) ? Object.entries(executionChecklist) : []).map(([key, value]) => (
                     <div key={key} className="flex items-center gap-2">
                       <div className={`w-4 h-4 border rounded flex items-center justify-center ${
                         value ? 'bg-green-500/20 border-green-500' : 'border-muted-foreground/30'
