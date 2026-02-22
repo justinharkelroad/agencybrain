@@ -61,7 +61,12 @@ export function ChatBubble({
       >
         {html ? (
           <div
-            className="prose prose-sm dark:prose-invert max-w-none [&_p]:my-1 [&_h2]:my-2 [&_h3]:my-2 [&_ul]:my-1 [&_ol]:my-1 prose-headings:text-inherit prose-p:text-inherit prose-li:text-inherit prose-strong:text-inherit"
+            className={cn(
+              "prose prose-sm max-w-none [&_p]:my-1 [&_h2]:my-2 [&_h3]:my-2 [&_ul]:my-1 [&_ol]:my-1",
+              isIncoming
+                ? "dark:prose-invert prose-headings:text-inherit prose-p:text-inherit prose-li:text-inherit prose-strong:text-inherit"
+                : "[&_*]:text-inherit [&_a]:text-inherit"
+            )}
             dangerouslySetInnerHTML={{
               __html: DOMPurify.sanitize(html),
             }}
