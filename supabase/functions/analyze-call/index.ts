@@ -415,6 +415,112 @@ function buildSectionFeedback(sectionData: any): string | null {
   return `STRENGTHS: ${strengths || 'Not clearly demonstrated in this call.'} GAPS: ${gaps || 'No clear gaps were captured in the section output.'} ACTION: ${action || 'Practice one specific behavior tied to this section on the next call.'}`;
 }
 
+function textValue(value: any): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function inferPlanDomain(text: string): 'rapport' | 'value_building' | 'closing' | 'unknown' {
+  const normalized = text.toLowerCase();
+  if (!normalized) return 'unknown';
+
+  const rapportSignals = [
+    'rapport', 'open-ended', 'open ended', 'home', 'work', 'family', 'trust',
+    'connection', 'greet', 'greeting', 'personal life', 'personal connection'
+  ];
+  const valueSignals = [
+    'coverage', 'value', 'liability', 'deductible', 'protect', 'protection',
+    'premium', 'quote', 'asset', 'differentiate', 'discovery', 'advisor'
+  ];
+  const closingSignals = [
+    'close', 'closing', 'ask for the sale', 'ask for sale', 'yes/no',
+    'assumptive', 'follow-up', 'follow up', 'commitment', 'next step'
+  ];
+
+  if (closingSignals.some((signal) => normalized.includes(signal))) return 'closing';
+  if (rapportSignals.some((signal) => normalized.includes(signal))) return 'rapport';
+  if (valueSignals.some((signal) => normalized.includes(signal))) return 'value_building';
+  return 'unknown';
+}
+
+function extractSectionAction(sectionData: any): string {
+  if (!sectionData || typeof sectionData !== 'object') return '';
+
+  const explicitAction = textValue(sectionData.action) || textValue(sectionData.coaching) || textValue(sectionData.tip);
+  if (explicitAction) return explicitAction;
+
+  const feedback = textValue(sectionData.feedback) || buildSectionFeedback(sectionData) || '';
+  if (!feedback) return '';
+
+  const actionMatch = feedback.match(/ACTION:\s*([\s\S]*)$/i);
+  return actionMatch && actionMatch[1] ? actionMatch[1].trim() : '';
+}
+
+function normalizeSalesCorrectivePlan(
+  analysis: any,
+  normalizedSectionScores: Record<string, any>
+): Record<string, string> {
+  const rawPlan = (analysis && typeof analysis.corrective_action_plan === 'object' && !Array.isArray(analysis.corrective_action_plan))
+    ? analysis.corrective_action_plan
+    : {};
+  const coaching = Array.isArray(analysis?.coaching_recommendations)
+    ? analysis.coaching_recommendations.filter((item: any) => typeof item === 'string' && item.trim())
+    : [];
+
+  const sectionRapportAction = extractSectionAction(normalizedSectionScores.rapport);
+  const sectionValueAction = extractSectionAction(normalizedSectionScores.coverage || normalizedSectionScores.discovery);
+  const sectionClosingAction = extractSectionAction(normalizedSectionScores.closing);
+
+  const routed: Record<'rapport' | 'value_building' | 'closing', string> = {
+    rapport: '',
+    value_building: '',
+    closing: '',
+  };
+
+  const assign = (domain: 'rapport' | 'value_building' | 'closing', value: any) => {
+    const text = textValue(value);
+    if (!text || routed[domain]) return;
+    routed[domain] = text;
+  };
+
+  assign('rapport', rawPlan.rapport);
+  assign('value_building', rawPlan.value_building);
+  assign('closing', rawPlan.closing);
+
+  assign('rapport', rawPlan.rapport_focus);
+  assign('value_building', rawPlan.value_focus);
+  assign('closing', rawPlan.closing_focus);
+
+  const genericCandidates = [
+    rawPlan.primary_focus,
+    rawPlan.secondary_focus,
+    rawPlan.closing_focus,
+    ...coaching,
+  ];
+  for (const candidate of genericCandidates) {
+    const text = textValue(candidate);
+    if (!text) continue;
+    const inferred = inferPlanDomain(text);
+    if (inferred !== 'unknown') assign(inferred, text);
+  }
+
+  assign('rapport', sectionRapportAction);
+  assign('value_building', sectionValueAction);
+  assign('closing', sectionClosingAction);
+
+  assign('rapport', "Focus on building rapport.");
+  assign('value_building', "Improve coverage education.");
+  assign('closing', "Use assumptive close language.");
+
+  return {
+    primary_focus: routed.rapport,
+    secondary_focus: routed.value_building,
+    closing_focus: routed.closing,
+    rapport: routed.rapport,
+    value_building: routed.value_building,
+    closing: routed.closing,
+  };
+}
+
 serve(async (req) => {
   console.log('analyze-call invoked');
   console.log('Request method:', req.method);
@@ -848,42 +954,43 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
       console.log('[analyze-call] Final checklist items:', checklistData.length);
       console.log('[analyze-call] Final notable_quotes:', (analysis.notable_quotes || []).length);
       console.log('[analyze-call] CRM notes keys:', Object.keys(crmNotesData));
+
+      const normalizedSectionScores = (() => {
+        const raw = analysis.section_scores || {};
+        const keyMap: Record<string, string> = {
+          'opening__rapport': 'rapport',
+          'opening_rapport': 'rapport',
+          'coverage_education': 'coverage',
+          'coverage__education': 'coverage',
+        };
+        const normalized: Record<string, any> = {};
+        for (const [key, value] of Object.entries(raw)) {
+          const normalizedKey = keyMap[key] || key;
+          const valueObj = value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : value;
+          if (valueObj && typeof valueObj === 'object') {
+            const typed = valueObj as Record<string, unknown>;
+            if (typeof typed.score === 'number' && typed.score >= 0 && typed.score <= 10) {
+              typed.score = Math.round(typed.score * 10);
+            }
+            const feedback = buildSectionFeedback(typed);
+            if (feedback && (typeof typed.feedback !== 'string' || !typed.feedback.trim())) {
+              typed.feedback = feedback;
+            }
+            if ((!typed.tip || typeof typed.tip !== 'string') && typeof typed.coaching === 'string') {
+              typed.tip = typed.coaching;
+            }
+          }
+          normalized[normalizedKey] = valueObj;
+        }
+        console.log('[analyze-call] Normalized section_scores keys:', Object.keys(normalized));
+        return normalized;
+      })();
       
       updatePayload = {
         ...updatePayload,
         potential_rank: null, // No longer generating ranks - using overall_score instead
         skill_scores: skillScoresForStorage, // Store as array for UI consistency
-        section_scores: (() => {
-          // Normalize section_scores keys for UI compatibility
-          const raw = analysis.section_scores || {};
-          const keyMap: Record<string, string> = {
-            'opening__rapport': 'rapport',
-            'opening_rapport': 'rapport',
-            'coverage_education': 'coverage',
-            'coverage__education': 'coverage',
-          };
-          const normalized: Record<string, any> = {};
-          for (const [key, value] of Object.entries(raw)) {
-            const normalizedKey = keyMap[key] || key;
-            const valueObj = value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : value;
-            if (valueObj && typeof valueObj === 'object') {
-              const typed = valueObj as Record<string, unknown>;
-              if (typeof typed.score === 'number' && typed.score >= 0 && typed.score <= 10) {
-                typed.score = Math.round(typed.score * 10);
-              }
-              const feedback = buildSectionFeedback(typed);
-              if (feedback && (typeof typed.feedback !== 'string' || !typed.feedback.trim())) {
-                typed.feedback = feedback;
-              }
-              if ((!typed.tip || typeof typed.tip !== 'string') && typeof typed.coaching === 'string') {
-                typed.tip = typed.coaching;
-              }
-            }
-            normalized[normalizedKey] = valueObj;
-          }
-          console.log('[analyze-call] Normalized section_scores keys:', Object.keys(normalized));
-          return normalized;
-        })(), // Normalized for UI
+        section_scores: normalizedSectionScores, // Normalized for UI
         // Accept both key names - prompt spec OR what AI actually returns
         client_profile: analysis.extracted_data || analysis.client_profile,
         discovery_wins: checklistData, // Store normalized checklist array
@@ -891,19 +998,7 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
         critical_gaps: {
           assessment: analysis.critical_assessment || analysis.summary,
           rationale: analysis.critical_assessment || 'Performance assessment based on overall call analysis.',
-          corrective_plan: analysis.corrective_action_plan || (
-            Array.isArray(analysis.coaching_recommendations) && analysis.coaching_recommendations.length >= 3
-              ? {
-                  primary_focus: analysis.coaching_recommendations[0],
-                  secondary_focus: analysis.coaching_recommendations[1],
-                  closing_focus: analysis.coaching_recommendations[2]
-                }
-              : {
-                  primary_focus: analysis.coaching_recommendations?.[0] || "Focus on building rapport.",
-                  secondary_focus: analysis.coaching_recommendations?.[1] || "Improve coverage education.",
-                  closing_focus: analysis.coaching_recommendations?.[2] || "Use assumptive close language."
-                }
-          )
+          corrective_plan: normalizeSalesCorrectivePlan(analysis, normalizedSectionScores),
         },
         closing_attempts: crmNotesData, // Store normalized CRM notes object
       };

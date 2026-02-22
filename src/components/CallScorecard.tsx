@@ -1302,20 +1302,103 @@ export function CallScorecard({
 
           {/* Corrective Action Plan */}
           {(() => {
+            const classifyPlanDomain = (value: unknown): 'rapport' | 'value' | 'closing' | 'unknown' => {
+              if (typeof value !== 'string') return 'unknown';
+              const text = value.toLowerCase();
+              if (!text.trim()) return 'unknown';
+
+              const rapportSignals = ['rapport', 'open-ended', 'open ended', 'home', 'work', 'family', 'greet', 'trust', 'connection', 'personal'];
+              const valueSignals = ['coverage', 'value', 'liability', 'deductible', 'protect', 'premium', 'quote', 'asset', 'differentiate', 'discovery', 'advisor'];
+              const closingSignals = ['close', 'closing', 'sale', 'assumptive', 'yes/no', 'follow-up', 'follow up', 'commitment', 'next step'];
+
+              if (closingSignals.some((signal) => text.includes(signal))) return 'closing';
+              if (rapportSignals.some((signal) => text.includes(signal))) return 'rapport';
+              if (valueSignals.some((signal) => text.includes(signal))) return 'value';
+              return 'unknown';
+            };
+
+            const extractSectionAction = (entry: SectionScoreEntry | undefined): string | null => {
+              if (!entry) return null;
+              if (entry.coaching?.trim()) return entry.coaching.trim();
+              if (entry.tip?.trim()) return entry.tip.trim();
+              if (!entry.feedback?.trim()) return null;
+              const parsed = parseFeedback(entry.feedback);
+              return parsed.action?.trim() || null;
+            };
+
+            const correctivePlan = isObject(call.critical_gaps)
+              ? (isObject(call.critical_gaps.corrective_plan)
+                  ? call.critical_gaps.corrective_plan
+                  : isObject(call.critical_gaps.corrective_action_plan)
+                    ? call.critical_gaps.corrective_action_plan
+                    : {})
+              : {};
+
+            const planValue = (key: string): string | null => {
+              const raw = correctivePlan[key];
+              return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null;
+            };
+
+            const pickDomainText = (
+              domain: 'rapport' | 'value' | 'closing',
+              explicitKeys: string[],
+              sectionFallback: string | null,
+              hardFallback: string
+            ): string => {
+              for (const key of explicitKeys) {
+                const directValue = planValue(key);
+                if (directValue) return directValue;
+              }
+
+              const genericCandidates = [
+                planValue('primary_focus'),
+                planValue('secondary_focus'),
+                planValue('closing_focus'),
+              ].filter((item): item is string => Boolean(item));
+
+              for (const candidate of genericCandidates) {
+                if (classifyPlanDomain(candidate) === domain) {
+                  return candidate;
+                }
+              }
+
+              if (sectionFallback) return sectionFallback;
+              return hardFallback;
+            };
+
             // Get relevant tips from skill_scores based on keywords
-                const getRelevantTips = (keywords: string[]) => {
-                  if (!Array.isArray(call.skill_scores)) return [];
-                  return call.skill_scores
-                    .filter((rawSkill): rawSkill is RawSkillScoreRow => isObject(rawSkill))
-                    .filter((s) => keywords.some(k => s.skill_name?.toLowerCase().includes(k.toLowerCase())))
-                    .map((s) => s.tip)
-                    .filter((tip): tip is string => typeof tip === 'string');
-                };
+            const getRelevantTips = (keywords: string[]) => {
+              if (!Array.isArray(call.skill_scores)) return [];
+              return call.skill_scores
+                .filter((rawSkill): rawSkill is RawSkillScoreRow => isObject(rawSkill))
+                .filter((s) => keywords.some(k => s.skill_name?.toLowerCase().includes(k.toLowerCase())))
+                .map((s) => s.tip)
+                .filter((tip): tip is string => typeof tip === 'string');
+            };
 
             // Group tips by coaching category
             const rapportTips = getRelevantTips(['rapport', 'thanking', 'greeting', 'frame']);
             const valueTips = getRelevantTips(['question', 'coverage', 'liability', 'value']);
             const closingTips = getRelevantTips(['closing', 'assumptive', 'objection', 'follow-up', 'requote']);
+
+            const rapportPlanText = pickDomainText(
+              'rapport',
+              ['rapport', 'rapport_focus'],
+              extractSectionAction(sectionScores.rapport),
+              'Build deeper connection using the HWF framework before discussing insurance details.'
+            );
+            const valuePlanText = pickDomainText(
+              'value',
+              ['value_building', 'value_focus'],
+              extractSectionAction(sectionScores.coverage),
+              'Explain liability protection before quoting price. Position as advisor, not order-taker.'
+            );
+            const closingPlanText = pickDomainText(
+              'closing',
+              ['closing', 'closing_focus'],
+              extractSectionAction(sectionScores.closing),
+              'Use assumptive close language and set hard follow-up appointments with specific times.'
+            );
 
             return (
               <Card className="border-t-4 border-t-blue-500">
@@ -1327,10 +1410,7 @@ export function CallScorecard({
                     <div>
                       <h4 className="text-red-400 font-medium text-sm mb-2">RAPPORT</h4>
                       <p className="text-sm text-muted-foreground">
-                        {call.critical_gaps?.corrective_plan?.primary_focus || 
-                         call.critical_gaps?.corrective_plan?.rapport || 
-                         sectionScores.rapport?.coaching || 
-                         'Build deeper connection using the HWF framework before discussing insurance details.'}
+                        {rapportPlanText}
                       </p>
                       {rapportTips.length > 0 && (
                         <div className="mt-2 space-y-1">
@@ -1348,10 +1428,7 @@ export function CallScorecard({
                     <div>
                       <h4 className="text-red-400 font-medium text-sm mb-2">VALUE BUILDING</h4>
                       <p className="text-sm text-muted-foreground">
-                        {call.critical_gaps?.corrective_plan?.secondary_focus || 
-                         call.critical_gaps?.corrective_plan?.value_building || 
-                         sectionScores.coverage?.coaching || 
-                         'Explain liability protection before quoting price. Position as advisor, not order-taker.'}
+                        {valuePlanText}
                       </p>
                       {valueTips.length > 0 && (
                         <div className="mt-2 space-y-1">
@@ -1369,10 +1446,7 @@ export function CallScorecard({
                     <div>
                       <h4 className="text-red-400 font-medium text-sm mb-2">CLOSING</h4>
                       <p className="text-sm text-muted-foreground">
-                        {call.critical_gaps?.corrective_plan?.closing_focus || 
-                         call.critical_gaps?.corrective_plan?.closing || 
-                         sectionScores.closing?.coaching || 
-                         'Use assumptive close language and set hard follow-up appointments with specific times.'}
+                        {closingPlanText}
                       </p>
                       {closingTips.length > 0 && (
                         <div className="mt-2 space-y-1">
