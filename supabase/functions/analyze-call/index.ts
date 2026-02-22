@@ -522,18 +522,34 @@ function normalizeSalesCorrectivePlan(
 }
 
 function normalizeServiceSectionScores(sectionScores: any): any[] {
-  if (Array.isArray(sectionScores)) return sectionScores;
+  const normalizeEntry = (entry: Record<string, unknown>, fallbackName: string) => {
+    const scoreRaw = entry.score;
+    const maxScoreRaw = entry.max_score;
+    const score = typeof scoreRaw === 'number' ? scoreRaw : (typeof scoreRaw === 'string' ? Number(scoreRaw) : 0);
+    const maxScore = typeof maxScoreRaw === 'number' ? maxScoreRaw : (typeof maxScoreRaw === 'string' ? Number(maxScoreRaw) : 10);
+
+    return {
+      section_name: (entry.section_name as string) || fallbackName,
+      score: Number.isFinite(score) ? score : 0,
+      max_score: Number.isFinite(maxScore) && maxScore > 0 ? maxScore : 10,
+      feedback: typeof entry.feedback === 'string' ? entry.feedback : buildSectionFeedback(entry) || '',
+      tip: typeof entry.tip === 'string' ? entry.tip : (typeof entry.coaching === 'string' ? entry.coaching : null),
+    };
+  };
+
+  if (Array.isArray(sectionScores)) {
+    return sectionScores.map((value, index) => {
+      const entry = value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
+      const fallbackName = `Section ${index + 1}`;
+      return normalizeEntry(entry, fallbackName);
+    });
+  }
   if (!sectionScores || typeof sectionScores !== 'object') return [];
 
   return Object.entries(sectionScores).map(([key, value]) => {
     const entry = value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
-    return {
-      section_name: (entry.section_name as string) || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
-      score: typeof entry.score === 'number' ? entry.score : 0,
-      max_score: typeof entry.max_score === 'number' ? entry.max_score : 10,
-      feedback: typeof entry.feedback === 'string' ? entry.feedback : buildSectionFeedback(entry) || '',
-      tip: typeof entry.tip === 'string' ? entry.tip : (typeof entry.coaching === 'string' ? entry.coaching : null),
-    };
+    const fallbackName = key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    return normalizeEntry(entry, fallbackName);
   });
 }
 
@@ -555,7 +571,7 @@ function detectFollowUpValidation(text: string) {
     /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\s+\d{1,2}(?:st|nd|rd|th)?\b/i.test(normalized);
   const hasTime = /\b(\d{1,2}:\d{2}\s?(am|pm)?|\d{1,2}\s?(am|pm))\b/i.test(normalized);
   const hasOwner = /\b(i|we|agent|csr|team member|rep)\s+(will|to)\b/i.test(normalized) || /\bassigned\b/i.test(normalized);
-  const hasChannel = /\b(call|phone|text|sms|email)\b/i.test(normalized);
+  const hasChannel = /\b(phone|text|sms|email|voicemail|callback|call[- ]?back)\b/i.test(normalized);
 
   const missingFields: string[] = [];
   if (hasFollowUp) {
@@ -951,6 +967,10 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
       }));
       const serviceInsights = buildServiceInsights(analysis, sectionScoresArray);
       
+      const existingCriticalGaps = analysis?.critical_gaps && typeof analysis.critical_gaps === 'object'
+        ? analysis.critical_gaps
+        : {};
+
       updatePayload = {
         ...updatePayload,
         skill_scores: skillScoresFromSections, // Add for UI consistency
@@ -960,6 +980,7 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
         discovery_wins: analysis.checklist,
         notable_quotes: analysis.notable_quotes || [],
         critical_gaps: {
+          ...existingCriticalGaps,
           service_outcome: serviceInsights.service_outcome,
           follow_up_validation: serviceInsights.follow_up_validation,
         },
