@@ -264,18 +264,38 @@ function renderCriticalAssessment(criticalGaps: any, summary: string | null): st
 function renderSectionScoresSales(sectionScores: Record<string, any> | null): string {
   if (!sectionScores || Object.keys(sectionScores).length === 0) return '';
 
+  const normalizeEvidenceList = (value: any): string[] => {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((entry: any) => {
+        if (typeof entry === 'string') return entry;
+        if (entry && typeof entry === 'object') {
+          if (typeof entry.claim === 'string') return entry.claim;
+          if (typeof entry.text === 'string') return entry.text;
+        }
+        return '';
+      })
+      .filter((entry: string) => entry.trim().length > 0);
+  };
+
   const sections = Object.entries(sectionScores).map(([key, section]) => {
-    const score = section?.score ?? 'N/A';
-    const wins = section?.wins || [];
-    const failures = section?.failures || [];
+    const rawScore = section?.score;
+    const scoreNumber = typeof rawScore === 'number' ? rawScore : null;
+    const scoreDisplay = scoreNumber === null ? 'N/A' : scoreNumber;
+    const scoreOutOf = scoreNumber !== null && scoreNumber <= 10 ? 10 : 100;
+    const wins = normalizeEvidenceList(section?.wins);
+    const failures = normalizeEvidenceList(section?.failures);
     const coaching = section?.coaching;
+    const feedback = typeof section?.feedback === 'string' ? section.feedback : null;
+    const tip = typeof section?.tip === 'string' ? section.tip : null;
 
     return `
       <div style="border-bottom: 1px solid #e5e7eb; padding: 16px 0;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <strong style="color: #1e283a;">${formatSnakeCase(key)}</strong>
-          <span style="background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 9999px; font-weight: 600;">${score}/100</span>
+          <span style="background: #e0e7ff; color: #3730a3; padding: 4px 12px; border-radius: 9999px; font-weight: 600;">${scoreDisplay}/${scoreOutOf}</span>
         </div>
+        ${feedback ? `<p style="margin: 4px 0; color: #374151;">${feedback}</p>` : ''}
         ${wins.length > 0 ? `
           <div style="margin-top: 8px;">
             <span style="color: #22c55e; font-weight: 600;">✓ Wins:</span>
@@ -295,6 +315,11 @@ function renderSectionScoresSales(sectionScores: Record<string, any> | null): st
         ${coaching ? `
           <div style="margin-top: 8px; background: #f0f9ff; padding: 8px 12px; border-radius: 6px;">
             <span style="color: #0369a1;">💡 ${coaching}</span>
+          </div>
+        ` : ''}
+        ${tip ? `
+          <div style="margin-top: 8px; background: #f0f9ff; padding: 8px 12px; border-radius: 6px;">
+            <span style="color: #0369a1;">💡 ${tip}</span>
           </div>
         ` : ''}
       </div>

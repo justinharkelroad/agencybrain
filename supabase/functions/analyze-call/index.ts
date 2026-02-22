@@ -562,13 +562,12 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
      "follow_up_details": "<date/time/purpose if set, otherwise 'None scheduled'>"
    }
 
-4. For each section in "section_scores", include evidence in wins/failures:
+4. For each section in "section_scores", use this exact structure:
    {
      "rapport": {
        "score": 65,
-       "wins": [{"claim": "<what was done well>", "evidence": {"text": "<verbatim quote>", "timestamp_seconds": 45}}],
-       "failures": [{"claim": "<what was missed>", "evidence": {"text": "<quote showing issue>", "timestamp_seconds": 120}}],
-       "coaching": "<coaching advice>"
+       "feedback": "STRENGTHS: <specific win with evidence>. GAPS: <specific miss with evidence>. ACTION: <one concrete next-call behavior>.",
+       "tip": "<one memorable coaching takeaway>"
      }
    }
 
@@ -869,6 +868,9 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
             const valueObj = value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : value;
             if (valueObj && typeof valueObj === 'object') {
               const typed = valueObj as Record<string, unknown>;
+              if (typeof typed.score === 'number' && typed.score >= 0 && typed.score <= 10) {
+                typed.score = Math.round(typed.score * 10);
+              }
               const feedback = buildSectionFeedback(typed);
               if (feedback && (typeof typed.feedback !== 'string' || !typed.feedback.trim())) {
                 typed.feedback = feedback;

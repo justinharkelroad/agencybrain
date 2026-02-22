@@ -24,7 +24,7 @@ PRIVACY RULE: Use first names only. No DOB, SSN, addresses, or policy numbers.
 
 SUMMARY: ${config.summaryInstructions}
 
-SCORED SECTIONS (score each 0-10):
+SCORED SECTIONS:
 ${sectionsText}
 
 SECTION FEEDBACK REQUIREMENTS:
@@ -65,10 +65,17 @@ Return valid JSON with this exact structure:
       "tip": "<one memorable coaching takeaway for quick reference>"
     }
   ],
+  "section_scores": {
+    "<normalized_section_key>": {
+      "score": <0-100>,
+      "feedback": "STRENGTHS: [specific example of what rep did well, with quote if available]. GAPS: [specific behavior or statement that was missed or incomplete]. ACTION: [one concrete thing to practice on the next call].",
+      "tip": "<one memorable coaching takeaway for quick reference>"
+    }
+  },
   "discovery_wins": ["<win1>", "<win2>"],
   "closing_attempts": ["<attempt1>", "<attempt2>"],
   "coaching_recommendations": ["<rec1>", "<rec2>", "<rec3>"],
-  "checklist": [
+  "execution_checklist": [
     {
       "label": "<item label>",
       "checked": true | false,
