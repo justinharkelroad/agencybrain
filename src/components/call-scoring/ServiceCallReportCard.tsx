@@ -55,6 +55,17 @@ interface ServiceCallReportCardProps {
     overall_score?: number;
     section_scores?: ServiceSectionScore[];
     summary?: string;
+    critical_gaps?: {
+      service_outcome?: {
+        status?: 'resolved' | 'partial' | 'unresolved' | 'follow_up_required';
+        rationale?: string;
+      };
+      follow_up_validation?: {
+        status?: 'specific' | 'partial' | 'missing';
+        has_follow_up?: boolean;
+        missing_fields?: string[];
+      };
+    } | null;
     // Direct fields
     crm_notes?: string;
     suggestions?: string[];
@@ -233,6 +244,8 @@ export function ServiceCallReportCard({
   const mappedChecklist = call.checklist || call.discovery_wins || [];
   const mappedCsrName = call.csr_name || call.client_profile?.csr_name || call.team_member_name;
   const mappedClientName = call.client_first_name || call.client_profile?.client_first_name;
+  const serviceOutcome = call.critical_gaps?.service_outcome;
+  const followUpValidation = call.critical_gaps?.follow_up_validation;
 
   const getScoreColor = (score: number) => {
     if (score >= 7) return { text: COLORS.green, bg: COLORS.greenBg };
@@ -422,6 +435,69 @@ ${mappedSuggestions.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
           </div>
 
           {/* Privacy & Names Section */}
+          {(serviceOutcome || followUpValidation) && (
+            <Card
+              className="mb-6"
+              style={{ backgroundColor: COLORS.cardBg, borderColor: COLORS.border }}
+            >
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">SERVICE OUTCOME TRACKING</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {serviceOutcome && (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs" style={{ color: COLORS.textMuted }}>Resolution Status</p>
+                    <Badge
+                      variant="outline"
+                      style={{
+                        color:
+                          serviceOutcome.status === 'resolved' ? COLORS.green :
+                          serviceOutcome.status === 'follow_up_required' ? COLORS.blue :
+                          serviceOutcome.status === 'unresolved' ? COLORS.red : COLORS.yellow,
+                        borderColor:
+                          serviceOutcome.status === 'resolved' ? `${COLORS.green}60` :
+                          serviceOutcome.status === 'follow_up_required' ? `${COLORS.blue}60` :
+                          serviceOutcome.status === 'unresolved' ? `${COLORS.red}60` : `${COLORS.yellow}60`,
+                      }}
+                    >
+                      {(serviceOutcome.status || 'partial').replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+                )}
+                {serviceOutcome?.rationale && (
+                  <p className="text-sm" style={{ color: COLORS.textMuted }}>
+                    {serviceOutcome.rationale}
+                  </p>
+                )}
+                {followUpValidation && (
+                  <div className="pt-2 border-t" style={{ borderColor: COLORS.border }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs" style={{ color: COLORS.textMuted }}>Follow-Up Plan Quality</p>
+                      <Badge
+                        variant="outline"
+                        style={{
+                          color:
+                            followUpValidation.status === 'specific' ? COLORS.green :
+                            followUpValidation.status === 'partial' ? COLORS.yellow : COLORS.red,
+                          borderColor:
+                            followUpValidation.status === 'specific' ? `${COLORS.green}60` :
+                            followUpValidation.status === 'partial' ? `${COLORS.yellow}60` : `${COLORS.red}60`,
+                        }}
+                      >
+                        {(followUpValidation.status || 'missing').replace(/_/g, ' ')}
+                      </Badge>
+                    </div>
+                    {Array.isArray(followUpValidation.missing_fields) && followUpValidation.missing_fields.length > 0 && (
+                      <p className="text-xs mt-2" style={{ color: COLORS.textMuted }}>
+                        Missing: {followUpValidation.missing_fields.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           <Card 
             className="mb-6"
             style={{ backgroundColor: COLORS.cardBg, borderColor: COLORS.border }}

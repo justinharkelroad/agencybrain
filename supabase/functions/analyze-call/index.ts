@@ -521,6 +521,114 @@ function normalizeSalesCorrectivePlan(
   };
 }
 
+function normalizeServiceSectionScores(sectionScores: any): any[] {
+  if (Array.isArray(sectionScores)) return sectionScores;
+  if (!sectionScores || typeof sectionScores !== 'object') return [];
+
+  return Object.entries(sectionScores).map(([key, value]) => {
+    const entry = value && typeof value === 'object' ? { ...(value as Record<string, unknown>) } : {};
+    return {
+      section_name: (entry.section_name as string) || key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      score: typeof entry.score === 'number' ? entry.score : 0,
+      max_score: typeof entry.max_score === 'number' ? entry.max_score : 10,
+      feedback: typeof entry.feedback === 'string' ? entry.feedback : buildSectionFeedback(entry) || '',
+      tip: typeof entry.tip === 'string' ? entry.tip : (typeof entry.coaching === 'string' ? entry.coaching : null),
+    };
+  });
+}
+
+function toServiceText(value: any): string {
+  if (typeof value === 'string') return value;
+  if (!value || typeof value !== 'object') return '';
+  return Object.values(value)
+    .filter((entry) => typeof entry === 'string')
+    .join(' ');
+}
+
+function detectFollowUpValidation(text: string) {
+  const normalized = text.toLowerCase();
+  const hasFollowUp = /\b(follow[- ]?up|call\s?back|callback|reach out|next step|appointment|renewal)\b/i.test(normalized);
+  const hasDate =
+    /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|today|tomorrow)\b/i.test(normalized) ||
+    /\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/i.test(normalized) ||
+    /\b\d{4}-\d{2}-\d{2}\b/i.test(normalized) ||
+    /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\s+\d{1,2}(?:st|nd|rd|th)?\b/i.test(normalized);
+  const hasTime = /\b(\d{1,2}:\d{2}\s?(am|pm)?|\d{1,2}\s?(am|pm))\b/i.test(normalized);
+  const hasOwner = /\b(i|we|agent|csr|team member|rep)\s+(will|to)\b/i.test(normalized) || /\bassigned\b/i.test(normalized);
+  const hasChannel = /\b(call|phone|text|sms|email)\b/i.test(normalized);
+
+  const missingFields: string[] = [];
+  if (hasFollowUp) {
+    if (!hasDate) missingFields.push('date');
+    if (!hasTime) missingFields.push('time');
+    if (!hasOwner) missingFields.push('owner');
+    if (!hasChannel) missingFields.push('channel');
+  }
+
+  const status = !hasFollowUp
+    ? 'missing'
+    : missingFields.length === 0
+      ? 'specific'
+      : 'partial';
+
+  return {
+    status,
+    has_follow_up: hasFollowUp,
+    has_date: hasDate,
+    has_time: hasTime,
+    has_owner: hasOwner,
+    has_channel: hasChannel,
+    missing_fields: missingFields,
+  };
+}
+
+function detectServiceOutcome(combinedText: string, followUpStatus: string) {
+  const text = combinedText.toLowerCase();
+  const resolvedSignals = ['resolved', 'fixed', 'completed', 'handled', 'taken care of', 'issue addressed', 'successfully'];
+  const unresolvedSignals = ['not resolved', 'unable', "couldn't", 'cannot', 'pending', 'still waiting', 'escalate', 'needs review', 'not handled'];
+
+  const hasResolved = resolvedSignals.some((signal) => text.includes(signal));
+  const hasUnresolved = unresolvedSignals.some((signal) => text.includes(signal));
+
+  let status: 'resolved' | 'partial' | 'unresolved' | 'follow_up_required' = 'partial';
+  if (hasResolved && !hasUnresolved) {
+    status = 'resolved';
+  } else if (followUpStatus === 'specific' || followUpStatus === 'partial') {
+    status = 'follow_up_required';
+  } else if (hasUnresolved) {
+    status = 'unresolved';
+  }
+
+  const rationaleMap: Record<typeof status, string> = {
+    resolved: 'Issue appears resolved during the call with no clear remaining blockers.',
+    partial: 'Call handled key parts of the issue, but resolution completeness is unclear.',
+    unresolved: 'Issue appears unresolved by call end and no clear follow-up plan is documented.',
+    follow_up_required: 'Issue requires follow-up action and needs a specific owner/date/time plan.',
+  };
+
+  return {
+    status,
+    rationale: rationaleMap[status],
+  };
+}
+
+function buildServiceInsights(analysis: any, sectionScoresArray: any[]) {
+  const crmText = toServiceText(analysis?.crm_notes);
+  const summaryText = typeof analysis?.summary === 'string' ? analysis.summary : '';
+  const sectionText = sectionScoresArray
+    .map((section) => `${section?.section_name || ''} ${section?.feedback || ''} ${section?.tip || ''}`)
+    .join(' ');
+  const combined = `${summaryText} ${crmText} ${sectionText}`.trim();
+
+  const followUpValidation = detectFollowUpValidation(`${summaryText} ${crmText}`);
+  const serviceOutcome = detectServiceOutcome(combined, followUpValidation.status);
+
+  return {
+    service_outcome: serviceOutcome,
+    follow_up_validation: followUpValidation,
+  };
+}
+
 serve(async (req) => {
   console.log('analyze-call invoked');
   console.log('Request method:', req.method);
@@ -789,7 +897,7 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
     let overallScore: number;
     if (callType === 'service') {
       // Service calls: average of section_scores array (keep 0-10 scale with 1 decimal)
-      const sectionScores = analysis.section_scores || [];
+      const sectionScores = normalizeServiceSectionScores(analysis.section_scores);
       const totalScore = sectionScores.reduce((sum: number, s: any) => sum + (s.score || 0), 0);
       overallScore = sectionScores.length > 0 
         ? parseFloat((totalScore / sectionScores.length).toFixed(1))
@@ -833,7 +941,7 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
     if (callType === 'service') {
       // Service call specific fields
       // Convert section_scores array to skill_scores array for UI consistency
-      const sectionScoresArray = analysis.section_scores || [];
+      const sectionScoresArray = normalizeServiceSectionScores(analysis.section_scores);
       const skillScoresFromSections = sectionScoresArray.map((section: any) => ({
         skill_name: section.section_name || 'Unknown',
         score: section.score || 0,
@@ -841,15 +949,20 @@ ADDITIONAL REQUIRED OUTPUT FIELDS (MUST be included in your JSON response):
         feedback: section.feedback || null,
         tip: section.tip || null
       }));
+      const serviceInsights = buildServiceInsights(analysis, sectionScoresArray);
       
       updatePayload = {
         ...updatePayload,
         skill_scores: skillScoresFromSections, // Add for UI consistency
-        section_scores: analysis.section_scores,
+        section_scores: sectionScoresArray,
         closing_attempts: analysis.crm_notes,
         coaching_recommendations: analysis.suggestions,
         discovery_wins: analysis.checklist,
         notable_quotes: analysis.notable_quotes || [],
+        critical_gaps: {
+          service_outcome: serviceInsights.service_outcome,
+          follow_up_validation: serviceInsights.follow_up_validation,
+        },
         client_profile: {
           csr_name: analysis.csr_name,
           client_first_name: analysis.client_first_name,

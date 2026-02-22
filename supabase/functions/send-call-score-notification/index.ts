@@ -477,6 +477,56 @@ function renderSummary(summary: string | null): string {
   `;
 }
 
+function renderServiceOperationalInsights(criticalGaps: any): string {
+  const serviceOutcome = criticalGaps?.service_outcome;
+  const followUpValidation = criticalGaps?.follow_up_validation;
+  if (!serviceOutcome && !followUpValidation) return '';
+
+  const statusPill = (status: string | undefined, color: string) => `
+    <span style="display:inline-block;padding:2px 8px;border-radius:9999px;border:1px solid ${color}55;color:${color};font-size:11px;font-weight:600;">
+      ${(status || '').replace(/_/g, ' ').toUpperCase()}
+    </span>
+  `;
+
+  const outcomeColor =
+    serviceOutcome?.status === 'resolved' ? '#16a34a'
+    : serviceOutcome?.status === 'follow_up_required' ? '#2563eb'
+    : serviceOutcome?.status === 'unresolved' ? '#dc2626'
+    : '#ca8a04';
+  const followColor =
+    followUpValidation?.status === 'specific' ? '#16a34a'
+    : followUpValidation?.status === 'partial' ? '#ca8a04'
+    : '#dc2626';
+
+  return `
+    <div style="margin-bottom: 24px;">
+      <h3 style="color: #1e283a; margin-bottom: 12px; font-size: 16px;">🧭 SERVICE OUTCOME TRACKING</h3>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px;">
+        ${serviceOutcome ? `
+          <div style="margin-bottom: 10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+              <span style="font-size:12px;color:#64748b;">Resolution Status</span>
+              ${statusPill(serviceOutcome.status, outcomeColor)}
+            </div>
+            ${serviceOutcome.rationale ? `<p style="margin:6px 0 0 0;color:#334155;font-size:13px;">${serviceOutcome.rationale}</p>` : ''}
+          </div>
+        ` : ''}
+        ${followUpValidation ? `
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+              <span style="font-size:12px;color:#64748b;">Follow-Up Plan Quality</span>
+              ${statusPill(followUpValidation.status, followColor)}
+            </div>
+            ${Array.isArray(followUpValidation.missing_fields) && followUpValidation.missing_fields.length > 0
+              ? `<p style="margin:6px 0 0 0;color:#334155;font-size:13px;">Missing: ${followUpValidation.missing_fields.join(', ')}</p>`
+              : ''}
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
 function renderNotableQuotes(notableQuotes: any[] | null): string {
   if (!notableQuotes || !Array.isArray(notableQuotes) || notableQuotes.length === 0) return '';
 
@@ -779,6 +829,7 @@ serve(async (req) => {
       emailBody += renderSectionScoresService(call.section_scores as any[]);
       emailBody += renderExecutionChecklist(call.discovery_wins);
       emailBody += renderNotableQuotes(call.notable_quotes as any[]);
+      emailBody += renderServiceOperationalInsights(call.critical_gaps);
       emailBody += renderCoachingRecommendations(call.coaching_recommendations as string[]);
     }
 
