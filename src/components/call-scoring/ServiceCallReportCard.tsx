@@ -23,7 +23,6 @@ import { exportScorecardAsPNG, exportScorecardAsPDF } from '@/lib/exportScorecar
 import { FollowUpTemplateDisplay } from './FollowUpTemplateDisplay';
 import { supabase } from '@/integrations/supabase/client';
 import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
-import type { Json } from '@/integrations/supabase/types';
 
 interface ServiceSectionScore {
   section_name: string;
@@ -46,19 +45,9 @@ interface NotableQuote {
   context?: string;
 }
 
-interface TemplateScoredSection {
-  name: string;
-  criteria: string;
-}
-
 interface ServiceCallReportCardProps {
   call: {
     id: string;
-    template_id?: string | null;
-    call_scoring_templates?: {
-      name?: string | null;
-      skill_categories?: Json | null;
-    } | null;
     team_member_name?: string;
     original_filename?: string;
     call_duration_seconds?: number;
@@ -148,7 +137,6 @@ export function ServiceCallReportCard({
       context?: string | null;
     }>;
   } | null>(null);
-  const [templateSections, setTemplateSections] = useState<TemplateScoredSection[]>([]);
 
   // Reset QA state when switching calls
   useEffect(() => {
@@ -158,67 +146,6 @@ export function ServiceCallReportCard({
     setQaError(null);
     setQaResult(null);
   }, [call?.id]);
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    const parseTemplateSections = (rawSkillCategories: unknown): TemplateScoredSection[] => {
-      let parsed = rawSkillCategories;
-      if (typeof parsed === 'string') {
-        try {
-          parsed = JSON.parse(parsed);
-        } catch {
-          return [];
-        }
-      }
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
-      const scoredSections = (parsed as Record<string, unknown>).scoredSections;
-      if (!Array.isArray(scoredSections)) return [];
-      return scoredSections
-        .filter((entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null && !Array.isArray(entry))
-        .map((entry) => ({
-          name: typeof entry.name === 'string' ? entry.name.trim() : '',
-          criteria: typeof entry.criteria === 'string' ? entry.criteria.trim() : '',
-        }))
-        .filter((entry) => entry.name.length > 0 && entry.criteria.length > 0);
-    };
-
-    const hydrateTemplateSections = async () => {
-      if (!call?.id) {
-        setTemplateSections([]);
-        return;
-      }
-
-      const embedded = parseTemplateSections(call.call_scoring_templates?.skill_categories);
-      if (embedded.length > 0) {
-        setTemplateSections(embedded);
-        return;
-      }
-
-      if (!call.template_id) {
-        setTemplateSections([]);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('call_scoring_templates')
-        .select('skill_categories')
-        .eq('id', call.template_id)
-        .single();
-
-      if (error || isCancelled) {
-        setTemplateSections([]);
-        return;
-      }
-
-      setTemplateSections(parseTemplateSections(data?.skill_categories));
-    };
-
-    hydrateTemplateSections();
-    return () => {
-      isCancelled = true;
-    };
-  }, [call?.id, call?.template_id, call?.call_scoring_templates]);
 
   // Staff acknowledgment state
   const [showAcknowledgeForm, setShowAcknowledgeForm] = useState(false);
@@ -327,6 +254,10 @@ export function ServiceCallReportCard({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatChecklistLabel = (label: string) => {
+    return label.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
   const handleTimestampClick = (seconds: number) => {
     const formatted = formatTimestamp(seconds);
     navigator.clipboard.writeText(formatted);
@@ -384,23 +315,6 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
 
   const scoreColors = getScoreColor(call.overall_score || 0);
   const sectionScores = Array.isArray(call.section_scores) ? call.section_scores : [];
-  const normalizeKey = (value: string): string =>
-    value
-      .toLowerCase()
-      .replace(/&/g, '')
-      .replace(/[^a-z0-9\s]/g, '')
-      .replace(/\s+/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_|_$/g, '');
-  const templateSectionsByKey = templateSections.reduce<Record<string, TemplateScoredSection>>((acc, section) => {
-    acc[normalizeKey(section.name)] = section;
-    return acc;
-  }, {});
-  const getSectionCriteria = (sectionName: string): string | null => {
-    const key = normalizeKey(sectionName);
-    return templateSectionsByKey[key]?.criteria || null;
-  };
-
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0">
@@ -559,11 +473,6 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
                           {section.score}/{section.max_score}
                         </Badge>
                       </div>
-                      {getSectionCriteria(section.section_name) && (
-                        <p className="text-xs mb-3" style={{ color: COLORS.textMuted }}>
-                          {getSectionCriteria(section.section_name)}
-                        </p>
-                      )}
                       {section.feedback && (() => {
                         const parsed = parseFeedback(section.feedback);
                         if (parsed.strengths || parsed.gaps || parsed.action) {
@@ -613,30 +522,6 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
                 );
               })}
             </div>
-          )}
-
-          {templateSections.length > 0 && (
-            <Card
-              className="mb-6"
-              style={{ backgroundColor: COLORS.cardBg, borderColor: COLORS.border }}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">SCORING CRITERIA USED</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {templateSections.map((section, idx) => (
-                    <div key={`${section.name}-${idx}`} className="rounded border p-2" style={{ borderColor: COLORS.border }}>
-                      <p className="text-xs font-semibold uppercase tracking-wide">{section.name}</p>
-                      <p className="text-xs mt-1" style={{ color: COLORS.textMuted }}>{section.criteria}</p>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs mt-3" style={{ color: COLORS.textMuted }}>
-                  Criteria define grading intent; final coaching still depends on transcript evidence quality.
-                </p>
-              </CardContent>
-            </Card>
           )}
 
           {/* Final Score Section */}
@@ -833,7 +718,7 @@ ${call.suggestions?.map((s, i) => `${i + 1}. ${s}`).join('\n') || 'None'}
                         ) : (
                           <XCircle className="h-4 w-4 flex-shrink-0" style={{ color: COLORS.red }} />
                         )}
-                        <span className="text-sm font-medium">{item.label}</span>
+                        <span className="text-sm font-medium">{formatChecklistLabel(item.label)}</span>
                       </div>
                       {item.evidence && (
                         <p

@@ -58,13 +58,7 @@ interface AnalyticsCall {
 
 type TeamMemberOption = Pick<Database['public']['Tables']['team_members']['Row'], 'id' | 'name'>;
 type TemplateOption = Pick<Database['public']['Tables']['call_scoring_templates']['Row'], 'id' | 'name'>;
-type ScorecardCall = Database['public']['Tables']['agency_calls']['Row'] & {
-  team_member_name?: string | null;
-  call_scoring_templates?: {
-    name?: string | null;
-    skill_categories?: Json | null;
-  } | null;
-};
+type ScorecardCall = Database['public']['Tables']['agency_calls']['Row'] & { team_member_name?: string | null };
 type AnalyticsRow = Pick<
   Database['public']['Tables']['agency_calls']['Row'],
   'id' | 'team_member_id' | 'template_id' | 'potential_rank' | 'overall_score' | 'skill_scores' | 'discovery_wins' | 'analyzed_at'
@@ -1376,10 +1370,8 @@ export default function CallScoring() {
             customer_talk_percent,
             dead_air_percent,
             team_member_id,
-            template_id,
             call_type,
-            team_members(id, name),
-            call_scoring_templates(name, skill_categories)
+            team_members(id, name)
           `)
           .eq('id', call.id)
           .single();

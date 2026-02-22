@@ -28,12 +28,7 @@ import type { Json } from '@/integrations/supabase/types';
 
 interface CallScorecardCall {
   id: string;
-  template_id?: string | null;
   call_type?: string | null;
-  call_scoring_templates?: {
-    name?: string | null;
-    skill_categories?: Json | null;
-  } | null;
   team_member_name?: string | null;
   section_scores: Json | null;
   transcript_segments: Json | null;
@@ -87,11 +82,6 @@ interface NormalizedSkillScore {
   tip?: string | null;
 }
 
-interface TemplateScoredSection {
-  name: string;
-  criteria: string;
-}
-
 interface CallScorecardProps {
   call: CallScorecardCall | null;
   open: boolean;
@@ -143,7 +133,6 @@ export function CallScorecard({
       context?: string | null;
     }>;
   } | null>(null);
-  const [templateSections, setTemplateSections] = useState<TemplateScoredSection[]>([]);
   const scorecardRef = useRef<HTMLDivElement>(null);
 
   // Reset QA state when switching calls
@@ -154,67 +143,6 @@ export function CallScorecard({
     setQaError(null);
     setQaResult(null);
   }, [call?.id]);
-
-  useEffect(() => {
-    let isCancelled = false;
-
-    const parseTemplateSections = (rawSkillCategories: unknown): TemplateScoredSection[] => {
-      let parsed = rawSkillCategories;
-      if (typeof parsed === 'string') {
-        try {
-          parsed = JSON.parse(parsed);
-        } catch {
-          return [];
-        }
-      }
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return [];
-      const scoredSections = (parsed as Record<string, unknown>).scoredSections;
-      if (!Array.isArray(scoredSections)) return [];
-      return scoredSections
-        .filter((entry): entry is Record<string, unknown> => typeof entry === 'object' && entry !== null && !Array.isArray(entry))
-        .map((entry) => ({
-          name: typeof entry.name === 'string' ? entry.name.trim() : '',
-          criteria: typeof entry.criteria === 'string' ? entry.criteria.trim() : '',
-        }))
-        .filter((entry) => entry.name.length > 0 && entry.criteria.length > 0);
-    };
-
-    const hydrateTemplateSections = async () => {
-      if (!call?.id) {
-        setTemplateSections([]);
-        return;
-      }
-
-      const embedded = parseTemplateSections(call.call_scoring_templates?.skill_categories);
-      if (embedded.length > 0) {
-        setTemplateSections(embedded);
-        return;
-      }
-
-      if (!call.template_id) {
-        setTemplateSections([]);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('call_scoring_templates')
-        .select('skill_categories')
-        .eq('id', call.template_id)
-        .single();
-
-      if (error || isCancelled) {
-        setTemplateSections([]);
-        return;
-      }
-
-      setTemplateSections(parseTemplateSections(data?.skill_categories));
-    };
-
-    hydrateTemplateSections();
-    return () => {
-      isCancelled = true;
-    };
-  }, [call?.id, call?.template_id, call?.call_scoring_templates]);
 
   const handleQaQuery = async () => {
     if (!qaEnabled || qaLoading) return;
@@ -354,6 +282,10 @@ export function CallScorecard({
     return formatTimestamp(seconds);
   };
 
+  const formatChecklistLabel = (label: string) => {
+    return label.replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+  };
+
   const sectionScoresRaw = call.section_scores || {};
   const executionChecklist = call.discovery_wins || {};
 
@@ -366,21 +298,6 @@ export function CallScorecard({
       .replace(/\s+/g, '_')
       .replace(/_+/g, '_')
       .replace(/^_|_$/g, '');
-  };
-
-  const templateSectionsByKey = templateSections.reduce<Record<string, TemplateScoredSection>>((acc, section) => {
-    acc[normalizeKey(section.name)] = section;
-    return acc;
-  }, {});
-
-  const getSectionCriteria = (...candidateKeys: string[]): string | null => {
-    for (const key of candidateKeys) {
-      const normalized = normalizeKey(key);
-      if (templateSectionsByKey[normalized]?.criteria) {
-        return templateSectionsByKey[normalized].criteria;
-      }
-    }
-    return null;
   };
 
   // Build a normalized lookup map from section_scores (handles both object and array formats)
@@ -1030,11 +947,6 @@ export function CallScorecard({
                         <h3 className="font-bold text-sm">RAPPORT</h3>
                         <User className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      {getSectionCriteria('rapport', 'opening rapport', 'opening & rapport') && (
-                        <p className="text-xs text-muted-foreground mb-3">
-                          {getSectionCriteria('rapport', 'opening rapport', 'opening & rapport')}
-                        </p>
-                      )}
                       
                       {/* Legacy: Wins */}
                       {rapportData?.wins?.map((win: string, i: number) => (
@@ -1107,11 +1019,6 @@ export function CallScorecard({
                         <h3 className="font-bold text-sm">COVERAGE</h3>
                         <Target className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      {getSectionCriteria('coverage', 'coverage education', 'value building') && (
-                        <p className="text-xs text-muted-foreground mb-3">
-                          {getSectionCriteria('coverage', 'coverage education', 'value building')}
-                        </p>
-                      )}
                       
                       {/* Legacy: Wins */}
                       {coverageData?.wins?.map((win: string, i: number) => (
@@ -1184,11 +1091,6 @@ export function CallScorecard({
                         <h3 className="font-bold text-sm">CLOSING</h3>
                         <Target className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      {getSectionCriteria('closing', 'closing attempts') && (
-                        <p className="text-xs text-muted-foreground mb-3">
-                          {getSectionCriteria('closing', 'closing attempts')}
-                        </p>
-                      )}
                       
                       {/* Legacy: Wins */}
                       {closingData?.wins?.map((win: string, i: number) => (
@@ -1269,11 +1171,6 @@ export function CallScorecard({
                               {skill.score}/{skill.max_score || 10}
                             </Badge>
                           </div>
-                          {getSectionCriteria(skill.skill_name) && (
-                            <p className="text-xs text-muted-foreground mb-2">
-                              {getSectionCriteria(skill.skill_name)}
-                            </p>
-                          )}
                           {skill.feedback && (() => {
                             const parsed = parseFeedback(skill.feedback);
                             if (parsed.strengths || parsed.gaps || parsed.action) {
@@ -1320,25 +1217,6 @@ export function CallScorecard({
             }
             return null;
           })()}
-
-          {templateSections.length > 0 && (
-            <Card>
-              <CardContent className="pt-4">
-                <h3 className="font-bold text-sm mb-3">SCORING CRITERIA USED</h3>
-                <div className="space-y-2">
-                  {templateSections.map((section, idx) => (
-                    <div key={`${section.name}-${idx}`} className="rounded border border-border/60 p-2 bg-muted/20">
-                      <p className="text-xs font-semibold uppercase tracking-wide">{section.name}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{section.criteria}</p>
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground mt-3">
-                  These criteria guide AI grading; coaching quality still depends on transcript evidence.
-                </p>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Visual Charts Row */}
           <div className="grid md:grid-cols-2 gap-4">
@@ -1436,7 +1314,7 @@ export function CallScorecard({
 
               const rapportSignals = ['rapport', 'open-ended', 'open ended', 'home', 'work', 'family', 'greet', 'trust', 'connection', 'personal'];
               const valueSignals = ['coverage', 'value', 'liability', 'deductible', 'protect', 'premium', 'quote', 'asset', 'differentiate', 'discovery', 'advisor'];
-              const closingSignals = ['close', 'closing', 'sale', 'assumptive', 'yes/no', 'follow-up', 'follow up', 'commitment', 'next step'];
+              const closingSignals = ['close', 'closing', 'sale', 'assumptive', 'yes/no', 'follow-up', 'follow up', 'commitment', 'next step', 'referral', 'referrals'];
 
               if (closingSignals.some((signal) => text.includes(signal))) return 'closing';
               if (rapportSignals.some((signal) => text.includes(signal))) return 'rapport';
@@ -1474,7 +1352,11 @@ export function CallScorecard({
             ): string => {
               for (const key of explicitKeys) {
                 const directValue = planValue(key);
-                if (directValue) return directValue;
+                if (!directValue) continue;
+                const inferred = classifyPlanDomain(directValue);
+                if (inferred === domain || inferred === 'unknown') {
+                  return directValue;
+                }
               }
 
               const genericCandidates = [
@@ -1508,13 +1390,13 @@ export function CallScorecard({
             const valueTips = getRelevantTips(['question', 'coverage', 'liability', 'value']);
             const closingTips = getRelevantTips(['closing', 'assumptive', 'objection', 'follow-up', 'requote']);
 
-            const rapportPlanText = pickDomainText(
+            let rapportPlanText = pickDomainText(
               'rapport',
               ['rapport', 'rapport_focus'],
               extractSectionAction(sectionScores.rapport),
               'Build deeper connection using the HWF framework before discussing insurance details.'
             );
-            const valuePlanText = pickDomainText(
+            let valuePlanText = pickDomainText(
               'value',
               ['value_building', 'value_focus'],
               extractSectionAction(sectionScores.coverage),
@@ -1526,6 +1408,24 @@ export function CallScorecard({
               extractSectionAction(sectionScores.closing),
               'Use assumptive close language and set hard follow-up appointments with specific times.'
             );
+
+            const rapportFallback = extractSectionAction(sectionScores.rapport) ||
+              'Build deeper connection using the HWF framework before discussing insurance details.';
+            const valueFallback = extractSectionAction(sectionScores.coverage) ||
+              'Explain liability protection before quoting price. Position as advisor, not order-taker.';
+
+            if (
+              rapportPlanText === closingPlanText ||
+              classifyPlanDomain(rapportPlanText) === 'closing'
+            ) {
+              rapportPlanText = rapportFallback;
+            }
+            if (
+              valuePlanText === closingPlanText ||
+              classifyPlanDomain(valuePlanText) === 'closing'
+            ) {
+              valuePlanText = valueFallback;
+            }
 
             return (
               <Card className="border-t-4 border-t-blue-500">
@@ -1612,7 +1512,7 @@ export function CallScorecard({
                         </div>
                         <div className="flex-1 min-w-0">
                           <span className="text-xs text-muted-foreground uppercase block">
-                            {item.label}
+                            {formatChecklistLabel(item.label)}
                           </span>
                           {evidenceObj && evidenceObj.text && (
                             <div className="flex items-start gap-2 mt-1">
@@ -1649,7 +1549,7 @@ export function CallScorecard({
                         {value && <CheckCircle2 className="h-3 w-3 text-green-400" />}
                       </div>
                       <span className="text-xs text-muted-foreground uppercase">
-                        {key.replace(/_/g, ' ')}
+                        {formatChecklistLabel(key)}
                       </span>
                     </div>
                   ))
