@@ -4,8 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import LinkExtension from '@tiptap/extension-link';
 import Underline from '@tiptap/extension-underline';
 import Placeholder from '@tiptap/extension-placeholder';
-import Color from '@tiptap/extension-color';
-import { TextStyle } from '@tiptap/extension-text-style';
+import { TextStyleKit } from '@tiptap/extension-text-style';
 import Highlight from '@tiptap/extension-highlight';
 import TextAlign from '@tiptap/extension-text-align';
 import { isHtmlContent } from './ChatBubble';
@@ -102,8 +101,14 @@ export function RichTextEditorDialog({
         HTMLAttributes: { class: 'text-primary underline' },
       }),
       Placeholder.configure({ placeholder }),
-      TextStyle,
-      Color,
+      TextStyleKit.configure({
+        textStyle: true,
+        color: true,
+        backgroundColor: false,
+        fontFamily: false,
+        fontSize: false,
+        lineHeight: false,
+      }),
       Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
     ],
