@@ -201,17 +201,20 @@ export async function getStats(agencyId: string): Promise<WinbackStats> {
         .select('id', { count: 'exact', head: true })
         .eq('agency_id', agencyId)
         .neq('status', 'dismissed')
-        .neq('status', 'moved_to_quoted'),
+        .neq('status', 'moved_to_quoted')
+        .not('earliest_winback_date', 'is', null),
       supabase
         .from('winback_households')
         .select('id', { count: 'exact', head: true })
         .eq('agency_id', agencyId)
-        .eq('status', 'untouched'),
+        .eq('status', 'untouched')
+        .not('earliest_winback_date', 'is', null),
       supabase
         .from('winback_households')
         .select('id', { count: 'exact', head: true })
         .eq('agency_id', agencyId)
-        .eq('status', 'in_progress'),
+        .eq('status', 'in_progress')
+        .not('earliest_winback_date', 'is', null),
       supabase
         .from('winback_households')
         .select('id', { count: 'exact', head: true })

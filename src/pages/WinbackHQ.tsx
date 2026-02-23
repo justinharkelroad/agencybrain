@@ -621,7 +621,7 @@ export default function WinbackHQ() {
           {/* Household Tabs */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'dismissed')}>
             <TabsList>
-              <TabsTrigger value="active">Active ({stats.totalHouseholds})</TabsTrigger>
+              <TabsTrigger value="active">Active ({activeTab === 'active' ? totalCount : stats.totalHouseholds})</TabsTrigger>
               <TabsTrigger value="dismissed">Dismissed ({stats.dismissed})</TabsTrigger>
             </TabsList>
 
