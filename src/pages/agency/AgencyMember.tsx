@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Upload, Save } from "lucide-react";
+import OnboardingTrainingChecklist from "@/components/checklists/OnboardingTrainingChecklist";
 
 export default function AgencyMember() {
   const { memberId } = useParams();
@@ -386,6 +387,10 @@ export default function AgencyMember() {
               </Table>
             </CardContent>
           </Card>
+
+          {memberId && agencyId && (
+            <OnboardingTrainingChecklist memberId={memberId} agencyId={agencyId} />
+          )}
         </article>
       </main>
     </div>
