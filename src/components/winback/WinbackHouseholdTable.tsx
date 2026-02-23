@@ -2,6 +2,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { WinbackStatusBadge, WinbackStatusType } from './WinbackStatusBadge';
+import { Badge } from '@/components/ui/badge';
 import { Phone, Mail, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -26,6 +27,7 @@ export interface Household {
   policy_count: number;
   total_premium_potential_cents: number;
   earliest_winback_date: string | null;
+  policy_types?: string[];
   contact_id: string | null;
   created_at: string;
   updated_at: string;
@@ -196,6 +198,7 @@ export function WinbackHouseholdTable({
             >
               Policies
             </SortHeader>
+            <TableHead>Policy Types</TableHead>
             <SortHeader
               column="total_premium_potential_cents"
               currentColumn={sortColumn}
@@ -296,6 +299,19 @@ export function WinbackHouseholdTable({
                   </div>
                 </TableCell>
                 <TableCell className="text-right">{household.policy_count}</TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {household.policy_types?.length ? (
+                      household.policy_types.map((type) => (
+                        <Badge key={type} variant="secondary" className="text-xs font-normal">
+                          {type}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell className="text-right font-medium">
                   {formatCurrency(household.total_premium_potential_cents)}
                 </TableCell>
