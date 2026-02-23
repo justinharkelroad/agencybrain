@@ -140,6 +140,7 @@ export default function OnboardingTrainingChecklist({ memberId, agencyId }: Prop
                         checked={item.completed}
                         onCheckedChange={() => handleCheck(item)}
                         disabled={toggleComplete.isPending}
+                        className={item.completed ? "border-green-600 bg-green-600 text-white data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600" : ""}
                       />
                     </TableCell>
                     <TableCell className={item.completed ? "line-through text-muted-foreground" : ""}>
