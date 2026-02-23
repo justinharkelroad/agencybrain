@@ -203,8 +203,8 @@ async function processInBackground(
 
     const totalHouseholds = householdGroups.size;
     let householdsProcessed = 0;
-    // Show progress toast (updates every 25 households)
-    const progressToastId = toast.loading(`Uploading: 0 / ${totalHouseholds} households...`, {
+    const uploadStartTime = Date.now();
+    const progressToastId = toast.loading(`Uploading: 0 / ${totalHouseholds} households — starting...`, {
       duration: Infinity,
     });
 
@@ -394,12 +394,17 @@ async function processInBackground(
       });
 
       householdsProcessed++;
-      if (householdsProcessed % 25 === 0 || householdsProcessed === totalHouseholds) {
-        toast.loading(`Uploading: ${householdsProcessed} / ${totalHouseholds} households...`, {
-          id: progressToastId as string | number,
-          duration: Infinity,
-        });
-      }
+      const elapsed = (Date.now() - uploadStartTime) / 1000;
+      const perHousehold = elapsed / householdsProcessed;
+      const remaining = Math.ceil(perHousehold * (totalHouseholds - householdsProcessed));
+      const timeStr = remaining > 60
+        ? `~${Math.ceil(remaining / 60)} min left`
+        : `~${remaining}s left`;
+      const pct = Math.round((householdsProcessed / totalHouseholds) * 100);
+      toast.loading(`Uploading: ${householdsProcessed} / ${totalHouseholds} households (${pct}%) — ${timeStr}`, {
+        id: progressToastId as string | number,
+        duration: Infinity,
+      });
     }
 
     // Dismiss the progress toast
