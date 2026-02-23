@@ -14,6 +14,7 @@ interface WinbackUploadContext {
 interface UploadStats {
   processed: number;
   newHouseholds: number;
+  totalHouseholds: number;
   newPolicies: number;
   updated: number;
   skipped: number;
@@ -65,6 +66,10 @@ async function processStaffUpload(
   window.addEventListener('beforeunload', beforeUnloadHandler);
 
   try {
+    // Compute total unique households client-side (same key formula as parser)
+    const uniqueHouseholdKeys = new Set(records.map(r => getHouseholdKey(r)));
+    const totalUniqueHouseholds = uniqueHouseholdKeys.size;
+
     // Convert parsed records to serializable format
     const serializedRecords = records.map(record => ({
       firstName: record.firstName,
@@ -100,7 +105,8 @@ async function processStaffUpload(
         serializedRecords,
         filename,
         contactDaysBefore,
-        userId
+        userId,
+        totalUniqueHouseholds
       );
 
       invalidateWinbackQueries(queryClient);
@@ -115,7 +121,7 @@ async function processStaffUpload(
         batches.push(serializedRecords.slice(i, i + batchSize));
       }
 
-      const totalStats: UploadStats = { processed: 0, newHouseholds: 0, newPolicies: 0, updated: 0, skipped: 0 };
+      const totalStats: UploadStats = { processed: 0, newHouseholds: 0, totalHouseholds: totalUniqueHouseholds, newPolicies: 0, updated: 0, skipped: 0 };
       const allHouseholdIds: string[] = [];
       const allPolicyIds: string[] = [];
 
@@ -186,6 +192,7 @@ async function processInBackground(
     const stats: UploadStats = {
       processed: 0,
       newHouseholds: 0,
+      totalHouseholds: 0,
       newPolicies: 0,
       updated: 0,
       skipped: 0,
@@ -202,6 +209,7 @@ async function processInBackground(
     }
 
     const totalHouseholds = householdGroups.size;
+    stats.totalHouseholds = totalHouseholds;
     let householdsProcessed = 0;
     const uploadStartTime = Date.now();
     const progressToastId = toast.loading(`Uploading: 0 / ${totalHouseholds} households — starting...`, {
@@ -417,6 +425,7 @@ async function processInBackground(
       filename,
       records_processed: stats.processed,
       records_new_households: stats.newHouseholds,
+      records_total_households: totalHouseholds,
       records_new_policies: stats.newPolicies,
       records_updated: stats.updated,
       records_skipped: stats.skipped,

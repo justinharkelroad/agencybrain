@@ -12992,6 +12992,7 @@ export type Database = {
           records_new_policies: number
           records_processed: number
           records_skipped: number
+          records_total_households: number
           records_updated: number
           uploaded_by_staff_id: string | null
           uploaded_by_user_id: string | null
@@ -13005,6 +13006,7 @@ export type Database = {
           records_new_policies?: number
           records_processed?: number
           records_skipped?: number
+          records_total_households?: number
           records_updated?: number
           uploaded_by_staff_id?: string | null
           uploaded_by_user_id?: string | null
@@ -13018,6 +13020,7 @@ export type Database = {
           records_new_policies?: number
           records_processed?: number
           records_skipped?: number
+          records_total_households?: number
           records_updated?: number
           uploaded_by_staff_id?: string | null
           uploaded_by_user_id?: string | null

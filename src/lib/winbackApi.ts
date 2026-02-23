@@ -82,6 +82,7 @@ interface ListHouseholdsParams {
 interface UploadStats {
   processed: number;
   newHouseholds: number;
+  totalHouseholds: number;
   newPolicies: number;
   updated: number;
   skipped: number;
@@ -841,10 +842,11 @@ export async function uploadTerminations(
   records: any[],
   filename: string,
   contactDaysBefore: number,
-  userId?: string
+  userId?: string,
+  totalHouseholds?: number
 ): Promise<UploadStats> {
   if (isStaffUser()) {
-    return callStaffWinback('upload_terminations', { records, filename, contactDaysBefore });
+    return callStaffWinback('upload_terminations', { records, filename, contactDaysBefore, totalHouseholds });
   }
 
   // For non-staff, use the existing direct approach

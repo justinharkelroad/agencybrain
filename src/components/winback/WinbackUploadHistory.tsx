@@ -108,7 +108,11 @@ export function WinbackUploadHistory({ agencyId, onDeleteComplete }: WinbackUplo
                 <p className="text-xs text-muted-foreground">
                   {upload.records_processed} records
                   {' • '}
-                  {upload.records_new_households} new households
+                  {upload.records_new_households} new
+                  {upload.records_total_households > upload.records_new_households && (
+                    <> + {upload.records_total_households - upload.records_new_households} existing</>
+                  )}
+                  {' households'}
                 </p>
               </div>
             </div>

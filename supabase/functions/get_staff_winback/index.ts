@@ -664,7 +664,7 @@ Deno.serve(async (req) => {
       }
 
       case "upload_terminations": {
-        const { records, filename, contactDaysBefore } = params;
+        const { records, filename, contactDaysBefore, totalHouseholds: clientTotalHouseholds } = params;
 
         interface ParsedRecord {
           firstName: string;
@@ -695,6 +695,7 @@ Deno.serve(async (req) => {
         const stats = {
           processed: 0,
           newHouseholds: 0,
+          totalHouseholds: 0,
           newPolicies: 0,
           updated: 0,
           skipped: 0,
@@ -711,6 +712,9 @@ Deno.serve(async (req) => {
           }
           householdGroups.get(key)!.push(record);
         }
+
+        // Use client-provided total if available, otherwise use server-computed count
+        stats.totalHouseholds = clientTotalHouseholds ?? householdGroups.size;
 
         for (const [, groupRecords] of householdGroups) {
           const firstRecord = groupRecords[0];
@@ -880,6 +884,7 @@ Deno.serve(async (req) => {
             filename: filename || "unknown",
             records_processed: stats.processed,
             records_new_households: stats.newHouseholds,
+            records_total_households: stats.totalHouseholds,
             records_new_policies: stats.newPolicies,
             records_updated: stats.updated,
             records_skipped: stats.skipped,
@@ -930,6 +935,7 @@ Deno.serve(async (req) => {
           filename: uploadFilename || "unknown",
           records_processed: totalStats?.processed || 0,
           records_new_households: totalStats?.newHouseholds || 0,
+          records_total_households: totalStats?.totalHouseholds || 0,
           records_new_policies: totalStats?.newPolicies || 0,
           records_updated: totalStats?.updated || 0,
           records_skipped: totalStats?.skipped || 0,
