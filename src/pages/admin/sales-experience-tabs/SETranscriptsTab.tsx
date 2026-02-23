@@ -518,13 +518,14 @@ export function SETranscriptsTab() {
               variant="outline"
               className="gap-2"
               onClick={() => {
-                if (viewingTranscript && selectedAssignment) {
-                  setIsViewDialogOpen(false);
-                  handleOpenUpload(
-                    assignments?.find((a) => a.id === viewingTranscript.assignment_id) ||
-                      selectedAssignment,
-                    viewingTranscript.week_number
+                if (viewingTranscript) {
+                  const assignment = assignments?.find(
+                    (a) => a.id === viewingTranscript.assignment_id
                   );
+                  if (assignment) {
+                    setIsViewDialogOpen(false);
+                    handleOpenUpload(assignment, viewingTranscript.week_number);
+                  }
                 }
               }}
             >
