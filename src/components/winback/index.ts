@@ -10,3 +10,5 @@ export { WinbackActivityStats } from './WinbackActivityStats';
 export { WinbackActivitySummary } from './WinbackActivitySummary';
 export { TerminationAnalytics } from './TerminationAnalytics';
 export { WinbackUploadHistory } from './WinbackUploadHistory';
+export { WinbackAISearch } from './WinbackAISearch';
+export { TerminationAISearch } from './TerminationAISearch';

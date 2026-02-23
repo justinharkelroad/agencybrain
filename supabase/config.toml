@@ -542,3 +542,9 @@ verify_jwt = false
 
 [functions.parse_cancel_audit_query]
 verify_jwt = false
+
+[functions.parse_winback_query]
+verify_jwt = false
+
+[functions.parse_termination_query]
+verify_jwt = false

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import * as winbackApi from '@/lib/winbackApi';
 import { Button } from '@/components/ui/button';
@@ -59,6 +59,9 @@ import {
   type TerminationStats,
 } from '@/lib/terminationPointsCalculator';
 import { cn } from '@/lib/utils';
+import { useTerminationAIQuery } from '@/hooks/useTerminationAIQuery';
+import { TerminationAISearch } from './TerminationAISearch';
+import type { AITerminationExtendedFilters } from '@/types/winbackAIQuery';
 
 // Types for drill-down modal
 type DrillDownType = 'producer' | 'type' | 'reason';
@@ -143,6 +146,104 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
     filterValue: '',
   });
 
+  // AI Search state
+  const [aiExtendedFilters, setAiExtendedFilters] = useState<AITerminationExtendedFilters>({});
+
+  // Compute distinct values from loaded policies for AI context
+  const aiDistinctValues = useMemo(() => {
+    const productNames = [...new Set(policies.map(p => p.product_name).filter(Boolean) as string[])].sort();
+    const agentNumbers = [...new Set(policies.map(p => p.agent_number).filter(Boolean) as string[])].sort();
+    const terminationReasons = [...new Set(policies.map(p => p.termination_reason).filter(Boolean) as string[])].sort();
+    return { productNames, agentNumbers, terminationReasons };
+  }, [policies]);
+
+  // Convert team members Map to array for hook
+  const teamMembersArray = useMemo(() => {
+    return Array.from(teamMembers.entries()).map(([agentNumber, name]) => ({
+      id: agentNumber,
+      name,
+      agentNumber,
+    }));
+  }, [teamMembers]);
+
+  const {
+    sendQuery: aiSendQuery,
+    clearAIQuery: aiClearQuery,
+    currentResult: aiCurrentResult,
+    resultVersion: aiResultVersion,
+    isActive: aiIsActive,
+    isLoading: aiIsLoading,
+    turnCount: aiTurnCount,
+  } = useTerminationAIQuery({ teamMembers: teamMembersArray, distinctValues: aiDistinctValues });
+
+  // AI result → page state bridge
+  // Each new AI result first resets all AI-controllable filters to defaults,
+  // then applies the non-empty values from the result. This ensures "clear"/"reset"
+  // queries (which return empty filters) properly reset everything, while refinement
+  // queries only set the fields they specify.
+  const prevAiVersionRef = useRef(0);
+  useEffect(() => {
+    if (aiResultVersion === prevAiVersionRef.current) return;
+    prevAiVersionRef.current = aiResultVersion;
+    if (!aiCurrentResult) return;
+
+    const f = aiCurrentResult.filters;
+
+    // Reset all AI-controllable page-level state to defaults first, then apply AI values
+    setSearch(f.search || '');
+    setHideCancelRewrites(f.hideCancelRewrites || false);
+    setActiveTab((f.activeTab as AnalyticsTab) || 'leaderboard');
+
+    // Date range — reset to current month default if AI doesn't specify
+    if (f.dateRangeStart || f.dateRangeEnd) {
+      setDateRange({
+        from: f.dateRangeStart ? new Date(f.dateRangeStart) : undefined,
+        to: f.dateRangeEnd ? new Date(f.dateRangeEnd) : undefined,
+      });
+    } else {
+      const today = new Date();
+      setDateRange({ from: startOfMonth(today), to: endOfMonth(today) });
+    }
+
+    // Sort — reset to defaults when AI result has no sort field
+    if (aiCurrentResult.sort) {
+      const col = aiCurrentResult.sort.column as SortColumn;
+      const dir = aiCurrentResult.sort.direction as SortDirection;
+      if (['date', 'policy', 'customer', 'originalYear', 'type', 'items', 'points', 'premium', 'reason'].includes(col)) {
+        setSortColumn(col);
+        if (dir === 'asc' || dir === 'desc') setSortDirection(dir);
+      }
+    } else {
+      setSortColumn('date');
+      setSortDirection('desc');
+    }
+
+    // Extended filters (client-side)
+    setAiExtendedFilters({
+      premiumMin: f.premiumMin,
+      premiumMax: f.premiumMax,
+      itemsCountMin: f.itemsCountMin,
+      itemsCountMax: f.itemsCountMax,
+      originalYearMin: f.originalYearMin,
+      originalYearMax: f.originalYearMax,
+      productName: f.productName,
+      agentNumber: f.agentNumber,
+      terminationReason: f.terminationReason,
+    });
+  }, [aiResultVersion, aiCurrentResult]);
+
+  const handleAIClear = useCallback(() => {
+    aiClearQuery();
+    setSearch('');
+    setHideCancelRewrites(false);
+    setActiveTab('leaderboard');
+    setSortColumn('date');
+    setSortDirection('desc');
+    const today = new Date();
+    setDateRange({ from: startOfMonth(today), to: endOfMonth(today) });
+    setAiExtendedFilters({});
+  }, [aiClearQuery]);
+
   // Fetch team members first (only once)
   useEffect(() => {
     fetchTeamMembers();
@@ -215,10 +316,51 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
     return policies.filter((p) => !p.is_cancel_rewrite);
   }, [policies, hideCancelRewrites]);
 
+  // AI extended filters applied on top of basePolicies
+  const aiFilteredPolicies = useMemo(() => {
+    let result = basePolicies;
+    const ext = aiExtendedFilters;
+
+    if (ext.premiumMin != null) {
+      const minCents = ext.premiumMin * 100;
+      result = result.filter(p => (p.premium_new_cents || 0) >= minCents);
+    }
+    if (ext.premiumMax != null) {
+      const maxCents = ext.premiumMax * 100;
+      result = result.filter(p => (p.premium_new_cents || 0) <= maxCents);
+    }
+    if (ext.itemsCountMin != null) {
+      result = result.filter(p => (p.items_count || 1) >= ext.itemsCountMin!);
+    }
+    if (ext.itemsCountMax != null) {
+      result = result.filter(p => (p.items_count || 1) <= ext.itemsCountMax!);
+    }
+    if (ext.originalYearMin != null) {
+      result = result.filter(p => (p.original_year || 0) >= ext.originalYearMin!);
+    }
+    if (ext.originalYearMax != null) {
+      result = result.filter(p => (p.original_year || 9999) <= ext.originalYearMax!);
+    }
+    if (ext.productName?.length) {
+      const names = ext.productName.filter(Boolean).map(n => n.toLowerCase());
+      result = result.filter(p => p.product_name && names.includes(p.product_name.toLowerCase()));
+    }
+    if (ext.agentNumber?.length) {
+      const nums = ext.agentNumber.filter(Boolean).map(n => n.toLowerCase());
+      result = result.filter(p => p.agent_number && nums.includes(p.agent_number.toLowerCase()));
+    }
+    if (ext.terminationReason?.length) {
+      const reasons = ext.terminationReason.filter(Boolean).map(r => r.toLowerCase());
+      result = result.filter(p => p.termination_reason && reasons.includes(p.termination_reason.toLowerCase()));
+    }
+
+    return result;
+  }, [basePolicies, aiExtendedFilters]);
+
   // Calculate stats (uses filtered data)
   const stats = useMemo(() => {
     return calculateTerminationStats(
-      basePolicies.map((p) => ({
+      aiFilteredPolicies.map((p) => ({
         product_name: p.product_name,
         line_code: p.line_code,
         items_count: p.items_count,
@@ -226,20 +368,20 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
         is_cancel_rewrite: p.is_cancel_rewrite,
       }))
     );
-  }, [basePolicies]);
+  }, [aiFilteredPolicies]);
 
   // Filter policies based on search
   const filteredPolicies = useMemo(() => {
-    if (!search) return basePolicies;
+    if (!search) return aiFilteredPolicies;
     const searchLower = search.toLowerCase();
-    return basePolicies.filter((p) => {
+    return aiFilteredPolicies.filter((p) => {
       const customerName = `${p.winback_households?.first_name || ''} ${p.winback_households?.last_name || ''}`.toLowerCase();
       return (
         customerName.includes(searchLower) ||
         p.policy_number.toLowerCase().includes(searchLower)
       );
     });
-  }, [basePolicies, search]);
+  }, [aiFilteredPolicies, search]);
 
   // Sort policies
   const sortedPolicies = useMemo(() => {
@@ -287,7 +429,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
   const producerStats = useMemo(() => {
     const producerMap = new Map<string, ProducerStats>();
 
-    for (const policy of basePolicies) {
+    for (const policy of aiFilteredPolicies) {
       const agentNumber = policy.agent_number || 'Unknown';
       const existing = producerMap.get(agentNumber) || {
         agentNumber,
@@ -310,13 +452,13 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
     }
 
     return Array.from(producerMap.values()).sort((a, b) => b.itemsLost - a.itemsLost);
-  }, [basePolicies, teamMembers]);
+  }, [aiFilteredPolicies, teamMembers]);
 
   // Policy type breakdown - using granular types
   const policyTypeData = useMemo(() => {
     const typeMap = new Map<string, { name: string; value: number; items: number; premium: number }>();
 
-    for (const policy of basePolicies) {
+    for (const policy of aiFilteredPolicies) {
       const type = detectPolicyType(policy.product_name, policy.line_code);
       const label = getPolicyTypeLabel(type);
       const existing = typeMap.get(label) || { name: label, value: 0, items: 0, premium: 0 };
@@ -327,13 +469,13 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
     }
 
     return Array.from(typeMap.values()).sort((a, b) => b.items - a.items);
-  }, [basePolicies]);
+  }, [aiFilteredPolicies]);
 
   // Reason breakdown (top 10)
   const reasonData = useMemo(() => {
     const reasonMap = new Map<string, number>();
 
-    for (const policy of basePolicies) {
+    for (const policy of aiFilteredPolicies) {
       const reason = policy.termination_reason || 'Unknown';
       reasonMap.set(reason, (reasonMap.get(reason) || 0) + 1);
     }
@@ -342,7 +484,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
       .map(([reason, count]) => ({ reason, count }));
-  }, [basePolicies]);
+  }, [aiFilteredPolicies]);
 
   // Drill-down filtered policies
   const drillDownPolicies = useMemo(() => {
@@ -350,23 +492,23 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
 
     switch (drillDown.type) {
       case 'producer':
-        return basePolicies.filter(p => {
+        return aiFilteredPolicies.filter(p => {
           const agentNumber = p.agent_number || 'Unknown';
           const producerName = teamMembers.get(agentNumber) || agentNumber;
           return producerName === drillDown.filterValue || agentNumber === drillDown.filterValue;
         });
       case 'type':
-        return basePolicies.filter(p => {
+        return aiFilteredPolicies.filter(p => {
           const type = detectPolicyType(p.product_name, p.line_code);
           const label = getPolicyTypeLabel(type);
           return label === drillDown.filterValue;
         });
       case 'reason':
-        return basePolicies.filter(p => (p.termination_reason || 'Unknown') === drillDown.filterValue);
+        return aiFilteredPolicies.filter(p => (p.termination_reason || 'Unknown') === drillDown.filterValue);
       default:
         return [];
     }
-  }, [drillDown, basePolicies, teamMembers]);
+  }, [drillDown, aiFilteredPolicies, teamMembers]);
 
   // Chart click handlers
   const handleProducerBarClick = (data: any) => {
@@ -481,6 +623,17 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
           <span className="text-xs text-muted-foreground">Points Lost</span>
         </div>
       </div>
+
+      {/* AI Search */}
+      <TerminationAISearch
+        onClear={handleAIClear}
+        sendQuery={aiSendQuery}
+        clearAIQuery={aiClearQuery}
+        currentResult={aiCurrentResult}
+        isLoading={aiIsLoading}
+        isActive={aiIsActive}
+        turnCount={aiTurnCount}
+      />
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4 items-center">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { useLocation } from 'react-router-dom';
@@ -35,11 +35,14 @@ import {
   WinbackActivitySummary,
   TerminationAnalytics,
   WinbackUploadHistory,
+  WinbackAISearch,
 } from '@/components/winback';
 import { ContactProfileModal } from '@/components/contacts';
 import type { WinbackStatus, QuickDateFilter } from '@/components/winback/WinbackFilters';
 import type { Household, SortColumn, SortDirection } from '@/components/winback/WinbackHouseholdTable';
 import * as winbackApi from '@/lib/winbackApi';
+import { useWinbackAIQuery } from '@/hooks/useWinbackAIQuery';
+import type { AIWinbackExtendedFilters } from '@/types/winbackAIQuery';
 
 interface Stats {
   totalHouseholds: number;
@@ -179,6 +182,130 @@ export default function WinbackHQ() {
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // AI Search
+  const [aiExtendedFilters, setAiExtendedFilters] = useState<AIWinbackExtendedFilters>({});
+  const {
+    sendQuery: aiSendQuery,
+    clearAIQuery: aiClearQuery,
+    currentResult: aiCurrentResult,
+    resultVersion: aiResultVersion,
+    isActive: aiIsActive,
+    isLoading: aiIsLoading,
+    turnCount: aiTurnCount,
+  } = useWinbackAIQuery({ teamMembers });
+
+  // AI result → page state bridge
+  const prevAiVersionRef = useRef(0);
+  useEffect(() => {
+    if (aiResultVersion === prevAiVersionRef.current) return;
+    prevAiVersionRef.current = aiResultVersion;
+    if (!aiCurrentResult) return;
+
+    const f = aiCurrentResult.filters;
+
+    // Reset all AI-controllable page-level state to defaults first, then apply AI values
+    setStatusFilter((f.statusFilter as WinbackStatus) || 'all');
+    setSearch(f.search || '');
+    setQuickDateFilter((f.quickDateFilter as QuickDateFilter) || 'all');
+
+    // Date range
+    if (f.dateRangeStart || f.dateRangeEnd) {
+      setDateRange({
+        from: f.dateRangeStart ? new Date(f.dateRangeStart) : undefined,
+        to: f.dateRangeEnd ? new Date(f.dateRangeEnd) : undefined,
+      });
+    } else {
+      setDateRange(undefined);
+    }
+
+    // RULE: if statusFilter=dismissed, must also switch to dismissed tab
+    // Always reset activeTab so users don't get stuck on dismissed tab after clearing
+    if (f.statusFilter === 'dismissed' || f.activeTab === 'dismissed') {
+      setActiveTab('dismissed');
+    } else {
+      setActiveTab(f.activeTab || 'active');
+    }
+
+    // Sort — reset to defaults when AI result has no sort field
+    if (aiCurrentResult.sort) {
+      const col = aiCurrentResult.sort.column as SortColumn;
+      const dir = aiCurrentResult.sort.direction as SortDirection;
+      if (['name', 'policy_count', 'total_premium_potential_cents', 'earliest_winback_date', 'status', 'assigned_name'].includes(col)) {
+        setSortColumn(col);
+        if (dir === 'asc' || dir === 'desc') setSortDirection(dir);
+      }
+    } else {
+      setSortColumn('earliest_winback_date');
+      setSortDirection('asc');
+    }
+
+    // Extended filters (client-side)
+    setAiExtendedFilters({
+      premiumMin: f.premiumMin,
+      premiumMax: f.premiumMax,
+      policyCountMin: f.policyCountMin,
+      policyCountMax: f.policyCountMax,
+      city: f.city,
+      state: f.state,
+      zipCode: f.zipCode,
+      assignedTeamMemberId: f.assignedTeamMemberId,
+    });
+
+    setCurrentPage(1);
+  }, [aiResultVersion, aiCurrentResult]);
+
+  const handleAIClear = useCallback(() => {
+    aiClearQuery();
+    handleClearFilters();
+    setActiveTab('active');
+    setSortColumn('earliest_winback_date');
+    setSortDirection('asc');
+    setAiExtendedFilters({});
+  }, [aiClearQuery]);
+
+  // Client-side filtering for AI extended filters (premium, policyCount, city, state, zip, assignment)
+  const displayHouseholds = useMemo(() => {
+    let result = households;
+    const ext = aiExtendedFilters;
+
+    if (ext.premiumMin != null) {
+      const minCents = ext.premiumMin * 100;
+      result = result.filter(h => (h.total_premium_potential_cents || 0) >= minCents);
+    }
+    if (ext.premiumMax != null) {
+      const maxCents = ext.premiumMax * 100;
+      result = result.filter(h => (h.total_premium_potential_cents || 0) <= maxCents);
+    }
+    if (ext.policyCountMin != null) {
+      result = result.filter(h => (h.policy_count || 0) >= ext.policyCountMin!);
+    }
+    if (ext.policyCountMax != null) {
+      result = result.filter(h => (h.policy_count || 0) <= ext.policyCountMax!);
+    }
+    if (ext.city?.length) {
+      const cities = ext.city.filter(Boolean).map(c => c.toLowerCase());
+      result = result.filter(h => h.city && cities.includes(h.city.toLowerCase()));
+    }
+    if (ext.state?.length) {
+      const states = ext.state.filter(Boolean).map(s => s.toLowerCase());
+      result = result.filter(h => h.state && states.includes(h.state.toLowerCase()));
+    }
+    if (ext.zipCode?.length) {
+      const zips = ext.zipCode.filter(Boolean);
+      result = result.filter(h => h.zip_code && zips.includes(h.zip_code));
+    }
+    if (ext.assignedTeamMemberId) {
+      if (ext.assignedTeamMemberId === 'unassigned') {
+        result = result.filter(h => !h.assigned_to);
+      } else {
+        result = result.filter(h => h.assigned_to === ext.assignedTeamMemberId);
+      }
+    }
+
+    return result;
+  }, [households, aiExtendedFilters]);
+
   // Handler for viewing profile - finds the household to pass to modal
   const handleViewProfile = (contactId: string) => {
     const household = households.find(h => h.contact_id === contactId);
@@ -525,6 +652,17 @@ export default function WinbackHQ() {
         </TabsList>
 
         <TabsContent value="opportunities" className="space-y-6 mt-0">
+          {/* AI Search */}
+          <WinbackAISearch
+            onClear={handleAIClear}
+            sendQuery={aiSendQuery}
+            clearAIQuery={aiClearQuery}
+            currentResult={aiCurrentResult}
+            isLoading={aiIsLoading}
+            isActive={aiIsActive}
+            turnCount={aiTurnCount}
+          />
+
           {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <Card>
@@ -651,7 +789,7 @@ export default function WinbackHQ() {
               />
 
               <WinbackHouseholdTable
-                households={households}
+                households={displayHouseholds}
                 loading={false}
                 sortColumn={sortColumn}
                 sortDirection={sortDirection}
@@ -673,7 +811,7 @@ export default function WinbackHQ() {
 
             <TabsContent value="dismissed" className="space-y-4 mt-4">
               <WinbackHouseholdTable
-                households={households}
+                households={displayHouseholds}
                 loading={false}
                 sortColumn={sortColumn}
                 sortDirection={sortDirection}
