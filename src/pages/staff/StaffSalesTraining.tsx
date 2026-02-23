@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -78,11 +78,12 @@ interface SalesExperienceData {
 
 export default function StaffSalesTraining() {
   const navigate = useNavigate();
+  const { week: weekParam } = useParams<{ week?: string }>();
   const { user, sessionToken, isAuthenticated, loading: authLoading } = useStaffAuth();
 
   const [data, setData] = useState<SalesExperienceData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedWeek, setSelectedWeek] = useState<number>(1);
+  const [selectedWeek, setSelectedWeek] = useState<number>(weekParam ? parseInt(weekParam, 10) : 1);
 
   const fetchSalesExperienceData = useCallback(async () => {
     if (!sessionToken || !user) return;
@@ -108,8 +109,10 @@ export default function StaffSalesTraining() {
       const result = await response.json();
       setData(result);
 
-      // Set selected week to current week
-      if (result.current_week) {
+      // Set selected week: URL param takes priority, then current week
+      if (weekParam) {
+        setSelectedWeek(parseInt(weekParam, 10));
+      } else if (result.current_week) {
         setSelectedWeek(result.current_week);
       }
     } catch (error) {

@@ -1193,6 +1193,7 @@ const App = () => {
               <Route path="challenge" element={<StaffChallenge />} />
               {/* 8-Week Sales Experience Training */}
               <Route path="sales-training" element={<StaffSalesTraining />} />
+              <Route path="sales-training/week/:week" element={<StaffSalesTraining />} />
               <Route path="sales-training/lesson/:id" element={<StaffSalesLesson />} />
               {/* Legacy redirects for backward compatibility */}
               <Route path="playbook/*" element={<Navigate to="/staff/training/standard" replace />} />
