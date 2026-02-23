@@ -9,7 +9,9 @@ ADD CONSTRAINT form_section_field_types_section_field_unique
 UNIQUE (section_type, field_key);
 
 -- Now insert the missing lead_source field for quotedDetails section
-INSERT INTO public.form_section_field_types (
+DO $$
+BEGIN
+  INSERT INTO public.form_section_field_types (
     section_type,
     field_key,
     field_label,
@@ -19,7 +21,7 @@ INSERT INTO public.form_section_field_types (
     order_index,
     created_at,
     updated_at
-) VALUES (
+  ) VALUES (
     'quotedDetails',
     'lead_source',
     'Lead Source',
@@ -29,4 +31,43 @@ INSERT INTO public.form_section_field_types (
     2,
     now(),
     now()
-);
+  )
+  ON CONFLICT (section_type, field_key) DO UPDATE
+  SET
+    field_label = EXCLUDED.field_label,
+    field_type = EXCLUDED.field_type,
+    is_sticky = EXCLUDED.is_sticky,
+    is_system_required = EXCLUDED.is_system_required,
+    order_index = EXCLUDED.order_index,
+    updated_at = now();
+
+  INSERT INTO public.form_section_field_types (
+    section_type,
+    field_key,
+    field_label,
+    field_type,
+    is_sticky,
+    is_system_required,
+    order_index,
+    created_at,
+    updated_at
+  ) VALUES (
+    'soldDetails',
+    'lead_source',
+    'Lead Source',
+    'select',
+    true,
+    true,
+    5,
+    now(),
+    now()
+  )
+  ON CONFLICT (section_type, field_key) DO UPDATE
+  SET
+    field_label = EXCLUDED.field_label,
+    field_type = EXCLUDED.field_type,
+    is_sticky = EXCLUDED.is_sticky,
+    is_system_required = EXCLUDED.is_system_required,
+    order_index = EXCLUDED.order_index,
+    updated_at = now();
+END $$;

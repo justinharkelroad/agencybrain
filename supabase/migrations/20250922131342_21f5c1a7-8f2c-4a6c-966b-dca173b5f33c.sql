@@ -1,8 +1,9 @@
 -- 1) Create view to join metrics and team members
+DROP VIEW IF EXISTS public.vw_metrics_with_team CASCADE;
 CREATE OR REPLACE VIEW public.vw_metrics_with_team AS
 SELECT
   md.*,
-  COALESCE(tm.name, CONCAT(tm.first_name, ' ', tm.last_name), 'Unassigned') AS rep_name
+  COALESCE(tm.name, 'Unassigned') AS rep_name
 FROM public.metrics_daily md
 LEFT JOIN public.team_members tm
   ON tm.id = md.team_member_id

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import * as React from 'react';
 import { ChevronDown, ChevronRight, ChevronLeft, Users, Target, DollarSign, ExternalLink, Tag } from 'lucide-react';
 import {
   Sheet,
@@ -40,6 +41,8 @@ interface LqsLeadSourceDetailSheetProps {
   dateRange: { start: Date; end: Date } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  priorityZipCodes?: string[];
+  priorityZipRanks?: Record<string, number>;
 }
 
 // Format currency from cents
@@ -140,9 +143,29 @@ function StatusBadge({ status }: { status: string | null }) {
 }
 
 // Expanded detail content for a household
-function HouseholdDetailContent({ household }: { household: HouseholdDetailRow }) {
+function HouseholdDetailContent({
+  household,
+  isPriorityZip,
+  priorityZipRank,
+}: {
+  household: HouseholdDetailRow;
+  isPriorityZip: boolean;
+  priorityZipRank?: number;
+}) {
   return (
     <div className="p-4 space-y-4">
+      <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
+        <span>ZIP {household.zipCode || '-'}</span>
+        {isPriorityZip && (
+          <Badge
+            variant="outline"
+            className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+          >
+            {`Priority ZIP${priorityZipRank ? ` #${priorityZipRank}` : ''}`}
+          </Badge>
+        )}
+      </div>
+
       {/* Quotes Section */}
       {household.quotes.length > 0 && (
         <div>
@@ -230,6 +253,8 @@ export function LqsLeadSourceDetailSheet({
   dateRange,
   open,
   onOpenChange,
+  priorityZipCodes,
+  priorityZipRanks,
 }: LqsLeadSourceDetailSheetProps) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -306,6 +331,17 @@ export function LqsLeadSourceDetailSheet({
     open ? leadSourceId : undefined, // Only fetch when open
     dateRange
   );
+
+  const priorityZipCodeSet = useMemo(
+    () => new Set((priorityZipCodes || []).map(zip => zip.trim()).filter(Boolean)),
+    [priorityZipCodes]
+  );
+
+  const priorityZipCodeRankMap = useMemo(() => {
+    return new Map(
+      Object.entries(priorityZipRanks || {}).map(([zip, rank]) => [zip, rank])
+    );
+  }, [priorityZipRanks]);
 
   // Filter households by status
   const filteredHouseholds = data?.households.filter(h => {
@@ -444,6 +480,7 @@ export function LqsLeadSourceDetailSheet({
                     <TableHead style={{ width: isUnattributed ? 160 : 180 }}>Household</TableHead>
                     <TableHead style={{ width: 80 }}>Status</TableHead>
                     <TableHead style={{ width: 60 }}>Temp</TableHead>
+                    <TableHead style={{ width: 100 }}>Zip</TableHead>
                     <TableHead style={{ width: 100 }}>Lead Date</TableHead>
                     <TableHead style={{ width: 100 }}>Quoted</TableHead>
                     <TableHead style={{ width: 100 }}>Sold</TableHead>
@@ -453,7 +490,7 @@ export function LqsLeadSourceDetailSheet({
                 <TableBody>
                   {paginatedHouseholds.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isUnattributed ? 8 : 7} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={isUnattributed ? 9 : 8} className="text-center text-muted-foreground py-8">
                         No households found
                       </TableCell>
                     </TableRow>
@@ -462,6 +499,10 @@ export function LqsLeadSourceDetailSheet({
                       const temperature = calculateTemperature(household);
                       const isExpanded = expandedIds.has(household.id);
                       const isSelected = selectedIds.has(household.id);
+                      const isPriorityZip = household.zipCode ? priorityZipCodeSet.has(household.zipCode) : false;
+                      const priorityZipRank = household.zipCode
+                        ? priorityZipCodeRankMap.get(household.zipCode)
+                        : undefined;
 
                       return [
                         <TableRow
@@ -502,6 +543,19 @@ export function LqsLeadSourceDetailSheet({
                           <TableCell style={{ width: 60 }}>
                             <TemperatureRating temperature={temperature} />
                           </TableCell>
+                          <TableCell style={{ width: 100 }}>
+                            <div className="flex items-center gap-2">
+                              <span>{household.zipCode || '-'}</span>
+                              {isPriorityZip && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                                >
+                                  {`Priority${priorityZipRank ? ` #${priorityZipRank}` : ''}`}
+                                </Badge>
+                                )}
+                            </div>
+                          </TableCell>
                           <TableCell style={{ width: 100 }}>{formatDate(household.leadReceivedDate)}</TableCell>
                           <TableCell style={{ width: 100 }}>
                             {household.quotedPolicies > 0 ? (
@@ -527,8 +581,12 @@ export function LqsLeadSourceDetailSheet({
                         </TableRow>,
                         ...(isExpanded ? [
                           <TableRow key={`detail-${household.id}`} className="bg-muted/30">
-                            <TableCell colSpan={isUnattributed ? 8 : 7} className="p-0">
-                              <HouseholdDetailContent household={household} />
+                            <TableCell colSpan={isUnattributed ? 9 : 8} className="p-0">
+                              <HouseholdDetailContent
+                                household={household}
+                                isPriorityZip={isPriorityZip}
+                                priorityZipRank={priorityZipRank}
+                              />
                             </TableCell>
                           </TableRow>
                         ] : [])

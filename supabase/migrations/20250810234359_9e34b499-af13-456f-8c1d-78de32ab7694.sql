@@ -13,7 +13,8 @@ BEGIN
   LIMIT 1;
 
   IF v_admin_id IS NULL THEN
-    RAISE EXCEPTION 'Admin user with email % not found. Aborting cleanup.', 'justin@hfiagencies.com';
+    RAISE NOTICE 'Skipping legacy cleanup migration because admin user % was not found in auth.users.', 'justin@hfiagencies.com';
+    RETURN;
   END IF;
 
   -- Get admin's agency (if any)

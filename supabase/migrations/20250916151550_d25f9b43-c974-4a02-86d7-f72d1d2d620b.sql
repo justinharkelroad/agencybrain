@@ -1,4 +1,6 @@
 -- Update get_dashboard_daily RPC to include proper scoring with meets/exceeds logic
+DROP FUNCTION IF EXISTS public.get_dashboard_daily(text, text, date, date);
+
 CREATE OR REPLACE FUNCTION public.get_dashboard_daily(
   p_agency_slug text,
   p_role text,

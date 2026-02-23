@@ -7,28 +7,36 @@
 -- ============================================================================
 -- FIX 1: Add 'won_back' to winback_activities activity_type constraint
 -- ============================================================================
+DO $$
+BEGIN
+  IF to_regclass('public.winback_activities') IS NULL THEN
+    RAISE NOTICE 'Skipping winback_activities constraint fix; table public.winback_activities does not exist.';
+  ELSE
+    ALTER TABLE winback_activities
+    DROP CONSTRAINT IF EXISTS winback_activities_activity_type_check;
 
-ALTER TABLE winback_activities
-DROP CONSTRAINT IF EXISTS winback_activities_activity_type_check;
-
-ALTER TABLE winback_activities
-ADD CONSTRAINT winback_activities_activity_type_check
-CHECK (activity_type = ANY (ARRAY[
-  'called'::text,
-  'left_vm'::text,
-  'texted'::text,
-  'emailed'::text,
-  'quoted'::text,
-  'note'::text,
-  'status_change'::text,
-  'won_back'::text
-]));
+    ALTER TABLE winback_activities
+    ADD CONSTRAINT winback_activities_activity_type_check
+    CHECK (activity_type = ANY (ARRAY[
+      'called'::text,
+      'left_vm'::text,
+      'texted'::text,
+      'emailed'::text,
+      'quoted'::text,
+      'note'::text,
+      'status_change'::text,
+      'won_back'::text
+    ]));
+  END IF;
+END $$;
 
 -- ============================================================================
 -- FIX 2: Update get_contacts_by_stage function with proper multi-word search
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION get_contacts_by_stage(
+DROP FUNCTION IF EXISTS public.get_contacts_by_stage(UUID, TEXT, TEXT, INT, INT);
+
+CREATE OR REPLACE FUNCTION public.get_contacts_by_stage(
   p_agency_id UUID,
   p_stage TEXT DEFAULT NULL,
   p_search TEXT DEFAULT NULL,
@@ -46,7 +54,7 @@ RETURNS TABLE (
   zip_code TEXT,
   created_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ,
-  computed_stage TEXT,
+  current_stage TEXT,
   total_count BIGINT
 )
 LANGUAGE plpgsql
@@ -195,7 +203,7 @@ BEGIN
     fc.zip_code,
     fc.created_at,
     fc.updated_at,
-    fc.computed_stage,
+    fc.computed_stage AS current_stage,
     c.total
   FROM filtered_contacts fc
   CROSS JOIN counted c

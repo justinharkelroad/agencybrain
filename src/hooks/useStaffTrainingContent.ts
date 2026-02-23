@@ -20,6 +20,7 @@ interface TrainingModule {
   sort_order: number;
   category_id: string;
   due_date?: string | null;
+  thumbnail_url?: string | null;
   lessons: TrainingLesson[];
 }
 
@@ -28,6 +29,7 @@ interface TrainingCategory {
   name: string;
   description: string | null;
   sort_order: number;
+  cover_image_url?: string | null;
   modules: TrainingModule[];
 }
 

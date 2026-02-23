@@ -4,7 +4,7 @@
 ALTER TABLE public.quoted_household_details 
 ADD COLUMN IF NOT EXISTS agency_id uuid,
 ADD COLUMN IF NOT EXISTS team_member_id uuid,
-ADD COLUMN IF NOT EXISTS role user_role,
+ADD COLUMN IF NOT EXISTS role text,
 ADD COLUMN IF NOT EXISTS work_date date,
 ADD COLUMN IF NOT EXISTS lead_source_label text;
 
@@ -93,4 +93,15 @@ END$$;
 
 -- A3) Optional indexes
 CREATE INDEX IF NOT EXISTS idx_qhdet_created_at ON public.quoted_household_details(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_qhdet_work_date ON public.quoted_household_details(work_date DESC);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'quoted_household_details'
+      AND column_name = 'work_date'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_qhdet_work_date ON public.quoted_household_details(work_date DESC);
+  END IF;
+END $$;

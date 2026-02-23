@@ -161,4 +161,26 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION upsert_cancel_audit_record IS 'Upserts cancel audit record with original_year and cancel_status persistence and automatically creates/links unified contact';
+COMMENT ON FUNCTION upsert_cancel_audit_record(
+  uuid,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  text,
+  bigint,
+  integer,
+  text,
+  text,
+  bigint,
+  date,
+  date,
+  date,
+  uuid,
+  text,
+  text
+) IS 'Upserts cancel audit record with original_year and cancel_status persistence and automatically creates/links unified contact';

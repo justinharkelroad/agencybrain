@@ -199,109 +199,124 @@ GRANT EXECUTE ON FUNCTION public.get_contacts_by_stage TO anon;
 -- ============================================================
 
 -- Backfill from winback_activities (join via household_id -> winback_households -> contact_id)
-INSERT INTO contact_activities (
-  agency_id,
-  contact_id,
-  source_module,
-  source_record_id,
-  activity_type,
-  notes,
-  activity_date,
-  created_by_staff_id,
-  created_by_display_name,
-  created_at
-)
-SELECT DISTINCT ON (wa.id)
-  wa.agency_id,
-  wh.contact_id,
-  'winback',
-  wa.household_id,
-  wa.activity_type,
-  wa.notes,
-  wa.created_at,
-  NULL, -- Set to NULL to avoid FK constraint
-  wa.created_by_name,
-  wa.created_at
-FROM winback_activities wa
-JOIN winback_households wh ON wh.id = wa.household_id
-WHERE wh.contact_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM contact_activities ca
-    WHERE ca.contact_id = wh.contact_id
-      AND ca.source_module = 'winback'
-      AND ca.source_record_id = wa.household_id
-      AND ca.activity_type = wa.activity_type
-      AND ca.activity_date = wa.created_at
-  );
+DO $$
+BEGIN
+  IF to_regclass('public.winback_activities') IS NOT NULL THEN
+    INSERT INTO contact_activities (
+      agency_id,
+      contact_id,
+      source_module,
+      source_record_id,
+      activity_type,
+      notes,
+      activity_date,
+      created_by_staff_id,
+      created_by_display_name,
+      created_at
+    )
+    SELECT DISTINCT ON (wa.id)
+      wa.agency_id,
+      wh.contact_id,
+      'winback',
+      wa.household_id,
+      wa.activity_type,
+      wa.notes,
+      wa.created_at,
+      NULL, -- Set to NULL to avoid FK constraint
+      wa.created_by_name,
+      wa.created_at
+    FROM winback_activities wa
+    JOIN winback_households wh ON wh.id = wa.household_id
+    WHERE wh.contact_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM contact_activities ca
+        WHERE ca.contact_id = wh.contact_id
+          AND ca.source_module = 'winback'
+          AND ca.source_record_id = wa.household_id
+          AND ca.activity_type = wa.activity_type
+          AND ca.activity_date = wa.created_at
+      );
+  END IF;
+END $$;
 
 -- Backfill from cancel_audit_activities (join via record_id -> cancel_audit_records -> contact_id)
-INSERT INTO contact_activities (
-  agency_id,
-  contact_id,
-  source_module,
-  source_record_id,
-  activity_type,
-  notes,
-  activity_date,
-  created_by_staff_id,
-  created_by_display_name,
-  created_at
-)
-SELECT DISTINCT ON (caa.id)
-  caa.agency_id,
-  car.contact_id,
-  'cancel_audit',
-  caa.record_id,
-  caa.activity_type,
-  caa.notes,
-  caa.created_at,
-  NULL, -- Set to NULL to avoid FK constraint
-  caa.user_display_name,
-  caa.created_at
-FROM cancel_audit_activities caa
-JOIN cancel_audit_records car ON car.id = caa.record_id
-WHERE car.contact_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM contact_activities ca
-    WHERE ca.contact_id = car.contact_id
-      AND ca.source_module = 'cancel_audit'
-      AND ca.source_record_id = caa.record_id
-      AND ca.activity_type = caa.activity_type
-      AND ca.activity_date = caa.created_at
-  );
+DO $$
+BEGIN
+  IF to_regclass('public.cancel_audit_activities') IS NOT NULL THEN
+    INSERT INTO contact_activities (
+      agency_id,
+      contact_id,
+      source_module,
+      source_record_id,
+      activity_type,
+      notes,
+      activity_date,
+      created_by_staff_id,
+      created_by_display_name,
+      created_at
+    )
+    SELECT DISTINCT ON (caa.id)
+      caa.agency_id,
+      car.contact_id,
+      'cancel_audit',
+      caa.record_id,
+      caa.activity_type,
+      caa.notes,
+      caa.created_at,
+      NULL, -- Set to NULL to avoid FK constraint
+      caa.user_display_name,
+      caa.created_at
+    FROM cancel_audit_activities caa
+    JOIN cancel_audit_records car ON car.id = caa.record_id
+    WHERE car.contact_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM contact_activities ca
+        WHERE ca.contact_id = car.contact_id
+          AND ca.source_module = 'cancel_audit'
+          AND ca.source_record_id = caa.record_id
+          AND ca.activity_type = caa.activity_type
+          AND ca.activity_date = caa.created_at
+      );
+  END IF;
+END $$;
 
 -- Backfill from renewal_activities (join via renewal_record_id -> renewal_records -> contact_id)
-INSERT INTO contact_activities (
-  agency_id,
-  contact_id,
-  source_module,
-  source_record_id,
-  activity_type,
-  notes,
-  activity_date,
-  created_by_staff_id,
-  created_by_display_name,
-  created_at
-)
-SELECT DISTINCT ON (ra.id)
-  ra.agency_id,
-  rr.contact_id,
-  'renewal',
-  ra.renewal_record_id,
-  ra.activity_type,
-  ra.comments,
-  ra.created_at,
-  NULL, -- Set to NULL to avoid FK constraint
-  ra.created_by_display_name,
-  ra.created_at
-FROM renewal_activities ra
-JOIN renewal_records rr ON rr.id = ra.renewal_record_id
-WHERE rr.contact_id IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1 FROM contact_activities ca
-    WHERE ca.contact_id = rr.contact_id
-      AND ca.source_module = 'renewal'
-      AND ca.source_record_id = ra.renewal_record_id
-      AND ca.activity_type = ra.activity_type
-      AND ca.activity_date = ra.created_at
-  );
+DO $$
+BEGIN
+  IF to_regclass('public.renewal_activities') IS NOT NULL THEN
+    INSERT INTO contact_activities (
+      agency_id,
+      contact_id,
+      source_module,
+      source_record_id,
+      activity_type,
+      notes,
+      activity_date,
+      created_by_staff_id,
+      created_by_display_name,
+      created_at
+    )
+    SELECT DISTINCT ON (ra.id)
+      ra.agency_id,
+      rr.contact_id,
+      'renewal',
+      ra.renewal_record_id,
+      ra.activity_type,
+      ra.comments,
+      ra.created_at,
+      NULL, -- Set to NULL to avoid FK constraint
+      ra.created_by_display_name,
+      ra.created_at
+    FROM renewal_activities ra
+    JOIN renewal_records rr ON rr.id = ra.renewal_record_id
+    WHERE rr.contact_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM contact_activities ca
+        WHERE ca.contact_id = rr.contact_id
+          AND ca.source_module = 'renewal'
+          AND ca.source_record_id = ra.renewal_record_id
+          AND ca.activity_type = ra.activity_type
+          AND ca.activity_date = ra.created_at
+      );
+  END IF;
+END $$;

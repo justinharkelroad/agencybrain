@@ -7,14 +7,16 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path TO 'public'
 AS $$
+DECLARE
+  deleted_count INTEGER;
 BEGIN
   -- Delete audit logs older than 48 hours to maintain performance
   DELETE FROM public.field_mapping_audit 
   WHERE created_at < (now() - interval '48 hours');
   
   -- Log how many rows were cleaned up
-  GET DIAGNOSTICS rowcount FROM DELETE WHERE FALSE;
-  RAISE NOTICE 'Cleaned up % old field mapping audit log entries', rowcount;
+  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  RAISE NOTICE 'Cleaned up % old field mapping audit log entries', deleted_count;
 END;
 $$;
 

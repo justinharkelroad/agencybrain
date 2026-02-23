@@ -406,6 +406,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    // Prevent stale staff session state from blocking owner/admin sign-in.
+    try {
+      localStorage.removeItem('staff_session_token');
+      localStorage.removeItem('staff_agency_id');
+      localStorage.removeItem('staff_is_impersonation');
+      localStorage.removeItem('staff_user');
+      localStorage.removeItem('staff_session_expiry');
+      localStorage.removeItem('auth_mode');
+    } catch (_err) {
+      // Ignore storage failures in unusual environments.
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -430,6 +442,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('staff_is_impersonation');
       localStorage.removeItem('staff_user');
       localStorage.removeItem('staff_session_expiry');
+      localStorage.removeItem('auth_mode');
       
       // Then attempt to sign out from Supabase
       await supabase.auth.signOut();

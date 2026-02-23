@@ -8,6 +8,7 @@ export interface HouseholdDetailRow {
   firstName: string;
   lastName: string;
   status: string | null;
+  zipCode: string | null;
   leadReceivedDate: string | null;
   firstQuoteDate: string | null;
   soldDate: string | null;
@@ -92,6 +93,7 @@ export function useLqsLeadSourceDetail(
             id,
             first_name,
             last_name,
+            zip_code,
             status,
             lead_received_date,
             first_quote_date,
@@ -218,6 +220,7 @@ export function useLqsLeadSourceDetail(
         id: h.id,
         firstName: h.first_name,
         lastName: h.last_name,
+        zipCode: h.zip_code || null,
         status: h.status,
         leadReceivedDate: h.lead_received_date,
         firstQuoteDate: h.first_quote_date,

@@ -5,7 +5,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const stripeSecretKey = Deno.env.get('STRIPE_SECRET_KEY')!;
-const stripeWebhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
+const stripeWebhookSecret = Deno.env.get('STRIPE_CHALLENGE_WEBHOOK_SECRET') || Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -15,6 +15,7 @@ Deno.serve(async (req) => {
   try {
     const stripe = new Stripe(stripeSecretKey, {
       apiVersion: '2023-10-16',
+      httpClient: Stripe.createFetchHttpClient(),
     });
 
     // Get the raw body for signature verification
@@ -29,10 +30,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Verify webhook signature
+    // Verify webhook signature (must use constructEventAsync for Deno compatibility)
     let event: Stripe.Event;
     try {
-      event = stripe.webhooks.constructEvent(body, signature, stripeWebhookSecret);
+      event = await stripe.webhooks.constructEventAsync(body, signature, stripeWebhookSecret);
     } catch (err) {
       console.error('Webhook signature verification failed:', err);
       return new Response(

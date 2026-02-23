@@ -27,6 +27,57 @@ export const getCategoryGradient = (category: string): string => {
   return gradient || categoryGradients.default;
 };
 
+// Training-specific gradients for category/module cards
+const trainingGradients = [
+  'from-blue-500 to-indigo-600',
+  'from-emerald-500 to-teal-600',
+  'from-orange-500 to-amber-600',
+  'from-purple-500 to-violet-600',
+  'from-rose-500 to-pink-600',
+  'from-cyan-500 to-blue-600',
+  'from-lime-500 to-green-600',
+  'from-fuchsia-500 to-purple-600',
+] as const;
+
+const trainingKeywordMap: Record<string, string> = {
+  sales: 'from-amber-500 to-orange-600',
+  service: 'from-blue-500 to-cyan-600',
+  onboarding: 'from-emerald-500 to-green-600',
+  compliance: 'from-red-500 to-rose-600',
+  product: 'from-violet-500 to-purple-600',
+  leadership: 'from-indigo-500 to-blue-600',
+  communication: 'from-teal-500 to-emerald-600',
+  technology: 'from-slate-500 to-gray-600',
+  marketing: 'from-pink-500 to-rose-600',
+  closing: 'from-orange-500 to-red-600',
+  prospecting: 'from-sky-500 to-blue-600',
+  retention: 'from-purple-500 to-pink-600',
+};
+
+function hashString(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+export const getTrainingGradient = (name: string): string => {
+  const lower = name.toLowerCase();
+
+  // Check keyword matches
+  for (const [keyword, gradient] of Object.entries(trainingKeywordMap)) {
+    if (lower.includes(keyword)) {
+      return `bg-gradient-to-br ${gradient}`;
+    }
+  }
+
+  // Deterministic hash fallback
+  const index = hashString(lower) % trainingGradients.length;
+  return `bg-gradient-to-br ${trainingGradients[index]}`;
+};
+
 export const getCategoryLabel = (category: string): string => {
   const labels: Record<string, string> = {
     performance: 'Performance Analysis',

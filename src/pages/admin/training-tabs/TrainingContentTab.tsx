@@ -24,6 +24,7 @@ import { AttachmentUploader } from "@/components/training/AttachmentUploader";
 import { QuizBuilder } from "@/components/training/QuizBuilder";
 import { ExchangeShareModal } from "@/components/exchange/ExchangeShareModal";
 import { AIContentPanel } from "@/components/training/AIContentPanel";
+import { CoverImageUpload } from "@/components/training/CoverImageUpload";
 
 interface TrainingContentTabProps {
   agencyId: string;
@@ -87,6 +88,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
     description: '',
     sort_order: 0,
     is_active: true,
+    cover_image_url: '',
   });
 
   // Module state
@@ -97,6 +99,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
     description: '',
     sort_order: 0,
     is_active: true,
+    thumbnail_url: '',
   });
 
   // Lesson state - dialog open state derived from URL param
@@ -307,7 +310,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
     }
     setCategoryDialog(false);
     setEditingCategory(null);
-    setCategoryForm({ name: '', description: '', sort_order: 0, is_active: true });
+    setCategoryForm({ name: '', description: '', sort_order: 0, is_active: true, cover_image_url: '' });
   };
 
   const openCategoryDialog = (category?: any) => {
@@ -318,6 +321,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         description: category.description || '',
         sort_order: category.sort_order || 0,
         is_active: category.is_active !== false,
+        cover_image_url: category.cover_image_url || '',
       });
     } else {
       setEditingCategory(null);
@@ -326,6 +330,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         description: '',
         sort_order: categories?.length || 0,
         is_active: true,
+        cover_image_url: '',
       });
     }
     setCategoryDialog(true);
@@ -342,7 +347,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
     }
     setModuleDialog(false);
     setEditingModule(null);
-    setModuleForm({ name: '', description: '', sort_order: 0, is_active: true });
+    setModuleForm({ name: '', description: '', sort_order: 0, is_active: true, thumbnail_url: '' });
   };
 
   const openModuleDialog = (module?: any) => {
@@ -353,6 +358,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         description: module.description || '',
         sort_order: module.sort_order || 0,
         is_active: module.is_active !== false,
+        thumbnail_url: module.thumbnail_url || '',
       });
     } else {
       setEditingModule(null);
@@ -361,6 +367,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         description: '',
         sort_order: modules?.length || 0,
         is_active: true,
+        thumbnail_url: '',
       });
     }
     setModuleDialog(true);
@@ -865,6 +872,10 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                 placeholder="Category description"
               />
             </div>
+            <CoverImageUpload
+              imageUrl={categoryForm.cover_image_url}
+              onImageChange={(url) => setCategoryForm({ ...categoryForm, cover_image_url: url })}
+            />
             <div className="flex items-center gap-2">
               <Switch
                 checked={categoryForm.is_active}
@@ -907,6 +918,10 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                 placeholder="Module description"
               />
             </div>
+            <CoverImageUpload
+              imageUrl={moduleForm.thumbnail_url}
+              onImageChange={(url) => setModuleForm({ ...moduleForm, thumbnail_url: url })}
+            />
             <div className="flex items-center gap-2">
               <Switch
                 checked={moduleForm.is_active}

@@ -2,6 +2,8 @@
 -- 1. Search now splits on spaces and matches each word against first_name OR last_name
 -- 2. Cancel audit now checks for cancel_status = 'Saved' -> returns 'customer' instead of 'cancel_audit'
 
+DROP FUNCTION IF EXISTS public.get_contacts_by_stage(uuid, text, text, integer, integer);
+
 CREATE OR REPLACE FUNCTION get_contacts_by_stage(
   p_agency_id UUID,
   p_stage TEXT DEFAULT NULL,

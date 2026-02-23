@@ -1,6 +1,16 @@
 -- Add unique constraint to form_fields and seed built-in KPI fields
 -- First add the unique constraint
-ALTER TABLE form_fields ADD CONSTRAINT uidx_form_fields_template_key UNIQUE (form_template_id, key);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    WHERE c.conname = 'uidx_form_fields_template_key'
+      AND c.conrelid = 'public.form_fields'::regclass
+  ) THEN
+    ALTER TABLE public.form_fields ADD CONSTRAINT uidx_form_fields_template_key UNIQUE (form_template_id, key);
+  END IF;
+END $$;
 
 -- Seed built-in KPI fields for existing Sales and Service templates
 DO $$

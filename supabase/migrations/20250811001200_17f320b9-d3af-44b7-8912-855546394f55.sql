@@ -4,6 +4,28 @@
 
 -- Common implicit unique constraint name
 ALTER TABLE public.agencies DROP CONSTRAINT IF EXISTS agencies_name_key;
+ALTER TABLE public.agencies DROP CONSTRAINT IF EXISTS unique_agency_name;
+
+-- Remove any other unique constraints whose definition includes the name column.
+DO $$
+DECLARE
+  con_name text;
+BEGIN
+  FOR con_name IN
+    SELECT c.conname
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    JOIN pg_attribute a ON a.attrelid = c.conrelid
+      AND a.attnum = ANY (c.conkey)
+    WHERE n.nspname = 'public'
+      AND t.relname = 'agencies'
+      AND c.contype = 'u'
+      AND a.attname = 'name'
+  LOOP
+    EXECUTE format('ALTER TABLE public.agencies DROP CONSTRAINT IF EXISTS %I', con_name);
+  END LOOP;
+END $$;
 
 -- Drop any unique index on agencies(name) that might prevent duplicates
 DO $$
@@ -17,8 +39,20 @@ BEGIN
       AND tablename = 'agencies'
       AND indexdef ILIKE 'CREATE UNIQUE INDEX%'
       AND indexdef ILIKE '%(name)%'
+      AND indexname NOT IN (
+        SELECT c2.conname
+        FROM pg_constraint c2
+        JOIN pg_class t2 ON t2.oid = c2.conrelid
+        JOIN pg_namespace n2 ON n2.oid = t2.relnamespace
+        JOIN pg_class i2 ON i2.oid = c2.conindid
+        WHERE n2.nspname = 'public'
+          AND t2.relname = 'agencies'
+          AND c2.contype IN ('p', 'u')
+          AND i2.relname IS NOT NULL
+          AND i2.relname = indexname
+      )
   LOOP
-    EXECUTE 'DROP INDEX IF EXISTS ' || quote_ident(idx);
+    EXECUTE format('DROP INDEX IF EXISTS public.%I', idx);
   END LOOP;
 END $$;
 
@@ -60,7 +94,13 @@ $function$;
 
 -- 3a) Clear storage metadata for the uploads bucket (objects). This removes DB rows for files.
 --     Note: Actual object bytes are also removed when DB rows are deleted.
-DELETE FROM storage.objects WHERE bucket_id = 'uploads';
+DO $$
+BEGIN
+  DELETE FROM storage.objects WHERE bucket_id = 'uploads';
+EXCEPTION
+  WHEN insufficient_privilege OR others THEN
+    RAISE NOTICE 'Skipping storage.objects purge due environment restrictions: %', SQLERRM;
+END $$;
 
 -- 3b) Delete rows from dependent tables in a safe order
 

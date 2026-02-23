@@ -59,10 +59,6 @@ BEGIN
     IF NEW.full_name IS NOT NULL THEN
       NEW.full_name := public.normalize_person_name(NEW.full_name);
     END IF;
-  ELSIF TG_TABLE_NAME = 'key_employees' THEN
-    IF NEW.full_name IS NOT NULL THEN
-      NEW.full_name := public.normalize_person_name(NEW.full_name);
-    END IF;
   END IF;
 
   RETURN NEW;
@@ -87,11 +83,8 @@ BEFORE INSERT OR UPDATE OF full_name ON public.profiles
 FOR EACH ROW
 EXECUTE FUNCTION public.normalize_person_name_fields();
 
-DROP TRIGGER IF EXISTS trg_normalize_key_employees_full_name ON public.key_employees;
-CREATE TRIGGER trg_normalize_key_employees_full_name
-BEFORE INSERT OR UPDATE OF full_name ON public.key_employees
-FOR EACH ROW
-EXECUTE FUNCTION public.normalize_person_name_fields();
+-- key_employees has no full_name column (name comes from linked profiles record)
+-- so no trigger is needed for that table.
 
 UPDATE public.team_members
 SET name = public.normalize_person_name(name)
@@ -104,11 +97,6 @@ WHERE display_name IS NOT NULL
   AND display_name <> public.normalize_person_name(display_name);
 
 UPDATE public.profiles
-SET full_name = public.normalize_person_name(full_name)
-WHERE full_name IS NOT NULL
-  AND full_name <> public.normalize_person_name(full_name);
-
-UPDATE public.key_employees
 SET full_name = public.normalize_person_name(full_name)
 WHERE full_name IS NOT NULL
   AND full_name <> public.normalize_person_name(full_name);

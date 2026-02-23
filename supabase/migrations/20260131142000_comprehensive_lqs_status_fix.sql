@@ -16,68 +16,74 @@ DECLARE
   v_linked INT := 0;
   v_rec RECORD;
 BEGIN
-  FOR v_rec IN
-    SELECT
-      h.id as household_id,
-      h.agency_id,
-      h.first_name,
-      h.last_name,
-      h.zip_code,
-      c.id as contact_id
-    FROM lqs_households h
-    CROSS JOIN LATERAL (
-      SELECT ac.id
-      FROM agency_contacts ac
-      WHERE ac.agency_id = h.agency_id
-        AND ac.household_key = h.household_key
-      LIMIT 1
-    ) c
-    WHERE h.contact_id IS NULL
-  LOOP
-    UPDATE lqs_households
-    SET contact_id = v_rec.contact_id, updated_at = now()
-    WHERE id = v_rec.household_id;
+  IF to_regclass('public.agency_contacts') IS NOT NULL THEN
+    FOR v_rec IN
+      SELECT
+        h.id as household_id,
+        h.agency_id,
+        h.first_name,
+        h.last_name,
+        h.zip_code,
+        c.id as contact_id
+      FROM lqs_households h
+      CROSS JOIN LATERAL (
+        SELECT ac.id
+        FROM agency_contacts ac
+        WHERE ac.agency_id = h.agency_id
+          AND ac.household_key = h.household_key
+        LIMIT 1
+      ) c
+      WHERE h.contact_id IS NULL
+    LOOP
+      UPDATE lqs_households
+      SET contact_id = v_rec.contact_id, updated_at = now()
+      WHERE id = v_rec.household_id;
 
-    v_linked := v_linked + 1;
-  END LOOP;
+      v_linked := v_linked + 1;
+    END LOOP;
 
-  RAISE NOTICE 'Linked % LQS households to contacts by household_key', v_linked;
+    RAISE NOTICE 'Linked % LQS households to contacts by household_key', v_linked;
+  ELSE
+    RAISE NOTICE 'Skipped Step 1 (agency_contacts table is missing).';
+  END IF;
 END $$;
 
 
--- Step 2: Find LQS households where contact has sales in the sales table
--- (even if not linked through lqs_sales)
 DO $$
 DECLARE
   v_updated INT;
 BEGIN
-  WITH customers_with_sales AS (
-    SELECT DISTINCT h.id as household_id
-    FROM lqs_households h
-    INNER JOIN sales s ON
-      s.agency_id = h.agency_id
-      AND UPPER(REGEXP_REPLACE(
-        SPLIT_PART(s.customer_name, ' ', array_length(string_to_array(s.customer_name, ' '), 1)),
-        '[^A-Z]', '', 'g'
-      )) = UPPER(REGEXP_REPLACE(h.last_name, '[^A-Z]', '', 'g'))
-      AND UPPER(REGEXP_REPLACE(
-        SPLIT_PART(s.customer_name, ' ', 1),
-        '[^A-Z]', '', 'g'
-      )) = UPPER(REGEXP_REPLACE(h.first_name, '[^A-Z]', '', 'g'))
-      AND COALESCE(s.customer_zip, '') = COALESCE(h.zip_code, '')
-    WHERE h.status != 'sold'
-  )
-  UPDATE lqs_households h
-  SET
-    status = 'sold',
-    sold_date = COALESCE(h.sold_date, CURRENT_DATE),
-    needs_attention = false,
-    updated_at = now()
-  FROM customers_with_sales cws
-  WHERE h.id = cws.household_id;
+  IF to_regclass('public.sales') IS NOT NULL THEN
+    WITH customers_with_sales AS (
+      SELECT DISTINCT h.id as household_id
+      FROM lqs_households h
+      INNER JOIN sales s ON
+        s.agency_id = h.agency_id
+        AND UPPER(REGEXP_REPLACE(
+          SPLIT_PART(s.customer_name, ' ', array_length(string_to_array(s.customer_name, ' '), 1)),
+          '[^A-Z]', '', 'g'
+        )) = UPPER(REGEXP_REPLACE(h.last_name, '[^A-Z]', '', 'g'))
+        AND UPPER(REGEXP_REPLACE(
+          SPLIT_PART(s.customer_name, ' ', 1),
+          '[^A-Z]', '', 'g'
+        )) = UPPER(REGEXP_REPLACE(h.first_name, '[^A-Z]', '', 'g'))
+        AND COALESCE(s.customer_zip, '') = COALESCE(h.zip_code, '')
+      WHERE h.status != 'sold'
+    )
+    UPDATE lqs_households h
+    SET
+      status = 'sold',
+      sold_date = COALESCE(h.sold_date, CURRENT_DATE),
+      needs_attention = false,
+      updated_at = now()
+    FROM customers_with_sales cws
+    WHERE h.id = cws.household_id;
 
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  RAISE NOTICE 'Updated % LQS households to sold (matched to sales table by name/zip)', v_updated;
+    GET DIAGNOSTICS v_updated = ROW_COUNT;
+    RAISE NOTICE 'Updated % LQS households to sold (matched to sales table by name/zip)', v_updated;
+  ELSE
+    RAISE NOTICE 'Skipped Step 2 (sales table is missing).';
+  END IF;
 END $$;
 
 
@@ -86,28 +92,32 @@ DO $$
 DECLARE
   v_updated INT;
 BEGIN
-  WITH won_back_matches AS (
-    SELECT DISTINCT h.id as household_id
-    FROM lqs_households h
-    INNER JOIN winback_households w ON
-      w.agency_id = h.agency_id
-      AND UPPER(REGEXP_REPLACE(w.last_name, '[^A-Z]', '', 'g')) = UPPER(REGEXP_REPLACE(h.last_name, '[^A-Z]', '', 'g'))
-      AND UPPER(REGEXP_REPLACE(w.first_name, '[^A-Z]', '', 'g')) = UPPER(REGEXP_REPLACE(h.first_name, '[^A-Z]', '', 'g'))
-      AND COALESCE(w.zip_code, '') = COALESCE(h.zip_code, '')
-      AND w.status = 'won_back'
-    WHERE h.status != 'sold'
-  )
-  UPDATE lqs_households h
-  SET
-    status = 'sold',
-    sold_date = COALESCE(h.sold_date, CURRENT_DATE),
-    needs_attention = false,
-    updated_at = now()
-  FROM won_back_matches wbm
-  WHERE h.id = wbm.household_id;
+  IF to_regclass('public.winback_households') IS NOT NULL THEN
+    WITH won_back_matches AS (
+      SELECT DISTINCT h.id as household_id
+      FROM lqs_households h
+      INNER JOIN winback_households w ON
+        w.agency_id = h.agency_id
+        AND UPPER(REGEXP_REPLACE(w.last_name, '[^A-Z]', '', 'g')) = UPPER(REGEXP_REPLACE(h.last_name, '[^A-Z]', '', 'g'))
+        AND UPPER(REGEXP_REPLACE(w.first_name, '[^A-Z]', '', 'g')) = UPPER(REGEXP_REPLACE(h.first_name, '[^A-Z]', '', 'g'))
+        AND COALESCE(w.zip_code, '') = COALESCE(h.zip_code, '')
+        AND w.status = 'won_back'
+      WHERE h.status != 'sold'
+    )
+    UPDATE lqs_households h
+    SET
+      status = 'sold',
+      sold_date = COALESCE(h.sold_date, CURRENT_DATE),
+      needs_attention = false,
+      updated_at = now()
+    FROM won_back_matches wbm
+    WHERE h.id = wbm.household_id;
 
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  RAISE NOTICE 'Updated % LQS households to sold (matched to won_back winback by name/zip)', v_updated;
+    GET DIAGNOSTICS v_updated = ROW_COUNT;
+    RAISE NOTICE 'Updated % LQS households to sold (matched to won_back winback by name/zip)', v_updated;
+  ELSE
+    RAISE NOTICE 'Skipped Step 3 (winback_households table is missing).';
+  END IF;
 END $$;
 
 
@@ -118,28 +128,32 @@ DO $$
 DECLARE
   v_updated INT;
 BEGIN
-  WITH cancel_audit_matches AS (
-    SELECT DISTINCT h.id as household_id
-    FROM lqs_households h
-    INNER JOIN cancel_audit_records c ON
-      c.agency_id = h.agency_id
-      AND UPPER(REGEXP_REPLACE(COALESCE(c.insured_last_name, ''), '[^A-Z]', '', 'g')) = UPPER(REGEXP_REPLACE(h.last_name, '[^A-Z]', '', 'g'))
-      AND UPPER(REGEXP_REPLACE(COALESCE(c.insured_first_name, ''), '[^A-Z]', '', 'g')) = UPPER(REGEXP_REPLACE(h.first_name, '[^A-Z]', '', 'g'))
-    WHERE h.status != 'sold'
-      AND c.insured_last_name IS NOT NULL
-      AND c.insured_first_name IS NOT NULL
-  )
-  UPDATE lqs_households h
-  SET
-    status = 'sold',
-    sold_date = COALESCE(h.sold_date, CURRENT_DATE),
-    needs_attention = false,
-    updated_at = now()
-  FROM cancel_audit_matches cam
-  WHERE h.id = cam.household_id;
+  IF to_regclass('public.cancel_audit_records') IS NOT NULL THEN
+    WITH cancel_audit_matches AS (
+      SELECT DISTINCT h.id as household_id
+      FROM lqs_households h
+      INNER JOIN cancel_audit_records c ON
+        c.agency_id = h.agency_id
+        AND UPPER(REGEXP_REPLACE(COALESCE(c.insured_last_name, ''), '[^A-Z]', '', 'g')) = UPPER(REGEXP_REPLACE(h.last_name, '[^A-Z]', '', 'g'))
+        AND UPPER(REGEXP_REPLACE(COALESCE(c.insured_first_name, ''), '[^A-Z]', '', 'g')) = UPPER(REGEXP_REPLACE(h.first_name, '[^A-Z]', '', 'g'))
+      WHERE h.status != 'sold'
+        AND c.insured_last_name IS NOT NULL
+        AND c.insured_first_name IS NOT NULL
+    )
+    UPDATE lqs_households h
+    SET
+      status = 'sold',
+      sold_date = COALESCE(h.sold_date, CURRENT_DATE),
+      needs_attention = false,
+      updated_at = now()
+    FROM cancel_audit_matches cam
+    WHERE h.id = cam.household_id;
 
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  RAISE NOTICE 'Updated % LQS households to sold (matched to cancel_audit by name)', v_updated;
+    GET DIAGNOSTICS v_updated = ROW_COUNT;
+    RAISE NOTICE 'Updated % LQS households to sold (matched to cancel_audit by name)', v_updated;
+  ELSE
+    RAISE NOTICE 'Skipped Step 4 (cancel_audit_records table is missing).';
+  END IF;
 END $$;
 
 
@@ -149,29 +163,33 @@ DO $$
 DECLARE
   v_updated INT;
 BEGIN
-  WITH renewal_success_matches AS (
-    SELECT DISTINCT h.id as household_id
-    FROM lqs_households h
-    INNER JOIN renewal_records r ON
-      r.agency_id = h.agency_id
-      AND UPPER(REGEXP_REPLACE(COALESCE(r.last_name, ''), '[^A-Z]', '', 'g')) = UPPER(REGEXP_REPLACE(h.last_name, '[^A-Z]', '', 'g'))
-      AND UPPER(REGEXP_REPLACE(COALESCE(r.first_name, ''), '[^A-Z]', '', 'g')) = UPPER(REGEXP_REPLACE(h.first_name, '[^A-Z]', '', 'g'))
-      AND r.current_status = 'success'
-    WHERE h.status != 'sold'
-      AND r.last_name IS NOT NULL
-      AND r.first_name IS NOT NULL
-  )
-  UPDATE lqs_households h
-  SET
-    status = 'sold',
-    sold_date = COALESCE(h.sold_date, CURRENT_DATE),
-    needs_attention = false,
-    updated_at = now()
-  FROM renewal_success_matches rsm
-  WHERE h.id = rsm.household_id;
+  IF to_regclass('public.renewal_records') IS NOT NULL THEN
+    WITH renewal_success_matches AS (
+      SELECT DISTINCT h.id as household_id
+      FROM lqs_households h
+      INNER JOIN renewal_records r ON
+        r.agency_id = h.agency_id
+        AND UPPER(REGEXP_REPLACE(COALESCE(r.last_name, ''), '[^A-Z]', '', 'g')) = UPPER(REGEXP_REPLACE(h.last_name, '[^A-Z]', '', 'g'))
+        AND UPPER(REGEXP_REPLACE(COALESCE(r.first_name, ''), '[^A-Z]', '', 'g')) = UPPER(REGEXP_REPLACE(h.first_name, '[^A-Z]', '', 'g'))
+        AND r.current_status = 'success'
+      WHERE h.status != 'sold'
+        AND r.last_name IS NOT NULL
+        AND r.first_name IS NOT NULL
+    )
+    UPDATE lqs_households h
+    SET
+      status = 'sold',
+      sold_date = COALESCE(h.sold_date, CURRENT_DATE),
+      needs_attention = false,
+      updated_at = now()
+    FROM renewal_success_matches rsm
+    WHERE h.id = rsm.household_id;
 
-  GET DIAGNOSTICS v_updated = ROW_COUNT;
-  RAISE NOTICE 'Updated % LQS households to sold (matched to successful renewal by name)', v_updated;
+    GET DIAGNOSTICS v_updated = ROW_COUNT;
+    RAISE NOTICE 'Updated % LQS households to sold (matched to successful renewal by name)', v_updated;
+  ELSE
+    RAISE NOTICE 'Skipped Step 5 (renewal_records table is missing).';
+  END IF;
 END $$;
 
 

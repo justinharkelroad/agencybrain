@@ -65,9 +65,33 @@ export interface LqsRoiSummary {
   bundleRatio: number | null;
 }
 
+export interface ZipRoiRow {
+  zipCode: string;
+  spendCents: number;
+  totalLeads: number;
+  totalQuotes: number;
+  totalSales: number;
+  premiumCents: number;
+  commissionEarned: number;
+  roi: number | null;
+  costPerSale: number | null;
+  quotedPolicies: number;
+  quotedItems: number;
+  writtenPolicies: number;
+  writtenItems: number;
+  costPerQuotedHousehold: number | null;
+  costPerQuotedPolicy: number | null;
+  costPerQuotedItem: number | null;
+  householdAcqCost: number | null;
+  policyAcqCost: number | null;
+  itemAcqCost: number | null;
+  closeRatio: number | null;
+}
+
 export interface LqsRoiAnalytics {
   summary: LqsRoiSummary;
   byLeadSource: LeadSourceRoiRow[];
+  byZipCode: ZipRoiRow[];
 }
 
 export type DateRangePreset = 'last30' | 'last60' | 'last90' | 'quarter' | 'ytd' | 'all';
@@ -102,6 +126,7 @@ interface HouseholdRow {
   lead_source_id: string | null;
   created_at: string;
   lead_received_date: string | null;
+  zip_code: string | null;
   sales: Array<{
     sale_date: string | null;
     premium_cents: number | null;
@@ -122,7 +147,10 @@ interface QuoteRow {
   premium_cents: number | null;
   items_quoted: number | null;
   product_type: string | null;
-  household: { lead_source_id: string | null } | null;
+  household: {
+    lead_source_id: string | null;
+    zip_code: string | null;
+  } | null;
 }
 
 // Sale row for activity view
@@ -133,13 +161,17 @@ interface SaleRow {
   policies_sold: number | null;
   items_sold: number | null;
   product_type: string | null;
-  household: { lead_source_id: string | null } | null;
+  household: {
+    lead_source_id: string | null;
+    zip_code: string | null;
+  } | null;
 }
 
 // Lead row for activity view
 interface LeadRow {
   id: string;
   lead_source_id: string | null;
+  zip_code: string | null;
   lead_received_date: string | null;
   created_at: string;
 }
@@ -196,6 +228,7 @@ export function useLqsRoiAnalytics(
             id,
             status,
             lead_source_id,
+            zip_code,
             created_at,
             lead_received_date,
             sales:lqs_sales(sale_date, premium_cents, policies_sold, items_sold, product_type),
@@ -231,7 +264,7 @@ export function useLqsRoiAnalytics(
         // Filter by lead_received_date at database level (the correct date field)
         const { data: page, error } = await supabase
           .from('lqs_households')
-          .select('id, lead_source_id, lead_received_date, created_at')
+          .select('id, lead_source_id, zip_code, lead_received_date, created_at')
           .eq('agency_id', agencyId!)
           .gte('lead_received_date', startStr)
           .lte('lead_received_date', `${endStr}T23:59:59`)
@@ -263,7 +296,7 @@ export function useLqsRoiAnalytics(
       for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
         const { data: page, error } = await supabase
           .from('lqs_quotes')
-          .select('household_id, quote_date, premium_cents, items_quoted, product_type, household:lqs_households!inner(lead_source_id)')
+          .select('household_id, quote_date, premium_cents, items_quoted, product_type, household:lqs_households!inner(lead_source_id, zip_code)')
           .eq('agency_id', agencyId!)
           .gte('quote_date', startStr)
           .lte('quote_date', endStr)
@@ -295,7 +328,7 @@ export function useLqsRoiAnalytics(
       for (let from = 0; from < MAX_FETCH; from += PAGE_SIZE) {
         const { data: page, error } = await supabase
           .from('lqs_sales')
-          .select('household_id, sale_date, premium_cents, policies_sold, items_sold, product_type, household:lqs_households!inner(lead_source_id)')
+          .select('household_id, sale_date, premium_cents, policies_sold, items_sold, product_type, household:lqs_households!inner(lead_source_id, zip_code)')
           .eq('agency_id', agencyId!)
           .gte('sale_date', startStr)
           .lte('sale_date', endStr)
@@ -409,6 +442,31 @@ export function useLqsRoiAnalytics(
 
     const totalSpendCents = Array.from(spendBySource.values()).reduce((sum, val) => sum + val, 0);
 
+    const normalizeZip = (zipCode: string | null | undefined): string | null => {
+      const trimmed = zipCode?.trim();
+      return trimmed && trimmed.length > 0 ? trimmed : null;
+    };
+
+    interface ZipAllocationBasis {
+      leads: number;
+      quotedHouseholds: number;
+    }
+
+    interface ZipRoiMetrics {
+      leads: number;
+      quotedHouseholds: number;
+      soldHouseholds: number;
+      premiumCents: number;
+      quotedPolicies: number;
+      quotedItems: number;
+      writtenPolicies: number;
+      writtenItems: number;
+      sourceZipCounts: Map<string | null, ZipAllocationBasis>;
+      // Allocated metric values
+      spendCents: number;
+      soldHouseholdIds: Set<string>;
+    }
+
     // =============== PIPELINE VIEW (All Time) ===============
     if (!isActivityView) {
       const allHouseholds = householdsQuery.data;
@@ -417,12 +475,12 @@ export function useLqsRoiAnalytics(
       // Calculate pipeline metrics by current status
       const openLeads = allHouseholds.filter(h => h.status === 'lead').length;
       const quotedHouseholdsCount = allHouseholds.filter(h => h.status === 'quoted').length;
-      const soldHouseholdsCount = allHouseholds.filter(h => h.status === 'sold').length;
+      const soldHouseholdIdsBySales = new Set<string>();
 
       // Legacy total counts for funnel calculations
       const totalLeads = allHouseholds.length;
       const totalQuoted = allHouseholds.filter(h => h.status === 'quoted' || h.status === 'sold').length;
-      const totalSold = soldHouseholdsCount;
+      let totalSold = 0;
 
       // Calculate totals for policies/items
       let totalQuotedPolicies = 0;
@@ -437,7 +495,7 @@ export function useLqsRoiAnalytics(
 
       const commissionEarned = premiumSoldCents * (commissionRate / 100);
       const quoteRate = totalLeads > 0 ? (totalQuoted / totalLeads) * 100 : 0;
-      const closeRate = totalQuoted > 0 ? (totalSold / totalQuoted) * 100 : 0;
+      let closeRate = 0;
       const overallRoi = totalSpendCents > 0 ? commissionEarned / totalSpendCents : null;
 
       // Enhanced metrics structure per source
@@ -456,6 +514,8 @@ export function useLqsRoiAnalytics(
       }
 
       const bySourceMap = new Map<string | null, SourceMetrics>();
+      const byZipMap = new Map<string, ZipRoiMetrics>();
+      const sourceZipAllocationBasis = new Map<string | null, Map<string, ZipAllocationBasis>>();
 
       // Helper to get or create source metrics
       const getSourceMetrics = (sourceId: string | null): SourceMetrics => {
@@ -476,15 +536,64 @@ export function useLqsRoiAnalytics(
         return bySourceMap.get(sourceId)!;
       };
 
+      const getZipMetrics = (zipCode: string): ZipRoiMetrics => {
+        if (!byZipMap.has(zipCode)) {
+          byZipMap.set(zipCode, {
+            leads: 0,
+            quotedHouseholds: 0,
+            soldHouseholds: 0,
+            premiumCents: 0,
+            quotedPolicies: 0,
+            quotedItems: 0,
+            writtenPolicies: 0,
+            writtenItems: 0,
+            sourceZipCounts: new Map(),
+            spendCents: 0,
+            soldHouseholdIds: new Set(),
+          });
+        }
+        return byZipMap.get(zipCode)!;
+      };
+
       allHouseholds.forEach(h => {
         const sourceId = h.lead_source_id;
         const metrics = getSourceMetrics(sourceId);
+        const zipCode = normalizeZip(h.zip_code);
 
         metrics.leads++;
 
         // Count quoted households and aggregate quote data
-        if (h.status === 'quoted' || h.status === 'sold') {
+        const isQuoted = h.status === 'quoted' || h.status === 'sold';
+        if (isQuoted) {
           metrics.quotedHouseholds++;
+        }
+
+        if (zipCode) {
+          const zipMetrics = getZipMetrics(zipCode);
+          zipMetrics.leads++;
+          if (isQuoted) {
+            zipMetrics.quotedHouseholds++;
+          }
+
+          let sourceZipMap = sourceZipAllocationBasis.get(sourceId);
+          if (!sourceZipMap) {
+            sourceZipMap = new Map();
+            sourceZipAllocationBasis.set(sourceId, sourceZipMap);
+          }
+          const sourceZipCounts = sourceZipMap.get(zipCode) || { leads: 0, quotedHouseholds: 0 };
+          sourceZipCounts.leads += 1;
+          if (isQuoted) {
+            sourceZipCounts.quotedHouseholds += 1;
+          }
+          sourceZipMap.set(zipCode, sourceZipCounts);
+
+          const sourceZipCountsForZip = zipMetrics.sourceZipCounts;
+          sourceZipCountsForZip.set(sourceId, sourceZipCountsForZip.get(sourceId) || { leads: 0, quotedHouseholds: 0 });
+          const zipSourceCounts = sourceZipCountsForZip.get(sourceId)!;
+          zipSourceCounts.leads += 1;
+          if (isQuoted) {
+            zipSourceCounts.quotedHouseholds += 1;
+          }
         }
 
         // Aggregate quote data (policies = count of quotes, items = sum of items_quoted)
@@ -495,16 +604,34 @@ export function useLqsRoiAnalytics(
         totalQuotedItems += quotes.reduce((sum, q) => sum + (q.items_quoted || 1), 0);
 
         // Handle sold households
-        if (h.status === 'sold') {
-          metrics.soldHouseholds++;
-          metrics.soldHouseholdIds.add(h.id);
+        const sales = h.sales || [];
+        if (sales.length > 0) {
+          soldHouseholdIdsBySales.add(h.id);
+          if (!metrics.soldHouseholdIds.has(h.id)) {
+            metrics.soldHouseholdIds.add(h.id);
+            metrics.soldHouseholds++;
+          }
 
-          const sales = h.sales || [];
-          metrics.premiumCents += sales.reduce((sum, sale) => sum + (sale.premium_cents || 0), 0);
-          metrics.writtenPolicies += sales.reduce((sum, sale) => sum + (sale.policies_sold || 1), 0);
-          metrics.writtenItems += sales.reduce((sum, sale) => sum + (sale.items_sold || 1), 0);
-          totalWrittenPolicies += sales.reduce((sum, sale) => sum + (sale.policies_sold || 1), 0);
-          totalWrittenItems += sales.reduce((sum, sale) => sum + (sale.items_sold || 1), 0);
+          const householdPremium = sales.reduce((sum, sale) => sum + (sale.premium_cents || 0), 0);
+          const writtenPoliciesForHousehold = sales.reduce((sum, sale) => sum + (sale.policies_sold || 1), 0);
+          const writtenItemsForHousehold = sales.reduce((sum, sale) => sum + (sale.items_sold || 1), 0);
+
+          metrics.premiumCents += householdPremium;
+          metrics.writtenPolicies += writtenPoliciesForHousehold;
+          metrics.writtenItems += writtenItemsForHousehold;
+          totalWrittenPolicies += writtenPoliciesForHousehold;
+          totalWrittenItems += writtenItemsForHousehold;
+
+          if (zipCode) {
+            const zipMetrics = getZipMetrics(zipCode);
+            if (!zipMetrics.soldHouseholdIds.has(h.id)) {
+              zipMetrics.soldHouseholdIds.add(h.id);
+              zipMetrics.soldHouseholds++;
+            }
+            zipMetrics.premiumCents += householdPremium;
+            zipMetrics.writtenPolicies += writtenPoliciesForHousehold;
+            zipMetrics.writtenItems += writtenItemsForHousehold;
+          }
 
           // Track product types for bundle ratio
           if (!metrics.productTypesPerHousehold.has(h.id)) {
@@ -517,6 +644,69 @@ export function useLqsRoiAnalytics(
           });
         }
       });
+
+      totalSold = soldHouseholdIdsBySales.size;
+      closeRate = totalQuoted > 0 ? (totalSold / totalQuoted) * 100 : 0;
+
+      // Determine source allocation base totals (quoted households preferred, fallback to leads)
+      const sourceAllocationBase = new Map<string | null, number>();
+      bySourceMap.forEach((metrics, sourceId) => {
+        const quoted = metrics.quotedHouseholds;
+        sourceAllocationBase.set(sourceId, quoted > 0 ? quoted : metrics.leads);
+      });
+
+      // Allocate lead source spend to ZIPs by quoted households (fallback to lead volume)
+      byZipMap.forEach((zipMetrics, zipCode) => {
+        let allocatedSpend = 0;
+        zipMetrics.sourceZipCounts.forEach((counts, sourceId) => {
+          const sourceSpend = spendBySource.get(sourceId) || 0;
+          const sourceTotal = sourceAllocationBase.get(sourceId) || 0;
+          const zipBasis = counts.quotedHouseholds > 0 ? counts.quotedHouseholds : counts.leads;
+          if (sourceSpend > 0 && sourceTotal > 0 && zipBasis > 0) {
+            allocatedSpend += Math.round((sourceSpend * zipBasis) / sourceTotal);
+          }
+        });
+        zipMetrics.spendCents = allocatedSpend;
+      });
+
+      const byZipCode: ZipRoiRow[] = Array.from(byZipMap.entries())
+        .map(([zipCode, metrics]) => {
+          const spendCents = metrics.spendCents || 0;
+          const commissionEarned = metrics.premiumCents * (commissionRate / 100);
+          const roi = spendCents > 0 ? commissionEarned / spendCents : null;
+          const costPerSale = metrics.soldHouseholds > 0 ? spendCents / metrics.soldHouseholds : null;
+          const closeRatio = metrics.quotedHouseholds > 0 ? (metrics.soldHouseholds / metrics.quotedHouseholds) * 100 : null;
+          const costPerQuotedHousehold = metrics.quotedHouseholds > 0 ? spendCents / metrics.quotedHouseholds : null;
+          const costPerQuotedPolicy = metrics.quotedPolicies > 0 ? spendCents / metrics.quotedPolicies : null;
+          const costPerQuotedItem = metrics.quotedItems > 0 ? spendCents / metrics.quotedItems : null;
+          const householdAcqCost = metrics.soldHouseholds > 0 ? spendCents / metrics.soldHouseholds : null;
+          const policyAcqCost = metrics.writtenPolicies > 0 ? spendCents / metrics.writtenPolicies : null;
+          const itemAcqCost = metrics.writtenItems > 0 ? spendCents / metrics.writtenItems : null;
+
+          return {
+            zipCode,
+            spendCents,
+            totalLeads: metrics.leads,
+            totalQuotes: metrics.quotedHouseholds,
+            totalSales: metrics.soldHouseholds,
+            premiumCents: metrics.premiumCents,
+            commissionEarned,
+            roi,
+            costPerSale,
+            quotedPolicies: metrics.quotedPolicies,
+            quotedItems: metrics.quotedItems,
+            writtenPolicies: metrics.writtenPolicies,
+            writtenItems: metrics.writtenItems,
+            costPerQuotedHousehold,
+            costPerQuotedPolicy,
+            costPerQuotedItem,
+            householdAcqCost,
+            policyAcqCost,
+            itemAcqCost,
+            closeRatio,
+          };
+        })
+        .filter(row => row.zipCode);
 
       // Calculate overall bundle ratio
       let bundledHouseholds = 0;
@@ -595,7 +785,7 @@ export function useLqsRoiAnalytics(
       const summary: LqsRoiSummary = {
         openLeads,
         quotedHouseholds: quotedHouseholdsCount,
-        soldHouseholds: soldHouseholdsCount,
+        soldHouseholds: soldHouseholdIdsBySales.size,
         leadsReceived: 0, // Not applicable in pipeline view
         quotesCreated: 0,
         salesClosed: 0,
@@ -608,7 +798,7 @@ export function useLqsRoiAnalytics(
         commissionRate,
         totalLeads,
         totalQuoted,
-        totalSold,
+        totalSold: soldHouseholdIdsBySales.size,
         isActivityView: false,
         // Enhanced summary metrics
         totalQuotedPolicies,
@@ -618,7 +808,7 @@ export function useLqsRoiAnalytics(
         bundleRatio: overallBundleRatio,
       };
 
-      return { summary, byLeadSource };
+      return { summary, byLeadSource, byZipCode };
     }
 
     // =============== ACTIVITY VIEW (Date Filtered) ===============
@@ -660,6 +850,8 @@ export function useLqsRoiAnalytics(
     }
 
     const bySourceMap = new Map<string | null, ActivitySourceMetrics>();
+    const byZipMap = new Map<string, ZipRoiMetrics>();
+    const sourceZipAllocationBasis = new Map<string | null, Map<string, ZipAllocationBasis>>();
 
     // Helper to get or create source metrics
     const getSourceMetrics = (sourceId: string | null): ActivitySourceMetrics => {
@@ -679,25 +871,90 @@ export function useLqsRoiAnalytics(
       return bySourceMap.get(sourceId)!;
     };
 
+    const getZipMetrics = (zipCode: string): ZipRoiMetrics => {
+      if (!byZipMap.has(zipCode)) {
+        byZipMap.set(zipCode, {
+          leads: 0,
+          quotedHouseholds: 0,
+          soldHouseholds: 0,
+          premiumCents: 0,
+          quotedPolicies: 0,
+          quotedItems: 0,
+          writtenPolicies: 0,
+          writtenItems: 0,
+          sourceZipCounts: new Map(),
+          spendCents: 0,
+          soldHouseholdIds: new Set(),
+        });
+      }
+      return byZipMap.get(zipCode)!;
+    };
+
     // Count leads received by source
     leadsReceived.forEach(l => {
       const sourceId = l.lead_source_id;
       const metrics = getSourceMetrics(sourceId);
       metrics.leads++;
+
+      const zipCode = normalizeZip(l.zip_code);
+      if (zipCode) {
+        const zipMetrics = getZipMetrics(zipCode);
+        zipMetrics.leads++;
+
+        let sourceZipMap = sourceZipAllocationBasis.get(sourceId);
+        if (!sourceZipMap) {
+          sourceZipMap = new Map();
+          sourceZipAllocationBasis.set(sourceId, sourceZipMap);
+        }
+        const sourceZipCounts = sourceZipMap.get(zipCode) || { leads: 0, quotedHouseholds: 0 };
+        sourceZipCounts.leads += 1;
+        sourceZipMap.set(zipCode, sourceZipCounts);
+
+        const zipSourceCounts = zipMetrics.sourceZipCounts.get(sourceId) || { leads: 0, quotedHouseholds: 0 };
+        zipSourceCounts.leads += 1;
+        zipMetrics.sourceZipCounts.set(sourceId, zipSourceCounts);
+      }
     });
 
     // Aggregate quote data by source
     quotesCreated.forEach(q => {
       const sourceId = q.household?.lead_source_id ?? null;
+      const zipCode = normalizeZip(q.household?.zip_code);
       const metrics = getSourceMetrics(sourceId);
+      const isFirstQuotedInHousehold = !metrics.quotedHouseholdIds.has(q.household_id);
       metrics.quotedHouseholdIds.add(q.household_id);
       metrics.quotedPolicies++;
       metrics.quotedItems += q.items_quoted || 1;
+
+      if (zipCode) {
+        const zipMetrics = getZipMetrics(zipCode);
+        zipMetrics.quotedPolicies += 1;
+        zipMetrics.quotedItems += q.items_quoted || 1;
+
+        if (isFirstQuotedInHousehold) {
+          zipMetrics.quotedHouseholds++;
+
+          const sourceZipMap = sourceZipAllocationBasis.get(sourceId) ?? new Map();
+          const sourceZipCounts = sourceZipMap.get(zipCode);
+          if (sourceZipCounts) {
+            sourceZipCounts.quotedHouseholds += 1;
+          } else {
+            sourceZipMap.set(zipCode, { leads: 0, quotedHouseholds: 1 });
+          }
+          if (!sourceZipAllocationBasis.has(sourceId)) {
+            sourceZipAllocationBasis.set(sourceId, sourceZipMap);
+          }
+          const zipSourceCounts = zipMetrics.sourceZipCounts.get(sourceId) || { leads: 0, quotedHouseholds: 0 };
+          zipSourceCounts.quotedHouseholds += 1;
+          zipMetrics.sourceZipCounts.set(sourceId, zipSourceCounts);
+        }
+      }
     });
 
     // Aggregate sales data by source
     salesClosed.forEach(s => {
       const sourceId = s.household?.lead_source_id ?? null;
+      const zipCode = normalizeZip(s.household?.zip_code);
       const metrics = getSourceMetrics(sourceId);
       metrics.soldHouseholdIds.add(s.household_id);
       metrics.premiumCents += s.premium_cents || 0;
@@ -710,6 +967,17 @@ export function useLqsRoiAnalytics(
       }
       if (s.product_type) {
         metrics.productTypesPerHousehold.get(s.household_id)!.add(s.product_type);
+      }
+
+      if (zipCode) {
+        const zipMetrics = getZipMetrics(zipCode);
+        zipMetrics.premiumCents += s.premium_cents || 0;
+        zipMetrics.writtenPolicies += s.policies_sold || 1;
+        zipMetrics.writtenItems += s.items_sold || 1;
+        if (!zipMetrics.soldHouseholdIds!.has(s.household_id)) {
+          zipMetrics.soldHouseholds++;
+          zipMetrics.soldHouseholdIds!.add(s.household_id);
+        }
       }
     });
 
@@ -725,6 +993,63 @@ export function useLqsRoiAnalytics(
       });
     });
     const overallBundleRatio = totalSoldHouseholdsForBundle > 0 ? (bundledHouseholds / totalSoldHouseholdsForBundle) * 100 : null;
+
+    const sourceAllocationBase = new Map<string | null, number>();
+    bySourceMap.forEach((metrics, sourceId) => {
+      sourceAllocationBase.set(sourceId, metrics.quotedHouseholdIds.size > 0 ? metrics.quotedHouseholdIds.size : metrics.leads);
+    });
+
+    byZipMap.forEach((zipMetrics, zipCode) => {
+      let allocatedSpend = 0;
+      zipMetrics.sourceZipCounts.forEach((counts, sourceId) => {
+        const sourceSpend = spendBySource.get(sourceId) || 0;
+        const sourceTotal = sourceAllocationBase.get(sourceId) || 0;
+        const zipBasis = counts.quotedHouseholds > 0 ? counts.quotedHouseholds : counts.leads;
+        if (sourceSpend > 0 && sourceTotal > 0 && zipBasis > 0) {
+          allocatedSpend += Math.round((sourceSpend * zipBasis) / sourceTotal);
+        }
+      });
+      zipMetrics.spendCents = allocatedSpend;
+    });
+
+    const byZipCode: ZipRoiRow[] = Array.from(byZipMap.entries())
+      .map(([zipCode, metrics]) => {
+        const spendCents = metrics.spendCents || 0;
+        const commissionEarned = metrics.premiumCents * (commissionRate / 100);
+        const roi = spendCents > 0 ? commissionEarned / spendCents : null;
+        const costPerSale = metrics.soldHouseholds > 0 ? spendCents / metrics.soldHouseholds : null;
+        const closeRatio = metrics.quotedHouseholds > 0 ? (metrics.soldHouseholds / metrics.quotedHouseholds) * 100 : null;
+        const costPerQuotedHousehold = metrics.quotedHouseholds > 0 ? spendCents / metrics.quotedHouseholds : null;
+        const costPerQuotedPolicy = metrics.quotedPolicies > 0 ? spendCents / metrics.quotedPolicies : null;
+        const costPerQuotedItem = metrics.quotedItems > 0 ? spendCents / metrics.quotedItems : null;
+        const householdAcqCost = metrics.soldHouseholds > 0 ? spendCents / metrics.soldHouseholds : null;
+        const policyAcqCost = metrics.writtenPolicies > 0 ? spendCents / metrics.writtenPolicies : null;
+        const itemAcqCost = metrics.writtenItems > 0 ? spendCents / metrics.writtenItems : null;
+
+        return {
+          zipCode,
+          spendCents,
+          totalLeads: metrics.leads,
+          totalQuotes: metrics.quotedHouseholds,
+          totalSales: metrics.soldHouseholds,
+          premiumCents: metrics.premiumCents,
+          commissionEarned,
+          roi,
+          costPerSale,
+          quotedPolicies: metrics.quotedPolicies,
+          quotedItems: metrics.quotedItems,
+          writtenPolicies: metrics.writtenPolicies,
+          writtenItems: metrics.writtenItems,
+          costPerQuotedHousehold,
+          costPerQuotedPolicy,
+          costPerQuotedItem,
+          householdAcqCost,
+          policyAcqCost,
+          itemAcqCost,
+          closeRatio,
+        };
+      })
+      .filter((row) => row.zipCode);
 
     // Build lead source ROI rows
     const byLeadSource: LeadSourceRoiRow[] = Array.from(bySourceMap.entries()).map(([sourceId, metrics]) => {
@@ -829,7 +1154,7 @@ export function useLqsRoiAnalytics(
       bundleRatio: overallBundleRatio,
     };
 
-    return { summary, byLeadSource };
+    return { summary, byLeadSource, byZipCode };
   }, [
     isActivityView,
     householdsQuery.data,

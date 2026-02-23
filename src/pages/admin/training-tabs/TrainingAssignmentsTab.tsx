@@ -21,15 +21,21 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import {
   listStaffUsers,
-  listAllModules,
   listAssignments,
   bulkCreateAssignments,
   updateAssignment,
   deleteAssignment,
   getLessonProgressAll,
   listTeamMembersWithLogins,
+  getContentTree,
   type TrainingAssignment
 } from '@/lib/trainingAdminApi';
+import {
+  TrainingContentPicker,
+  trainingTreeToContentNodes,
+  selectedToTrainingItems,
+  type SelectedItem,
+} from '@/components/training/TrainingContentPicker';
 
 // Session storage key for filter state
 const ASSIGNMENTS_FILTERS_KEY = 'training_assignments_filters';
@@ -57,7 +63,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
-  const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([]);
+  const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [bulkDueDate, setBulkDueDate] = useState<Date | undefined>();
 
   const [editingAssignment, setEditingAssignment] = useState<TrainingAssignment | null>(null);
@@ -117,10 +123,10 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
     enabled: !!agencyId,
   });
 
-  // Fetch modules
-  const { data: modules } = useQuery({
-    queryKey: ['training-modules-all', agencyId],
-    queryFn: () => listAllModules(agencyId),
+  // Fetch content tree for drill-down picker
+  const { data: contentTree } = useQuery({
+    queryKey: ['training-content-tree', agencyId],
+    queryFn: () => getContentTree(agencyId),
     enabled: !!agencyId,
   });
 
@@ -144,7 +150,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
       await bulkCreateAssignments(
         agencyId,
         selectedStaffIds,
-        selectedModuleIds,
+        selectedToTrainingItems(selectedItems),
         bulkDueDate?.toISOString().split('T')[0],
         user?.id
       );
@@ -154,7 +160,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
       toast.success('Assignments created successfully');
       setIsBulkDialogOpen(false);
       setSelectedStaffIds([]);
-      setSelectedModuleIds([]);
+      setSelectedItems([]);
       setBulkDueDate(undefined);
     },
     onError: (error: any) => {
@@ -195,20 +201,64 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
     },
   });
 
+  const getAssignmentName = (a: TrainingAssignment) => {
+    if (a.training_categories?.name) return a.training_categories.name;
+    if (a.training_modules?.name) return a.training_modules.name;
+    if (a.training_lessons?.name) return a.training_lessons.name;
+    return 'Unknown';
+  };
+
+  const getAssignmentLevel = (a: TrainingAssignment): string => {
+    if (a.level) return a.level;
+    if (a.category_id) return 'category';
+    if (a.module_id) return 'module';
+    if (a.lesson_id) return 'lesson';
+    return 'module';
+  };
+
   const getStatus = (assignment: TrainingAssignment) => {
-    if (!assignment.module_id || !assignment.staff_user_id) return 'Not Started';
-    
     const { progress, lessons, allLessons } = lessonProgressData || {};
-    
     const lessonToModule = new Map(lessons?.map(l => [l.id, l.module_id]));
+
+    const level = getAssignmentLevel(assignment);
+
+    if (level === 'lesson') {
+      // Single lesson: check progress row
+      const completed = progress?.some(
+        p => p.staff_user_id === assignment.staff_user_id && p.lesson_id === assignment.lesson_id && p.completed
+      );
+      if (completed) return 'Completed';
+      if (assignment.due_date && isPast(new Date(assignment.due_date))) return 'Overdue';
+      return 'Not Started';
+    }
+
+    if (level === 'category') {
+      // All lessons in modules belonging to this category
+      // Get module IDs for this category from contentTree
+      const cat = contentTree?.find(c => c.id === assignment.category_id);
+      const moduleIds = cat?.training_modules?.map(m => m.id) || [];
+      const totalLessons = allLessons?.filter(l => moduleIds.includes(l.module_id)).length || 0;
+      const completedLessons = progress?.filter(p =>
+        p.staff_user_id === assignment.staff_user_id &&
+        moduleIds.includes(lessonToModule.get(p.lesson_id) || '') &&
+        p.completed
+      ).length || 0;
+
+      if (totalLessons > 0 && completedLessons >= totalLessons) return 'Completed';
+      if (completedLessons > 0) return 'In Progress';
+      if (assignment.due_date && isPast(new Date(assignment.due_date))) return 'Overdue';
+      return 'Not Started';
+    }
+
+    // module level (existing logic)
+    if (!assignment.module_id) return 'Not Started';
     const totalLessonsInModule = allLessons?.filter(l => l.module_id === assignment.module_id).length || 0;
-    
-    const completedLessons = progress?.filter(p => 
+    const completedLessons = progress?.filter(p =>
       p.staff_user_id === assignment.staff_user_id &&
       lessonToModule.get(p.lesson_id) === assignment.module_id &&
       p.completed
     ).length || 0;
-    
+
     if (totalLessonsInModule > 0 && completedLessons >= totalLessonsInModule) {
       return 'Completed';
     }
@@ -221,9 +271,26 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
     return 'Not Started';
   };
 
+  // Derive flat module list from content tree for filter dropdown
+  const allModulesFlat = contentTree?.flatMap(cat =>
+    (cat.training_modules || []).map(mod => ({ id: mod.id, name: mod.name, categoryName: cat.name }))
+  ) || [];
+
   const filteredAssignments = assignments?.filter(a => {
     if (filterStaffId !== 'all' && a.staff_user_id !== filterStaffId) return false;
-    if (filterModuleId !== 'all' && a.module_id !== filterModuleId) return false;
+    if (filterModuleId !== 'all') {
+      // Direct module match
+      if (a.module_id === filterModuleId) { /* pass */ }
+      // Lesson-level: check if lesson's parent module matches
+      else if (a.lesson_id && a.training_lessons?.module_id === filterModuleId) { /* pass */ }
+      // Category-level: check if category contains this module
+      else if (a.category_id) {
+        const cat = contentTree?.find(c => c.id === a.category_id);
+        if (!cat?.training_modules?.some(m => m.id === filterModuleId)) return false;
+      } else {
+        return false;
+      }
+    }
     if (filterStatus !== 'all' && getStatus(a) !== filterStatus) return false;
     return true;
   }) || [];
@@ -233,8 +300,8 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
       toast.error('Please select at least one staff member');
       return;
     }
-    if (selectedModuleIds.length === 0) {
-      toast.error('Please select at least one module');
+    if (selectedItems.length === 0) {
+      toast.error('Please select at least one content item');
       return;
     }
     bulkAssignMutation.mutate();
@@ -266,7 +333,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
         </div>
         <Button onClick={() => setIsBulkDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
-          Bulk Assign
+          Assign
         </Button>
       </div>
 
@@ -300,7 +367,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Modules</SelectItem>
-                  {modules?.map(mod => (
+                  {allModulesFlat.map(mod => (
                     <SelectItem key={mod.id} value={mod.id}>
                       {mod.name}
                     </SelectItem>
@@ -319,6 +386,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
                   <SelectItem value="Completed">Completed</SelectItem>
                   <SelectItem value="In Progress">In Progress</SelectItem>
                   <SelectItem value="Overdue">Overdue</SelectItem>
+                  <SelectItem value="Not Started">Not Started</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -332,7 +400,8 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
             <TableHeader>
               <TableRow>
                 <TableHead>Staff Name</TableHead>
-                <TableHead>Module Name</TableHead>
+                <TableHead>Assigned Content</TableHead>
+                <TableHead>Level</TableHead>
                 <TableHead>Assigned Date</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Status</TableHead>
@@ -342,7 +411,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
             <TableBody>
               {filteredAssignments.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
                     No assignments found
                   </TableCell>
                 </TableRow>
@@ -354,7 +423,12 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
                       <TableCell className="font-medium">
                         {assignment.staff_users?.display_name}
                       </TableCell>
-                      <TableCell>{assignment.training_modules?.name}</TableCell>
+                      <TableCell>{getAssignmentName(assignment)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="text-xs capitalize">
+                          {getAssignmentLevel(assignment)}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         {new Date(assignment.assigned_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </TableCell>
@@ -420,7 +494,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
       <Dialog open={isBulkDialogOpen} onOpenChange={setIsBulkDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Bulk Assign Training</DialogTitle>
+            <DialogTitle>Assign Training</DialogTitle>
             <DialogDescription>
               Select staff members and modules to create assignments
             </DialogDescription>
@@ -480,27 +554,12 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
               </div>
             </div>
             <div>
-              <Label className="mb-2 block">Select Modules</Label>
-              <div className="border rounded-md p-4 max-h-48 overflow-y-auto space-y-2">
-                {modules?.map(mod => (
-                  <div key={mod.id} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`mod-${mod.id}`}
-                      checked={selectedModuleIds.includes(mod.id)}
-                      onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedModuleIds([...selectedModuleIds, mod.id]);
-                        } else {
-                          setSelectedModuleIds(selectedModuleIds.filter(id => id !== mod.id));
-                        }
-                      }}
-                    />
-                    <label htmlFor={`mod-${mod.id}`} className="text-sm cursor-pointer">
-                      {mod.name}
-                    </label>
-                  </div>
-                ))}
-              </div>
+              <Label className="mb-2 block">Select Content to Assign</Label>
+              <TrainingContentPicker
+                tree={contentTree ? trainingTreeToContentNodes(contentTree) : []}
+                selected={selectedItems}
+                onSelectionChange={setSelectedItems}
+              />
             </div>
             <div>
               <Label className="mb-2 block">Due Date (Optional)</Label>

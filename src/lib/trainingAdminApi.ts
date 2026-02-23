@@ -50,6 +50,7 @@ export interface TrainingCategory {
   description: string | null;
   sort_order: number | null;
   is_active: boolean | null;
+  cover_image_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +61,7 @@ export interface TrainingCategoryInsert {
   description?: string | null;
   sort_order?: number | null;
   is_active?: boolean | null;
+  cover_image_url?: string | null;
 }
 
 export interface TrainingModule {
@@ -70,6 +72,7 @@ export interface TrainingModule {
   description: string | null;
   sort_order: number | null;
   is_active: boolean | null;
+  thumbnail_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -81,6 +84,7 @@ export interface TrainingModuleInsert {
   description?: string | null;
   sort_order?: number | null;
   is_active?: boolean | null;
+  thumbnail_url?: string | null;
 }
 
 export interface TrainingLesson {
@@ -725,12 +729,38 @@ export interface TrainingAssignment {
   id: string;
   agency_id: string;
   staff_user_id: string;
-  module_id: string;
+  category_id: string | null;
+  module_id: string | null;
+  lesson_id: string | null;
   assigned_at: string;
   due_date: string | null;
   assigned_by: string | null;
+  assigned_by_staff_id: string | null;
+  seen_at: string | null;
+  level?: 'category' | 'module' | 'lesson';
   staff_users?: { display_name: string | null; username: string } | null;
   training_modules?: { name: string } | null;
+  training_categories?: { name: string } | null;
+  training_lessons?: { name: string; module_id: string } | null;
+}
+
+export interface TrainingAssignmentItem {
+  category_id?: string;
+  module_id?: string;
+  lesson_id?: string;
+}
+
+export interface TrainingContentTreeNode {
+  id: string;
+  name: string;
+  training_modules: {
+    id: string;
+    name: string;
+    training_lessons: {
+      id: string;
+      name: string;
+    }[];
+  }[];
 }
 
 export async function listAssignments(agencyId: string): Promise<TrainingAssignment[]> {
@@ -744,51 +774,118 @@ export async function listAssignments(agencyId: string): Promise<TrainingAssignm
     .select(`
       *,
       staff_users(display_name, username),
-      training_modules(name)
+      training_modules(name),
+      training_categories(name),
+      training_lessons(name, module_id)
     `)
     .eq('agency_id', agencyId)
     .order('assigned_at', { ascending: false });
 
   if (error) throw error;
-  return (data || []) as TrainingAssignment[];
+
+  // Add level to each assignment
+  return (data || []).map((a: any) => ({
+    ...a,
+    level: a.category_id ? 'category' : a.module_id ? 'module' : a.lesson_id ? 'lesson' : 'module',
+  })) as TrainingAssignment[];
 }
 
 export async function bulkCreateAssignments(
   agencyId: string,
   staffUserIds: string[],
-  moduleIds: string[],
+  items: TrainingAssignmentItem[],
   dueDate?: string | null,
   assignedBy?: string
 ): Promise<TrainingAssignment[]> {
   if (hasStaffToken()) {
     const data = await callTrainingAdminApi('assignment_bulk_create', {
       staff_user_ids: staffUserIds,
-      module_ids: moduleIds,
+      items,
       due_date: dueDate,
     });
     return data.assignments || [];
   }
 
-  const records: any[] = [];
+  // Group by level for separate upserts
+  const catRecords: any[] = [];
+  const modRecords: any[] = [];
+  const lessonRecords: any[] = [];
+
   for (const staffId of staffUserIds) {
-    for (const moduleId of moduleIds) {
-      records.push({
+    for (const item of items) {
+      const base = {
         agency_id: agencyId,
         staff_user_id: staffId,
-        module_id: moduleId,
         assigned_by: assignedBy,
         due_date: dueDate || null,
-      });
+      };
+      if (item.category_id) catRecords.push({ ...base, category_id: item.category_id });
+      else if (item.module_id) modRecords.push({ ...base, module_id: item.module_id });
+      else if (item.lesson_id) lessonRecords.push({ ...base, lesson_id: item.lesson_id });
     }
   }
 
+  const allResults: any[] = [];
+
+  if (catRecords.length > 0) {
+    const { data, error } = await supabase
+      .from('training_assignments')
+      .upsert(catRecords, { onConflict: 'staff_user_id,category_id' })
+      .select();
+    if (error) throw error;
+    allResults.push(...(data || []));
+  }
+  if (modRecords.length > 0) {
+    const { data, error } = await supabase
+      .from('training_assignments')
+      .upsert(modRecords, { onConflict: 'staff_user_id,module_id' })
+      .select();
+    if (error) throw error;
+    allResults.push(...(data || []));
+  }
+  if (lessonRecords.length > 0) {
+    const { data, error } = await supabase
+      .from('training_assignments')
+      .upsert(lessonRecords, { onConflict: 'staff_user_id,lesson_id' })
+      .select();
+    if (error) throw error;
+    allResults.push(...(data || []));
+  }
+
+  return allResults as TrainingAssignment[];
+}
+
+export async function getContentTree(agencyId: string): Promise<TrainingContentTreeNode[]> {
+  if (hasStaffToken()) {
+    const data = await callTrainingAdminApi('content_tree');
+    return data.tree || [];
+  }
+
   const { data, error } = await supabase
-    .from('training_assignments')
-    .insert(records)
-    .select();
+    .from('training_categories')
+    .select(`
+      id, name,
+      training_modules(
+        id, name, sort_order,
+        training_lessons(id, name, sort_order)
+      )
+    `)
+    .eq('agency_id', agencyId)
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true });
 
   if (error) throw error;
-  return (data || []) as TrainingAssignment[];
+
+  return (data || []).map((cat: any) => ({
+    ...cat,
+    training_modules: (cat.training_modules || [])
+      .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
+      .map((mod: any) => ({
+        ...mod,
+        training_lessons: (mod.training_lessons || [])
+          .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)),
+      })),
+  }));
 }
 
 export async function updateAssignment(id: string, dueDate: string | null): Promise<TrainingAssignment> {

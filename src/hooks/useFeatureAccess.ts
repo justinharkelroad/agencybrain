@@ -65,6 +65,7 @@ export function useFeatureAccess(featureKey: string) {
         // Map feature keys to legacy access check
         const legacyFeatureMap: Record<string, string> = {
           'ai_roleplay': 'roleplay-trainer',
+          'call_scoring_qa': 'call-scoring',
           'call_scoring': 'call-scoring',
           'scorecard_view': 'scorecard',
           'scorecard_edit': 'scorecard',
@@ -183,6 +184,7 @@ export const FeatureKeys = {
   // AI Features
   AI_ROLEPLAY: 'ai_roleplay',
   CALL_SCORING: 'call_scoring',
+  CALL_SCORING_QA: 'call_scoring_qa',
 
   // Scorecards
   SCORECARD_VIEW: 'scorecard_view',

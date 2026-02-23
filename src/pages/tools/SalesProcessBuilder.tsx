@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -30,6 +29,7 @@ import { cn } from '@/lib/utils';
 import {
   useSalesProcessBuilderAccess,
   useStandaloneSalesProcessBuilder,
+  type SalesProcessAccessErrorType,
   type ChatMessage,
   type SalesProcessContent,
   type SalesProcessSession,
@@ -505,6 +505,37 @@ export default function SalesProcessBuilder() {
   const { data, isLoading, error, refetch } = useSalesProcessBuilderAccess();
   const [activeTab, setActiveTab] = useState<'build' | 'edit'>('build');
 
+  const accessErrorMessage = (errorType?: SalesProcessAccessErrorType) => {
+    switch (errorType) {
+      case 'missing_token':
+        return {
+          title: 'Session not ready',
+          message: 'Your login session is not available yet. Please wait for your session to load or sign in again.',
+        };
+      case 'unauthorized':
+        return {
+          title: 'Sign in required',
+          message: 'Your session is missing or has expired. Please sign in again and return to Sales Process Builder.',
+        };
+      case 'no_feature':
+        return {
+          title: 'Sales Process Builder not enabled',
+          message: 'This agency does not have Sales Process Builder enabled for 1:1 access yet. Ask an admin to grant it.',
+        };
+      case 'request_failed':
+        return {
+          title: 'Unable to verify access',
+          message: 'Could not verify feature access right now. Please refresh and try again.',
+        };
+      case 'unknown':
+      default:
+        return {
+          title: 'Sales Process Builder unavailable',
+          message: error ? 'There was an issue loading your feature access. Please try again later.' : 'Sales Process Builder is currently unavailable.',
+        };
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="container max-w-5xl mx-auto py-8 px-4">
@@ -516,17 +547,30 @@ export default function SalesProcessBuilder() {
   }
 
   if (!data?.hasAccess) {
-    return <Navigate to="/dashboard" replace />;
+    const { title, message } = accessErrorMessage(data?.accessErrorType);
+    return (
+      <div className="container max-w-2xl mx-auto py-8 px-4">
+        <Alert className="border-amber-500/40 bg-amber-500/10">
+          <AlertDescription>
+            <p className="font-medium mb-2">{title}</p>
+            <p className="text-sm text-muted-foreground">{message}</p>
+          </AlertDescription>
+        </Alert>
+
+        <div className="mt-4 flex gap-2">
+          <Button variant="outline" onClick={() => refetch()}>
+            Retry
+          </Button>
+          <Button variant="ghost" onClick={() => window.location.assign('/dashboard')}>
+            Go to Dashboard
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   const salesProcess = data.salesProcess;
   const session = data.session;
-  const hasContent = salesProcess && (
-    salesProcess.content_json.rapport.length > 0 ||
-    salesProcess.content_json.coverage.length > 0 ||
-    salesProcess.content_json.closing.length > 0
-  );
-
   return (
     <div className="container max-w-5xl mx-auto py-8 px-4">
       {/* Header */}

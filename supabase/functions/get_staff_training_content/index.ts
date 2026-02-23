@@ -101,10 +101,10 @@ Deno.serve(async (req) => {
       
       console.log(`Admin view: Found ${modulesWithDueDates.length} modules for agency ${agency_id}`);
     } else {
-      // REGULAR STAFF: Check assignments as before
+      // REGULAR STAFF: Check multi-level assignments
       const { data: assignments, error: assignmentsError } = await supabase
         .from('training_assignments')
-        .select('module_id, due_date')
+        .select('category_id, module_id, lesson_id, due_date')
         .eq('staff_user_id', session.staff_users.id)
         .eq('agency_id', agency_id);
 
@@ -134,12 +134,83 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Fetch only assigned modules
-      const assignedModuleIds = assignments.map(a => a.module_id);
+      // Resolve multi-level assignments to module IDs
+      const categoryAssignments = assignments.filter(a => a.category_id);
+      const moduleAssignments = assignments.filter(a => a.module_id);
+      const lessonAssignments = assignments.filter(a => a.lesson_id);
+
+      const accessibleModuleIds = new Set<string>();
+      const moduleDueDates = new Map<string, string | null>();
+
+      // Category assignments → all modules in those categories
+      if (categoryAssignments.length > 0) {
+        const catIds = categoryAssignments.map(a => a.category_id!);
+        const { data: catModules } = await supabase
+          .from('training_modules')
+          .select('id, category_id')
+          .in('category_id', catIds)
+          .eq('is_active', true);
+
+        (catModules || []).forEach((m: any) => {
+          accessibleModuleIds.add(m.id);
+          const catAssignment = categoryAssignments.find(a => a.category_id === m.category_id);
+          if (catAssignment?.due_date && !moduleDueDates.has(m.id)) {
+            moduleDueDates.set(m.id, catAssignment.due_date);
+          }
+        });
+      }
+
+      // Module assignments → those specific modules
+      for (const a of moduleAssignments) {
+        if (a.module_id) {
+          accessibleModuleIds.add(a.module_id);
+          moduleDueDates.set(a.module_id, a.due_date);
+        }
+      }
+
+      // Lesson assignments → parent modules (we'll filter lessons on the frontend)
+      if (lessonAssignments.length > 0) {
+        const lessonIds = lessonAssignments.map(a => a.lesson_id!);
+        const { data: lessonRows } = await supabase
+          .from('training_lessons')
+          .select('id, module_id')
+          .in('id', lessonIds);
+
+        (lessonRows || []).forEach((l: any) => {
+          accessibleModuleIds.add(l.module_id);
+          const lessonAssignment = lessonAssignments.find(a => a.lesson_id === l.id);
+          if (lessonAssignment?.due_date && !moduleDueDates.has(l.module_id)) {
+            moduleDueDates.set(l.module_id, lessonAssignment.due_date);
+          }
+        });
+      }
+
+      if (accessibleModuleIds.size === 0) {
+        return new Response(
+          JSON.stringify({
+            modules: [],
+            categories: [],
+            lessons: [],
+            attachments: [],
+            quizzes: [],
+            quiz_questions: [],
+            quiz_options: [],
+            no_assignments: true,
+            staff_user: {
+              id: session.staff_users.id,
+              username: session.staff_users.username,
+              display_name: session.staff_users.display_name
+            }
+          }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Fetch only accessible modules
       const { data: modules, error: modulesError } = await supabase
         .from('training_modules')
         .select('*')
-        .in('id', assignedModuleIds)
+        .in('id', Array.from(accessibleModuleIds))
         .eq('is_active', true)
         .order('sort_order');
 
@@ -151,10 +222,10 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Attach due_date to each module from assignments
+      // Attach due_date to each module
       modulesWithDueDates = (modules || []).map(m => ({
         ...m,
-        due_date: assignments.find(a => a.module_id === m.id)?.due_date || null
+        due_date: moduleDueDates.get(m.id) || null
       }));
     }
 

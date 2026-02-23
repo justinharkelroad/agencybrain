@@ -44,6 +44,55 @@ function parseDuration(value: unknown): number {
   return 0;
 }
 
+function normalizeDirection(value: unknown): "inbound" | "outbound" | "internal" | null {
+  if (value === null || value === undefined) return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === "inbound" || normalized === "outbound" || normalized === "internal") {
+    return normalized;
+  }
+  return null;
+}
+
+function isValidSessionId(value: string): boolean {
+  if (!value) return false;
+  // RingCentral session IDs are typically long numeric strings.
+  if (/^\d{10,22}$/.test(value)) return true;
+  // Keep UUID support as a fallback for vendor/report variants.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) return true;
+  return false;
+}
+
+function parseNumber(value: unknown, fallback = 0): number {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "number") return Number.isFinite(value) ? value : fallback;
+  if (typeof value === "string") {
+    const normalized = value.replace(/,/g, "").trim();
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : fallback;
+  }
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function safeIsoFromExcelSerial(value: number): string | null {
+  const date = XLSX.SSF.parse_date_code(value);
+  if (!date) return null;
+
+  // Basic sanity bounds. RingCentral exports should never be near year 0.
+  if (!Number.isFinite(date.y) || date.y < 2000 || date.y > 2100) return null;
+  if (!Number.isFinite(date.m) || date.m < 1 || date.m > 12) return null;
+  if (!Number.isFinite(date.d) || date.d < 1 || date.d > 31) return null;
+
+  try {
+    const dt = new Date(date.y, date.m - 1, date.d, date.H || 0, date.M || 0, date.S || 0);
+    const t = dt.getTime();
+    if (!Number.isFinite(t)) return null;
+    return dt.toISOString();
+  } catch {
+    return null;
+  }
+}
+
 function parseReportDate(value: unknown): string | null {
   if (!value) return null;
   if (typeof value === "number") {
@@ -172,6 +221,11 @@ interface XlsxProcessResult {
   contact_activities_inserted: number;
   metrics_upserted: number;
   row_errors: number;
+  // Debug counters for vendor exports that carry a bloated/incorrect used-range.
+  calls_sheet_rows?: number;
+  calls_candidate_rows?: number;
+  users_total_calls_sum?: number;
+  users_total_talk_seconds_sum?: number;
   error?: string;
 }
 
@@ -221,17 +275,70 @@ async function processXlsxBuffer(
   const matchedTeamMemberIds = new Set<string>();
   let prospectsMatched = 0;
   let contactActivitiesInserted = 0;
+  let callsSheetRows: number | undefined;
+  let callsCandidateRows: number | undefined;
 
   const DEDUP_CHUNK = 1000; // Must stay ≤ PostgREST default max-rows (1000)
   const INSERT_CHUNK = 500;
   const UNMATCHED_GUARDRAIL_MIN_ROWS = 2000;
   const UNMATCHED_GUARDRAIL_MAX_RATIO = 0.95;
   const UNMATCHED_GUARDRAIL_MIN_MATCHED = 25;
+  const MAX_SHEET_ROWS = 30000;
 
   if (hasCalls) {
     const callsSheet = workbook.Sheets["Calls"];
-    const callsData = XLSX.utils.sheet_to_json(callsSheet, { raw: true }) as Record<string, unknown>[];
-    console.log(`[ringcentral-report-ingest] Processing ${callsData.length} call rows`);
+    const callsData = XLSX.utils.sheet_to_json(callsSheet, { raw: true, blankrows: false, defval: null }) as Record<string, unknown>[];
+    const bytesPerReportedRow = callsData.length > 0 ? Math.floor(buffer.length / callsData.length) : buffer.length;
+    callsSheetRows = callsData.length;
+
+    // Hard ceiling: protects us from totally insane sheets, but still allows RC's bloated ~25k used-range.
+    if (callsData.length > MAX_SHEET_ROWS) {
+      return {
+        success: false, file_type: "calls", report_date: reportDate, calls_processed: 0,
+        calls_skipped_duplicate: 0, calls_skipped_internal: 0, team_members_matched: 0,
+        prospects_matched: 0, contact_activities_inserted: 0, metrics_upserted: 0, row_errors: 0,
+        calls_sheet_rows: callsData.length,
+        error:
+          `Rejected Calls sheet: ${callsData.length} rows exceeds hard cap (${MAX_SHEET_ROWS}). ` +
+          `file_bytes=${buffer.length}, bytes_per_row=${bytesPerReportedRow}.`,
+      };
+    }
+
+    // Guard against corrupted XLSX payloads that explode into phantom rows.
+    // The normal RingCentral reports are compact and have materially larger bytes-per-row.
+    if (callsData.length >= 5000 && bytesPerReportedRow < 25) {
+      return {
+        success: false, file_type: "calls", report_date: reportDate, calls_processed: 0,
+        calls_skipped_duplicate: 0, calls_skipped_internal: 0, team_members_matched: 0,
+        prospects_matched: 0, contact_activities_inserted: 0, metrics_upserted: 0, row_errors: 0,
+        calls_sheet_rows: callsData.length,
+        error: `Rejected suspicious Calls sheet: ${callsData.length} rows from ${buffer.length} bytes (${bytesPerReportedRow} B/row). File appears corrupted.`,
+      };
+    }
+
+    // Candidate rows are those with a session id that looks real. This is the number we actually care about,
+    // not the vendor's inflated sheet used-range.
+    let candidateCount = 0;
+    for (const row of callsData) {
+      const sessionId = String(getCol(
+        row,
+        "Session Id",
+        "Session ID",
+        "Session",
+        "Call Id",
+        "Call ID",
+        "CallId",
+        "call_id",
+        "session_id",
+      ) || "").trim();
+      if (isValidSessionId(sessionId)) candidateCount++;
+    }
+    callsCandidateRows = candidateCount;
+
+    console.log(
+      `[ringcentral-report-ingest] Processing ${callsData.length} call rows ` +
+      `(candidates=${candidateCount}, file_bytes=${buffer.length}, bytes_per_row=${bytesPerReportedRow})`
+    );
 
     // ── Phase 1: Parse all rows in-memory (zero DB calls) ──
 
@@ -256,7 +363,7 @@ async function processXlsxBuffer(
 
     for (const row of callsData) {
       try {
-        const direction = String(getCol(
+        const direction = normalizeDirection(getCol(
           row,
           "Call Direction",
           "Call Direct",
@@ -264,9 +371,9 @@ async function processXlsxBuffer(
           "Call Type",
           "Call Direction Type",
           "direction",
-        ) || "").trim();
-        if (direction.toLowerCase() === "internal") { callsSkippedInternal++; continue; }
-        if (!direction || !["inbound", "outbound"].includes(direction.toLowerCase())) continue;
+        ));
+        if (!direction) continue;
+        if (direction === "internal") { callsSkippedInternal++; continue; }
 
         const sessionId = String(getCol(
           row,
@@ -279,7 +386,7 @@ async function processXlsxBuffer(
           "call_id",
           "session_id",
         ) || "").trim();
-        if (!sessionId) continue;
+        if (!sessionId || !isValidSessionId(sessionId)) continue;
 
         // Skip in-file duplicates (keep first occurrence, same as original per-row behavior)
         if (seenSessionIds.has(sessionId)) { callsSkippedDuplicate++; continue; }
@@ -303,7 +410,7 @@ async function processXlsxBuffer(
           "Timestamp",
         );
 
-        const dirLower = direction.toLowerCase() as "inbound" | "outbound";
+        const dirLower = direction as "inbound" | "outbound";
         const agentName = dirLower === "outbound" ? fromName : toName;
         const matchedTeamMemberId = matchTeamMember(lookups, agentName);
         if (matchedTeamMemberId) matchedTeamMemberIds.add(matchedTeamMemberId);
@@ -319,10 +426,7 @@ async function processXlsxBuffer(
         let callStartedAt: string | null = null;
         if (callStartTime) {
           if (typeof callStartTime === "number") {
-            const date = XLSX.SSF.parse_date_code(callStartTime);
-            if (date) {
-              callStartedAt = new Date(date.y, date.m - 1, date.d, date.H || 0, date.M || 0, date.S || 0).toISOString();
-            }
+            callStartedAt = safeIsoFromExcelSerial(callStartTime);
           } else if (typeof callStartTime === "string") {
             const parsed = new Date(callStartTime);
             if (!isNaN(parsed.getTime())) callStartedAt = parsed.toISOString();
@@ -391,7 +495,9 @@ async function processXlsxBuffer(
       const chunk = insertableCalls.slice(i, i + INSERT_CHUNK);
       const rows = chunk.map(c => ({
         agency_id: agencyId, provider: "ringcentral", external_call_id: c.sessionId,
-        direction: c.direction, from_number: c.fromNumber, to_number: c.toNumber,
+        // DB constraint expects 'Inbound'/'Outbound' (capitalized).
+        direction: c.direction === "outbound" ? "Outbound" : "Inbound",
+        from_number: c.fromNumber, to_number: c.toNumber,
         duration_seconds: c.durationSeconds, call_started_at: c.callStartedAt, call_ended_at: null,
         result: c.result || null, extension_name: c.agentName,
         matched_team_member_id: c.matchedTeamMemberId, matched_prospect_id: null,
@@ -400,7 +506,11 @@ async function processXlsxBuffer(
 
       const { data, error: insertError } = await supabase
         .from("call_events")
-        .insert(rows)
+        .upsert(rows, {
+          // call_events has UNIQUE(provider, external_call_id)
+          onConflict: "provider,external_call_id",
+          ignoreDuplicates: true,
+        })
         .select("id, external_call_id");
 
       if (insertError) {
@@ -455,12 +565,28 @@ async function processXlsxBuffer(
   // Keep this after Calls-sheet processing so Users totals are the final write.
 
   let metricsUpserted = 0;
+  let usersTotalCallsSum = 0;
+  let usersTotalTalkSecondsSum = 0;
   if (hasUsers) {
     const usersSheet = workbook.Sheets["Users"];
     const usersData = XLSX.utils.sheet_to_json(usersSheet, { raw: true }) as Record<string, unknown>[];
     console.log(`[ringcentral-report-ingest] Processing ${usersData.length} user rows`);
 
-    const metricsRows: Record<string, unknown>[] = [];
+    const metricsByKey = new Map<string, {
+      agency_id: string;
+      team_member_id: string;
+      date: string;
+      total_calls: number;
+      inbound_calls: number;
+      outbound_calls: number;
+      answered_calls: number;
+      missed_calls: number;
+      total_talk_seconds: number;
+      last_calculated_at: string;
+      updated_at: string;
+    }>();
+    let duplicateMetricsRows = 0;
+
     for (const row of usersData) {
       try {
         const userName = String(getCol(row, "Name", "name") || "").trim();
@@ -470,16 +596,16 @@ async function processXlsxBuffer(
 
         const totalHandleTime = getCol(row, "Total Handle Time", "total_handle_time");
         const totalHandleSeconds = parseDuration(totalHandleTime);
-        const inboundCalls = Number(getCol(
+        const inboundCalls = parseNumber(getCol(
           row,
           "# Inbound",
           "# Inbound Calls",
           "# Inbounc",
           "Inbound Calls",
           "inbound_calls",
-        ) || 0);
+        ));
 
-        const rawOutboundCalls = Number(getCol(
+        const rawOutboundCalls = parseNumber(getCol(
           row,
           "# Outbound",
           "# Outbound Calls",
@@ -488,16 +614,36 @@ async function processXlsxBuffer(
           "# Outbou",
           "Outbound Calls",
           "outbound_calls",
-        ) || 0);
+        ));
 
-        const totalCalls = Number(getCol(row, "Total Calls", "total_calls") || (inboundCalls + rawOutboundCalls));
+        const parsedTotalCalls = parseNumber(
+          getCol(row, "Total Calls", "total_calls"),
+          inboundCalls + rawOutboundCalls,
+        );
+        const totalCalls = parsedTotalCalls >= 0 ? parsedTotalCalls : 0;
         const outboundCalls = rawOutboundCalls > 0
           ? rawOutboundCalls
           : (Number.isFinite(totalCalls) && Number.isFinite(inboundCalls) && totalCalls >= inboundCalls
             ? Math.max(totalCalls - inboundCalls, 0)
             : 0);
 
-        metricsRows.push({
+        // Raw totals regardless of whether this user matches a team member in our DB.
+        usersTotalCallsSum += totalCalls;
+        usersTotalTalkSecondsSum += totalHandleSeconds;
+
+        // Only matched team members get written to call_metrics_daily.
+        const key = `${agencyId}|${teamMemberId}|${reportDate}`;
+        const existing = metricsByKey.get(key);
+        if (existing) {
+          existing.total_calls += totalCalls;
+          existing.inbound_calls += inboundCalls;
+          existing.outbound_calls += outboundCalls;
+          existing.total_talk_seconds += totalHandleSeconds;
+          duplicateMetricsRows += 1;
+          continue;
+        }
+
+        metricsByKey.set(key, {
           agency_id: agencyId, team_member_id: teamMemberId, date: reportDate,
           total_calls: totalCalls, inbound_calls: inboundCalls, outbound_calls: outboundCalls,
           answered_calls: 0, missed_calls: 0, total_talk_seconds: totalHandleSeconds,
@@ -506,6 +652,11 @@ async function processXlsxBuffer(
       } catch (userErr) {
         console.error(`[ringcentral-report-ingest] User row parse error:`, userErr);
       }
+    }
+
+    const metricsRows = Array.from(metricsByKey.values());
+    if (duplicateMetricsRows > 0) {
+      console.log(`[ringcentral-report-ingest] Merged ${duplicateMetricsRows} duplicate user metric rows before upsert`);
     }
 
     if (metricsRows.length > 0) {
@@ -530,6 +681,10 @@ async function processXlsxBuffer(
     team_members_matched: matchedTeamMemberIds.size, prospects_matched: prospectsMatched,
     contact_activities_inserted: contactActivitiesInserted, metrics_upserted: metricsUpserted,
     row_errors: rowErrors,
+    calls_sheet_rows: callsSheetRows,
+    calls_candidate_rows: callsCandidateRows,
+    users_total_calls_sum: hasUsers ? usersTotalCallsSum : undefined,
+    users_total_talk_seconds_sum: hasUsers ? usersTotalTalkSecondsSum : undefined,
   };
 }
 

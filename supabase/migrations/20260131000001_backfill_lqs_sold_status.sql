@@ -7,6 +7,11 @@ DECLARE
   v_result RECORD;
   v_count int := 0;
 BEGIN
+  IF to_regclass('public.sales') IS NULL THEN
+    RAISE NOTICE 'Skipping backfill_lqs_sold_status: public.sales does not exist.';
+    RETURN;
+  END IF;
+
   -- Process each agency
   FOR v_agency IN 
     SELECT DISTINCT agency_id FROM sales

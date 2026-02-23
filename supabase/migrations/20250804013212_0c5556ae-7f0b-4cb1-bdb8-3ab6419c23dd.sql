@@ -36,21 +36,41 @@ ON public.column_mappings
 FOR DELETE 
 USING (user_id = auth.uid());
 
-CREATE POLICY "Admins can view all column mappings" 
-ON public.column_mappings 
-FOR ALL 
-USING (
-  EXISTS (
-    SELECT 1 FROM public.profiles 
-    WHERE id = auth.uid() AND role = 'admin'
-  )
-);
+DO $$
+BEGIN
+  IF to_regclass('public.profiles') IS NOT NULL THEN
+    CREATE POLICY "Admins can view all column mappings" 
+    ON public.column_mappings 
+    FOR ALL 
+    USING (
+      EXISTS (
+        SELECT 1 FROM public.profiles 
+        WHERE id = auth.uid() AND role = 'admin'
+      )
+    );
+  END IF;
+END $$;
 
 -- Add updated_at trigger
-CREATE TRIGGER update_column_mappings_updated_at
-BEFORE UPDATE ON public.column_mappings
-FOR EACH ROW
-EXECUTE FUNCTION public.update_updated_at_column();
+CREATE OR REPLACE FUNCTION public.update_updated_at_column()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $function$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$function$;
+
+DO $$
+BEGIN
+  CREATE TRIGGER update_column_mappings_updated_at
+  BEFORE UPDATE ON public.column_mappings
+  FOR EACH ROW
+  EXECUTE FUNCTION public.update_updated_at_column();
+END $$;
 
 -- Add indexes for performance
 CREATE INDEX idx_column_mappings_user_id ON public.column_mappings(user_id);

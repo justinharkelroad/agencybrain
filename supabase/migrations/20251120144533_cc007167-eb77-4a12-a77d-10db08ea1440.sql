@@ -85,11 +85,24 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  period_json JSONB;
+  period_title TEXT;
 BEGIN
   -- Close previous version
   UPDATE public.period_versions
   SET valid_to = NOW()
   WHERE period_id = NEW.id AND valid_to IS NULL;
+
+  period_json := to_jsonb(NEW);
+
+  period_title := COALESCE(
+    NULLIF(TRIM(period_json ->> 'title'), ''),
+    NULLIF(TRIM(period_json ->> 'name'), ''),
+    NULLIF(TRIM(NEW.form_data ->> 'title'), ''),
+    NULLIF(TRIM(NEW.form_data ->> 'name'), ''),
+    'Period ' || NEW.id::text
+  );
   
   -- Create new version
   INSERT INTO public.period_versions (
@@ -107,7 +120,7 @@ BEGIN
   ) VALUES (
     NEW.id,
     NEW.form_data,
-    NEW.title,
+    period_title,
     NEW.start_date,
     NEW.end_date,
     NEW.status,
@@ -234,7 +247,11 @@ INSERT INTO public.period_versions (
 SELECT 
   p.id,
   p.form_data,
-  p.title,
+  COALESCE(
+    NULLIF(BTRIM(p.form_data ->> 'title'), ''),
+    NULLIF(BTRIM(p.form_data ->> 'name'), ''),
+    'Period ' || p.id::text
+  ),
   p.start_date,
   p.end_date,
   p.status,

@@ -225,23 +225,23 @@ export default function TeamPerformanceRings({
           targets = targetsData || [];
         }
 
-        // FIXED: Use standardized keys in fallback
-        const rawMetrics = rules?.ring_metrics || (role === 'Sales' 
+        // Use raw metrics from scorecard_rules (preserve original keys for label lookup)
+        const rawMetrics = rules?.ring_metrics || (role === 'Sales'
           ? ['outbound_calls', 'talk_minutes', 'quoted_households', 'items_sold']
           : ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews']);
-        
-        // Normalize all metric keys to standard format AND dedupe
-        // This ensures legacy keys like 'policies_quoted' become 'quoted_households'
+
+        // Dedupe by normalized key but preserve original keys
+        // This prevents showing two rings for the same underlying metric
+        // while keeping the original key for correct label lookup
         const seen = new Set<string>();
-        const normalizedMetrics = rawMetrics
-          .map((m: string) => normalizeMetricKey(m))
-          .filter((m: string) => {
-            if (seen.has(m)) return false;
-            seen.add(m);
-            return true;
-          });
-        
-        setRingMetrics(normalizedMetrics);
+        const deduped = rawMetrics.filter((m: string) => {
+          const norm = normalizeMetricKey(m);
+          if (seen.has(norm)) return false;
+          seen.add(norm);
+          return true;
+        });
+
+        setRingMetrics(deduped);
         const requiredHits = rules?.n_required || 2;
         setNRequired(requiredHits);
 
@@ -263,30 +263,31 @@ export default function TeamPerformanceRings({
 
         // Build team data with rings and pass/fail calculation
         const team: TeamMemberRings[] = (teamMetrics || []).map((member: any) => {
-          const memberMetrics: RingMetric[] = normalizedMetrics.map((metricKey: string) => {
-            // Use getMetricValue for graceful fallback between UI keys and column names
-            const actual = getMetricValue(member, metricKey);
-            
+          const memberMetrics: RingMetric[] = deduped.map((originalKey: string) => {
+            const normalizedKey = normalizeMetricKey(originalKey);
+            // Use getMetricValue which handles all aliases for data retrieval
+            const actual = getMetricValue(member, originalKey);
+
             // Get target: member-specific first, then agency default, then role default
             // NOTE: targets.metric_key may be legacy keys, so normalize before comparing.
             const memberTarget = targets?.find((t: any) =>
               t.team_member_id === member.team_member_id &&
-              normalizeMetricKey(t.metric_key) === metricKey
+              normalizeMetricKey(t.metric_key) === normalizedKey
             )?.value_number;
 
             const agencyTarget = targets?.find((t: any) =>
               t.team_member_id === null &&
-              normalizeMetricKey(t.metric_key) === metricKey
+              normalizeMetricKey(t.metric_key) === normalizedKey
             )?.value_number;
 
-            const target = (memberTarget ?? agencyTarget ?? getDefaultTarget(metricKey)) ?? 0;
-            
+            const target = (memberTarget ?? agencyTarget ?? getDefaultTarget(normalizedKey)) ?? 0;
+
             return {
-              key: metricKey,
-              // Use database labels first, fallback to RING_LABELS, then slug
-              label: kpiLabels?.[metricKey] || RING_LABELS[metricKey] || metricKey,
+              key: originalKey,
+              // Label priority: original key from DB labels, then normalized key, then hardcoded, then slug
+              label: kpiLabels?.[originalKey] || kpiLabels?.[normalizedKey] || RING_LABELS[normalizedKey] || originalKey,
               progress: target > 0 ? Math.min(actual / target, 1) : 0,
-              color: getRingColor(metricKey),
+              color: getRingColor(normalizedKey),
               actual,
               target: target > 0 ? target : 0
             };

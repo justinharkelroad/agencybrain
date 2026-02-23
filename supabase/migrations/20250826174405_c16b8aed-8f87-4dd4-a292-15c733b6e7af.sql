@@ -1,4 +1,17 @@
 -- Enable pg_trgm extension for trigram indexes
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM pg_constraint c
+    WHERE c.conname = 'fk_dictionary_options_dictionary_id'
+      AND c.connamespace = 'public'::regnamespace
+  ) THEN
+    RAISE NOTICE 'Skipping duplicate scorecard schema migration because constraints already exist.';
+    RETURN;
+  END IF;
+END $$;
+
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- AgencyBrain Scorecard Forms Schema
@@ -160,6 +173,17 @@ CREATE TABLE IF NOT EXISTS public.quoted_households (
 );
 
 -- Add foreign key constraints
+ALTER TABLE public.dictionary_options DROP CONSTRAINT IF EXISTS fk_dictionary_options_dictionary_id;
+ALTER TABLE public.form_links DROP CONSTRAINT IF EXISTS fk_form_links_form_template_id;
+ALTER TABLE public.submissions DROP CONSTRAINT IF EXISTS fk_submissions_form_template_id;
+ALTER TABLE public.submissions DROP CONSTRAINT IF EXISTS fk_submissions_team_member_id;
+ALTER TABLE public.submissions DROP CONSTRAINT IF EXISTS fk_submissions_supersedes_id;
+ALTER TABLE public.metrics_daily DROP CONSTRAINT IF EXISTS fk_metrics_daily_team_member_id;
+ALTER TABLE public.metrics_daily DROP CONSTRAINT IF EXISTS fk_metrics_daily_final_submission_id;
+ALTER TABLE public.targets DROP CONSTRAINT IF EXISTS fk_targets_team_member_id;
+ALTER TABLE public.quoted_households DROP CONSTRAINT IF EXISTS fk_quoted_households_submission_id;
+ALTER TABLE public.quoted_households DROP CONSTRAINT IF EXISTS fk_quoted_households_team_member_id;
+
 ALTER TABLE public.dictionary_options ADD CONSTRAINT fk_dictionary_options_dictionary_id FOREIGN KEY (dictionary_id) REFERENCES public.dictionaries(id) ON DELETE CASCADE;
 ALTER TABLE public.form_links ADD CONSTRAINT fk_form_links_form_template_id FOREIGN KEY (form_template_id) REFERENCES public.form_templates(id) ON DELETE CASCADE;
 ALTER TABLE public.submissions ADD CONSTRAINT fk_submissions_form_template_id FOREIGN KEY (form_template_id) REFERENCES public.form_templates(id) ON DELETE CASCADE;
@@ -194,11 +218,13 @@ ALTER TABLE public.excusals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quoted_households ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies for dictionaries
+DROP POLICY IF EXISTS "Users can manage their agency dictionaries" ON public.dictionaries;
 CREATE POLICY "Users can manage their agency dictionaries" ON public.dictionaries
 FOR ALL USING (has_agency_access(auth.uid(), agency_id))
 WITH CHECK (has_agency_access(auth.uid(), agency_id));
 
 -- RLS Policies for dictionary_options
+DROP POLICY IF EXISTS "Users can manage their agency dictionary options" ON public.dictionary_options;
 CREATE POLICY "Users can manage their agency dictionary options" ON public.dictionary_options
 FOR ALL USING (EXISTS (
   SELECT 1 FROM public.dictionaries d 
@@ -212,11 +238,13 @@ WITH CHECK (EXISTS (
 ));
 
 -- RLS Policies for form_templates
+DROP POLICY IF EXISTS "Users can manage their agency form templates" ON public.form_templates;
 CREATE POLICY "Users can manage their agency form templates" ON public.form_templates
 FOR ALL USING (has_agency_access(auth.uid(), agency_id))
 WITH CHECK (has_agency_access(auth.uid(), agency_id));
 
 -- RLS Policies for form_links
+DROP POLICY IF EXISTS "Users can manage their agency form links" ON public.form_links;
 CREATE POLICY "Users can manage their agency form links" ON public.form_links
 FOR ALL USING (EXISTS (
   SELECT 1 FROM public.form_templates ft 
@@ -230,6 +258,7 @@ WITH CHECK (EXISTS (
 ));
 
 -- RLS Policies for submissions (public insert via token, agency read)
+DROP POLICY IF EXISTS "Agency users can view their submissions" ON public.submissions;
 CREATE POLICY "Agency users can view their submissions" ON public.submissions
 FOR SELECT USING (EXISTS (
   SELECT 1 FROM public.form_templates ft 
@@ -237,6 +266,7 @@ FOR SELECT USING (EXISTS (
   AND has_agency_access(auth.uid(), ft.agency_id)
 ));
 
+DROP POLICY IF EXISTS "Public can insert submissions via valid token" ON public.submissions;
 CREATE POLICY "Public can insert submissions via valid token" ON public.submissions
 FOR INSERT WITH CHECK (EXISTS (
   SELECT 1 FROM public.form_links fl
@@ -247,33 +277,43 @@ FOR INSERT WITH CHECK (EXISTS (
 ));
 
 -- RLS Policies for metrics_daily
+DROP POLICY IF EXISTS "Users can manage their agency metrics" ON public.metrics_daily;
 CREATE POLICY "Users can manage their agency metrics" ON public.metrics_daily
 FOR ALL USING (has_agency_access(auth.uid(), agency_id))
 WITH CHECK (has_agency_access(auth.uid(), agency_id));
 
 -- RLS Policies for targets
+DROP POLICY IF EXISTS "Users can manage their agency targets" ON public.targets;
 CREATE POLICY "Users can manage their agency targets" ON public.targets
 FOR ALL USING (has_agency_access(auth.uid(), agency_id))
 WITH CHECK (has_agency_access(auth.uid(), agency_id));
 
 -- RLS Policies for scorecard_rules
+DROP POLICY IF EXISTS "Users can manage their agency scorecard rules" ON public.scorecard_rules;
 CREATE POLICY "Users can manage their agency scorecard rules" ON public.scorecard_rules
 FOR ALL USING (has_agency_access(auth.uid(), agency_id))
 WITH CHECK (has_agency_access(auth.uid(), agency_id));
 
 -- RLS Policies for excusals
+DROP POLICY IF EXISTS "Users can manage their agency excusals" ON public.excusals;
 CREATE POLICY "Users can manage their agency excusals" ON public.excusals
 FOR ALL USING (has_agency_access(auth.uid(), agency_id))
 WITH CHECK (has_agency_access(auth.uid(), agency_id));
 
 -- RLS Policies for quoted_households
+DROP POLICY IF EXISTS "Users can manage their agency quoted households" ON public.quoted_households;
 CREATE POLICY "Users can manage their agency quoted households" ON public.quoted_households
 FOR ALL USING (has_agency_access(auth.uid(), agency_id))
 WITH CHECK (has_agency_access(auth.uid(), agency_id));
 
 -- Add updated_at triggers
+DROP TRIGGER IF EXISTS update_dictionaries_updated_at ON public.dictionaries;
 CREATE TRIGGER update_dictionaries_updated_at BEFORE UPDATE ON public.dictionaries FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS update_form_templates_updated_at ON public.form_templates;
 CREATE TRIGGER update_form_templates_updated_at BEFORE UPDATE ON public.form_templates FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS update_metrics_daily_updated_at ON public.metrics_daily;
 CREATE TRIGGER update_metrics_daily_updated_at BEFORE UPDATE ON public.metrics_daily FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS update_targets_updated_at ON public.targets;
 CREATE TRIGGER update_targets_updated_at BEFORE UPDATE ON public.targets FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS update_scorecard_rules_updated_at ON public.scorecard_rules;
 CREATE TRIGGER update_scorecard_rules_updated_at BEFORE UPDATE ON public.scorecard_rules FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();

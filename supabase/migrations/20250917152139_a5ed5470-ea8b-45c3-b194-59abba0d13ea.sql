@@ -18,6 +18,7 @@ DECLARE
   pols_q int;
   prem_c bigint;
   hh_name text;
+  has_work_date boolean;
 BEGIN
   SELECT s.id, ft.agency_id, s.team_member_id, ft.role, s.work_date, s.submission_date, s.payload_json
   INTO sub_rec
@@ -26,6 +27,14 @@ BEGIN
   WHERE s.id = p_submission;
 
   IF sub_rec.id IS NULL THEN RETURN; END IF;
+
+  SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'quoted_household_details'
+      AND column_name = 'work_date'
+  ) INTO has_work_date;
 
   DELETE FROM public.quoted_household_details WHERE submission_id = sub_rec.id;
 
@@ -57,16 +66,29 @@ BEGIN
       ls_label := 'Undefined';
     END IF;
 
-    INSERT INTO public.quoted_household_details (
-      submission_id, agency_id, team_member_id, role, created_at, work_date,
-      household_name, lead_source_id, lead_source_label,
-      items_quoted, policies_quoted, premium_potential_cents, extras
-    )
-    VALUES (
-      sub_rec.id, sub_rec.agency_id, sub_rec.team_member_id, sub_rec.role, now(), coalesce(sub_rec.work_date, sub_rec.submission_date),
-      hh_name, ls_id, ls_label,
-      items_q, pols_q, prem_c, row
-    );
+    IF has_work_date THEN
+      INSERT INTO public.quoted_household_details (
+        submission_id, agency_id, team_member_id, role, created_at, work_date,
+        household_name, lead_source_id, lead_source_label,
+        items_quoted, policies_quoted, premium_potential_cents, extras
+      )
+      VALUES (
+        sub_rec.id, sub_rec.agency_id, sub_rec.team_member_id, sub_rec.role, now(), coalesce(sub_rec.work_date, sub_rec.submission_date),
+        hh_name, ls_id, ls_label,
+        items_q, pols_q, prem_c, row
+      );
+    ELSE
+      INSERT INTO public.quoted_household_details (
+        submission_id, agency_id, team_member_id, role, created_at,
+        household_name, lead_source_id, lead_source_label,
+        items_quoted, policies_quoted, premium_potential_cents, extras
+      )
+      VALUES (
+        sub_rec.id, sub_rec.agency_id, sub_rec.team_member_id, sub_rec.role, now(),
+        hh_name, ls_id, ls_label,
+        items_q, pols_q, prem_c, row
+      );
+    END IF;
   END LOOP;
 END;
 $$;
@@ -85,4 +107,15 @@ END$$;
 
 -- A3) Optional indexes
 CREATE INDEX IF NOT EXISTS idx_qhdet_created_at ON public.quoted_household_details(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_qhdet_work_date  ON public.quoted_household_details(work_date DESC);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'quoted_household_details'
+      AND column_name = 'work_date'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_qhdet_work_date ON public.quoted_household_details(work_date DESC);
+  END IF;
+END $$;

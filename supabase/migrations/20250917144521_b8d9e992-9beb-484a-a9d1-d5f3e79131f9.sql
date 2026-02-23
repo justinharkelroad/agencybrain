@@ -18,6 +18,13 @@ DECLARE
   pols_q int;
   prem_c bigint;
   hh_name text;
+  has_work_date boolean := EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'quoted_household_details'
+      AND column_name = 'work_date'
+  );
 BEGIN
   SELECT id, agency_id, team_member_id, role, work_date, submission_date, payload_json
   INTO s
@@ -56,16 +63,29 @@ BEGIN
       ls_label := 'Undefined';
     END IF;
 
-    INSERT INTO public.quoted_household_details (
-      submission_id, agency_id, team_member_id, role, created_at, work_date,
-      household_name, lead_source_id, lead_source_label,
-      items_quoted, policies_quoted, premium_potential_cents, extras
-    )
-    VALUES (
-      s.id, s.agency_id, s.team_member_id, s.role, now(), coalesce(s.work_date, s.submission_date),
-      hh_name, ls_id, ls_label,
-      items_q, pols_q, prem_c, row
-    );
+    IF has_work_date THEN
+      INSERT INTO public.quoted_household_details (
+        submission_id, agency_id, team_member_id, role, created_at, work_date,
+        household_name, lead_source_id, lead_source_label,
+        items_quoted, policies_quoted, premium_potential_cents, extras
+      )
+      VALUES (
+        s.id, s.agency_id, s.team_member_id, s.role, now(), coalesce(s.work_date, s.submission_date),
+        hh_name, ls_id, ls_label,
+        items_q, pols_q, prem_c, row
+      );
+    ELSE
+      INSERT INTO public.quoted_household_details (
+        submission_id, agency_id, team_member_id, role, created_at,
+        household_name, lead_source_id, lead_source_label,
+        items_quoted, policies_quoted, premium_potential_cents, extras
+      )
+      VALUES (
+        s.id, s.agency_id, s.team_member_id, s.role, now(),
+        hh_name, ls_id, ls_label,
+        items_q, pols_q, prem_c, row
+      );
+    END IF;
   END LOOP;
 END;
 $$;
@@ -84,4 +104,15 @@ END$$;
 
 -- A3) Optional indexes
 CREATE INDEX IF NOT EXISTS idx_qhdet_created_at ON public.quoted_household_details(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_qhdet_work_date  ON public.quoted_household_details(work_date DESC);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'quoted_household_details'
+      AND column_name = 'work_date'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_qhdet_work_date ON public.quoted_household_details(work_date DESC);
+  END IF;
+END $$;

@@ -10,6 +10,7 @@ export interface TrainingCategoryUpdate {
   description?: string | null;
   sort_order?: number | null;
   is_active?: boolean | null;
+  cover_image_url?: string | null;
 }
 
 export function useTrainingCategories(agencyId?: string) {

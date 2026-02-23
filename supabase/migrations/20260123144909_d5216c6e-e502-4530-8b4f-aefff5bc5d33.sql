@@ -1,6 +1,17 @@
--- Fix the trigger function to use valid source value 'manual'
+DO $$
+BEGIN
+  IF to_regclass('public.sales') IS NULL
+    OR to_regclass('public.agency_contacts') IS NULL
+    OR to_regclass('public.lqs_households') IS NULL
+    OR to_regclass('public.lqs_quotes') IS NULL
+    OR to_regclass('public.lqs_sales') IS NULL THEN
+    RAISE NOTICE 'Skipping % because required source tables do not exist.', '20260123144909_d5216c6e-e502-4530-8b4f-aefff5bc5d33';
+    RETURN;
+  END IF;
+
+  EXECUTE $fn$
 CREATE OR REPLACE FUNCTION sync_sale_to_lqs()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS $function$
 DECLARE
   v_household_id UUID;
   v_household_key TEXT;
@@ -14,7 +25,7 @@ BEGIN
   END IF;
 
   -- Get contact info for household key
-  SELECT 
+  SELECT
     COALESCE(first_name, ''),
     COALESCE(last_name, ''),
     COALESCE(zip_code, '')
@@ -112,9 +123,11 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$function$
+LANGUAGE plpgsql SECURITY DEFINER
+$fn$;
 
--- BACKFILL: Create lqs_quotes for existing sales that don't have them
+  EXECUTE $sql$
 INSERT INTO lqs_quotes (
   household_id,
   agency_id,
@@ -144,7 +157,6 @@ WHERE NOT EXISTS (
     AND q.source_reference_id = s.id
 );
 
--- BACKFILL: Create lqs_sales for existing sales that don't have them
 INSERT INTO lqs_sales (
   household_id,
   agency_id,
@@ -175,3 +187,5 @@ WHERE NOT EXISTS (
   WHERE ls.household_id = h.id 
     AND ls.source_reference_id = s.id
 );
+$sql$;
+END $$;

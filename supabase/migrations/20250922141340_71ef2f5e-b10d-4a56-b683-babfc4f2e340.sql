@@ -12,6 +12,7 @@ LEFT JOIN public.team_members tm
 -- Update submission trigger to use enhanced flattener
 -- First, drop old trigger if exists
 DROP TRIGGER IF EXISTS trigger_flatten_quoted_details ON public.submissions;
+DROP TRIGGER IF EXISTS trigger_flatten_quoted_details_enhanced ON public.submissions;
 
 -- Create new trigger that calls enhanced function
 CREATE OR REPLACE FUNCTION public.trigger_flatten_quoted_details_enhanced()

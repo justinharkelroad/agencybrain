@@ -1,4 +1,6 @@
 -- Create the missing trigger for syncing member checklist items when agency files change
+DROP TRIGGER IF EXISTS sync_mci_on_file_change ON public.agency_files;
+
 CREATE TRIGGER sync_mci_on_file_change
   AFTER INSERT OR UPDATE OR DELETE ON public.agency_files
   FOR EACH ROW 

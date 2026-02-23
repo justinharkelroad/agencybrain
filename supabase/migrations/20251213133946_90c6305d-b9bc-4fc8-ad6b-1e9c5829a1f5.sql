@@ -1,3 +1,5 @@
+DROP FUNCTION IF EXISTS public.get_staff_call_scoring_data(uuid, uuid);
+
 CREATE OR REPLACE FUNCTION public.get_staff_call_scoring_data(p_agency_id uuid, p_team_member_id uuid DEFAULT NULL)
 RETURNS json
 LANGUAGE plpgsql

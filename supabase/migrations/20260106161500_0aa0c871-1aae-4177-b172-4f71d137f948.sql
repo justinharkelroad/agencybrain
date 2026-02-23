@@ -69,12 +69,20 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Fix Helen's household directly (update lead_source_id from her sale)
-UPDATE lqs_households h
-SET lead_source_id = s.lead_source_id,
-    needs_attention = false,
-    updated_at = now()
-FROM sales s
-WHERE s.customer_name ILIKE '%MAZZITELLI%'
-  AND s.customer_zip = h.zip_code
-  AND UPPER(h.last_name) = 'MAZZITELLI'
-  AND s.lead_source_id IS NOT NULL;
+DO $$
+BEGIN
+  IF to_regclass('public.sales') IS NULL OR to_regclass('public.lqs_households') IS NULL THEN
+    RAISE NOTICE 'Skipping Helen household lead_source_id sync: required table(s) not present.';
+    RETURN;
+  END IF;
+
+  UPDATE public.lqs_households h
+  SET lead_source_id = s.lead_source_id,
+      needs_attention = false,
+      updated_at = now()
+  FROM public.sales s
+  WHERE s.customer_name ILIKE '%MAZZITELLI%'
+    AND s.customer_zip = h.zip_code
+    AND UPPER(h.last_name) = 'MAZZITELLI'
+    AND s.lead_source_id IS NOT NULL;
+END $$ LANGUAGE plpgsql;

@@ -10,6 +10,7 @@ export interface TrainingModuleUpdate {
   description?: string | null;
   sort_order?: number | null;
   is_active?: boolean | null;
+  thumbnail_url?: string | null;
 }
 
 export function useTrainingModules(categoryId?: string) {

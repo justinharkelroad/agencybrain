@@ -364,4 +364,4 @@ VALUES
   (NULL, 'Daily Metrics', true, 40, true),
   (NULL, 'Consequence Policy', true, 50, true),
   (NULL, 'New Hire Document', true, 60, true)
-ON CONFLICT ON CONSTRAINT checklist_template_items_scope_label_uq DO NOTHING;
+ON CONFLICT DO NOTHING;

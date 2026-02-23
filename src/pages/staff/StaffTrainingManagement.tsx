@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TrainingContentTab } from '@/pages/admin/training-tabs/TrainingContentTab';
 import { TrainingAssignmentsTab } from '@/pages/admin/training-tabs/TrainingAssignmentsTab';
+import { SPAssignmentsTab } from '@/pages/admin/training-tabs/SPAssignmentsTab';
 import { TrainingProgressTab } from '@/pages/admin/training-tabs/TrainingProgressTab';
 import { StaffUsersTab } from '@/pages/admin/training-tabs/StaffUsersTab';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
@@ -57,18 +58,23 @@ export default function StaffTrainingManagement() {
         <TabsList>
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
+          <TabsTrigger value="sp-assignments">SP Assignments</TabsTrigger>
           <TabsTrigger value="progress">Progress</TabsTrigger>
           <TabsTrigger value="staff">Staff Users</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="content" className="space-y-4">
           <TrainingContentTab agencyId={agencyId} />
         </TabsContent>
-        
+
         <TabsContent value="assignments" className="space-y-4">
           <TrainingAssignmentsTab agencyId={agencyId} />
         </TabsContent>
-        
+
+        <TabsContent value="sp-assignments" className="space-y-4">
+          <SPAssignmentsTab agencyId={agencyId} />
+        </TabsContent>
+
         <TabsContent value="progress" className="space-y-4">
           <TrainingProgressTab agencyId={agencyId} />
         </TabsContent>

@@ -173,4 +173,22 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION upsert_cancel_audit_record IS 'Upserts cancel audit record with original_year field and automatically creates/links unified contact';
+DO $$
+DECLARE
+  fn_oid oid;
+BEGIN
+  FOR fn_oid IN
+    SELECT p.oid
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'upsert_cancel_audit_record'
+  LOOP
+    EXECUTE format(
+      'COMMENT ON FUNCTION %s IS %L',
+      fn_oid::regprocedure,
+      'Upserts cancel audit record with original_year field and automatically creates/links unified contact'
+    );
+  END LOOP;
+END
+$$;

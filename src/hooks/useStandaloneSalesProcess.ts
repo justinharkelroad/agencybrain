@@ -33,6 +33,20 @@ export interface SalesProcessSession {
   updated_at: string;
 }
 
+export type SalesProcessAccessErrorType =
+  | 'missing_token'
+  | 'unauthorized'
+  | 'no_feature'
+  | 'request_failed'
+  | 'unknown';
+
+export interface SalesProcessAccessResult {
+  hasAccess: boolean;
+  salesProcess: StandaloneSalesProcess | null;
+  session: SalesProcessSession | null;
+  accessErrorType?: SalesProcessAccessErrorType;
+}
+
 /**
  * Hook to check if user has access to the standalone Sales Process Builder
  */
@@ -44,7 +58,12 @@ export function useSalesProcessBuilderAccess() {
     queryFn: async () => {
       // Double-check we have a valid token before making the call
       if (!session?.access_token) {
-        return { hasAccess: false, salesProcess: null, session: null };
+        return {
+          hasAccess: false,
+          salesProcess: null,
+          session: null,
+          accessErrorType: 'missing_token' as const,
+        };
       }
 
       try {
@@ -62,19 +81,34 @@ export function useSalesProcessBuilderAccess() {
 
         // Handle auth errors gracefully - don't throw, just return no access
         if (response.status === 401 || response.status === 403) {
-          return { hasAccess: false, salesProcess: null, session: null };
+          return {
+            hasAccess: false,
+            salesProcess: null,
+            session: null,
+            accessErrorType: 'unauthorized',
+          };
         }
 
         if (!response.ok) {
           // Any other error means no access
-          return { hasAccess: false, salesProcess: null, session: null };
+          return {
+            hasAccess: false,
+            salesProcess: null,
+            session: null,
+            accessErrorType: 'request_failed',
+          };
         }
 
         const data = await response.json();
 
         // Check if response explicitly indicates no access
         if (data.hasAccess === false) {
-          return { hasAccess: false, salesProcess: null, session: null };
+          return {
+            hasAccess: false,
+            salesProcess: null,
+            session: null,
+            accessErrorType: 'no_feature',
+          };
         }
 
         return {
@@ -85,7 +119,12 @@ export function useSalesProcessBuilderAccess() {
       } catch (error) {
         // Network errors or other issues - return no access, don't throw
         console.warn('Sales process builder access check failed:', error);
-        return { hasAccess: false, salesProcess: null, session: null };
+        return {
+          hasAccess: false,
+          salesProcess: null,
+          session: null,
+          accessErrorType: 'unknown',
+        };
       }
     },
     enabled: !!session?.access_token && !!user,

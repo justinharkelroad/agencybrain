@@ -2,8 +2,16 @@
 -- This column stores which products the customer already owned when the sale was made
 -- Used for correct bundle classification (e.g., 'auto', 'home')
 
-ALTER TABLE sales
-ADD COLUMN existing_customer_products text[] DEFAULT '{}';
+DO $$
+BEGIN
+  IF to_regclass('public.sales') IS NULL THEN
+    RAISE NOTICE 'Skipping migration 20260203110000_add_existing_customer_products: table public.sales does not exist.';
+    RETURN;
+  END IF;
 
-COMMENT ON COLUMN sales.existing_customer_products IS
-  'Products customer already owned when sale was made (auto, home). Used for bundle classification.';
+  ALTER TABLE public.sales
+  ADD COLUMN IF NOT EXISTS existing_customer_products text[] DEFAULT '{}';
+
+  COMMENT ON COLUMN public.sales.existing_customer_products IS
+    'Products customer already owned when sale was made (auto, home). Used for bundle classification.';
+END $$;

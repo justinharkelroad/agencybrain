@@ -76,12 +76,13 @@ Deno.serve(async (req) => {
     // 2. Generate a temporary password (user will set their own via recovery link)
     const ownerPassword = generatePassword();
 
-    // 3. Create agency
+    // 3. Create agency (agency_email is NOT NULL — use buyer's email)
     const agencyName = `${email.split('@')[0]}'s Agency`;
     const { data: agency, error: agencyError } = await supabaseAdmin
       .from('agencies')
       .insert({
         name: agencyName,
+        agency_email: email,
         description: 'Created via 6-Week Challenge standalone purchase',
       })
       .select()
@@ -192,8 +193,8 @@ Deno.serve(async (req) => {
       .from('challenge_purchases')
       .insert({
         agency_id: agency.id,
-        product_id: product.id,
-        purchased_by: newUser.user.id,
+        challenge_product_id: product.id,
+        purchaser_id: newUser.user.id,
         quantity,
         seats_used: 0,
         price_per_seat_cents: amount_paid_cents ? Math.round(amount_paid_cents / quantity) : 0,

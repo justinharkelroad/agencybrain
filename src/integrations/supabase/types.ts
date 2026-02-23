@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -11,6 +12,31 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -1376,6 +1402,72 @@ export type Database = {
           },
         ]
       }
+      call_coaching_reports: {
+        Row: {
+          agency_id: string
+          call_ids: string[]
+          comparison_mode: string
+          created_at: string
+          created_by_staff_id: string | null
+          created_by_user_id: string | null
+          custom_prompt: string | null
+          gpt_cost: number | null
+          id: string
+          input_tokens: number | null
+          model_used: string | null
+          output_tokens: number | null
+          report_data: Json
+          title: string
+        }
+        Insert: {
+          agency_id: string
+          call_ids: string[]
+          comparison_mode?: string
+          created_at?: string
+          created_by_staff_id?: string | null
+          created_by_user_id?: string | null
+          custom_prompt?: string | null
+          gpt_cost?: number | null
+          id?: string
+          input_tokens?: number | null
+          model_used?: string | null
+          output_tokens?: number | null
+          report_data: Json
+          title: string
+        }
+        Update: {
+          agency_id?: string
+          call_ids?: string[]
+          comparison_mode?: string
+          created_at?: string
+          created_by_staff_id?: string | null
+          created_by_user_id?: string | null
+          custom_prompt?: string | null
+          gpt_cost?: number | null
+          id?: string
+          input_tokens?: number | null
+          model_used?: string | null
+          output_tokens?: number | null
+          report_data?: Json
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_coaching_reports_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_coaching_reports_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_events: {
         Row: {
           agency_id: string
@@ -1972,6 +2064,8 @@ export type Database = {
           assigned_team_member_id: string | null
           cancel_date: string | null
           cancel_status: string | null
+          city: string | null
+          company_code: string | null
           contact_id: string | null
           created_at: string
           dropped_from_report_at: string | null
@@ -1989,13 +2083,16 @@ export type Database = {
           pending_cancel_date: string | null
           policy_number: string
           premium_cents: number | null
+          premium_old_cents: number | null
           product_name: string | null
           renewal_effective_date: string | null
           report_type: string
           sent_to_winback_at: string | null
+          state: string | null
           status: string
           updated_at: string
           winback_household_id: string | null
+          zip_code: string | null
         }
         Insert: {
           account_type?: string | null
@@ -2005,6 +2102,8 @@ export type Database = {
           assigned_team_member_id?: string | null
           cancel_date?: string | null
           cancel_status?: string | null
+          city?: string | null
+          company_code?: string | null
           contact_id?: string | null
           created_at?: string
           dropped_from_report_at?: string | null
@@ -2022,13 +2121,16 @@ export type Database = {
           pending_cancel_date?: string | null
           policy_number: string
           premium_cents?: number | null
+          premium_old_cents?: number | null
           product_name?: string | null
           renewal_effective_date?: string | null
           report_type: string
           sent_to_winback_at?: string | null
+          state?: string | null
           status?: string
           updated_at?: string
           winback_household_id?: string | null
+          zip_code?: string | null
         }
         Update: {
           account_type?: string | null
@@ -2038,6 +2140,8 @@ export type Database = {
           assigned_team_member_id?: string | null
           cancel_date?: string | null
           cancel_status?: string | null
+          city?: string | null
+          company_code?: string | null
           contact_id?: string | null
           created_at?: string
           dropped_from_report_at?: string | null
@@ -2055,13 +2159,16 @@ export type Database = {
           pending_cancel_date?: string | null
           policy_number?: string
           premium_cents?: number | null
+          premium_old_cents?: number | null
           product_name?: string | null
           renewal_effective_date?: string | null
           report_type?: string
           sent_to_winback_at?: string | null
+          state?: string | null
           status?: string
           updated_at?: string
           winback_household_id?: string | null
+          zip_code?: string | null
         }
         Relationships: [
           {
@@ -8139,9 +8246,13 @@ export type Database = {
           amount_due: number | null
           amount_due_cents: number | null
           assigned_team_member_id: string | null
+          auto_resolved_reason: string | null
+          carrier_status: string | null
+          city: string | null
           contact_id: string | null
           created_at: string
           current_status: string
+          dropped_from_report_at: string | null
           easy_pay: boolean | null
           email: string | null
           first_name: string | null
@@ -8171,12 +8282,14 @@ export type Database = {
           renewal_effective_date: string | null
           renewal_status: string
           sent_to_winback_at: string | null
+          state: string | null
           updated_at: string
           upload_id: string | null
           uploaded_by: string | null
           uploaded_by_display_name: string | null
           winback_household_id: string | null
           years_prior_insurance: number | null
+          zip_code: string | null
         }
         Insert: {
           account_type?: string | null
@@ -8185,9 +8298,13 @@ export type Database = {
           amount_due?: number | null
           amount_due_cents?: number | null
           assigned_team_member_id?: string | null
+          auto_resolved_reason?: string | null
+          carrier_status?: string | null
+          city?: string | null
           contact_id?: string | null
           created_at?: string
           current_status?: string
+          dropped_from_report_at?: string | null
           easy_pay?: boolean | null
           email?: string | null
           first_name?: string | null
@@ -8217,12 +8334,14 @@ export type Database = {
           renewal_effective_date?: string | null
           renewal_status?: string
           sent_to_winback_at?: string | null
+          state?: string | null
           updated_at?: string
           upload_id?: string | null
           uploaded_by?: string | null
           uploaded_by_display_name?: string | null
           winback_household_id?: string | null
           years_prior_insurance?: number | null
+          zip_code?: string | null
         }
         Update: {
           account_type?: string | null
@@ -8231,9 +8350,13 @@ export type Database = {
           amount_due?: number | null
           amount_due_cents?: number | null
           assigned_team_member_id?: string | null
+          auto_resolved_reason?: string | null
+          carrier_status?: string | null
+          city?: string | null
           contact_id?: string | null
           created_at?: string
           current_status?: string
+          dropped_from_report_at?: string | null
           easy_pay?: boolean | null
           email?: string | null
           first_name?: string | null
@@ -8263,12 +8386,14 @@ export type Database = {
           renewal_effective_date?: string | null
           renewal_status?: string
           sent_to_winback_at?: string | null
+          state?: string | null
           updated_at?: string
           upload_id?: string | null
           uploaded_by?: string | null
           uploaded_by_display_name?: string | null
           winback_household_id?: string | null
           years_prior_insurance?: number | null
+          zip_code?: string | null
         }
         Relationships: [
           {
@@ -9938,6 +10063,91 @@ export type Database = {
           },
         ]
       }
+      sp_assignments: {
+        Row: {
+          agency_id: string
+          assigned_at: string
+          assigned_by_staff_id: string | null
+          assigned_by_user_id: string | null
+          due_date: string | null
+          id: string
+          seen_at: string | null
+          sp_category_id: string | null
+          sp_lesson_id: string | null
+          sp_module_id: string | null
+          staff_user_id: string
+        }
+        Insert: {
+          agency_id: string
+          assigned_at?: string
+          assigned_by_staff_id?: string | null
+          assigned_by_user_id?: string | null
+          due_date?: string | null
+          id?: string
+          seen_at?: string | null
+          sp_category_id?: string | null
+          sp_lesson_id?: string | null
+          sp_module_id?: string | null
+          staff_user_id: string
+        }
+        Update: {
+          agency_id?: string
+          assigned_at?: string
+          assigned_by_staff_id?: string | null
+          assigned_by_user_id?: string | null
+          due_date?: string | null
+          id?: string
+          seen_at?: string | null
+          sp_category_id?: string | null
+          sp_lesson_id?: string | null
+          sp_module_id?: string | null
+          staff_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sp_assignments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sp_assignments_assigned_by_staff_id_fkey"
+            columns: ["assigned_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sp_assignments_sp_category_id_fkey"
+            columns: ["sp_category_id"]
+            isOneToOne: false
+            referencedRelation: "sp_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sp_assignments_sp_lesson_id_fkey"
+            columns: ["sp_lesson_id"]
+            isOneToOne: false
+            referencedRelation: "sp_lessons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sp_assignments_sp_module_id_fkey"
+            columns: ["sp_module_id"]
+            isOneToOne: false
+            referencedRelation: "sp_modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sp_assignments_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sp_categories: {
         Row: {
           access_tiers: string[]
@@ -11515,27 +11725,39 @@ export type Database = {
           agency_id: string
           assigned_at: string
           assigned_by: string | null
+          assigned_by_staff_id: string | null
+          category_id: string | null
           due_date: string | null
           id: string
-          module_id: string
+          lesson_id: string | null
+          module_id: string | null
+          seen_at: string | null
           staff_user_id: string
         }
         Insert: {
           agency_id: string
           assigned_at?: string
           assigned_by?: string | null
+          assigned_by_staff_id?: string | null
+          category_id?: string | null
           due_date?: string | null
           id?: string
-          module_id: string
+          lesson_id?: string | null
+          module_id?: string | null
+          seen_at?: string | null
           staff_user_id: string
         }
         Update: {
           agency_id?: string
           assigned_at?: string
           assigned_by?: string | null
+          assigned_by_staff_id?: string | null
+          category_id?: string | null
           due_date?: string | null
           id?: string
-          module_id?: string
+          lesson_id?: string | null
+          module_id?: string | null
+          seen_at?: string | null
           staff_user_id?: string
         }
         Relationships: [
@@ -11551,6 +11773,27 @@ export type Database = {
             columns: ["assigned_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_assignments_assigned_by_staff_id_fkey"
+            columns: ["assigned_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_assignments_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "training_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_assignments_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "training_lessons"
             referencedColumns: ["id"]
           },
           {
@@ -11626,6 +11869,7 @@ export type Database = {
       training_categories: {
         Row: {
           agency_id: string
+          cover_image_url: string | null
           created_at: string
           description: string | null
           id: string
@@ -11636,6 +11880,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          cover_image_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -11646,6 +11891,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          cover_image_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
@@ -13733,6 +13979,7 @@ export type Database = {
           matched_key: string
         }[]
       }
+      normalize_person_name: { Args: { input_text: string }; Returns: string }
       normalize_phone: { Args: { phone: string }; Returns: string }
       normalize_product_type: {
         Args: { p_product_type: string }
@@ -13791,35 +14038,70 @@ export type Database = {
         Args: { p_status: string; p_stripe_subscription_id: string }
         Returns: undefined
       }
-      upsert_cancel_audit_record: {
-        Args: {
-          p_account_type: string
-          p_agency_id: string
-          p_agent_number: string
-          p_amount_due_cents: number
-          p_cancel_date: string
-          p_cancel_status?: string
-          p_household_key: string
-          p_insured_email: string
-          p_insured_first_name: string
-          p_insured_last_name: string
-          p_insured_phone: string
-          p_insured_phone_alt: string
-          p_last_upload_id: string
-          p_no_of_items: number
-          p_original_year?: string
-          p_pending_cancel_date: string
-          p_policy_number: string
-          p_premium_cents: number
-          p_product_name: string
-          p_renewal_effective_date: string
-          p_report_type: string
-        }
-        Returns: {
-          id: string
-          was_created: boolean
-        }[]
-      }
+      upsert_cancel_audit_record:
+        | {
+            Args: {
+              p_account_type: string
+              p_agency_id: string
+              p_agent_number: string
+              p_amount_due_cents: number
+              p_cancel_date: string
+              p_cancel_status?: string
+              p_household_key: string
+              p_insured_email: string
+              p_insured_first_name: string
+              p_insured_last_name: string
+              p_insured_phone: string
+              p_insured_phone_alt: string
+              p_last_upload_id: string
+              p_no_of_items: number
+              p_original_year?: string
+              p_pending_cancel_date: string
+              p_policy_number: string
+              p_premium_cents: number
+              p_product_name: string
+              p_renewal_effective_date: string
+              p_report_type: string
+            }
+            Returns: {
+              id: string
+              was_created: boolean
+            }[]
+          }
+        | {
+            Args: {
+              p_account_type: string
+              p_agency_id: string
+              p_agent_number: string
+              p_amount_due_cents: number
+              p_cancel_date: string
+              p_cancel_status?: string
+              p_city?: string
+              p_company_code?: string
+              p_household_key: string
+              p_insured_email: string
+              p_insured_first_name: string
+              p_insured_last_name: string
+              p_insured_phone: string
+              p_insured_phone_alt: string
+              p_last_upload_id: string
+              p_no_of_items: number
+              p_original_year?: string
+              p_pending_cancel_date: string
+              p_policy_number: string
+              p_premium_cents: number
+              p_premium_old_cents?: number
+              p_product_name: string
+              p_renewal_effective_date: string
+              p_report_type: string
+              p_state?: string
+              p_zip_code?: string
+            }
+            Returns: {
+              id: string
+              was_created: boolean
+            }[]
+          }
       upsert_exchange_activity: {
         Args: {
           p_update_feed?: boolean
@@ -14097,6 +14379,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_employment_type: ["Full-time", "Part-time"],

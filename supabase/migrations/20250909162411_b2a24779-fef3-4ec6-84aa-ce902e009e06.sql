@@ -1,4 +1,6 @@
 -- BLOCKER 2: Fix get_versioned_dashboard_data to avoid nested aggregates
+DROP FUNCTION IF EXISTS get_versioned_dashboard_data(text, text, boolean);
+
 CREATE OR REPLACE FUNCTION get_versioned_dashboard_data(
   p_agency_slug text,
   p_role text,

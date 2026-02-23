@@ -1,7 +1,7 @@
 -- Create/update view for metrics with team member names
 CREATE OR REPLACE VIEW public.vw_metrics_with_team AS
 SELECT md.*,
-       COALESCE(tm.display_name, CONCAT(tm.first_name, ' ', tm.last_name), tm.name, 'Unassigned') AS rep_name
+       COALESCE(NULLIF(tm.name, ''), 'Unassigned') AS rep_name
 FROM public.metrics_daily md
 LEFT JOIN public.team_members tm
   ON tm.id = md.team_member_id

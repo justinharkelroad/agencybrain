@@ -12,6 +12,16 @@ DO $$
 DECLARE
   v_updated INT;
 BEGIN
+  IF to_regclass('public.lqs_households') IS NULL THEN
+    RAISE NOTICE 'Skipped Step 1: public.lqs_households does not exist.';
+    RETURN;
+  END IF;
+
+  IF to_regclass('public.sales') IS NULL THEN
+    RAISE NOTICE 'Skipped Step 1: public.sales does not exist.';
+    RETURN;
+  END IF;
+
   WITH leads_with_sales AS (
     SELECT DISTINCT h.id as household_id
     FROM lqs_households h
@@ -50,6 +60,16 @@ DECLARE
   v_linked INT := 0;
   v_rec RECORD;
 BEGIN
+  IF to_regclass('public.lqs_households') IS NULL THEN
+    RAISE NOTICE 'Skipped Step 2: public.lqs_households does not exist.';
+    RETURN;
+  END IF;
+
+  IF to_regclass('public.agency_contacts') IS NULL THEN
+    RAISE NOTICE 'Skipped Step 2: public.agency_contacts does not exist.';
+    RETURN;
+  END IF;
+
   FOR v_rec IN
     SELECT
       h.id as household_id,
@@ -89,6 +109,16 @@ DO $$
 DECLARE
   v_updated INT;
 BEGIN
+  IF to_regclass('public.lqs_households') IS NULL THEN
+    RAISE NOTICE 'Skipped Step 3a: public.lqs_households does not exist.';
+    RETURN;
+  END IF;
+
+  IF to_regclass('public.cancel_audit_records') IS NULL THEN
+    RAISE NOTICE 'Skipped Step 3a: public.cancel_audit_records does not exist.';
+    RETURN;
+  END IF;
+
   -- Update status for newly linked households where contact has cancel_audit_records
   WITH contacts_with_cancel_audit AS (
     SELECT DISTINCT h.id as household_id
@@ -114,6 +144,16 @@ DO $$
 DECLARE
   v_updated INT;
 BEGIN
+  IF to_regclass('public.lqs_households') IS NULL THEN
+    RAISE NOTICE 'Skipped Step 3b: public.lqs_households does not exist.';
+    RETURN;
+  END IF;
+
+  IF to_regclass('public.renewal_records') IS NULL THEN
+    RAISE NOTICE 'Skipped Step 3b: public.renewal_records does not exist.';
+    RETURN;
+  END IF;
+
   -- Update status for newly linked households where contact has renewal success
   WITH contacts_with_renewal AS (
     SELECT DISTINCT h.id as household_id
@@ -140,6 +180,16 @@ DO $$
 DECLARE
   v_updated INT;
 BEGIN
+  IF to_regclass('public.lqs_households') IS NULL THEN
+    RAISE NOTICE 'Skipped Step 3c: public.lqs_households does not exist.';
+    RETURN;
+  END IF;
+
+  IF to_regclass('public.winback_households') IS NULL THEN
+    RAISE NOTICE 'Skipped Step 3c: public.winback_households does not exist.';
+    RETURN;
+  END IF;
+
   -- Update status for newly linked households where contact has winback won_back
   WITH contacts_with_winback AS (
     SELECT DISTINCT h.id as household_id
@@ -173,6 +223,11 @@ DECLARE
   v_quoted INT;
   v_sold INT;
 BEGIN
+  IF to_regclass('public.lqs_households') IS NULL THEN
+    RAISE NOTICE 'Skipped Step 4: public.lqs_households does not exist.';
+    RETURN;
+  END IF;
+
   SELECT COUNT(*) INTO v_total FROM lqs_households;
   SELECT COUNT(*) INTO v_linked FROM lqs_households WHERE contact_id IS NOT NULL;
   SELECT COUNT(*) INTO v_unlinked FROM lqs_households WHERE contact_id IS NULL;
@@ -182,9 +237,14 @@ BEGIN
 
   RAISE NOTICE '=== Final LQS Stats ===';
   RAISE NOTICE 'Total households: %', v_total;
-  RAISE NOTICE 'Linked to contacts: % (%.1f%%)', v_linked, (v_linked::float / v_total * 100);
-  RAISE NOTICE 'Not linked: % (%.1f%%)', v_unlinked, (v_unlinked::float / v_total * 100);
-  RAISE NOTICE 'Status lead: %', v_lead;
-  RAISE NOTICE 'Status quoted: %', v_quoted;
-  RAISE NOTICE 'Status sold: %', v_sold;
+  IF v_total > 0 THEN
+    RAISE NOTICE 'Linked to contacts: % (%.1f%%)', v_linked, (v_linked::float / v_total * 100);
+    RAISE NOTICE 'Not linked: % (%.1f%%)', v_unlinked, (v_unlinked::float / v_total * 100);
+  ELSE
+    RAISE NOTICE 'Linked to contacts: % (no households)', v_linked;
+    RAISE NOTICE 'Not linked: % (no households)', v_unlinked;
+  END IF;
+  RAISE NOTICE 'Status lead: %', v_lead;                                                     
+  RAISE NOTICE 'Status quoted: %', v_quoted;                                                 
+  RAISE NOTICE 'Status sold: %', v_sold;                                                     
 END $$;

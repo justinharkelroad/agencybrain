@@ -44,20 +44,28 @@ WHERE p.agency_id IS NOT NULL
   );
 
 -- Step 3: Fix existing unassigned sales by assigning them to the agency owner
-UPDATE sales s
-SET team_member_id = (
-  SELECT tm.id 
-  FROM team_members tm 
-  WHERE tm.agency_id = s.agency_id 
-  AND tm.role = 'Owner'
-  LIMIT 1
-)
-WHERE s.team_member_id IS NULL
-  AND EXISTS (
-    SELECT 1 FROM team_members tm 
+DO $$
+BEGIN
+  IF to_regclass('public.sales') IS NULL THEN
+    RAISE NOTICE 'Skipping unassigned sales owner backfill: public.sales does not exist.';
+    RETURN;
+  END IF;
+
+  UPDATE public.sales s
+  SET team_member_id = (
+    SELECT tm.id 
+    FROM public.team_members tm 
     WHERE tm.agency_id = s.agency_id 
     AND tm.role = 'Owner'
-  );
+    LIMIT 1
+  )
+  WHERE s.team_member_id IS NULL
+    AND EXISTS (
+      SELECT 1 FROM public.team_members tm 
+      WHERE tm.agency_id = s.agency_id 
+      AND tm.role = 'Owner'
+    );
+END $$ LANGUAGE plpgsql;
 
 -- Step 4: Update handle_new_user() function to auto-create Owner team_member on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()

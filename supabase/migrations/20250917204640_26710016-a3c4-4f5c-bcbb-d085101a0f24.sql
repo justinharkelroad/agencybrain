@@ -116,7 +116,7 @@ BEGIN
   RAISE NOTICE 'Starting comprehensive backfill from August 1st...';
   
   FOR r IN
-    SELECT DISTINCT s.id as submission_id
+    SELECT s.id as submission_id
     FROM public.submissions s
     JOIN public.form_templates ft ON ft.id = s.form_template_id
     WHERE s.submission_date >= '2024-08-01'

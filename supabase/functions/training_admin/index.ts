@@ -48,12 +48,13 @@ Deno.serve(async (req) => {
           id,
           agency_id,
           team_member_id,
-          team_members!inner (
+          team_members (
             role
           )
         )
       `)
       .eq('session_token', staffSessionToken)
+      .eq('is_valid', true)
       .gt('expires_at', new Date().toISOString())
       .single();
 
@@ -581,34 +582,94 @@ Deno.serve(async (req) => {
           .select(`
             *,
             staff_users(display_name, username),
-            training_modules(name)
+            training_modules(name),
+            training_categories(name),
+            training_lessons(name, module_id)
           `)
           .eq('agency_id', agencyId)
           .order('assigned_at', { ascending: false });
         if (error) throw error;
-        result = { assignments: data };
+
+        // Add level to each assignment
+        const enriched = (data || []).map((a: any) => ({
+          ...a,
+          level: a.category_id ? 'category' : a.module_id ? 'module' : a.lesson_id ? 'lesson' : 'module',
+        }));
+
+        result = { assignments: enriched };
         break;
       }
 
       case 'assignment_bulk_create': {
-        const { staff_user_ids, module_ids, due_date } = params;
-        const records: any[] = [];
-        for (const staffId of staff_user_ids) {
-          for (const moduleId of module_ids) {
-            records.push({
+        const { staff_user_ids, items, module_ids, due_date } = params;
+
+        if (!staff_user_ids?.length) {
+          throw new Error('staff_user_ids required');
+        }
+
+        // Backward-compat: old callers send module_ids, new callers send items
+        const resolvedItems: Array<{ category_id?: string; module_id?: string; lesson_id?: string }> =
+          items?.length ? items
+          : module_ids?.length ? module_ids.map((id: string) => ({ module_id: id }))
+          : [];
+
+        if (resolvedItems.length === 0) {
+          throw new Error('items or module_ids required');
+        }
+
+        const staffUserId = staffUser.id;
+
+        // Group by level for separate upserts (different onConflict columns)
+        const catRecords: any[] = [];
+        const modRecords: any[] = [];
+        const lessonRecords: any[] = [];
+
+        for (const suId of staff_user_ids) {
+          for (const item of resolvedItems) {
+            const base = {
               agency_id: agencyId,
-              staff_user_id: staffId,
-              module_id: moduleId,
+              staff_user_id: suId,
               due_date: due_date || null,
-            });
+              assigned_by_staff_id: staffUserId,
+            };
+            if (item.category_id) {
+              catRecords.push({ ...base, category_id: item.category_id });
+            } else if (item.module_id) {
+              modRecords.push({ ...base, module_id: item.module_id });
+            } else if (item.lesson_id) {
+              lessonRecords.push({ ...base, lesson_id: item.lesson_id });
+            }
           }
         }
-        const { data, error } = await supabase
-          .from('training_assignments')
-          .insert(records)
-          .select();
-        if (error) throw error;
-        result = { assignments: data };
+
+        const allResults: any[] = [];
+
+        if (catRecords.length > 0) {
+          const { data, error } = await supabase
+            .from('training_assignments')
+            .upsert(catRecords, { onConflict: 'staff_user_id,category_id' })
+            .select();
+          if (error) throw error;
+          allResults.push(...(data || []));
+        }
+        if (modRecords.length > 0) {
+          const { data, error } = await supabase
+            .from('training_assignments')
+            .upsert(modRecords, { onConflict: 'staff_user_id,module_id' })
+            .select();
+          if (error) throw error;
+          allResults.push(...(data || []));
+        }
+        if (lessonRecords.length > 0) {
+          const { data, error } = await supabase
+            .from('training_assignments')
+            .upsert(lessonRecords, { onConflict: 'staff_user_id,lesson_id' })
+            .select();
+          if (error) throw error;
+          allResults.push(...(data || []));
+        }
+
+        result = { assignments: allResults };
         break;
       }
 
@@ -649,6 +710,41 @@ Deno.serve(async (req) => {
           .eq('id', id);
         if (error) throw error;
         result = { success: true };
+        break;
+      }
+
+      // ============ CONTENT TREE (for drill-down picker) ============
+      case 'content_tree': {
+        const { data: categories, error: catErr } = await supabase
+          .from('training_categories')
+          .select(`
+            id, name,
+            training_modules(
+              id, name, sort_order, is_active,
+              training_lessons(id, name, sort_order, is_active)
+            )
+          `)
+          .eq('agency_id', agencyId)
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+
+        if (catErr) throw catErr;
+
+        // Sort and filter inactive children
+        const tree = (categories || []).map((cat: any) => ({
+          ...cat,
+          training_modules: (cat.training_modules || [])
+            .filter((mod: any) => mod.is_active !== false)
+            .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
+            .map((mod: any) => ({
+              ...mod,
+              training_lessons: (mod.training_lessons || [])
+                .filter((l: any) => l.is_active !== false)
+                .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)),
+            })),
+        }));
+
+        result = { tree };
         break;
       }
 

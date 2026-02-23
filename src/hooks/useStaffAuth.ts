@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { isStaffModeEnabled } from '@/lib/sessionMode';
 
 interface StaffUser {
   id: string;
@@ -107,6 +108,12 @@ export function useStaffAuth() {
         return { error: errorMsg };
       }
 
+      // Ensure we don't carry a stale Supabase session into staff mode.
+      if (!isStaffModeEnabled()) {
+        localStorage.setItem('auth_mode', 'staff');
+      }
+      await supabase.auth.signOut({ scope: 'local' });
+
       const expiresAt = data.expires_at ? new Date(data.expires_at) : null;
 
       localStorage.setItem('staff_session_token', data.session_token);
@@ -145,6 +152,9 @@ export function useStaffAuth() {
   }, []);
 
   const setImpersonationSession = useCallback((sessionToken: string, user: StaffUser, expiresAt?: string) => {
+    // Ensure stale owner/session tokens are not still active in staff mode.
+    supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+
     localStorage.setItem('staff_session_token', sessionToken);
     localStorage.setItem('staff_agency_id', user.agency_id);
     localStorage.setItem('auth_mode', 'staff'); // Prevent AuthProvider from wiping staff tokens

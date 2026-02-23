@@ -8,17 +8,19 @@ interface LessonProgress {
 }
 
 export function useStaffTrainingProgress() {
+  const sessionToken = localStorage.getItem('staff_session_token');
+
   return useQuery({
     queryKey: ['staff-training-progress'],
     queryFn: async () => {
-      const sessionToken = localStorage.getItem('staff_session_token');
-      
-      if (!sessionToken) {
-        throw new Error('No session token found');
+      const token = localStorage.getItem('staff_session_token');
+
+      if (!token) {
+        return { progress: [] } as { progress: LessonProgress[] };
       }
 
       const { data, error } = await supabase.functions.invoke('get_staff_training_progress', {
-        body: { session_token: sessionToken }
+        body: { session_token: token }
       });
 
       if (error) throw error;
@@ -26,6 +28,7 @@ export function useStaffTrainingProgress() {
 
       return data as { progress: LessonProgress[] };
     },
+    enabled: !!sessionToken,
     staleTime: 1 * 60 * 1000, // 1 minute
   });
 }

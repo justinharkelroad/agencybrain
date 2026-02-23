@@ -5,9 +5,10 @@ import { StaffSidebar } from "./StaffSidebar";
 import { AgencyBrainBadge } from "@/components/AgencyBrainBadge";
 import { ROIForecastersModal, CalcKey } from "@/components/ROIForecastersModal";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
+import { useSPAssignmentsBanner } from "@/hooks/useSPAssignmentsBanner";
 import { getStaffHomePath, isCallScoringTier, isChallengeTier } from "@/utils/tierAccess";
 import { Button } from "@/components/ui/button";
-import { Eye, X } from "lucide-react";
+import { Eye, X, BookOpen } from "lucide-react";
 import { StanChatBot } from "@/components/chatbot/StanChatBot";
 import { ReportIssueButton } from "@/components/feedback";
 
@@ -66,6 +67,8 @@ export function StaffLayout() {
     }
   };
 
+  const { unseenCount, singleName: bannerSingleName, targetPath: bannerTargetPath, dismiss: dismissBanner } = useSPAssignmentsBanner();
+
   const handleExitImpersonation = () => {
     logout();
     // Close the tab since this was opened from admin
@@ -96,6 +99,34 @@ export function StaffLayout() {
           </div>
         )}
         
+        {/* SP Assignment Notification Banner */}
+        {unseenCount > 0 && (
+          <div className={`fixed left-0 right-0 z-[90] bg-blue-600 text-white py-2.5 px-4 flex items-center justify-center gap-3 ${isImpersonation ? 'top-10' : 'top-0 md:top-0'}`}>
+            <BookOpen className="h-4 w-4 flex-shrink-0" />
+            <span className="text-sm font-medium">
+              {unseenCount === 1 && bannerSingleName
+                ? `New training assignment: ${bannerSingleName}`
+                : `You have ${unseenCount} new training assignment${unseenCount !== 1 ? 's' : ''}`}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white hover:bg-blue-700 h-7 px-3 text-sm font-medium"
+              onClick={() => navigate(bannerTargetPath)}
+            >
+              {unseenCount === 1 ? 'Start Training' : 'View Training'} &rarr;
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={dismissBanner}
+              className="ml-2 text-white/80 hover:text-white hover:bg-blue-700 h-7 w-7 p-0"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+
         {/* Mobile Header with Hamburger Menu - Only visible on mobile */}
         <div className={`md:hidden fixed left-0 right-0 z-50 bg-background border-b border-border flex items-center px-4 gap-3 pt-[env(safe-area-inset-top)] min-h-14 ${isImpersonation ? 'top-10' : 'top-0'}`}>
           <SidebarTrigger className="shrink-0" />

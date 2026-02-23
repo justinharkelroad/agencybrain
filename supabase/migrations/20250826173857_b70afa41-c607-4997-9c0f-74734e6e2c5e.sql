@@ -1,4 +1,5 @@
 -- AgencyBrain Scorecard Forms Schema
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- Update agencies table with scorecard-specific fields
 ALTER TABLE public.agencies 

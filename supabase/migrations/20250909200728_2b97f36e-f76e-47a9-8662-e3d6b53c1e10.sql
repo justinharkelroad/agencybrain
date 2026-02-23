@@ -1,11 +1,13 @@
 -- GATE 4: Create proper get_versioned_dashboard_data RPC
 -- Returns dashboard data with label_at_submit for current KPI labels
 
+DROP FUNCTION IF EXISTS public.get_versioned_dashboard_data(text, text, boolean);
+
 CREATE OR REPLACE FUNCTION public.get_versioned_dashboard_data(
   p_agency_slug text,
   p_role text,
   p_consolidate_versions boolean DEFAULT false
-)
+) 
 RETURNS jsonb
 LANGUAGE plpgsql
 STABLE SECURITY DEFINER

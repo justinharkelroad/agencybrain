@@ -58,7 +58,7 @@ BEGIN
     
     -- Insert KPI fields for Sales templates
     FOR template_rec IN 
-        SELECT id FROM form_templates WHERE role = 'sales'
+        SELECT id FROM form_templates WHERE role = 'Sales'
     LOOP
         INSERT INTO form_fields (form_template_id, key, label, type, required, builtin, position)
         SELECT 
@@ -111,7 +111,7 @@ BEGIN
 
     -- Insert KPI fields for Service templates
     FOR template_rec IN
-        SELECT id FROM form_templates WHERE role = 'service'  
+        SELECT id FROM form_templates WHERE role = 'Service'  
     LOOP
         INSERT INTO form_fields (form_template_id, key, label, type, required, builtin, position)
         SELECT

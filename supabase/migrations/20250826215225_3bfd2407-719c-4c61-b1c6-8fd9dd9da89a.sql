@@ -23,9 +23,15 @@ create unique index if not exists uidx_links_token
   on form_links(token);
 
 -- 0.2 RLS posture: anon cannot read forms/links/fields
-alter table form_links enable row level security;
-alter table form_templates enable row level security;
-alter table form_fields enable row level security;
+ALTER TABLE public.form_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.form_templates ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF to_regclass('public.form_fields') IS NOT NULL THEN
+    ALTER TABLE public.form_fields ENABLE ROW LEVEL SECURITY;
+  END IF;
+END $$;
 
 drop policy if exists p_links_select on form_links;
 create policy p_links_select on form_links for select using (false);
@@ -33,8 +39,13 @@ create policy p_links_select on form_links for select using (false);
 drop policy if exists p_templates_select on form_templates;
 create policy p_templates_select on form_templates for select using (false);
 
-drop policy if exists p_fields_select on form_fields;
-create policy p_fields_select on form_fields for select using (false);
+DO $$
+BEGIN
+  IF to_regclass('public.form_fields') IS NOT NULL THEN
+    DROP POLICY IF EXISTS p_fields_select ON public.form_fields;
+    CREATE POLICY p_fields_select ON public.form_fields FOR SELECT USING (false);
+  END IF;
+END $$;
 
 -- Phase 1: Builder + submissions foundation
 -- 1.1 Form fields (builder-time schema)

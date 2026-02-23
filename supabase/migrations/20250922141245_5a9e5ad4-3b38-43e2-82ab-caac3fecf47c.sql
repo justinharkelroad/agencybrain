@@ -1,8 +1,8 @@
 -- Create/update view for metrics with proper team member names
-CREATE OR REPLACE VIEW public.vw_metrics_with_team AS
+DROP VIEW IF EXISTS public.vw_metrics_with_team CASCADE;
+CREATE VIEW public.vw_metrics_with_team AS
 SELECT md.*,
-       COALESCE(tm.name, 'Unassigned') AS rep_name,
-       md.quoted_entity
+       COALESCE(tm.name, 'Unassigned') AS rep_name
 FROM public.metrics_daily md
 LEFT JOIN public.team_members tm
   ON tm.id = md.team_member_id
@@ -11,6 +11,7 @@ LEFT JOIN public.team_members tm
 -- Update submission trigger to use enhanced flattener
 -- First, drop old trigger if exists
 DROP TRIGGER IF EXISTS trigger_flatten_quoted_details ON public.submissions;
+DROP TRIGGER IF EXISTS trigger_flatten_quoted_details_enhanced ON public.submissions;
 
 -- Create new trigger that calls enhanced function
 CREATE OR REPLACE FUNCTION public.trigger_flatten_quoted_details_enhanced()

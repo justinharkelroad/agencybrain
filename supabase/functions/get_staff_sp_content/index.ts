@@ -1,10 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from '../_shared/cors.ts';
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -30,6 +26,7 @@ serve(async (req) => {
       .from('staff_sessions')
       .select('staff_user_id, expires_at')
       .eq('session_token', session_token)
+      .eq('is_valid', true)
       .single();
 
     if (sessionError || !session) {
@@ -223,17 +220,17 @@ serve(async (req) => {
       );
     }
 
-    // Default: fetch all categories for training hub
+    // ============ DEFAULT: Hub view with two-section split ============
     console.log('Fetching all SP categories for staff, isManager:', isManager);
 
-    // Fetch all published categories, then filter by role-based access
+    // Fetch all published categories with modules/lessons
     const { data: allCatData, error: catError } = await supabase
       .from('sp_categories')
       .select(`
         *,
         sp_modules(
-          id,
-          sp_lessons(id)
+          id, name, slug, is_published,
+          sp_lessons(id, is_published)
         )
       `)
       .eq('is_published', true)
@@ -247,8 +244,16 @@ serve(async (req) => {
       );
     }
 
-    // Filter categories based on role
-    const catData = (allCatData || []).filter(cat => canAccessCategory(cat.access_tiers));
+    // Filter categories based on role, and strip unpublished modules/lessons
+    const catData = (allCatData || []).filter(cat => canAccessCategory(cat.access_tiers)).map(cat => ({
+      ...cat,
+      sp_modules: (cat.sp_modules || [])
+        .filter((mod: any) => mod.is_published)
+        .map((mod: any) => ({
+          ...mod,
+          sp_lessons: (mod.sp_lessons || []).filter((l: any) => l.is_published),
+        })),
+    }));
 
     // Get staff's progress
     const { data: progressData, error: progressError } = await supabase
@@ -263,18 +268,30 @@ serve(async (req) => {
 
     const completedLessonIds = new Set(progressData?.map(p => p.lesson_id) || []);
 
-    // Calculate category stats
+    // Build a lookup: moduleId → { lessonCount, completedCount }
+    const moduleStatsMap = new Map<string, { lessonCount: number; completedCount: number }>();
+    // Build a lookup: lessonId → completed
+    const lessonCompletedMap = new Map<string, boolean>();
+
+    // Category stats
     const categoriesWithStats = (catData || []).map(cat => {
       let lessonCount = 0;
       let completedCount = 0;
 
       cat.sp_modules?.forEach((mod: any) => {
+        let modLessonCount = 0;
+        let modCompletedCount = 0;
         mod.sp_lessons?.forEach((lesson: any) => {
           lessonCount++;
-          if (completedLessonIds.has(lesson.id)) {
+          modLessonCount++;
+          const completed = completedLessonIds.has(lesson.id);
+          if (completed) {
             completedCount++;
+            modCompletedCount++;
           }
+          lessonCompletedMap.set(lesson.id, completed);
         });
+        moduleStatsMap.set(mod.id, { lessonCount: modLessonCount, completedCount: modCompletedCount });
       });
 
       return {
@@ -290,6 +307,86 @@ serve(async (req) => {
         completed_count: completedCount,
       };
     });
+
+    // Fetch ALL assignments for this staff user (all levels)
+    const { data: assignmentData } = await supabase
+      .from('sp_assignments')
+      .select(`
+        id, sp_category_id, sp_module_id, sp_lesson_id, due_date, assigned_at, seen_at,
+        sp_categories(id, name, slug),
+        sp_modules(id, name, slug, category_id, sp_categories:sp_categories!sp_modules_category_id_fkey(name, slug)),
+        sp_lessons(id, name, slug, module_id, sp_modules:sp_modules!sp_lessons_module_id_fkey(name, slug, category_id, sp_categories:sp_categories!sp_modules_category_id_fkey(name, slug)))
+      `)
+      .eq('staff_user_id', staffUserId);
+
+    let unseenAssignmentsCount = 0;
+
+    // Build assignedItems array with level + progress info
+    const assignedItems: any[] = [];
+    const assignedCategoryIds = new Set<string>();
+
+    (assignmentData || []).forEach((a: any) => {
+      if (!a.seen_at) unseenAssignmentsCount++;
+
+      if (a.sp_category_id) {
+        assignedCategoryIds.add(a.sp_category_id);
+        const catStats = categoriesWithStats.find(c => c.id === a.sp_category_id);
+        assignedItems.push({
+          id: a.id,
+          level: 'category',
+          target_id: a.sp_category_id,
+          target_name: a.sp_categories?.name,
+          target_slug: a.sp_categories?.slug,
+          breadcrumb: null,
+          due_date: a.due_date,
+          assigned_at: a.assigned_at,
+          seen_at: a.seen_at,
+          lesson_count: catStats?.lesson_count || 0,
+          completed_count: catStats?.completed_count || 0,
+          icon: catStats ? undefined : undefined, // will be filled from categories
+          image_url: null,
+        });
+      } else if (a.sp_module_id) {
+        const modStats = moduleStatsMap.get(a.sp_module_id);
+        assignedItems.push({
+          id: a.id,
+          level: 'module',
+          target_id: a.sp_module_id,
+          target_name: a.sp_modules?.name,
+          target_slug: a.sp_modules?.slug,
+          breadcrumb: a.sp_modules?.sp_categories?.name,
+          breadcrumb_slug: a.sp_modules?.sp_categories?.slug,
+          due_date: a.due_date,
+          assigned_at: a.assigned_at,
+          seen_at: a.seen_at,
+          lesson_count: modStats?.lessonCount || 0,
+          completed_count: modStats?.completedCount || 0,
+        });
+      } else if (a.sp_lesson_id) {
+        const completed = lessonCompletedMap.get(a.sp_lesson_id) || false;
+        const parentMod = a.sp_lessons?.sp_modules;
+        assignedItems.push({
+          id: a.id,
+          level: 'lesson',
+          target_id: a.sp_lesson_id,
+          target_name: a.sp_lessons?.name,
+          target_slug: a.sp_lessons?.slug,
+          breadcrumb: parentMod ? `${parentMod.sp_categories?.name} / ${parentMod.name}` : null,
+          breadcrumb_slug: parentMod?.sp_categories?.slug,
+          module_slug: parentMod?.slug,
+          due_date: a.due_date,
+          assigned_at: a.assigned_at,
+          seen_at: a.seen_at,
+          lesson_count: 1,
+          completed_count: completed ? 1 : 0,
+        });
+      }
+    });
+
+    // "All Training": categories NOT covered by a category-level assignment
+    const allTrainingCategories = categoriesWithStats.filter(
+      cat => !assignedCategoryIds.has(cat.id)
+    );
 
     // Calculate overall stats
     const totalLessons = categoriesWithStats.reduce((sum, c) => sum + c.lesson_count, 0);
@@ -324,12 +421,14 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        categories: categoriesWithStats,
+        assignedItems,
+        categories: allTrainingCategories,
         stats: {
           totalLessons,
           completedLessons,
           currentStreak: streak,
         },
+        unseen_assignments_count: unseenAssignmentsCount,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

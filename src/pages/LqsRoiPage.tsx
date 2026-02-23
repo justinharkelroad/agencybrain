@@ -1,12 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
-import { BarChart3, TrendingUp, Users, DollarSign, Percent, Target, Info, CalendarIcon, Download } from 'lucide-react';
+import {
+  BarChart3,
+  TrendingUp,
+  Users,
+  DollarSign,
+  Percent,
+  Target,
+  Info,
+  CalendarIcon,
+  Download,
+  Settings2,
+  CheckCircle2,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { HelpButton } from '@/components/HelpButton';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
   Select,
   SelectContent,
@@ -52,7 +66,8 @@ import {
   useLqsRoiAnalytics,
   DateRangePreset,
   getDateRangeFromPreset,
-  LeadSourceRoiRow
+  LeadSourceRoiRow,
+  ZipRoiRow,
 } from '@/hooks/useLqsRoiAnalytics';
 import { useLqsRoiExport } from '@/hooks/useLqsRoiExport';
 import { LqsRoiBucketTable } from '@/components/lqs/LqsRoiBucketTable';
@@ -89,6 +104,413 @@ function formatPercent(value: number): string {
 function formatRoi(value: number | null): string {
   if (value === null) return '∞';
   return `${value.toFixed(2)}x`;
+}
+
+type LeaderboardMetric = 'closeRate' | 'premiumCents' | 'writtenPolicies' | 'writtenItems' | 'policyAcqCost' | 'itemAcqCost';
+
+type LeaderboardDirection = 'high' | 'low';
+
+interface MetricOption {
+  value: LeaderboardMetric;
+  label: string;
+  direction: LeaderboardDirection;
+}
+
+const LEADERBOARD_METRICS: MetricOption[] = [
+  { value: 'closeRate', label: 'Close Rate', direction: 'high' },
+  { value: 'premiumCents', label: 'Premium Sold', direction: 'high' },
+  { value: 'writtenPolicies', label: 'Policies Sold', direction: 'high' },
+  { value: 'writtenItems', label: 'Items Sold', direction: 'high' },
+  { value: 'policyAcqCost', label: 'Cost / Policy', direction: 'low' },
+  { value: 'itemAcqCost', label: 'Cost / Item', direction: 'low' },
+];
+
+const LEADERBOARD_METRIC_OPTIONS = {
+  leadSource: LEADERBOARD_METRICS,
+  zip: LEADERBOARD_METRICS,
+};
+
+const TOP_LEADERBOARD_COUNT = 5;
+const TOP_LEADERBOARD_MAX_COUNT = 20;
+const ROI_FLAG_SETTINGS_STORAGE_KEY = 'lqs-roi-auto-flag-settings';
+
+interface RoiFlagSettings {
+  enabled: boolean;
+  leadSourceMetric: LeaderboardMetric;
+  zipMetric: LeaderboardMetric;
+  leadSourceMinimumSample: number;
+  zipMinimumSample: number;
+  topCount: number;
+  showPriorityZipBadges: boolean;
+}
+
+const DEFAULT_ROI_FLAG_SETTINGS: RoiFlagSettings = {
+  enabled: true,
+  leadSourceMetric: 'closeRate',
+  zipMetric: 'closeRate',
+  leadSourceMinimumSample: 3,
+  zipMinimumSample: 5,
+  topCount: 5,
+  showPriorityZipBadges: true,
+};
+
+function isValidLeaderboardMetric(value: unknown): value is LeaderboardMetric {
+  return (
+    value === 'closeRate' ||
+    value === 'premiumCents' ||
+    value === 'writtenPolicies' ||
+    value === 'writtenItems' ||
+    value === 'policyAcqCost' ||
+    value === 'itemAcqCost'
+  );
+}
+
+function sanitizeNumber(value: unknown, fallback: number, min = 1) {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (parsed < min) return min;
+  return Math.floor(parsed);
+}
+
+function getFlagsSettingsStorageKey(agencyId: string | null) {
+  return `${ROI_FLAG_SETTINGS_STORAGE_KEY}-${agencyId || 'global'}`;
+}
+
+function parseBoundedIntegerInput(value: string, fallback: number, min = 1) {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) return fallback;
+  const parsed = parseInt(trimmed, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, parsed);
+}
+
+const LEAD_SOURCE_MINIMUMS = {
+  closeRate: (row: LeadSourceRoiRow) => row.totalQuotes,
+  premiumCents: (row: LeadSourceRoiRow) => row.totalSales,
+  writtenPolicies: (row: LeadSourceRoiRow) => row.totalSales,
+  writtenItems: (row: LeadSourceRoiRow) => row.totalSales,
+  policyAcqCost: (row: LeadSourceRoiRow) => row.writtenPolicies,
+  itemAcqCost: (row: LeadSourceRoiRow) => row.writtenItems,
+};
+
+const ZIP_MINIMUMS = {
+  closeRate: (row: ZipRoiRow) => row.totalQuotes,
+  premiumCents: (row: ZipRoiRow) => row.totalSales,
+  writtenPolicies: (row: ZipRoiRow) => row.totalSales,
+  writtenItems: (row: ZipRoiRow) => row.totalSales,
+  policyAcqCost: (row: ZipRoiRow) => row.writtenPolicies,
+  itemAcqCost: (row: ZipRoiRow) => row.writtenItems,
+};
+
+function getLeadSourceMetricValue(row: LeadSourceRoiRow, metric: LeaderboardMetric): number | null {
+  switch (metric) {
+    case 'closeRate':
+      return row.closeRatio;
+    case 'premiumCents':
+      return row.premiumCents;
+    case 'writtenPolicies':
+      return row.writtenPolicies;
+    case 'writtenItems':
+      return row.writtenItems;
+    case 'policyAcqCost':
+      return row.policyAcqCost;
+    case 'itemAcqCost':
+      return row.itemAcqCost;
+    default:
+      return null;
+  }
+}
+
+function getZipMetricValue(row: ZipRoiRow, metric: LeaderboardMetric): number | null {
+  switch (metric) {
+    case 'closeRate':
+      return row.closeRatio;
+    case 'premiumCents':
+      return row.premiumCents;
+    case 'writtenPolicies':
+      return row.writtenPolicies;
+    case 'writtenItems':
+      return row.writtenItems;
+    case 'policyAcqCost':
+      return row.policyAcqCost;
+    case 'itemAcqCost':
+      return row.itemAcqCost;
+    default:
+      return null;
+  }
+}
+
+function formatLeaderboardValue(metric: LeaderboardMetric, value: number): string {
+  switch (metric) {
+    case 'closeRate':
+      return formatPercent(value);
+    case 'premiumCents':
+      return formatCurrency(value);
+    case 'writtenPolicies':
+    case 'writtenItems':
+      return value.toLocaleString();
+    case 'policyAcqCost':
+    case 'itemAcqCost':
+      return formatCurrency(value);
+  }
+}
+
+function getTopRows<T>(
+  data: T[],
+  metric: LeaderboardMetric,
+  getValue: (row: T, metric: LeaderboardMetric) => number | null,
+  getMinimum: (row: T, metric: LeaderboardMetric) => number,
+  direction: LeaderboardDirection,
+  minimumSample = 3,
+  maxCount = TOP_LEADERBOARD_COUNT,
+) {
+  const withValue = data
+    .map((row) => ({
+      row,
+      value: getValue(row, metric),
+      minimum: getMinimum(row, metric),
+    }))
+    .filter(item => {
+      if (item.value === null || Number.isNaN(item.value)) return false;
+      if (item.value <= 0) return false;
+      if (item.minimum < minimumSample) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (direction === 'high') {
+        return b.value! - a.value!;
+      }
+      return a.value! - b.value!;
+    });
+
+  return withValue.slice(0, maxCount);
+}
+
+function TopLeadSourceCallout({
+  data,
+  metric,
+  isLoading,
+  onMetricChange,
+  flaggedRows,
+  minimumSample = 3,
+  maxRows = TOP_LEADERBOARD_COUNT,
+}: {
+  data: LeadSourceRoiRow[];
+  metric: LeaderboardMetric;
+  isLoading: boolean;
+  onMetricChange: (metric: LeaderboardMetric) => void;
+  flaggedRows?: Set<string | null>;
+  minimumSample?: number;
+  maxRows?: number;
+}) {
+  const metricConfig = LEADERBOARD_METRIC_OPTIONS.leadSource.find((m) => m.value === metric) ?? LEADERBOARD_METRIC_OPTIONS.leadSource[0];
+  const topRows = getTopRows(
+    data,
+    metric,
+    getLeadSourceMetricValue,
+    (row, metricId) => LEAD_SOURCE_MINIMUMS[metricId](row),
+    metricConfig.direction,
+    minimumSample,
+    maxRows,
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            Top {maxRows} Lead Sources by {metricConfig.label}
+          </span>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="lead-source-metric" className="text-sm text-muted-foreground whitespace-nowrap">
+              Sort by:
+            </Label>
+            <Select
+              value={metric}
+              onValueChange={(value) => onMetricChange(value as LeaderboardMetric)}
+            >
+              <SelectTrigger id="lead-source-metric" className="w-[205px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LEADERBOARD_METRIC_OPTIONS.leadSource.map((metricOption) => (
+                  <SelectItem key={`lead-${metricOption.value}`} value={metricOption.value}>
+                    {metricOption.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+            <TableRow>
+                <TableHead>#</TableHead>
+                <TableHead>Lead Source</TableHead>
+                <TableHead className="text-right">{metricConfig.label}</TableHead>
+                <TableHead className="w-20 text-right">Auto-flag</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: Math.max(1, maxRows) }).map((_, i) => (
+                  <TableRow key={`lead-skeleton-${i}`}>
+                    <TableCell colSpan={4}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : topRows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                    No lead-source data available
+                  </TableCell>
+                </TableRow>
+              ) : (
+                topRows.map((item, index) => (
+                  <TableRow key={item.row.leadSourceId || `unattributed-${index}`}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>{item.row.leadSourceName}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatLeaderboardValue(metric, item.value!)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {(flaggedRows?.has(item.row.leadSourceId) ?? false) && (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                          Priority
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function TopZipCallout({
+  data,
+  metric,
+  isLoading,
+  onMetricChange,
+  minimumSample = 3,
+  maxRows = TOP_LEADERBOARD_COUNT,
+  flaggedRows,
+}: {
+  data: ZipRoiRow[];
+  metric: LeaderboardMetric;
+  isLoading: boolean;
+  onMetricChange: (metric: LeaderboardMetric) => void;
+  minimumSample?: number;
+  maxRows?: number;
+  flaggedRows?: Set<string>;
+}) {
+  const metricConfig = LEADERBOARD_METRIC_OPTIONS.zip.find((m) => m.value === metric) ?? LEADERBOARD_METRIC_OPTIONS.zip[0];
+  const topRows = getTopRows(
+    data,
+    metric,
+    getZipMetricValue,
+    (row, metricId) => ZIP_MINIMUMS[metricId](row),
+    metricConfig.direction,
+    minimumSample,
+    maxRows,
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            Top {maxRows} ZIP Codes by {metricConfig.label}
+          </span>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="zip-metric" className="text-sm text-muted-foreground whitespace-nowrap">
+              Sort by:
+            </Label>
+            <Select
+              value={metric}
+              onValueChange={(value) => onMetricChange(value as LeaderboardMetric)}
+            >
+              <SelectTrigger id="zip-metric" className="w-[205px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LEADERBOARD_METRIC_OPTIONS.zip.map((metricOption) => (
+                  <SelectItem key={`zip-${metricOption.value}`} value={metricOption.value}>
+                    {metricOption.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <span className="text-xs text-muted-foreground">Spend shown is lead-source allocated</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+            <TableRow>
+                <TableHead>#</TableHead>
+                <TableHead>ZIP</TableHead>
+                <TableHead className="text-right">{metricConfig.label}</TableHead>
+                <TableHead className="w-20 text-right">Auto-flag</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: Math.max(1, maxRows) }).map((_, i) => (
+                  <TableRow key={`zip-skeleton-${i}`}>
+                    <TableCell colSpan={4}>
+                      <Skeleton className="h-8 w-full" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : topRows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
+                    No ZIP-code data available
+                  </TableCell>
+                </TableRow>
+              ) : (
+                topRows.map((item, index) => (
+                  <TableRow key={`zip-${item.row.zipCode}-${index}`}>
+                    <TableCell>{index + 1}</TableCell>
+                    <TableCell>{item.row.zipCode}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {formatLeaderboardValue(metric, item.value!)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {(flaggedRows?.has(item.row.zipCode) ?? false) && (
+                        <Badge
+                          variant="outline"
+                          className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                          Priority
+                        </Badge>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 // Conversion Funnel Component - Uses openLeads (status='lead') not total households
@@ -403,6 +825,12 @@ export default function LqsRoiPage() {
   const [customDateRange, setCustomDateRange] = useState<{ start: Date; end: Date } | null>(null);
   const [commissionRate, setCommissionRate] = useState<string>('22');
   const [isSavingRate, setIsSavingRate] = useState(false);
+  const [roiFlagSettings, setRoiFlagSettings] = useState<RoiFlagSettings>(DEFAULT_ROI_FLAG_SETTINGS);
+  const [roiFlagInputValues, setRoiFlagInputValues] = useState({
+    topCount: String(DEFAULT_ROI_FLAG_SETTINGS.topCount),
+    leadSourceMinimumSample: String(DEFAULT_ROI_FLAG_SETTINGS.leadSourceMinimumSample),
+    zipMinimumSample: String(DEFAULT_ROI_FLAG_SETTINGS.zipMinimumSample),
+  });
 
   // Lead source detail sheet state
   const [detailSheetOpen, setDetailSheetOpen] = useState(false);
@@ -432,11 +860,108 @@ export default function LqsRoiPage() {
     : getDateRangeFromPreset(datePreset as DateRangePreset);
   
   const { data: agencyProfile, isLoading: agencyLoading } = useAgencyProfile(user?.id, 'Manager');
+  const flagSettingsKey = getFlagsSettingsStorageKey(agencyProfile?.agencyId ?? null);
+
+  useEffect(() => {
+    if (!flagSettingsKey) return;
+    try {
+      const raw = localStorage.getItem(flagSettingsKey);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return;
+
+      setRoiFlagSettings({
+        enabled: Boolean(parsed.enabled),
+        leadSourceMetric: isValidLeaderboardMetric(parsed.leadSourceMetric)
+          ? parsed.leadSourceMetric
+          : DEFAULT_ROI_FLAG_SETTINGS.leadSourceMetric,
+        zipMetric: isValidLeaderboardMetric(parsed.zipMetric)
+          ? parsed.zipMetric
+          : DEFAULT_ROI_FLAG_SETTINGS.zipMetric,
+        leadSourceMinimumSample: sanitizeNumber(parsed.leadSourceMinimumSample, DEFAULT_ROI_FLAG_SETTINGS.leadSourceMinimumSample, 1),
+        zipMinimumSample: sanitizeNumber(parsed.zipMinimumSample, DEFAULT_ROI_FLAG_SETTINGS.zipMinimumSample, 1),
+        topCount: Math.min(
+          TOP_LEADERBOARD_MAX_COUNT,
+          sanitizeNumber(parsed.topCount, DEFAULT_ROI_FLAG_SETTINGS.topCount, 1),
+        ),
+        showPriorityZipBadges: typeof parsed.showPriorityZipBadges === 'boolean'
+          ? parsed.showPriorityZipBadges
+          : DEFAULT_ROI_FLAG_SETTINGS.showPriorityZipBadges,
+      });
+    } catch {
+      // Keep defaults if localStorage is malformed
+    }
+  }, [flagSettingsKey]);
+
+  useEffect(() => {
+    setRoiFlagInputValues({
+      topCount: String(roiFlagSettings.topCount),
+      leadSourceMinimumSample: String(roiFlagSettings.leadSourceMinimumSample),
+      zipMinimumSample: String(roiFlagSettings.zipMinimumSample),
+    });
+  }, [roiFlagSettings.topCount, roiFlagSettings.leadSourceMinimumSample, roiFlagSettings.zipMinimumSample]);
+
+  useEffect(() => {
+    if (!flagSettingsKey) return;
+    localStorage.setItem(flagSettingsKey, JSON.stringify(roiFlagSettings));
+  }, [roiFlagSettings, flagSettingsKey]);
   
   const { data: analytics, isLoading: analyticsLoading, error, refetch } = useLqsRoiAnalytics(
     agencyProfile?.agencyId ?? null,
     dateRange
   );
+
+  const leadSourceAutoFlags = useMemo(() => {
+    if (!analytics?.byLeadSource) return [];
+    const metric = roiFlagSettings.leadSourceMetric;
+    const metricConfig = LEADERBOARD_METRIC_OPTIONS.leadSource.find((m) => m.value === metric) ?? LEADERBOARD_METRICS[0];
+    return getTopRows(
+      analytics.byLeadSource,
+      metric,
+      getLeadSourceMetricValue,
+      (row, metricId) => LEAD_SOURCE_MINIMUMS[metricId](row),
+      metricConfig.direction,
+      roiFlagSettings.leadSourceMinimumSample,
+      roiFlagSettings.topCount
+    );
+  }, [analytics?.byLeadSource, roiFlagSettings]);
+
+  const zipAutoFlags = useMemo(() => {
+    if (!analytics?.byZipCode) return [];
+    const metric = roiFlagSettings.zipMetric;
+    const metricConfig = LEADERBOARD_METRIC_OPTIONS.zip.find((m) => m.value === metric) ?? LEADERBOARD_METRICS[0];
+    return getTopRows(
+      analytics.byZipCode,
+      metric,
+      getZipMetricValue,
+      (row, metricId) => ZIP_MINIMUMS[metricId](row),
+      metricConfig.direction,
+      roiFlagSettings.zipMinimumSample,
+      roiFlagSettings.topCount
+    );
+  }, [analytics?.byZipCode, roiFlagSettings]);
+
+  const flaggedLeadSourceIds = useMemo(
+    () => new Set(leadSourceAutoFlags.map(item => item.row.leadSourceId)),
+    [leadSourceAutoFlags]
+  );
+
+  const flaggedZipCodes = useMemo(
+    () => zipAutoFlags.map(item => item.row.zipCode),
+    [zipAutoFlags]
+  );
+
+  const flaggedZipCodeSet = useMemo(
+    () => new Set(flaggedZipCodes),
+    [flaggedZipCodes]
+  );
+
+  const priorityZipRanks = useMemo(() => {
+    return zipAutoFlags.reduce<Record<string, number>>((acc, item, index) => {
+      acc[item.row.zipCode] = index + 1;
+      return acc;
+    }, {});
+  }, [zipAutoFlags]);
 
   // Producer breakdown data
   const { data: producerData, isLoading: producerLoading } = useLqsProducerBreakdown(
@@ -711,6 +1236,254 @@ export default function LqsRoiPage() {
         }}
       />
 
+      {/* ROI Flag Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between gap-2">
+            <span className="flex items-center gap-2">
+              <Settings2 className="h-4 w-4" />
+              ROI Flag Settings
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8"
+              onClick={() => setRoiFlagSettings(DEFAULT_ROI_FLAG_SETTINGS)}
+            >
+              Reset
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Enable Auto-Flags</p>
+              <p className="text-xs text-muted-foreground">
+                Marks top rows and highlights households in matching ZIP codes.
+              </p>
+            </div>
+            <Switch
+              checked={roiFlagSettings.enabled}
+              onCheckedChange={(checked) => setRoiFlagSettings(prev => ({
+                ...prev,
+                enabled: checked,
+              }))}
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="space-y-2">
+              <Label>List size</Label>
+              <Input
+                type="number"
+                min={1}
+                max={20}
+                value={roiFlagInputValues.topCount}
+                onChange={(event) =>
+                  setRoiFlagInputValues((prev) => ({
+                    ...prev,
+                    topCount: event.target.value,
+                  }))
+                }
+                onBlur={() => {
+                  const nextTopCount = Math.min(
+                    TOP_LEADERBOARD_MAX_COUNT,
+                    parseBoundedIntegerInput(roiFlagInputValues.topCount, DEFAULT_ROI_FLAG_SETTINGS.topCount, 1),
+                  );
+                  setRoiFlagSettings(prev => ({
+                    ...prev,
+                    topCount: nextTopCount,
+                  }));
+                  setRoiFlagInputValues((prev) => ({
+                    ...prev,
+                    topCount: String(nextTopCount),
+                  }));
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    (event.target as HTMLInputElement).blur();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="show-priority-zip-badges" className="text-sm">
+                Show Priority ZIP badges in detail
+              </Label>
+              <div className="pt-2">
+                <Switch
+                  id="show-priority-zip-badges"
+                  checked={roiFlagSettings.showPriorityZipBadges}
+                  onCheckedChange={(checked) =>
+                    setRoiFlagSettings(prev => ({
+                      ...prev,
+                      showPriorityZipBadges: checked,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lead-source-flag-metric">Lead source metric</Label>
+              <Select
+                value={roiFlagSettings.leadSourceMetric}
+                onValueChange={(value) =>
+                  setRoiFlagSettings(prev => ({
+                    ...prev,
+                    leadSourceMetric: value as LeaderboardMetric,
+                  }))
+                }
+              >
+                <SelectTrigger id="lead-source-flag-metric" className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEADERBOARD_METRIC_OPTIONS.leadSource.map((metricOption) => (
+                    <SelectItem key={`settings-lead-${metricOption.value}`} value={metricOption.value}>
+                      {metricOption.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lead-source-flag-sample">Lead source sample minimum</Label>
+              <Input
+                id="lead-source-flag-sample"
+                type="number"
+                min={1}
+                value={roiFlagInputValues.leadSourceMinimumSample}
+                onChange={(event) =>
+                  setRoiFlagInputValues((prev) => ({
+                    ...prev,
+                    leadSourceMinimumSample: event.target.value,
+                  }))
+                }
+                onBlur={() => {
+                  const nextLeadSourceMinimumSample = parseBoundedIntegerInput(
+                    roiFlagInputValues.leadSourceMinimumSample,
+                    DEFAULT_ROI_FLAG_SETTINGS.leadSourceMinimumSample,
+                    1,
+                  );
+                  setRoiFlagSettings(prev => ({
+                    ...prev,
+                    leadSourceMinimumSample: nextLeadSourceMinimumSample,
+                  }));
+                  setRoiFlagInputValues((prev) => ({
+                    ...prev,
+                    leadSourceMinimumSample: String(nextLeadSourceMinimumSample),
+                  }));
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    (event.target as HTMLInputElement).blur();
+                  }
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="zip-flag-metric">ZIP metric</Label>
+              <Select
+                value={roiFlagSettings.zipMetric}
+                onValueChange={(value) =>
+                  setRoiFlagSettings(prev => ({
+                    ...prev,
+                    zipMetric: value as LeaderboardMetric,
+                  }))
+                }
+              >
+                <SelectTrigger id="zip-flag-metric" className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LEADERBOARD_METRIC_OPTIONS.zip.map((metricOption) => (
+                    <SelectItem key={`settings-zip-${metricOption.value}`} value={metricOption.value}>
+                      {metricOption.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="zip-flag-sample">ZIP sample minimum</Label>
+              <Input
+                id="zip-flag-sample"
+                type="number"
+                min={1}
+                value={roiFlagInputValues.zipMinimumSample}
+                onChange={(event) =>
+                  setRoiFlagInputValues((prev) => ({
+                    ...prev,
+                    zipMinimumSample: event.target.value,
+                  }))
+                }
+                onBlur={() => {
+                  const nextZipMinimumSample = parseBoundedIntegerInput(
+                    roiFlagInputValues.zipMinimumSample,
+                    DEFAULT_ROI_FLAG_SETTINGS.zipMinimumSample,
+                    1,
+                  );
+                  setRoiFlagSettings(prev => ({
+                    ...prev,
+                    zipMinimumSample: nextZipMinimumSample,
+                  }));
+                  setRoiFlagInputValues((prev) => ({
+                    ...prev,
+                    zipMinimumSample: String(nextZipMinimumSample),
+                  }));
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    (event.target as HTMLInputElement).blur();
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Marketing Top Callouts */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            Marketing callouts
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <p className="text-xs text-muted-foreground">
+            Tip: values are filtered by minimum sample size so one-off entries don't surface as top performers.
+          </p>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <TopLeadSourceCallout
+          data={analytics?.byLeadSource || []}
+          metric={roiFlagSettings.leadSourceMetric}
+          flaggedRows={roiFlagSettings.enabled ? flaggedLeadSourceIds : undefined}
+          minimumSample={roiFlagSettings.leadSourceMinimumSample}
+          maxRows={roiFlagSettings.topCount}
+          onMetricChange={(next) => setRoiFlagSettings(prev => ({
+            ...prev,
+            leadSourceMetric: next,
+          }))}
+          isLoading={analyticsLoading}
+        />
+        <TopZipCallout
+          data={analytics?.byZipCode || []}
+          metric={roiFlagSettings.zipMetric}
+          flaggedRows={roiFlagSettings.enabled ? flaggedZipCodeSet : undefined}
+          minimumSample={roiFlagSettings.zipMinimumSample}
+          maxRows={roiFlagSettings.topCount}
+          onMetricChange={(next) => setRoiFlagSettings(prev => ({
+            ...prev,
+            zipMetric: next,
+          }))}
+          isLoading={analyticsLoading}
+        />
+      </div>
+
       {/* Summary Cards */}
       {analyticsLoading || !summary ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -924,6 +1697,8 @@ export default function LqsRoiPage() {
         dateRange={dateRange}
         open={detailSheetOpen}
         onOpenChange={setDetailSheetOpen}
+        priorityZipCodes={roiFlagSettings.enabled && roiFlagSettings.showPriorityZipBadges ? flaggedZipCodes : []}
+        priorityZipRanks={roiFlagSettings.enabled && roiFlagSettings.showPriorityZipBadges ? priorityZipRanks : undefined}
       />
 
       {/* Producer Detail Sheet */}

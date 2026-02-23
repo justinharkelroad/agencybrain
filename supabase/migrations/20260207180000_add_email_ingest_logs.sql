@@ -26,6 +26,9 @@ CREATE POLICY "Agency members view email_ingest_logs"
   ON email_ingest_logs FOR SELECT
   USING (has_agency_access(auth.uid(), agency_id));
 
+ALTER TABLE agencies
+ADD COLUMN IF NOT EXISTS rc_ingest_key TEXT;
+
 -- Backfill rc_ingest_key for any agencies missing one
 UPDATE agencies
 SET rc_ingest_key = substr(md5(random()::text || id::text), 1, 8)

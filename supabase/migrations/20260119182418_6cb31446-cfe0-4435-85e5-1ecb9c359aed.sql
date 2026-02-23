@@ -1,3 +1,5 @@
+DROP FUNCTION IF EXISTS public.get_contacts_by_stage(UUID, TEXT, TEXT, INT, INT);
+
 CREATE OR REPLACE FUNCTION get_contacts_by_stage(
   p_agency_id UUID,
   p_stage TEXT DEFAULT NULL,

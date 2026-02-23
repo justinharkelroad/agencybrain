@@ -56,7 +56,7 @@ DECLARE
 BEGIN
   -- Find finalized submissions from the last 30 days that don't have metrics_daily entries
   FOR sub_record IN
-    SELECT DISTINCT s.id, s.team_member_id,
+    SELECT s.id, s.team_member_id,
            COALESCE(s.work_date, s.submission_date) as effective_date
     FROM submissions s
     JOIN form_templates ft ON ft.id = s.form_template_id
