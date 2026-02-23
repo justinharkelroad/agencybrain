@@ -190,6 +190,7 @@ export async function sendRenewalToWinback(
         premium_change_percent: premiumChangePercent,
         calculated_winback_date: winbackDate.toISOString().split('T')[0],
         is_cancel_rewrite: false,
+        source: 'renewal_audit',
       });
 
     if (policyError) {
@@ -325,6 +326,7 @@ export async function sendCancelAuditToWinback(
         premium_change_percent: null,
         calculated_winback_date: winbackDate.toISOString().split('T')[0],
         is_cancel_rewrite: false,
+        source: 'cancel_audit',
       });
 
     if (policyError) {

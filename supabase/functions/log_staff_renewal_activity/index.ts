@@ -295,6 +295,7 @@ serve(async (req) => {
                 premium_change_percent: premiumChangePercent,
                 calculated_winback_date: winbackDate.toISOString().split('T')[0],
                 is_cancel_rewrite: false,
+                source: 'renewal_audit',
               });
 
             if (policyError) {

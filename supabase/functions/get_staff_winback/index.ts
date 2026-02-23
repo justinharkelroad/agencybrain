@@ -103,7 +103,8 @@ Deno.serve(async (req) => {
               .from("winback_households")
               .select("id", { count: "exact", head: true })
               .eq("agency_id", agencyId)
-              .neq("status", "dismissed"),
+              .neq("status", "dismissed")
+              .neq("status", "moved_to_quoted"),
             supabase
               .from("winback_households")
               .select("id", { count: "exact", head: true })
@@ -129,6 +130,7 @@ Deno.serve(async (req) => {
               .select("id", { count: "exact", head: true })
               .eq("agency_id", agencyId)
               .neq("status", "dismissed")
+              .neq("status", "moved_to_quoted")
               .gte("earliest_winback_date", weekStart.toISOString())
               .lte("earliest_winback_date", weekEnd.toISOString()),
           ]);
@@ -156,7 +158,7 @@ Deno.serve(async (req) => {
         if (activeTab === "dismissed") {
           query = query.eq("status", "dismissed");
         } else {
-          query = query.neq("status", "dismissed");
+          query = query.neq("status", "dismissed").neq("status", "moved_to_quoted");
           query = query.not("earliest_winback_date", "is", null);
         }
 
@@ -334,14 +336,24 @@ Deno.serve(async (req) => {
         const teamMemberId = verified.staffMemberId || currentUserTeamMemberId;
         if (newStatus === "in_progress" && !household.assigned_to && teamMemberId) {
           updateData.assigned_to = teamMemberId;
+        } else if (newStatus === "untouched") {
+          updateData.assigned_to = null;
         }
 
-        const { error: updateError } = await supabase
+        // Only update if old status matches (optimistic concurrency guard)
+        const { data: updatedRows, error: updateError, count } = await supabase
           .from("winback_households")
-          .update(updateData)
-          .eq("id", householdId);
+          .update(updateData, { count: "exact" })
+          .eq("id", householdId)
+          .eq("status", oldStatus)
+          .select("id");
 
         if (updateError) throw updateError;
+
+        if (count === 0 || !updatedRows || updatedRows.length === 0) {
+          result = { success: false };
+          break;
+        }
 
         // Log the status change
         let userName = "Unknown";
@@ -554,6 +566,12 @@ Deno.serve(async (req) => {
           .update({ winback_household_id: null, sent_to_winback_at: null })
           .eq("winback_household_id", householdId);
 
+        // Clear cancel_audit_records references
+        await supabase
+          .from("cancel_audit_records")
+          .update({ winback_household_id: null })
+          .eq("winback_household_id", householdId);
+
         // Delete household
         const { error } = await supabase
           .from("winback_households")
@@ -669,6 +687,8 @@ Deno.serve(async (req) => {
           isCancelRewrite?: boolean;
         }
 
+        const skipUploadRecord = params.skipUploadRecord === true;
+
         const stats = {
           processed: 0,
           newHouseholds: 0,
@@ -677,11 +697,12 @@ Deno.serve(async (req) => {
           skipped: 0,
         };
         const uploadedHouseholdIds = new Set<string>();
+        const insertedPolicyIds = new Set<string>();
 
         // Group by household key (firstName + lastName + zip5)
         const householdGroups = new Map<string, ParsedRecord[]>();
         for (const record of records) {
-          const key = `${record.firstName?.toLowerCase()}-${record.lastName?.toLowerCase()}-${record.zipCode?.substring(0, 5)}`;
+          const key = `${record.firstName?.toLowerCase()}|${record.lastName?.toLowerCase()}|${record.zipCode?.substring(0, 5)}`;
           if (!householdGroups.has(key)) {
             householdGroups.set(key, []);
           }
@@ -789,11 +810,12 @@ Deno.serve(async (req) => {
                   premium_change_percent: premiumChangePercent,
                   is_cancel_rewrite: record.isCancelRewrite || false,
                   calculated_winback_date: winbackDate.toISOString().split("T")[0],
+                  source: "csv_upload",
                 })
                 .eq("id", existingPolicy.id);
               stats.updated++;
             } else {
-              const { error: policyError } = await supabase
+              const { data: newPolicy, error: policyError } = await supabase
                 .from("winback_policies")
                 .insert({
                   household_id: householdId,
@@ -817,11 +839,15 @@ Deno.serve(async (req) => {
                   company_code: record.companyCode || null,
                   is_cancel_rewrite: record.isCancelRewrite || false,
                   calculated_winback_date: winbackDate.toISOString().split("T")[0],
-                });
+                  source: "csv_upload",
+                })
+                .select("id")
+                .single();
 
               if (policyError) {
                 stats.skipped++;
               } else {
+                if (newPolicy) insertedPolicyIds.add(newPolicy.id);
                 stats.newPolicies++;
               }
             }
@@ -835,36 +861,104 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Record the upload
+        if (skipUploadRecord) {
+          // Batch mode: return stats + IDs for client to accumulate
+          result = {
+            ...stats,
+            householdIds: Array.from(uploadedHouseholdIds),
+            policyIds: Array.from(insertedPolicyIds),
+          };
+        } else {
+          // Single-call mode: create upload record and stamp IDs
+          const staffMemberId = verified.staffMemberId;
+          const { data: uploadRecord, error: uploadRecordError } = await supabase.from("winback_uploads").insert({
+            agency_id: agencyId,
+            uploaded_by_staff_id: staffMemberId || null,
+            filename: filename || "unknown",
+            records_processed: stats.processed,
+            records_new_households: stats.newHouseholds,
+            records_new_policies: stats.newPolicies,
+            records_updated: stats.updated,
+            records_skipped: stats.skipped,
+          }).select("id").single();
+
+          if (uploadRecordError) {
+            console.error("Failed to create upload record:", uploadRecordError);
+          }
+
+          // Stamp last_upload_id on all households created/updated in this upload
+          if (uploadRecord?.id) {
+            const allHouseholdIds = Array.from(uploadedHouseholdIds);
+
+            if (allHouseholdIds.length > 0) {
+              const { error: stampError } = await supabase
+                .from("winback_households")
+                .update({ last_upload_id: uploadRecord.id })
+                .in("id", allHouseholdIds);
+
+              if (stampError) {
+                throw stampError;
+              }
+            }
+
+            // Stamp source_upload_id on newly inserted policies
+            const allPolicyIds = Array.from(insertedPolicyIds);
+            if (allPolicyIds.length > 0) {
+              await supabase
+                .from("winback_policies")
+                .update({ source_upload_id: uploadRecord.id })
+                .in("id", allPolicyIds);
+            }
+          }
+
+          result = stats;
+        }
+        break;
+      }
+
+      case "record_upload": {
+        // Finalize a batched upload: create upload record and stamp IDs
+        const { filename: uploadFilename, totalStats, householdIds, policyIds } = params;
         const staffMemberId = verified.staffMemberId;
-        const { data: uploadRecord } = await supabase.from("winback_uploads").insert({
+
+        const { data: uploadRecord, error: uploadRecordError } = await supabase.from("winback_uploads").insert({
           agency_id: agencyId,
           uploaded_by_staff_id: staffMemberId || null,
-          filename: filename || "unknown",
-          records_processed: stats.processed,
-          records_new_households: stats.newHouseholds,
-          records_new_policies: stats.newPolicies,
-          records_updated: stats.updated,
-          records_skipped: stats.skipped,
+          filename: uploadFilename || "unknown",
+          records_processed: totalStats?.processed || 0,
+          records_new_households: totalStats?.newHouseholds || 0,
+          records_new_policies: totalStats?.newPolicies || 0,
+          records_updated: totalStats?.updated || 0,
+          records_skipped: totalStats?.skipped || 0,
         }).select("id").single();
 
-        // Stamp last_upload_id on all households created/updated in this upload
-        if (uploadRecord?.id) {
-          const allHouseholdIds = Array.from(uploadedHouseholdIds);
+        if (uploadRecordError) {
+          console.error("Failed to create upload record:", uploadRecordError);
+          result = { success: false, error: uploadRecordError.message };
+          break;
+        }
 
-          if (allHouseholdIds.length > 0) {
-            const { error: stampError } = await supabase
+        // Stamp last_upload_id on all households
+        if (uploadRecord?.id && householdIds?.length > 0) {
+          for (const idChunk of chunk(householdIds, chunkSize)) {
+            await supabase
               .from("winback_households")
               .update({ last_upload_id: uploadRecord.id })
-              .in("id", allHouseholdIds);
-
-            if (stampError) {
-              throw stampError;
-            }
+              .in("id", idChunk);
           }
         }
 
-        result = stats;
+        // Stamp source_upload_id on newly inserted policies
+        if (uploadRecord?.id && policyIds?.length > 0) {
+          for (const idChunk of chunk(policyIds, chunkSize)) {
+            await supabase
+              .from("winback_policies")
+              .update({ source_upload_id: uploadRecord.id })
+              .in("id", idChunk);
+          }
+        }
+
+        result = { success: true, uploadId: uploadRecord?.id };
         break;
       }
 
@@ -873,7 +967,8 @@ Deno.serve(async (req) => {
         const { data, error } = await supabase
           .from("team_members")
           .select("id, name, agent_number, sub_producer_code")
-          .eq("agency_id", agencyId);
+          .eq("agency_id", agencyId)
+          .eq("status", "active");
 
         if (error) throw error;
         result = { members: data || [] };
@@ -905,6 +1000,7 @@ Deno.serve(async (req) => {
             )
           `)
           .eq("agency_id", agencyId)
+          .eq("source", "csv_upload")
           .order("termination_effective_date", { ascending: false });
 
         if (dateFrom) {
@@ -1166,8 +1262,7 @@ Deno.serve(async (req) => {
           .from("winback_uploads")
           .select("*")
           .eq("agency_id", agencyId)
-          .order("created_at", { ascending: false })
-          .limit(10);
+          .order("created_at", { ascending: false });
 
         if (error) throw error;
         result = { uploads: data || [] };
@@ -1250,17 +1345,15 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Verify upload belongs to agency
+        // Verify upload belongs to agency (include created_at for timestamp fallback)
         const { data: upload, error: uploadVerifyError } = await supabase
           .from("winback_uploads")
-          .select("id, created_at, records_new_households, records_updated, records_new_policies")
+          .select("id, created_at")
           .eq("id", uploadId)
           .eq("agency_id", agencyId)
           .maybeSingle();
 
-        if (uploadVerifyError) {
-          throw uploadVerifyError;
-        }
+        if (uploadVerifyError) throw uploadVerifyError;
 
         if (!upload) {
           return new Response(JSON.stringify({ error: "Upload not found" }), {
@@ -1269,91 +1362,104 @@ Deno.serve(async (req) => {
           });
         }
 
-        // Find households linked to this upload
-        const { data: households, error: householdsError } = await supabase
-          .from("winback_households")
-          .select("id")
-          .eq("last_upload_id", uploadId)
-          .eq("agency_id", agencyId);
+        // Find policies created by this upload (reliable link via source_upload_id)
+        const { data: uploadPolicies, error: policiesFetchError } = await supabase
+          .from("winback_policies")
+          .select("id, household_id")
+          .eq("source_upload_id", uploadId);
 
-        if (householdsError) {
-          throw householdsError;
-        }
+        if (policiesFetchError) throw policiesFetchError;
 
-        const hhIds = (households || []).map((h: any) => h.id);
-        const uploadHasActivity =
-          (upload.records_new_households || 0) +
-          (upload.records_updated || 0) +
-          (upload.records_new_policies || 0);
+        const policyIdsToDelete: string[] = (uploadPolicies || []).map((p: any) => p.id);
+        const affectedHouseholdIds = new Set<string>(
+          (uploadPolicies || []).map((p: any) => p.household_id)
+        );
 
-        if (uploadHasActivity > 0) {
-          const uploadCreatedAt = new Date(upload.created_at);
-          const updatedFrom = new Date(uploadCreatedAt.getTime() - 60 * 60 * 1000);
-          const updatedTo = new Date(uploadCreatedAt.getTime() + 6 * 60 * 60 * 1000);
-
+        // For pre-migration uploads (before source_upload_id existed), use two fallbacks:
+        // 1) last_upload_id on households (can be overwritten by later uploads)
+        // 2) Timestamp-based matching: policies created during the upload's processing window
+        if (policyIdsToDelete.length === 0) {
+          // Fallback 1: households that still point to this upload
           const { data: fallbackHouseholds, error: fallbackError } = await supabase
             .from("winback_households")
             .select("id")
-            .eq("agency_id", agencyId)
-            .or(`created_at.gte.${updatedFrom.toISOString()},updated_at.gte.${updatedFrom.toISOString()}`)
-            .lte("updated_at", updatedTo.toISOString());
+            .eq("last_upload_id", uploadId)
+            .eq("agency_id", agencyId);
 
-          if (fallbackError) throw fallbackError;
+          if (fallbackError) {
+            console.error("Fallback household lookup failed:", fallbackError);
+          }
+          for (const h of (fallbackHouseholds || [])) {
+            affectedHouseholdIds.add(h.id);
+          }
 
-          const fallbackIds = (fallbackHouseholds || [])
-            .map((h: any) => h.id)
-            .filter((id: string) => !hhIds.includes(id));
+          // Fallback 2: timestamp-based matching for pre-migration data
+          // Reuse created_at from the verification query above
+          if (upload.created_at) {
+            const uploadTime = new Date(upload.created_at);
+            const windowStart = new Date(uploadTime.getTime() - 30 * 60 * 1000);
+            const windowEnd = new Date(uploadTime.getTime() + 60 * 1000);
 
-          hhIds.push(...fallbackIds);
+            const { data: timestampPolicies, error: tsError } = await supabase
+              .from("winback_policies")
+              .select("id, household_id")
+              .eq("agency_id", agencyId)
+              .eq("source", "csv_upload")
+              .is("source_upload_id", null)
+              .gte("created_at", windowStart.toISOString())
+              .lte("created_at", windowEnd.toISOString());
+
+            if (tsError) {
+              console.error("Timestamp policy lookup failed:", tsError);
+            }
+            for (const p of (timestampPolicies || [])) {
+              policyIdsToDelete.push(p.id);
+              affectedHouseholdIds.add(p.household_id);
+            }
+          }
         }
 
-        const uniqueHouseholdIds = [...new Set(hhIds)];
-
-        if (uniqueHouseholdIds.length > 0) {
-          for (const householdChunk of chunk(uniqueHouseholdIds, chunkSize)) {
+        // Delete policies (chunked)
+        if (policyIdsToDelete.length > 0) {
+          for (const policyChunk of chunk(policyIdsToDelete, chunkSize)) {
             const { error: policiesError } = await supabase
               .from("winback_policies")
               .delete()
-              .in("household_id", householdChunk);
-
+              .in("id", policyChunk);
             if (policiesError) throw policiesError;
           }
+        }
 
-          for (const householdChunk of chunk(uniqueHouseholdIds, chunkSize)) {
-            const { error: activitiesError } = await supabase
-              .from("winback_activities")
-              .delete()
-              .in("household_id", householdChunk);
+        // Check each affected household for remaining policies
+        const emptyHouseholdIds: string[] = [];
+        for (const hhId of affectedHouseholdIds) {
+          const { count } = await supabase
+            .from("winback_policies")
+            .select("id", { count: "exact", head: true })
+            .eq("household_id", hhId);
 
-            if (activitiesError) throw activitiesError;
+          if (count === 0) {
+            emptyHouseholdIds.push(hhId);
+          } else {
+            // Recalculate aggregates for households that still have policies
+            await supabase.rpc("recalculate_winback_household_aggregates", {
+              p_household_id: hhId,
+            });
           }
+        }
 
-          for (const householdChunk of chunk(uniqueHouseholdIds, chunkSize)) {
-            const { error: renewalError } = await supabase
-              .from("renewal_records")
+        // Clean up empty households
+        if (emptyHouseholdIds.length > 0) {
+          for (const hhChunk of chunk(emptyHouseholdIds, chunkSize)) {
+            await supabase.from("winback_activities").delete().in("household_id", hhChunk);
+            await supabase.from("renewal_records")
               .update({ winback_household_id: null, sent_to_winback_at: null })
-              .in("winback_household_id", householdChunk);
-
-            if (renewalError) throw renewalError;
-          }
-
-          for (const householdChunk of chunk(uniqueHouseholdIds, chunkSize)) {
-            const { error: cancelAuditError } = await supabase
-              .from("cancel_audit_records")
+              .in("winback_household_id", hhChunk);
+            await supabase.from("cancel_audit_records")
               .update({ winback_household_id: null })
-              .in("winback_household_id", householdChunk);
-
-            if (cancelAuditError) throw cancelAuditError;
-          }
-
-          for (const householdChunk of chunk(uniqueHouseholdIds, chunkSize)) {
-            const { error: householdsError } = await supabase
-              .from("winback_households")
-              .delete()
-              .in("id", householdChunk)
-              .eq("agency_id", agencyId);
-
-            if (householdsError) throw householdsError;
+              .in("winback_household_id", hhChunk);
+            await supabase.from("winback_households").delete()
+              .in("id", hhChunk).eq("agency_id", agencyId);
           }
         }
 
@@ -1364,20 +1470,18 @@ Deno.serve(async (req) => {
           .eq("id", uploadId)
           .eq("agency_id", agencyId);
 
-        if (uploadDeleteError) {
-          throw uploadDeleteError;
-        }
+        if (uploadDeleteError) throw uploadDeleteError;
 
-        if (uniqueHouseholdIds.length === 0) {
-          result = {
-            success: false,
-            deleted: 0,
-            message: "No households were linked to this upload. Upload record was removed.",
-          };
-          break;
-        }
-
-        result = { success: true, deleted: uniqueHouseholdIds.length };
+        result = {
+          success: true,
+          deleted: emptyHouseholdIds.length,
+          message:
+            policyIdsToDelete.length === 0 && emptyHouseholdIds.length === 0
+              ? "Upload removed from list, but no linked policies were found for that upload"
+              : policyIdsToDelete.length > 0 && emptyHouseholdIds.length === 0
+                ? `${policyIdsToDelete.length} policies removed. Households retained (they have policies from other sources).`
+                : undefined,
+        };
         break;
       }
 

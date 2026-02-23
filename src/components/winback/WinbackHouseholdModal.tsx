@@ -248,13 +248,17 @@ export function WinbackHouseholdModal({
           );
         }
 
-        // Refresh activities to show the new "Quoted" entry
-        const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
-        setActivities(refreshedActivities as Activity[]);
-
         toast.success('Moved to Quoted!', { description: 'Contact is now a Quoted Household' });
         setLocalStatus('moved_to_quoted');
         onUpdate();
+
+        // Refresh activities to show the new "Quoted" entry (non-critical)
+        try {
+          const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
+          setActivities(refreshedActivities as Activity[]);
+        } catch (refreshErr) {
+          console.warn('Failed to refresh activities after quote transition:', refreshErr);
+        }
         return;
       }
 
@@ -268,10 +272,15 @@ export function WinbackHouseholdModal({
         teamMembers
       );
       
-      // Refresh activities
-      const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
-      setActivities(refreshedActivities as Activity[]);
       toast.success(`${type.replace('_', ' ')} logged`);
+
+      // Refresh activities (non-critical)
+      try {
+        const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
+        setActivities(refreshedActivities as Activity[]);
+      } catch (refreshErr) {
+        console.warn('Failed to refresh activities after logging:', refreshErr);
+      }
     } catch (err) {
       console.error('Error logging activity:', err);
       toast.error('Failed to log activity');
@@ -330,13 +339,21 @@ export function WinbackHouseholdModal({
         return;
       }
 
-      if (result.assigned_to) {
-        setAssignedTo(result.assigned_to);
+      if (result.assigned_to !== undefined) {
+        setAssignedTo(result.assigned_to || 'unassigned');
       }
 
       setLocalStatus(newStatus);
       toast.success(`Status changed to ${newStatus.replace('_', ' ')}`);
       onUpdate();
+
+      // Refresh activities to show the new status_change entry (non-critical)
+      try {
+        const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
+        setActivities(refreshedActivities as Activity[]);
+      } catch (refreshErr) {
+        console.warn('Failed to refresh activities after status change:', refreshErr);
+      }
 
       if (newStatus === 'dismissed') {
         onOpenChange(false);
@@ -575,6 +592,10 @@ export function WinbackHouseholdModal({
                   <Button onClick={() => handleStatusChange('won_back')} disabled={saving} className="bg-green-600 hover:bg-green-700">
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Won Back
+                  </Button>
+                  <Button variant="outline" onClick={() => handleStatusChange('untouched')} disabled={saving}>
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reset to Untouched
                   </Button>
                   <Button variant="outline" onClick={handleNotNow} disabled={saving} className="flex flex-col items-center py-3 h-auto">
                     <div className="flex items-center">

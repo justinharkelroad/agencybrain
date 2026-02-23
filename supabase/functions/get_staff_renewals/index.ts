@@ -86,6 +86,7 @@ async function sendToWinback(supabase: any, record: any): Promise<{ success: boo
         premium_old_cents: premiumOldCents,
         calculated_winback_date: winbackDate.toISOString().split('T')[0],
         is_cancel_rewrite: false,
+        source: 'renewal_audit',
       });
 
       await supabase.rpc('recalculate_winback_household_aggregates', { p_household_id: householdId });

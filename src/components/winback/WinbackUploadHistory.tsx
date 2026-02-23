@@ -91,9 +91,9 @@ export function WinbackUploadHistory({ agencyId, onDeleteComplete }: WinbackUplo
     <div className="space-y-3">
       <h4 className="flex items-center gap-2 text-sm font-medium text-foreground">
         <Clock className="h-4 w-4 text-muted-foreground" />
-        Recent Uploads
+        Upload History
       </h4>
-      <div className="space-y-2">
+      <div className="space-y-2 max-h-64 overflow-y-auto">
         {uploads.map((upload: any) => (
           <div
             key={upload.id}

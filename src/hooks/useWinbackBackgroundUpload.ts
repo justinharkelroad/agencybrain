@@ -34,7 +34,7 @@ export function useWinbackBackgroundUpload() {
 
     // Show immediate feedback
     toast.info(`Processing ${records.length} termination records...`, {
-      description: `${uniqueHouseholds} unique households. You can navigate away.`,
+      description: `${uniqueHouseholds} unique households. Do not refresh or close this tab.`,
     });
 
     // Process in background (don't await - fire and forget)
@@ -56,6 +56,14 @@ async function processStaffUpload(
   userId: string | undefined,
   queryClient: ReturnType<typeof useQueryClient>
 ) {
+  // Warn user if they try to leave/refresh during processing
+  const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
+    e.preventDefault();
+    e.returnValue = 'Upload is still processing. Leaving will stop the upload.';
+    return e.returnValue;
+  };
+  window.addEventListener('beforeunload', beforeUnloadHandler);
+
   try {
     // Convert parsed records to serializable format
     const serializedRecords = records.map(record => ({
@@ -82,26 +90,76 @@ async function processStaffUpload(
       isCancelRewrite: record.isCancelRewrite,
     }));
 
-    const stats = await winbackApi.uploadTerminations(
-      agencyId,
-      serializedRecords,
-      filename,
-      contactDaysBefore,
-      userId
-    );
+    // For small uploads, use single call. For large uploads, chunk to avoid edge function timeout.
+    const BATCH_THRESHOLD = 200; // records (not households)
 
-    // Invalidate queries
-    invalidateWinbackQueries(queryClient);
+    if (serializedRecords.length <= BATCH_THRESHOLD) {
+      // Small upload: single edge function call
+      const stats = await winbackApi.uploadTerminations(
+        agencyId,
+        serializedRecords,
+        filename,
+        contactDaysBefore,
+        userId
+      );
 
-    // Show success toast
-    toast.success('Termination Upload Complete!', {
-      description: `${stats.processed} records (${stats.newHouseholds} new households, ${stats.newPolicies} new policies)`,
-    });
+      invalidateWinbackQueries(queryClient);
+      toast.success('Termination Upload Complete!', {
+        description: `${stats.processed} records (${stats.newHouseholds} new households, ${stats.newPolicies} new policies)`,
+      });
+    } else {
+      // Large upload: chunk into batches to avoid edge function timeout (150s limit)
+      const batchSize = BATCH_THRESHOLD;
+      const batches: typeof serializedRecords[] = [];
+      for (let i = 0; i < serializedRecords.length; i += batchSize) {
+        batches.push(serializedRecords.slice(i, i + batchSize));
+      }
+
+      const totalStats: UploadStats = { processed: 0, newHouseholds: 0, newPolicies: 0, updated: 0, skipped: 0 };
+      const allHouseholdIds: string[] = [];
+      const allPolicyIds: string[] = [];
+
+      const progressToastId = toast.loading(`Uploading: batch 0 / ${batches.length}...`, {
+        duration: Infinity,
+      });
+
+      for (let i = 0; i < batches.length; i++) {
+        toast.loading(`Uploading: batch ${i + 1} / ${batches.length}...`, {
+          id: progressToastId as string | number,
+          duration: Infinity,
+        });
+
+        const batchResult = await winbackApi.uploadTerminationsBatch(
+          batches[i],
+          contactDaysBefore,
+        );
+
+        totalStats.processed += batchResult.processed;
+        totalStats.newHouseholds += batchResult.newHouseholds;
+        totalStats.newPolicies += batchResult.newPolicies;
+        totalStats.updated += batchResult.updated;
+        totalStats.skipped += batchResult.skipped;
+        allHouseholdIds.push(...batchResult.householdIds);
+        allPolicyIds.push(...batchResult.policyIds);
+      }
+
+      toast.dismiss(progressToastId);
+
+      // Finalize: create upload record and stamp IDs
+      await winbackApi.recordUpload(filename, totalStats, allHouseholdIds, allPolicyIds);
+
+      invalidateWinbackQueries(queryClient);
+      toast.success('Termination Upload Complete!', {
+        description: `${totalStats.processed} records (${totalStats.newHouseholds} new households, ${totalStats.newPolicies} new policies)`,
+      });
+    }
   } catch (error: any) {
     console.error('Staff upload error:', error);
     toast.error('Termination Upload Failed', {
       description: error.message || 'An error occurred during processing',
     });
+  } finally {
+    window.removeEventListener('beforeunload', beforeUnloadHandler);
   }
 }
 
@@ -113,8 +171,17 @@ async function processInBackground(
   userId: string | undefined,
   queryClient: ReturnType<typeof useQueryClient>
 ) {
+  // Warn user if they try to leave/refresh during processing
+  const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
+    e.preventDefault();
+    e.returnValue = 'Upload is still processing. Leaving will stop the upload.';
+    return e.returnValue;
+  };
+  window.addEventListener('beforeunload', beforeUnloadHandler);
+
   try {
     const processedHouseholdIds = new Set<string>();
+    const insertedPolicyIds = new Set<string>();
 
     const stats: UploadStats = {
       processed: 0,
@@ -133,6 +200,13 @@ async function processInBackground(
       }
       householdGroups.get(key)!.push(record);
     }
+
+    const totalHouseholds = householdGroups.size;
+    let householdsProcessed = 0;
+    // Show progress toast (updates every 25 households)
+    const progressToastId = toast.loading(`Uploading: 0 / ${totalHouseholds} households...`, {
+      duration: Infinity,
+    });
 
     for (const [, groupRecords] of householdGroups) {
       const firstRecord = groupRecords[0];
@@ -246,6 +320,7 @@ async function processInBackground(
               calculated_winback_date: winbackDate.toISOString().split('T')[0],
               items_count: record.itemsCount,
               line_code: record.lineCode,
+              source: 'csv_upload',
             })
             .eq('id', existingPolicy.id);
 
@@ -262,7 +337,7 @@ async function processInBackground(
             continue;
           }
 
-          const { error: policyError } = await supabase
+          const { data: newPolicy, error: policyError } = await supabase
             .from('winback_policies')
             .insert({
               household_id: householdId,
@@ -288,7 +363,10 @@ async function processInBackground(
               calculated_winback_date: winbackDate.toISOString().split('T')[0],
               items_count: record.itemsCount,
               line_code: record.lineCode,
-            });
+              source: 'csv_upload',
+            })
+            .select('id')
+            .single();
 
           if (policyError) {
             console.error('Policy INSERT failed:', {
@@ -302,6 +380,7 @@ async function processInBackground(
             });
             stats.skipped++;
           } else {
+            if (newPolicy) insertedPolicyIds.add(newPolicy.id);
             stats.newPolicies++;
           }
         }
@@ -313,10 +392,21 @@ async function processInBackground(
       await supabase.rpc('recalculate_winback_household_aggregates', {
         p_household_id: householdId,
       });
+
+      householdsProcessed++;
+      if (householdsProcessed % 25 === 0 || householdsProcessed === totalHouseholds) {
+        toast.loading(`Uploading: ${householdsProcessed} / ${totalHouseholds} households...`, {
+          id: progressToastId as string | number,
+          duration: Infinity,
+        });
+      }
     }
 
+    // Dismiss the progress toast
+    toast.dismiss(progressToastId);
+
     // Record the upload and get its ID
-    const { data: uploadRecord } = await supabase.from('winback_uploads').insert({
+    const { data: uploadRecord, error: uploadRecordError } = await supabase.from('winback_uploads').insert({
       agency_id: agencyId,
       uploaded_by_user_id: userId || null,
       filename,
@@ -327,6 +417,10 @@ async function processInBackground(
       records_skipped: stats.skipped,
     }).select('id').single();
 
+    if (uploadRecordError) {
+      console.error('Failed to create upload record:', uploadRecordError);
+    }
+
     // Stamp last_upload_id on all processed households
     if (uploadRecord?.id) {
       const allHouseholdIds = Array.from(processedHouseholdIds);
@@ -335,6 +429,15 @@ async function processInBackground(
           .from('winback_households')
           .update({ last_upload_id: uploadRecord.id })
           .in('id', allHouseholdIds);
+      }
+
+      // Stamp source_upload_id on newly inserted policies
+      const allPolicyIds = Array.from(insertedPolicyIds);
+      if (allPolicyIds.length > 0) {
+        await supabase
+          .from('winback_policies')
+          .update({ source_upload_id: uploadRecord.id })
+          .in('id', allPolicyIds);
       }
     }
 
@@ -356,6 +459,8 @@ async function processInBackground(
     toast.error('Termination Upload Failed', {
       description: error.message || 'An error occurred during processing',
     });
+  } finally {
+    window.removeEventListener('beforeunload', beforeUnloadHandler);
   }
 }
 
