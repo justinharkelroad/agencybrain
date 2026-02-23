@@ -64,6 +64,8 @@ export default function StaffTraining() {
     thumbnail_url: string | null;
   } | null>(null);
   const [activeQuiz, setActiveQuiz] = useState<any>(null);
+  // Local progress tracking for non-staff users (agency owners previewing training)
+  const [localCompleted, setLocalCompleted] = useState<Set<string>>(new Set());
 
   const categories = contentData?.categories || [];
 
@@ -84,7 +86,7 @@ export default function StaffTraining() {
     return set;
   }, [progressData]);
 
-  const isCompleted = (lessonId: string) => completedSet.has(lessonId);
+  const isCompleted = (lessonId: string) => completedSet.has(lessonId) || localCompleted.has(lessonId);
 
   const totalLessons = useMemo(() =>
     categories.reduce((total, cat) =>
@@ -96,11 +98,11 @@ export default function StaffTraining() {
     let count = 0;
     categories.forEach(cat => {
       cat.modules.forEach(mod => {
-        mod.lessons.forEach(l => { if (completedSet.has(l.id)) count++; });
+        mod.lessons.forEach(l => { if (completedSet.has(l.id) || localCompleted.has(l.id)) count++; });
       });
     });
     return count;
-  }, [categories, completedSet]);
+  }, [categories, completedSet, localCompleted]);
   const overallPercent = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
   // Day streak: walk backward from today through unique completion dates
@@ -135,14 +137,14 @@ export default function StaffTraining() {
   const getCategoryProgress = (cat: typeof categories[0]) => {
     let total = 0, done = 0;
     cat.modules.forEach(mod => {
-      mod.lessons.forEach(l => { total++; if (completedSet.has(l.id)) done++; });
+      mod.lessons.forEach(l => { total++; if (isCompleted(l.id)) done++; });
     });
     return { total, done, percent: total > 0 ? Math.round((done / total) * 100) : 0 };
   };
 
   const getModuleProgress = (mod: typeof categories[0]['modules'][0]) => {
     let total = 0, done = 0;
-    mod.lessons.forEach(l => { total++; if (completedSet.has(l.id)) done++; });
+    mod.lessons.forEach(l => { total++; if (isCompleted(l.id)) done++; });
     return { total, done, percent: total > 0 ? Math.round((done / total) * 100) : 0 };
   };
 
@@ -152,7 +154,7 @@ export default function StaffTraining() {
       for (const mod of cat.modules) {
         for (let i = 0; i < mod.lessons.length; i++) {
           const lesson = mod.lessons[i];
-          if (!completedSet.has(lesson.id)) {
+          if (!isCompleted(lesson.id)) {
             const modProg = getModuleProgress(mod);
             return {
               lesson,
@@ -185,8 +187,19 @@ export default function StaffTraining() {
 
   // Handlers
   const handleToggleComplete = (lessonId: string) => {
-    const currentStatus = isCompleted(lessonId);
-    updateProgress.mutate({ lessonId, completed: !currentStatus });
+    if (isStaffUser) {
+      const currentStatus = isCompleted(lessonId);
+      updateProgress.mutate({ lessonId, completed: !currentStatus });
+    } else {
+      // Agency owners: track progress locally
+      setLocalCompleted(prev => {
+        const next = new Set(prev);
+        if (next.has(lessonId)) next.delete(lessonId);
+        else next.add(lessonId);
+        return next;
+      });
+      toast.success('Lesson marked as complete');
+    }
   };
 
   const handleDownloadAttachment = async (attachment: any) => {
@@ -219,7 +232,12 @@ export default function StaffTraining() {
   };
 
   const handleQuizComplete = () => {
-    queryClient.invalidateQueries({ queryKey: ['staff-training-progress'] });
+    if (isStaffUser) {
+      queryClient.invalidateQueries({ queryKey: ['staff-training-progress'] });
+    } else if (selectedLesson) {
+      // Agency owners: track quiz completion locally
+      setLocalCompleted(prev => new Set(prev).add(selectedLesson.id));
+    }
     setActiveQuiz(null);
     toast.success('Quiz completed! Lesson marked as complete.');
   };
@@ -732,19 +750,17 @@ export default function StaffTraining() {
                                 {quiz.description && (
                                   <p className="text-sm text-muted-foreground mt-1">{quiz.description}</p>
                                 )}
-                                {isStaffUser && (
-                                  <Button className="mt-3" onClick={() => setActiveQuiz(quiz)}>
-                                    Take Quiz
-                                  </Button>
-                                )}
+                                <Button className="mt-3" onClick={() => setActiveQuiz(quiz)}>
+                                  Take Quiz
+                                </Button>
                               </div>
                             ))}
                           </div>
                         </>
                       )}
 
-                      {/* Completion — only for staff users who can track progress */}
-                      {selectedLesson && isStaffUser && (
+                      {/* Completion */}
+                      {selectedLesson && (
                         <>
                           <Separator />
                           <div className="p-4 rounded-lg border bg-muted/30">
