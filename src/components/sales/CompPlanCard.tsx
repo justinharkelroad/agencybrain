@@ -66,6 +66,16 @@ export function CompPlanCard({ plan, onEdit, onDelete, isDeleting }: CompPlanCar
     return threshold.toLocaleString();
   };
 
+  const formatBrokeredRate = () => {
+    const payoutType = plan.brokered_payout_type || "flat_per_item";
+    if (payoutType === "tiered") return "Tiered";
+    if (plan.brokered_flat_rate === null) return null;
+    if (payoutType === "percent_of_premium") return `${plan.brokered_flat_rate}%`;
+    return `$${plan.brokered_flat_rate.toFixed(2)}/item`;
+  };
+
+  const brokeredRateLabel = formatBrokeredRate();
+
   return (
     <Card className="relative overflow-hidden">
       <CardHeader className="pb-3">
@@ -158,11 +168,11 @@ export function CompPlanCard({ plan, onEdit, onDelete, isDeleting }: CompPlanCar
         )}
 
         {/* Brokered Business */}
-        {plan.brokered_flat_rate !== null && (
+        {brokeredRateLabel && (
           <div className="flex items-center gap-2 text-sm">
             <DollarSign className="h-4 w-4 text-muted-foreground" />
             <span className="text-muted-foreground">Brokered Rate:</span>
-            <span className="font-medium">${plan.brokered_flat_rate.toFixed(2)}/item</span>
+            <span className="font-medium">{brokeredRateLabel}</span>
             {plan.brokered_counts_toward_tier && (
               <Badge variant="outline" className="text-xs">Counts toward tier</Badge>
             )}
