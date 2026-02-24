@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, EyeOff, Phone, Calendar, Star, X, Clock, AlertTriangle, UserCheck } from 'lucide-react';
+import { RefreshCw, Upload, Search, Trash2, ChevronDown, ChevronUp, MoreHorizontal, Eye, EyeOff, Phone, Calendar, Star, X, Clock, AlertTriangle, UserCheck, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -1155,7 +1155,26 @@ export default function Renewals() {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell className="font-mono text-sm">{r.policy_number}</TableCell>
+                  <TableCell className="font-mono text-sm">
+                    <span className="inline-flex items-center gap-1">
+                      {r.policy_number}
+                      {r.policy_number && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(r.policy_number).then(
+                              () => toast.success('Policy number copied'),
+                              () => toast.error('Failed to copy')
+                            );
+                          }}
+                          className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                          title="Copy policy number"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </span>
+                  </TableCell>
                   <TableCell>{r.product_name}</TableCell>
                   <TableCell className="text-right">${r.premium_new?.toLocaleString() ?? '-'}</TableCell>
                   <TableCell className={cn(

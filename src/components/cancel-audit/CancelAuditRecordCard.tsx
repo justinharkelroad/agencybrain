@@ -1,4 +1,5 @@
-import { ChevronDown, Phone, Mail, User, FileText, Calendar, DollarSign, MessageSquare, Users, UserCircle } from 'lucide-react';
+import { ChevronDown, Phone, Mail, User, FileText, Calendar, DollarSign, MessageSquare, Users, UserCircle, Copy, Check } from 'lucide-react';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -58,6 +59,17 @@ export function CancelAuditRecordCard({
   teamMembers,
   onViewProfile,
 }: CancelAuditRecordCardProps) {
+  const [copiedPolicy, setCopiedPolicy] = useState(false);
+
+  const handleCopyPolicy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!record.policy_number) return;
+    navigator.clipboard.writeText(record.policy_number).then(() => {
+      setCopiedPolicy(true);
+      setTimeout(() => setCopiedPolicy(false), 1500);
+    }).catch(() => {});
+  };
+
   const displayName = getDisplayName(record.insured_first_name, record.insured_last_name);
   const primaryDate = record.pending_cancel_date || record.cancel_date;
   const primaryDateLabel = record.report_type === 'pending_cancel' ? 'Pending' : 'Cancelled';
@@ -116,8 +128,17 @@ export function CancelAuditRecordCard({
           </div>
 
           {/* Policy Number */}
-          <div className="hidden sm:block w-28">
+          <div className="hidden sm:flex items-center gap-1 w-32">
             <p className="font-mono text-sm text-foreground">{record.policy_number}</p>
+            {record.policy_number && (
+              <button
+                onClick={handleCopyPolicy}
+                className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                title="Copy policy number"
+              >
+                {copiedPolicy ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+            )}
           </div>
 
           {/* Original Year */}
@@ -191,7 +212,18 @@ export function CancelAuditRecordCard({
 
         {/* Mobile-only: show key info on second row */}
         <div className="flex items-center gap-4 mt-2 sm:hidden">
-          <span className="font-mono text-xs text-muted-foreground">{record.policy_number}</span>
+          <span className="font-mono text-xs text-muted-foreground inline-flex items-center gap-1">
+            {record.policy_number}
+            {record.policy_number && (
+              <button
+                onClick={handleCopyPolicy}
+                className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                title="Copy policy number"
+              >
+                {copiedPolicy ? <Check className="h-3 w-3 text-green-500" /> : <Copy className="h-3 w-3" />}
+              </button>
+            )}
+          </span>
           <span className="text-xs text-muted-foreground">{formatDateShort(primaryDate)}</span>
           <span className="text-xs font-medium">{formatCentsToCurrency(record.premium_cents)}</span>
         </div>

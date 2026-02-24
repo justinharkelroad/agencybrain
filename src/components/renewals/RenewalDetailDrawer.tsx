@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Phone, Mail, Calendar, FileText, DollarSign, MessageSquare, Voicemail, CheckCircle, X, ExternalLink, Send, Loader2, type LucideIcon } from 'lucide-react';
+import { Phone, Mail, Calendar, FileText, DollarSign, MessageSquare, Voicemail, CheckCircle, X, ExternalLink, Send, Loader2, Copy, type LucideIcon } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -138,7 +138,23 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                 <h2 className="text-xl font-bold text-foreground truncate">
                   {record.first_name} {record.last_name}
                 </h2>
-                <p className="text-muted-foreground font-mono truncate">{record.policy_number}</p>
+                <div className="flex items-center gap-1 min-w-0">
+                  <p className="text-muted-foreground font-mono truncate">{record.policy_number}</p>
+                  {record.policy_number && (
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(record.policy_number).then(
+                          () => toast.success('Policy number copied'),
+                          () => toast.error('Failed to copy')
+                        );
+                      }}
+                      className="p-0.5 rounded hover:bg-muted/50 transition-colors text-muted-foreground hover:text-foreground shrink-0"
+                      title="Copy policy number"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <Button
