@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Plus, Trash2, StickyNote } from "lucide-react";
+import { Copy, Plus, Trash2, StickyNote } from "lucide-react";
+import CopyChecklistModal from "./CopyChecklistModal";
 
 interface Props {
   memberId: string;
@@ -28,9 +29,10 @@ function formatDate(iso: string | null): string {
 
 export default function OnboardingTrainingChecklist({ memberId, agencyId }: Props) {
   const qc = useQueryClient();
-  const { query, addItem, toggleComplete, removeItem } = useOnboardingTrainingItems(memberId, agencyId);
+  const { query, addItem, toggleComplete, removeItem, copyToMembers } = useOnboardingTrainingItems(memberId, agencyId);
 
   const [newLabel, setNewLabel] = useState("");
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
   // Track which item is being checked off (to show note input)
   const [checkingItemId, setCheckingItemId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
@@ -92,9 +94,22 @@ export default function OnboardingTrainingChecklist({ memberId, agencyId }: Prop
   return (
     <TooltipProvider>
     <Card>
-      <CardHeader>
-        <CardTitle>Onboarding Training Checklist</CardTitle>
-        <CardDescription>Track training items for this team member</CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle>Onboarding Training Checklist</CardTitle>
+          <CardDescription>Track training items for this team member</CardDescription>
+        </div>
+        {items.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="rounded-full"
+            onClick={() => setCopyModalOpen(true)}
+          >
+            <Copy className="h-4 w-4 mr-1" />
+            Copy to Others
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Add row */}
@@ -208,6 +223,14 @@ export default function OnboardingTrainingChecklist({ memberId, agencyId }: Prop
         )}
       </CardContent>
     </Card>
+    <CopyChecklistModal
+      open={copyModalOpen}
+      onOpenChange={setCopyModalOpen}
+      agencyId={agencyId}
+      sourceMemberId={memberId}
+      items={items.map((it) => ({ label: it.label, sort_order: it.sort_order }))}
+      copyToMembers={copyToMembers}
+    />
     </TooltipProvider>
   );
 }

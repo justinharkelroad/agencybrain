@@ -95,5 +95,78 @@ export function useOnboardingTrainingItems(memberId: string | undefined, agencyI
     onError: (e: any) => toast.error(e?.message || 'Failed to remove item'),
   });
 
-  return { query, addItem, toggleComplete, removeItem };
+  const copyToMembers = useMutation({
+    mutationFn: async ({
+      targetMemberIds,
+      items,
+    }: {
+      targetMemberIds: string[];
+      items: { label: string; sort_order: number }[];
+    }) => {
+      if (!agencyId) throw new Error('Missing agency');
+      if (targetMemberIds.length === 0 || items.length === 0) return { copied: 0, skipped: 0 };
+
+      // Fetch existing items for all targets in one query
+      const { data: existing, error: fetchErr } = await supabase
+        .from('onboarding_training_items')
+        .select('member_id, label, sort_order')
+        .in('member_id', targetMemberIds);
+      if (fetchErr) throw fetchErr;
+
+      // Group existing labels (lowercased) and max sort_order by member
+      const memberLabels = new Map<string, Set<string>>();
+      const memberMaxSort = new Map<string, number>();
+      for (const row of existing || []) {
+        const mid = row.member_id;
+        if (!memberLabels.has(mid)) memberLabels.set(mid, new Set());
+        memberLabels.get(mid)!.add(row.label.trim().toLowerCase());
+        memberMaxSort.set(mid, Math.max(memberMaxSort.get(mid) ?? 0, row.sort_order));
+      }
+
+      // Build insert rows, skipping duplicates per member
+      const allRows: {
+        member_id: string;
+        agency_id: string;
+        label: string;
+        sort_order: number;
+        created_by_user_id: string | null;
+      }[] = [];
+      let skipped = 0;
+
+      for (const mid of targetMemberIds) {
+        const existingSet = memberLabels.get(mid) ?? new Set();
+        let nextSort = (memberMaxSort.get(mid) ?? 0) + 1;
+        for (const item of items) {
+          if (existingSet.has(item.label.trim().toLowerCase())) {
+            skipped++;
+            continue;
+          }
+          allRows.push({
+            member_id: mid,
+            agency_id: agencyId!,
+            label: item.label,
+            sort_order: nextSort++,
+            created_by_user_id: user?.id ?? null,
+          });
+        }
+      }
+
+      if (allRows.length > 0) {
+        const { error: insertErr } = await supabase
+          .from('onboarding_training_items')
+          .insert(allRows);
+        if (insertErr) throw insertErr;
+      }
+
+      return { copied: allRows.length, skipped };
+    },
+    onSuccess: (_data, variables) => {
+      for (const mid of variables.targetMemberIds) {
+        qc.invalidateQueries({ queryKey: ['onboarding-training-items', mid] });
+      }
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to copy items'),
+  });
+
+  return { query, addItem, toggleComplete, removeItem, copyToMembers };
 }
