@@ -215,6 +215,11 @@ export async function createBusinessMetricsReport(params: {
     reportRow = insertedRow as BusinessMetricsReport;
   }
 
+  // Force a token refresh before invoking the edge function. The preceding
+  // storage upload + DB operations may have taken long enough for the JWT to
+  // expire, causing the edge function to reject it.
+  await supabaseClient.auth.refreshSession();
+
   const { error: parseError } = await supabaseClient.functions.invoke('parse_business_metrics', {
     body: {
       report_id: reportRow.id,
