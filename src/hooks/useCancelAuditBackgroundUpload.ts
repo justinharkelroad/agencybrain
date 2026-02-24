@@ -160,6 +160,11 @@ async function processInBackground(
           p_renewal_effective_date: record.renewal_effective_date,
           p_pending_cancel_date: record.pending_cancel_date,
           p_last_upload_id: uploadId,
+          p_city: record.city || null,
+          p_state: record.state || null,
+          p_zip_code: record.zip_code || null,
+          p_company_code: record.company_code || null,
+          p_premium_old_cents: record.premium_old_cents || 0,
         });
 
         if (rpcError) {
