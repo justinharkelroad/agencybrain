@@ -261,6 +261,14 @@ export interface SalesUploadContext {
   isOneCallClose?: boolean;
 }
 
+export interface UploadedHouseholdInfo {
+  householdId: string;
+  contactId: string | null;
+  customerName: string;
+  customerZip: string | null;
+  policies: Array<{ productType: string; policyNumber: string | null; premiumCents: number }>;
+}
+
 export interface SalesUploadResult {
   success: boolean;
   recordsProcessed: number;
@@ -277,6 +285,8 @@ export interface SalesUploadResult {
   autoMatched: number;
   needsReview: number;
   pendingReviews: PendingSaleReview[];
+  // Post-upload actions
+  uploadedHouseholds: UploadedHouseholdInfo[];
 }
 
 // ==================== Smart Match Types ====================

@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import type { ParsedSaleRow, SalesUploadContext, SalesUploadResult, MatchCandidate, PendingSaleReview } from '@/types/lqs';
+import type { ParsedSaleRow, SalesUploadContext, SalesUploadResult, MatchCandidate, PendingSaleReview, UploadedHouseholdInfo } from '@/types/lqs';
 import { generateHouseholdKey, normalizeProductType } from '@/lib/lqs-sales-parser';
 
 interface TeamMember {
@@ -38,6 +38,11 @@ interface GroupUploadResult {
   salesCreatedInGroup: number;
   quotesLinkedInGroup: number;
   errors: string[];
+  householdId: string | null;
+  contactId: string | null;
+  customerName: string;
+  customerZip: string | null;
+  policiesInGroup: Array<{ productType: string; policyNumber: string | null; premiumCents: number }>;
 }
 
 const BATCH_SIZE = 50;
@@ -254,6 +259,7 @@ async function processInBackground(
   let autoMatched = 0;
   let needsReview = 0;
   const pendingReviews: PendingSaleReview[] = [];
+  const uploadedHouseholds: UploadedHouseholdInfo[] = [];
   const matchedTeamMemberIds = new Set<string>();
   let errorCount = 0;
   let householdsNeedingAttention = 0;
@@ -594,6 +600,7 @@ async function processInBackground(
           } // End of if (!policyMatchFound)
 
           // Create or find a unified contact for this household
+          let groupContactId: string | null = null;
           if (householdId && primaryRecord.lastName?.trim()) {
             try {
               const { data: contactId } = await supabase.rpc('find_or_create_contact', {
@@ -605,6 +612,7 @@ async function processInBackground(
                 p_email: null,
               });
               if (contactId) {
+                groupContactId = contactId;
                 await supabase
                   .from('lqs_households')
                   .update({ contact_id: contactId })
@@ -702,6 +710,15 @@ async function processInBackground(
             salesCreatedInGroup,
             quotesLinkedInGroup,
             errors: groupErrors,
+            householdId,
+            contactId: groupContactId,
+            customerName: `${primaryRecord.firstName} ${primaryRecord.lastName}`,
+            customerZip: primaryRecord.zipCode,
+            policiesInGroup: groupRecords.map(r => ({
+              productType: r.productType,
+              policyNumber: r.policyNumber,
+              premiumCents: r.premiumCents,
+            })),
           };
         })
       );
@@ -728,6 +745,16 @@ async function processInBackground(
             pendingReviews.push({
               sale: value.primaryRecord,
               candidates: value.reviewCandidates,
+            });
+          }
+          // Track uploaded households for post-upload actions
+          if (value.householdId && value.salesCreatedInGroup > 0) {
+            uploadedHouseholds.push({
+              householdId: value.householdId,
+              contactId: value.contactId,
+              customerName: value.customerName,
+              customerZip: value.customerZip,
+              policies: value.policiesInGroup,
             });
           }
         } else {
@@ -761,6 +788,7 @@ async function processInBackground(
       autoMatched,
       needsReview,
       pendingReviews,
+      uploadedHouseholds,
     };
 
     console.log(`[Sales Upload] Complete:`, {
@@ -819,6 +847,7 @@ async function processInBackground(
         autoMatched: 0,
         needsReview: 0,
         pendingReviews: [],
+        uploadedHouseholds: [],
       });
     }
   }

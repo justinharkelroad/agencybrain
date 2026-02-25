@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, AlertTriangle, Users, Home, ShoppingCart, Link2, Eye } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Users, Home, ShoppingCart, Link2, Eye, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SalesUploadResult } from '@/types/lqs';
 
@@ -9,9 +9,10 @@ interface SalesUploadResultsModalProps {
   onOpenChange: (open: boolean) => void;
   results: SalesUploadResult;
   onReviewNow?: () => void;
+  onPostUploadActions?: () => void;
 }
 
-export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewNow }: SalesUploadResultsModalProps) {
+export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewNow, onPostUploadActions }: SalesUploadResultsModalProps) {
   const hasWarnings = results.unmatchedProducers.length > 0 || results.householdsNeedingAttention > 0;
   const hasErrors = results.errors.length > 0;
   const hasReviews = results.needsReview > 0;
@@ -205,8 +206,14 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
             </Button>
           )}
 
-          {/* Close Button */}
-          <div className="flex justify-end pt-2">
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-2 pt-2">
+            {results.salesCreated > 0 && onPostUploadActions && (
+              <Button variant="outline" onClick={onPostUploadActions} className="gap-2">
+                <FileText className="h-4 w-4" />
+                Breakup Letters & Sequences
+              </Button>
+            )}
             <Button onClick={() => onOpenChange(false)}>
               Close
             </Button>

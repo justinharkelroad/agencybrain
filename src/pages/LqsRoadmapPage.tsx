@@ -50,6 +50,7 @@ import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 import type { QuoteUploadResult, SalesUploadResult, PendingSaleReview, LeadStatus } from '@/types/lqs';
+import { PostUploadActionsModal } from '@/components/lqs/PostUploadActionsModal';
 import { SalesReviewModal, ReviewResult } from '@/components/lqs/SalesReviewModal';
 import { filterCountableQuotes, filterCountableSales } from '@/lib/lqs-constants';
 
@@ -157,6 +158,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const [salesUploadResults, setSalesUploadResults] = useState<SalesUploadResult | null>(null);
   const [showSalesResultsModal, setShowSalesResultsModal] = useState(false);
   const [showSalesReviewModal, setShowSalesReviewModal] = useState(false);
+  const [showPostUploadActions, setShowPostUploadActions] = useState(false);
 
   // Permission check - staff portal users don't see revenue metrics
   const showRevenueMetrics = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
@@ -704,13 +706,16 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
             onUploadComplete={() => refetch()}
             onSalesUploadResults={(result) => {
               setSalesUploadResults(result);
-              if (
+              const hasIssues =
                 result.unmatchedProducers.length > 0 ||
                 result.householdsNeedingAttention > 0 ||
                 result.errors.length > 0 ||
-                result.needsReview > 0
-              ) {
+                result.needsReview > 0;
+              if (hasIssues) {
                 setShowSalesResultsModal(true);
+              } else if (result.salesCreated > 0 && result.uploadedHouseholds.length > 0) {
+                // No issues — go straight to post-upload actions
+                setShowPostUploadActions(true);
               }
             }}
           />
@@ -1052,6 +1057,14 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
             setShowSalesResultsModal(false);
             setShowSalesReviewModal(true);
           }}
+          onPostUploadActions={
+            salesUploadResults.uploadedHouseholds.length > 0
+              ? () => {
+                  setShowSalesResultsModal(false);
+                  setShowPostUploadActions(true);
+                }
+              : undefined
+          }
         />
       )}
 
@@ -1065,6 +1078,18 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
             console.log('[LQS] Review complete:', results);
             refetch();
           }}
+        />
+      )}
+
+      {/* Post-Upload Actions Modal (breakup letters + onboarding sequences) */}
+      {salesUploadResults && salesUploadResults.uploadedHouseholds.length > 0 && (
+        <PostUploadActionsModal
+          open={showPostUploadActions}
+          onOpenChange={setShowPostUploadActions}
+          households={salesUploadResults.uploadedHouseholds}
+          agencyId={agencyProfile.agencyId}
+          staffSessionToken={isStaffPortal ? staffSessionToken : null}
+          onComplete={() => refetch()}
         />
       )}
     </div>
