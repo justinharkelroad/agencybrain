@@ -88,6 +88,15 @@ const SelectContent = React.forwardRef<
           position === "popper" &&
             "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]"
         )}
+        onWheel={(e) => {
+          const viewport = e.currentTarget;
+          let delta = e.deltaY;
+          // deltaMode 1 = lines (Firefox), 2 = pages — convert to pixels
+          if (e.deltaMode === 1) delta *= 16;
+          else if (e.deltaMode === 2) delta *= viewport.clientHeight;
+          viewport.scrollTop += delta;
+          e.stopPropagation();
+        }}
       >
         {children}
       </SelectPrimitive.Viewport>
