@@ -5,6 +5,63 @@ import { toast } from 'sonner';
 import type { RecordStatus } from '@/types/cancel-audit';
 
 /**
+ * Hook for bulk updating cancel audit record assignments.
+ * Supports both agency portal (direct Supabase) and staff portal (edge function).
+ */
+export function useBulkUpdateCancelAuditAssignment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ recordIds, teamMemberId }: { recordIds: string[]; teamMemberId: string | null }) => {
+      const staffSessionToken = getStaffSessionToken();
+
+      if (staffSessionToken) {
+        console.log('[useBulkUpdateCancelAuditAssignment] Staff user, calling edge function');
+        const result = await callCancelAuditApi({
+          operation: 'bulk_update_assignment',
+          params: { recordIds, teamMemberId },
+          sessionToken: staffSessionToken,
+        });
+
+        if (result.error) {
+          throw new Error(result.error);
+        }
+
+        return { count: result.count || recordIds.length };
+      }
+
+      // Agency portal: direct Supabase update (RLS handles access)
+      console.log('[useBulkUpdateCancelAuditAssignment] Agency user, direct Supabase call');
+      const { error } = await supabase
+        .from('cancel_audit_records')
+        .update({ assigned_team_member_id: teamMemberId, updated_at: new Date().toISOString() })
+        .in('id', recordIds);
+
+      if (error) throw error;
+      return { count: recordIds.length };
+    },
+    onSuccess: ({ count }) => {
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['cancel-audit-activity-summary'] });
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          Array.isArray(query.queryKey) &&
+          typeof query.queryKey[0] === 'string' &&
+          query.queryKey[0].startsWith('cancel-audit-hero-')
+      });
+
+      toast.success(`Updated assignment for ${count} record${count > 1 ? 's' : ''}`);
+    },
+    onError: (error) => {
+      console.error('[useBulkUpdateCancelAuditAssignment] Error:', error);
+      toast.error('Failed to update assignment');
+    },
+  });
+}
+
+/**
  * Hook for bulk updating cancel audit record statuses.
  * Supports both agency portal (direct Supabase) and staff portal (edge function).
  */

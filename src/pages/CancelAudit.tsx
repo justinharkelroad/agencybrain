@@ -26,7 +26,7 @@ import { useCancelAuditRecords, ViewMode, CancelStatusFilter } from "@/hooks/use
 import { useCancelAuditStats } from "@/hooks/useCancelAuditStats";
 import { useCancelAuditCounts } from "@/hooks/useCancelAuditCounts";
 import { useBulkDeleteCancelAuditRecords } from "@/hooks/useCancelAuditDelete";
-import { useBulkUpdateCancelAuditStatus } from "@/hooks/useBulkCancelAuditOperations";
+import { useBulkUpdateCancelAuditStatus, useBulkUpdateCancelAuditAssignment } from "@/hooks/useBulkCancelAuditOperations";
 import { useToast } from "@/hooks/use-toast";
 import { useCancelAuditAIQuery } from "@/hooks/useCancelAuditAIQuery";
 import { CancelAuditAISearch } from "@/components/cancel-audit/CancelAuditAISearch";
@@ -139,6 +139,7 @@ const CancelAuditPage = () => {
   // Bulk actions mutations
   const bulkDeleteMutation = useBulkDeleteCancelAuditRecords();
   const bulkUpdateStatusMutation = useBulkUpdateCancelAuditStatus();
+  const bulkUpdateAssignmentMutation = useBulkUpdateCancelAuditAssignment();
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
 
   // Clear stale staff tokens when on non-staff route
@@ -803,13 +804,26 @@ const CancelAuditPage = () => {
 
   const handleBulkDelete = useCallback(() => {
     if (selectedRecordIds.length === 0) return;
-    
+
     bulkDeleteMutation.mutate(selectedRecordIds, {
       onSuccess: () => {
         setSelectedRecordIds([]);
       },
     });
   }, [selectedRecordIds, bulkDeleteMutation]);
+
+  const handleBulkAssign = useCallback((teamMemberId: string | null) => {
+    if (selectedRecordIds.length === 0) return;
+
+    bulkUpdateAssignmentMutation.mutate(
+      { recordIds: selectedRecordIds, teamMemberId },
+      {
+        onSuccess: () => {
+          setSelectedRecordIds([]);
+        },
+      }
+    );
+  }, [selectedRecordIds, bulkUpdateAssignmentMutation]);
 
   if (authLoading || loading) {
     return (
@@ -1098,8 +1112,11 @@ const CancelAuditPage = () => {
         onClearSelection={() => setSelectedRecordIds([])}
         onStatusUpdate={handleBulkStatusUpdate}
         onDelete={handleBulkDelete}
+        onAssign={handleBulkAssign}
+        teamMembers={teamMembers}
         isUpdating={isBulkUpdating}
         isDeleting={bulkDeleteMutation.isPending}
+        isAssigning={bulkUpdateAssignmentMutation.isPending}
       />
 
       {/* Upload Modal */}

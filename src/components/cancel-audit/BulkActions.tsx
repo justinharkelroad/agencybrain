@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { X, Loader2, Trash2 } from 'lucide-react';
+import { X, Loader2, Trash2, UserCheck, ChevronDown } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,6 +11,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export type RecordStatus = 'new' | 'in_progress' | 'resolved' | 'lost';
 
@@ -19,17 +25,23 @@ interface BulkActionsProps {
   onClearSelection: () => void;
   onStatusUpdate: (status: RecordStatus) => void;
   onDelete?: () => void;
+  onAssign?: (teamMemberId: string | null) => void;
+  teamMembers?: Array<{ id: string; name: string }>;
   isUpdating: boolean;
   isDeleting?: boolean;
+  isAssigning?: boolean;
 }
 
-export function BulkActions({ 
-  selectedRecordIds, 
-  onClearSelection, 
+export function BulkActions({
+  selectedRecordIds,
+  onClearSelection,
   onStatusUpdate,
   onDelete,
+  onAssign,
+  teamMembers = [],
   isUpdating,
-  isDeleting = false, 
+  isDeleting = false,
+  isAssigning = false,
 }: BulkActionsProps) {
   if (selectedRecordIds.length === 0) return null;
 
@@ -44,7 +56,7 @@ export function BulkActions({
           size="sm"
           variant="outline"
           onClick={() => onStatusUpdate('in_progress')}
-          disabled={isUpdating || isDeleting}
+          disabled={isUpdating || isDeleting || isAssigning}
         >
           {isUpdating && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
           Mark In Progress
@@ -53,7 +65,7 @@ export function BulkActions({
           size="sm"
           variant="outline"
           onClick={() => onStatusUpdate('resolved')}
-          disabled={isUpdating || isDeleting}
+          disabled={isUpdating || isDeleting || isAssigning}
           className="text-green-500 hover:text-green-400"
         >
           Mark Resolved
@@ -62,19 +74,49 @@ export function BulkActions({
           size="sm"
           variant="outline"
           onClick={() => onStatusUpdate('lost')}
-          disabled={isUpdating || isDeleting}
+          disabled={isUpdating || isDeleting || isAssigning}
           className="text-red-500 hover:text-red-400"
         >
           Mark Lost
         </Button>
-        
+
+        {onAssign && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isUpdating || isDeleting || isAssigning}
+              >
+                {isAssigning ? (
+                  <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                ) : (
+                  <UserCheck className="h-3 w-3 mr-1" />
+                )}
+                Assign
+                <ChevronDown className="h-3 w-3 ml-1" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+              <DropdownMenuItem onClick={() => onAssign(null)}>
+                Unassigned
+              </DropdownMenuItem>
+              {teamMembers.map((member) => (
+                <DropdownMenuItem key={member.id} onClick={() => onAssign(member.id)}>
+                  {member.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
         {onDelete && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
                 size="sm"
                 variant="destructive"
-                disabled={isUpdating || isDeleting}
+                disabled={isUpdating || isDeleting || isAssigning}
               >
                 {isDeleting ? (
                   <Loader2 className="h-3 w-3 animate-spin mr-1" />

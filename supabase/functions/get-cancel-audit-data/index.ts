@@ -126,6 +126,9 @@ serve(async (req) => {
       case "bulk_update_status":
         result = await bulkUpdateStatus(supabase, agencyId, params);
         break;
+      case "bulk_update_assignment":
+        result = await bulkUpdateAssignment(supabase, agencyId, params);
+        break;
       case "bulk_delete_records":
         result = await bulkDeleteRecords(supabase, agencyId, params);
         break;
@@ -1178,6 +1181,49 @@ async function bulkUpdateStatus(supabase: any, agencyId: string, params: any) {
   
   console.log(`[bulkUpdateStatus] Successfully updated ${data.length} records`);
   return { count: data.length, status };
+}
+
+// Bulk update assignment for cancel audit records
+async function bulkUpdateAssignment(supabase: any, agencyId: string, params: any) {
+  const { recordIds, teamMemberId } = params;
+
+  if (!recordIds || !Array.isArray(recordIds) || recordIds.length === 0) {
+    throw new Error("recordIds array is required");
+  }
+
+  console.log(`[bulkUpdateAssignment] Updating ${recordIds.length} records to team member: ${teamMemberId ?? 'unassigned'}`);
+
+  // Verify all records belong to this agency
+  const { data: verifyRecords, error: verifyError } = await supabase
+    .from("cancel_audit_records")
+    .select("id")
+    .eq("agency_id", agencyId)
+    .in("id", recordIds);
+
+  if (verifyError) {
+    console.error("[bulkUpdateAssignment] Verification error:", verifyError);
+    throw verifyError;
+  }
+
+  if (verifyRecords.length !== recordIds.length) {
+    throw new Error("Some records do not belong to this agency or do not exist");
+  }
+
+  // Perform the bulk update
+  const { data, error } = await supabase
+    .from("cancel_audit_records")
+    .update({ assigned_team_member_id: teamMemberId, updated_at: new Date().toISOString() })
+    .eq("agency_id", agencyId)
+    .in("id", recordIds)
+    .select();
+
+  if (error) {
+    console.error("[bulkUpdateAssignment] Update error:", error);
+    throw error;
+  }
+
+  console.log(`[bulkUpdateAssignment] Successfully updated ${data.length} records`);
+  return { count: data.length };
 }
 
 // Bulk delete records and their activities
