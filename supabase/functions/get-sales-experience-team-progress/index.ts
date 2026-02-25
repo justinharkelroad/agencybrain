@@ -30,7 +30,8 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+    const jwt = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser(jwt);
     if (authError || !user) {
       return jsonResponse({ error: 'Invalid or expired session' }, 401);
     }
@@ -92,6 +93,21 @@ Deno.serve(async (req) => {
           agencyId = staffUser.agency_id || teamMember.agency_id || null;
           hasAccess = !!agencyId;
         }
+      }
+    }
+
+    // Delegate fallback
+    if (!hasAccess) {
+      const { data: delegateAssignment } = await supabase
+        .from('sales_experience_assignments')
+        .select('id, agency_id')
+        .eq('delegate_user_id', user.id)
+        .in('status', ['active', 'pending', 'completed'])
+        .limit(1)
+        .maybeSingle();
+      if (delegateAssignment) {
+        agencyId = delegateAssignment.agency_id;
+        hasAccess = true;
       }
     }
 

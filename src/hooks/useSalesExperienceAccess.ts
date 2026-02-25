@@ -11,6 +11,7 @@ export interface SalesExperienceAssignment {
   status: 'pending' | 'active' | 'paused' | 'completed' | 'cancelled';
   timezone: string;
   notes: string | null;
+  delegate_user_id: string | null;
   created_at: string;
 }
 
@@ -69,7 +70,7 @@ export function useSalesExperienceAccess(): SalesExperienceAccess {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['sales-experience-access', user?.id],
-    enabled: !!user && !permissionsLoading && (isAgencyOwner || isKeyEmployee || isAdmin || isManager),
+    enabled: !!user && !permissionsLoading,
     staleTime: 5 * 60 * 1000, // 5 minutes
     queryFn: async () => {
       // First, get the user's agency ID
@@ -96,26 +97,43 @@ export function useSalesExperienceAccess(): SalesExperienceAccess {
         return { assignment: null };
       }
 
-      if (!agencyId) {
-        return { assignment: null };
+      if (agencyId) {
+        // Check for an active or pending assignment for this agency
+        const { data: assignment, error: assignmentError } = await supabase
+          .from('sales_experience_assignments')
+          .select('*')
+          .eq('agency_id', agencyId)
+          .in('status', ['pending', 'active'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (assignmentError) {
+          console.error('[useSalesExperienceAccess] Error fetching assignment:', assignmentError);
+          throw assignmentError;
+        }
+
+        if (assignment) {
+          return { assignment };
+        }
       }
 
-      // Check for an active or pending assignment for this agency
-      const { data: assignment, error: assignmentError } = await supabase
+      // Delegate fallback: check if this user is a delegate on any assignment
+      const { data: delegateAssignment, error: delegateError } = await supabase
         .from('sales_experience_assignments')
         .select('*')
-        .eq('agency_id', agencyId)
+        .eq('delegate_user_id', user!.id)
         .in('status', ['pending', 'active'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (assignmentError) {
-        console.error('[useSalesExperienceAccess] Error fetching assignment:', assignmentError);
-        throw assignmentError;
+      if (delegateError) {
+        console.error('[useSalesExperienceAccess] Error fetching delegate assignment:', delegateError);
+        throw delegateError;
       }
 
-      return { assignment };
+      return { assignment: delegateAssignment ?? null };
     },
   });
 

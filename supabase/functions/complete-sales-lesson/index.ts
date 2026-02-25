@@ -75,7 +75,8 @@ Deno.serve(async (req) => {
         global: { headers: { Authorization: authHeader } },
       });
 
-      const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+      const jwt = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await supabaseUser.auth.getUser(jwt);
       if (authError || !user) {
         return new Response(
           JSON.stringify({ error: 'Invalid or expired session' }),
@@ -107,7 +108,23 @@ Deno.serve(async (req) => {
 
       const isKeyEmployee = !!keyEmployee;
 
+      // Delegate fallback
+      let isDelegate = false;
       if (!isAdmin && !isAgencyOwner && !isKeyEmployee) {
+        const { data: delegateAssignment } = await supabase
+          .from('sales_experience_assignments')
+          .select('id, agency_id')
+          .eq('delegate_user_id', user.id)
+          .in('status', ['active', 'pending', 'completed'])
+          .limit(1)
+          .maybeSingle();
+        if (delegateAssignment) {
+          isDelegate = true;
+          agencyId = delegateAssignment.agency_id;
+        }
+      }
+
+      if (!isAdmin && !isAgencyOwner && !isKeyEmployee && !isDelegate) {
         return new Response(
           JSON.stringify({ error: 'Access denied' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -115,7 +132,9 @@ Deno.serve(async (req) => {
       }
 
       // Use key employee's agency if they don't have one directly
-      agencyId = profile?.agency_id || keyEmployee?.agency_id || null;
+      if (!agencyId) {
+        agencyId = profile?.agency_id || keyEmployee?.agency_id || null;
+      }
     } else {
       return new Response(
         JSON.stringify({ error: 'Missing authentication' }),

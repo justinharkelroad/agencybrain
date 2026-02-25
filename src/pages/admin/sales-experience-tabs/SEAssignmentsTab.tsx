@@ -41,6 +41,7 @@ import {
   Pause,
   CheckCircle,
   XCircle,
+  UserRound,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, addDays, nextMonday, differenceInBusinessDays, isBefore, startOfDay } from 'date-fns';
@@ -51,10 +52,18 @@ interface Agency {
   slug: string;
 }
 
+interface DelegateCandidate {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  source: 'profile' | 'key_employee';
+}
+
 interface Assignment {
   id: string;
   agency_id: string;
   assigned_by: string | null;
+  delegate_user_id: string | null;
   start_date: string;
   end_date: string;
   status: 'pending' | 'active' | 'paused' | 'completed' | 'cancelled';
@@ -67,6 +76,9 @@ interface Assignment {
   profiles: {
     full_name: string | null;
   } | null;
+  delegate: {
+    full_name: string | null;
+  } | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -77,6 +89,75 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-red-500/10 text-red-600 border-red-500/30',
 };
 
+function DelegateInlinePicker({
+  assignment,
+  onUpdate,
+}: {
+  assignment: Assignment;
+  onUpdate: (delegateId: string | null) => void;
+}) {
+  const { data: candidates } = useQuery({
+    queryKey: ['admin-delegate-candidates', assignment.agency_id],
+    queryFn: async () => {
+      const result: DelegateCandidate[] = [];
+      const seen = new Set<string>();
+
+      const { data: ownerProfiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('agency_id', assignment.agency_id);
+
+      for (const p of ownerProfiles || []) {
+        if (!seen.has(p.id)) {
+          seen.add(p.id);
+          result.push({ id: p.id, full_name: p.full_name, email: p.email, source: 'profile' });
+        }
+      }
+
+      const { data: keyEmployees } = await supabase
+        .from('key_employees')
+        .select('user_id, profiles(id, full_name, email)')
+        .eq('agency_id', assignment.agency_id);
+
+      for (const ke of keyEmployees || []) {
+        const profile = ke.profiles as unknown as { id: string; full_name: string | null; email: string | null } | null;
+        if (profile && !seen.has(profile.id)) {
+          seen.add(profile.id);
+          result.push({ id: profile.id, full_name: profile.full_name, email: profile.email, source: 'key_employee' });
+        }
+      }
+
+      return result;
+    },
+  });
+
+  return (
+    <Select
+      value={assignment.delegate_user_id || 'none'}
+      onValueChange={(value) => onUpdate(value === 'none' ? null : value)}
+    >
+      <SelectTrigger className="h-8 w-[180px]">
+        <SelectValue>
+          {assignment.delegate?.full_name || (
+            <span className="text-muted-foreground flex items-center gap-1">
+              <UserRound className="h-3 w-3" />
+              None
+            </span>
+          )}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">No delegate</SelectItem>
+        {candidates?.map((c) => (
+          <SelectItem key={c.id} value={c.id}>
+            {c.full_name || c.email || 'Unknown'}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 export function SEAssignmentsTab() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -84,6 +165,7 @@ export function SEAssignmentsTab() {
   const [selectedAgency, setSelectedAgency] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
+  const [selectedDelegate, setSelectedDelegate] = useState<string>('');
 
   // Fetch all agencies
   const { data: agencies, isLoading: agenciesLoading } = useQuery({
@@ -99,6 +181,45 @@ export function SEAssignmentsTab() {
     },
   });
 
+  // Fetch delegate candidates for selected agency
+  const { data: delegateCandidates } = useQuery({
+    queryKey: ['admin-delegate-candidates', selectedAgency],
+    enabled: !!selectedAgency,
+    queryFn: async () => {
+      const candidates: DelegateCandidate[] = [];
+      const seen = new Set<string>();
+
+      // Get agency owner (profile with this agency_id)
+      const { data: ownerProfiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('agency_id', selectedAgency);
+
+      for (const p of ownerProfiles || []) {
+        if (!seen.has(p.id)) {
+          seen.add(p.id);
+          candidates.push({ id: p.id, full_name: p.full_name, email: p.email, source: 'profile' });
+        }
+      }
+
+      // Get key employees for this agency
+      const { data: keyEmployees } = await supabase
+        .from('key_employees')
+        .select('user_id, profiles(id, full_name, email)')
+        .eq('agency_id', selectedAgency);
+
+      for (const ke of keyEmployees || []) {
+        const profile = ke.profiles as unknown as { id: string; full_name: string | null; email: string | null } | null;
+        if (profile && !seen.has(profile.id)) {
+          seen.add(profile.id);
+          candidates.push({ id: profile.id, full_name: profile.full_name, email: profile.email, source: 'key_employee' });
+        }
+      }
+
+      return candidates;
+    },
+  });
+
   // Fetch assignments
   const { data: assignments, isLoading: assignmentsLoading } = useQuery({
     queryKey: ['admin-se-assignments'],
@@ -108,7 +229,8 @@ export function SEAssignmentsTab() {
         .select(`
           *,
           agencies(name, slug),
-          profiles:assigned_by(full_name)
+          profiles:assigned_by(full_name),
+          delegate:profiles!delegate_user_id(full_name)
         `)
         .order('created_at', { ascending: false });
 
@@ -119,12 +241,13 @@ export function SEAssignmentsTab() {
 
   // Create assignment mutation
   const createAssignment = useMutation({
-    mutationFn: async (params: { agency_id: string; start_date: string; notes: string; auto_activate?: boolean }) => {
+    mutationFn: async (params: { agency_id: string; start_date: string; notes: string; delegate_user_id?: string; auto_activate?: boolean }) => {
       const { data, error } = await supabase.from('sales_experience_assignments').insert({
         agency_id: params.agency_id,
         assigned_by: user?.id,
         start_date: params.start_date,
         notes: params.notes || null,
+        delegate_user_id: params.delegate_user_id || null,
         status: params.auto_activate ? 'active' : 'pending',
       }).select();
 
@@ -140,11 +263,32 @@ export function SEAssignmentsTab() {
       setSelectedAgency('');
       setStartDate('');
       setNotes('');
+      setSelectedDelegate('');
       toast.success('Assignment created successfully');
     },
     onError: (error: Error) => {
       console.error('Error creating assignment:', error);
       toast.error(`Failed to create assignment: ${error.message}`);
+    },
+  });
+
+  // Update delegate mutation
+  const updateDelegate = useMutation({
+    mutationFn: async (params: { id: string; delegate_user_id: string | null }) => {
+      const { error } = await supabase
+        .from('sales_experience_assignments')
+        .update({ delegate_user_id: params.delegate_user_id })
+        .eq('id', params.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-se-assignments'] });
+      toast.success('Delegate updated');
+    },
+    onError: (error) => {
+      console.error('Error updating delegate:', error);
+      toast.error('Failed to update delegate');
     },
   });
 
@@ -188,6 +332,7 @@ export function SEAssignmentsTab() {
       agency_id: selectedAgency,
       start_date: startDate,
       notes,
+      delegate_user_id: selectedDelegate && selectedDelegate !== 'none' ? selectedDelegate : undefined,
       auto_activate: isArrears,
     });
   };
@@ -321,6 +466,26 @@ export function SEAssignmentsTab() {
                   placeholder="Any notes about this assignment..."
                 />
               </div>
+              <div className="space-y-2">
+                <Label>Delegate (optional)</Label>
+                <Select value={selectedDelegate} onValueChange={setSelectedDelegate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a delegate..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No delegate</SelectItem>
+                    {delegateCandidates?.map((candidate) => (
+                      <SelectItem key={candidate.id} value={candidate.id}>
+                        {candidate.full_name || candidate.email || 'Unknown'}{' '}
+                        {candidate.source === 'key_employee' ? '(Key Employee)' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  The delegate will see the full 8-Week Sales Experience dashboard, same as the agency owner.
+                </p>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
@@ -349,13 +514,14 @@ export function SEAssignmentsTab() {
               <TableHead>End Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Assigned By</TableHead>
+              <TableHead>Delegate</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {assignments?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No assignments yet. Create one to get started.
                 </TableCell>
               </TableRow>
@@ -389,6 +555,23 @@ export function SEAssignmentsTab() {
                   </TableCell>
                   <TableCell>
                     {assignment.profiles?.full_name || 'System'}
+                  </TableCell>
+                  <TableCell>
+                    {['pending', 'active'].includes(assignment.status) ? (
+                      <DelegateInlinePicker
+                        assignment={assignment}
+                        onUpdate={(delegateId) =>
+                          updateDelegate.mutate({
+                            id: assignment.id,
+                            delegate_user_id: delegateId,
+                          })
+                        }
+                      />
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        {assignment.delegate?.full_name || '—'}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

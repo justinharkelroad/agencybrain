@@ -295,7 +295,8 @@ Deno.serve(async (req) => {
     });
 
     // Get the authenticated user
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+    const jwt = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser(jwt);
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: 'Invalid or expired session' }),
@@ -335,6 +336,21 @@ Deno.serve(async (req) => {
       if (keyEmployee?.agency_id) {
         isOwnerOrManager = true;
         profile.agency_id = keyEmployee.agency_id;
+      }
+    }
+
+    // Delegate fallback
+    if (!isOwnerOrManager && !isAdmin) {
+      const { data: delegateAssignment } = await supabase
+        .from('sales_experience_assignments')
+        .select('id, agency_id')
+        .eq('delegate_user_id', user.id)
+        .in('status', ['active', 'pending', 'completed'])
+        .limit(1)
+        .maybeSingle();
+      if (delegateAssignment) {
+        isOwnerOrManager = true;
+        profile.agency_id = delegateAssignment.agency_id;
       }
     }
 

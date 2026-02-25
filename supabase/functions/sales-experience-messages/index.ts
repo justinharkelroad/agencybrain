@@ -50,7 +50,8 @@ Deno.serve(async (req) => {
     });
 
     // Get the authenticated user
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+    const jwt = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser(jwt);
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: 'Invalid or expired session' }),
@@ -88,7 +89,28 @@ Deno.serve(async (req) => {
 
     const isKeyEmployee = !!keyEmployee;
 
+    // Use key employee's agency_id if they don't have one directly
+    if (isKeyEmployee && keyEmployee?.agency_id && !profile.agency_id) {
+      profile.agency_id = keyEmployee.agency_id;
+    }
+
+    // Delegate fallback
+    let isDelegate = false;
     if (!isAdmin && !isAgencyOwner && !isKeyEmployee) {
+      const { data: delegateAssignment } = await supabase
+        .from('sales_experience_assignments')
+        .select('id, agency_id')
+        .eq('delegate_user_id', user.id)
+        .in('status', ['active', 'pending', 'completed'])
+        .limit(1)
+        .maybeSingle();
+      if (delegateAssignment) {
+        isDelegate = true;
+        profile.agency_id = delegateAssignment.agency_id;
+      }
+    }
+
+    if (!isAdmin && !isAgencyOwner && !isKeyEmployee && !isDelegate) {
       return new Response(
         JSON.stringify({ error: 'Access denied' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
