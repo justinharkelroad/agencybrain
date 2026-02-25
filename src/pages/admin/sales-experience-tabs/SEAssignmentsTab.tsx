@@ -89,6 +89,62 @@ const statusColors: Record<string, string> = {
   cancelled: 'bg-red-500/10 text-red-600 border-red-500/30',
 };
 
+async function fetchDelegateCandidates(agencyId: string): Promise<DelegateCandidate[]> {
+  const candidates: DelegateCandidate[] = [];
+  const seen = new Set<string>();
+
+  // 1. Profiles with this agency_id (agency owners)
+  const { data: ownerProfiles } = await supabase
+    .from('profiles')
+    .select('id, full_name, email')
+    .eq('agency_id', agencyId);
+
+  for (const p of ownerProfiles || []) {
+    if (!seen.has(p.id)) {
+      seen.add(p.id);
+      candidates.push({ id: p.id, full_name: p.full_name, email: p.email, source: 'profile' });
+    }
+  }
+
+  // 2. Key employees for this agency
+  const { data: keyEmployees } = await supabase
+    .from('key_employees')
+    .select('user_id, profiles(id, full_name, email)')
+    .eq('agency_id', agencyId);
+
+  for (const ke of keyEmployees || []) {
+    const profile = ke.profiles as unknown as { id: string; full_name: string | null; email: string | null } | null;
+    if (profile && !seen.has(profile.id)) {
+      seen.add(profile.id);
+      candidates.push({ id: profile.id, full_name: profile.full_name, email: profile.email, source: 'key_employee' });
+    }
+  }
+
+  // 3. Team members (managers/owners) who have a JWT profile (matched by email)
+  const { data: teamMembers } = await supabase
+    .from('team_members')
+    .select('email, name')
+    .eq('agency_id', agencyId)
+    .eq('status', 'active');
+
+  const tmEmails = (teamMembers || []).map((tm) => tm.email).filter(Boolean);
+  if (tmEmails.length > 0) {
+    const { data: tmProfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('email', tmEmails);
+
+    for (const p of tmProfiles || []) {
+      if (!seen.has(p.id)) {
+        seen.add(p.id);
+        candidates.push({ id: p.id, full_name: p.full_name, email: p.email, source: 'profile' });
+      }
+    }
+  }
+
+  return candidates;
+}
+
 function DelegateInlinePicker({
   assignment,
   onUpdate,
@@ -98,37 +154,7 @@ function DelegateInlinePicker({
 }) {
   const { data: candidates } = useQuery({
     queryKey: ['admin-delegate-candidates', assignment.agency_id],
-    queryFn: async () => {
-      const result: DelegateCandidate[] = [];
-      const seen = new Set<string>();
-
-      const { data: ownerProfiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .eq('agency_id', assignment.agency_id);
-
-      for (const p of ownerProfiles || []) {
-        if (!seen.has(p.id)) {
-          seen.add(p.id);
-          result.push({ id: p.id, full_name: p.full_name, email: p.email, source: 'profile' });
-        }
-      }
-
-      const { data: keyEmployees } = await supabase
-        .from('key_employees')
-        .select('user_id, profiles(id, full_name, email)')
-        .eq('agency_id', assignment.agency_id);
-
-      for (const ke of keyEmployees || []) {
-        const profile = ke.profiles as unknown as { id: string; full_name: string | null; email: string | null } | null;
-        if (profile && !seen.has(profile.id)) {
-          seen.add(profile.id);
-          result.push({ id: profile.id, full_name: profile.full_name, email: profile.email, source: 'key_employee' });
-        }
-      }
-
-      return result;
-    },
+    queryFn: () => fetchDelegateCandidates(assignment.agency_id),
   });
 
   return (
@@ -185,39 +211,7 @@ export function SEAssignmentsTab() {
   const { data: delegateCandidates } = useQuery({
     queryKey: ['admin-delegate-candidates', selectedAgency],
     enabled: !!selectedAgency,
-    queryFn: async () => {
-      const candidates: DelegateCandidate[] = [];
-      const seen = new Set<string>();
-
-      // Get agency owner (profile with this agency_id)
-      const { data: ownerProfiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .eq('agency_id', selectedAgency);
-
-      for (const p of ownerProfiles || []) {
-        if (!seen.has(p.id)) {
-          seen.add(p.id);
-          candidates.push({ id: p.id, full_name: p.full_name, email: p.email, source: 'profile' });
-        }
-      }
-
-      // Get key employees for this agency
-      const { data: keyEmployees } = await supabase
-        .from('key_employees')
-        .select('user_id, profiles(id, full_name, email)')
-        .eq('agency_id', selectedAgency);
-
-      for (const ke of keyEmployees || []) {
-        const profile = ke.profiles as unknown as { id: string; full_name: string | null; email: string | null } | null;
-        if (profile && !seen.has(profile.id)) {
-          seen.add(profile.id);
-          candidates.push({ id: profile.id, full_name: profile.full_name, email: profile.email, source: 'key_employee' });
-        }
-      }
-
-      return candidates;
-    },
+    queryFn: () => fetchDelegateCandidates(selectedAgency),
   });
 
   // Fetch assignments
