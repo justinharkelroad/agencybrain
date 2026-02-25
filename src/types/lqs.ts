@@ -258,6 +258,7 @@ export interface SalesUploadContext {
   agencyId: string;
   userId: string | null;
   displayName: string;
+  isOneCallClose?: boolean;
 }
 
 export interface SalesUploadResult {

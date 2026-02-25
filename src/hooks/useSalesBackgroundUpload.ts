@@ -675,6 +675,7 @@ async function processInBackground(
                 policy_number: record.policyNumber,
                 source: 'lqs_upload',
                 linked_quote_id: linkedQuoteId,
+                is_one_call_close: context.isOneCallClose ?? false,
               });
             
             if (saleError) {

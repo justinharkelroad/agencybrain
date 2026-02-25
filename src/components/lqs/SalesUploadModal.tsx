@@ -3,7 +3,9 @@ import { useDropzone } from 'react-dropzone';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Upload, FileSpreadsheet, AlertCircle, X } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { Upload, FileSpreadsheet, AlertCircle, X, Phone } from 'lucide-react';
 import { parseLqsSalesExcel } from '@/lib/lqs-sales-parser';
 import { useSalesBackgroundUpload } from '@/hooks/useSalesBackgroundUpload';
 import type { SalesUploadResult } from '@/types/lqs';
@@ -34,6 +36,7 @@ export function SalesUploadModal({
   const [uploadState, setUploadState] = useState<UploadState>('idle');
   const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [isParsing, setIsParsing] = useState(false);
+  const [isOneCallClose, setIsOneCallClose] = useState(false);
 
   const { startBackgroundUpload } = useSalesBackgroundUpload();
 
@@ -73,6 +76,7 @@ export function SalesUploadModal({
     setUploadState('idle');
     setParseErrors([]);
     setIsParsing(false); // FIX: Always reset parsing state on close
+    setIsOneCallClose(false);
     onOpenChange(false);
   }, [onOpenChange]);
 
@@ -127,6 +131,7 @@ export function SalesUploadModal({
         agencyId,
         userId,
         displayName,
+        isOneCallClose,
       }, onUploadResults);
 
       // FIX: Reset state BEFORE closing modal
@@ -236,6 +241,32 @@ export function SalesUploadModal({
               </div>
             </div>
           )}
+
+          {/* One-Call Close Toggle */}
+          <div className={cn(
+            "p-3 rounded-lg border transition-colors",
+            isOneCallClose
+              ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20"
+              : "border-muted bg-muted/30"
+          )}>
+            <div className="flex items-center gap-3">
+              <Checkbox
+                id="uploadOneCallClose"
+                checked={isOneCallClose}
+                onCheckedChange={(checked) => setIsOneCallClose(checked === true)}
+              />
+              <Label
+                htmlFor="uploadOneCallClose"
+                className="flex items-center gap-2 cursor-pointer font-medium text-sm"
+              >
+                <Phone className="h-4 w-4 text-green-600" />
+                One-Call Close
+              </Label>
+            </div>
+            <p className="mt-1 pl-7 text-xs text-muted-foreground">
+              Mark all sales in this upload as closed on the first call.
+            </p>
+          </div>
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
