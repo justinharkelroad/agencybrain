@@ -25,7 +25,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, Phone } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, Phone, Users } from "lucide-react";
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -78,25 +78,36 @@ const AUTO_PRODUCTS = ['Standard Auto', 'Non-Standard Auto', 'Specialty Auto'];
 const HOME_PRODUCTS = ['Homeowners', 'North Light Homeowners', 'Condo', 'North Light Condo'];
 
 // Helper to detect bundle type automatically using canonical names for accurate detection
-const detectBundleType = (policies: Policy[]): { isBundle: boolean; bundleType: string | null } => {
+// Accepts optional existingTypes array for customers with existing policies
+const detectBundleType = (
+  policies: Policy[],
+  existingTypes: string[] = []
+): { isBundle: boolean; bundleType: string | null } => {
   // Use canonical_name (from linked product_types) for bundle detection, fallback to display name
   const productNames = policies.map(p => p.canonical_name || p.policy_type_name).filter(Boolean);
 
+  // Check both new policies AND existing policies
   const hasAuto = productNames.some(name =>
     AUTO_PRODUCTS.some(auto => name.toLowerCase() === auto.toLowerCase())
-  );
+  ) || existingTypes.includes('auto');
+
   const hasHome = productNames.some(name =>
     HOME_PRODUCTS.some(home => name.toLowerCase() === home.toLowerCase())
-  );
+  ) || existingTypes.includes('home');
 
+  // Preferred Bundle: Auto + Home (either existing or new)
   if (hasAuto && hasHome) {
     return { isBundle: true, bundleType: 'Preferred' };
   }
 
-  if (policies.filter(p => p.policy_type_name).length > 1) {
+  // Standard Bundle: Multiple policies OR 1 new + existing
+  const newPolicyCount = policies.filter(p => p.policy_type_name).length;
+  const totalPolicies = newPolicyCount + existingTypes.length;
+  if (totalPolicies > 1) {
     return { isBundle: true, bundleType: 'Standard' };
   }
 
+  // Monoline: Single policy
   return { isBundle: false, bundleType: null };
 };
 
@@ -139,6 +150,13 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
   const [isOneCallClose, setIsOneCallClose] = useState(false);
   const [policies, setPolicies] = useState<Policy[]>([]);
 
+  // Existing customer state for bundle classification
+  const [hasExistingPolicies, setHasExistingPolicies] = useState(false);
+  const [existingPolicyTypes, setExistingPolicyTypes] = useState<string[]>([]);
+
+  // Brokered bundling state - when checked, brokered policies count toward bundling metrics
+  const [brokeredCountsTowardBundling, setBrokeredCountsTowardBundling] = useState(false);
+
   // Fetch brokered carriers
   const { activeCarriers: brokeredCarriers } = useBrokeredCarriers(agencyId || null);
 
@@ -179,8 +197,17 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
     enabled: !!agencyId,
   });
 
-  // Calculate bundle info
-  const bundleInfo = useMemo(() => detectBundleType(policies), [policies]);
+  // Auto-detect bundle type based on policies and existing customer products
+  const bundleInfo = useMemo(
+    () => detectBundleType(policies, hasExistingPolicies ? existingPolicyTypes : []),
+    [policies, hasExistingPolicies, existingPolicyTypes]
+  );
+
+  // Check if sale has any brokered policies
+  const hasBrokeredPolicy = useMemo(
+    () => policies.some(p => p.isBrokered),
+    [policies]
+  );
 
   // Calculate totals
   const totals = useMemo(() => {
@@ -478,6 +505,8 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         vc_points: vcTotals.points,
         is_bundle: bundleInfo.isBundle,
         bundle_type: bundleInfo.bundleType,
+        existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
+        brokered_counts_toward_bundling: hasBrokeredPolicy && brokeredCountsTowardBundling,
         is_one_call_close: isOneCallClose,
         policies: policies.map((policy) => {
           // For brokered policies, product_type_id is "brokered" - convert to null for DB
@@ -538,6 +567,9 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
     setPriorInsuranceCompanyId("");
     setSaleDate(todayLocal());
     setIsOneCallClose(false);
+    setHasExistingPolicies(false);
+    setExistingPolicyTypes([]);
+    setBrokeredCountsTowardBundling(false);
     setPolicies([]);
   };
 
@@ -659,6 +691,93 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                 </Select>
               </div>
             )}
+
+            {/* Existing Customer Section */}
+            <div className="space-y-3 sm:col-span-2">
+              <div className={cn(
+                "p-4 rounded-lg border transition-colors",
+                hasExistingPolicies
+                  ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20"
+                  : "border-muted bg-muted/30"
+              )}>
+                <div className="flex items-center gap-3">
+                  <Checkbox
+                    id="staffHasExistingPolicies"
+                    checked={hasExistingPolicies}
+                    onCheckedChange={(checked) => {
+                      setHasExistingPolicies(checked === true);
+                      if (!checked) {
+                        setExistingPolicyTypes([]);
+                      }
+                    }}
+                  />
+                  <Label
+                    htmlFor="staffHasExistingPolicies"
+                    className="flex items-center gap-2 cursor-pointer font-medium"
+                  >
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    Customer has existing policies with us
+                  </Label>
+                </div>
+
+                {hasExistingPolicies && (
+                  <div className="mt-4 pl-7 space-y-3">
+                    <Label className="text-sm text-muted-foreground">
+                      What products do they already have?
+                    </Label>
+                    <div className="flex flex-wrap gap-4">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="staffExistingAuto"
+                          checked={existingPolicyTypes.includes('auto')}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setExistingPolicyTypes([...existingPolicyTypes, 'auto']);
+                            } else {
+                              setExistingPolicyTypes(existingPolicyTypes.filter(t => t !== 'auto'));
+                            }
+                          }}
+                        />
+                        <Label htmlFor="staffExistingAuto" className="cursor-pointer">
+                          Auto
+                        </Label>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="staffExistingHome"
+                          checked={existingPolicyTypes.includes('home')}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setExistingPolicyTypes([...existingPolicyTypes, 'home']);
+                            } else {
+                              setExistingPolicyTypes(existingPolicyTypes.filter(t => t !== 'home'));
+                            }
+                          }}
+                        />
+                        <Label htmlFor="staffExistingHome" className="cursor-pointer">
+                          Home/Property
+                        </Label>
+                      </div>
+                    </div>
+
+                    {/* Bundle Type Preview */}
+                    {policies.length > 0 && existingPolicyTypes.length > 0 && (
+                      <div className="mt-3 p-2 rounded bg-blue-100 dark:bg-blue-900/30 text-sm">
+                        {bundleInfo.bundleType === 'Preferred' ? (
+                          <span className="text-blue-700 dark:text-blue-300">
+                            → Adding {policies.map(p => p.policy_type_name).filter(Boolean).join(', ') || 'this policy'} = <strong>Preferred Bundle</strong>
+                          </span>
+                        ) : bundleInfo.bundleType === 'Standard' ? (
+                          <span className="text-blue-700 dark:text-blue-300">
+                            → Adding {policies.map(p => p.policy_type_name).filter(Boolean).join(', ') || 'this policy'} = <strong>Standard Bundle</strong>
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -1299,6 +1418,35 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                   <div className="text-sm text-muted-foreground">Total Points</div>
                 </div>
               </div>
+
+              {/* Brokered Bundling Option - show when sale has brokered policy and is a bundle */}
+              {hasBrokeredPolicy && bundleInfo.isBundle && (
+                <div className={cn(
+                  "p-4 rounded-lg border transition-colors",
+                  brokeredCountsTowardBundling
+                    ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20"
+                    : "border-muted bg-muted/30"
+                )}>
+                  <div className="flex items-center gap-3">
+                    <Checkbox
+                      id="staffBrokeredCountsTowardBundling"
+                      checked={brokeredCountsTowardBundling}
+                      onCheckedChange={(checked) => setBrokeredCountsTowardBundling(checked === true)}
+                    />
+                    <Label
+                      htmlFor="staffBrokeredCountsTowardBundling"
+                      className="flex items-center gap-2 cursor-pointer font-medium"
+                    >
+                      <Building2 className="h-4 w-4 text-amber-600" />
+                      Count brokered policy toward bundling metrics
+                    </Label>
+                  </div>
+                  <p className="mt-2 pl-7 text-sm text-muted-foreground">
+                    When enabled, this brokered policy will count toward your bundled household goals.
+                    Use this when your carrier doesn't write this product in your state.
+                  </p>
+                </div>
+              )}
 
               {/* One-Call Close Toggle */}
               <div className={cn(
