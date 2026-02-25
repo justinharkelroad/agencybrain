@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings, Target, AlertTriangle, CircleHelp, Upload, Download } from "lucide-react";
+import { Edit, Plus, Trash2, ArrowRight, Building2, Users, FileText, ShieldCheck, Eye, EyeOff, Key, UserX, UserCheck, Mail, Send, RefreshCw, Clock, Loader2, Settings, Target, AlertTriangle, CircleHelp, Upload, Download, Copy, Check } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LeadSourceManager } from "@/components/FormBuilder/LeadSourceManager";
 import { PolicyTypeManager } from "@/components/PolicyTypeManager";
@@ -207,6 +207,7 @@ function DashboardCallMetricsToggle({ agencyId }: { agencyId: string }) {
 interface StaffUser {
   id: string;
   username: string;
+  display_name: string | null;
   is_active: boolean;
   last_login_at: string | null;
   email: string | null;
@@ -476,6 +477,16 @@ export default function Agency() {
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
+
+  // Credentials confirmation dialog
+  const [credentialsDialog, setCredentialsDialog] = useState<{
+    open: boolean;
+    username: string;
+    password: string;
+    displayName: string;
+    email: string;
+  }>({ open: false, username: "", password: "", displayName: "", email: "" });
+  const [credentialsCopied, setCredentialsCopied] = useState(false);
   
   // Deactivate confirmation dialog
   const [deactivateDialogOpen, setDeactivateDialogOpen] = useState(false);
@@ -574,7 +585,7 @@ export default function Agency() {
           // Fetch staff users separately (no FK constraint)
           const { data: staff, error: sErr } = await supabase
             .from("staff_users")
-            .select("id, username, is_active, last_login_at, email, team_member_id")
+            .select("id, username, display_name, is_active, last_login_at, email, team_member_id")
             .eq("agency_id", aId);
           if (!sErr) setStaffUsers(staff || []);
 
@@ -612,7 +623,7 @@ export default function Agency() {
 
     const { data: staff, error: sErr } = await supabase
       .from("staff_users")
-      .select("id, username, is_active, last_login_at, email, team_member_id")
+      .select("id, username, display_name, is_active, last_login_at, email, team_member_id")
       .eq("agency_id", aId);
     if (!sErr) setStaffUsers(staff || []);
 
@@ -1622,13 +1633,15 @@ export default function Agency() {
 
       if (error) throw error;
 
-      await copyToClipboard(newPassword);
-      toast.success(
-        shouldActivate
-          ? "Password set and account activated! Password copied to clipboard."
-          : "Password reset! New password copied to clipboard."
-      );
       setResetDialogOpen(false);
+      setCredentialsDialog({
+        open: true,
+        username: selectedStaffUser.username,
+        password: newPassword,
+        displayName: selectedStaffUser.display_name || selectedStaffUser.username,
+        email: selectedStaffUser.email || "",
+      });
+      setCredentialsCopied(false);
       setNewPassword("");
       setShowNewPassword(false);
 
@@ -3181,6 +3194,67 @@ export default function Agency() {
             {selectedStaffUser && !selectedStaffUser.is_active ? "Set Password & Activate" : "Reset Password"}
           </Button>
         </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Credentials Confirmation Dialog */}
+    <Dialog open={credentialsDialog.open} onOpenChange={(open) => {
+      if (!open) setCredentialsDialog(prev => ({ ...prev, open: false }));
+    }}>
+      <DialogContent className="sm:max-w-md glass-surface">
+        <DialogHeader>
+          <DialogTitle>Password Reset</DialogTitle>
+          <DialogDescription>
+            New credentials for {credentialsDialog.displayName}. Copy and share these with the team member.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Username</p>
+              <p className="text-sm font-mono font-semibold">{credentialsDialog.username}</p>
+            </div>
+            {credentialsDialog.email && (
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Email (also works for login)</p>
+                <p className="text-sm font-mono">{credentialsDialog.email}</p>
+              </div>
+            )}
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Password</p>
+              <p className="text-sm font-mono font-semibold">{credentialsDialog.password}</p>
+            </div>
+          </div>
+          <Button
+            className="w-full"
+            onClick={async () => {
+              const text = `Login Credentials for ${credentialsDialog.displayName}\nUsername: ${credentialsDialog.username}\nPassword: ${credentialsDialog.password}${credentialsDialog.email ? `\nEmail (also works): ${credentialsDialog.email}` : ""}`;
+              try {
+                await navigator.clipboard.writeText(text);
+                setCredentialsCopied(true);
+                toast.success("Credentials copied to clipboard");
+                setTimeout(() => setCredentialsCopied(false), 3000);
+              } catch {
+                toast.error("Failed to copy to clipboard");
+              }
+            }}
+          >
+            {credentialsCopied ? (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Copied!
+              </>
+            ) : (
+              <>
+                <Copy className="mr-2 h-4 w-4" />
+                Copy All Credentials
+              </>
+            )}
+          </Button>
+          <p className="text-xs text-center text-muted-foreground">
+            This is the only time the password will be shown. Make sure to copy it now.
+          </p>
+        </div>
       </DialogContent>
     </Dialog>
 

@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { UserCog, Eye, EyeOff, MoreVertical, Edit, Key, UserX, UserCheck, Mail, Link2, AlertTriangle, Loader2, ExternalLink, UserPlus, Send } from "lucide-react";
+import { UserCog, Eye, EyeOff, MoreVertical, Edit, Key, UserX, UserCheck, Mail, Link2, AlertTriangle, Loader2, ExternalLink, UserPlus, Send, Copy, Check } from "lucide-react";
 import { EmailDeliveryNoticeButton } from "@/components/EmailDeliveryNoticeModal";
 import { useAgencyRosterWithStaffLogins, TeamMemberWithLogin, OrphanStaffUser } from "@/hooks/useAgencyRosterWithStaffLogins";
 import { Link } from "react-router-dom";
@@ -64,6 +64,17 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
   const [newPassword, setNewPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
 
+  // Credentials confirmation dialog
+  const [credentialsDialog, setCredentialsDialog] = useState<{
+    open: boolean;
+    username: string;
+    password: string;
+    displayName: string;
+    email: string;
+    isReset: boolean;
+  }>({ open: false, username: "", password: "", displayName: "", email: "", isReset: false });
+  const [credentialsCopied, setCredentialsCopied] = useState(false);
+
   // Link orphan dialog
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [linkingOrphan, setLinkingOrphan] = useState<OrphanStaffUser | null>(null);
@@ -113,11 +124,21 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["agency-roster-with-logins"] });
-      toast.success("Staff access created successfully");
+      const member = roster.find(m => m.id === variables.teamMemberId);
+      const fallbackUsername = member?.name.toLowerCase().replace(/\s+/g, '.') || "";
       setGrantAccessDialogOpen(false);
       setGrantAccessMember(null);
+      setCredentialsDialog({
+        open: true,
+        username: data?.user?.username || fallbackUsername,
+        password: variables.password,
+        displayName: data?.user?.display_name || member?.name || "",
+        email: data?.user?.email || member?.email || "",
+        isReset: false,
+      });
+      setCredentialsCopied(false);
       setGrantAccessPassword("");
     },
     onError: (error: any) => {
@@ -151,7 +172,10 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
 
   // Reset password mutation
   const resetPassword = useMutation({
-    mutationFn: async ({ userId, password, activate }: { userId: string; password: string; activate?: boolean }) => {
+    mutationFn: async ({ userId, password, activate }: {
+      userId: string; password: string; activate?: boolean;
+      _staffUsername: string; _staffDisplayName: string; _staffEmail: string;
+    }) => {
       const { data, error } = await supabase.functions.invoke("admin_reset_staff_password", {
         body: { user_id: userId, new_password: password, ...(activate && { activate: true }) },
       });
@@ -159,11 +183,17 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
       return data;
     },
     onSuccess: (_data, variables) => {
-      // Copy password to clipboard before clearing state
-      copyToClipboard(variables.password);
-      toast.success(variables.activate ? "Password set and account activated! Password copied to clipboard." : "Password reset successfully. Password copied to clipboard.");
       queryClient.invalidateQueries({ queryKey: ["agency-roster-with-logins"] });
       setIsResetDialogOpen(false);
+      setCredentialsDialog({
+        open: true,
+        username: variables._staffUsername,
+        password: variables.password,
+        displayName: variables._staffDisplayName,
+        email: variables._staffEmail,
+        isReset: true,
+      });
+      setCredentialsCopied(false);
       setResetStaffUser(null);
       setNewPassword("");
       setShowNewPassword(false);
@@ -313,7 +343,14 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
       return;
     }
     const shouldActivate = !resetStaffUser.is_active;
-    resetPassword.mutate({ userId: resetStaffUser.id, password: newPassword, ...(shouldActivate && { activate: true }) });
+    resetPassword.mutate({
+      userId: resetStaffUser.id,
+      password: newPassword,
+      ...(shouldActivate && { activate: true }),
+      _staffUsername: resetStaffUser.username,
+      _staffDisplayName: resetStaffUser.display_name || resetStaffUser.username,
+      _staffEmail: resetStaffUser.email || "",
+    });
   };
 
   const handleSendResetEmail = (staffUser: TeamMemberWithLogin['staffUser']) => {
@@ -829,6 +866,72 @@ export function StaffUsersTab({ agencyId }: StaffUsersTabProps) {
               {linkOrphan.isPending ? "Linking..." : "Link Team Member"}
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Credentials Confirmation Dialog */}
+      <Dialog open={credentialsDialog.open} onOpenChange={(open) => {
+        if (!open) setCredentialsDialog(prev => ({ ...prev, open: false }));
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {credentialsDialog.isReset ? "Password Reset" : "Staff Access Created"}
+            </DialogTitle>
+            <DialogDescription>
+              {credentialsDialog.isReset
+                ? `New credentials for ${credentialsDialog.displayName}. Copy and share these with the team member.`
+                : `Login credentials for ${credentialsDialog.displayName}. Copy and share these with the team member.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Username</p>
+                <p className="text-sm font-mono font-semibold">{credentialsDialog.username}</p>
+              </div>
+              {credentialsDialog.email && (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Email (also works for login)</p>
+                  <p className="text-sm font-mono">{credentialsDialog.email}</p>
+                </div>
+              )}
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Password</p>
+                <p className="text-sm font-mono font-semibold">{credentialsDialog.password}</p>
+              </div>
+            </div>
+            <Button
+              className="w-full"
+              onClick={async () => {
+                const text = `Login Credentials for ${credentialsDialog.displayName}\nUsername: ${credentialsDialog.username}\nPassword: ${credentialsDialog.password}${credentialsDialog.email ? `\nEmail (also works): ${credentialsDialog.email}` : ""}`;
+                try {
+                  await navigator.clipboard.writeText(text);
+                  setCredentialsCopied(true);
+                  toast.success("Credentials copied to clipboard");
+                  setTimeout(() => setCredentialsCopied(false), 3000);
+                } catch {
+                  toast.error("Failed to copy to clipboard");
+                }
+              }}
+            >
+              {credentialsCopied ? (
+                <>
+                  <Check className="mr-2 h-4 w-4" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy All Credentials
+                </>
+              )}
+            </Button>
+            <p className="text-xs text-center text-muted-foreground">
+              This is the only time the password will be shown. Make sure to copy it now.
+            </p>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
