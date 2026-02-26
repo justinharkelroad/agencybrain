@@ -293,7 +293,7 @@ export const navigationConfig: NavEntry[] = [
         icon: Settings,
         type: 'link',
         url: '/training/agency/manage',
-        access: { staff: false, manager: false, owner: true },
+        access: { staff: false, manager: true, owner: true },
       },
       {
         id: 'video-training-architect',

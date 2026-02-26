@@ -37,15 +37,28 @@ export default function AdminTraining() {
         .eq('id', user.id)
         .single();
 
-      if (!profile?.agency_id) {
+      let resolvedAgencyId = profile?.agency_id || null;
+
+      // Key employee fallback: resolve agency from key_employees table
+      if (!resolvedAgencyId) {
+        const { data: keyEmployee } = await supabase
+          .from('key_employees')
+          .select('agency_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        resolvedAgencyId = keyEmployee?.agency_id || null;
+      }
+
+      if (!resolvedAgencyId) {
         sessionStorage.removeItem(AGENCY_ID_CACHE_KEY);
         navigate('/dashboard');
         return;
       }
 
       // Cache in sessionStorage for remounts
-      sessionStorage.setItem(AGENCY_ID_CACHE_KEY, profile.agency_id);
-      setAgencyId(profile.agency_id);
+      sessionStorage.setItem(AGENCY_ID_CACHE_KEY, resolvedAgencyId);
+      setAgencyId(resolvedAgencyId);
     }
 
     fetchAgencyId();
