@@ -21,21 +21,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return jsonResponse({ error: 'Missing authorization header' }, 401);
-    }
-
-    const supabaseUser = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const jwt = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser(jwt);
-    if (authError || !user) {
-      return jsonResponse({ error: 'Invalid or expired session' }, 401);
-    }
-
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { assignment_id } = await req.json() as { assignment_id?: string };
 
@@ -43,86 +28,150 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: 'Missing assignment_id' }, 400);
     }
 
-    // Resolve agency + access role
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, agency_id, role')
-      .eq('id', user.id)
-      .single();
+    // --- Auth resolution ---
+    let isAdmin = false;
+    let agencyId: string | null = null;
 
-    if (profileError || !profile) {
-      return jsonResponse({ error: 'Profile not found' }, 404);
-    }
+    const staffSessionToken = req.headers.get('x-staff-session');
+    const authHeader = req.headers.get('Authorization');
 
-    const isAdmin = profile.role === 'admin';
-    let agencyId: string | null = profile.agency_id || null;
-    let hasAccess = isAdmin || !!agencyId;
+    if (staffSessionToken) {
+      // Staff delegate auth
+      const { data: staffSession, error: staffSessionError } = await supabase
+        .from('staff_sessions')
+        .select(`
+          staff_user_id,
+          expires_at,
+          staff_users (
+            id,
+            team_member_id
+          )
+        `)
+        .eq('session_token', staffSessionToken)
+        .eq('is_valid', true)
+        .gt('expires_at', new Date().toISOString())
+        .single();
 
-    // Key employee fallback
-    if (!hasAccess) {
-      const { data: keyEmployee } = await supabase
-        .from('key_employees')
-        .select('agency_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (keyEmployee?.agency_id) {
-        agencyId = keyEmployee.agency_id;
-        hasAccess = true;
+      if (staffSessionError || !staffSession) {
+        return jsonResponse({ error: 'Invalid or expired staff session' }, 401);
       }
-    }
 
-    // Manager fallback via linked staff/team_member
-    if (!hasAccess && user.email) {
-      const { data: staffUser } = await supabase
-        .from('staff_users')
-        .select('agency_id, team_member_id, is_active')
-        .eq('email', user.email)
-        .eq('is_active', true)
-        .limit(1)
-        .maybeSingle();
+      const staffUser = staffSession.staff_users as { id: string; team_member_id: string | null };
+      const tmId = staffUser?.team_member_id;
 
-      if (staffUser?.team_member_id) {
-        const { data: teamMember } = await supabase
-          .from('team_members')
-          .select('role, agency_id')
-          .eq('id', staffUser.team_member_id)
-          .maybeSingle();
-
-        if (teamMember?.role === 'Manager' || teamMember?.role === 'Owner') {
-          agencyId = staffUser.agency_id || teamMember.agency_id || null;
-          hasAccess = !!agencyId;
-        }
-      }
-    }
-
-    // Delegate fallback: match user email to delegate team member
-    if (!hasAccess && user.email) {
-      const { data: myTeamMembers } = await supabase
-        .from('team_members')
-        .select('id')
-        .ilike('email', user.email);
-
-      if (myTeamMembers && myTeamMembers.length > 0) {
-        const tmIds = myTeamMembers.map((tm: { id: string }) => tm.id);
+      if (tmId) {
         const { data: delegateAssignment } = await supabase
           .from('sales_experience_assignments')
           .select('id, agency_id')
-          .in('delegate_team_member_id', tmIds)
+          .eq('delegate_team_member_id', tmId)
           .in('status', ['active', 'pending', 'completed'])
           .limit(1)
           .maybeSingle();
+
         if (delegateAssignment) {
           agencyId = delegateAssignment.agency_id;
+        }
+      }
+
+      if (!agencyId) {
+        return jsonResponse({ error: 'Access denied' }, 403);
+      }
+    } else if (authHeader) {
+      // JWT auth
+      const supabaseUser = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+
+      const jwt = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await supabaseUser.auth.getUser(jwt);
+      if (authError || !user) {
+        return jsonResponse({ error: 'Invalid or expired session' }, 401);
+      }
+
+      // Resolve agency + access role
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, agency_id, role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        return jsonResponse({ error: 'Profile not found' }, 404);
+      }
+
+      isAdmin = profile.role === 'admin';
+      agencyId = profile.agency_id || null;
+      let hasAccess = isAdmin || !!agencyId;
+
+      // Key employee fallback
+      if (!hasAccess) {
+        const { data: keyEmployee } = await supabase
+          .from('key_employees')
+          .select('agency_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (keyEmployee?.agency_id) {
+          agencyId = keyEmployee.agency_id;
           hasAccess = true;
         }
       }
+
+      // Manager fallback via linked staff/team_member
+      if (!hasAccess && user.email) {
+        const { data: staffUser } = await supabase
+          .from('staff_users')
+          .select('agency_id, team_member_id, is_active')
+          .eq('email', user.email)
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle();
+
+        if (staffUser?.team_member_id) {
+          const { data: teamMember } = await supabase
+            .from('team_members')
+            .select('role, agency_id')
+            .eq('id', staffUser.team_member_id)
+            .maybeSingle();
+
+          if (teamMember?.role === 'Manager' || teamMember?.role === 'Owner') {
+            agencyId = staffUser.agency_id || teamMember.agency_id || null;
+            hasAccess = !!agencyId;
+          }
+        }
+      }
+
+      // Delegate fallback: match user email to delegate team member
+      if (!hasAccess && user.email) {
+        const { data: myTeamMembers } = await supabase
+          .from('team_members')
+          .select('id')
+          .ilike('email', user.email);
+
+        if (myTeamMembers && myTeamMembers.length > 0) {
+          const tmIds = myTeamMembers.map((tm: { id: string }) => tm.id);
+          const { data: delegateAssignment } = await supabase
+            .from('sales_experience_assignments')
+            .select('id, agency_id')
+            .in('delegate_team_member_id', tmIds)
+            .in('status', ['active', 'pending', 'completed'])
+            .limit(1)
+            .maybeSingle();
+          if (delegateAssignment) {
+            agencyId = delegateAssignment.agency_id;
+            hasAccess = true;
+          }
+        }
+      }
+
+      if (!hasAccess || !agencyId) {
+        return jsonResponse({ error: 'Access denied' }, 403);
+      }
+    } else {
+      return jsonResponse({ error: 'Missing authentication' }, 401);
     }
 
-    if (!hasAccess || !agencyId) {
-      return jsonResponse({ error: 'Access denied' }, 403);
-    }
-
+    // --- Data fetching ---
     const { data: assignment, error: assignmentError } = await supabase
       .from('sales_experience_assignments')
       .select('id, agency_id')
@@ -249,4 +298,3 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'Internal server error' }, 500);
   }
 });
-

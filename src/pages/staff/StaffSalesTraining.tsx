@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Loader2,
   Play,
@@ -14,9 +15,13 @@ import {
   ChevronRight,
   BookOpen,
   Clock,
+  Users,
+  MessageSquare,
+  FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { dayLabels } from '@/components/sales-experience';
+import { DelegateTeamProgress, DelegateMessages, DelegateDeliverables } from '@/components/sales-experience/StaffDelegateTabs';
 
 interface QuizQuestion {
   id: string;
@@ -74,6 +79,8 @@ interface SalesExperienceData {
     progress_percent: number;
   };
   staff_name: string;
+  is_delegate?: boolean;
+  delegate_assignment_id?: string | null;
 }
 
 export default function StaffSalesTraining() {
@@ -179,19 +186,11 @@ export default function StaffSalesTraining() {
     );
   }
 
-  return (
-    <div className="container max-w-4xl mx-auto py-8 px-4">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <Trophy className="h-8 w-8 text-amber-500" />
-          <h1 className="text-3xl font-bold">8 Week Sales Experience</h1>
-        </div>
-        <p className="text-muted-foreground">
-          Complete your lessons and quizzes to build a world-class sales mindset
-        </p>
-      </div>
+  const isDelegate = data.is_delegate;
+  const delegateAssignmentId = data.delegate_assignment_id || data.assignment?.id;
 
+  const trainingContent = (
+    <>
       {/* Progress Card */}
       <Card className="mb-6">
         <CardContent className="p-6">
@@ -271,6 +270,71 @@ export default function StaffSalesTraining() {
           </div>
         </CardContent>
       </Card>
+    </>
+  );
+
+  return (
+    <div className="container max-w-4xl mx-auto py-8 px-4">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-2">
+          <Trophy className="h-8 w-8 text-amber-500" />
+          <h1 className="text-3xl font-bold">8 Week Sales Experience</h1>
+        </div>
+        <p className="text-muted-foreground">
+          {isDelegate
+            ? 'Manage your team\'s training progress and deliverables'
+            : 'Complete your lessons and quizzes to build a world-class sales mindset'}
+        </p>
+      </div>
+
+      {isDelegate && delegateAssignmentId ? (
+        <Tabs defaultValue="training" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="training" className="gap-1.5">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">My Training</span>
+              <span className="sm:hidden">Training</span>
+            </TabsTrigger>
+            <TabsTrigger value="team" className="gap-1.5">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Team Progress</span>
+              <span className="sm:hidden">Team</span>
+            </TabsTrigger>
+            <TabsTrigger value="messages" className="gap-1.5">
+              <MessageSquare className="h-4 w-4" />
+              <span className="hidden sm:inline">Messages</span>
+              <span className="sm:hidden">Msgs</span>
+            </TabsTrigger>
+            <TabsTrigger value="deliverables" className="gap-1.5">
+              <FileText className="h-4 w-4" />
+              <span className="hidden sm:inline">Deliverables</span>
+              <span className="sm:hidden">Docs</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="training">
+            {trainingContent}
+          </TabsContent>
+
+          <TabsContent value="team">
+            <DelegateTeamProgress
+              assignmentId={delegateAssignmentId}
+              sessionToken={sessionToken!}
+            />
+          </TabsContent>
+
+          <TabsContent value="messages">
+            <DelegateMessages sessionToken={sessionToken!} />
+          </TabsContent>
+
+          <TabsContent value="deliverables">
+            <DelegateDeliverables sessionToken={sessionToken!} />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        trainingContent
+      )}
     </div>
   );
 }

@@ -54,6 +54,24 @@ Deno.serve(async (req) => {
     const staffUserId = staffUser.id;
     const agencyId = staffUser.team_members?.agency_id || staffUser.agency_id;
 
+    // Check if this staff user is a delegate on any active assignment
+    let isDelegate = false;
+    let delegateAssignmentId: string | null = null;
+    const teamMemberId = staffUser.team_member_id;
+    if (teamMemberId) {
+      const { data: delegateCheck } = await supabase
+        .from('sales_experience_assignments')
+        .select('id')
+        .eq('delegate_team_member_id', teamMemberId)
+        .in('status', ['active', 'pending', 'completed'])
+        .limit(1)
+        .maybeSingle();
+      if (delegateCheck) {
+        isDelegate = true;
+        delegateAssignmentId = delegateCheck.id;
+      }
+    }
+
     if (!agencyId) {
       return new Response(
         JSON.stringify({ error: 'Staff user has no agency' }),
@@ -292,6 +310,8 @@ Deno.serve(async (req) => {
           progress_percent: progressPercent,
         },
         staff_name: staffUser.display_name || 'Team Member',
+        is_delegate: isDelegate,
+        delegate_assignment_id: delegateAssignmentId,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
