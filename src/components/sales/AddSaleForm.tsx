@@ -1014,12 +1014,12 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
             </div>
 
             {/* Prior Insurance Company - Optional */}
-            {priorInsuranceCompanies.length > 0 && (
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="priorInsurance" className="flex items-center gap-2">
-                  <Building className="h-4 w-4 text-muted-foreground" />
-                  Prior Insurance Company
-                </Label>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="priorInsurance" className="flex items-center gap-2">
+                <Building className="h-4 w-4 text-muted-foreground" />
+                Prior Insurance Company
+              </Label>
+              {priorInsuranceCompanies.length > 0 ? (
                 <Select
                   value={priorInsuranceCompanyId || "__none__"}
                   onValueChange={(val) => setPriorInsuranceCompanyId(val === "__none__" ? "" : val)}
@@ -1036,8 +1036,21 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center gap-2 p-3 rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800">
+                  <span className="text-sm text-amber-800 dark:text-amber-200">
+                    No prior insurance companies configured.
+                  </span>
+                  <a
+                    href="/agency?tab=settings"
+                    className="text-sm font-medium text-amber-700 dark:text-amber-300 hover:underline inline-flex items-center gap-1"
+                  >
+                    Set up companies
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+            </div>
 
             {/* Existing Customer Section */}
             <div className="space-y-3 sm:col-span-2">

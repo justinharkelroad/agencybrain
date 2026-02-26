@@ -28,6 +28,16 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, Phone, Users } from "lucide-react";
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
+import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type ProductType = {
   id: string;
@@ -156,6 +166,25 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
 
   // Brokered bundling state - when checked, brokered policies count toward bundling metrics
   const [brokeredCountsTowardBundling, setBrokeredCountsTowardBundling] = useState(false);
+
+  // Post-sale action modal state (breakup letter + onboarding sequence)
+  const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
+  const [breakupChoiceModalOpen, setBreakupChoiceModalOpen] = useState(false);
+  const [breakupLetterModalOpen, setBreakupLetterModalOpen] = useState(false);
+  const [newSaleData, setNewSaleData] = useState<{
+    saleId: string;
+    customerName: string;
+    customerPhone?: string;
+    customerEmail?: string;
+    customerZip?: string;
+    breakupPolicies: Array<{
+      id: string;
+      policyTypeName: string;
+      policyNumber: string;
+      effectiveDate: string;
+      carrierName: string;
+    }>;
+  } | null>(null);
 
   // Fetch brokered carriers
   const { activeCarriers: brokeredCarriers } = useBrokeredCarriers(agencyId || null);
@@ -540,7 +569,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
 
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast.success("Sale created successfully!");
       queryClient.invalidateQueries({ queryKey: ["staff-sales"] });
       // Invalidate dashboard metrics so sold_items refreshes immediately
@@ -549,8 +578,38 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       queryClient.invalidateQueries({ queryKey: ["admin-promo-goals-widget"] });
       queryClient.invalidateQueries({ queryKey: ["promo-goals"] });
       queryClient.invalidateQueries({ queryKey: ["staff-promo-goals"] });
-      resetForm();
-      onSuccess?.();
+
+      // Show post-sale action modals (breakup letter + onboarding sequence)
+      if (agencyId) {
+        const saleId = data?.sale_id || data?.id || "";
+        const fallbackPriorCarrier =
+          priorInsuranceCompanies.find((company) => company.id === priorInsuranceCompanyId)?.name ||
+          "Prior Carrier";
+
+        const breakupPolicies = policies.map((policy) => ({
+          id: policy.id,
+          policyTypeName: policy.policy_type_name,
+          policyNumber: policy.policy_number || "",
+          effectiveDate: format(policy.effective_date || saleDate!, "yyyy-MM-dd"),
+          carrierName: policy.isBrokered
+            ? brokeredCarriers.find((carrier) => carrier.id === policy.brokeredCarrierId)?.name || fallbackPriorCarrier
+            : fallbackPriorCarrier,
+        }));
+
+        setNewSaleData({
+          saleId,
+          customerName: customerName.trim(),
+          customerPhone: customerPhone.trim() || undefined,
+          customerEmail: customerEmail.trim() || undefined,
+          customerZip: customerZip.trim() || undefined,
+          breakupPolicies,
+        });
+        setBreakupChoiceModalOpen(true);
+        // Don't reset form yet - will be done when modals close
+      } else {
+        resetForm();
+        onSuccess?.();
+      }
     },
     onError: (error) => {
       console.error("Error saving sale:", error);
@@ -667,12 +726,12 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
             </div>
 
             {/* Prior Insurance Company - Optional */}
-            {priorInsuranceCompanies.length > 0 && (
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="priorInsurance" className="flex items-center gap-2">
-                  <Building className="h-4 w-4 text-muted-foreground" />
-                  Prior Insurance Company
-                </Label>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="priorInsurance" className="flex items-center gap-2">
+                <Building className="h-4 w-4 text-muted-foreground" />
+                Prior Insurance Company
+              </Label>
+              {priorInsuranceCompanies.length > 0 ? (
                 <Select
                   value={priorInsuranceCompanyId || "__none__"}
                   onValueChange={(val) => setPriorInsuranceCompanyId(val === "__none__" ? "" : val)}
@@ -689,8 +748,14 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center gap-2 p-3 rounded-md bg-amber-100 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800">
+                  <span className="text-sm text-amber-800 dark:text-amber-200">
+                    No prior insurance companies configured. Ask your agency owner to set them up in Settings.
+                  </span>
+                </div>
+              )}
+            </div>
 
             {/* Existing Customer Section */}
             <div className="space-y-3 sm:col-span-2">
@@ -1496,6 +1561,99 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
           </Button>
         </div>
       </div>
+
+      {/* Apply Sequence Modal - shown after new sale creation */}
+      {newSaleData && agencyId && (
+        <ApplySequenceModal
+          open={applySequenceModalOpen}
+          onOpenChange={(open) => {
+            setApplySequenceModalOpen(open);
+            if (!open) {
+              // Modal closed - clean up and call onSuccess
+              setNewSaleData(null);
+              resetForm();
+              onSuccess?.();
+            }
+          }}
+          saleId={newSaleData.saleId}
+          customerName={newSaleData.customerName}
+          customerPhone={newSaleData.customerPhone}
+          customerEmail={newSaleData.customerEmail}
+          agencyId={agencyId}
+          staffSessionToken={staffSessionToken}
+          onSuccess={() => {
+            setNewSaleData(null);
+            setApplySequenceModalOpen(false);
+            resetForm();
+            onSuccess?.();
+          }}
+        />
+      )}
+
+      {newSaleData && agencyId && (
+        <Dialog
+          open={breakupChoiceModalOpen}
+          onOpenChange={(open) => {
+            setBreakupChoiceModalOpen(open);
+            if (!open && !breakupLetterModalOpen) {
+              setApplySequenceModalOpen(true);
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Generate Breakup Letter?</DialogTitle>
+              <DialogDescription>
+                Generate a cancellation letter before sequence assignment. You can skip this and continue.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setBreakupChoiceModalOpen(false);
+                  setApplySequenceModalOpen(true);
+                }}
+              >
+                Skip for Now
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setBreakupLetterModalOpen(true);
+                  setBreakupChoiceModalOpen(false);
+                }}
+              >
+                Generate Letter
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {newSaleData && agencyId && (
+        <BreakupLetterModal
+          open={breakupLetterModalOpen}
+          onOpenChange={(open) => {
+            setBreakupLetterModalOpen(open);
+            if (!open) {
+              setApplySequenceModalOpen(true);
+            }
+          }}
+          agencyId={agencyId}
+          customerName={newSaleData.customerName}
+          customerZip={newSaleData.customerZip}
+          customerEmail={newSaleData.customerEmail}
+          customerPhone={newSaleData.customerPhone}
+          policies={newSaleData.breakupPolicies}
+          sourceContext="sale_upload"
+          onContinueToSequence={() => {
+            setBreakupLetterModalOpen(false);
+            setApplySequenceModalOpen(true);
+          }}
+        />
+      )}
     </form>
   );
 }
