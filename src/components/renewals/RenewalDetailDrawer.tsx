@@ -270,11 +270,18 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="unassigned">Unassigned</SelectItem>
-                    {teamMembers.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>
-                        {member.name}
+                    {context.staffTeamMemberId && (
+                      <SelectItem value={context.staffTeamMemberId}>
+                        Assign to Me
                       </SelectItem>
-                    ))}
+                    )}
+                    {teamMembers
+                      .filter((member) => member.id !== context.staffTeamMemberId)
+                      .map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>

@@ -27,6 +27,7 @@ interface BulkActionsProps {
   onDelete?: () => void;
   onAssign?: (teamMemberId: string | null) => void;
   teamMembers?: Array<{ id: string; name: string }>;
+  currentTeamMemberId?: string | null;
   isUpdating: boolean;
   isDeleting?: boolean;
   isAssigning?: boolean;
@@ -39,6 +40,7 @@ export function BulkActions({
   onDelete,
   onAssign,
   teamMembers = [],
+  currentTeamMemberId,
   isUpdating,
   isDeleting = false,
   isAssigning = false,
@@ -101,11 +103,18 @@ export function BulkActions({
               <DropdownMenuItem onClick={() => onAssign(null)}>
                 Unassigned
               </DropdownMenuItem>
-              {teamMembers.map((member) => (
-                <DropdownMenuItem key={member.id} onClick={() => onAssign(member.id)}>
-                  {member.name}
+              {currentTeamMemberId && (
+                <DropdownMenuItem onClick={() => onAssign(currentTeamMemberId)}>
+                  Assign to Me
                 </DropdownMenuItem>
-              ))}
+              )}
+              {teamMembers
+                .filter((member) => member.id !== currentTeamMemberId)
+                .map((member) => (
+                  <DropdownMenuItem key={member.id} onClick={() => onAssign(member.id)}>
+                    {member.name}
+                  </DropdownMenuItem>
+                ))}
             </DropdownMenuContent>
           </DropdownMenu>
         )}

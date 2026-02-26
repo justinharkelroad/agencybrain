@@ -395,11 +395,18 @@ export function CancelAuditRecordCard({
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
                   <SelectItem value="unassigned">Unassigned</SelectItem>
-                  {teamMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
+                  {staffMemberId && (
+                    <SelectItem value={staffMemberId}>
+                      Assign to Me
                     </SelectItem>
-                  ))}
+                  )}
+                  {teamMembers
+                    .filter((member) => member.id !== staffMemberId)
+                    .map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

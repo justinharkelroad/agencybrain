@@ -672,6 +672,18 @@ const CancelAuditPage = () => {
         // Regular auth user
         setUserId(user.id);
         setDisplayName(profile?.full_name || profile?.email || user.email || 'Unknown User');
+        // Look up the owner's team_member record by email for self-assignment
+        if (user.email) {
+          const { data: teamMember } = await supabase
+            .from('team_members')
+            .select('id')
+            .eq('agency_id', userAgencyId)
+            .eq('email', user.email)
+            .single();
+          if (teamMember) {
+            setStaffMemberId(teamMember.id);
+          }
+        }
       }
 
       // Fetch team members for regular user
@@ -1114,6 +1126,7 @@ const CancelAuditPage = () => {
         onDelete={handleBulkDelete}
         onAssign={handleBulkAssign}
         teamMembers={teamMembers}
+        currentTeamMemberId={staffMemberId}
         isUpdating={isBulkUpdating}
         isDeleting={bulkDeleteMutation.isPending}
         isAssigning={bulkUpdateAssignmentMutation.isPending}
