@@ -20,6 +20,7 @@ import {
 import { SelfGenMetrics } from "./self-gen";
 import { supabase } from "@/integrations/supabase/client";
 import { calculatePromoProgress, PromoGoal } from "@/hooks/usePromoGoals";
+import { policyTypeMatchesFilter } from "./policyTypeFilter";
 
 interface TeamMember {
   id: string;
@@ -88,6 +89,74 @@ function normalizeBundleTypeKey(bundleType: string): string {
 
 function normalizeProductKey(product: string): string {
   return (product || '').trim().toLowerCase();
+}
+
+function getFilteredWrittenMetrics(
+  writtenMetrics: WrittenMetrics,
+  policyTypeFilter: string[] | null
+): WrittenMetrics {
+  if (!policyTypeFilter || policyTypeFilter.length === 0) {
+    return writtenMetrics;
+  }
+
+  const filtered: WrittenMetrics = {
+    writtenItems: 0,
+    writtenPremium: 0,
+    writtenPolicies: 0,
+    writtenHouseholds: 0,
+    policyTypeBreakdown: {},
+  };
+  const householdSaleIds = new Set<string>();
+
+  for (const [policyType, metrics] of Object.entries(writtenMetrics.policyTypeBreakdown || {})) {
+    if (!policyTypeMatchesFilter(policyType, policyTypeFilter)) continue;
+    filtered.writtenItems += metrics.writtenItems;
+    filtered.writtenPremium += metrics.writtenPremium;
+    filtered.writtenPolicies += metrics.writtenPolicies;
+    if (metrics.householdSaleIds && metrics.householdSaleIds.length > 0) {
+      for (const saleId of metrics.householdSaleIds) {
+        householdSaleIds.add(saleId);
+      }
+    } else {
+      filtered.writtenHouseholds += metrics.writtenHouseholds;
+    }
+    filtered.policyTypeBreakdown![policyType] = metrics;
+  }
+  if (householdSaleIds.size > 0) {
+    filtered.writtenHouseholds = householdSaleIds.size;
+  }
+
+  return filtered;
+}
+
+function getFilteredMetricFromPerformance(
+  performance: SubProducerPerformance,
+  tierMetric: string,
+  tierMetricSource: "written" | "issued",
+  policyTypeFilter: string[] | null
+): number {
+  if (!policyTypeFilter || policyTypeFilter.length === 0) {
+    return getMetricValue(performance, tierMetric, tierMetricSource);
+  }
+
+  const matchingProducts = performance.byProduct.filter((p) =>
+    policyTypeMatchesFilter(p.product, policyTypeFilter)
+  );
+
+  switch (tierMetric) {
+    case "premium":
+      return matchingProducts.reduce((sum, p) => sum + (p.premiumWritten || 0), 0);
+    case "items":
+      return matchingProducts.reduce((sum, p) => sum + (p.itemsIssued || 0), 0);
+    case "policies":
+      return matchingProducts.reduce((sum, p) => sum + (p.creditCount || 0), 0);
+    case "households":
+      return matchingProducts.reduce((sum, p) => sum + (p.creditCount || 0), 0);
+    case "points":
+      return matchingProducts.reduce((sum, p) => sum + (p.creditCount || 0), 0);
+    default:
+      return matchingProducts.reduce((sum, p) => sum + (p.premiumWritten || 0), 0);
+  }
 }
 
 /**
@@ -288,10 +357,11 @@ export function applySelfGenPenalty(
     case 'flat_reduction':
       result.commissionReduction = Math.min(requirement.penalty_value, baseCommission);
       break;
-    case 'tier_demotion':
+    case 'tier_demotion': {
       const tiersToDrop = Math.floor(requirement.penalty_value);
       result.adjustedTierIndex = Math.max(0, currentTierIndex - tiersToDrop);
       break;
+    }
   }
 
   return result;
@@ -384,7 +454,7 @@ export function calculateBrokeredCommission(
     case 'percent_of_premium':
       return brokeredMetrics.premium * (flatRate / 100);
 
-    case 'tiered':
+    case 'tiered': {
       // Find matching brokered tier based on items
       const tierMatch = findMatchingTier(brokeredTiers, brokeredMetrics.items);
       if (!tierMatch) return 0;
@@ -396,6 +466,7 @@ export function calculateBrokeredCommission(
       } else {
         return brokeredMetrics.premium * tierMatch.commissionValue;
       }
+    }
 
     default:
       return 0;
@@ -470,7 +541,8 @@ export function getMetricValue(
  */
 export function calculateCustomPoints(
   performance: SubProducerPerformance,
-  pointValues: PointValues
+  pointValues: PointValues,
+  policyTypeFilter?: string[] | null
 ): number {
   if (!pointValues || Object.keys(pointValues).length === 0) {
     // No custom point values, return standard points (item count)
@@ -482,6 +554,9 @@ export function calculateCustomPoints(
   // Calculate points for each product
   for (const productData of performance.byProduct) {
     const productName = productData.product;
+    if (policyTypeFilter && policyTypeFilter.length > 0 && !policyTypeMatchesFilter(productName, policyTypeFilter)) {
+      continue;
+    }
     const pointValue = pointValues[productName] ?? 1; // Default to 1 point if not specified
     totalPoints += productData.itemsIssued * pointValue;
   }
@@ -1209,7 +1284,8 @@ export function calculateMemberPayout(
   brokeredBundlingMetrics?: BrokeredBundlingMetrics // Brokered sales marked for bundling
 ): PayoutCalculation {
   // Get tier metric source from plan (written or issued)
-  const tierMetricSource = (plan as any).tier_metric_source || 'written';
+  const tierMetricSource = plan.tier_metric_source || 'written';
+  const policyTypeFilter = plan.policy_type_filter || null;
 
   // Calculate custom points if point_values is configured and tier_metric is 'points'
   let customPointsCalculated: number | undefined;
@@ -1217,43 +1293,46 @@ export function calculateMemberPayout(
 
   // Determine metric value based on tier_metric_source
   if (tierMetricSource === 'written' && writtenMetrics) {
+    const filteredWrittenMetrics = getFilteredWrittenMetrics(writtenMetrics, policyTypeFilter);
     // Use sales table data for tier qualification (manual entries)
     switch (plan.tier_metric) {
       case 'items':
-        metricValue = writtenMetrics.writtenItems;
+        metricValue = filteredWrittenMetrics.writtenItems;
         break;
       case 'premium':
-        metricValue = writtenMetrics.writtenPremium;
+        metricValue = filteredWrittenMetrics.writtenPremium;
         break;
       case 'policies':
-        metricValue = writtenMetrics.writtenPolicies;
+        metricValue = filteredWrittenMetrics.writtenPolicies;
         break;
       case 'households':
-        metricValue = writtenMetrics.writtenHouseholds;
+        metricValue = filteredWrittenMetrics.writtenHouseholds;
         break;
       default:
-        metricValue = writtenMetrics.writtenItems;
+        metricValue = filteredWrittenMetrics.writtenItems;
     }
     console.log('[calculateMemberPayout] Using SALES TABLE data for tier qualification:', {
       teamMemberName: performance.teamMemberName,
       source: 'written (sales table)',
       tierMetric: plan.tier_metric,
       metricValue,
-      writtenMetrics,
+      writtenMetrics: filteredWrittenMetrics,
+      policyTypeFilter,
     });
   } else {
     // Use Allstate statement data (issued) - fallback or when source = 'issued'
-    metricValue = getMetricValue(performance, plan.tier_metric, tierMetricSource);
+    metricValue = getFilteredMetricFromPerformance(performance, plan.tier_metric, tierMetricSource, policyTypeFilter);
     console.log('[calculateMemberPayout] Using STATEMENT data for tier qualification:', {
       teamMemberName: performance.teamMemberName,
       source: tierMetricSource === 'written' ? 'written (no sales data, using statement)' : 'issued (statement)',
       tierMetric: plan.tier_metric,
       metricValue,
+      policyTypeFilter,
     });
   }
 
   if (plan.tier_metric === 'points' && plan.point_values && Object.keys(plan.point_values).length > 0) {
-    customPointsCalculated = calculateCustomPoints(performance, plan.point_values);
+    customPointsCalculated = calculateCustomPoints(performance, plan.point_values, policyTypeFilter);
     metricValue = customPointsCalculated;
   }
 
@@ -1272,7 +1351,7 @@ export function calculateMemberPayout(
   const sortedTiers = [...plan.tiers].sort((a, b) => a.min_threshold - b.min_threshold);
   let tierMatch = findMatchingTier(plan.tiers, metricValue);
   // Use sorted array for currentTierIndex to ensure tier demotion/promotion works correctly
-  let currentTierIndex = tierMatch ? sortedTiers.findIndex(t => t.id === tierMatch!.tierId) : -1;
+  const currentTierIndex = tierMatch ? sortedTiers.findIndex(t => t.id === tierMatch!.tierId) : -1;
 
   // DEBUG: Log tier matching result
   console.log('[findMatchingTier result]', {

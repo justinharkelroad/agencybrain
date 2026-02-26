@@ -45,6 +45,7 @@ export interface CompPlanPrefillConfig {
   is_active?: boolean;
   payout_type?: string;
   tier_metric?: string;
+  policy_type_filter?: string[];
   chargeback_rule?: string;
   tiers?: Array<{ min_threshold: number; commission_value: number; sort_order?: number }>;
   brokered_payout_type?: string;
@@ -112,6 +113,7 @@ export function CreateCompPlanModal({
   const [payoutType, setPayoutType] = useState("flat_per_item");
   const [tierMetric, setTierMetric] = useState("items");
   const [tierMetricSource, setTierMetricSource] = useState<'written' | 'issued'>('written');
+  const [policyTypeFilter, setPolicyTypeFilter] = useState<string[]>([]);
   const [chargebackRule, setChargebackRule] = useState("none");
   const [isActive, setIsActive] = useState(true);
   const [brokeredPayoutType, setBrokeredPayoutType] = useState("flat_per_item");
@@ -168,6 +170,26 @@ export function CreateCompPlanModal({
   });
   const teamMembers = teamMembersData ?? EMPTY_TEAM_MEMBERS;
 
+  // Fetch active policy types for optional tier qualification filtering
+  const { data: availablePolicyTypesData } = useQuery({
+    queryKey: ["policy-types-for-comp-plan", agencyId],
+    queryFn: async () => {
+      if (!agencyId) return [];
+      const { data, error } = await supabase
+        .from("policy_types")
+        .select("name")
+        .or(`agency_id.is.null,agency_id.eq.${agencyId}`)
+        .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!agencyId && open,
+  });
+  const availablePolicyTypes = Array.from(
+    new Set((availablePolicyTypesData || []).map((p) => p.name).filter(Boolean))
+  ) as string[];
+
   // Fetch current assignments if editing
   const { data: existingAssignmentsData } = useQuery({
     queryKey: ["comp-plan-assignments", editPlan?.id],
@@ -193,13 +215,14 @@ export function CreateCompPlanModal({
       setDescription(editPlan.description || "");
       setPayoutType(editPlan.payout_type);
       setTierMetric(editPlan.tier_metric);
-      setTierMetricSource((editPlan as any).tier_metric_source || 'written');
+      setTierMetricSource(editPlan.tier_metric_source || 'written');
+      setPolicyTypeFilter(editPlan.policy_type_filter || []);
       setChargebackRule(editPlan.chargeback_rule);
       setIsActive(editPlan.is_active);
       setBrokeredPayoutType(editPlan.brokered_payout_type || "flat_per_item");
       setBrokeredFlatRate(editPlan.brokered_flat_rate?.toString() || "");
       setBrokeredCountsTowardTier(editPlan.brokered_counts_toward_tier || false);
-      setIncludeBrokeredInBundling((editPlan as any).include_brokered_in_bundling || false);
+      setIncludeBrokeredInBundling(editPlan.include_brokered_in_bundling || false);
       setTiers(
         editPlan.tiers.length > 0
           ? editPlan.tiers.map((t, i) => ({
@@ -277,7 +300,7 @@ export function CreateCompPlanModal({
         setUseCommissionModifiers(false);
         setCommissionModifiers({});
       }
-    } else if (!prefillConfig) {
+    } else {
       resetForm();
     }
   }, [editPlan]);
@@ -291,6 +314,7 @@ export function CreateCompPlanModal({
     if (prefillConfig.description) setDescription(prefillConfig.description);
     if (prefillConfig.payout_type) setPayoutType(prefillConfig.payout_type);
     if (prefillConfig.tier_metric) setTierMetric(prefillConfig.tier_metric);
+    if (prefillConfig.policy_type_filter) setPolicyTypeFilter(prefillConfig.policy_type_filter);
     if (prefillConfig.chargeback_rule) setChargebackRule(prefillConfig.chargeback_rule);
     if (prefillConfig.is_active !== undefined) setIsActive(prefillConfig.is_active);
 
@@ -374,6 +398,8 @@ export function CreateCompPlanModal({
     setDescription("");
     setPayoutType("flat_per_item");
     setTierMetric("items");
+    setTierMetricSource("written");
+    setPolicyTypeFilter([]);
     setChargebackRule("none");
     setIsActive(true);
     setBrokeredPayoutType("flat_per_item");
@@ -456,7 +482,7 @@ export function CreateCompPlanModal({
       tier_metric: tierMetric,
       tier_metric_source: tierMetricSource,
       chargeback_rule: chargebackRule,
-      policy_type_filter: null,
+      policy_type_filter: policyTypeFilter.length > 0 ? policyTypeFilter : null,
       brokered_payout_type: brokeredPayoutType,
       brokered_flat_rate: brokeredFlatRate ? parseFloat(brokeredFlatRate) : null,
       brokered_counts_toward_tier: brokeredCountsTowardTier,
@@ -645,6 +671,44 @@ export function CreateCompPlanModal({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="space-y-3 rounded-lg border p-4 bg-muted/30">
+              <div className="space-y-1">
+                <Label className="text-base font-medium">Tier Qualification Policy Types (Optional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Leave empty to qualify tiers on all policy types. Select one or more to tier only on those types.
+                </p>
+              </div>
+              {availablePolicyTypes.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No active policy types found.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                  {availablePolicyTypes.map((policyType) => {
+                    const checked = policyTypeFilter.includes(policyType);
+                    const checkboxId = `tier-policy-${policyType.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+                    return (
+                      <div key={policyType} className="flex items-center gap-2">
+                        <Checkbox
+                          id={checkboxId}
+                          checked={checked}
+                          onCheckedChange={(nextChecked) => {
+                            setPolicyTypeFilter((prev) => {
+                              if (nextChecked === true) {
+                                return prev.includes(policyType) ? prev : [...prev, policyType];
+                              }
+                              return prev.filter((p) => p !== policyType);
+                            });
+                          }}
+                        />
+                        <Label htmlFor={checkboxId} className="font-normal">
+                          {policyType}
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Brokered Business */}

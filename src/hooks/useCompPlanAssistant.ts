@@ -15,6 +15,7 @@ export interface ExtractedCompPlanConfig {
   is_active?: boolean;
   payout_type?: string;
   tier_metric?: string;
+  policy_type_filter?: string[];
   chargeback_rule?: string;
   tiers?: Array<{ min_threshold: number; commission_value: number; sort_order?: number }>;
   brokered_payout_type?: string;

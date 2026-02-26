@@ -303,6 +303,16 @@ export interface WrittenMetrics {
   writtenPremium: number;
   writtenPolicies: number;
   writtenHouseholds: number;
+  policyTypeBreakdown?: Record<
+    string,
+    {
+      writtenItems: number;
+      writtenPremium: number;
+      writtenPolicies: number;
+      writtenHouseholds: number;
+      householdSaleIds?: string[];
+    }
+  >;
 }
 
 /**

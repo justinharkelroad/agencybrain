@@ -5,6 +5,7 @@ import { calculateAllPayouts, convertToPerformance, calculateMemberPayout, Broke
 import { PayoutCalculation, WrittenMetrics, BrokeredBundlingMetrics } from "@/lib/payout-calculator/types";
 import { calculateSelfGenMetricsBatch, SelfGenMetrics } from "@/lib/payout-calculator/self-gen";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
+import { normalizePolicyType } from "@/lib/payout-calculator/policyTypeFilter";
 import { toast } from "sonner";
 
 // Manual override interface for testing compensation calculations
@@ -46,9 +47,10 @@ async function sendPayoutNotifications(
     }
 
     return data || { sent: 0, skipped: 0 };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Failed to send payout notifications:', err);
-    return { sent: 0, skipped: 0, errors: [err.message] };
+    const message = err instanceof Error ? err.message : String(err);
+    return { sent: 0, skipped: 0, errors: [message] };
   }
 }
 
@@ -258,45 +260,108 @@ async function fetchWrittenMetrics(
     dateRange: `${startStr} to ${endStr}`,
   });
 
-  const { data: sales, error } = await supabase
-    .from("sales")
+  const { data: policies, error } = await supabase
+    .from("sale_policies")
     .select(`
-      team_member_id,
+      sale_id,
+      policy_type_name,
       total_items,
       total_premium,
-      total_policies
+      sale:sales!inner(
+        team_member_id,
+        agency_id,
+        sale_date
+      )
     `)
-    .eq("agency_id", agencyId)
-    .in("team_member_id", teamMemberIds)
-    .gte("sale_date", startStr)
-    .lte("sale_date", endStr);
+    .eq("sale.agency_id", agencyId)
+    .in("sale.team_member_id", teamMemberIds)
+    .gte("sale.sale_date", startStr)
+    .lte("sale.sale_date", endStr);
 
   if (error) {
     console.error("[fetchWrittenMetrics] Error fetching written metrics:", error);
     return new Map();
   }
 
-  console.log(`[fetchWrittenMetrics] Found ${sales?.length || 0} sales records`);
+  console.log(`[fetchWrittenMetrics] Found ${policies?.length || 0} sale policy records`);
 
   const writtenByMember = new Map<string, WrittenMetrics>();
+  const householdSalesByMember = new Map<string, Set<string>>();
+  const policyTypeHouseholdsByMember = new Map<string, Map<string, Set<string>>>();
+  type SalePolicyWithSale = {
+    sale_id: string;
+    policy_type_name: string;
+    total_items: number | null;
+    total_premium: number | null;
+    sale: { team_member_id: string | null } | Array<{ team_member_id: string | null }> | null;
+  };
 
-  for (const sale of sales || []) {
-    if (!sale.team_member_id) continue;
+  for (const policy of (policies || []) as SalePolicyWithSale[]) {
+    const sale = Array.isArray(policy.sale) ? policy.sale[0] : policy.sale;
+    const teamMemberId = sale?.team_member_id || null;
+    if (!teamMemberId) continue;
 
-    const current = writtenByMember.get(sale.team_member_id) || {
+    const current = writtenByMember.get(teamMemberId) || {
       writtenItems: 0,
       writtenPremium: 0,
       writtenPolicies: 0,
       writtenHouseholds: 0,
+      policyTypeBreakdown: {},
     };
 
-    current.writtenItems += sale.total_items || 0;
-    current.writtenPremium += sale.total_premium || 0;
-    current.writtenPolicies += sale.total_policies || 0;
-    // Count each sale as a household (approximation)
-    current.writtenHouseholds += 1;
+    const items = policy.total_items || 0;
+    const premium = policy.total_premium || 0;
+    const saleId = policy.sale_id || "";
+    const normalizedPolicyType = normalizePolicyType(policy.policy_type_name || "other");
 
-    writtenByMember.set(sale.team_member_id, current);
+    current.writtenItems += items;
+    current.writtenPremium += premium;
+    current.writtenPolicies += 1;
+
+    if (!current.policyTypeBreakdown![normalizedPolicyType]) {
+      current.policyTypeBreakdown![normalizedPolicyType] = {
+        writtenItems: 0,
+        writtenPremium: 0,
+        writtenPolicies: 0,
+        writtenHouseholds: 0,
+        householdSaleIds: [],
+      };
+    }
+    current.policyTypeBreakdown![normalizedPolicyType].writtenItems += items;
+    current.policyTypeBreakdown![normalizedPolicyType].writtenPremium += premium;
+    current.policyTypeBreakdown![normalizedPolicyType].writtenPolicies += 1;
+
+    if (!householdSalesByMember.has(teamMemberId)) {
+      householdSalesByMember.set(teamMemberId, new Set());
+    }
+    if (saleId) {
+      householdSalesByMember.get(teamMemberId)!.add(saleId);
+    }
+
+    if (!policyTypeHouseholdsByMember.has(teamMemberId)) {
+      policyTypeHouseholdsByMember.set(teamMemberId, new Map());
+    }
+    const policyTypeHouseholds = policyTypeHouseholdsByMember.get(teamMemberId)!;
+    if (!policyTypeHouseholds.has(normalizedPolicyType)) {
+      policyTypeHouseholds.set(normalizedPolicyType, new Set());
+    }
+    if (saleId) {
+      policyTypeHouseholds.get(normalizedPolicyType)!.add(saleId);
+    }
+
+    writtenByMember.set(teamMemberId, current);
+  }
+
+  for (const [memberId, metrics] of writtenByMember) {
+    metrics.writtenHouseholds = householdSalesByMember.get(memberId)?.size || 0;
+    if (metrics.policyTypeBreakdown) {
+      const policyHouseholdMap = policyTypeHouseholdsByMember.get(memberId) || new Map<string, Set<string>>();
+      for (const [policyType, breakdown] of Object.entries(metrics.policyTypeBreakdown)) {
+        const saleIdSet = policyHouseholdMap.get(policyType) || new Set<string>();
+        breakdown.writtenHouseholds = saleIdSet.size;
+        breakdown.householdSaleIds = Array.from(saleIdSet);
+      }
+    }
   }
 
   // Log results for debugging
