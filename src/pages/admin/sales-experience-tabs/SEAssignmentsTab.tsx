@@ -54,16 +54,16 @@ interface Agency {
 
 interface DelegateCandidate {
   id: string;
-  full_name: string | null;
-  email: string | null;
-  source: 'profile' | 'key_employee';
+  name: string;
+  email: string;
+  role: string;
 }
 
 interface Assignment {
   id: string;
   agency_id: string;
   assigned_by: string | null;
-  delegate_user_id: string | null;
+  delegate_team_member_id: string | null;
   start_date: string;
   end_date: string;
   status: 'pending' | 'active' | 'paused' | 'completed' | 'cancelled';
@@ -76,8 +76,8 @@ interface Assignment {
   profiles: {
     full_name: string | null;
   } | null;
-  delegate: {
-    full_name: string | null;
+  delegate_team_member: {
+    name: string;
   } | null;
 }
 
@@ -90,59 +90,21 @@ const statusColors: Record<string, string> = {
 };
 
 async function fetchDelegateCandidates(agencyId: string): Promise<DelegateCandidate[]> {
-  const candidates: DelegateCandidate[] = [];
-  const seen = new Set<string>();
-
-  // 1. Profiles with this agency_id (agency owners)
-  const { data: ownerProfiles } = await supabase
-    .from('profiles')
-    .select('id, full_name, email')
-    .eq('agency_id', agencyId);
-
-  for (const p of ownerProfiles || []) {
-    if (!seen.has(p.id)) {
-      seen.add(p.id);
-      candidates.push({ id: p.id, full_name: p.full_name, email: p.email, source: 'profile' });
-    }
-  }
-
-  // 2. Key employees for this agency
-  const { data: keyEmployees } = await supabase
-    .from('key_employees')
-    .select('user_id, profiles(id, full_name, email)')
-    .eq('agency_id', agencyId);
-
-  for (const ke of keyEmployees || []) {
-    const profile = ke.profiles as unknown as { id: string; full_name: string | null; email: string | null } | null;
-    if (profile && !seen.has(profile.id)) {
-      seen.add(profile.id);
-      candidates.push({ id: profile.id, full_name: profile.full_name, email: profile.email, source: 'key_employee' });
-    }
-  }
-
-  // 3. Team members (managers/owners) who have a JWT profile (matched by email)
+  // Show all managers and owners from team_members for this agency
   const { data: teamMembers } = await supabase
     .from('team_members')
-    .select('email, name')
+    .select('id, name, email, role')
     .eq('agency_id', agencyId)
-    .eq('status', 'active');
+    .in('role', ['Manager', 'Owner'])
+    .eq('status', 'active')
+    .order('name');
 
-  const tmEmails = (teamMembers || []).map((tm) => tm.email).filter(Boolean);
-  if (tmEmails.length > 0) {
-    const { data: tmProfiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, email')
-      .in('email', tmEmails);
-
-    for (const p of tmProfiles || []) {
-      if (!seen.has(p.id)) {
-        seen.add(p.id);
-        candidates.push({ id: p.id, full_name: p.full_name, email: p.email, source: 'profile' });
-      }
-    }
-  }
-
-  return candidates;
+  return (teamMembers || []).map((tm) => ({
+    id: tm.id,
+    name: tm.name,
+    email: tm.email,
+    role: tm.role,
+  }));
 }
 
 function DelegateInlinePicker({
@@ -159,12 +121,12 @@ function DelegateInlinePicker({
 
   return (
     <Select
-      value={assignment.delegate_user_id || 'none'}
+      value={assignment.delegate_team_member_id || 'none'}
       onValueChange={(value) => onUpdate(value === 'none' ? null : value)}
     >
       <SelectTrigger className="h-8 w-[180px]">
         <SelectValue>
-          {assignment.delegate?.full_name || (
+          {assignment.delegate_team_member?.name || (
             <span className="text-muted-foreground flex items-center gap-1">
               <UserRound className="h-3 w-3" />
               None
@@ -176,7 +138,7 @@ function DelegateInlinePicker({
         <SelectItem value="none">No delegate</SelectItem>
         {candidates?.map((c) => (
           <SelectItem key={c.id} value={c.id}>
-            {c.full_name || c.email || 'Unknown'}
+            {c.name} ({c.role})
           </SelectItem>
         ))}
       </SelectContent>
@@ -224,7 +186,7 @@ export function SEAssignmentsTab() {
           *,
           agencies(name, slug),
           profiles:assigned_by(full_name),
-          delegate:profiles!delegate_user_id(full_name)
+          delegate_team_member:team_members!delegate_team_member_id(name)
         `)
         .order('created_at', { ascending: false });
 
@@ -235,13 +197,13 @@ export function SEAssignmentsTab() {
 
   // Create assignment mutation
   const createAssignment = useMutation({
-    mutationFn: async (params: { agency_id: string; start_date: string; notes: string; delegate_user_id?: string; auto_activate?: boolean }) => {
+    mutationFn: async (params: { agency_id: string; start_date: string; notes: string; delegate_team_member_id?: string; auto_activate?: boolean }) => {
       const { data, error } = await supabase.from('sales_experience_assignments').insert({
         agency_id: params.agency_id,
         assigned_by: user?.id,
         start_date: params.start_date,
         notes: params.notes || null,
-        delegate_user_id: params.delegate_user_id || null,
+        delegate_team_member_id: params.delegate_team_member_id || null,
         status: params.auto_activate ? 'active' : 'pending',
       }).select();
 
@@ -268,10 +230,10 @@ export function SEAssignmentsTab() {
 
   // Update delegate mutation
   const updateDelegate = useMutation({
-    mutationFn: async (params: { id: string; delegate_user_id: string | null }) => {
+    mutationFn: async (params: { id: string; delegate_team_member_id: string | null }) => {
       const { error } = await supabase
         .from('sales_experience_assignments')
-        .update({ delegate_user_id: params.delegate_user_id })
+        .update({ delegate_team_member_id: params.delegate_team_member_id })
         .eq('id', params.id);
 
       if (error) throw error;
@@ -326,7 +288,7 @@ export function SEAssignmentsTab() {
       agency_id: selectedAgency,
       start_date: startDate,
       notes,
-      delegate_user_id: selectedDelegate && selectedDelegate !== 'none' ? selectedDelegate : undefined,
+      delegate_team_member_id: selectedDelegate && selectedDelegate !== 'none' ? selectedDelegate : undefined,
       auto_activate: isArrears,
     });
   };
@@ -470,8 +432,7 @@ export function SEAssignmentsTab() {
                     <SelectItem value="none">No delegate</SelectItem>
                     {delegateCandidates?.map((candidate) => (
                       <SelectItem key={candidate.id} value={candidate.id}>
-                        {candidate.full_name || candidate.email || 'Unknown'}{' '}
-                        {candidate.source === 'key_employee' ? '(Key Employee)' : ''}
+                        {candidate.name} ({candidate.role})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -557,13 +518,13 @@ export function SEAssignmentsTab() {
                         onUpdate={(delegateId) =>
                           updateDelegate.mutate({
                             id: assignment.id,
-                            delegate_user_id: delegateId,
+                            delegate_team_member_id: delegateId,
                           })
                         }
                       />
                     ) : (
                       <span className="text-sm text-muted-foreground">
-                        {assignment.delegate?.full_name || '—'}
+                        {assignment.delegate_team_member?.name || '—'}
                       </span>
                     )}
                   </TableCell>

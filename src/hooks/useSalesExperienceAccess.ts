@@ -11,7 +11,7 @@ export interface SalesExperienceAssignment {
   status: 'pending' | 'active' | 'paused' | 'completed' | 'cancelled';
   timezone: string;
   notes: string | null;
-  delegate_user_id: string | null;
+  delegate_team_member_id: string | null;
   created_at: string;
 }
 
@@ -118,22 +118,38 @@ export function useSalesExperienceAccess(): SalesExperienceAccess {
         }
       }
 
-      // Delegate fallback: check if this user is a delegate on any assignment
-      const { data: delegateAssignment, error: delegateError } = await supabase
-        .from('sales_experience_assignments')
-        .select('*')
-        .eq('delegate_user_id', user!.id)
-        .in('status', ['pending', 'active'])
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // Delegate fallback: check if this user's email matches a delegate team member
+      const userEmail = user!.email;
+      if (userEmail) {
+        // Find team_members matching this user's email
+        const { data: myTeamMembers } = await supabase
+          .from('team_members')
+          .select('id')
+          .ilike('email', userEmail);
 
-      if (delegateError) {
-        console.error('[useSalesExperienceAccess] Error fetching delegate assignment:', delegateError);
-        throw delegateError;
+        if (myTeamMembers && myTeamMembers.length > 0) {
+          const tmIds = myTeamMembers.map((tm) => tm.id);
+          const { data: delegateAssignment, error: delegateError } = await supabase
+            .from('sales_experience_assignments')
+            .select('*')
+            .in('delegate_team_member_id', tmIds)
+            .in('status', ['pending', 'active'])
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (delegateError) {
+            console.error('[useSalesExperienceAccess] Error fetching delegate assignment:', delegateError);
+            throw delegateError;
+          }
+
+          if (delegateAssignment) {
+            return { assignment: delegateAssignment };
+          }
+        }
       }
 
-      return { assignment: delegateAssignment ?? null };
+      return { assignment: null };
     },
   });
 

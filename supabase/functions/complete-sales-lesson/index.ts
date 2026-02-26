@@ -108,19 +108,27 @@ Deno.serve(async (req) => {
 
       const isKeyEmployee = !!keyEmployee;
 
-      // Delegate fallback
+      // Delegate fallback: match user email to delegate team member
       let isDelegate = false;
-      if (!isAdmin && !isAgencyOwner && !isKeyEmployee) {
-        const { data: delegateAssignment } = await supabase
-          .from('sales_experience_assignments')
-          .select('id, agency_id')
-          .eq('delegate_user_id', user.id)
-          .in('status', ['active', 'pending', 'completed'])
-          .limit(1)
-          .maybeSingle();
-        if (delegateAssignment) {
-          isDelegate = true;
-          agencyId = delegateAssignment.agency_id;
+      if (!isAdmin && !isAgencyOwner && !isKeyEmployee && user.email) {
+        const { data: myTeamMembers } = await supabase
+          .from('team_members')
+          .select('id')
+          .ilike('email', user.email);
+
+        if (myTeamMembers && myTeamMembers.length > 0) {
+          const tmIds = myTeamMembers.map((tm: { id: string }) => tm.id);
+          const { data: delegateAssignment } = await supabase
+            .from('sales_experience_assignments')
+            .select('id, agency_id')
+            .in('delegate_team_member_id', tmIds)
+            .in('status', ['active', 'pending', 'completed'])
+            .limit(1)
+            .maybeSingle();
+          if (delegateAssignment) {
+            isDelegate = true;
+            agencyId = delegateAssignment.agency_id;
+          }
         }
       }
 
