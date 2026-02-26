@@ -388,6 +388,7 @@ serve(async (req) => {
               policy_number: policy.policy_number || null,
               source: 'sales_dashboard',
               source_reference_id: sale.id,
+              is_one_call_close: body.is_one_call_close ?? false,
             });
 
           if (lqsSaleErr) {

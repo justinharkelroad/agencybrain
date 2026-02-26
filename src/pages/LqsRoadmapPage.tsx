@@ -52,7 +52,6 @@ import { format, parseISO } from 'date-fns';
 import type { QuoteUploadResult, SalesUploadResult, PendingSaleReview, LeadStatus } from '@/types/lqs';
 import { PostUploadActionsModal } from '@/components/lqs/PostUploadActionsModal';
 import { SalesReviewModal, ReviewResult } from '@/components/lqs/SalesReviewModal';
-import { filterCountableQuotes, filterCountableSales } from '@/lib/lqs-constants';
 
 type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'needs-attention' | 'missing-zip';
 type ViewMode = 'overview' | 'detail';
@@ -294,8 +293,10 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
 
     // First pass: infer status from activity on each row.
     const activityInferred = households.map((h) => {
-      const hasSales = filterCountableSales(h.sales || []).length > 0;
-      const hasQuotes = filterCountableQuotes(h.quotes || []).length > 0;
+      // Use raw arrays for pipeline status — Motor Club exclusion applies to
+      // performance metrics (premium, items) but not pipeline status determination.
+      const hasSales = (h.sales || []).length > 0;
+      const hasQuotes = (h.quotes || []).length > 0;
 
       let effectiveStatus = h.status;
       if (hasSales) {
