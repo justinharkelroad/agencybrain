@@ -84,15 +84,25 @@ serve(async (req) => {
     }
 
     // Get scorecard rules to find selected_metrics for this agency and role
-    const { data: scorecardRule, error: scorecardError } = await supabase
-      .from('scorecard_rules')
-      .select('selected_metrics')
-      .eq('agency_id', member.agency_id)
-      .eq('role', member.role)
-      .maybeSingle();
+    // For Hybrid members, try Sales rules first, then Service (no scorecard_rules exist for 'Hybrid')
+    const rolesToTry = member.role === 'Hybrid' ? ['Sales', 'Service'] : [member.role];
+    let scorecardRule: { selected_metrics: string[] } | null = null;
 
-    if (scorecardError) {
-      console.error('Scorecard rules lookup error:', scorecardError);
+    for (const roleToTry of rolesToTry) {
+      const { data: rule, error: ruleError } = await supabase
+        .from('scorecard_rules')
+        .select('selected_metrics')
+        .eq('agency_id', member.agency_id)
+        .eq('role', roleToTry)
+        .maybeSingle();
+
+      if (ruleError) {
+        console.error('Scorecard rules lookup error:', ruleError);
+      }
+      if (rule) {
+        scorecardRule = rule;
+        break;
+      }
     }
 
     // Use selected_metrics length as required count, default to 5

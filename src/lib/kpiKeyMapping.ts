@@ -43,6 +43,9 @@ export const KPI_KEY_TO_COLUMN: Record<string, string> = {
   policies_quoted: 'quoted_count',   // Alias - some agencies use this key for quoted households
   items_quoted: 'quoted_count',      // Alias - some agencies use this key for quoted households
   
+  // Premium: kpis table uses sold_premium, metrics_daily uses sold_premium_cents
+  sold_premium: 'sold_premium_cents',
+
   // Keys that map to themselves (no translation needed)
   outbound_calls: 'outbound_calls',
   talk_minutes: 'talk_minutes',
@@ -69,6 +72,7 @@ export const COLUMN_TO_KPI_KEY: Record<string, string> = {
   mini_reviews: 'mini_reviews',
   sold_policies: 'sold_policies',
   sold_premium_cents: 'sold_premium_cents',
+  sold_premium: 'sold_premium',
   
   // Already standard keys
   items_sold: 'items_sold',
