@@ -21,6 +21,7 @@ import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { ChallengeDashboardWidget } from '@/components/challenge/ChallengeDashboardWidget';
 import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
 import { StaffChallengeBanner } from './StaffChallengeBanner';
+import { PlannerExperiencePreview } from './PlannerExperiencePreview';
 interface KPIData {
   key: string;
   slug: string;
@@ -120,6 +121,7 @@ export function StaffDashboard() {
   const [showQuoteModal, setShowQuoteModal] = useState(false);
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
+  const [priorInsuranceCompanies, setPriorInsuranceCompanies] = useState<Array<{ id: string; name: string; is_active: boolean }>>([]);
   const [dashboardCallMetricsEnabled, setDashboardCallMetricsEnabled] = useState(false);
   const [agencySlug, setAgencySlug] = useState<string | null>(null);
 
@@ -233,6 +235,9 @@ export function StaffDashboard() {
             bucket: s.bucket ?? null
           })));
         }
+        if (data?.prior_insurance_companies) {
+          setPriorInsuranceCompanies(data.prior_insurance_companies as Array<{ id: string; name: string; is_active: boolean }>);
+        }
       } catch (err) {
         console.error('Error in fetchModalData:', err);
       }
@@ -278,6 +283,8 @@ export function StaffDashboard() {
           showViewAll
         />
       )}
+
+      <PlannerExperiencePreview />
 
       {/* RingCentral call rings (same agency toggle behavior as owner dashboard) */}
       {user?.agency_id && agencySlug && dashboardCallMetricsEnabled && (
@@ -443,6 +450,7 @@ export function StaffDashboard() {
             queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] });
           }}
           staffSessionToken={sessionToken}
+          staffPriorInsuranceCompanies={priorInsuranceCompanies.filter(c => c.is_active)}
         />
       )}
     </div>

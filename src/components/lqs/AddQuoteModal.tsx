@@ -18,12 +18,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Trash2, Building } from 'lucide-react';
 import { formatPhoneNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LqsLeadSource } from '@/hooks/useLqsData';
 import { LqsObjection } from '@/hooks/useLqsObjections';
+import { usePriorInsuranceCompanies } from '@/hooks/usePriorInsuranceCompanies';
 import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';
 import { format } from 'date-fns';
 interface AddQuoteModalProps {
@@ -36,6 +37,7 @@ interface AddQuoteModalProps {
   currentTeamMemberId?: string | null;
   onSuccess: () => void;
   staffSessionToken?: string | null;
+  staffPriorInsuranceCompanies?: { id: string; name: string }[];
 }
 
 interface NewHouseholdData {
@@ -76,8 +78,12 @@ export function AddQuoteModal({
   currentTeamMemberId,
   onSuccess,
   staffSessionToken,
+  staffPriorInsuranceCompanies,
 }: AddQuoteModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // In staff context, RLS blocks direct queries — use prop data from parent instead
+  const { activeCompanies: hookCompanies } = usePriorInsuranceCompanies(staffSessionToken ? null : agencyId);
+  const priorInsuranceCompanies = staffSessionToken ? (staffPriorInsuranceCompanies ?? []) : hookCompanies;
 
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -88,6 +94,7 @@ export function AddQuoteModal({
   const [teamMemberId, setTeamMemberId] = useState(currentTeamMemberId || '');
   const [leadSourceId, setLeadSourceId] = useState('');
   const [objectionId, setObjectionId] = useState('');
+  const [priorInsuranceCompanyId, setPriorInsuranceCompanyId] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
@@ -105,6 +112,7 @@ export function AddQuoteModal({
     setTeamMemberId(currentTeamMemberId || '');
     setLeadSourceId('');
     setObjectionId('');
+    setPriorInsuranceCompanyId('');
     setPhone('');
     setEmail('');
     setNotes('');
@@ -182,6 +190,7 @@ export function AddQuoteModal({
             email: email || undefined,
             lead_source_id: leadSourceId || undefined,
             objection_id: objectionId || undefined,
+            prior_insurance_company_id: priorInsuranceCompanyId || undefined,
             quote_date: quoteDate,
             notes: notes || undefined,
             products: products,
@@ -249,6 +258,7 @@ export function AddQuoteModal({
           updates.needs_attention = false;
         }
         if (objectionId) updates.objection_id = objectionId;
+        if (priorInsuranceCompanyId) updates.prior_insurance_company_id = priorInsuranceCompanyId;
         if (teamMemberId) updates.team_member_id = teamMemberId;
         if (notes) updates.notes = notes;
 
@@ -276,6 +286,7 @@ export function AddQuoteModal({
             first_quote_date: quoteDate,
             lead_source_id: leadSourceId || null,
             objection_id: objectionId || null,
+            prior_insurance_company_id: priorInsuranceCompanyId || null,
             team_member_id: teamMemberId || null,
             needs_attention: !leadSourceId,
             notes: notes || null,
@@ -572,6 +583,32 @@ export function AddQuoteModal({
               </Select>
             )}
           </div>
+
+          {/* Prior Insurance Company - Optional */}
+          {priorInsuranceCompanies.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="priorInsurance" className="flex items-center gap-2">
+                <Building className="h-4 w-4 text-muted-foreground" />
+                Prior Insurance Company
+              </Label>
+              <Select
+                value={priorInsuranceCompanyId || '__none__'}
+                onValueChange={(val) => setPriorInsuranceCompanyId(val === '__none__' ? '' : val)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="None / Unknown" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="__none__">None / Unknown</SelectItem>
+                  {priorInsuranceCompanies.map((company) => (
+                    <SelectItem key={company.id} value={company.id}>
+                      {company.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Contact Info Row */}
           <div className="grid grid-cols-2 gap-4">

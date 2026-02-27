@@ -59,6 +59,7 @@ interface LqsHousehold {
   lead_source_id: string | null;
   team_member_id: string | null;
   objection_id: string | null;
+  prior_insurance_company_id: string | null;
   status: string;
   first_quote_date: string | null;
   sold_date: string | null;
@@ -71,6 +72,7 @@ interface LqsHousehold {
   lead_source: LqsLeadSource | null;
   team_member: LqsTeamMember | null;
   objection: LqsObjection | null;
+  prior_insurance_company: { id: string; name: string } | null;
 }
 
 interface LqsMetrics {
@@ -205,6 +207,7 @@ serve(async (req) => {
           lead_source_id,
           team_member_id,
           objection_id,
+          prior_insurance_company_id,
           status,
           first_quote_date,
           sold_date,
@@ -215,6 +218,7 @@ serve(async (req) => {
           lead_source:lead_sources!lqs_households_lead_source_id_fkey(id, name, is_self_generated),
           team_member:team_members(id, name),
           objection:lqs_objections(id, name),
+          prior_insurance_company:prior_insurance_companies(id, name),
           quotes:lqs_quotes(id, household_id, quote_date, product_type, items_quoted, premium_cents, source),
           sales:lqs_sales(id, household_id, sale_date, product_type, items_sold, policies_sold, premium_cents, policy_number, source, source_reference_id, linked_quote_id)
         `)
@@ -351,6 +355,17 @@ serve(async (req) => {
       console.error('Error fetching objections:', objectionsError);
     }
 
+    // Fetch prior insurance companies for dropdowns
+    const { data: priorInsuranceCompanies, error: picError } = await supabase
+      .from('prior_insurance_companies')
+      .select('id, name, is_active')
+      .eq('agency_id', agencyId)
+      .order('name');
+
+    if (picError) {
+      console.error('Error fetching prior insurance companies:', picError);
+    }
+
     // Calculate metrics
     const householdList = (filteredHouseholds || []) as LqsHousehold[];
 
@@ -409,6 +424,7 @@ serve(async (req) => {
       lead_sources: leadSources || [],
       team_members: teamMembers || [],
       objections: objections || [],
+      prior_insurance_companies: priorInsuranceCompanies || [],
       team_member_id: teamMemberId,
       agency_id: agencyId,
     }), {

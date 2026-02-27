@@ -135,6 +135,28 @@ export function useStaffLqsObjections(sessionToken: string | null) {
   });
 }
 
+export function useStaffPriorInsuranceCompanies(sessionToken: string | null) {
+  return useQuery({
+    queryKey: ['staff-prior-insurance-companies', sessionToken],
+    enabled: !!sessionToken,
+    queryFn: async (): Promise<{ id: string; name: string; is_active: boolean }[]> => {
+      const { data, error } = await supabase.functions.invoke('get_staff_lqs_data', {
+        headers: {
+          'x-staff-session': sessionToken!,
+        },
+        body: {},
+      });
+
+      if (error) {
+        console.error('Error fetching staff prior insurance companies:', error);
+        throw error;
+      }
+
+      return data?.prior_insurance_companies || [];
+    },
+  });
+}
+
 export function useStaffAssignLeadSource(sessionToken: string | null) {
   const queryClient = useQueryClient();
 

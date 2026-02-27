@@ -28,7 +28,7 @@ import {
   HouseholdWithRelations
 } from '@/hooks/useLqsData';
 import { useLqsObjections } from '@/hooks/useLqsObjections';
-import { useStaffLqsData, useStaffLqsObjections, useStaffLqsLeadSources, useStaffAssignLeadSource, useStaffBulkAssignLeadSource } from '@/hooks/useStaffLqsData';
+import { useStaffLqsData, useStaffLqsObjections, useStaffLqsLeadSources, useStaffPriorInsuranceCompanies, useStaffAssignLeadSource, useStaffBulkAssignLeadSource } from '@/hooks/useStaffLqsData';
 import { LqsMetricTiles } from '@/components/lqs/LqsMetricTiles';
 import { LqsFilters } from '@/components/lqs/LqsFilters';
 import { LqsHouseholdTable } from '@/components/lqs/LqsHouseholdTable';
@@ -232,6 +232,8 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const { data: staffObjections = [] } = useStaffLqsObjections(isStaffPortal ? staffSessionToken : null);
   const { data: agencyObjections = [] } = useLqsObjections(agencyProfile?.agencyId, !isStaffPortal);
   const objections = isStaffPortal ? staffObjections : agencyObjections;
+  // Prior insurance companies for quote modal (staff fetches via edge function)
+  const { data: staffPriorCompanies = [] } = useStaffPriorInsuranceCompanies(isStaffPortal ? staffSessionToken : null);
   const agencyAssignMutation = useAssignLeadSource();
   const agencyBulkAssignMutation = useBulkAssignLeadSource();
   const staffAssignMutation = useStaffAssignLeadSource(isStaffPortal ? staffSessionToken : null);
@@ -1003,6 +1005,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         currentTeamMemberId={currentTeamMemberId}
         onSuccess={refetch}
         staffSessionToken={isStaffPortal ? staffSessionToken : null}
+        staffPriorInsuranceCompanies={isStaffPortal ? staffPriorCompanies.filter(c => c.is_active) : undefined}
       />
 
       {/* Household Detail Modal */}

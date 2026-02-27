@@ -81,7 +81,19 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true, lead_sources: leadSources || [] }), {
+    // Fetch prior insurance companies for the agency
+    const { data: priorInsuranceCompanies, error: picError } = await supabase
+      .from("prior_insurance_companies")
+      .select("id, name, is_active")
+      .eq("agency_id", staffUser.agency_id)
+      .order("name");
+
+    if (picError) {
+      console.error("[get_staff_lead_sources] Error fetching prior insurance companies:", picError);
+      // Non-fatal: return empty array
+    }
+
+    return new Response(JSON.stringify({ success: true, lead_sources: leadSources || [], prior_insurance_companies: priorInsuranceCompanies || [] }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

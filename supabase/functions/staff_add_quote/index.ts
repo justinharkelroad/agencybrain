@@ -21,6 +21,7 @@ interface AddQuoteRequest {
   email?: string;
   lead_source_id?: string;
   objection_id?: string;
+  prior_insurance_company_id?: string;
   quote_date: string;
   notes?: string;
   products: ProductEntry[];
@@ -152,6 +153,7 @@ serve(async (req) => {
         updates.needs_attention = false;
       }
       if (body.objection_id) updates.objection_id = body.objection_id;
+      if (body.prior_insurance_company_id !== undefined) updates.prior_insurance_company_id = body.prior_insurance_company_id || null;
       updates.team_member_id = staffUser.team_member_id;
       if (body.notes) updates.notes = body.notes;
 
@@ -183,6 +185,7 @@ serve(async (req) => {
           first_quote_date: body.quote_date,
           lead_source_id: body.lead_source_id || null,
           objection_id: body.objection_id || null,
+          prior_insurance_company_id: body.prior_insurance_company_id || null,
           team_member_id: staffUser.team_member_id,
           needs_attention: !body.lead_source_id,
           notes: body.notes || null,

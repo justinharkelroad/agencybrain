@@ -35,12 +35,18 @@ export interface LqsSaleRecord {
   linked_quote_id: string | null;
 }
 
+export interface LqsPriorInsuranceCompanyRef {
+  id: string;
+  name: string;
+}
+
 export interface HouseholdWithRelations extends LqsHousehold {
   quotes: LqsQuote[];
   sales: LqsSaleRecord[];
   lead_source: LqsLeadSource | null;
   team_member: LqsTeamMember | null;
   objection: LqsObjectionRef | null;
+  prior_insurance_company: LqsPriorInsuranceCompanyRef | null;
 }
 
 export interface LqsMetrics {
@@ -99,7 +105,8 @@ export function useLqsData({ agencyId, dateRange, statusFilter, searchTerm }: Us
             sales:lqs_sales(*),
             lead_source:lead_sources!lqs_households_lead_source_id_fkey(id, name, is_self_generated, bucket:marketing_buckets(id, name)),
             team_member:team_members(id, name),
-            objection:lqs_objections(id, name)
+            objection:lqs_objections(id, name),
+            prior_insurance_company:prior_insurance_companies(id, name)
           `)
           .eq('agency_id', agencyId!)
           .order('created_at', { ascending: false })

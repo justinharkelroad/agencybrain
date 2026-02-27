@@ -32,6 +32,7 @@ import {
   Trash2,
   AlertTriangle,
   ArrowRight,
+  Building,
 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { HouseholdWithRelations } from '@/hooks/useLqsData';
@@ -40,6 +41,7 @@ import { formatPhoneNumber } from '@/lib/utils';
 import { useLqsObjections } from '@/hooks/useLqsObjections';
 import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { useLeadSources } from '@/hooks/useLeadSources';
+import { usePriorInsuranceCompanies } from '@/hooks/usePriorInsuranceCompanies';
 
 interface LqsHouseholdDetailModalProps {
   household: HouseholdWithRelations | null;
@@ -71,6 +73,7 @@ export function LqsHouseholdDetailModal({
   const [editTeamMemberId, setEditTeamMemberId] = useState('');
   const [editObjectionId, setEditObjectionId] = useState('');
   const [editLeadSourceId, setEditLeadSourceId] = useState('');
+  const [editPriorInsuranceCompanyId, setEditPriorInsuranceCompanyId] = useState('');
   const [deletedQuoteIds, setDeletedQuoteIds] = useState<string[]>([]);
   const [conflictingSourceName, setConflictingSourceName] = useState<string | null>(null);
   const [isResolvingConflict, setIsResolvingConflict] = useState(false);
@@ -85,6 +88,22 @@ export function LqsHouseholdDetailModal({
   const { data: staffObjections = [] } = useStaffLqsObjections(staffSessionToken);
   const { data: agencyObjections = [] } = useLqsObjections(household?.agency_id, !isStaffContext);
   const objections = isStaffContext ? staffObjections : agencyObjections;
+
+  // Fetch prior insurance companies — disable hook in staff context (RLS blocks it)
+  const { activeCompanies: hookPriorCompanies } = usePriorInsuranceCompanies(isStaffContext ? null : (household?.agency_id ?? null));
+  const { data: staffPriorCompanies = [] } = useQuery({
+    queryKey: ['staff-prior-insurance-companies', staffSessionToken],
+    enabled: isStaffContext && !!staffSessionToken,
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('get_staff_lead_sources', {
+        headers: { 'x-staff-session': staffSessionToken! },
+      });
+      if (error) throw error;
+      return ((data?.prior_insurance_companies || []) as { id: string; name: string; is_active: boolean }[])
+        .filter((c: { is_active: boolean }) => c.is_active);
+    },
+  });
+  const priorInsuranceCompanies = isStaffContext ? staffPriorCompanies : hookPriorCompanies;
 
   // Fetch lead sources for edit dropdown
   // For staff context, fetch via edge function; for regular users, use the hook
@@ -203,6 +222,7 @@ export function LqsHouseholdDetailModal({
       setEditTeamMemberId(household.team_member_id || '');
       setEditObjectionId(household.objection?.id || '');
       setEditLeadSourceId(household.lead_source_id || '');
+      setEditPriorInsuranceCompanyId(household.prior_insurance_company_id || '');
       setDeletedQuoteIds([]);
       setIsEditing(false);
       setShowAddQuoteForm(false);
@@ -284,6 +304,7 @@ export function LqsHouseholdDetailModal({
           team_member_id: editTeamMemberId || null,
           lead_source_id: editLeadSourceId || null,
           objection_id: editObjectionId || null,
+          prior_insurance_company_id: editPriorInsuranceCompanyId || null,
           ...(shouldRevertToLead && { status: 'lead', first_quote_date: null }),
           updated_at: new Date().toISOString(),
         })
@@ -316,6 +337,7 @@ export function LqsHouseholdDetailModal({
       setEditTeamMemberId(household.team_member_id || '');
       setEditObjectionId(household.objection?.id || '');
       setEditLeadSourceId(household.lead_source_id || '');
+      setEditPriorInsuranceCompanyId(household.prior_insurance_company_id || '');
       setDeletedQuoteIds([]);
     }
     setIsEditing(false);
@@ -991,6 +1013,41 @@ export function LqsHouseholdDetailModal({
               </Badge>
             )}
           </div>
+
+          {/* Prior Insurance Company Section - only if agency has them configured */}
+          {priorInsuranceCompanies.length > 0 && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <h4 className="font-medium flex items-center gap-2">
+                  <Building className="h-4 w-4" />
+                  Prior Insurance Company
+                </h4>
+                {isEditing ? (
+                  <Select
+                    value={editPriorInsuranceCompanyId || '__none__'}
+                    onValueChange={(val) => setEditPriorInsuranceCompanyId(val === '__none__' ? '' : val)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="None / Unknown" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background z-50">
+                      <SelectItem value="__none__">None / Unknown</SelectItem>
+                      {priorInsuranceCompanies.map((company) => (
+                        <SelectItem key={company.id} value={company.id}>
+                          {company.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Badge variant="outline">
+                    {household.prior_insurance_company?.name || 'Not specified'}
+                  </Badge>
+                )}
+              </div>
+            </>
+          )}
 
           <Separator />
 

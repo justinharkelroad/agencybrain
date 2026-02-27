@@ -57,6 +57,7 @@ export interface LqsHousehold {
   sold_date: string | null;
   team_member_id: string | null;
   objection_id: string | null;
+  prior_insurance_company_id: string | null;
   needs_attention: boolean;
   attention_reason: AttentionReason | null;
   conflicting_lead_source_id: string | null;

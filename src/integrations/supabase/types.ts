@@ -6165,6 +6165,7 @@ export type Database = {
           notes: string | null
           objection_id: string | null
           phone: string[] | null
+          prior_insurance_company_id: string | null
           products_interested: string[] | null
           skip_metrics_increment: boolean
           sold_date: string | null
@@ -6191,6 +6192,7 @@ export type Database = {
           notes?: string | null
           objection_id?: string | null
           phone?: string[] | null
+          prior_insurance_company_id?: string | null
           products_interested?: string[] | null
           skip_metrics_increment?: boolean
           sold_date?: string | null
@@ -6217,6 +6219,7 @@ export type Database = {
           notes?: string | null
           objection_id?: string | null
           phone?: string[] | null
+          prior_insurance_company_id?: string | null
           products_interested?: string[] | null
           skip_metrics_increment?: boolean
           sold_date?: string | null
@@ -6259,6 +6262,13 @@ export type Database = {
             columns: ["objection_id"]
             isOneToOne: false
             referencedRelation: "lqs_objections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lqs_households_prior_insurance_company_id_fkey"
+            columns: ["prior_insurance_company_id"]
+            isOneToOne: false
+            referencedRelation: "prior_insurance_companies"
             referencedColumns: ["id"]
           },
           {
