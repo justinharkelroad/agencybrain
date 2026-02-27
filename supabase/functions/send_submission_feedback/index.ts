@@ -491,11 +491,17 @@ Deno.serve(async (req) => {
     const customFields = formTemplate.schema_json?.customFields || [];
     const additionalFieldsData: Array<{ label: string; value: string }> = [];
 
+    // Build set of KPI labels already shown in the stats table to avoid duplicates
+    const kpiLabels = new Set(performanceData.map(p => p.metric.toLowerCase()));
+
     for (const field of customFields) {
+      // Skip fields already displayed in the KPI table
+      if (kpiLabels.has((field.label || '').toLowerCase())) continue;
+
       const rawValue = payload[field.key];
 
-      // Skip empty/null/undefined values
-      if (rawValue === undefined || rawValue === null || rawValue === '') continue;
+      // Skip empty/null/undefined/zero values
+      if (rawValue === undefined || rawValue === null || rawValue === '' || rawValue === '0' || rawValue === 0) continue;
 
       let displayValue: string;
       if (field.type === 'checkbox') {
