@@ -147,7 +147,7 @@ Deno.serve(async (req) => {
   const requestId = crypto.randomUUID();
 
   try {
-    const { submissionId } = await req.json();
+    const { submissionId, testEmailOverride } = await req.json();
 
     logStructured('info', 'feedback_start', {
       request_id: requestId,
@@ -629,9 +629,10 @@ Provide your coaching feedback based on these results.`;
       });
     }
 
-    const recipients = Array.from(recipientSet);
+    // Allow test override to send only to a specific email (for testing)
+    const recipients = testEmailOverride ? [testEmailOverride.toLowerCase()] : Array.from(recipientSet);
 
-    logStructured('info', 'recipients_resolved', { request_id: requestId, count: recipients.length, recipients });
+    logStructured('info', 'recipients_resolved', { request_id: requestId, count: recipients.length, recipients, testOverride: !!testEmailOverride });
 
     if (recipients.length === 0) {
       logStructured('info', 'no_recipients', { request_id: requestId });
