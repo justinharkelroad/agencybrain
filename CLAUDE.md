@@ -93,6 +93,8 @@ const { mode, agencyId, staffUserId, userId, isManager } = authResult;
 
 Exceptions: admin-only functions (JWT-only OK), staff-specific functions (direct header validation OK).
 
+**CRITICAL**: `verifyRequest()` tries JWT first, then falls back to staff session. This is intentional — `supabase.functions.invoke` always auto-sends `Authorization: Bearer <anon_key>` even for staff users with no Supabase auth session. Never change `verifyRequest` to skip the staff session fallback when JWT fails. If you need to modify the auth priority logic, run the `verifyRequest` integration test first (`src/tests/verifyRequest-auth-fallback.test.ts`).
+
 ### Rule 3b: ALWAYS pass JWT explicitly to `getUser()`
 
 ```typescript

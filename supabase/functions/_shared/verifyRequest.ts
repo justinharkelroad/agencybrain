@@ -31,13 +31,78 @@ export async function verifyRequest(
   const authHeader = req.headers.get("Authorization");
   const staffSession = req.headers.get("X-Staff-Session");
 
-  // DEFENSE: If BOTH headers are present, prefer Supabase JWT (owner takes precedence)
-  // This handles edge cases where stale staff tokens weren't cleared from localStorage
-  const hasValidJwt = authHeader && authHeader.startsWith("Bearer ");
-  const useStaffSession = staffSession && !hasValidJwt;
+  // DEFENSE: If BOTH headers are present, try Supabase JWT first (owner takes precedence).
+  // If JWT fails (e.g. supabase-js auto-sends Bearer <anon_key> for staff portal users
+  // with no real auth session), fall back to staff session instead of returning 401.
+  const hasJwtHeader = authHeader && authHeader.startsWith("Bearer ");
 
-  // Path 1: Staff session token (only if no JWT present)
-  if (useStaffSession) {
+  // Path 1: Try Supabase JWT first (if present)
+  if (hasJwtHeader) {
+    const jwt = authHeader.replace("Bearer ", "");
+
+    // Create client with user's JWT to verify it
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: userError } = await userClient.auth.getUser(jwt);
+
+    if (!userError && user) {
+      // JWT is valid — use Supabase auth path
+      const adminClient = createClient(supabaseUrl, serviceRoleKey);
+      const { data: profile, error: profileError } = await adminClient
+        .from("profiles")
+        .select("agency_id")
+        .eq("id", user.id)
+        .single();
+
+      let agencyId = profile?.agency_id;
+      let isKeyEmployee = false;
+
+      // If no agency in profile, check key_employees table
+      if (!agencyId) {
+        const { data: keyEmployee } = await adminClient
+          .from("key_employees")
+          .select("agency_id")
+          .eq("user_id", user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (keyEmployee?.agency_id) {
+          agencyId = keyEmployee.agency_id;
+          isKeyEmployee = true;
+        }
+      }
+
+      if (!agencyId) {
+        return { error: "User has no agency assigned", status: 403 };
+      }
+
+      // Get agency slug
+      const { data: agency } = await adminClient
+        .from("agencies")
+        .select("slug")
+        .eq("id", agencyId)
+        .single();
+
+      return {
+        mode: "supabase",
+        agencyId,
+        agencySlug: agency?.slug,
+        userId: user.id,
+        isKeyEmployee,
+      };
+    }
+
+    // JWT failed — fall through to staff session if available
+    if (!staffSession) {
+      return { error: "Invalid or expired JWT", status: 401 };
+    }
+    // else: continue to staff session path below
+  }
+
+  // Path 2: Staff session token
+  if (staffSession) {
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // Step 1: Fetch staff session by token (without expires_at filter in SQL)
@@ -110,67 +175,6 @@ export async function verifyRequest(
       staffMemberId: staffUser.team_member_id,
       role,
       isManager,
-    };
-  }
-
-  // Path 2: Supabase JWT
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    const jwt = authHeader.replace("Bearer ", "");
-
-    // Create client with user's JWT to verify it
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    const { data: { user }, error: userError } = await userClient.auth.getUser(jwt);
-
-    if (userError || !user) {
-      return { error: "Invalid or expired JWT", status: 401 };
-    }
-
-    // Get user's agency from profile
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { data: profile, error: profileError } = await adminClient
-      .from("profiles")
-      .select("agency_id")
-      .eq("id", user.id)
-      .single();
-
-    let agencyId = profile?.agency_id;
-    let isKeyEmployee = false;
-
-    // If no agency in profile, check key_employees table
-    if (!agencyId) {
-      const { data: keyEmployee } = await adminClient
-        .from("key_employees")
-        .select("agency_id")
-        .eq("user_id", user.id)
-        .limit(1)
-        .maybeSingle();
-
-      if (keyEmployee?.agency_id) {
-        agencyId = keyEmployee.agency_id;
-        isKeyEmployee = true;
-      }
-    }
-
-    if (!agencyId) {
-      return { error: "User has no agency assigned", status: 403 };
-    }
-
-    // Get agency slug
-    const { data: agency } = await adminClient
-      .from("agencies")
-      .select("slug")
-      .eq("id", agencyId)
-      .single();
-
-    return {
-      mode: "supabase",
-      agencyId,
-      agencySlug: agency?.slug,
-      userId: user.id,
-      isKeyEmployee,
     };
   }
 
