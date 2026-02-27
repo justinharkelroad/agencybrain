@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const staffUser = (staffSession.staff_users as unknown as { id: string; team_member_id: string | null }[])?.[0];
+      const staffUser = staffSession.staff_users as unknown as { id: string; team_member_id: string | null };
       const tmId = staffUser?.team_member_id;
 
       if (tmId) {
@@ -329,8 +329,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    const assignment = deliverable.sales_experience_assignments as { id: string; agency_id: string };
-    if (!isAdmin && assignment.agency_id !== agencyId) {
+    const assignment = deliverable.sales_experience_assignments as unknown as { id: string; agency_id: string };
+    if (!isAdmin && assignment?.agency_id !== agencyId) {
       return new Response(
         JSON.stringify({ error: 'Access denied' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

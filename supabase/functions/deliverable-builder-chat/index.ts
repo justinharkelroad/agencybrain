@@ -181,8 +181,8 @@ Deno.serve(async (req) => {
           );
         }
 
-        const assignment = deliverable.sales_experience_assignments as { id: string; agency_id: string; status: string };
-        if (!isAdmin && assignment.agency_id !== profile.agency_id) {
+        const assignment = deliverable.sales_experience_assignments as unknown as { id: string; agency_id: string; status: string };
+        if (!isAdmin && assignment?.agency_id !== profile.agency_id) {
           return new Response(
             JSON.stringify({ error: 'Access denied' }),
             { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -354,8 +354,8 @@ Deno.serve(async (req) => {
           );
         }
 
-        const deliverable = session.sales_experience_deliverables as { deliverable_type: DeliverableType };
-        const promptKey = `deliverable_${deliverable.deliverable_type}`;
+        const deliverable = session.sales_experience_deliverables as unknown as { deliverable_type: DeliverableType };
+        const promptKey = `deliverable_${deliverable?.deliverable_type}`;
 
         // Get the AI prompt
         const { data: promptData } = await supabase
