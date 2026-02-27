@@ -21,7 +21,6 @@ import { LqsObjection } from '@/hooks/useLqsObjections';
 import { ChallengeDashboardWidget } from '@/components/challenge/ChallengeDashboardWidget';
 import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
 import { StaffChallengeBanner } from './StaffChallengeBanner';
-import { PlannerExperiencePreview } from './PlannerExperiencePreview';
 interface KPIData {
   key: string;
   slug: string;
@@ -44,6 +43,20 @@ interface LeadSourceRow {
   name: string;
   is_self_generated?: boolean | null;
   bucket?: { id: string; name: string } | null;
+}
+
+// Keep this widget local to avoid cross-file sync issues in hosted editors.
+function PlannerExperiencePreview() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Planner Experience</CardTitle>
+        <CardDescription>
+          Plan your day, track priorities, and stay aligned with team goals.
+        </CardDescription>
+      </CardHeader>
+    </Card>
+  );
 }
 
 function getPreviousBusinessDay(): Date {
