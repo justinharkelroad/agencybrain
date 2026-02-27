@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
@@ -82,7 +82,12 @@ import { LqsRoiSpendBubbleChart } from '@/components/lqs/LqsRoiSpendBubbleChart'
 import { LqsPerformanceTrendChart } from '@/components/lqs/LqsPerformanceTrendChart';
 import { LqsTimeToCloseAnalytics } from '@/components/lqs/LqsTimeToCloseAnalytics';
 import { LqsProducerLeadSourceCrossTab } from '@/components/lqs/LqsProducerLeadSourceCrossTab';
+import { useLqsProducerLeadSourceCrossTab } from '@/hooks/useLqsProducerLeadSourceCrossTab';
 import { LqsObjectionAnalysis } from '@/components/lqs/LqsObjectionAnalysis';
+import { StaffRankingTable } from '@/components/lqs/StaffRankingTable';
+import { ZipCodePerformanceTable } from '@/components/lqs/ZipCodePerformanceTable';
+import { ActivityHistoryTable } from '@/components/lqs/ActivityHistoryTable';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { differenceInDays } from 'date-fns';
 
 // Format currency from cents
@@ -816,10 +821,30 @@ function LeadSourceTable({ data, isLoading }: { data: LeadSourceRoiRow[]; isLoad
   );
 }
 
+const ROI_TABS = ['overview', 'lead-sources', 'zip-codes', 'producers', 'activity', 'insights'] as const;
+type RoiTab = typeof ROI_TABS[number];
+
 export default function LqsRoiPage() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const activeTab = (ROI_TABS.includes(searchParams.get('tab') as RoiTab)
+    ? searchParams.get('tab')
+    : 'overview') as RoiTab;
+
+  const handleTabChange = (value: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      if (value === 'overview') {
+        next.delete('tab');
+      } else {
+        next.set('tab', value);
+      }
+      return next;
+    }, { replace: true });
+  };
   
   const [datePreset, setDatePreset] = useState<DateRangePreset | 'custom'>('all');
   const [customDateRange, setCustomDateRange] = useState<{ start: Date; end: Date } | null>(null);
@@ -967,6 +992,18 @@ export default function LqsRoiPage() {
   const { data: producerData, isLoading: producerLoading } = useLqsProducerBreakdown(
     agencyProfile?.agencyId ?? null,
     dateRange
+  );
+
+  // Cross-tab data for per-staff lead source rows
+  const { buildCrossTab } = useLqsProducerLeadSourceCrossTab(
+    agencyProfile?.agencyId ?? null,
+    dateRange
+  );
+
+  // Build cross-tab by lead source (not bucket) for per-staff expandable rows
+  const crossTabBySource = useMemo(
+    () => buildCrossTab(false),
+    [buildCrossTab]
   );
 
   // Fetch agency goals
@@ -1223,474 +1260,518 @@ export default function LqsRoiPage() {
         Used for ROI calculations (Commission Earned = Premium × Rate)
       </p>
 
-      {/* Goals Header */}
-      <LqsGoalsHeader
-        summary={analytics?.summary ?? null}
-        agencyGoals={agencyGoalsQuery.data ?? null}
-        daysInPeriod={daysInPeriod}
-        isLoading={analyticsLoading || agencyGoalsQuery.isLoading}
-        commissionRate={parseFloat(commissionRate) || 0}
-        agencyId={agencyProfile?.agencyId ?? ''}
-        onGoalsUpdated={() => {
-          queryClient.invalidateQueries({ queryKey: ['lqs-agency-goals'] });
-        }}
-      />
+      {/* Tabbed Content */}
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <TabsList className="w-full justify-start overflow-x-auto">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="lead-sources">Lead Sources</TabsTrigger>
+          <TabsTrigger value="zip-codes">Zip Codes</TabsTrigger>
+          <TabsTrigger value="producers">Producers</TabsTrigger>
+          <TabsTrigger value="activity">Activity</TabsTrigger>
+          <TabsTrigger value="insights">Insights</TabsTrigger>
+        </TabsList>
 
-      {/* ROI Flag Settings */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-2">
-              <Settings2 className="h-4 w-4" />
-              ROI Flag Settings
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8"
-              onClick={() => setRoiFlagSettings(DEFAULT_ROI_FLAG_SETTINGS)}
-            >
-              Reset
-            </Button>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium">Enable Auto-Flags</p>
+        {/* ====== Tab 1: Overview ====== */}
+        <TabsContent value="overview" className="space-y-6">
+          {/* Goals Header */}
+          <LqsGoalsHeader
+            summary={analytics?.summary ?? null}
+            agencyGoals={agencyGoalsQuery.data ?? null}
+            daysInPeriod={daysInPeriod}
+            isLoading={analyticsLoading || agencyGoalsQuery.isLoading}
+            commissionRate={parseFloat(commissionRate) || 0}
+            agencyId={agencyProfile?.agencyId ?? ''}
+            onGoalsUpdated={() => {
+              queryClient.invalidateQueries({ queryKey: ['lqs-agency-goals'] });
+            }}
+          />
+
+          {/* ROI Flag Settings */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <Settings2 className="h-4 w-4" />
+                  ROI Flag Settings
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8"
+                  onClick={() => setRoiFlagSettings(DEFAULT_ROI_FLAG_SETTINGS)}
+                >
+                  Reset
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Enable Auto-Flags</p>
+                  <p className="text-xs text-muted-foreground">
+                    Marks top rows and highlights households in matching ZIP codes.
+                  </p>
+                </div>
+                <Switch
+                  checked={roiFlagSettings.enabled}
+                  onCheckedChange={(checked) => setRoiFlagSettings(prev => ({
+                    ...prev,
+                    enabled: checked,
+                  }))}
+                />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+                <div className="space-y-2">
+                  <Label>List size</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={roiFlagInputValues.topCount}
+                    onChange={(event) =>
+                      setRoiFlagInputValues((prev) => ({
+                        ...prev,
+                        topCount: event.target.value,
+                      }))
+                    }
+                    onBlur={() => {
+                      const nextTopCount = Math.min(
+                        TOP_LEADERBOARD_MAX_COUNT,
+                        parseBoundedIntegerInput(roiFlagInputValues.topCount, DEFAULT_ROI_FLAG_SETTINGS.topCount, 1),
+                      );
+                      setRoiFlagSettings(prev => ({
+                        ...prev,
+                        topCount: nextTopCount,
+                      }));
+                      setRoiFlagInputValues((prev) => ({
+                        ...prev,
+                        topCount: String(nextTopCount),
+                      }));
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        (event.target as HTMLInputElement).blur();
+                      }
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="show-priority-zip-badges" className="text-sm">
+                    Show Priority ZIP badges in detail
+                  </Label>
+                  <div className="pt-2">
+                    <Switch
+                      id="show-priority-zip-badges"
+                      checked={roiFlagSettings.showPriorityZipBadges}
+                      onCheckedChange={(checked) =>
+                        setRoiFlagSettings(prev => ({
+                          ...prev,
+                          showPriorityZipBadges: checked,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lead-source-flag-metric">Lead source metric</Label>
+                  <Select
+                    value={roiFlagSettings.leadSourceMetric}
+                    onValueChange={(value) =>
+                      setRoiFlagSettings(prev => ({
+                        ...prev,
+                        leadSourceMetric: value as LeaderboardMetric,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="lead-source-flag-metric" className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LEADERBOARD_METRIC_OPTIONS.leadSource.map((metricOption) => (
+                        <SelectItem key={`settings-lead-${metricOption.value}`} value={metricOption.value}>
+                          {metricOption.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lead-source-flag-sample">Lead source sample minimum</Label>
+                  <Input
+                    id="lead-source-flag-sample"
+                    type="number"
+                    min={1}
+                    value={roiFlagInputValues.leadSourceMinimumSample}
+                    onChange={(event) =>
+                      setRoiFlagInputValues((prev) => ({
+                        ...prev,
+                        leadSourceMinimumSample: event.target.value,
+                      }))
+                    }
+                    onBlur={() => {
+                      const nextLeadSourceMinimumSample = parseBoundedIntegerInput(
+                        roiFlagInputValues.leadSourceMinimumSample,
+                        DEFAULT_ROI_FLAG_SETTINGS.leadSourceMinimumSample,
+                        1,
+                      );
+                      setRoiFlagSettings(prev => ({
+                        ...prev,
+                        leadSourceMinimumSample: nextLeadSourceMinimumSample,
+                      }));
+                      setRoiFlagInputValues((prev) => ({
+                        ...prev,
+                        leadSourceMinimumSample: String(nextLeadSourceMinimumSample),
+                      }));
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        (event.target as HTMLInputElement).blur();
+                      }
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="zip-flag-metric">ZIP metric</Label>
+                  <Select
+                    value={roiFlagSettings.zipMetric}
+                    onValueChange={(value) =>
+                      setRoiFlagSettings(prev => ({
+                        ...prev,
+                        zipMetric: value as LeaderboardMetric,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="zip-flag-metric" className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LEADERBOARD_METRIC_OPTIONS.zip.map((metricOption) => (
+                        <SelectItem key={`settings-zip-${metricOption.value}`} value={metricOption.value}>
+                          {metricOption.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="zip-flag-sample">ZIP sample minimum</Label>
+                  <Input
+                    id="zip-flag-sample"
+                    type="number"
+                    min={1}
+                    value={roiFlagInputValues.zipMinimumSample}
+                    onChange={(event) =>
+                      setRoiFlagInputValues((prev) => ({
+                        ...prev,
+                        zipMinimumSample: event.target.value,
+                      }))
+                    }
+                    onBlur={() => {
+                      const nextZipMinimumSample = parseBoundedIntegerInput(
+                        roiFlagInputValues.zipMinimumSample,
+                        DEFAULT_ROI_FLAG_SETTINGS.zipMinimumSample,
+                        1,
+                      );
+                      setRoiFlagSettings(prev => ({
+                        ...prev,
+                        zipMinimumSample: nextZipMinimumSample,
+                      }));
+                      setRoiFlagInputValues((prev) => ({
+                        ...prev,
+                        zipMinimumSample: String(nextZipMinimumSample),
+                      }));
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        (event.target as HTMLInputElement).blur();
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Marketing Top Callouts */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Marketing callouts
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
               <p className="text-xs text-muted-foreground">
-                Marks top rows and highlights households in matching ZIP codes.
+                Tip: values are filtered by minimum sample size so one-off entries don't surface as top performers.
               </p>
-            </div>
-            <Switch
-              checked={roiFlagSettings.enabled}
-              onCheckedChange={(checked) => setRoiFlagSettings(prev => ({
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <TopLeadSourceCallout
+              data={analytics?.byLeadSource || []}
+              metric={roiFlagSettings.leadSourceMetric}
+              flaggedRows={roiFlagSettings.enabled ? flaggedLeadSourceIds : undefined}
+              minimumSample={roiFlagSettings.leadSourceMinimumSample}
+              maxRows={roiFlagSettings.topCount}
+              onMetricChange={(next) => setRoiFlagSettings(prev => ({
                 ...prev,
-                enabled: checked,
+                leadSourceMetric: next,
               }))}
+              isLoading={analyticsLoading}
+            />
+            <TopZipCallout
+              data={analytics?.byZipCode || []}
+              metric={roiFlagSettings.zipMetric}
+              flaggedRows={roiFlagSettings.enabled ? flaggedZipCodeSet : undefined}
+              minimumSample={roiFlagSettings.zipMinimumSample}
+              maxRows={roiFlagSettings.topCount}
+              onMetricChange={(next) => setRoiFlagSettings(prev => ({
+                ...prev,
+                zipMetric: next,
+              }))}
+              isLoading={analyticsLoading}
             />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-            <div className="space-y-2">
-              <Label>List size</Label>
-              <Input
-                type="number"
-                min={1}
-                max={20}
-                value={roiFlagInputValues.topCount}
-                onChange={(event) =>
-                  setRoiFlagInputValues((prev) => ({
-                    ...prev,
-                    topCount: event.target.value,
-                  }))
-                }
-                onBlur={() => {
-                  const nextTopCount = Math.min(
-                    TOP_LEADERBOARD_MAX_COUNT,
-                    parseBoundedIntegerInput(roiFlagInputValues.topCount, DEFAULT_ROI_FLAG_SETTINGS.topCount, 1),
-                  );
-                  setRoiFlagSettings(prev => ({
-                    ...prev,
-                    topCount: nextTopCount,
-                  }));
-                  setRoiFlagInputValues((prev) => ({
-                    ...prev,
-                    topCount: String(nextTopCount),
-                  }));
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    (event.target as HTMLInputElement).blur();
-                  }
-                }}
+          {/* Summary Cards */}
+          {analyticsLoading || !summary ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-24" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <SummaryCard
+                title={summary.isActivityView ? "Leads Received" : "Open Leads"}
+                value={(summary.isActivityView ? summary.leadsReceived : summary.openLeads).toLocaleString()}
+                icon={Users}
+                variant="info"
+                tooltip={summary.isActivityView ? "Leads that entered during this period" : "Leads not yet quoted"}
+              />
+              <SummaryCard
+                title={summary.isActivityView ? "Quotes Created" : "Quoted Households"}
+                value={(summary.isActivityView ? summary.quotesCreated : summary.quotedHouseholds).toLocaleString()}
+                icon={Target}
+                variant="warning"
+                tooltip={summary.isActivityView ? "Unique households quoted during this period" : "Households with at least one quote"}
+              />
+              <SummaryCard
+                title={summary.isActivityView ? "Sales Closed" : "Sold Households"}
+                value={(summary.isActivityView ? summary.salesClosed : summary.soldHouseholds).toLocaleString()}
+                icon={TrendingUp}
+                variant="success"
+                tooltip={summary.isActivityView ? "Unique households sold during this period" : "Households with at least one policy"}
+              />
+              <SummaryCard
+                title="Premium Sold"
+                value={formatCurrency(summary.premiumSoldCents)}
+                icon={DollarSign}
+                variant="success"
+              />
+              <SummaryCard
+                title="Quote Rate"
+                value={summary.quoteRate !== null ? formatPercent(summary.quoteRate) : '—'}
+                icon={Percent}
+                tooltip={summary.isActivityView ? "Quotes Created ÷ Leads Received" : "Percentage of total leads that received a quote"}
+              />
+              <SummaryCard
+                title="Close Rate"
+                value={summary.closeRate !== null ? formatPercent(summary.closeRate) : '—'}
+                icon={Percent}
+                tooltip={summary.isActivityView ? "Sales Closed ÷ Quotes Created" : "Percentage of quoted households that resulted in a sale"}
+              />
+              <SummaryCard
+                title="Total Spend"
+                value={formatCurrency(summary.totalSpendCents)}
+                icon={DollarSign}
+              />
+              <SummaryCard
+                title="Overall ROI"
+                value={formatRoi(summary.overallRoi)}
+                icon={BarChart3}
+                variant={summary.overallRoi !== null && summary.overallRoi >= 1 ? 'success' : 'default'}
+                tooltip="Commission Earned ÷ Total Spend"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="show-priority-zip-badges" className="text-sm">
-                Show Priority ZIP badges in detail
-              </Label>
-              <div className="pt-2">
-                <Switch
-                  id="show-priority-zip-badges"
-                  checked={roiFlagSettings.showPriorityZipBadges}
-                  onCheckedChange={(checked) =>
-                    setRoiFlagSettings(prev => ({
-                      ...prev,
-                      showPriorityZipBadges: checked,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lead-source-flag-metric">Lead source metric</Label>
-              <Select
-                value={roiFlagSettings.leadSourceMetric}
-                onValueChange={(value) =>
-                  setRoiFlagSettings(prev => ({
-                    ...prev,
-                    leadSourceMetric: value as LeaderboardMetric,
-                  }))
-                }
-              >
-                <SelectTrigger id="lead-source-flag-metric" className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LEADERBOARD_METRIC_OPTIONS.leadSource.map((metricOption) => (
-                    <SelectItem key={`settings-lead-${metricOption.value}`} value={metricOption.value}>
-                      {metricOption.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lead-source-flag-sample">Lead source sample minimum</Label>
-              <Input
-                id="lead-source-flag-sample"
-                type="number"
-                min={1}
-                value={roiFlagInputValues.leadSourceMinimumSample}
-                onChange={(event) =>
-                  setRoiFlagInputValues((prev) => ({
-                    ...prev,
-                    leadSourceMinimumSample: event.target.value,
-                  }))
-                }
-                onBlur={() => {
-                  const nextLeadSourceMinimumSample = parseBoundedIntegerInput(
-                    roiFlagInputValues.leadSourceMinimumSample,
-                    DEFAULT_ROI_FLAG_SETTINGS.leadSourceMinimumSample,
-                    1,
-                  );
-                  setRoiFlagSettings(prev => ({
-                    ...prev,
-                    leadSourceMinimumSample: nextLeadSourceMinimumSample,
-                  }));
-                  setRoiFlagInputValues((prev) => ({
-                    ...prev,
-                    leadSourceMinimumSample: String(nextLeadSourceMinimumSample),
-                  }));
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    (event.target as HTMLInputElement).blur();
-                  }
-                }}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="zip-flag-metric">ZIP metric</Label>
-              <Select
-                value={roiFlagSettings.zipMetric}
-                onValueChange={(value) =>
-                  setRoiFlagSettings(prev => ({
-                    ...prev,
-                    zipMetric: value as LeaderboardMetric,
-                  }))
-                }
-              >
-                <SelectTrigger id="zip-flag-metric" className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {LEADERBOARD_METRIC_OPTIONS.zip.map((metricOption) => (
-                    <SelectItem key={`settings-zip-${metricOption.value}`} value={metricOption.value}>
-                      {metricOption.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="zip-flag-sample">ZIP sample minimum</Label>
-              <Input
-                id="zip-flag-sample"
-                type="number"
-                min={1}
-                value={roiFlagInputValues.zipMinimumSample}
-                onChange={(event) =>
-                  setRoiFlagInputValues((prev) => ({
-                    ...prev,
-                    zipMinimumSample: event.target.value,
-                  }))
-                }
-                onBlur={() => {
-                  const nextZipMinimumSample = parseBoundedIntegerInput(
-                    roiFlagInputValues.zipMinimumSample,
-                    DEFAULT_ROI_FLAG_SETTINGS.zipMinimumSample,
-                    1,
-                  );
-                  setRoiFlagSettings(prev => ({
-                    ...prev,
-                    zipMinimumSample: nextZipMinimumSample,
-                  }));
-                  setRoiFlagInputValues((prev) => ({
-                    ...prev,
-                    zipMinimumSample: String(nextZipMinimumSample),
-                  }));
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    (event.target as HTMLInputElement).blur();
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          )}
 
-      {/* Marketing Top Callouts */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            Marketing callouts
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <p className="text-xs text-muted-foreground">
-            Tip: values are filtered by minimum sample size so one-off entries don't surface as top performers.
-          </p>
-        </CardContent>
-      </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <TopLeadSourceCallout
-          data={analytics?.byLeadSource || []}
-          metric={roiFlagSettings.leadSourceMetric}
-          flaggedRows={roiFlagSettings.enabled ? flaggedLeadSourceIds : undefined}
-          minimumSample={roiFlagSettings.leadSourceMinimumSample}
-          maxRows={roiFlagSettings.topCount}
-          onMetricChange={(next) => setRoiFlagSettings(prev => ({
-            ...prev,
-            leadSourceMetric: next,
-          }))}
-          isLoading={analyticsLoading}
-        />
-        <TopZipCallout
-          data={analytics?.byZipCode || []}
-          metric={roiFlagSettings.zipMetric}
-          flaggedRows={roiFlagSettings.enabled ? flaggedZipCodeSet : undefined}
-          minimumSample={roiFlagSettings.zipMinimumSample}
-          maxRows={roiFlagSettings.topCount}
-          onMetricChange={(next) => setRoiFlagSettings(prev => ({
-            ...prev,
-            zipMetric: next,
-          }))}
-          isLoading={analyticsLoading}
-        />
-      </div>
-
-      {/* Summary Cards */}
-      {analyticsLoading || !summary ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <SummaryCard
-            title={summary.isActivityView ? "Leads Received" : "Open Leads"}
-            value={(summary.isActivityView ? summary.leadsReceived : summary.openLeads).toLocaleString()}
-            icon={Users}
-            variant="info"
-            tooltip={summary.isActivityView ? "Leads that entered during this period" : "Leads not yet quoted"}
-          />
-          <SummaryCard
-            title={summary.isActivityView ? "Quotes Created" : "Quoted Households"}
-            value={(summary.isActivityView ? summary.quotesCreated : summary.quotedHouseholds).toLocaleString()}
-            icon={Target}
-            variant="warning"
-            tooltip={summary.isActivityView ? "Unique households quoted during this period" : "Households with at least one quote"}
-          />
-          <SummaryCard
-            title={summary.isActivityView ? "Sales Closed" : "Sold Households"}
-            value={(summary.isActivityView ? summary.salesClosed : summary.soldHouseholds).toLocaleString()}
-            icon={TrendingUp}
-            variant="success"
-            tooltip={summary.isActivityView ? "Unique households sold during this period" : "Households with at least one policy"}
-          />
-          <SummaryCard
-            title="Premium Sold"
-            value={formatCurrency(summary.premiumSoldCents)}
-            icon={DollarSign}
-            variant="success"
-          />
-          <SummaryCard
-            title="Quote Rate"
-            value={summary.quoteRate !== null ? formatPercent(summary.quoteRate) : '—'}
-            icon={Percent}
-            tooltip={summary.isActivityView ? "Quotes Created ÷ Leads Received" : "Percentage of total leads that received a quote"}
-          />
-          <SummaryCard
-            title="Close Rate"
-            value={summary.closeRate !== null ? formatPercent(summary.closeRate) : '—'}
-            icon={Percent}
-            tooltip={summary.isActivityView ? "Sales Closed ÷ Quotes Created" : "Percentage of quoted households that resulted in a sale"}
-          />
-          <SummaryCard
-            title="Total Spend"
-            value={formatCurrency(summary.totalSpendCents)}
-            icon={DollarSign}
-          />
-          <SummaryCard
-            title="Overall ROI"
-            value={formatRoi(summary.overallRoi)}
-            icon={BarChart3}
-            variant={summary.overallRoi !== null && summary.overallRoi >= 1 ? 'success' : 'default'}
-            tooltip="Commission Earned ÷ Total Spend"
-          />
-        </div>
-      )}
-
-      {/* Funnel and Table Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Conversion Funnel */}
-        {analyticsLoading || !summary ? (
-          <Skeleton className="h-80" />
-        ) : (
-          <ConversionFunnel
-            openLeads={summary.openLeads}
-            quotedHouseholds={summary.quotedHouseholds}
-            soldHouseholds={summary.soldHouseholds}
-            quoteRate={summary.quoteRate}
-            closeRate={summary.closeRate}
-            isActivityView={summary.isActivityView}
-            leadsReceived={summary.leadsReceived}
-            quotesCreated={summary.quotesCreated}
-            salesClosed={summary.salesClosed}
-          />
-        )}
-
-        {/* Performance Insights */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Performance Insights
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+          {/* Funnel and Insights Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {analyticsLoading || !summary ? (
-              <div className="space-y-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Skeleton key={i} className="h-6" />
-                ))}
-              </div>
-            ) : (() => {
-              // Use correct counts based on view type
-              const salesCount = summary.isActivityView ? summary.salesClosed : summary.soldHouseholds;
-              const leadsCount = summary.isActivityView ? summary.leadsReceived : summary.totalLeads;
-              
-              const avgPremiumPerSale = salesCount > 0 
-                ? formatCurrency(summary.premiumSoldCents / salesCount) 
-                : '—';
-              const avgCostPerLead = leadsCount > 0 
-                ? formatCurrency(summary.totalSpendCents / leadsCount) 
-                : '—';
-              const avgCostPerSale = salesCount > 0 
-                ? formatCurrency(summary.totalSpendCents / salesCount) 
-                : '—';
-              
-              return (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Avg Premium per Sale</span>
-                    <span className="font-semibold">{avgPremiumPerSale}</span>
+              <Skeleton className="h-80" />
+            ) : (
+              <ConversionFunnel
+                openLeads={summary.openLeads}
+                quotedHouseholds={summary.quotedHouseholds}
+                soldHouseholds={summary.soldHouseholds}
+                quoteRate={summary.quoteRate}
+                closeRate={summary.closeRate}
+                isActivityView={summary.isActivityView}
+                leadsReceived={summary.leadsReceived}
+                quotesCreated={summary.quotesCreated}
+                salesClosed={summary.salesClosed}
+              />
+            )}
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Performance Insights
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {analyticsLoading || !summary ? (
+                  <div className="space-y-4">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Skeleton key={i} className="h-6" />
+                    ))}
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Commission Earned</span>
-                    <span className="font-semibold text-green-500">
-                      {formatCurrency(summary.commissionEarned)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Avg Cost per Lead</span>
-                    <span className="font-semibold">{avgCostPerLead}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-2 border-b border-border">
-                    <span className="text-muted-foreground">Avg Cost per Sale</span>
-                    <span className="font-semibold">{avgCostPerSale}</span>
-                  </div>
-                  {/* Lead → Sale Rate - hide in activity view since it's not meaningful */}
-                  {!summary.isActivityView && (
-                    <div className="flex justify-between items-center py-2">
-                      <span className="text-muted-foreground">Lead → Sale Rate</span>
-                      <span className="font-semibold">
-                        {summary.totalLeads > 0 
-                          ? formatPercent((summary.soldHouseholds / summary.totalLeads) * 100) 
-                          : '—'}
-                      </span>
+                ) : (() => {
+                  const salesCount = summary.isActivityView ? summary.salesClosed : summary.soldHouseholds;
+                  const leadsCount = summary.isActivityView ? summary.leadsReceived : summary.totalLeads;
+
+                  const avgPremiumPerSale = salesCount > 0
+                    ? formatCurrency(summary.premiumSoldCents / salesCount)
+                    : '—';
+                  const avgCostPerLead = leadsCount > 0
+                    ? formatCurrency(summary.totalSpendCents / leadsCount)
+                    : '—';
+                  const avgCostPerSale = salesCount > 0
+                    ? formatCurrency(summary.totalSpendCents / salesCount)
+                    : '—';
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center py-2 border-b border-border">
+                        <span className="text-muted-foreground">Avg Premium per Sale</span>
+                        <span className="font-semibold">{avgPremiumPerSale}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-border">
+                        <span className="text-muted-foreground">Commission Earned</span>
+                        <span className="font-semibold text-green-500">
+                          {formatCurrency(summary.commissionEarned)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-border">
+                        <span className="text-muted-foreground">Avg Cost per Lead</span>
+                        <span className="font-semibold">{avgCostPerLead}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-border">
+                        <span className="text-muted-foreground">Avg Cost per Sale</span>
+                        <span className="font-semibold">{avgCostPerSale}</span>
+                      </div>
+                      {!summary.isActivityView && (
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-muted-foreground">Lead → Sale Rate</span>
+                          <span className="font-semibold">
+                            {summary.totalLeads > 0
+                              ? formatPercent((summary.soldHouseholds / summary.totalLeads) * 100)
+                              : '—'}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })()}
-          </CardContent>
-        </Card>
-      </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
 
-      {/* Time to Close Analytics */}
-      <LqsTimeToCloseAnalytics
-        agencyId={agencyProfile?.agencyId ?? null}
-        dateRange={dateRange}
-      />
+        {/* ====== Tab 2: Lead Sources ====== */}
+        <TabsContent value="lead-sources" className="space-y-6">
+          <LqsRoiSpendBubbleChart
+            data={analytics?.byLeadSource || []}
+            isLoading={analyticsLoading}
+          />
 
-      {/* Charts Row: Bubble Chart + Trend Chart */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* ROI vs Spend Bubble Chart */}
-        <LqsRoiSpendBubbleChart
-          data={analytics?.byLeadSource || []}
-          isLoading={analyticsLoading}
-        />
+          <LqsRoiBucketTable
+            data={analytics?.byLeadSource || []}
+            isLoading={analyticsLoading}
+            onLeadSourceClick={handleLeadSourceClick}
+            crossTabData={crossTabBySource}
+          />
 
-        {/* Performance Trend Chart */}
-        <LqsPerformanceTrendChart agencyId={agencyProfile?.agencyId ?? null} />
-      </div>
+          <LeadSourceTable
+            data={analytics?.byLeadSource || []}
+            isLoading={analyticsLoading}
+          />
+        </TabsContent>
 
-      {/* Marketing ROI by Bucket Table */}
-      <LqsRoiBucketTable
-        data={analytics?.byLeadSource || []}
-        isLoading={analyticsLoading}
-        onLeadSourceClick={handleLeadSourceClick}
-      />
+        {/* ====== Tab 3: Zip Codes ====== */}
+        <TabsContent value="zip-codes" className="space-y-6">
+          <TopZipCallout
+            data={analytics?.byZipCode || []}
+            metric={roiFlagSettings.zipMetric}
+            flaggedRows={roiFlagSettings.enabled ? flaggedZipCodeSet : undefined}
+            minimumSample={roiFlagSettings.zipMinimumSample}
+            maxRows={10}
+            onMetricChange={(next) => setRoiFlagSettings(prev => ({
+              ...prev,
+              zipMetric: next,
+            }))}
+            isLoading={analyticsLoading}
+          />
 
-      {/* Producer Breakdown (Quoted By / Sold By) */}
-      <LqsProducerBreakdown
-        data={producerData}
-        isLoading={producerLoading}
-        onProducerClick={handleProducerClick}
-      />
+          <ZipCodePerformanceTable
+            data={analytics?.byZipCode || []}
+            isLoading={analyticsLoading}
+          />
+        </TabsContent>
 
-      {/* Producer x Lead Source Cross-Tab */}
-      <LqsProducerLeadSourceCrossTab
-        agencyId={agencyProfile?.agencyId ?? null}
-        dateRange={dateRange}
-      />
+        {/* ====== Tab 4: Producers ====== */}
+        <TabsContent value="producers" className="space-y-6">
+          <StaffRankingTable
+            data={producerData}
+            isLoading={producerLoading}
+            onProducerClick={handleProducerClick}
+          />
 
-      {/* Same-Month Conversion Metric */}
-      <LqsSameMonthConversion
-        agencyId={agencyProfile?.agencyId ?? null}
-        dateRange={dateRange}
-      />
+          <LqsProducerBreakdown
+            data={producerData}
+            isLoading={producerLoading}
+            onProducerClick={handleProducerClick}
+          />
 
-      {/* Objection Analysis */}
-      <LqsObjectionAnalysis
-        agencyId={agencyProfile?.agencyId ?? null}
-        dateRange={dateRange}
-      />
+          <LqsProducerLeadSourceCrossTab
+            agencyId={agencyProfile?.agencyId ?? null}
+            dateRange={dateRange}
+          />
+        </TabsContent>
 
-      {/* Legacy Lead Source ROI Table (flat view) */}
-      <LeadSourceTable
-        data={analytics?.byLeadSource || []}
-        isLoading={analyticsLoading}
-      />
+        {/* ====== Tab 5: Activity ====== */}
+        <TabsContent value="activity" className="space-y-6">
+          <ActivityHistoryTable
+            agencyId={agencyProfile?.agencyId ?? null}
+            dateRange={dateRange}
+          />
+        </TabsContent>
 
-      {/* Lead Source Detail Sheet */}
+        {/* ====== Tab 6: Insights ====== */}
+        <TabsContent value="insights" className="space-y-6">
+          <LqsTimeToCloseAnalytics
+            agencyId={agencyProfile?.agencyId ?? null}
+            dateRange={dateRange}
+          />
+
+          <LqsPerformanceTrendChart agencyId={agencyProfile?.agencyId ?? null} />
+
+          <LqsSameMonthConversion
+            agencyId={agencyProfile?.agencyId ?? null}
+            dateRange={dateRange}
+          />
+
+          <LqsObjectionAnalysis
+            agencyId={agencyProfile?.agencyId ?? null}
+            dateRange={dateRange}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* Detail Sheets (shared across all tabs) */}
       <LqsLeadSourceDetailSheet
         agencyId={agencyProfile?.agencyId ?? null}
         leadSourceId={selectedLeadSourceId}
@@ -1701,7 +1782,6 @@ export default function LqsRoiPage() {
         priorityZipRanks={roiFlagSettings.enabled && roiFlagSettings.showPriorityZipBadges ? priorityZipRanks : undefined}
       />
 
-      {/* Producer Detail Sheet */}
       <LqsProducerDetailSheet
         agencyId={agencyProfile?.agencyId ?? null}
         teamMemberId={selectedProducerId}
