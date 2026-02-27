@@ -152,6 +152,27 @@ export const EmailComponents = {
     <p style="margin: 16px 0;">${text}</p>
   `,
 
+  // Additional information fields (label + value, no pass/fail)
+  additionalFields: (fields: Array<{ label: string; value: string }>) => {
+    if (!fields || fields.length === 0) return '';
+
+    const rowsHtml = fields.map(f => `<tr>
+      <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; font-weight: 500; color: #374151;">${f.label}</td>
+      <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb; text-align: right; color: #1f2937;">${f.value}</td>
+    </tr>`).join('');
+
+    return `
+      <div style="margin-top: 20px;">
+        <h3 style="margin: 0 0 12px 0; font-size: 15px; color: ${BRAND.colors.primary};">Additional Information</h3>
+        <table style="width: 100%; border-collapse: collapse; background: ${BRAND.colors.lightBg}; border-radius: 6px;">
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </div>
+    `;
+  },
+
   // Warning box for discrepancies or other alerts
   warningBox: (title: string, items: string[], footer?: string) => `
     <div style="margin-top: 16px; padding: 12px; background-color: #fffbeb; border: 1px solid #fcd34d; border-radius: 6px;">

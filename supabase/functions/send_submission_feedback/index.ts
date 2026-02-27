@@ -487,6 +487,39 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ========== Extract Additional Information (custom fields) ==========
+    const customFields = formTemplate.schema_json?.customFields || [];
+    const additionalFieldsData: Array<{ label: string; value: string }> = [];
+
+    for (const field of customFields) {
+      const rawValue = payload[field.key];
+
+      // Skip empty/null/undefined values
+      if (rawValue === undefined || rawValue === null || rawValue === '') continue;
+
+      let displayValue: string;
+      if (field.type === 'checkbox') {
+        // Checkbox values stored as string "yes"/"no" in payload_json (with boolean fallback for old data)
+        displayValue = (rawValue === 'yes' || rawValue === true) ? 'Yes' : 'No';
+      } else if (field.type === 'date' && rawValue) {
+        try {
+          displayValue = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(String(rawValue)));
+        } catch {
+          displayValue = String(rawValue);
+        }
+      } else {
+        displayValue = String(rawValue);
+      }
+
+      additionalFieldsData.push({ label: field.label || field.key, value: displayValue });
+    }
+
+    logStructured('info', 'additional_fields_extracted', {
+      request_id: requestId,
+      custom_fields_count: customFields.length,
+      fields_with_values: additionalFieldsData.length
+    });
+
     logStructured('info', 'performance_calculated', {
       request_id: requestId,
       metrics_count: performanceData.length,
@@ -619,6 +652,7 @@ Provide your coaching feedback based on these results.`;
     const bodyContent = `
       ${EmailComponents.summaryBox(`Summary: ${passedCount} of ${totalCount} targets met (${passRate}%)`)}
       ${EmailComponents.statsTable(performanceData)}
+      ${EmailComponents.additionalFields(additionalFieldsData)}
       ${EmailComponents.aiFeedback(aiFeedback)}
     `;
 
