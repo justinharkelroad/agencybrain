@@ -93,7 +93,21 @@ serve(async (req) => {
       // Non-fatal: return empty array
     }
 
-    return new Response(JSON.stringify({ success: true, lead_sources: leadSources || [], prior_insurance_companies: priorInsuranceCompanies || [] }), {
+    // Fetch active objections for the agency (used by Add Quote modal)
+    const { data: objections, error: objError } = await supabase
+      .from("lqs_objections")
+      .select("id, name")
+      .eq("agency_id", staffUser.agency_id)
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("name");
+
+    if (objError) {
+      console.error("[get_staff_lead_sources] Error fetching objections:", objError);
+      // Non-fatal: return empty array
+    }
+
+    return new Response(JSON.stringify({ success: true, lead_sources: leadSources || [], prior_insurance_companies: priorInsuranceCompanies || [], objections: objections || [] }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -53,7 +53,7 @@ BEGIN
   -- Get scorecard rules for this agency + resolved role
   SELECT * INTO rules
   FROM scorecard_rules
-  WHERE agency_id = m.agency_id AND role = v_scoring_role
+  WHERE agency_id = m.agency_id AND role::text = v_scoring_role
   LIMIT 1;
 
   -- No rules = nothing to evaluate
@@ -69,18 +69,18 @@ BEGIN
   settings := coalesce(settings, '{}'::jsonb);
   v_allow_late := coalesce((settings->>'lateCountsForPass')::boolean, false);
 
-  -- Extract weights from scorecard rules
+  -- Extract weights from scorecard rules (use ::numeric::int to handle decimals)
   tmap := coalesce(rules.weights, '{}'::jsonb);
-  w_out := coalesce((tmap->>'outbound_calls')::int, 0);
-  w_talk := coalesce((tmap->>'talk_minutes')::int, 0);
-  w_quoted := coalesce(NULLIF((tmap->>'quoted_households')::int, 0),
-                       (tmap->>'quoted_count')::int, 0);
-  w_items := coalesce(NULLIF((tmap->>'items_sold')::int, 0),
-                      (tmap->>'sold_items')::int, 0);
-  w_pols := coalesce((tmap->>'sold_policies')::int, 0);
-  w_prem := coalesce((tmap->>'sold_premium')::int, 0);
-  w_csu := coalesce((tmap->>'cross_sells_uncovered')::int, 0);
-  w_mr := coalesce((tmap->>'mini_reviews')::int, 0);
+  w_out := coalesce(floor((tmap->>'outbound_calls')::numeric)::int, 0);
+  w_talk := coalesce(floor((tmap->>'talk_minutes')::numeric)::int, 0);
+  w_quoted := coalesce(NULLIF(floor((tmap->>'quoted_households')::numeric)::int, 0),
+                       floor((tmap->>'quoted_count')::numeric)::int, 0);
+  w_items := coalesce(NULLIF(floor((tmap->>'items_sold')::numeric)::int, 0),
+                      floor((tmap->>'sold_items')::numeric)::int, 0);
+  w_pols := coalesce(floor((tmap->>'sold_policies')::numeric)::int, 0);
+  w_prem := coalesce(floor((tmap->>'sold_premium')::numeric)::int, 0);
+  w_csu := coalesce(floor((tmap->>'cross_sells_uncovered')::numeric)::int, 0);
+  w_mr := coalesce(floor((tmap->>'mini_reviews')::numeric)::int, 0);
 
   sel := coalesce(rules.selected_metrics, ARRAY[]::text[]);
 
@@ -186,11 +186,15 @@ BEGIN
   FOR r IN
     SELECT DISTINCT team_member_id, date
     FROM metrics_daily
-    WHERE role = 'Hybrid'
+    WHERE role::text = 'Hybrid'
       AND date >= CURRENT_DATE - INTERVAL '60 days'
     ORDER BY date
   LOOP
-    PERFORM recalculate_metrics_hits_pass(r.team_member_id, r.date);
+    BEGIN
+      PERFORM recalculate_metrics_hits_pass(r.team_member_id, r.date);
+    EXCEPTION WHEN OTHERS THEN
+      RAISE WARNING 'Failed to recalculate for tm=%, date=%: %', r.team_member_id, r.date, SQLERRM;
+    END;
   END LOOP;
 END;
 $$;

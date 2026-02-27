@@ -3,9 +3,18 @@
 ALTER TABLE sales_experience_assignments DROP COLUMN IF EXISTS delegate_user_id;
 DROP INDEX IF EXISTS idx_se_assignments_delegate;
 
-ALTER TABLE sales_experience_assignments
-  ADD COLUMN delegate_team_member_id uuid REFERENCES team_members(id);
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'sales_experience_assignments'
+      AND column_name = 'delegate_team_member_id'
+  ) THEN
+    ALTER TABLE sales_experience_assignments
+      ADD COLUMN delegate_team_member_id uuid REFERENCES team_members(id);
+  END IF;
+END $$;
 
-CREATE INDEX idx_se_assignments_delegate_tm
+CREATE INDEX IF NOT EXISTS idx_se_assignments_delegate_tm
   ON sales_experience_assignments (delegate_team_member_id)
   WHERE delegate_team_member_id IS NOT NULL;

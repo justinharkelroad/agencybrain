@@ -443,12 +443,18 @@ Deno.serve(async (req) => {
         logStructured('error', 'finalization_failed', {
           request_id: requestId,
           submission_id: sid,
-          error: finalizeError.message
+          error: finalizeError.message,
+          code: (finalizeError as any).code,
+          details: (finalizeError as any).details,
+          hint: (finalizeError as any).hint,
         });
         return json(500, {
           error: 'Failed to finalize submission',
           submission_id: sid,
-          detail: finalizeError.message
+          detail: finalizeError.message,
+          code: (finalizeError as any).code,
+          pg_details: (finalizeError as any).details,
+          hint: (finalizeError as any).hint,
         });
       }
 

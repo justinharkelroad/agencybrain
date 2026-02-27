@@ -17,7 +17,7 @@ import { StaffCore4MonthlyMissions } from './StaffCore4MonthlyMissions';
 import { StaffSalesSummary } from './StaffSalesSummary';
 import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
-import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
+import { LqsObjection } from '@/hooks/useLqsObjections';
 import { ChallengeDashboardWidget } from '@/components/challenge/ChallengeDashboardWidget';
 import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
 import { StaffChallengeBanner } from './StaffChallengeBanner';
@@ -122,11 +122,9 @@ export function StaffDashboard() {
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [priorInsuranceCompanies, setPriorInsuranceCompanies] = useState<Array<{ id: string; name: string; is_active: boolean }>>([]);
+  const [objections, setObjections] = useState<LqsObjection[]>([]);
   const [dashboardCallMetricsEnabled, setDashboardCallMetricsEnabled] = useState(false);
   const [agencySlug, setAgencySlug] = useState<string | null>(null);
-
-  // Fetch objections for quote modal (via edge function for staff users)
-  const { data: objections = [] } = useStaffLqsObjections(sessionToken);
 
   const isManager = user?.role === 'Manager';
   const previousBusinessDay = getPreviousBusinessDay();
@@ -237,6 +235,9 @@ export function StaffDashboard() {
         }
         if (data?.prior_insurance_companies) {
           setPriorInsuranceCompanies(data.prior_insurance_companies as Array<{ id: string; name: string; is_active: boolean }>);
+        }
+        if (data?.objections) {
+          setObjections(data.objections as LqsObjection[]);
         }
       } catch (err) {
         console.error('Error in fetchModalData:', err);
