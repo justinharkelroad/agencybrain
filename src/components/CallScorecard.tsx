@@ -425,14 +425,17 @@ export function CallScorecard({
   const toNormalizedSkillScores = (scores: Json | null | undefined): NormalizedSkillScore[] => {
     if (Array.isArray(scores)) {
       return scores
-        .filter((row): row is RawSkillScoreRow => isObject(row))
-        .map((row) => ({
-          skill_name: row.skill_name?.trim() || 'Skill',
-          score: typeof row.score === 'number' ? row.score : 0,
-          max_score: typeof row.max_score === 'number' && row.max_score > 0 ? row.max_score : 10,
-          feedback: row.feedback ?? null,
-          tip: row.tip ?? null
-        }));
+        .filter((row) => isObject(row))
+        .map((row) => {
+          const r = row as unknown as RawSkillScoreRow;
+          return {
+            skill_name: r.skill_name?.trim() || 'Skill',
+            score: typeof r.score === 'number' ? r.score : 0,
+            max_score: typeof r.max_score === 'number' && r.max_score > 0 ? r.max_score : 10,
+            feedback: r.feedback ?? null,
+            tip: r.tip ?? null,
+          };
+        });
     }
 
     if (!isObject(scores)) return [];
@@ -1365,7 +1368,8 @@ export function CallScorecard({
             const getRelevantTips = (keywords: string[]) => {
               if (!Array.isArray(call.skill_scores)) return [];
               return call.skill_scores
-                .filter((rawSkill): rawSkill is RawSkillScoreRow => isObject(rawSkill))
+                .filter((rawSkill) => isObject(rawSkill))
+                .map((rawSkill) => rawSkill as unknown as RawSkillScoreRow)
                 .filter((s) => keywords.some(k => s.skill_name?.toLowerCase().includes(k.toLowerCase())))
                 .map((s) => s.tip)
                 .filter((tip): tip is string => typeof tip === 'string');

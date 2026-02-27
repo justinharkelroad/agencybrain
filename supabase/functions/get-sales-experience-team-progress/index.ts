@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: 'Invalid or expired staff session' }, 401);
       }
 
-      const staffUser = staffSession.staff_users as { id: string; team_member_id: string | null };
+      const staffUser = (staffSession.staff_users as unknown as { id: string; team_member_id: string | null }[])?.[0];
       const tmId = staffUser?.team_member_id;
 
       if (tmId) {
@@ -229,7 +229,7 @@ Deno.serve(async (req) => {
       if (!staffMap.has(staffId)) {
         staffMap.set(staffId, {
           staff_user_id: staffId,
-          staff_users: row.staff_users as StaffAgg['staff_users'],
+          staff_users: (row.staff_users as unknown as StaffAgg['staff_users'][]) ?.[0] ?? { display_name: null, team_member_id: null },
           total_lessons: 0,
           completed_lessons: 0,
           avg_quiz_score: null,

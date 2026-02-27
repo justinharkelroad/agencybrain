@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
         );
       }
 
-      const staffUser = staffSession.staff_users as { id: string; team_member_id: string | null };
+      const staffUser = (staffSession.staff_users as unknown as { id: string; team_member_id: string | null }[])?.[0];
       const tmId = staffUser?.team_member_id;
 
       if (tmId) {

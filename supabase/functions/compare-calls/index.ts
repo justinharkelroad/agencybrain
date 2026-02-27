@@ -140,7 +140,7 @@ Deno.serve(async (req: Request) => {
       )
       .eq("agency_id", agencyId)
       .eq("status", "analyzed")
-      .in("id", callIds);
+      .in("id", callIds) as { data: any[] | null; error: any };
 
     if (callsError) throw callsError;
     if (!calls || calls.length < 2) {

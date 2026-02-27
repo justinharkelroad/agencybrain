@@ -270,7 +270,7 @@ Deno.serve(async (req) => {
         const staffName = staffUser?.display_name || 'Team Member';
 
         // Extract module context from the joined lesson query
-        const moduleData = lesson.challenge_modules as { name: string; description: string | null } | null;
+        const moduleData = (lesson.challenge_modules as unknown as { name: string; description: string | null }[])?.[0] ?? null;
         const moduleName = moduleData?.name || 'Training';
         const moduleDescription = moduleData?.description || '';
 
