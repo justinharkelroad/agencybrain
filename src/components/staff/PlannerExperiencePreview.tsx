@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Calendar, ChevronRight, CircleHelp, Sparkles, Target } from "lucide-react";
+import { useStaffAuth } from "@/hooks/useStaffAuth";
+import { getEffectiveRoleFromTeamMember } from "@/utils/permissions";
 
 type GoalMode = "commission" | "items";
 type PlannerStep = "plan" | "confidence";
@@ -128,6 +130,8 @@ function fromDateInputValue(value: string): Date | null {
 }
 
 export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }: PlannerExperiencePreviewProps) {
+  const { user } = useStaffAuth();
+  const effectiveRole = getEffectiveRoleFromTeamMember(user?.role);
   const simulatedDate = useMemo(() => new Date(new Date().getFullYear(), 2, 1), []); // March 1 local year for full-month testing
 
   // Local simulation state
@@ -221,6 +225,12 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
   const targetCommissionMin = viewingTeam ? 2000 : 500;
   const targetCommissionMax = viewingTeam ? 75000 : memberCommissionMax;
   const actualQuotedHHPerDay = viewingTeam ? 20 : 5;
+  const managerBadgeLabel = effectiveRole === "owner" ? "Owner View" : "Manager View";
+  const managerActionLabel = viewingTeam
+    ? "Adjust Team Targets"
+    : hasMemberOverride
+      ? `Adjust ${selectedMemberName || "Member"} Target`
+      : `Create ${selectedMemberName || "Member"} Target`;
   const activeContextLabel = isManager
     ? viewingTeam
       ? "Team Default Target"
@@ -367,9 +377,13 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
       } else if (viewAs !== "team") {
         setMemberOverrideGoals((prev) => ({ ...prev, [viewAs]: newPreset }));
       }
+      setOpen(false);
+      setStep("plan");
       return;
     }
     setStaffPersonalGoal(newPreset);
+    setOpen(false);
+    setStep("plan");
   };
 
   const onResetMemberTarget = () => {
@@ -379,6 +393,8 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
       delete next[viewAs];
       return next;
     });
+    setOpen(false);
+    setStep("plan");
   };
 
   const onModeChange = (next: string) => {
@@ -402,7 +418,7 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
                 </CardTitle>
                 {isManager && (
                   <Badge variant="outline">
-                    {viewingTeam ? "Team Default" : hasMemberOverride ? "Custom Member Target" : "Inherited Team Default"}
+                    {viewingTeam ? "Team Default" : hasMemberOverride ? "Custom Member Target" : "Using Team Default"}
                   </Badge>
                 )}
                 <TooltipProvider delayDuration={150}>
@@ -440,7 +456,7 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
                   <SelectItem value="custom">Custom Range</SelectItem>
                 </SelectContent>
               </Select>
-              {isManager && <Badge variant="secondary">Manager View</Badge>}
+              {isManager && <Badge variant="secondary">{managerBadgeLabel}</Badge>}
               <Button
                 size="sm"
                 className="whitespace-nowrap"
@@ -452,11 +468,7 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
                 {isManager ? (
                   <>
                     <span className="sm:hidden">Adjust</span>
-                    <span className="hidden sm:inline">
-                      {viewingTeam
-                        ? "Adjust Team Targets"
-                        : `Adjust ${selectedMemberName || "Member"} Target`}
-                    </span>
+                    <span className="hidden sm:inline">{managerActionLabel}</span>
                   </>
                 ) : (
                   "Adjust Targets"
@@ -465,6 +477,11 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
               </Button>
             </div>
           </div>
+          {isManager && !viewingTeam && !hasMemberOverride && (
+            <p className="text-xs text-muted-foreground">
+              {selectedMemberName || "This member"} is currently using team defaults. Create a member target only if they need a different plan.
+            </p>
+          )}
           {selectedPeriod === "custom" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
