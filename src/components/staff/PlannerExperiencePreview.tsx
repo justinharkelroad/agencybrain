@@ -233,6 +233,7 @@ export function PlannerExperiencePreview({
       ? teamMembers.find((m) => m.id === viewAs)?.name || "Team Member"
       : null;
   const hasMemberOverride = isMemberContext ? Boolean(memberOverrideGoals[viewAs]) : false;
+  const memberOverrideCount = Object.keys(memberOverrideGoals).length;
   const memberItemsMax = Math.max(120, teamDefaultGoal.targetItems);
   const memberCommissionMax = Math.max(
     10000,
@@ -631,6 +632,11 @@ export function PlannerExperiencePreview({
           {isManager && !viewingTeam && !hasMemberOverride && (
             <p className="text-xs text-muted-foreground">
               {selectedMemberName || "This member"} is currently using team defaults. Create a member target only if they need a different plan.
+            </p>
+          )}
+          {isManager && viewingTeam && memberOverrideCount > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {memberOverrideCount} member override{memberOverrideCount === 1 ? "" : "s"} active. Entire Team view shows team default targets; select a team member in View As to see their custom target.
             </p>
           )}
           {selectedPeriod === "custom" && (
