@@ -5,6 +5,7 @@ import { RefreshCw, ChevronRight, AlertTriangle, CheckCircle2, Clock } from "luc
 import { useNavigate } from "react-router-dom";
 import { useRenewalStats } from "@/hooks/useRenewalRecords";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SectionHelpTip } from "@/components/ui/section-help-tip";
 
 interface RenewalSummaryWidgetProps {
   agencyId: string | null;
@@ -55,6 +56,10 @@ export function RenewalSummaryWidget({ agencyId }: RenewalSummaryWidgetProps) {
           <div className="flex items-center gap-2">
             <RefreshCw className="h-5 w-5 text-muted-foreground" />
             <CardTitle className="text-lg">Renewals (Next 7 Days)</CardTitle>
+            <SectionHelpTip
+              title="Renewals (Next 7 Days)"
+              body="Summarizes upcoming renewals, contact status, and retention rate so teams can prioritize saves before due dates."
+            />
           </div>
           <Button variant="ghost" size="sm" onClick={() => navigate('/renewals')}>
             View All

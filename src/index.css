@@ -525,6 +525,32 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 
+/* Unified rounded top-edge highlight used across dashboard panels */
+.panel-highlight {
+  position: relative;
+  overflow: hidden;
+}
+
+.panel-highlight::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(78%, 520px);
+  height: 2px;
+  border-bottom-left-radius: 999px;
+  border-bottom-right-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.26) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
 /* Hide scrollbar utility */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

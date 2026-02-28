@@ -1,5 +1,5 @@
 // Role types for permission system
-export type TeamMemberRole = 'Sales' | 'Service' | 'Hybrid' | 'Manager';
+export type TeamMemberRole = 'Sales' | 'Service' | 'Hybrid' | 'Manager' | string;
 export type EffectiveRole = 'admin' | 'owner' | 'manager' | 'staff';
 
 export interface AgencySettings {
@@ -45,6 +45,9 @@ export const permissions = {
 // Helper to determine effective role from team member role
 export function getEffectiveRoleFromTeamMember(teamMemberRole: TeamMemberRole | null | undefined): EffectiveRole {
   if (!teamMemberRole) return 'staff';
-  if (teamMemberRole === 'Manager') return 'manager';
+  const normalized = String(teamMemberRole).trim().toLowerCase();
+  if (normalized === 'manager') return 'manager';
+  if (normalized === 'owner' || normalized === 'agency owner') return 'owner';
+  if (normalized === 'admin' || normalized === 'administrator') return 'admin';
   return 'staff'; // Sales, Service, Hybrid are all "staff" level
 }

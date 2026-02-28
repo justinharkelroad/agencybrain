@@ -11,7 +11,7 @@ export function useStaffPermissions() {
   // Derive effective role from staff user's team member role
   const effectiveRole: EffectiveRole = useMemo(() => {
     if (!user?.role) return 'staff';
-    return getEffectiveRoleFromTeamMember(user.role as any);
+    return getEffectiveRoleFromTeamMember(user.role);
   }, [user?.role]);
 
   // Fetch agency settings via RPC to bypass RLS

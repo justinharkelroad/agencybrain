@@ -16,6 +16,7 @@ import { HelpButton } from "@/components/HelpButton";
 import { MiniLeaderboard } from "./MiniLeaderboard";
 import { HeroStat } from "./HeroStat";
 import { Button } from "@/components/ui/button";
+import { SectionHelpTip } from "@/components/ui/section-help-tip";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Select,
@@ -269,6 +270,10 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
                 {isStaff ? "Your Sales Performance" : "Agency Sales Performance"}
               </h2>
               <HelpButton videoKey="sales_dashboard" size="sm" />
+              <SectionHelpTip
+                title={isStaff ? "Your Sales Performance" : "Agency Sales Performance"}
+                body="Aggregates premium, items, policies, and households for the current period, with pacing and leaderboard context to guide daily actions."
+              />
             </div>
             <p className="text-sm text-muted-foreground">{monthLabel}</p>
           </div>

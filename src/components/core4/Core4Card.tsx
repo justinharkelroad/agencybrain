@@ -7,6 +7,7 @@ import { LatinCross } from '@/components/icons/LatinCross';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { HelpButton } from '@/components/HelpButton';
+import { SectionHelpTip } from '@/components/ui/section-help-tip';
 
 const domains: { key: Core4Domain; label: string; icon: React.ElementType }[] = [
   { key: 'body', label: 'BODY', icon: Dumbbell },
@@ -58,6 +59,10 @@ export function Core4Card() {
           <div className="flex items-center gap-2">
             <CardTitle className="text-lg font-semibold">Core 4 + Flow</CardTitle>
             <HelpButton videoKey="core4_page" />
+            <SectionHelpTip
+              title="Core 4 + Flow"
+              body="Tracks completion of daily Core 4 habits and weekly Flow activity so users can focus on execution consistency."
+            />
             {currentStreak > 0 && (
               <div className="flex items-center gap-1 text-orange-500">
                 <Flame className="h-4 w-4" />

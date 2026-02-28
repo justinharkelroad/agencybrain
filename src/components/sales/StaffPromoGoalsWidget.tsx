@@ -6,9 +6,32 @@ import { supabase } from "@/integrations/supabase/client";
 import { PromoGoalWithProgress } from "@/hooks/usePromoGoals";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { SectionHelpTip } from "@/components/ui/section-help-tip";
+
+const PANEL = "panel-highlight rounded-xl border border-border/50 bg-gradient-to-br from-card/80 to-card/40";
 
 interface StaffPromoGoalsWidgetProps {
   sessionToken: string | null;
+}
+
+interface PromoGoalEdgeRow {
+  id: string;
+  goal_name: string;
+  description: string | null;
+  measurement: string;
+  target_value: number;
+  bonus_amount_cents: number | null;
+  start_date: string;
+  end_date: string;
+  promo_source: string | null;
+  product_type_id: string | null;
+  kpi_slug: string | null;
+  goal_focus: string | null;
+  product_type: string | null;
+  progress: number;
+  status: string;
+  daysRemaining: number;
+  isAchieved: boolean;
 }
 
 export function StaffPromoGoalsWidget({ sessionToken }: StaffPromoGoalsWidgetProps) {
@@ -32,7 +55,7 @@ export function StaffPromoGoalsWidget({ sessionToken }: StaffPromoGoalsWidgetPro
       }
 
       // Transform response to match PromoGoalWithProgress interface
-      return (data?.promos || []).map((promo: any) => ({
+      return ((data?.promos || []) as PromoGoalEdgeRow[]).map((promo) => ({
         id: promo.id,
         goal_name: promo.goal_name,
         description: promo.description,
@@ -57,11 +80,15 @@ export function StaffPromoGoalsWidget({ sessionToken }: StaffPromoGoalsWidgetPro
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className={PANEL}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Trophy className="h-4 w-4 text-primary" />
             Active Promos
+            <SectionHelpTip
+              title="Active Promos"
+              body="Shows active incentive goals, current progress, and remaining time so staff can prioritize actions tied to bonus outcomes."
+            />
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -78,11 +105,15 @@ export function StaffPromoGoalsWidget({ sessionToken }: StaffPromoGoalsWidgetPro
   }
 
   return (
-    <Card>
+    <Card className={PANEL}>
       <CardHeader className="pb-2">
         <CardTitle className="text-base flex items-center gap-2">
           <Trophy className="h-4 w-4 text-primary" />
           Active Promos
+          <SectionHelpTip
+            title="Active Promos"
+            body="Shows active incentive goals, current progress, and remaining time so staff can prioritize actions tied to bonus outcomes."
+          />
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -122,7 +153,7 @@ function PromoGoalCardWithRing({ goal }: { goal: PromoGoalWithProgress }) {
 
   return (
     <div className={cn(
-      "bg-muted/30 rounded-lg p-3 border-l-4",
+      "panel-highlight rounded-xl border border-border/50 bg-gradient-to-br from-card/80 to-card/40 p-3 border-l-4",
       goal.isAchieved ? "border-l-green-500" : "border-l-primary"
     )}>
       <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">

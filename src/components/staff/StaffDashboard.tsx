@@ -21,6 +21,9 @@ import { LqsObjection } from '@/hooks/useLqsObjections';
 import { ChallengeDashboardWidget } from '@/components/challenge/ChallengeDashboardWidget';
 import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
 import { StaffChallengeBanner } from './StaffChallengeBanner';
+import { PlannerExperiencePreview } from './PlannerExperiencePreview';
+import { SectionHelpTip } from '@/components/ui/section-help-tip';
+import { getEffectiveRoleFromTeamMember } from '@/utils/permissions';
 interface KPIData {
   key: string;
   slug: string;
@@ -43,20 +46,6 @@ interface LeadSourceRow {
   name: string;
   is_self_generated?: boolean | null;
   bucket?: { id: string; name: string } | null;
-}
-
-// Keep this widget local to avoid cross-file sync issues in hosted editors.
-function PlannerExperiencePreview() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Planner Experience</CardTitle>
-        <CardDescription>
-          Plan your day, track priorities, and stay aligned with team goals.
-        </CardDescription>
-      </CardHeader>
-    </Card>
-  );
 }
 
 function getPreviousBusinessDay(): Date {
@@ -139,7 +128,8 @@ export function StaffDashboard() {
   const [dashboardCallMetricsEnabled, setDashboardCallMetricsEnabled] = useState(false);
   const [agencySlug, setAgencySlug] = useState<string | null>(null);
 
-  const isManager = user?.role === 'Manager';
+  const effectiveRole = getEffectiveRoleFromTeamMember(user?.role);
+  const isManager = effectiveRole === 'manager' || effectiveRole === 'owner' || effectiveRole === 'admin';
   const previousBusinessDay = getPreviousBusinessDay();
   const previousBusinessDayStr = format(previousBusinessDay, 'yyyy-MM-dd');
   const displayDate = format(previousBusinessDay, 'EEEE, MMMM d');
@@ -252,13 +242,33 @@ export function StaffDashboard() {
         if (data?.objections) {
           setObjections(data.objections as LqsObjection[]);
         }
+        let members = Array.isArray(data?.team_members)
+          ? (data.team_members as Array<{ id: string; name: string }>)
+          : [];
+
+        // Manager fallback: if lead-sources payload didn't include team members,
+        // fetch explicit roster via manager-only staff endpoint.
+        if (isManager && members.length === 0) {
+          const teamRes = await supabase.functions.invoke('get_staff_team_data', {
+            headers: { 'x-staff-session': sessionToken },
+            body: { action: 'team_members' },
+          });
+          if (Array.isArray(teamRes.data?.team_members)) {
+            members = (teamRes.data.team_members as Array<{ id: string; name: string }>)
+              .map((m) => ({ id: m.id, name: m.name }));
+          }
+        }
+
+        if (members.length > 0) {
+          setTeamMembers(members);
+        }
       } catch (err) {
         console.error('Error in fetchModalData:', err);
       }
     }
 
     fetchModalData();
-  }, [user?.agency_id, sessionToken]);
+  }, [user?.agency_id, sessionToken, isManager]);
 
   if (loading) {
     return (
@@ -295,10 +305,14 @@ export function StaffDashboard() {
           agencyId={user.agency_id}
           teamMemberId={user.team_member_id}
           showViewAll
+          teamMembers={teamMembers}
         />
       )}
 
-      <PlannerExperiencePreview />
+      {/* Fallback: always show Household Focus in staff portal even if sales widget is gated */}
+      {user?.agency_id && !hasSalesAccess(user.agency_id) && (
+        <PlannerExperiencePreview isManager={isManager} teamMembers={teamMembers} />
+      )}
 
       {/* RingCentral call rings (same agency toggle behavior as owner dashboard) */}
       {user?.agency_id && agencySlug && dashboardCallMetricsEnabled && (
@@ -315,7 +329,13 @@ export function StaffDashboard() {
       {/* Yesterday's Team Goals */}
       {user?.agency_id && (
         <div className="space-y-2">
-          <h2 className="text-lg font-semibold">Yesterday's Team Results</h2>
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <span>Yesterday&apos;s Team Results</span>
+            <SectionHelpTip
+              title="Yesterday's Team Results"
+              body="Shows yesterday's team outcomes for quick pulse-checking and manager coaching follow-up."
+            />
+          </h2>
           <AgencyDailyGoals 
             agencyId={user.agency_id} 
             date={previousBusinessDayStr}
@@ -326,7 +346,13 @@ export function StaffDashboard() {
       {/* Previous Day Performance Card */}
       <Card>
         <CardHeader>
-          <CardTitle>Yesterday's Performance</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <span>Yesterday&apos;s Performance</span>
+            <SectionHelpTip
+              title="Yesterday's Performance"
+              body="Compares your submitted KPI actuals vs targets for the previous business day so you can see what was met and what needs correction today."
+            />
+          </CardTitle>
           <CardDescription>{displayDate}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

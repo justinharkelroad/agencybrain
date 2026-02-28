@@ -30,6 +30,8 @@ import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Plus } from 'lucide-react';
 import { ProducerPowerUpBanner } from '@/components/dashboard/ProducerPowerUpBanner';
+import { PlannerExperiencePreview } from '@/components/staff/PlannerExperiencePreview';
+import { SectionHelpTip } from '@/components/ui/section-help-tip';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -101,9 +103,10 @@ const Dashboard = () => {
           .maybeSingle();
         if (ignore) return;
         if (!agencyError && agency) {
+          const agencyRow = agency as { name?: string | null; slug?: string | null; dashboard_call_metrics_enabled?: boolean | null };
           setAgencyName(agency.name || null);
           setAgencySlug(agency.slug || null);
-          setDashboardCallMetricsEnabled((agency as any).dashboard_call_metrics_enabled ?? false);
+          setDashboardCallMetricsEnabled(agencyRow.dashboard_call_metrics_enabled ?? false);
         }
       } else {
         setAgencyName(null);
@@ -115,7 +118,7 @@ const Dashboard = () => {
     fetchAgencyName();
 
     return () => { ignore = true; };
-  }, [user?.id, keyEmployeeAgencyId]);
+  }, [user, user?.id, keyEmployeeAgencyId]);
 
   // Fetch lead sources and team members for the quote modal - moved BEFORE early returns
   useEffect(() => {
@@ -133,7 +136,6 @@ const Dashboard = () => {
           .from('team_members')
           .select('id, name')
           .eq('agency_id', agencyId)
-          .eq('status', 'active')
           .order('name')
       ]);
 
@@ -222,16 +224,37 @@ const Dashboard = () => {
                 {/* 0. Sales Dashboard Widget */}
                 {(isAdmin || hasSalesAccess(agencyId)) && (
                   <AccordionItem value="sales-performance">
-                    <AccordionTrigger className="text-lg font-semibold">Agency Sales Performance</AccordionTrigger>
+                    <AccordionTrigger className="text-lg font-semibold">
+                      <span className="flex items-center gap-2">
+                        Agency Sales Performance
+                        <SectionHelpTip
+                          title="Agency Sales Performance"
+                          body="Tracks premium, items, policies, and production trends for the selected period so you can see where pace is strong or behind."
+                        />
+                      </span>
+                    </AccordionTrigger>
                     <AccordionContent>
                       <SalesDashboardWidget agencyId={agencyId} />
+                      {(isAgencyOwner || isKeyEmployee) && (
+                        <div className="mt-6">
+                          <PlannerExperiencePreview isManager teamMembers={teamMembers} />
+                        </div>
+                      )}
                     </AccordionContent>
                   </AccordionItem>
                 )}
 
                 {/* 1. Core 4 + Flow */}
                 <AccordionItem value="core4">
-                  <AccordionTrigger className="text-lg font-semibold">Core 4 + Flow</AccordionTrigger>
+                  <AccordionTrigger className="text-lg font-semibold">
+                    <span className="flex items-center gap-2">
+                      Core 4 + Flow
+                      <SectionHelpTip
+                        title="Core 4 + Flow"
+                        body="Shows daily activity execution and completion patterns across your core priorities so you can coach consistency, not just outcomes."
+                      />
+                    </span>
+                  </AccordionTrigger>
                   <AccordionContent className="space-y-6">
                     <Core4Card />
                     {(isAgencyOwner || isKeyEmployee) && <TeamCore4Overview />}
@@ -241,7 +264,15 @@ const Dashboard = () => {
                 {/* 2. Performance Metrics + Month Over Month Trends (combined) */}
                 {(canViewPerformanceMetrics || canViewMonthOverMonthTrends) && (
                   <AccordionItem value="performance-metrics">
-                    <AccordionTrigger className="text-lg font-semibold">Performance Metrics</AccordionTrigger>
+                    <AccordionTrigger className="text-lg font-semibold">
+                      <span className="flex items-center gap-2">
+                        Performance Metrics
+                        <SectionHelpTip
+                          title="Performance Metrics"
+                          body="Compares key KPIs and month-over-month trends to identify what is improving, flattening, or regressing."
+                        />
+                      </span>
+                    </AccordionTrigger>
                     <AccordionContent className="space-y-6">
                       {canViewPerformanceMetrics && <PerformanceMetrics />}
                       {canViewMonthOverMonthTrends && <MonthOverMonthTrends />}
@@ -252,7 +283,15 @@ const Dashboard = () => {
                 {/* 4. Focus Targets */}
                 {canViewFocusTargets && (
                   <AccordionItem value="focus">
-                    <AccordionTrigger className="text-lg font-semibold">Focus Targets</AccordionTrigger>
+                    <AccordionTrigger className="text-lg font-semibold">
+                      <span className="flex items-center gap-2">
+                        Focus Targets
+                        <SectionHelpTip
+                          title="Focus Targets"
+                          body="Highlights the current goals and priority actions your team should execute to stay on pace this period."
+                        />
+                      </span>
+                    </AccordionTrigger>
                     <AccordionContent>
                       <MyCurrentFocus />
                     </AccordionContent>
@@ -261,7 +300,15 @@ const Dashboard = () => {
 
                 {/* 5. Renewal Summary */}
                 <AccordionItem value="renewals">
-                  <AccordionTrigger className="text-lg font-semibold">Renewal Summary</AccordionTrigger>
+                  <AccordionTrigger className="text-lg font-semibold">
+                    <span className="flex items-center gap-2">
+                      Renewal Summary
+                      <SectionHelpTip
+                        title="Renewal Summary"
+                        body="Summarizes retention risk and renewal pipeline coverage so you can prioritize saves and follow-ups before due dates."
+                      />
+                    </span>
+                  </AccordionTrigger>
                   <AccordionContent>
                     <RenewalSummaryWidget agencyId={agencyId} />
                   </AccordionContent>
@@ -270,7 +317,15 @@ const Dashboard = () => {
                 {/* 6. Roleplay Sessions */}
                 {canViewRoleplaySessions && (
                   <AccordionItem value="roleplay">
-                    <AccordionTrigger className="text-lg font-semibold">Roleplay Sessions</AccordionTrigger>
+                    <AccordionTrigger className="text-lg font-semibold">
+                      <span className="flex items-center gap-2">
+                        Roleplay Sessions
+                        <SectionHelpTip
+                          title="Roleplay Sessions"
+                          body="Shows practice activity and coaching opportunities so reps improve script confidence and objection handling."
+                        />
+                      </span>
+                    </AccordionTrigger>
                     <AccordionContent>
                       <RoleplaySessionsCard />
                     </AccordionContent>
@@ -284,6 +339,7 @@ const Dashboard = () => {
             <>
               {/* Original flat layout for non-redesign agencies */}
               {(isAdmin || hasSalesAccess(agencyId)) && <SalesDashboardWidget agencyId={agencyId} />}
+              {(isAgencyOwner || isKeyEmployee) && <PlannerExperiencePreview isManager teamMembers={teamMembers} />}
               <Core4Card />
               {(isAgencyOwner || isKeyEmployee) && <TeamCore4Overview />}
               {canViewPerformanceMetrics && <PerformanceMetrics />}

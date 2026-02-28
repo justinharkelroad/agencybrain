@@ -1,6 +1,9 @@
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import type { LeaderboardEntry, RankMetric } from "@/hooks/useSalesLeaderboard";
+import { SectionHelpTip } from "@/components/ui/section-help-tip";
+
+const PANEL = "panel-highlight relative overflow-hidden rounded-xl border border-border/50 bg-gradient-to-br from-card/80 to-card/40";
 
 interface MiniLeaderboardProps {
   entries: LeaderboardEntry[];
@@ -71,7 +74,7 @@ export function MiniLeaderboard({
 }: MiniLeaderboardProps) {
   if (!entries || entries.length === 0) {
     return (
-      <div className={cn("text-center text-muted-foreground text-sm py-4", className)}>
+      <div className={cn(PANEL, "text-center text-muted-foreground text-sm py-4 px-3", className)}>
         No sales data yet
       </div>
     );
@@ -99,9 +102,13 @@ export function MiniLeaderboard({
   const rightColumn = displayEntries.slice(midpoint);
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <div className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-        Top Producers
+    <div className={cn(PANEL, "space-y-2 p-3", className)}>
+      <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <span>Top Producers</span>
+        <SectionHelpTip
+          title="Top Producers"
+          body="Ranks producers by the selected metric for the current period so you can spot top output and coaching opportunities."
+        />
       </div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1">
         {/* Left column */}
@@ -161,8 +168,8 @@ function LeaderboardRow({
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: animationDelay, duration: 0.2 }}
       className={cn(
-        "flex items-center justify-between text-sm py-0.5 px-1.5 rounded",
-        isCurrentUser && "bg-primary/10 border border-primary/30"
+        "flex items-center justify-between text-sm py-1 px-2 rounded-lg border border-transparent",
+        isCurrentUser && "bg-primary/10 border-primary/20"
       )}
     >
       <div className="flex items-center gap-1.5 min-w-0">
@@ -205,7 +212,7 @@ export function MiniLeaderboardVertical({
 }: MiniLeaderboardProps) {
   if (!entries || entries.length === 0) {
     return (
-      <div className={cn("text-center text-muted-foreground text-sm py-4", className)}>
+      <div className={cn(PANEL, "text-center text-muted-foreground text-sm py-4 px-3", className)}>
         No sales data yet
       </div>
     );
@@ -214,9 +221,13 @@ export function MiniLeaderboardVertical({
   const displayEntries = entries.slice(0, maxEntries);
 
   return (
-    <div className={cn("space-y-2", className)}>
-      <div className="text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-        Agency Leaderboard
+    <div className={cn(PANEL, "space-y-2 p-3", className)}>
+      <div className="flex items-center justify-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <span>Agency Leaderboard</span>
+        <SectionHelpTip
+          title="Agency Leaderboard"
+          body="Shows relative rank by selected metric for the period so each producer can compare personal output to the team."
+        />
       </div>
       <div className="space-y-1">
         {displayEntries.map((entry, index) => (

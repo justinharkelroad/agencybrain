@@ -107,7 +107,26 @@ serve(async (req) => {
       // Non-fatal: return empty array
     }
 
-    return new Response(JSON.stringify({ success: true, lead_sources: leadSources || [], prior_insurance_companies: priorInsuranceCompanies || [], objections: objections || [] }), {
+    // Fetch team members for manager/owner style "view as" experiences.
+    // Do not hard-filter on status; some agencies use different status casing/values.
+    const { data: teamMembers, error: tmError } = await supabase
+      .from("team_members")
+      .select("id, name")
+      .eq("agency_id", staffUser.agency_id)
+      .order("name");
+
+    if (tmError) {
+      console.error("[get_staff_lead_sources] Error fetching team members:", tmError);
+      // Non-fatal: return empty array
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      lead_sources: leadSources || [],
+      prior_insurance_companies: priorInsuranceCompanies || [],
+      objections: objections || [],
+      team_members: teamMembers || [],
+    }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

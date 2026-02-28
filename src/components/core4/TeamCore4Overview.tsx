@@ -7,6 +7,7 @@ import { Progress } from '@/components/ui/progress';
 import { Target, Flame, Heart, Scale, Briefcase, ArrowRight, Loader2, Zap } from 'lucide-react';
 import { LatinCross } from '@/components/icons/LatinCross';
 import { useTeamCore4Stats } from '@/hooks/useTeamCore4Stats';
+import { SectionHelpTip } from '@/components/ui/section-help-tip';
 
 const DOMAIN_ICONS = {
   body: Heart,
@@ -60,6 +61,10 @@ export function TeamCore4Overview() {
             <CardTitle className="flex items-center gap-2 text-lg">
               <Target className="h-5 w-5 text-primary" />
               Team Core 4 + Flow
+              <SectionHelpTip
+                title="Team Core 4 + Flow"
+                body="Shows team-wide weekly habit points and top performers so managers can coach follow-through and momentum."
+              />
             </CardTitle>
             <CardDescription className="mt-1">
               Weekly team performance (35 pts max per person)

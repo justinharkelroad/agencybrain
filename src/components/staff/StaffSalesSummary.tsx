@@ -18,7 +18,9 @@ import { StreakBadge } from "@/components/sales/StreakBadge";
 import { MiniLeaderboard } from "@/components/sales/MiniLeaderboard";
 import { GoalConfetti } from "@/components/sales/Confetti";
 import { TierProgressCard } from "@/components/sales/TierProgressCard";
+import { PlannerExperiencePreview } from "@/components/staff/PlannerExperiencePreview";
 import { cn } from "@/lib/utils";
+import { getEffectiveRoleFromTeamMember } from "@/utils/permissions";
 import {
   getBusinessDaysInMonth,
   getBusinessDaysElapsed,
@@ -30,6 +32,7 @@ interface StaffSalesSummaryProps {
   agencyId: string;
   teamMemberId: string;
   showViewAll?: boolean;
+  teamMembers?: Array<{ id: string; name: string }>;
 }
 
 interface SalesTotals {
@@ -149,8 +152,10 @@ function calculateTierGoal(
   };
 }
 
-export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false }: StaffSalesSummaryProps) {
-  const { sessionToken } = useStaffAuth();
+export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false, teamMembers = [] }: StaffSalesSummaryProps) {
+  const { sessionToken, user } = useStaffAuth();
+  const effectiveRole = getEffectiveRoleFromTeamMember(user?.role);
+  const isManager = effectiveRole === "manager" || effectiveRole === "owner" || effectiveRole === "admin";
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [viewMode, setViewMode] = useState<"personal" | "team">("personal");
@@ -247,7 +252,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
           premium: acc.premium + (sale.total_premium || 0),
           items: acc.items + (sale.total_items || 0),
           points: acc.points + (sale.total_points || 0),
-          policies: acc.policies + ((sale.sale_policies as any[])?.length || 0),
+          policies: acc.policies + (Array.isArray(sale.sale_policies) ? sale.sale_policies.length : 0),
           households: uniqueCustomers.size,
         }),
         { premium: 0, items: 0, points: 0, policies: 0, households: 0 }
@@ -539,7 +544,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
 
   if (isLoading || displayLoading) {
     return (
-      <div className="sales-widget-glass rounded-3xl p-6">
+      <div className="sales-widget-glass panel-highlight rounded-3xl p-6">
         <div className="flex items-center justify-between mb-6">
           <Skeleton className="h-6 w-40" />
           <Skeleton className="h-6 w-24" />
@@ -557,7 +562,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
   }
 
   return (
-    <div className="sales-widget-glass rounded-3xl p-6 overflow-hidden">
+    <div className="sales-widget-glass panel-highlight rounded-3xl p-6 overflow-hidden">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
@@ -769,13 +774,20 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false 
         </div>
       </div>
 
-      {/* Tier Progress Card - only show in personal view when tier data available */}
-      {viewMode === "personal" && tierProgress && tierProgress.total_tiers > 0 && (
-        <div className="mt-6">
-          <TierProgressCard
-            tierProgress={tierProgress}
-            payoutType={tierProgress.payout_type}
-          />
+      {/* Tier Progress + Planner side-by-side in personal view */}
+      {viewMode === "personal" && (
+        <div className="mt-6 grid grid-cols-1 xl:grid-cols-2 gap-4">
+          {tierProgress && tierProgress.total_tiers > 0 ? (
+            <TierProgressCard
+              tierProgress={tierProgress}
+              payoutType={tierProgress.payout_type}
+            />
+          ) : (
+            <div className="rounded-xl border border-border/50 bg-card/50 p-4 text-center text-sm text-muted-foreground">
+              No compensation tier data available yet.
+            </div>
+          )}
+          <PlannerExperiencePreview isManager={isManager} teamMembers={teamMembers} />
         </div>
       )}
 

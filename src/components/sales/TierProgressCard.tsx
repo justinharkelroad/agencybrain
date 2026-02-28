@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Target, TrendingUp, Zap } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { SectionHelpTip } from "@/components/ui/section-help-tip";
 
 interface TierProgress {
   current_tier: {
@@ -77,7 +78,7 @@ export function TierProgressCard({
     return (
       <div
         className={cn(
-          "rounded-xl border border-border/50 bg-card/50 p-4",
+          "panel-highlight rounded-xl border border-border/50 bg-card/50 p-4",
           className
         )}
       >
@@ -98,7 +99,7 @@ export function TierProgressCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       className={cn(
-        "rounded-xl border border-border/50 bg-gradient-to-br from-card/80 to-card/40 p-4 space-y-3",
+        "panel-highlight rounded-xl border border-border/50 bg-gradient-to-br from-card/80 to-card/40 p-4 space-y-3",
         className
       )}
     >
@@ -109,6 +110,10 @@ export function TierProgressCard({
             <TrendingUp className="h-4 w-4 text-primary" />
           </div>
           <span className="font-semibold text-sm">Tier Progress</span>
+          <SectionHelpTip
+            title="Tier Progress"
+            body="Shows your current compensation tier, progress to the next tier threshold, and the incremental upside if you reach it."
+          />
         </div>
         {current_tier && (
           <div className="text-xs text-muted-foreground">
