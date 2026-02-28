@@ -836,9 +836,6 @@ export function PlannerExperiencePreview({
                       : `Saving ${selectedMemberName || "this team member"} target does not change team defaults.`
                     : "Saving replaces your previous saved plan."}
                 </p>
-                <p className="text-xs text-amber-300">
-                  Preview mode: this save is local to your current session and is not yet synced to production targets.
-                </p>
                 <div className="text-sm text-muted-foreground">
                   {formatPresetSummary({
                     name: activeContextLabel,
