@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
@@ -45,6 +45,7 @@ interface StaffGoal {
   avgPoliciesPerHousehold: number;
   avgValuePerItem: number;
 }
+type SavedGoalContext = "staff" | "team_default" | "personal_override";
 
 const DEFAULT_GOAL: StaffGoal = {
   name: "Last Saved",
@@ -153,9 +154,9 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
   const [avgPoliciesPerHousehold, setAvgPoliciesPerHousehold] = useState(agencyDefaults.avgPoliciesPerHousehold);
   const [avgValuePerItem, setAvgValuePerItem] = useState(agencyDefaults.avgValuePerItem);
   const [lastSavedGoal, setLastSavedGoal] = useState<StaffGoal>(DEFAULT_GOAL);
+  const [lastSavedContext, setLastSavedContext] = useState<SavedGoalContext>(isManager ? "team_default" : "staff");
 
   const estimatedCommissionRate = 0.16;
-  const actualQuotedHHPerDay = 5;
   const periodOptions = useMemo(() => {
     const thisWeek = getWeekRange(simulatedDate, 0);
     const lastWeek = getWeekRange(simulatedDate, -1);
@@ -196,11 +197,34 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
   const bizRemaining = Math.max(1, bizTotal - bizElapsed);
 
   const viewingTeam = isManager && viewAs === "team";
-  const teamFactor = viewingTeam ? 4 : 1;
   const selectedMemberName =
     !viewingTeam && isManager
       ? teamMembers.find((m) => m.id === viewAs)?.name || "Team Member"
       : null;
+  const targetItemsMin = viewingTeam ? 20 : 5;
+  const targetItemsMax = viewingTeam ? 500 : 120;
+  const targetCommissionMin = viewingTeam ? 2000 : 500;
+  const targetCommissionMax = viewingTeam ? 75000 : 10000;
+  const actualQuotedHHPerDay = viewingTeam ? 20 : 5;
+
+  useEffect(() => {
+    const clampedItems = clamp(targetItems, targetItemsMin, targetItemsMax);
+    if (clampedItems !== targetItems) {
+      setTargetItems(clampedItems);
+    }
+    const clampedCommission = clamp(targetCommission, targetCommissionMin, targetCommissionMax);
+    if (clampedCommission !== targetCommission) {
+      setTargetCommission(clampedCommission);
+    }
+  }, [
+    viewingTeam,
+    targetItems,
+    targetCommission,
+    targetItemsMin,
+    targetItemsMax,
+    targetCommissionMin,
+    targetCommissionMax,
+  ]);
 
   const derived = useMemo(() => {
     const effectiveItemsTarget = mode === "commission"
@@ -232,18 +256,19 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
     avgPoliciesPerHousehold,
     avgValuePerItem,
     bizRemaining,
+    actualQuotedHHPerDay,
   ]);
 
-  const requiredPerDay = derived.quotedHouseholdsPerDay * teamFactor;
+  const requiredPerDay = derived.quotedHouseholdsPerDay;
   // Preview-only attainment model must be range-driven (not selector-driven),
   // so the same date range always renders the same percentages.
   const mockAttainmentRate = isPastPeriod ? 0.88 : isFuturePeriod ? 0.2 : 0.46;
   // The plan target is monthly, so custom/weekly views should pro-rate by business days.
   const periodShare = bizTotal / baseMonthBusinessDays;
-  const targetPeriodQuotedHH = ceilSafe(derived.quotedHouseholdsNeeded * periodShare) * teamFactor;
+  const targetPeriodQuotedHH = ceilSafe(derived.quotedHouseholdsNeeded * periodShare);
   const actualQuotedHHPeriod = Math.round(targetPeriodQuotedHH * mockAttainmentRate);
   const reviewPerDay = ceilSafe(actualQuotedHHPeriod / Math.max(1, bizTotal));
-  const actualPerDay = isPastPeriod ? reviewPerDay : actualQuotedHHPerDay * teamFactor;
+  const actualPerDay = isPastPeriod ? reviewPerDay : actualQuotedHHPerDay;
   const activeRequiredPerDay = isPastPeriod
     ? ceilSafe(targetPeriodQuotedHH / Math.max(1, bizTotal))
     : requiredPerDay;
@@ -256,8 +281,8 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
       ? `Last period closed strong. Keep this same activity mix; target beat by ${periodVariance} quoted households.`
       : `Last period missed by ${Math.abs(periodVariance)} quoted households. Raise quoting pace by +${Math.max(1, ceilSafe(Math.abs(periodVariance) / Math.max(1, bizTotal)))} HH/day this period.`
     : teamPaceDelta >= 0
-      ? `${isManager ? "Team is" : "You are"} on pace. Maintain at least ${activeRequiredPerDay} quoted households/day${isManager ? " across the team" : ""}.`
-      : `Need +${Math.abs(teamPaceDelta)} more quoted households/day${isManager ? " across the team" : ""} to recover pace this period.`;
+      ? `${viewingTeam ? "Team is" : "You are"} on pace. Maintain at least ${activeRequiredPerDay} quoted households/day${viewingTeam ? " across the team" : ""}.`
+      : `Need +${Math.abs(teamPaceDelta)} more quoted households/day${viewingTeam ? " across the team" : ""} to recover pace this period.`;
 
   const quotedPeriodProgress = clamp(
     Math.round((actualQuotedHHPeriod / Math.max(1, targetPeriodQuotedHH)) * 100),
@@ -270,7 +295,7 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
     100
   );
 
-  const onSaveGoal = () => {
+  const onSaveGoal = (context?: SavedGoalContext) => {
     const newPreset: StaffGoal = {
       name: "Last Saved",
       mode,
@@ -282,6 +307,11 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
       avgValuePerItem,
     };
     setLastSavedGoal(newPreset);
+    if (context) {
+      setLastSavedContext(context);
+      return;
+    }
+    setLastSavedContext(isManager ? (viewingTeam ? "team_default" : "personal_override") : "staff");
   };
 
   const onModeChange = (next: string) => {
@@ -529,40 +559,53 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
+                {viewingTeam && (
+                  <p className="text-xs text-muted-foreground">
+                    Team mode uses total team targets for the selected period, not per-person targets.
+                  </p>
+                )}
 
                 {mode === "commission" ? (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span>Monthly Commission Target</span>
+                      <span>{viewingTeam ? "Team Monthly Commission Target" : "Monthly Commission Target"}</span>
                       <span className="font-semibold">${targetCommission.toLocaleString()}</span>
                     </div>
                     <Slider
                       value={[targetCommission]}
-                      min={500}
-                      max={10000}
+                      min={targetCommissionMin}
+                      max={targetCommissionMax}
                       step={100}
                       onValueChange={(v) => {
-                        const nextCommission = clamp(v[0] ?? 2500, 500, 10000);
+                        const nextCommission = clamp(v[0] ?? 2500, targetCommissionMin, targetCommissionMax);
                         setTargetCommission(nextCommission);
-                        setTargetItems(itemsFromCommission(nextCommission, avgValuePerItem, estimatedCommissionRate));
+                        setTargetItems(clamp(
+                          itemsFromCommission(nextCommission, avgValuePerItem, estimatedCommissionRate),
+                          targetItemsMin,
+                          targetItemsMax
+                        ));
                       }}
                     />
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
-                      <span>Items Written Target</span>
+                      <span>{viewingTeam ? "Team Items Written Target" : "Items Written Target"}</span>
                       <span className="font-semibold">{targetItems} / month</span>
                     </div>
                     <Slider
                       value={[targetItems]}
-                      min={5}
-                      max={120}
+                      min={targetItemsMin}
+                      max={targetItemsMax}
                       step={1}
                       onValueChange={(v) => {
-                        const nextItems = clamp(v[0] ?? 17, 5, 120);
+                        const nextItems = clamp(v[0] ?? 17, targetItemsMin, targetItemsMax);
                         setTargetItems(nextItems);
-                        setTargetCommission(commissionFromItems(nextItems, avgValuePerItem, estimatedCommissionRate));
+                        setTargetCommission(clamp(
+                          commissionFromItems(nextItems, avgValuePerItem, estimatedCommissionRate),
+                          targetCommissionMin,
+                          targetCommissionMax
+                        ));
                       }}
                     />
                   </div>
@@ -652,15 +695,32 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
 
               <div className={cn(SUBPANEL, "p-3 space-y-2")}>
                 <div className="flex items-center justify-between">
-                  <p className="font-medium">{isManager ? "Last Saved Team Plan" : "Last Saved Plan"}</p>
+                  <p className="font-medium">
+                    {isManager
+                      ? lastSavedContext === "team_default"
+                        ? "Last Saved Team Default"
+                        : "Last Saved Personal Override"
+                      : "Last Saved Plan"}
+                  </p>
                   <div className="flex items-center gap-2">
-                    {isManager && <Button size="sm" variant="outline" onClick={onSaveGoal}>Save My Override</Button>}
-                    <Button size="sm" onClick={onSaveGoal}>{isManager ? "Save Team Defaults" : "Save Current Goal"}</Button>
+                    {isManager ? (
+                      viewingTeam ? (
+                        <Button size="sm" onClick={() => onSaveGoal("team_default")}>Save Team Defaults</Button>
+                      ) : (
+                        <Button size="sm" onClick={() => onSaveGoal("personal_override")}>
+                          Save {selectedMemberName || "Personal"} Override
+                        </Button>
+                      )
+                    ) : (
+                      <Button size="sm" onClick={() => onSaveGoal("staff")}>Save Current Goal</Button>
+                    )}
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {isManager
-                    ? "Saving team defaults updates what staff sees by default. Personal overrides remain optional."
+                    ? viewingTeam
+                      ? "Saving team defaults updates what staff sees by default."
+                      : `Saving ${selectedMemberName || "this team member"} override does not change team defaults.`
                     : "Saving replaces your previous saved plan."}
                 </p>
                 <div className="text-sm text-muted-foreground">
