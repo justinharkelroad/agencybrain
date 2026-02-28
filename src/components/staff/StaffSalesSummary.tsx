@@ -156,6 +156,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false,
   const { sessionToken, user } = useStaffAuth();
   const effectiveRole = getEffectiveRoleFromTeamMember(user?.role);
   const isManager = effectiveRole === "manager" || effectiveRole === "owner" || effectiveRole === "admin";
+  const managerViewLabel = effectiveRole === "owner" ? "Owner View" : "Manager View";
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [viewMode, setViewMode] = useState<"personal" | "team">("personal");
@@ -787,7 +788,11 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false,
               No compensation tier data available yet.
             </div>
           )}
-          <PlannerExperiencePreview isManager={isManager} teamMembers={teamMembers} />
+          <PlannerExperiencePreview
+            isManager={isManager}
+            teamMembers={teamMembers}
+            managerViewLabel={managerViewLabel}
+          />
         </div>
       )}
 

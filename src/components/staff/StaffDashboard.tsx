@@ -130,6 +130,7 @@ export function StaffDashboard() {
 
   const effectiveRole = getEffectiveRoleFromTeamMember(user?.role);
   const isManager = effectiveRole === 'manager' || effectiveRole === 'owner' || effectiveRole === 'admin';
+  const managerViewLabel = effectiveRole === 'owner' ? 'Owner View' : 'Manager View';
   const previousBusinessDay = getPreviousBusinessDay();
   const previousBusinessDayStr = format(previousBusinessDay, 'yyyy-MM-dd');
   const displayDate = format(previousBusinessDay, 'EEEE, MMMM d');
@@ -311,7 +312,11 @@ export function StaffDashboard() {
 
       {/* Fallback: always show Household Focus in staff portal even if sales widget is gated */}
       {user?.agency_id && !hasSalesAccess(user.agency_id) && (
-        <PlannerExperiencePreview isManager={isManager} teamMembers={teamMembers} />
+        <PlannerExperiencePreview
+          isManager={isManager}
+          teamMembers={teamMembers}
+          managerViewLabel={managerViewLabel}
+        />
       )}
 
       {/* RingCentral call rings (same agency toggle behavior as owner dashboard) */}

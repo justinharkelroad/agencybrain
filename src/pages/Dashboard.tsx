@@ -237,7 +237,11 @@ const Dashboard = () => {
                       <SalesDashboardWidget agencyId={agencyId} />
                       {(isAgencyOwner || isKeyEmployee) && (
                         <div className="mt-6">
-                          <PlannerExperiencePreview isManager teamMembers={teamMembers} />
+                          <PlannerExperiencePreview
+                            isManager
+                            teamMembers={teamMembers}
+                            managerViewLabel={isAgencyOwner ? "Owner View" : "Manager View"}
+                          />
                         </div>
                       )}
                     </AccordionContent>
@@ -339,7 +343,13 @@ const Dashboard = () => {
             <>
               {/* Original flat layout for non-redesign agencies */}
               {(isAdmin || hasSalesAccess(agencyId)) && <SalesDashboardWidget agencyId={agencyId} />}
-              {(isAgencyOwner || isKeyEmployee) && <PlannerExperiencePreview isManager teamMembers={teamMembers} />}
+              {(isAgencyOwner || isKeyEmployee) && (
+                <PlannerExperiencePreview
+                  isManager
+                  teamMembers={teamMembers}
+                  managerViewLabel={isAgencyOwner ? "Owner View" : "Manager View"}
+                />
+              )}
               <Core4Card />
               {(isAgencyOwner || isKeyEmployee) && <TeamCore4Overview />}
               {canViewPerformanceMetrics && <PerformanceMetrics />}

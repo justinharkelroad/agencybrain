@@ -23,8 +23,6 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Calendar, ChevronRight, CircleHelp, Sparkles, Target } from "lucide-react";
-import { useStaffAuth } from "@/hooks/useStaffAuth";
-import { getEffectiveRoleFromTeamMember } from "@/utils/permissions";
 
 type GoalMode = "commission" | "items";
 type PlannerStep = "plan" | "confidence";
@@ -35,6 +33,7 @@ const SUBPANEL = "panel-highlight rounded-lg border border-border/50 bg-card/50"
 interface PlannerExperiencePreviewProps {
   isManager?: boolean;
   teamMembers?: Array<{ id: string; name: string }>;
+  managerViewLabel?: "Manager View" | "Owner View";
 }
 
 interface StaffGoal {
@@ -129,9 +128,11 @@ function fromDateInputValue(value: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }: PlannerExperiencePreviewProps) {
-  const { user } = useStaffAuth();
-  const effectiveRole = getEffectiveRoleFromTeamMember(user?.role);
+export function PlannerExperiencePreview({
+  isManager = false,
+  teamMembers = [],
+  managerViewLabel = "Manager View",
+}: PlannerExperiencePreviewProps) {
   const simulatedDate = useMemo(() => new Date(new Date().getFullYear(), 2, 1), []); // March 1 local year for full-month testing
 
   // Local simulation state
@@ -225,7 +226,6 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
   const targetCommissionMin = viewingTeam ? 2000 : 500;
   const targetCommissionMax = viewingTeam ? 75000 : memberCommissionMax;
   const actualQuotedHHPerDay = viewingTeam ? 20 : 5;
-  const managerBadgeLabel = effectiveRole === "owner" ? "Owner View" : "Manager View";
   const managerActionLabel = viewingTeam
     ? "Adjust Team Targets"
     : hasMemberOverride
@@ -456,7 +456,7 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
                   <SelectItem value="custom">Custom Range</SelectItem>
                 </SelectContent>
               </Select>
-              {isManager && <Badge variant="secondary">{managerBadgeLabel}</Badge>}
+              {isManager && <Badge variant="secondary">{managerViewLabel}</Badge>}
               <Button
                 size="sm"
                 className="whitespace-nowrap"
