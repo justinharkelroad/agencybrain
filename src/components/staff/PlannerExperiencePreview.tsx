@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { AlertTriangle, Calendar, ChevronRight, CircleHelp, Sparkles, Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
+import { toast } from "sonner";
 
 type GoalMode = "commission" | "items";
 type PlannerStep = "plan" | "confidence";
@@ -184,6 +185,7 @@ export function PlannerExperiencePreview({
   });
   const [staffPersonalGoal, setStaffPersonalGoal] = useState<StaffGoal>(DEFAULT_GOAL);
   const [memberOverrideGoals, setMemberOverrideGoals] = useState<Record<string, StaffGoal>>({});
+  const [overrideIdsFromServer, setOverrideIdsFromServer] = useState<string[]>([]);
   const [isHydratingTargets, setIsHydratingTargets] = useState(false);
   const [isSavingTargets, setIsSavingTargets] = useState(false);
   const [currentStaffMemberId, setCurrentStaffMemberId] = useState<string | null>(null);
@@ -226,11 +228,20 @@ export function PlannerExperiencePreview({
       : countBusinessDaysInRange(periodStart, simulatedDay);
   const bizRemaining = Math.max(1, bizTotal - bizElapsed);
 
+  const viewAsOptions = useMemo(() => {
+    const roster = teamMembers.map((m) => ({ id: m.id, name: m.name }));
+    const existing = new Set(roster.map((m) => m.id));
+    const extras = overrideIdsFromServer
+      .filter((id) => !existing.has(id))
+      .map((id) => ({ id, name: `Saved Override (${id.slice(0, 8)})` }));
+    return [...roster, ...extras];
+  }, [teamMembers, overrideIdsFromServer]);
+
   const viewingTeam = isManager && viewAs === "team";
   const isMemberContext = isManager && !viewingTeam && viewAs !== "team";
   const selectedMemberName =
     !viewingTeam && isManager
-      ? teamMembers.find((m) => m.id === viewAs)?.name || "Team Member"
+      ? viewAsOptions.find((m) => m.id === viewAs)?.name || "Team Member"
       : null;
   const hasMemberOverride = isMemberContext ? Boolean(memberOverrideGoals[viewAs]) : false;
   const memberOverrideCount = Object.keys(memberOverrideGoals).length;
@@ -289,6 +300,7 @@ export function PlannerExperiencePreview({
         }
 
         const incomingOverrides = (data.member_overrides || {}) as Record<string, PersistedTargetRow>;
+        setOverrideIdsFromServer(Object.keys(incomingOverrides));
         const mappedOverrides = Object.entries(incomingOverrides).reduce<Record<string, StaffGoal>>((acc, [memberId, row]) => {
           acc[memberId] = rowToGoal(row);
           return acc;
@@ -305,6 +317,7 @@ export function PlannerExperiencePreview({
         }
       } else if (error) {
         console.error("[PlannerExperiencePreview] Failed to load persisted targets:", error);
+        toast.error("Could not load saved household focus targets.");
       }
 
       if (mounted) setIsHydratingTargets(false);
@@ -315,6 +328,13 @@ export function PlannerExperiencePreview({
       mounted = false;
     };
   }, [sessionToken, isManager, user?.team_member_id, invokeOptions, rowToGoal]);
+
+  useEffect(() => {
+    if (!isManager) return;
+    if (viewAs === "team") return;
+    const exists = viewAsOptions.some((m) => m.id === viewAs);
+    if (!exists) setViewAs("team");
+  }, [isManager, viewAs, viewAsOptions]);
 
   useEffect(() => {
     const activeGoal: StaffGoal = isManager
@@ -471,20 +491,25 @@ export function PlannerExperiencePreview({
 
         if (error || !data?.success) {
           console.error("[PlannerExperiencePreview] Failed to persist manager target:", error || data?.error);
+          toast.error("Save failed. No target changes were saved.");
           setIsSavingTargets(false);
           return;
         }
 
         if (viewingTeam) {
           setTeamDefaultGoal(newPreset);
+          toast.success("Team default target saved.");
         } else if (viewAs !== "team") {
           setMemberOverrideGoals((prev) => ({ ...prev, [viewAs]: newPreset }));
+          setOverrideIdsFromServer((prev) => (prev.includes(viewAs) ? prev : [...prev, viewAs]));
+          toast.success(`${selectedMemberName || "Member"} target saved.`);
         }
       } else {
         // Staff can only save personal target for their own member scope.
         const staffMemberId = currentStaffMemberId || user?.team_member_id;
         if (!staffMemberId) {
           console.error("[PlannerExperiencePreview] Missing staff member id for personal save");
+          toast.error("Save failed. Your account is not linked to a team member.");
           setIsSavingTargets(false);
           return;
         }
@@ -506,11 +531,13 @@ export function PlannerExperiencePreview({
 
         if (error || !data?.success) {
           console.error("[PlannerExperiencePreview] Failed to persist staff target:", error || data?.error);
+          toast.error("Save failed. No target changes were saved.");
           setIsSavingTargets(false);
           return;
         }
 
         setStaffPersonalGoal(newPreset);
+        toast.success("Your target saved.");
       }
 
       setIsSavingTargets(false);
@@ -532,6 +559,7 @@ export function PlannerExperiencePreview({
 
       if (error || !data?.success) {
         console.error("[PlannerExperiencePreview] Failed to reset member target:", error || data?.error);
+        toast.error("Reset failed. Member target was not changed.");
         setIsSavingTargets(false);
         return;
       }
@@ -541,6 +569,8 @@ export function PlannerExperiencePreview({
         delete next[viewAs];
         return next;
       });
+      setOverrideIdsFromServer((prev) => prev.filter((id) => id !== viewAs));
+      toast.success(`${selectedMemberName || "Member"} now uses team default.`);
       setIsSavingTargets(false);
       setOpen(false);
       setStep("plan");
@@ -663,7 +693,7 @@ export function PlannerExperiencePreview({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="team">Entire Team</SelectItem>
-                    {teamMembers.map((member) => (
+                    {viewAsOptions.map((member) => (
                       <SelectItem key={member.id} value={member.id}>
                         {member.name}
                       </SelectItem>

@@ -548,3 +548,6 @@ verify_jwt = false
 
 [functions.parse_termination_query]
 verify_jwt = false
+
+[functions.household_focus_targets]
+verify_jwt = false
