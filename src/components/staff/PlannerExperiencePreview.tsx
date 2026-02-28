@@ -45,7 +45,6 @@ interface StaffGoal {
   avgPoliciesPerHousehold: number;
   avgValuePerItem: number;
 }
-type SavedGoalContext = "staff" | "team_default" | "personal_override";
 
 const DEFAULT_GOAL: StaffGoal = {
   name: "Last Saved",
@@ -133,6 +132,7 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
 
   // Local simulation state
   const hasCompPlan = true;
+  const estimatedCommissionRate = 0.16;
 
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<PlannerStep>("plan");
@@ -153,10 +153,18 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
   const [avgItemsPerHousehold, setAvgItemsPerHousehold] = useState(agencyDefaults.avgItemsPerHousehold);
   const [avgPoliciesPerHousehold, setAvgPoliciesPerHousehold] = useState(agencyDefaults.avgPoliciesPerHousehold);
   const [avgValuePerItem, setAvgValuePerItem] = useState(agencyDefaults.avgValuePerItem);
-  const [lastSavedGoal, setLastSavedGoal] = useState<StaffGoal>(DEFAULT_GOAL);
-  const [lastSavedContext, setLastSavedContext] = useState<SavedGoalContext>(isManager ? "team_default" : "staff");
-
-  const estimatedCommissionRate = 0.16;
+  const [teamDefaultGoal, setTeamDefaultGoal] = useState<StaffGoal>({
+    ...DEFAULT_GOAL,
+    mode: "items",
+    targetItems: 120,
+    targetCommission: commissionFromItems(120, agencyDefaults.avgValuePerItem, estimatedCommissionRate),
+    closeRate: agencyDefaults.closeRate,
+    avgItemsPerHousehold: agencyDefaults.avgItemsPerHousehold,
+    avgPoliciesPerHousehold: agencyDefaults.avgPoliciesPerHousehold,
+    avgValuePerItem: agencyDefaults.avgValuePerItem,
+  });
+  const [staffPersonalGoal, setStaffPersonalGoal] = useState<StaffGoal>(DEFAULT_GOAL);
+  const [memberOverrideGoals, setMemberOverrideGoals] = useState<Record<string, StaffGoal>>({});
   const periodOptions = useMemo(() => {
     const thisWeek = getWeekRange(simulatedDate, 0);
     const lastWeek = getWeekRange(simulatedDate, -1);
@@ -197,15 +205,62 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
   const bizRemaining = Math.max(1, bizTotal - bizElapsed);
 
   const viewingTeam = isManager && viewAs === "team";
+  const isMemberContext = isManager && !viewingTeam && viewAs !== "team";
   const selectedMemberName =
     !viewingTeam && isManager
       ? teamMembers.find((m) => m.id === viewAs)?.name || "Team Member"
       : null;
+  const hasMemberOverride = isMemberContext ? Boolean(memberOverrideGoals[viewAs]) : false;
+  const memberItemsMax = Math.max(120, teamDefaultGoal.targetItems);
+  const memberCommissionMax = Math.max(
+    10000,
+    commissionFromItems(memberItemsMax, agencyDefaults.avgValuePerItem, estimatedCommissionRate)
+  );
   const targetItemsMin = viewingTeam ? 20 : 5;
-  const targetItemsMax = viewingTeam ? 500 : 120;
+  const targetItemsMax = viewingTeam ? 500 : memberItemsMax;
   const targetCommissionMin = viewingTeam ? 2000 : 500;
-  const targetCommissionMax = viewingTeam ? 75000 : 10000;
+  const targetCommissionMax = viewingTeam ? 75000 : memberCommissionMax;
   const actualQuotedHHPerDay = viewingTeam ? 20 : 5;
+  const activeContextLabel = isManager
+    ? viewingTeam
+      ? "Team Default Target"
+      : hasMemberOverride
+        ? `${selectedMemberName || "Team Member"} Custom Target`
+        : `${selectedMemberName || "Team Member"} Target (Inherited)`
+    : "My Saved Target";
+
+  useEffect(() => {
+    const activeGoal: StaffGoal = isManager
+      ? viewingTeam
+        ? teamDefaultGoal
+        : memberOverrideGoals[viewAs] ?? {
+            ...teamDefaultGoal,
+            name: `${selectedMemberName || "Team Member"} Target`,
+          }
+      : staffPersonalGoal;
+
+    setMode(activeGoal.mode);
+    setTargetItems(activeGoal.targetItems);
+    setTargetCommission(
+      activeGoal.targetCommission || commissionFromItems(
+        activeGoal.targetItems,
+        activeGoal.avgValuePerItem,
+        estimatedCommissionRate
+      )
+    );
+    setCloseRate(activeGoal.closeRate);
+    setAvgItemsPerHousehold(activeGoal.avgItemsPerHousehold);
+    setAvgPoliciesPerHousehold(activeGoal.avgPoliciesPerHousehold);
+    setAvgValuePerItem(activeGoal.avgValuePerItem);
+  }, [
+    isManager,
+    viewingTeam,
+    viewAs,
+    selectedMemberName,
+    teamDefaultGoal,
+    memberOverrideGoals,
+    staffPersonalGoal,
+  ]);
 
   useEffect(() => {
     const clampedItems = clamp(targetItems, targetItemsMin, targetItemsMax);
@@ -295,23 +350,35 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
     100
   );
 
-  const onSaveGoal = (context?: SavedGoalContext) => {
+  const onSaveGoal = () => {
     const newPreset: StaffGoal = {
       name: "Last Saved",
       mode,
-      targetCommission: mode === "commission" ? targetCommission : 0,
+      targetCommission,
       targetItems: derived.itemsTarget,
       closeRate,
       avgItemsPerHousehold,
       avgPoliciesPerHousehold,
       avgValuePerItem,
     };
-    setLastSavedGoal(newPreset);
-    if (context) {
-      setLastSavedContext(context);
+    if (isManager) {
+      if (viewingTeam) {
+        setTeamDefaultGoal(newPreset);
+      } else if (viewAs !== "team") {
+        setMemberOverrideGoals((prev) => ({ ...prev, [viewAs]: newPreset }));
+      }
       return;
     }
-    setLastSavedContext(isManager ? (viewingTeam ? "team_default" : "personal_override") : "staff");
+    setStaffPersonalGoal(newPreset);
+  };
+
+  const onResetMemberTarget = () => {
+    if (!isMemberContext) return;
+    setMemberOverrideGoals((prev) => {
+      const next = { ...prev };
+      delete next[viewAs];
+      return next;
+    });
   };
 
   const onModeChange = (next: string) => {
@@ -333,6 +400,11 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
                       : `${selectedMemberName} Household Focus`
                     : "Household Focus"}
                 </CardTitle>
+                {isManager && (
+                  <Badge variant="outline">
+                    {viewingTeam ? "Team Default" : hasMemberOverride ? "Custom Member Target" : "Inherited Team Default"}
+                  </Badge>
+                )}
                 <TooltipProvider delayDuration={150}>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -380,7 +452,11 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
                 {isManager ? (
                   <>
                     <span className="sm:hidden">Adjust</span>
-                    <span className="hidden sm:inline">Adjust Team Targets</span>
+                    <span className="hidden sm:inline">
+                      {viewingTeam
+                        ? "Adjust Team Targets"
+                        : `Adjust ${selectedMemberName || "Member"} Target`}
+                    </span>
                   </>
                 ) : (
                   "Adjust Targets"
@@ -470,7 +546,11 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
-              {isManager ? "Team Household Focus" : "Household Focus"}
+              {isManager
+                ? viewingTeam
+                  ? "Team Household Focus"
+                  : `${selectedMemberName || "Team Member"} Household Focus`
+                : "Household Focus"}
             </DialogTitle>
             <DialogDescription>
               {step === "plan" ? "Step 1: Set your target and assumptions." : "Step 2: Review confidence and next best action."}
@@ -564,6 +644,16 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
                     Team mode uses total team targets for the selected period, not per-person targets.
                   </p>
                 )}
+                {isManager && !viewingTeam && (
+                  <p className="text-xs text-muted-foreground">
+                    Member mode uses per-person targets for {selectedMemberName || "this team member"}.
+                  </p>
+                )}
+                {isManager && !viewingTeam && !hasMemberOverride && (
+                  <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-xs text-muted-foreground">
+                    {selectedMemberName || "This team member"} is currently inheriting team defaults. Saving here creates a member-specific target.
+                  </div>
+                )}
 
                 {mode === "commission" ? (
                   <div className="space-y-2">
@@ -608,6 +698,11 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
                         ));
                       }}
                     />
+                    {!viewingTeam && (
+                      <p className="text-[11px] text-muted-foreground">
+                        Per-person max auto-scales with team default (current max: {targetItemsMax}).
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -695,24 +790,25 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
 
               <div className={cn(SUBPANEL, "p-3 space-y-2")}>
                 <div className="flex items-center justify-between">
-                  <p className="font-medium">
-                    {isManager
-                      ? lastSavedContext === "team_default"
-                        ? "Last Saved Team Default"
-                        : "Last Saved Personal Override"
-                      : "Last Saved Plan"}
-                  </p>
+                  <p className="font-medium">{activeContextLabel}</p>
                   <div className="flex items-center gap-2">
                     {isManager ? (
                       viewingTeam ? (
-                        <Button size="sm" onClick={() => onSaveGoal("team_default")}>Save Team Defaults</Button>
+                        <Button size="sm" onClick={onSaveGoal}>Save Team Defaults</Button>
                       ) : (
-                        <Button size="sm" onClick={() => onSaveGoal("personal_override")}>
-                          Save {selectedMemberName || "Personal"} Override
-                        </Button>
+                        <>
+                          {hasMemberOverride && (
+                            <Button size="sm" variant="outline" onClick={onResetMemberTarget}>
+                              Use Team Default
+                            </Button>
+                          )}
+                          <Button size="sm" onClick={onSaveGoal}>
+                            Save {selectedMemberName || "Member"} Target
+                          </Button>
+                        </>
                       )
                     ) : (
-                      <Button size="sm" onClick={() => onSaveGoal("staff")}>Save Current Goal</Button>
+                      <Button size="sm" onClick={onSaveGoal}>Save Current Goal</Button>
                     )}
                   </div>
                 </div>
@@ -720,11 +816,23 @@ export function PlannerExperiencePreview({ isManager = false, teamMembers = [] }
                   {isManager
                     ? viewingTeam
                       ? "Saving team defaults updates what staff sees by default."
-                      : `Saving ${selectedMemberName || "this team member"} override does not change team defaults.`
+                      : `Saving ${selectedMemberName || "this team member"} target does not change team defaults.`
                     : "Saving replaces your previous saved plan."}
                 </p>
+                <p className="text-xs text-amber-300">
+                  Preview mode: this save is local to your current session and is not yet synced to production targets.
+                </p>
                 <div className="text-sm text-muted-foreground">
-                  {formatPresetSummary(lastSavedGoal)}
+                  {formatPresetSummary({
+                    name: activeContextLabel,
+                    mode,
+                    targetCommission,
+                    targetItems: derived.itemsTarget,
+                    closeRate,
+                    avgItemsPerHousehold,
+                    avgPoliciesPerHousehold,
+                    avgValuePerItem,
+                  })}
                 </div>
               </div>
             </div>
