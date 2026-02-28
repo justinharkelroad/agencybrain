@@ -240,7 +240,7 @@ const Dashboard = () => {
                           <PlannerExperiencePreview
                             isManager
                             teamMembers={teamMembers}
-                            managerViewLabel={isAgencyOwner ? "Owner View" : "Manager View"}
+                            managerViewLabel="Leadership View"
                           />
                         </div>
                       )}
@@ -347,7 +347,7 @@ const Dashboard = () => {
                 <PlannerExperiencePreview
                   isManager
                   teamMembers={teamMembers}
-                  managerViewLabel={isAgencyOwner ? "Owner View" : "Manager View"}
+                  managerViewLabel="Leadership View"
                 />
               )}
               <Core4Card />

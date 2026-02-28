@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Calendar, ChevronRight, CircleHelp, Sparkles, Target } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useStaffAuth } from "@/hooks/useStaffAuth";
 
 type GoalMode = "commission" | "items";
 type PlannerStep = "plan" | "confidence";
@@ -33,7 +35,7 @@ const SUBPANEL = "panel-highlight rounded-lg border border-border/50 bg-card/50"
 interface PlannerExperiencePreviewProps {
   isManager?: boolean;
   teamMembers?: Array<{ id: string; name: string }>;
-  managerViewLabel?: "Manager View" | "Owner View";
+  managerViewLabel?: string;
 }
 
 interface StaffGoal {
@@ -45,6 +47,17 @@ interface StaffGoal {
   avgItemsPerHousehold: number;
   avgPoliciesPerHousehold: number;
   avgValuePerItem: number;
+}
+
+interface PersistedTargetRow {
+  team_member_id: string | null;
+  mode: GoalMode;
+  target_items: number;
+  target_commission: number;
+  close_rate: number;
+  avg_items_per_household: number;
+  avg_policies_per_household: number;
+  avg_value_per_item: number;
 }
 
 const DEFAULT_GOAL: StaffGoal = {
@@ -131,8 +144,9 @@ function fromDateInputValue(value: string): Date | null {
 export function PlannerExperiencePreview({
   isManager = false,
   teamMembers = [],
-  managerViewLabel = "Manager View",
+  managerViewLabel = "Leadership View",
 }: PlannerExperiencePreviewProps) {
+  const { sessionToken, user } = useStaffAuth();
   const simulatedDate = useMemo(() => new Date(new Date().getFullYear(), 2, 1), []); // March 1 local year for full-month testing
 
   // Local simulation state
@@ -170,6 +184,9 @@ export function PlannerExperiencePreview({
   });
   const [staffPersonalGoal, setStaffPersonalGoal] = useState<StaffGoal>(DEFAULT_GOAL);
   const [memberOverrideGoals, setMemberOverrideGoals] = useState<Record<string, StaffGoal>>({});
+  const [isHydratingTargets, setIsHydratingTargets] = useState(false);
+  const [isSavingTargets, setIsSavingTargets] = useState(false);
+  const [currentStaffMemberId, setCurrentStaffMemberId] = useState<string | null>(null);
   const periodOptions = useMemo(() => {
     const thisWeek = getWeekRange(simulatedDate, 0);
     const lastWeek = getWeekRange(simulatedDate, -1);
@@ -238,6 +255,65 @@ export function PlannerExperiencePreview({
         ? `${selectedMemberName || "Team Member"} Custom Target`
         : `${selectedMemberName || "Team Member"} Target (Inherited)`
     : "My Saved Target";
+
+  const invokeOptions = useMemo(() => (
+    sessionToken ? { headers: { "x-staff-session": sessionToken } } : {}
+  ), [sessionToken]);
+
+  const rowToGoal = useCallback((row: PersistedTargetRow): StaffGoal => ({
+    name: row.team_member_id ? "Member Target" : "Team Default",
+    mode: row.mode === "commission" ? "commission" : "items",
+    targetItems: Math.max(1, Math.round(row.target_items || 0)),
+    targetCommission: Math.max(0, Math.round(row.target_commission || 0)),
+    closeRate: Number(row.close_rate || agencyDefaults.closeRate),
+    avgItemsPerHousehold: Number(row.avg_items_per_household || agencyDefaults.avgItemsPerHousehold),
+    avgPoliciesPerHousehold: Number(row.avg_policies_per_household || agencyDefaults.avgPoliciesPerHousehold),
+    avgValuePerItem: Math.max(0, Math.round(row.avg_value_per_item || agencyDefaults.avgValuePerItem)),
+  }), [agencyDefaults]);
+
+  useEffect(() => {
+    let mounted = true;
+    const hydrateTargets = async () => {
+      setIsHydratingTargets(true);
+      const { data, error } = await supabase.functions.invoke("household_focus_targets", {
+        body: { action: "get" },
+        ...invokeOptions,
+      });
+
+      if (mounted && !error && data?.success) {
+        const teamDefaultRow = (data.team_default as PersistedTargetRow | null) ?? null;
+        setCurrentStaffMemberId((data.current_member_id as string | null) ?? user?.team_member_id ?? null);
+        if (teamDefaultRow) {
+          setTeamDefaultGoal(rowToGoal(teamDefaultRow));
+        }
+
+        const incomingOverrides = (data.member_overrides || {}) as Record<string, PersistedTargetRow>;
+        const mappedOverrides = Object.entries(incomingOverrides).reduce<Record<string, StaffGoal>>((acc, [memberId, row]) => {
+          acc[memberId] = rowToGoal(row);
+          return acc;
+        }, {});
+        setMemberOverrideGoals(mappedOverrides);
+
+        if (!isManager) {
+          const currentMemberOverride = (data.current_member_override as PersistedTargetRow | null) ?? null;
+          if (currentMemberOverride) {
+            setStaffPersonalGoal(rowToGoal(currentMemberOverride));
+          } else if (teamDefaultRow) {
+            setStaffPersonalGoal(rowToGoal(teamDefaultRow));
+          }
+        }
+      } else if (error) {
+        console.error("[PlannerExperiencePreview] Failed to load persisted targets:", error);
+      }
+
+      if (mounted) setIsHydratingTargets(false);
+    };
+
+    hydrateTargets();
+    return () => {
+      mounted = false;
+    };
+  }, [sessionToken, isManager, user?.team_member_id, invokeOptions, rowToGoal]);
 
   useEffect(() => {
     const activeGoal: StaffGoal = isManager
@@ -371,30 +447,105 @@ export function PlannerExperiencePreview({
       avgPoliciesPerHousehold,
       avgValuePerItem,
     };
-    if (isManager) {
-      if (viewingTeam) {
-        setTeamDefaultGoal(newPreset);
-      } else if (viewAs !== "team") {
-        setMemberOverrideGoals((prev) => ({ ...prev, [viewAs]: newPreset }));
+
+    const doSave = async () => {
+      setIsSavingTargets(true);
+      if (isManager) {
+        const payload = {
+          mode,
+          target_items: newPreset.targetItems,
+          target_commission: newPreset.targetCommission,
+          close_rate: newPreset.closeRate,
+          avg_items_per_household: newPreset.avgItemsPerHousehold,
+          avg_policies_per_household: newPreset.avgPoliciesPerHousehold,
+          avg_value_per_item: newPreset.avgValuePerItem,
+        };
+
+        const { data, error } = await supabase.functions.invoke("household_focus_targets", {
+          body: viewingTeam
+            ? { action: "save", scope: "team_default", target: payload }
+            : { action: "save", scope: "member", team_member_id: viewAs, target: payload },
+          ...invokeOptions,
+        });
+
+        if (error || !data?.success) {
+          console.error("[PlannerExperiencePreview] Failed to persist manager target:", error || data?.error);
+          setIsSavingTargets(false);
+          return;
+        }
+
+        if (viewingTeam) {
+          setTeamDefaultGoal(newPreset);
+        } else if (viewAs !== "team") {
+          setMemberOverrideGoals((prev) => ({ ...prev, [viewAs]: newPreset }));
+        }
+      } else {
+        // Staff can only save personal target for their own member scope.
+        const staffMemberId = currentStaffMemberId || user?.team_member_id;
+        if (!staffMemberId) {
+          console.error("[PlannerExperiencePreview] Missing staff member id for personal save");
+          setIsSavingTargets(false);
+          return;
+        }
+
+        const payload = {
+          mode,
+          target_items: newPreset.targetItems,
+          target_commission: newPreset.targetCommission,
+          close_rate: newPreset.closeRate,
+          avg_items_per_household: newPreset.avgItemsPerHousehold,
+          avg_policies_per_household: newPreset.avgPoliciesPerHousehold,
+          avg_value_per_item: newPreset.avgValuePerItem,
+        };
+
+        const { data, error } = await supabase.functions.invoke("household_focus_targets", {
+          body: { action: "save", scope: "member", team_member_id: staffMemberId, target: payload },
+          ...invokeOptions,
+        });
+
+        if (error || !data?.success) {
+          console.error("[PlannerExperiencePreview] Failed to persist staff target:", error || data?.error);
+          setIsSavingTargets(false);
+          return;
+        }
+
+        setStaffPersonalGoal(newPreset);
       }
+
+      setIsSavingTargets(false);
       setOpen(false);
       setStep("plan");
-      return;
-    }
-    setStaffPersonalGoal(newPreset);
-    setOpen(false);
-    setStep("plan");
+    };
+
+    void doSave();
   };
 
   const onResetMemberTarget = () => {
     if (!isMemberContext) return;
-    setMemberOverrideGoals((prev) => {
-      const next = { ...prev };
-      delete next[viewAs];
-      return next;
-    });
-    setOpen(false);
-    setStep("plan");
+    const doReset = async () => {
+      setIsSavingTargets(true);
+      const { data, error } = await supabase.functions.invoke("household_focus_targets", {
+        body: { action: "reset_member", team_member_id: viewAs },
+        ...invokeOptions,
+      });
+
+      if (error || !data?.success) {
+        console.error("[PlannerExperiencePreview] Failed to reset member target:", error || data?.error);
+        setIsSavingTargets(false);
+        return;
+      }
+
+      setMemberOverrideGoals((prev) => {
+        const next = { ...prev };
+        delete next[viewAs];
+        return next;
+      });
+      setIsSavingTargets(false);
+      setOpen(false);
+      setStep("plan");
+    };
+
+    void doReset();
   };
 
   const onModeChange = (next: string) => {
@@ -811,21 +962,30 @@ export function PlannerExperiencePreview({
                   <div className="flex items-center gap-2">
                     {isManager ? (
                       viewingTeam ? (
-                        <Button size="sm" onClick={onSaveGoal}>Save Team Defaults</Button>
+                        <Button size="sm" onClick={onSaveGoal} disabled={isSavingTargets || isHydratingTargets}>
+                          {isSavingTargets ? "Saving..." : "Save Team Defaults"}
+                        </Button>
                       ) : (
                         <>
                           {hasMemberOverride && (
-                            <Button size="sm" variant="outline" onClick={onResetMemberTarget}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={onResetMemberTarget}
+                              disabled={isSavingTargets || isHydratingTargets}
+                            >
                               Use Team Default
                             </Button>
                           )}
-                          <Button size="sm" onClick={onSaveGoal}>
-                            Save {selectedMemberName || "Member"} Target
+                          <Button size="sm" onClick={onSaveGoal} disabled={isSavingTargets || isHydratingTargets}>
+                            {isSavingTargets ? "Saving..." : `Save ${selectedMemberName || "Member"} Target`}
                           </Button>
                         </>
                       )
                     ) : (
-                      <Button size="sm" onClick={onSaveGoal}>Save Current Goal</Button>
+                      <Button size="sm" onClick={onSaveGoal} disabled={isSavingTargets || isHydratingTargets}>
+                        {isSavingTargets ? "Saving..." : "Save Current Goal"}
+                      </Button>
                     )}
                   </div>
                 </div>

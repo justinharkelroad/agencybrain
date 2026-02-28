@@ -156,7 +156,7 @@ export function StaffSalesSummary({ agencyId, teamMemberId, showViewAll = false,
   const { sessionToken, user } = useStaffAuth();
   const effectiveRole = getEffectiveRoleFromTeamMember(user?.role);
   const isManager = effectiveRole === "manager" || effectiveRole === "owner" || effectiveRole === "admin";
-  const managerViewLabel = effectiveRole === "owner" ? "Owner View" : "Manager View";
+  const managerViewLabel = "Leadership View";
   const navigate = useNavigate();
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [viewMode, setViewMode] = useState<"personal" | "team">("personal");

@@ -130,7 +130,7 @@ export function StaffDashboard() {
 
   const effectiveRole = getEffectiveRoleFromTeamMember(user?.role);
   const isManager = effectiveRole === 'manager' || effectiveRole === 'owner' || effectiveRole === 'admin';
-  const managerViewLabel = effectiveRole === 'owner' ? 'Owner View' : 'Manager View';
+  const managerViewLabel = 'Leadership View';
   const previousBusinessDay = getPreviousBusinessDay();
   const previousBusinessDayStr = format(previousBusinessDay, 'yyyy-MM-dd');
   const displayDate = format(previousBusinessDay, 'EEEE, MMMM d');
