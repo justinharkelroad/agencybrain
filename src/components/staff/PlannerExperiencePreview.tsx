@@ -1007,7 +1007,7 @@ export function PlannerExperiencePreview({
                     {isManager ? (
                       viewingTeam ? (
                         <Button size="sm" onClick={onSaveGoal} disabled={isSavingTargets || isHydratingTargets}>
-                          {isSavingTargets ? "Saving..." : "Save Team Defaults"}
+                          {isSavingTargets ? "Saving..." : "Save Targets"}
                         </Button>
                       ) : (
                         <>
@@ -1022,13 +1022,13 @@ export function PlannerExperiencePreview({
                             </Button>
                           )}
                           <Button size="sm" onClick={onSaveGoal} disabled={isSavingTargets || isHydratingTargets}>
-                            {isSavingTargets ? "Saving..." : `Save ${selectedMemberName || "Member"} Target`}
+                            {isSavingTargets ? "Saving..." : "Save Targets"}
                           </Button>
                         </>
                       )
                     ) : (
                       <Button size="sm" onClick={onSaveGoal} disabled={isSavingTargets || isHydratingTargets}>
-                        {isSavingTargets ? "Saving..." : "Save Current Goal"}
+                        {isSavingTargets ? "Saving..." : "Save Targets"}
                       </Button>
                     )}
                   </div>
