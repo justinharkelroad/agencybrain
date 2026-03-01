@@ -17,18 +17,16 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Calendar, ChevronRight, CircleHelp, Sparkles, Target } from "lucide-react";
+import { AlertTriangle, Calendar, ChevronRight, CircleHelp, Target } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { toast } from "sonner";
 
 type GoalMode = "commission" | "items";
-type PlannerStep = "plan" | "confidence";
 type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "custom";
 const PANEL = "panel-highlight rounded-xl border border-border/50 bg-gradient-to-br from-card/80 to-card/40";
 const SUBPANEL = "panel-highlight rounded-lg border border-border/50 bg-card/50";
@@ -177,7 +175,6 @@ export function PlannerExperiencePreview({
   const estimatedCommissionRate = 0.16;
 
   const [open, setOpen] = useState(false);
-  const [step, setStep] = useState<PlannerStep>("plan");
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodKey>("this_month");
   const [customStart, setCustomStart] = useState(() => toDateInputValue(new Date(simulatedDate.getFullYear(), simulatedDate.getMonth(), 1)));
   const [customEnd, setCustomEnd] = useState(() => toDateInputValue(new Date(simulatedDate.getFullYear(), simulatedDate.getMonth() + 1, 0)));
@@ -481,17 +478,8 @@ export function PlannerExperiencePreview({
   const activeRequiredPerDay = isPastPeriod
     ? ceilSafe(targetPeriodQuotedHH / Math.max(1, bizTotal))
     : requiredPerDay;
-  const teamPaceDelta = actualPerDay - requiredPerDay;
   const periodVariance = actualQuotedHHPeriod - targetPeriodQuotedHH;
   const periodHitRate = clamp(Math.round((actualQuotedHHPeriod / Math.max(1, targetPeriodQuotedHH)) * 100), 0, 999);
-
-  const nextBestAction = isPastPeriod
-    ? periodVariance >= 0
-      ? `Last period closed strong. Keep this same activity mix; target beat by ${periodVariance} quoted households.`
-      : `Last period missed by ${Math.abs(periodVariance)} quoted households. Raise quoting pace by +${Math.max(1, ceilSafe(Math.abs(periodVariance) / Math.max(1, bizTotal)))} HH/day this period.`
-    : teamPaceDelta >= 0
-      ? `${viewingTeam ? "Team is" : "You are"} on pace. Maintain at least ${activeRequiredPerDay} quoted households/day${viewingTeam ? " across the team" : ""}.`
-      : `Need +${Math.abs(teamPaceDelta)} more quoted households/day${viewingTeam ? " across the team" : ""} to recover pace this period.`;
 
   const quotedPeriodProgress = clamp(
     Math.round((actualQuotedHHPeriod / Math.max(1, targetPeriodQuotedHH)) * 100),
@@ -589,7 +577,6 @@ export function PlannerExperiencePreview({
 
       setIsSavingTargets(false);
       setOpen(false);
-      setStep("plan");
     };
 
     void doSave();
@@ -620,7 +607,6 @@ export function PlannerExperiencePreview({
       toast.success(`${selectedMemberName || "Member"} now uses team default.`);
       setIsSavingTargets(false);
       setOpen(false);
-      setStep("plan");
     };
 
     void doReset();
@@ -691,7 +677,6 @@ export function PlannerExperiencePreview({
                 className="whitespace-nowrap"
                 onClick={() => {
                 setOpen(true);
-                setStep("plan");
               }}
               >
                 {isManager ? (
@@ -803,34 +788,10 @@ export function PlannerExperiencePreview({
                   : `${selectedMemberName || "Team Member"} Household Focus`
                 : "Household Focus"}
             </DialogTitle>
-            <DialogDescription>
-              {step === "plan" ? "Step 1: Set your target and assumptions." : "Step 2: Review confidence and next best action."}
-            </DialogDescription>
+            <DialogDescription>Set your targets and assumptions.</DialogDescription>
           </DialogHeader>
 
-          <div className="flex items-center gap-2">
-            <button
-              className={cn(
-                "px-3 py-1.5 rounded-md text-sm border",
-                step === "plan" ? "bg-primary text-primary-foreground border-primary" : "bg-background"
-              )}
-              onClick={() => setStep("plan")}
-            >
-              1. Today Plan
-            </button>
-            <button
-              className={cn(
-                "px-3 py-1.5 rounded-md text-sm border",
-                step === "confidence" ? "bg-primary text-primary-foreground border-primary" : "bg-background"
-              )}
-              onClick={() => setStep("confidence")}
-            >
-              2. Confidence + Actions
-            </button>
-          </div>
-
-          {step === "plan" ? (
-            <div className="space-y-4">
+          <div className="space-y-4">
               {!hasCompPlan && (
               <div className="rounded-lg border border-amber-300/40 bg-amber-500/10 p-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-amber-700 dark:text-amber-300">
@@ -1093,28 +1054,6 @@ export function PlannerExperiencePreview({
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className={cn(SUBPANEL, "border-primary/30 bg-primary/5 p-4 space-y-2")}>
-                <div className="flex items-center gap-2 text-primary font-medium">
-                  <Sparkles className="h-4 w-4" />
-                  Next Best Action
-                </div>
-                <p>{nextBestAction}</p>
-                <p className="text-sm text-muted-foreground">
-                  Current pace: {actualPerDay} quoted HH/day. Required pace: {activeRequiredPerDay} quoted HH/day.
-                </p>
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            {step === "plan" ? (
-              <Button onClick={() => setStep("confidence")}>Continue to Confidence</Button>
-            ) : (
-              <Button onClick={() => setOpen(false)}>Done</Button>
-            )}
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
