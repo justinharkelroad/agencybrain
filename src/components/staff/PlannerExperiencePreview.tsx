@@ -142,6 +142,28 @@ function fromDateInputValue(value: string): Date | null {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function getErrorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const root = error as Record<string, unknown>;
+
+  const context = root.context;
+  if (context && typeof context === "object") {
+    const contextStatus = (context as Record<string, unknown>).status;
+    if (typeof contextStatus === "number") return contextStatus;
+  }
+
+  const status = root.status;
+  if (typeof status === "number") return status;
+
+  const response = root.response;
+  if (response && typeof response === "object") {
+    const responseStatus = (response as Record<string, unknown>).status;
+    if (typeof responseStatus === "number") return responseStatus;
+  }
+
+  return undefined;
+}
+
 export function PlannerExperiencePreview({
   isManager = false,
   teamMembers = [],
@@ -285,7 +307,7 @@ export function PlannerExperiencePreview({
 
   useEffect(() => {
     let mounted = true;
-    const hydrateTargets = async () => {
+    const hydrateTargets = async (attempt = 0) => {
       setIsHydratingTargets(true);
       // Guard against startup race: in staff mode, token may not be hydrated yet.
       // Do not call the edge function until we have a valid auth context.
@@ -331,6 +353,16 @@ export function PlannerExperiencePreview({
           }
         }
       } else if (error) {
+        const status = getErrorStatus(error);
+        // Hard refresh can briefly race auth/session bootstrap in preview environments.
+        // Retry once on 401 before surfacing to the user.
+        if (status === 401 && attempt === 0 && mounted) {
+          setTimeout(() => {
+            if (mounted) void hydrateTargets(1);
+          }, 1200);
+          setIsHydratingTargets(false);
+          return;
+        }
         console.error("[PlannerExperiencePreview] Failed to load persisted targets:", error);
         toast.error("Could not load saved household focus targets.");
       }
