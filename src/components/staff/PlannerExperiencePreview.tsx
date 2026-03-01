@@ -147,7 +147,7 @@ export function PlannerExperiencePreview({
   teamMembers = [],
   managerViewLabel = "Leadership View",
 }: PlannerExperiencePreviewProps) {
-  const { sessionToken, user } = useStaffAuth();
+  const { sessionToken, user, loading: staffAuthLoading } = useStaffAuth();
   const simulatedDate = useMemo(() => new Date(new Date().getFullYear(), 2, 1), []); // March 1 local year for full-month testing
 
   // Local simulation state
@@ -287,6 +287,21 @@ export function PlannerExperiencePreview({
     let mounted = true;
     const hydrateTargets = async () => {
       setIsHydratingTargets(true);
+      // Guard against startup race: in staff mode, token may not be hydrated yet.
+      // Do not call the edge function until we have a valid auth context.
+      if (!sessionToken) {
+        if (staffAuthLoading) {
+          if (mounted) setIsHydratingTargets(false);
+          return;
+        }
+        const { data: sessionData } = await supabase.auth.getSession();
+        const hasSupabaseSession = Boolean(sessionData.session);
+        if (!hasSupabaseSession) {
+          if (mounted) setIsHydratingTargets(false);
+          return;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke("household_focus_targets", {
         body: { action: "get" },
         ...invokeOptions,
@@ -327,7 +342,7 @@ export function PlannerExperiencePreview({
     return () => {
       mounted = false;
     };
-  }, [sessionToken, isManager, user?.team_member_id, invokeOptions, rowToGoal]);
+  }, [sessionToken, isManager, user?.team_member_id, invokeOptions, rowToGoal, staffAuthLoading]);
 
   useEffect(() => {
     if (!isManager) return;
