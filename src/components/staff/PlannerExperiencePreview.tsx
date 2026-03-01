@@ -25,6 +25,7 @@ import { AlertTriangle, Calendar, ChevronRight, CircleHelp, Target } from "lucid
 import { supabase } from "@/integrations/supabase/client";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { toast } from "sonner";
+import { buildHouseholdFocusSaveRequest, type SaveTargetPayload } from "@/components/staff/plannerSaveScope";
 
 type GoalMode = "commission" | "items";
 type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "custom";
@@ -507,7 +508,7 @@ export function PlannerExperiencePreview({
     const doSave = async () => {
       setIsSavingTargets(true);
       if (isManager) {
-        const payload = {
+        const payload: SaveTargetPayload = {
           mode,
           target_items: newPreset.targetItems,
           target_commission: newPreset.targetCommission,
@@ -517,10 +518,16 @@ export function PlannerExperiencePreview({
           avg_value_per_item: newPreset.avgValuePerItem,
         };
 
+        const body = buildHouseholdFocusSaveRequest({
+          isManager: true,
+          viewingTeam,
+          viewAs,
+          staffMemberId: null,
+          target: payload,
+        });
+
         const { data, error } = await supabase.functions.invoke("household_focus_targets", {
-          body: viewingTeam
-            ? { action: "save", scope: "team_default", target: payload }
-            : { action: "save", scope: "member", team_member_id: viewAs, target: payload },
+          body,
           ...invokeOptions,
         });
 
@@ -549,7 +556,7 @@ export function PlannerExperiencePreview({
           return;
         }
 
-        const payload = {
+        const payload: SaveTargetPayload = {
           mode,
           target_items: newPreset.targetItems,
           target_commission: newPreset.targetCommission,
@@ -559,8 +566,16 @@ export function PlannerExperiencePreview({
           avg_value_per_item: newPreset.avgValuePerItem,
         };
 
+        const body = buildHouseholdFocusSaveRequest({
+          isManager: false,
+          viewingTeam: false,
+          viewAs,
+          staffMemberId: staffMemberId ?? null,
+          target: payload,
+        });
+
         const { data, error } = await supabase.functions.invoke("household_focus_targets", {
-          body: { action: "save", scope: "member", team_member_id: staffMemberId, target: payload },
+          body,
           ...invokeOptions,
         });
 
