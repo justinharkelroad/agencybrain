@@ -63,12 +63,17 @@ interface PersistedTargetRow {
 const DEFAULT_GOAL: StaffGoal = {
   name: "Last Saved",
   mode: "items",
-  targetCommission: 0,
-  targetItems: 17,
-  closeRate: 29,
-  avgItemsPerHousehold: 2.0,
-  avgPoliciesPerHousehold: 1.4,
+  targetCommission: 2160,
+  targetItems: 30,
+  closeRate: 20,
+  avgItemsPerHousehold: 2.3,
+  avgPoliciesPerHousehold: 1.8,
   avgValuePerItem: 900,
+};
+
+const MEMBER_DEFAULT_GOAL: StaffGoal = {
+  ...DEFAULT_GOAL,
+  name: "Member Default",
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -173,7 +178,7 @@ export function PlannerExperiencePreview({
 
   // Local simulation state
   const hasCompPlan = true;
-  const estimatedCommissionRate = 0.16;
+  const estimatedCommissionRate = 0.08;
 
   const [open, setOpen] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodKey>("this_month");
@@ -181,12 +186,12 @@ export function PlannerExperiencePreview({
   const [customEnd, setCustomEnd] = useState(() => toDateInputValue(new Date(simulatedDate.getFullYear(), simulatedDate.getMonth() + 1, 0)));
   const [viewAs, setViewAs] = useState<string>("team");
   const [mode, setMode] = useState<GoalMode>("items");
-  const [targetItems, setTargetItems] = useState(17);
-  const [targetCommission, setTargetCommission] = useState(2448);
+  const [targetItems, setTargetItems] = useState(30);
+  const [targetCommission, setTargetCommission] = useState(2160);
   const [agencyDefaults] = useState({
-    closeRate: 29,
-    avgItemsPerHousehold: 2.0,
-    avgPoliciesPerHousehold: 1.4,
+    closeRate: 20,
+    avgItemsPerHousehold: 2.3,
+    avgPoliciesPerHousehold: 1.8,
     avgValuePerItem: 900,
   });
   const [closeRate, setCloseRate] = useState(agencyDefaults.closeRate);
@@ -346,8 +351,8 @@ export function PlannerExperiencePreview({
           const currentMemberOverride = (data.current_member_override as PersistedTargetRow | null) ?? null;
           if (currentMemberOverride) {
             setStaffPersonalGoal(rowToGoal(currentMemberOverride));
-          } else if (teamDefaultRow) {
-            setStaffPersonalGoal(rowToGoal(teamDefaultRow));
+          } else {
+            setStaffPersonalGoal(MEMBER_DEFAULT_GOAL);
           }
         }
       } else if (error) {
@@ -386,8 +391,8 @@ export function PlannerExperiencePreview({
       ? viewingTeam
         ? teamDefaultGoal
         : memberOverrideGoals[viewAs] ?? {
-            ...teamDefaultGoal,
-            name: `${selectedMemberName || "Team Member"} Target`,
+            ...MEMBER_DEFAULT_GOAL,
+            name: `${selectedMemberName || "Team Member"} Default`,
           }
       : staffPersonalGoal;
 
@@ -619,7 +624,7 @@ export function PlannerExperiencePreview({
         return next;
       });
       setOverrideIdsFromServer((prev) => prev.filter((id) => id !== viewAs));
-      toast.success(`${selectedMemberName || "Member"} now uses team default.`);
+      toast.success(`${selectedMemberName || "Member"} now uses member defaults.`);
       setIsSavingTargets(false);
       setOpen(false);
     };
@@ -648,7 +653,7 @@ export function PlannerExperiencePreview({
                 </CardTitle>
                 {isManager && (
                   <Badge variant="outline">
-                    {viewingTeam ? "Team Default" : hasMemberOverride ? "Custom Member Target" : "Using Team Default"}
+                    {viewingTeam ? "Team Default" : hasMemberOverride ? "Custom Member Target" : "Using Member Default"}
                   </Badge>
                 )}
                 <TooltipProvider delayDuration={150}>
@@ -708,7 +713,7 @@ export function PlannerExperiencePreview({
           </div>
           {isManager && !viewingTeam && !hasMemberOverride && (
             <p className="text-xs text-muted-foreground">
-              {selectedMemberName || "This member"} is currently using team defaults. Create a member target only if they need a different plan.
+              {selectedMemberName || "This member"} is currently using member defaults. Create a member target only if they need a different plan.
             </p>
           )}
           {isManager && viewingTeam && memberOverrideCount > 0 && (
@@ -878,7 +883,7 @@ export function PlannerExperiencePreview({
                 )}
                 {isManager && !viewingTeam && !hasMemberOverride && (
                   <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-xs text-muted-foreground">
-                    {selectedMemberName || "This team member"} is currently inheriting team defaults. Saving here creates a member-specific target.
+                    {selectedMemberName || "This team member"} is currently using member defaults. Saving here creates a member-specific target.
                   </div>
                 )}
 
@@ -894,7 +899,7 @@ export function PlannerExperiencePreview({
                       max={targetCommissionMax}
                       step={100}
                       onValueChange={(v) => {
-                        const nextCommission = clamp(v[0] ?? 2500, targetCommissionMin, targetCommissionMax);
+                        const nextCommission = clamp(v[0] ?? 2160, targetCommissionMin, targetCommissionMax);
                         setTargetCommission(nextCommission);
                         setTargetItems(clamp(
                           itemsFromCommission(nextCommission, avgValuePerItem, estimatedCommissionRate),
@@ -916,7 +921,7 @@ export function PlannerExperiencePreview({
                       max={targetItemsMax}
                       step={1}
                       onValueChange={(v) => {
-                        const nextItems = clamp(v[0] ?? 17, targetItemsMin, targetItemsMax);
+                        const nextItems = clamp(v[0] ?? 30, targetItemsMin, targetItemsMax);
                         setTargetItems(nextItems);
                         setTargetCommission(clamp(
                           commissionFromItems(nextItems, avgValuePerItem, estimatedCommissionRate),
@@ -943,7 +948,7 @@ export function PlannerExperiencePreview({
                     min={10}
                     max={60}
                     step={1}
-                    onValueChange={(v) => setCloseRate(clamp(v[0] ?? 29, 10, 60))}
+                    onValueChange={(v) => setCloseRate(clamp(v[0] ?? 20, 10, 60))}
                   />
                 </SliderRow>
 
@@ -957,7 +962,7 @@ export function PlannerExperiencePreview({
                     min={0.5}
                     max={4}
                     step={0.1}
-                    onValueChange={(v) => setAvgItemsPerHousehold(clamp(v[0] ?? 2, 0.5, 4))}
+                    onValueChange={(v) => setAvgItemsPerHousehold(clamp(v[0] ?? 2.3, 0.5, 4))}
                   />
                 </SliderRow>
 
@@ -971,7 +976,7 @@ export function PlannerExperiencePreview({
                     min={0.5}
                     max={3}
                     step={0.1}
-                    onValueChange={(v) => setAvgPoliciesPerHousehold(clamp(v[0] ?? 1.4, 0.5, 3))}
+                    onValueChange={(v) => setAvgPoliciesPerHousehold(clamp(v[0] ?? 1.8, 0.5, 3))}
                   />
                 </SliderRow>
 
@@ -1051,7 +1056,7 @@ export function PlannerExperiencePreview({
                 <p className="text-xs text-muted-foreground">
                   {isManager
                     ? viewingTeam
-                      ? "Saving team defaults updates what staff sees by default."
+                      ? "Saving team defaults updates team-level targets and team view."
                       : `Saving ${selectedMemberName || "this team member"} target does not change team defaults.`
                     : "Saving replaces your previous saved plan."}
                 </p>
