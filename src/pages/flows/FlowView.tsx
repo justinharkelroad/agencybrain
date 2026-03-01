@@ -36,6 +36,7 @@ export default function FlowView() {
     } else {
       document.title = "View Flow | AgencyBrain";
     }
+    return () => { document.title = "AgencyBrain"; };
   }, [template?.name]);
 
   useEffect(() => {

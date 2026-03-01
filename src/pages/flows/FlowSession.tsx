@@ -134,6 +134,7 @@ export default function FlowSession() {
     } else {
       document.title = "Flow Session | AgencyBrain";
     }
+    return () => { document.title = "AgencyBrain"; };
   }, [template?.name]);
 
   useEffect(() => {

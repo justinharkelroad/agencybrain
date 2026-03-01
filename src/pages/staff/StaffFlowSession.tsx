@@ -96,6 +96,7 @@ export default function StaffFlowSession() {
     } else {
       document.title = "Flow Session | AgencyBrain";
     }
+    return () => { document.title = "AgencyBrain"; };
   }, [template?.name]);
 
   useEffect(() => {

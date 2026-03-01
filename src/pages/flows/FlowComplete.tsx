@@ -67,6 +67,7 @@ export default function FlowComplete() {
   // Update browser tab title
   useEffect(() => {
     document.title = "Flow Complete | AgencyBrain";
+    return () => { document.title = "AgencyBrain"; };
   }, []);
 
   useEffect(() => {

@@ -36,6 +36,7 @@ export default function FlowStart() {
     } else {
       document.title = "Start Flow | AgencyBrain";
     }
+    return () => { document.title = "AgencyBrain"; };
   }, [templateName]);
 
   useEffect(() => {

@@ -44,6 +44,7 @@ export default function StaffFlowStart() {
     } else {
       document.title = "Start Flow | AgencyBrain";
     }
+    return () => { document.title = "AgencyBrain"; };
   }, [templateName]);
 
   useEffect(() => {
