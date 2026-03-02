@@ -35,12 +35,29 @@ import {
 import { useSalesTrends } from "@/hooks/useSalesTrends";
 import { useSalesStreak } from "@/hooks/useSalesStreak";
 import { useSalesLeaderboard } from "@/hooks/useSalesLeaderboard";
+import { calculateCountableTotals } from "@/lib/product-constants";
 
 interface SalesDashboardWidgetProps {
   agencyId: string | null;
 }
 
 type MeasurementType = "premium" | "items" | "points" | "policies";
+
+interface PolicySummary {
+  id: string;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
+}
+
+interface SalesSummaryRow {
+  id: string;
+  sale_date: string;
+  customer_name: string | null;
+  is_one_call_close: boolean | null;
+  sale_policies: PolicySummary[] | null;
+}
 
 const MEASUREMENT_LABELS: Record<MeasurementType, string> = {
   premium: "Premium",
@@ -97,11 +114,8 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
           id,
           sale_date,
           customer_name,
-          total_premium,
-          total_items,
-          total_points,
           is_one_call_close,
-          sale_policies(id)
+          sale_policies(id, policy_type_name, total_premium, total_items, total_points)
         `)
         .eq("agency_id", agencyId)
         .gte("sale_date", monthStart)
@@ -121,26 +135,52 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
 
       const { data, error } = await query;
       if (error) throw error;
+      const rows = (data || []) as unknown as SalesSummaryRow[];
 
-      const totalPremium = data?.reduce((sum, s) => sum + (s.total_premium || 0), 0) || 0;
-      const totalItems = data?.reduce((sum, s) => sum + (s.total_items || 0), 0) || 0;
-      const totalPoints = data?.reduce((sum, s) => sum + (s.total_points || 0), 0) || 0;
-      const totalPolicies = data?.reduce((sum, s) => sum + (s.sale_policies?.length || 0), 0) || 0;
-      
-      // Count unique households (distinct customer names)
-      const uniqueCustomers = new Set(data?.map(s => s.customer_name?.toLowerCase().trim()).filter(Boolean));
+      const totalPremium = rows.reduce((sum, s) => {
+        const countable = calculateCountableTotals(s.sale_policies || []);
+        return sum + countable.premium;
+      }, 0);
+      const totalItems = rows.reduce((sum, s) => {
+        const countable = calculateCountableTotals(s.sale_policies || []);
+        return sum + countable.items;
+      }, 0);
+      const totalPoints = rows.reduce((sum, s) => {
+        const countable = calculateCountableTotals(s.sale_policies || []);
+        return sum + countable.points;
+      }, 0);
+      const totalPolicies = rows.reduce((sum, s) => {
+        const countable = calculateCountableTotals(s.sale_policies || []);
+        return sum + countable.policyCount;
+      }, 0);
+
+      // Count unique households (distinct customer names with countable policy activity)
+      const uniqueCustomers = new Set(
+        rows
+          .filter((s) => calculateCountableTotals(s.sale_policies || []).policyCount > 0)
+          .map((s) => s.customer_name?.toLowerCase().trim())
+          .filter(Boolean)
+      );
       const totalHouseholds = uniqueCustomers.size;
 
       // Count one-call closes
-      const oneCallCloses = data?.filter(s => s.is_one_call_close).length || 0;
+      const oneCallCloses = rows.filter(
+        (s) => s.is_one_call_close && calculateCountableTotals(s.sale_policies || []).policyCount > 0
+      ).length;
 
       // Calculate today's sales
-      const todaySales = data?.filter(s => s.sale_date === todayStr) || [];
-      const todayPremium = todaySales.reduce((sum, s) => sum + (s.total_premium || 0), 0);
+      const todaySales = rows.filter(s => s.sale_date === todayStr);
+      const todayPremium = todaySales.reduce((sum, s) => {
+        const countable = calculateCountableTotals(s.sale_policies || []);
+        return sum + countable.premium;
+      }, 0);
 
       // Calculate this week's sales
-      const weekSales = data?.filter(s => s.sale_date >= weekStart) || [];
-      const weekPremium = weekSales.reduce((sum, s) => sum + (s.total_premium || 0), 0);
+      const weekSales = rows.filter(s => s.sale_date >= weekStart);
+      const weekPremium = weekSales.reduce((sum, s) => {
+        const countable = calculateCountableTotals(s.sale_policies || []);
+        return sum + countable.premium;
+      }, 0);
 
       return {
         totalPremium,
@@ -149,7 +189,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
         totalPolicies,
         totalHouseholds,
         oneCallCloses,
-        salesCount: data?.length || 0,
+        salesCount: rows.length,
         todayPremium,
         weekPremium,
       };

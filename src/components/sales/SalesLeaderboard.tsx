@@ -34,6 +34,21 @@ interface LeaderboardEntry {
   one_call_closes: number;
 }
 
+interface LeaderboardSalePolicy {
+  id: string;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
+}
+
+interface LeaderboardSaleRow {
+  team_member_id: string | null;
+  customer_name: string | null;
+  is_one_call_close: boolean | null;
+  sale_policies: LeaderboardSalePolicy[] | null;
+}
+
 interface SalesLeaderboardProps {
   agencyId: string | null;
   staffSessionToken?: string;
@@ -221,10 +236,11 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         };
       }
 
-      for (const sale of sales || []) {
+      const salesRows = (sales || []) as unknown as LeaderboardSaleRow[];
+      for (const sale of salesRows) {
         if (sale.team_member_id && aggregated[sale.team_member_id]) {
           // Calculate totals excluding Motor Club and other excluded products
-          const policies = (sale.sale_policies as any[]) || [];
+          const policies = sale.sale_policies || [];
           const countable = calculateCountableTotals(policies);
 
           aggregated[sale.team_member_id].premium += countable.premium;
@@ -232,7 +248,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
           aggregated[sale.team_member_id].points += countable.points;
           aggregated[sale.team_member_id].policies += countable.policyCount;
 
-          if (sale.is_one_call_close) {
+          if (sale.is_one_call_close && countable.policyCount > 0) {
             aggregated[sale.team_member_id].one_call_closes += 1;
           }
 

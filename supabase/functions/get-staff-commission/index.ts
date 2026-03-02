@@ -11,6 +11,38 @@ interface Tier {
   sort_order: number;
 }
 
+interface SalePolicy {
+  id: string;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
+}
+
+interface SaleRow {
+  id: string;
+  customer_name: string | null;
+  sale_policies: SalePolicy[] | null;
+}
+
+const EXCLUDED_PRODUCTS = ['Motor Club'];
+function isExcludedProduct(productType: string | null | undefined): boolean {
+  if (!productType) return false;
+  return EXCLUDED_PRODUCTS.some(
+    excluded => excluded.toLowerCase() === productType.toLowerCase()
+  );
+}
+
+function calculateCountableTotals(policies: SalePolicy[] = []): { premium: number; items: number; points: number; policyCount: number } {
+  const countable = policies.filter(p => !isExcludedProduct(p.policy_type_name));
+  return {
+    premium: countable.reduce((sum, p) => sum + (p.total_premium || 0), 0),
+    items: countable.reduce((sum, p) => sum + (p.total_items || 0), 0),
+    points: countable.reduce((sum, p) => sum + (p.total_points || 0), 0),
+    policyCount: countable.length,
+  };
+}
+
 interface TierProgress {
   current_tier: {
     name: string;
@@ -287,7 +319,7 @@ Deno.serve(async (req) => {
     // Get sales for the period with all relevant metrics
     const { data: sales, error: salesError } = await supabase
       .from("sales")
-      .select("total_premium, total_items")
+      .select("id, customer_name, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
       .eq("team_member_id", staffUser.team_member_id)
       .gte("sale_date", startStr)
       .lte("sale_date", endStr);
@@ -302,11 +334,22 @@ Deno.serve(async (req) => {
     let currentMonthWrittenHouseholds = 0;
 
     if (!salesError && sales) {
-      currentMonthWrittenPremium = sales.reduce((sum, s) => sum + (s.total_premium || 0), 0);
-      currentMonthWrittenItems = sales.reduce((sum, s) => sum + (s.total_items || 0), 0);
-      currentMonthWrittenPolicies = sales.length;
-      // Households not currently trackable without customer_id column
-      currentMonthWrittenHouseholds = 0;
+      const rows = sales as SaleRow[];
+      const households = new Set<string>();
+
+      for (const sale of rows) {
+        const countable = calculateCountableTotals(sale.sale_policies || []);
+        currentMonthWrittenPremium += countable.premium;
+        currentMonthWrittenItems += countable.items;
+        currentMonthWrittenPolicies += countable.policyCount;
+
+        if (countable.policyCount > 0) {
+          const customer = sale.customer_name?.toLowerCase().trim();
+          if (customer) households.add(customer);
+        }
+      }
+
+      currentMonthWrittenHouseholds = households.size;
     }
 
     // If we have a payout record, use its values instead (more accurate from statement)

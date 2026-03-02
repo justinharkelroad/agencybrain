@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, differenceInDays, isAfter, isBefore, isWithinInterval, parseISO, startOfDay } from "date-fns";
+import { calculateCountableTotals, isExcludedProduct } from "@/lib/product-constants";
 
 export interface PromoGoal {
   id: string;
@@ -33,6 +34,41 @@ export interface PromoGoalWithProgress extends PromoGoal {
   daysRemaining: number;
   status: 'upcoming' | 'active' | 'ended';
   isAchieved: boolean;
+}
+
+interface PromoSalePolicy {
+  product_type_id: string | null;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
+}
+
+interface PromoSaleRow {
+  customer_name: string | null;
+  sale_policies: PromoSalePolicy[];
+}
+
+async function fetchPromoSalesRows(
+  agencyId: string,
+  startDate: string,
+  endDate: string,
+  teamMemberId?: string
+): Promise<PromoSaleRow[]> {
+  let query = supabase
+    .from("sales")
+    .select("customer_name, sale_policies(product_type_id, policy_type_name, total_premium, total_items, total_points)")
+    .eq("agency_id", agencyId)
+    .gte("sale_date", startDate)
+    .lte("sale_date", endDate);
+
+  if (teamMemberId) {
+    query = query.eq("team_member_id", teamMemberId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as unknown as PromoSaleRow[];
 }
 
 // Fetch all promo goals for an agency (admin view)
@@ -216,117 +252,36 @@ async function calculateSalesProgress(
 ): Promise<number> {
   const measurement = goal.measurement;
   const productTypeId = goal.product_type_id;
-  
-  if (measurement === 'premium') {
-    // Sum total_premium from sales
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_premium")
-      .eq("team_member_id", teamMemberId)
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
-    
-    if (error) throw error;
-    return data?.reduce((sum, s) => sum + (s.total_premium || 0), 0) || 0;
-  }
-  
-  if (measurement === 'items') {
-    // Sum item_count from sale_items with optional product filter
-    let query = supabase
-      .from("sale_items")
-      .select(`
-        item_count,
-        sale_policy:sale_policies!inner(
-          sale:sales!inner(
-            team_member_id,
-            agency_id,
-            sale_date
-          )
-        )
-      `)
-      .eq("sale_policy.sale.team_member_id", teamMemberId)
-      .eq("sale_policy.sale.agency_id", agencyId)
-      .gte("sale_policy.sale.sale_date", startDate)
-      .lte("sale_policy.sale.sale_date", endDate);
-    
-    if (productTypeId) {
-      query = query.eq("product_type_id", productTypeId);
+  const sales = await fetchPromoSalesRows(agencyId, startDate, endDate, teamMemberId);
+  const households = new Set<string>();
+  let premium = 0;
+  let items = 0;
+  let points = 0;
+  let policies = 0;
+
+  for (const sale of sales) {
+    const basePolicies = (sale.sale_policies || []).filter((p) => !isExcludedProduct(p.policy_type_name));
+    const scopedPolicies = productTypeId
+      ? basePolicies.filter((p) => p.product_type_id === productTypeId)
+      : basePolicies;
+
+    const countable = calculateCountableTotals(scopedPolicies);
+    premium += countable.premium;
+    items += countable.items;
+    points += countable.points;
+    policies += countable.policyCount;
+
+    if (countable.policyCount > 0) {
+      const customer = sale.customer_name?.toLowerCase().trim();
+      if (customer) households.add(customer);
     }
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    return data?.reduce((sum, item) => sum + (item.item_count || 0), 0) || 0;
   }
-  
-  if (measurement === 'points') {
-    // Sum points from sale_items with optional product filter
-    let query = supabase
-      .from("sale_items")
-      .select(`
-        points,
-        sale_policy:sale_policies!inner(
-          sale:sales!inner(
-            team_member_id,
-            agency_id,
-            sale_date
-          )
-        )
-      `)
-      .eq("sale_policy.sale.team_member_id", teamMemberId)
-      .eq("sale_policy.sale.agency_id", agencyId)
-      .gte("sale_policy.sale.sale_date", startDate)
-      .lte("sale_policy.sale.sale_date", endDate);
-    
-    if (productTypeId) {
-      query = query.eq("product_type_id", productTypeId);
-    }
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    return data?.reduce((sum, item) => sum + (item.points || 0), 0) || 0;
-  }
-  
-  if (measurement === 'policies') {
-    // Count distinct policies with optional product filter
-    let query = supabase
-      .from("sale_policies")
-      .select(`
-        id,
-        sale:sales!inner(
-          team_member_id,
-          agency_id,
-          sale_date
-        )
-      `)
-      .eq("sale.team_member_id", teamMemberId)
-      .eq("sale.agency_id", agencyId)
-      .gte("sale.sale_date", startDate)
-      .lte("sale.sale_date", endDate);
-    
-    if (productTypeId) {
-      query = query.eq("product_type_id", productTypeId);
-    }
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    return data?.length || 0;
-  }
-  
-  if (measurement === 'households') {
-    // Count distinct customer names
-    const { data, error } = await supabase
-      .from("sales")
-      .select("customer_name")
-      .eq("team_member_id", teamMemberId)
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
-    
-    if (error) throw error;
-    const uniqueHouseholds = new Set(data?.map(s => s.customer_name) || []);
-    return uniqueHouseholds.size;
-  }
+
+  if (measurement === 'premium') return premium;
+  if (measurement === 'items') return items;
+  if (measurement === 'points') return points;
+  if (measurement === 'policies') return policies;
+  if (measurement === 'households') return households.size;
   
   return 0;
 }
@@ -367,7 +322,12 @@ async function calculateMetricsProgress(
   
   if (error) throw error;
   
-  return data?.reduce((sum, row) => sum + ((row as any)[column] || 0), 0) || 0;
+  return (
+    data?.reduce((sum, row) => {
+      const metricRow = row as Record<string, number | null>;
+      return sum + (metricRow[column] || 0);
+    }, 0) || 0
+  );
 }
 
 // Agency-wide sales progress calculation (no team_member filter)
@@ -379,104 +339,36 @@ async function calculateAgencyWideSalesProgress(
 ): Promise<number> {
   const measurement = goal.measurement;
   const productTypeId = goal.product_type_id;
-  
-  if (measurement === 'premium') {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_premium")
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
-    
-    if (error) throw error;
-    return data?.reduce((sum, s) => sum + (s.total_premium || 0), 0) || 0;
-  }
-  
-  if (measurement === 'items') {
-    let query = supabase
-      .from("sale_items")
-      .select(`
-        item_count,
-        sale_policy:sale_policies!inner(
-          sale:sales!inner(
-            agency_id,
-            sale_date
-          )
-        )
-      `)
-      .eq("sale_policy.sale.agency_id", agencyId)
-      .gte("sale_policy.sale.sale_date", startDate)
-      .lte("sale_policy.sale.sale_date", endDate);
-    
-    if (productTypeId) {
-      query = query.eq("product_type_id", productTypeId);
+  const sales = await fetchPromoSalesRows(agencyId, startDate, endDate);
+  const households = new Set<string>();
+  let premium = 0;
+  let items = 0;
+  let points = 0;
+  let policies = 0;
+
+  for (const sale of sales) {
+    const basePolicies = (sale.sale_policies || []).filter((p) => !isExcludedProduct(p.policy_type_name));
+    const scopedPolicies = productTypeId
+      ? basePolicies.filter((p) => p.product_type_id === productTypeId)
+      : basePolicies;
+
+    const countable = calculateCountableTotals(scopedPolicies);
+    premium += countable.premium;
+    items += countable.items;
+    points += countable.points;
+    policies += countable.policyCount;
+
+    if (countable.policyCount > 0) {
+      const customer = sale.customer_name?.toLowerCase().trim();
+      if (customer) households.add(customer);
     }
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    return data?.reduce((sum, item) => sum + (item.item_count || 0), 0) || 0;
   }
-  
-  if (measurement === 'points') {
-    let query = supabase
-      .from("sale_items")
-      .select(`
-        points,
-        sale_policy:sale_policies!inner(
-          sale:sales!inner(
-            agency_id,
-            sale_date
-          )
-        )
-      `)
-      .eq("sale_policy.sale.agency_id", agencyId)
-      .gte("sale_policy.sale.sale_date", startDate)
-      .lte("sale_policy.sale.sale_date", endDate);
-    
-    if (productTypeId) {
-      query = query.eq("product_type_id", productTypeId);
-    }
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    return data?.reduce((sum, item) => sum + (item.points || 0), 0) || 0;
-  }
-  
-  if (measurement === 'policies') {
-    let query = supabase
-      .from("sale_policies")
-      .select(`
-        id,
-        sale:sales!inner(
-          agency_id,
-          sale_date
-        )
-      `)
-      .eq("sale.agency_id", agencyId)
-      .gte("sale.sale_date", startDate)
-      .lte("sale.sale_date", endDate);
-    
-    if (productTypeId) {
-      query = query.eq("product_type_id", productTypeId);
-    }
-    
-    const { data, error } = await query;
-    if (error) throw error;
-    return data?.length || 0;
-  }
-  
-  if (measurement === 'households') {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("customer_name")
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
-    
-    if (error) throw error;
-    const uniqueHouseholds = new Set(data?.map(s => s.customer_name) || []);
-    return uniqueHouseholds.size;
-  }
+
+  if (measurement === 'premium') return premium;
+  if (measurement === 'items') return items;
+  if (measurement === 'points') return points;
+  if (measurement === 'policies') return policies;
+  if (measurement === 'households') return households.size;
   
   return 0;
 }
@@ -515,7 +407,12 @@ async function calculateAgencyWideMetricsProgress(
   
   if (error) throw error;
   
-  return data?.reduce((sum, row) => sum + ((row as any)[column] || 0), 0) || 0;
+  return (
+    data?.reduce((sum, row) => {
+      const metricRow = row as Record<string, number | null>;
+      return sum + (metricRow[column] || 0);
+    }, 0) || 0
+  );
 }
 
 // Hook to get progress for promo goals for a specific team member

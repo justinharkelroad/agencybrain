@@ -6,6 +6,7 @@ import { PayoutCalculation, WrittenMetrics, BrokeredBundlingMetrics } from "@/li
 import { calculateSelfGenMetricsBatch, SelfGenMetrics } from "@/lib/payout-calculator/self-gen";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { normalizePolicyType } from "@/lib/payout-calculator/policyTypeFilter";
+import { calculateCountableTotals, isExcludedProduct } from "@/lib/product-constants";
 import { toast } from "sonner";
 
 // Manual override interface for testing compensation calculations
@@ -66,6 +67,14 @@ interface Assignment {
   comp_plan_id: string;
 }
 
+interface SalePolicy {
+  id: string;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
+}
+
 export interface CompPayout {
   id: string;
   team_member_id: string;
@@ -123,11 +132,10 @@ async function fetchBrokeredMetrics(
   const { data: sales, error } = await supabase
     .from("sales")
     .select(`
+      id,
       team_member_id,
       brokered_carrier_id,
-      total_items,
-      total_premium,
-      total_policies
+      sale_policies(id, policy_type_name, total_premium, total_items, total_points)
     `)
     .eq("agency_id", agencyId)
     .not("brokered_carrier_id", "is", null)
@@ -152,17 +160,20 @@ async function fetchBrokeredMetrics(
       households: 0,
     };
 
-    current.items += sale.total_items || 0;
-    current.premium += sale.total_premium || 0;
-    current.policies += sale.total_policies || 0;
+    const countable = calculateCountableTotals((sale.sale_policies as SalePolicy[] | null) || []);
+    current.items += countable.items;
+    current.premium += countable.premium;
+    current.policies += countable.policyCount;
 
-    // Track unique households (sales)
+    // Track unique households (countable sales only)
     let householdSet = householdsByMember.get(sale.team_member_id);
     if (!householdSet) {
       householdSet = new Set();
       householdsByMember.set(sale.team_member_id, householdSet);
     }
-    householdSet.add(sale.team_member_id); // Each sale = 1 household
+    if (countable.policyCount > 0 && sale.id) {
+      householdSet.add(sale.id);
+    }
 
     brokeredByMember.set(sale.team_member_id, current);
   }
@@ -192,11 +203,12 @@ async function fetchBrokeredBundlingMetrics(
   const { data: sales, error } = await supabase
     .from("sales")
     .select(`
+      id,
       team_member_id,
       brokered_carrier_id,
       brokered_counts_toward_bundling,
       bundle_type,
-      total_items
+      sale_policies(id, policy_type_name, total_premium, total_items, total_points)
     `)
     .eq("agency_id", agencyId)
     .not("brokered_carrier_id", "is", null)
@@ -220,14 +232,17 @@ async function fetchBrokeredBundlingMetrics(
       totalItems: 0,
     };
 
-    const items = sale.total_items || 0;
+    const countable = calculateCountableTotals((sale.sale_policies as SalePolicy[] | null) || []);
+    const items = countable.items;
     current.totalItems += items;
 
     // Count as bundled if bundle_type is Standard or Preferred
     const bundleType = (sale.bundle_type || '').toLowerCase();
     if (bundleType === 'standard' || bundleType === 'preferred') {
       current.bundledItems += items;
-      current.bundledHouseholds += 1;
+      if (countable.policyCount > 0) {
+        current.bundledHouseholds += 1;
+      }
     }
 
     metricsByMember.set(sale.team_member_id, current);
@@ -290,7 +305,7 @@ async function fetchWrittenMetrics(
   const policyTypeHouseholdsByMember = new Map<string, Map<string, Set<string>>>();
   type SalePolicyWithSale = {
     sale_id: string;
-    policy_type_name: string;
+    policy_type_name: string | null;
     total_items: number | null;
     total_premium: number | null;
     sale: { team_member_id: string | null } | Array<{ team_member_id: string | null }> | null;
@@ -300,6 +315,7 @@ async function fetchWrittenMetrics(
     const sale = Array.isArray(policy.sale) ? policy.sale[0] : policy.sale;
     const teamMemberId = sale?.team_member_id || null;
     if (!teamMemberId) continue;
+    if (isExcludedProduct(policy.policy_type_name)) continue;
 
     const current = writtenByMember.get(teamMemberId) || {
       writtenItems: 0,

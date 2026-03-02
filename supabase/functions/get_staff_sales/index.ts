@@ -26,8 +26,10 @@ interface Sale {
   total_premium: number | null;
   total_items: number | null;
   total_points: number | null;
-  team_member_id: string;
-  sale_policies: SalePolicy[];
+  team_member_id: string | null;
+  is_one_call_close?: boolean | null;
+  brokered_carrier_id?: string | null;
+  sale_policies: SalePolicy[] | null;
 }
 
 interface TeamMember {
@@ -64,6 +66,29 @@ interface MyRank {
   rank: number;
   total_producers: number;
   ranked_by: string;
+}
+
+interface BusinessFilterQuery {
+  is(column: string, value: null): BusinessFilterQuery;
+  not(column: string, operator: string, value: null): BusinessFilterQuery;
+}
+
+const EXCLUDED_PRODUCTS = ['Motor Club'];
+function isExcludedProduct(productType: string | null | undefined): boolean {
+  if (!productType) return false;
+  return EXCLUDED_PRODUCTS.some(
+    excluded => excluded.toLowerCase() === productType.toLowerCase()
+  );
+}
+
+function calculateCountableTotals(policies: SalePolicy[] = []): { premium: number; items: number; points: number; policyCount: number } {
+  const countable = policies.filter(p => !isExcludedProduct(p.policy_type_name));
+  return {
+    premium: countable.reduce((sum, p) => sum + (p.total_premium || 0), 0),
+    items: countable.reduce((sum, p) => sum + (p.total_items || 0), 0),
+    points: countable.reduce((sum, p) => sum + (p.total_points || 0), 0),
+    policyCount: countable.length,
+  };
 }
 
 // Helper: Calculate percent change
@@ -284,11 +309,11 @@ serve(async (req) => {
     console.log('Date range:', date_start, 'to', date_end);
 
     // Helper to apply business filter to a query
-    const applyBusinessFilter = (query: any) => {
+    const applyBusinessFilter = <T extends BusinessFilterQuery>(query: T): T => {
       if (business_filter === "regular") {
-        return query.is("brokered_carrier_id", null);
+        return query.is("brokered_carrier_id", null) as T;
       } else if (business_filter === "brokered") {
-        return query.not("brokered_carrier_id", "is", null);
+        return query.not("brokered_carrier_id", "is", null) as T;
       }
       return query; // "all" - no filter
     };
@@ -385,23 +410,24 @@ serve(async (req) => {
       }
     }
 
-    // Calculate totals including unique households
-    const uniqueCustomers = new Set(
-      salesForTotals
-        .map(sale => sale.customer_name?.toLowerCase().trim())
-        .filter(Boolean)
-    );
-
+    // Calculate totals excluding Motor Club
+    const uniqueCustomers = new Set<string>();
     const totals = salesForTotals.reduce(
-      (acc, sale) => ({
-        premium: acc.premium + (sale.total_premium || 0),
-        items: acc.items + (sale.total_items || 0),
-        points: acc.points + (sale.total_points || 0),
-        policies: acc.policies + (sale.sale_policies?.length || 0),
-        households: uniqueCustomers.size,
-      }),
+      (acc, sale) => {
+        const countable = calculateCountableTotals(sale.sale_policies || []);
+        acc.premium += countable.premium;
+        acc.items += countable.items;
+        acc.points += countable.points;
+        acc.policies += countable.policyCount;
+        if (countable.policyCount > 0) {
+          const customerName = sale.customer_name?.toLowerCase().trim();
+          if (customerName) uniqueCustomers.add(customerName);
+        }
+        return acc;
+      },
       { premium: 0, items: 0, points: 0, policies: 0, households: 0 }
     );
+    totals.households = uniqueCustomers.size;
 
     console.log('Totals (scope=' + scope + '):', JSON.stringify(totals));
 
@@ -428,12 +454,9 @@ serve(async (req) => {
         .select(`
           team_member_id,
           customer_name,
-          total_premium,
-          total_items,
-          total_points,
           is_one_call_close,
           brokered_carrier_id,
-          sale_policies(id)
+          sale_policies(id, policy_type_name, total_premium, total_items, total_points)
         `)
         .eq('agency_id', agencyId);
 
@@ -469,18 +492,19 @@ serve(async (req) => {
       for (const sale of allSales || []) {
         const tmId = sale.team_member_id;
         if (tmId && aggregated[tmId]) {
-          aggregated[tmId].premium += sale.total_premium || 0;
-          aggregated[tmId].items += sale.total_items || 0;
-          aggregated[tmId].points += sale.total_points || 0;
-          aggregated[tmId].policies += (sale.sale_policies as any[])?.length || 0;
+          const countable = calculateCountableTotals((sale.sale_policies as SalePolicy[]) || []);
+          aggregated[tmId].premium += countable.premium;
+          aggregated[tmId].items += countable.items;
+          aggregated[tmId].points += countable.points;
+          aggregated[tmId].policies += countable.policyCount;
 
-          if ((sale as any).is_one_call_close) {
+          if (sale.is_one_call_close && countable.policyCount > 0) {
             aggregated[tmId].one_call_closes += 1;
           }
 
-          // Track unique households
-          const customerName = (sale as any).customer_name?.toLowerCase().trim();
-          if (customerName) {
+          // Track unique households with countable policy activity
+          const customerName = sale.customer_name?.toLowerCase().trim();
+          if (customerName && countable.policyCount > 0) {
             aggregated[tmId].customerNames.add(customerName);
           }
         }
@@ -516,12 +540,9 @@ serve(async (req) => {
       let prevQuery = supabase
         .from('sales')
         .select(`
-          total_premium,
-          total_items,
-          total_points,
           customer_name,
           brokered_carrier_id,
-          sale_policies(id)
+          sale_policies(id, policy_type_name, total_premium, total_items, total_points)
         `)
         .eq('agency_id', agencyId)
         .eq('team_member_id', teamMemberId)
@@ -533,19 +554,21 @@ serve(async (req) => {
       const { data: prevSales, error: prevError } = await prevQuery;
 
       if (!prevError && prevSales) {
-        const prevUniqueCustomers = new Set(
-          prevSales
-            .map(sale => (sale as any).customer_name?.toLowerCase().trim())
-            .filter(Boolean)
-        );
-
-        const prevTotals = prevSales.reduce(
-          (acc, sale) => ({
-            premium: acc.premium + ((sale as any).total_premium || 0),
-            items: acc.items + ((sale as any).total_items || 0),
-            points: acc.points + ((sale as any).total_points || 0),
-            policies: acc.policies + ((sale as any).sale_policies?.length || 0),
-          }),
+        const previousSales = prevSales as Sale[];
+        const prevUniqueCustomers = new Set<string>();
+        const prevTotals = previousSales.reduce(
+          (acc, sale) => {
+            const countable = calculateCountableTotals(sale.sale_policies || []);
+            acc.premium += countable.premium;
+            acc.items += countable.items;
+            acc.points += countable.points;
+            acc.policies += countable.policyCount;
+            if (countable.policyCount > 0) {
+              const customerName = sale.customer_name?.toLowerCase().trim();
+              if (customerName) prevUniqueCustomers.add(customerName);
+            }
+            return acc;
+          },
           { premium: 0, items: 0, points: 0, policies: 0 }
         );
 
@@ -607,10 +630,23 @@ serve(async (req) => {
       }
     }
 
+    const personalSalesForResponse = isTeamScope
+      ? []
+      : personalSales.map((sale) => {
+          const countable = calculateCountableTotals(sale.sale_policies || []);
+          return {
+            ...sale,
+            total_premium: countable.premium,
+            total_items: countable.items,
+            total_points: countable.points,
+            sale_policies: (sale.sale_policies || []).filter((p) => !isExcludedProduct(p.policy_type_name)),
+          };
+        });
+
     console.log('Returning success response');
 
     return new Response(JSON.stringify({
-      personal_sales: isTeamScope ? [] : personalSales,
+      personal_sales: personalSalesForResponse,
       totals,
       leaderboard,
       team_member_id: teamMemberId,

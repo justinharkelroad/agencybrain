@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth } from "date-fns";
+import { calculateCountableTotals } from "@/lib/product-constants";
 
 export interface LeaderboardEntry {
   team_member_id: string;
@@ -29,6 +30,20 @@ interface UseSalesLeaderboardOptions {
   startDate?: string;
   endDate?: string;
   rankBy?: RankMetric;
+}
+
+interface LeaderboardSalePolicy {
+  id: string;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
+}
+
+interface LeaderboardSaleRow {
+  team_member_id: string | null;
+  customer_name: string | null;
+  sale_policies: LeaderboardSalePolicy[] | null;
 }
 
 export function useSalesLeaderboard({
@@ -100,10 +115,7 @@ export function useSalesLeaderboard({
         .select(`
           team_member_id,
           customer_name,
-          total_premium,
-          total_items,
-          total_points,
-          sale_policies(id)
+          sale_policies(id, policy_type_name, total_premium, total_items, total_points)
         `)
         .eq("agency_id", agencyId)
         .gte("sale_date", dateStart)
@@ -127,16 +139,18 @@ export function useSalesLeaderboard({
         };
       }
 
-      for (const sale of sales || []) {
+      const salesRows = (sales || []) as unknown as LeaderboardSaleRow[];
+      for (const sale of salesRows) {
         const tmId = sale.team_member_id;
         if (tmId && aggregated[tmId]) {
-          aggregated[tmId].premium += sale.total_premium || 0;
-          aggregated[tmId].items += sale.total_items || 0;
-          aggregated[tmId].points += sale.total_points || 0;
-          aggregated[tmId].policies += (sale.sale_policies as any[])?.length || 0;
+          const countable = calculateCountableTotals(sale.sale_policies || []);
+          aggregated[tmId].premium += countable.premium;
+          aggregated[tmId].items += countable.items;
+          aggregated[tmId].points += countable.points;
+          aggregated[tmId].policies += countable.policyCount;
 
-          const customerName = (sale as any).customer_name?.toLowerCase().trim();
-          if (customerName) {
+          const customerName = sale.customer_name?.toLowerCase().trim();
+          if (customerName && countable.policyCount > 0) {
             aggregated[tmId].customerNames.add(customerName);
           }
         }

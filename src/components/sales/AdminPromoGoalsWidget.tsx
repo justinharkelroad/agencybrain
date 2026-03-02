@@ -5,6 +5,7 @@ import { Gift, Loader2, ArrowRight, Users, CheckCircle2, Clock } from "lucide-re
 import { Link } from "react-router-dom";
 import { GoalProgressRing } from "./GoalProgressRing";
 import { cn, parseDateLocal, todayLocal } from "@/lib/utils";
+import { calculateCountableTotals, isExcludedProduct } from "@/lib/product-constants";
 
 interface AdminPromoGoalsWidgetProps {
   agencyId: string | null;
@@ -32,6 +33,41 @@ interface PromoWithProgress {
   daysRemaining: number;
   staffProgress: StaffProgress[];
   isAgencyWide?: boolean;
+}
+
+interface PromoSalePolicy {
+  product_type_id: string | null;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
+}
+
+interface PromoSaleRow {
+  customer_name: string | null;
+  sale_policies: PromoSalePolicy[];
+}
+
+async function fetchPromoSalesRows(
+  agencyId: string,
+  startDate: string,
+  endDate: string,
+  teamMemberId?: string
+): Promise<PromoSaleRow[]> {
+  let query = supabase
+    .from("sales")
+    .select("customer_name, sale_policies(product_type_id, policy_type_name, total_premium, total_items, total_points)")
+    .eq("agency_id", agencyId)
+    .gte("sale_date", startDate)
+    .lte("sale_date", endDate);
+
+  if (teamMemberId) {
+    query = query.eq("team_member_id", teamMemberId);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data || []) as unknown as PromoSaleRow[];
 }
 
 export function AdminPromoGoalsWidget({ agencyId }: AdminPromoGoalsWidgetProps) {
@@ -125,7 +161,8 @@ export function AdminPromoGoalsWidget({ agencyId }: AdminPromoGoalsWidgetProps) 
           // Individual assignments
           for (const assignment of goal.sales_goal_assignments || []) {
             const teamMemberId = assignment.team_member_id;
-            const teamMemberName = (assignment.team_member as any)?.name || 'Unknown';
+            const teamMemberRecord = assignment.team_member as { name?: string | null } | null;
+            const teamMemberName = teamMemberRecord?.name || 'Unknown';
 
             let progress = 0;
 
@@ -336,77 +373,36 @@ async function calculateSalesProgress(
   startDate: string,
   endDate: string
 ): Promise<number> {
-  if (measurement === 'premium') {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_premium")
-      .eq("team_member_id", teamMemberId)
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
+  const sales = await fetchPromoSalesRows(agencyId, startDate, endDate, teamMemberId);
+  const households = new Set<string>();
+  let premium = 0;
+  let items = 0;
+  let points = 0;
+  let policies = 0;
 
-    if (error) throw error;
-    return data?.reduce((sum, s) => sum + (s.total_premium || 0), 0) || 0;
-  }
+  for (const sale of sales) {
+    const basePolicies = (sale.sale_policies || []).filter((p) => !isExcludedProduct(p.policy_type_name));
+    const scopedPolicies = productTypeId
+      ? basePolicies.filter((p) => p.product_type_id === productTypeId)
+      : basePolicies;
 
-  if (measurement === 'items') {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_items")
-      .eq("team_member_id", teamMemberId)
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
+    const countable = calculateCountableTotals(scopedPolicies);
+    premium += countable.premium;
+    items += countable.items;
+    points += countable.points;
+    policies += countable.policyCount;
 
-    if (error) throw error;
-    return data?.reduce((sum, s) => sum + (s.total_items || 0), 0) || 0;
-  }
-
-  if (measurement === 'points') {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_points")
-      .eq("team_member_id", teamMemberId)
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
-
-    if (error) throw error;
-    return data?.reduce((sum, s) => sum + (s.total_points || 0), 0) || 0;
-  }
-
-  if (measurement === 'policies') {
-    let query = supabase
-      .from("sale_policies")
-      .select("id, sale:sales!inner(team_member_id, agency_id, sale_date)")
-      .eq("sale.team_member_id", teamMemberId)
-      .eq("sale.agency_id", agencyId)
-      .gte("sale.sale_date", startDate)
-      .lte("sale.sale_date", endDate);
-
-    // Apply product type filter if specified
-    if (productTypeId) {
-      query = query.eq("product_type_id", productTypeId);
+    if (countable.policyCount > 0) {
+      const customer = sale.customer_name?.toLowerCase().trim();
+      if (customer) households.add(customer);
     }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    return data?.length || 0;
   }
 
-  if (measurement === 'households') {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("customer_name")
-      .eq("team_member_id", teamMemberId)
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
-
-    if (error) throw error;
-    const uniqueHouseholds = new Set(data?.map(s => s.customer_name) || []);
-    return uniqueHouseholds.size;
-  }
+  if (measurement === 'premium') return premium;
+  if (measurement === 'items') return items;
+  if (measurement === 'points') return points;
+  if (measurement === 'policies') return policies;
+  if (measurement === 'households') return households.size;
 
   return 0;
 }
@@ -445,7 +441,12 @@ async function calculateMetricsProgress(
 
   if (error) throw error;
 
-  return data?.reduce((sum, row) => sum + ((row as any)[column] || 0), 0) || 0;
+  return (
+    data?.reduce((sum, row) => {
+      const metricRow = row as Record<string, number | null>;
+      return sum + (metricRow[column] || 0);
+    }, 0) || 0
+  );
 }
 
 // Agency-wide calculation functions (no team_member filter)
@@ -456,71 +457,36 @@ async function calculateAgencyWideSalesProgress(
   startDate: string,
   endDate: string
 ): Promise<number> {
-  if (measurement === 'premium') {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_premium")
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
+  const sales = await fetchPromoSalesRows(agencyId, startDate, endDate);
+  const households = new Set<string>();
+  let premium = 0;
+  let items = 0;
+  let points = 0;
+  let policies = 0;
 
-    if (error) throw error;
-    return data?.reduce((sum, s) => sum + (s.total_premium || 0), 0) || 0;
-  }
+  for (const sale of sales) {
+    const basePolicies = (sale.sale_policies || []).filter((p) => !isExcludedProduct(p.policy_type_name));
+    const scopedPolicies = productTypeId
+      ? basePolicies.filter((p) => p.product_type_id === productTypeId)
+      : basePolicies;
 
-  if (measurement === 'items') {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_items")
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
+    const countable = calculateCountableTotals(scopedPolicies);
+    premium += countable.premium;
+    items += countable.items;
+    points += countable.points;
+    policies += countable.policyCount;
 
-    if (error) throw error;
-    return data?.reduce((sum, s) => sum + (s.total_items || 0), 0) || 0;
-  }
-
-  if (measurement === 'points') {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_points")
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
-
-    if (error) throw error;
-    return data?.reduce((sum, s) => sum + (s.total_points || 0), 0) || 0;
-  }
-
-  if (measurement === 'policies') {
-    let query = supabase
-      .from("sale_policies")
-      .select("id, sale:sales!inner(agency_id, sale_date)")
-      .eq("sale.agency_id", agencyId)
-      .gte("sale.sale_date", startDate)
-      .lte("sale.sale_date", endDate);
-
-    if (productTypeId) {
-      query = query.eq("product_type_id", productTypeId);
+    if (countable.policyCount > 0) {
+      const customer = sale.customer_name?.toLowerCase().trim();
+      if (customer) households.add(customer);
     }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    return data?.length || 0;
   }
 
-  if (measurement === 'households') {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("customer_name")
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
-
-    if (error) throw error;
-    const uniqueHouseholds = new Set(data?.map(s => s.customer_name) || []);
-    return uniqueHouseholds.size;
-  }
+  if (measurement === 'premium') return premium;
+  if (measurement === 'items') return items;
+  if (measurement === 'points') return points;
+  if (measurement === 'policies') return policies;
+  if (measurement === 'households') return households.size;
 
   return 0;
 }
@@ -557,5 +523,10 @@ async function calculateAgencyWideMetricsProgress(
 
   if (error) throw error;
 
-  return data?.reduce((sum, row) => sum + ((row as any)[column] || 0), 0) || 0;
+  return (
+    data?.reduce((sum, row) => {
+      const metricRow = row as Record<string, number | null>;
+      return sum + (metricRow[column] || 0);
+    }, 0) || 0
+  );
 }

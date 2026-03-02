@@ -28,6 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { calculateCountableTotals, isExcludedProduct } from "@/lib/product-constants";
 
 interface SalesGoalsProps {
   agencyId: string | null;
@@ -175,11 +176,7 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
       let query = supabase
         .from("sales")
         .select(`
-          total_premium,
-          total_items,
-          total_points,
-          sale_policies(id, is_vc_qualifying),
-          sale_items:sale_policies(sale_items(is_vc_qualifying, item_count, premium, points))
+          sale_policies(id, policy_type_name, is_vc_qualifying, total_premium, total_items, total_points, sale_items(is_vc_qualifying, item_count, premium, points))
         `)
         .eq("agency_id", agencyId)
         .gte("sale_date", monthStart)
@@ -212,13 +209,27 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
       let nonVcPoints = 0;
 
       for (const sale of data || []) {
-        totalPremium += sale.total_premium || 0;
-        totalItems += sale.total_items || 0;
-        totalPoints += sale.total_points || 0;
-        totalPolicies += sale.sale_policies?.length || 0;
+        const policies = (sale.sale_policies || []) as Array<{
+          policy_type_name?: string | null;
+          total_premium?: number | null;
+          total_items?: number | null;
+          total_points?: number | null;
+          sale_items?: Array<{
+            is_vc_qualifying?: boolean | null;
+            item_count?: number | null;
+            premium?: number | null;
+            points?: number | null;
+          }>;
+        }>;
+        const countable = calculateCountableTotals(policies);
+        totalPremium += countable.premium;
+        totalItems += countable.items;
+        totalPoints += countable.points;
+        totalPolicies += countable.policyCount;
 
         // Parse VC vs non-VC from sale_items
-        for (const policy of sale.sale_items || []) {
+        for (const policy of policies) {
+          if (isExcludedProduct(policy.policy_type_name)) continue;
           for (const item of policy.sale_items || []) {
             if (item.is_vc_qualifying) {
               vcItems += item.item_count || 0;

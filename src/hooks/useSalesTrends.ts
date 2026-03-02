@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
+import { calculateCountableTotals } from "@/lib/product-constants";
 
 export interface SalesTrends {
   premium: number | null;
@@ -16,6 +17,19 @@ interface SalesTotals {
   points: number;
   policies: number;
   households: number;
+}
+
+interface SalePolicy {
+  id: string;
+  policy_type_name: string | null;
+  total_premium: number | null;
+  total_items: number | null;
+  total_points: number | null;
+}
+
+interface SaleRow {
+  customer_name: string | null;
+  sale_policies: SalePolicy[] | null;
 }
 
 interface UseSalesTrendsOptions {
@@ -41,10 +55,7 @@ async function fetchMonthTotals(
     .from("sales")
     .select(`
       customer_name,
-      total_premium,
-      total_items,
-      total_points,
-      sale_policies(id)
+      sale_policies(id, policy_type_name, total_premium, total_items, total_points)
     `)
     .eq("agency_id", agencyId)
     .gte("sale_date", startDate)
@@ -60,22 +71,25 @@ async function fetchMonthTotals(
     throw error;
   }
 
-  const uniqueCustomers = new Set(
-    (sales || [])
-      .map((s: any) => s.customer_name?.toLowerCase().trim())
-      .filter(Boolean)
-  );
+  const rows = (sales || []) as unknown as SaleRow[];
+  const uniqueCustomers = new Set<string>();
+  const totals: SalesTotals = { premium: 0, items: 0, points: 0, policies: 0, households: 0 };
 
-  return (sales || []).reduce(
-    (acc: SalesTotals, sale: any) => ({
-      premium: acc.premium + (sale.total_premium || 0),
-      items: acc.items + (sale.total_items || 0),
-      points: acc.points + (sale.total_points || 0),
-      policies: acc.policies + (sale.sale_policies?.length || 0),
-      households: uniqueCustomers.size,
-    }),
-    { premium: 0, items: 0, points: 0, policies: 0, households: 0 }
-  );
+  for (const sale of rows) {
+    const countable = calculateCountableTotals(sale.sale_policies || []);
+    totals.premium += countable.premium;
+    totals.items += countable.items;
+    totals.points += countable.points;
+    totals.policies += countable.policyCount;
+
+    if (countable.policyCount > 0) {
+      const customer = sale.customer_name?.toLowerCase().trim();
+      if (customer) uniqueCustomers.add(customer);
+    }
+  }
+
+  totals.households = uniqueCustomers.size;
+  return totals;
 }
 
 export function useSalesTrends({
