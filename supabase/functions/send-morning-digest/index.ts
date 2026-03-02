@@ -635,13 +635,17 @@ async function fetchRecipients(
   }
 
   // Get owner + key employees only
-  const { data: profiles } = await supabase
+  const { data: profiles, error } = await supabase
     .from('profiles')
     .select('email')
     .eq('agency_id', agencyId)
     .in('role', ['agency_owner', 'key_employee'])
-    .eq('is_active', true)
     .not('email', 'is', null);
+
+  if (error) {
+    console.error(`[send-morning-digest] Recipients query error for agency ${agencyId}:`, error);
+    return [];
+  }
 
   return (profiles || [])
     .filter((p: any) => p.email)
