@@ -115,8 +115,8 @@ export function useCompPlanMutations(agencyId: string | null) {
 
         const { error: assignError } = await supabase
           .from("comp_plan_assignments")
-          .upsert(assignmentsToUpsert, { 
-            onConflict: 'comp_plan_id,team_member_id,effective_date' 
+          .upsert(assignmentsToUpsert, {
+            onConflict: 'team_member_id,effective_date'
           });
 
         if (assignError) throw assignError;
@@ -256,8 +256,8 @@ export function useCompPlanMutations(agencyId: string | null) {
           // Use UPSERT to handle re-assignment on same day (reactivates ended assignment)
           const { error: assignError } = await supabase
             .from('comp_plan_assignments')
-            .upsert(newAssignments, { 
-              onConflict: 'comp_plan_id,team_member_id,effective_date' 
+            .upsert(newAssignments, {
+              onConflict: 'team_member_id,effective_date'
             });
           
           if (assignError) throw assignError;

@@ -65,7 +65,13 @@ function parseTransactionDate(dateStr: string): Date | null {
       const year = parseInt(parts[1], 10);
       return new Date(year, month, 1);
     } else if (parts.length === 3) {
-      // MM/DD/YYYY format
+      // Support both MM/DD/YYYY and YYYY/MM/DD formats.
+      if (parts[0].length === 4) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        return new Date(year, month, day);
+      }
       const month = parseInt(parts[0], 10) - 1;
       const day = parseInt(parts[1], 10);
       const year = parseInt(parts[2], 10);
@@ -1010,9 +1016,11 @@ export function convertToPerformance(
   periodYear: number,
   productTermMonths: Map<string, number>
 ): SubProducerPerformance {
+  const chargebackCount = metrics.chargebackTransactions?.length ?? metrics.chargebackCount;
+
   // Apply chargeback rule filtering
   let eligibleChargebackPremium = metrics.premiumChargebacks;
-  let eligibleChargebackCount = metrics.chargebackCount;
+  let eligibleChargebackCount = chargebackCount;
   let excludedChargebackCount = 0;
 
   let chargebackDetails: ChargebackDetail[] = [];
@@ -1094,7 +1102,7 @@ export function convertToPerformance(
     // No per-transaction data available: exclude all aggregated chargebacks
     eligibleChargebackPremium = 0;
     eligibleChargebackCount = 0;
-    excludedChargebackCount = metrics.chargebackCount;
+    excludedChargebackCount = chargebackCount;
   }
   
   return {
@@ -1117,7 +1125,7 @@ export function convertToPerformance(
     
     // All chargebacks
     chargebackPremium: metrics.premiumChargebacks,
-    chargebackCount: metrics.chargebackCount,
+    chargebackCount,
     
     // 3-month rule filtered chargebacks
     eligibleChargebackPremium,
@@ -1126,7 +1134,7 @@ export function convertToPerformance(
     
     // Net (based on all chargebacks - display purposes)
     netPremium: metrics.netPremium,
-    netItems: metrics.creditCount - metrics.chargebackCount,
+    netItems: metrics.creditCount - chargebackCount,
     
     // Raw data for detail views
     creditInsureds: metrics.creditInsureds || [],
@@ -1336,6 +1344,26 @@ export function calculateMemberPayout(
     metricValue = customPointsCalculated;
   }
 
+  // Include brokered production in tier qualification when enabled.
+  if (plan.brokered_counts_toward_tier && brokeredMetrics) {
+    switch (plan.tier_metric) {
+      case 'items':
+        metricValue += brokeredMetrics.items;
+        break;
+      case 'premium':
+        metricValue += brokeredMetrics.premium;
+        break;
+      case 'policies':
+        metricValue += brokeredMetrics.policies;
+        break;
+      case 'households':
+        metricValue += brokeredMetrics.households;
+        break;
+      default:
+        break;
+    }
+  }
+
   // Determine self-gen percentage (prefer new metrics if available)
   const selfGenPercent = selfGenMetrics?.selfGenPercent ??
     (selfGenItems > 0 && performance.writtenItems > 0
@@ -1500,12 +1528,6 @@ export function calculateMemberPayout(
   const brokeredCommission = calculateBrokeredCommission(brokeredMetrics, plan);
   if (brokeredCommission > 0) {
     console.log(`[calculateMemberPayout] Brokered commission: +$${brokeredCommission.toFixed(2)}`);
-  }
-
-  // Add brokered items/premium to tier metric if configured
-  if (plan.brokered_counts_toward_tier && brokeredMetrics) {
-    // Note: This would need to be applied before tier matching for full implementation
-    // For now, we just include brokered commission in the total
   }
 
   // Calculate total payout

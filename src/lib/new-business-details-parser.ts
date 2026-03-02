@@ -379,14 +379,14 @@ function inferBundleTypes(
   records: NewBusinessRecord[]
 ): Map<string, 'monoline' | 'standard' | 'preferred'> {
   // Group by customer (using policy number prefix or customer name)
-  const customerProducts = new Map<string, Set<string>>();
+  const customerProducts = new Map<string, { hasAuto: boolean; propertyProducts: Set<string> }>();
 
   for (const record of records) {
     // Use customer name as key (uppercase, normalized)
     const key = record.customerName.toUpperCase().replace(/\s+/g, '_');
 
     if (!customerProducts.has(key)) {
-      customerProducts.set(key, new Set());
+      customerProducts.set(key, { hasAuto: false, propertyProducts: new Set<string>() });
     }
 
     const products = customerProducts.get(key)!;
@@ -394,9 +394,9 @@ function inferBundleTypes(
 
     // Categorize as auto or property
     if (normalizedProduct === 'Auto') {
-      products.add('AUTO');
+      products.hasAuto = true;
     } else if (['Homeowners', 'Renters', 'Condo', 'Landlord/Dwelling', 'Manufactured Home'].includes(normalizedProduct)) {
-      products.add('PROPERTY');
+      products.propertyProducts.add(normalizedProduct);
     }
   }
 
@@ -404,8 +404,8 @@ function inferBundleTypes(
   const customerBundleType = new Map<string, 'monoline' | 'standard' | 'preferred'>();
 
   for (const [key, products] of customerProducts) {
-    const hasAuto = products.has('AUTO');
-    const propertyCount = [...products].filter(p => p === 'PROPERTY').length;
+    const hasAuto = products.hasAuto;
+    const propertyCount = products.propertyProducts.size;
 
     if (hasAuto && propertyCount >= 2) {
       customerBundleType.set(key, 'preferred');
@@ -1065,7 +1065,7 @@ export function convertToCompensationMetrics(
       creditCount: creditInsureds.length,
       netPremium: m.netPremium,
       premiumChargebacks: m.chargebackPremium,
-      chargebackCount: chargebackInsureds.length,
+      chargebackCount: m.chargebackTransactions.length,
       commissionEarned,
       commissionChargebacks,
       netCommission,
