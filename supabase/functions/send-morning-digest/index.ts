@@ -686,7 +686,7 @@ function buildEmailHtml(
   const totalCompleted = sequenceTasks.completedYesterday.reduce((sum, u) => sum + u.count, 0);
   const hasWins =
     (sections.trainingCompletions && trainingCompletions.length > 0) ||
-    (sections.sequenceTasks && (totalCompleted > 0 || sequenceTasks.dueToday.length > 0));
+    (sections.sequenceTasks && (totalCompleted > 0 || sequenceTasks.dueToday.length > 0 || totalOverdue > 0));
 
   // Check if any highlights sections are enabled
   const hasHighlights = sections.salesSnapshot || sections.activityMetrics || sections.callScoring;
@@ -827,10 +827,19 @@ function buildEmailHtml(
         ` : ''}
 
         ${sections.sequenceTasks && sequenceTasks.dueToday.length > 0 ? `
-        <div>
+        <div style="margin-bottom: ${sections.sequenceTasks && totalOverdue > 0 ? '12px' : '0'};">
           <strong style="color: #166534;">Due Today</strong>
           <div style="font-size: 13px; color: #15803d; margin-top: 4px;">
             ${sequenceTasks.dueToday.map(u => `${u.name} (${u.count})`).join(', ')}
+          </div>
+        </div>
+        ` : ''}
+
+        ${sections.sequenceTasks && totalOverdue > 0 ? `
+        <div>
+          <strong style="color: #92400e;">Past Due</strong>
+          <div style="font-size: 13px; color: #a16207; margin-top: 4px;">
+            ${sequenceTasks.overdueTasks.map(u => `${u.name} (${u.count})`).join(', ')}
           </div>
         </div>
         ` : ''}
