@@ -239,7 +239,7 @@ serve(async (req) => {
             settings_json: sourceForm.settings_json || {},
             field_mappings: sourceForm.field_mappings || {},
             is_active: true,
-            status: 'draft',
+            status: sourceForm.status || 'draft',
           })
           .select()
           .single();
