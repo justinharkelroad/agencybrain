@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -42,6 +42,22 @@ import { useLqsObjections } from '@/hooks/useLqsObjections';
 import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { useLeadSources } from '@/hooks/useLeadSources';
 import { usePriorInsuranceCompanies } from '@/hooks/usePriorInsuranceCompanies';
+
+const FALLBACK_PRODUCT_OPTIONS = [
+  'Standard Auto',
+  'Non-Standard Auto',
+  'Homeowners',
+  'Landlords',
+  'Manufactured Home',
+  'Renters',
+  'Condo',
+  'Umbrella',
+  'Life',
+  'Motorcycle',
+  'Boat',
+  'RV',
+  'Other',
+];
 
 interface LqsHouseholdDetailModalProps {
   household: HouseholdWithRelations | null;
@@ -121,21 +137,28 @@ export function LqsHouseholdDetailModal({
   });
   const availableLeadSources = isStaffContext ? staffLeadSources : agencyLeadSources;
 
-  const PRODUCT_OPTIONS = [
-    'Standard Auto',
-    'Non-Standard Auto',
-    'Homeowners',
-    'Landlords',
-    'Manufactured Home',
-    'Renters',
-    'Condo',
-    'Umbrella',
-    'Life',
-    'Motorcycle',
-    'Boat',
-    'RV',
-    'Other',
-  ];
+  // Fetch active policy types from agency settings
+  const agencyId = household?.agency_id;
+  const { data: dbPolicyTypeNames } = useQuery<string[]>({
+    queryKey: ['policy-type-names', agencyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('policy_types')
+        .select('name')
+        .eq('agency_id', agencyId!)
+        .eq('is_active', true)
+        .order('order_index', { ascending: true });
+      if (error) throw error;
+      return (data || []).map(pt => pt.name);
+    },
+    enabled: !!agencyId,
+  });
+  const productOptions = useMemo(
+    () => dbPolicyTypeNames && dbPolicyTypeNames.length > 0
+      ? [...dbPolicyTypeNames.filter(n => n !== 'Other'), 'Other']
+      : FALLBACK_PRODUCT_OPTIONS,
+    [dbPolicyTypeNames]
+  );
 
   const [newQuote, setNewQuote] = useState({
     productType: '',
@@ -1083,7 +1106,7 @@ export function LqsHouseholdDetailModal({
                         <SelectValue placeholder="Select product..." />
                       </SelectTrigger>
                       <SelectContent className="bg-background z-50">
-                        {PRODUCT_OPTIONS.map((p) => (
+                        {productOptions.map((p) => (
                           <SelectItem key={p} value={p}>
                             {p}
                           </SelectItem>
@@ -1230,7 +1253,7 @@ export function LqsHouseholdDetailModal({
                         <SelectValue placeholder="Select product..." />
                       </SelectTrigger>
                       <SelectContent className="bg-background z-50">
-                        {PRODUCT_OPTIONS.map((p) => (
+                        {productOptions.map((p) => (
                           <SelectItem key={p} value={p}>
                             {p}
                           </SelectItem>

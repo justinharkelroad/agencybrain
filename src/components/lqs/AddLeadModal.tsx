@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +37,7 @@ interface AddLeadModalProps {
   onSuccess: () => void;
 }
 
-const PRODUCT_OPTIONS = [
+const FALLBACK_PRODUCT_OPTIONS = [
   'Standard Auto',
   'Non-Standard Auto',
   'Homeowners',
@@ -62,7 +63,29 @@ export function AddLeadModal({
   onSuccess,
 }: AddLeadModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
+  // Fetch active policy types from agency settings
+  const { data: dbPolicyTypeNames } = useQuery<string[]>({
+    queryKey: ['policy-type-names', agencyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('policy_types')
+        .select('name')
+        .eq('agency_id', agencyId)
+        .eq('is_active', true)
+        .order('order_index', { ascending: true });
+      if (error) throw error;
+      return (data || []).map(pt => pt.name);
+    },
+    enabled: !!agencyId,
+  });
+  const productOptions = useMemo(
+    () => dbPolicyTypeNames && dbPolicyTypeNames.length > 0
+      ? [...dbPolicyTypeNames.filter(n => n !== 'Other'), 'Other']
+      : FALLBACK_PRODUCT_OPTIONS,
+    [dbPolicyTypeNames]
+  );
+
   // Form state
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -334,7 +357,7 @@ export function AddLeadModal({
           <div className="space-y-3">
             <Label>Products Interested</Label>
             <div className="grid grid-cols-2 gap-2">
-              {PRODUCT_OPTIONS.map((product) => (
+              {productOptions.map((product) => (
                 <div key={product} className="flex items-center space-x-2">
                   <Checkbox
                     id={`product-${product}`}

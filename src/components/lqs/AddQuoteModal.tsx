@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -48,7 +49,7 @@ interface NewHouseholdData {
   email?: string;
 }
 
-const PRODUCT_OPTIONS = [
+const FALLBACK_PRODUCT_OPTIONS = [
   'Standard Auto',
   'Non-Standard Auto',
   'Homeowners',
@@ -86,6 +87,28 @@ export function AddQuoteModal({
   // In staff context, RLS blocks direct queries — use prop data from parent instead
   const { activeCompanies: hookCompanies } = usePriorInsuranceCompanies(staffSessionToken ? null : agencyId);
   const priorInsuranceCompanies = staffSessionToken ? (staffPriorInsuranceCompanies ?? []) : hookCompanies;
+
+  // Fetch active policy types from agency settings
+  const { data: dbPolicyTypeNames } = useQuery<string[]>({
+    queryKey: ['policy-type-names', agencyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('policy_types')
+        .select('name')
+        .eq('agency_id', agencyId)
+        .eq('is_active', true)
+        .order('order_index', { ascending: true });
+      if (error) throw error;
+      return (data || []).map(pt => pt.name);
+    },
+    enabled: !!agencyId,
+  });
+  const productOptions = useMemo(
+    () => dbPolicyTypeNames && dbPolicyTypeNames.length > 0
+      ? [...dbPolicyTypeNames.filter(n => n !== 'Other'), 'Other']
+      : FALLBACK_PRODUCT_OPTIONS,
+    [dbPolicyTypeNames]
+  );
 
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -440,7 +463,7 @@ export function AddQuoteModal({
                       <SelectValue placeholder="Select product..." />
                     </SelectTrigger>
                     <SelectContent className="bg-background z-50">
-                      {PRODUCT_OPTIONS.map((p) => (
+                      {productOptions.map((p) => (
                         <SelectItem key={p} value={p}>
                           {p}
                         </SelectItem>
