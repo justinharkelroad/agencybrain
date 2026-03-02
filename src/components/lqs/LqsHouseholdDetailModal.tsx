@@ -125,6 +125,8 @@ export function LqsHouseholdDetailModal({
     'Standard Auto',
     'Non-Standard Auto',
     'Homeowners',
+    'Landlords',
+    'Manufactured Home',
     'Renters',
     'Condo',
     'Umbrella',

@@ -40,6 +40,8 @@ const PRODUCT_OPTIONS = [
   'Standard Auto',
   'Non-Standard Auto',
   'Homeowners',
+  'Landlords',
+  'Manufactured Home',
   'Renters',
   'Condo',
   'Umbrella',
