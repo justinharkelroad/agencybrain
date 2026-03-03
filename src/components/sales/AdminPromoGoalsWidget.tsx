@@ -43,6 +43,17 @@ interface PromoSalePolicy {
   total_points: number | null;
 }
 
+// sale_policies.product_type_id references policy_types.id, NOT product_types.id.
+// Promo goals store product_types.id. This helper resolves the indirection.
+async function resolvePolicyTypeIds(productTypeId: string): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from("policy_types")
+    .select("id")
+    .eq("product_type_id", productTypeId);
+  if (error) throw error;
+  return new Set((data || []).map(pt => pt.id));
+}
+
 interface PromoSaleRow {
   customer_name: string | null;
   sale_policies: PromoSalePolicy[];
@@ -374,6 +385,10 @@ async function calculateSalesProgress(
   endDate: string
 ): Promise<number> {
   const sales = await fetchPromoSalesRows(agencyId, startDate, endDate, teamMemberId);
+
+  // Resolve product_types.id → set of policy_types.id for filtering
+  const policyTypeIds = productTypeId ? await resolvePolicyTypeIds(productTypeId) : null;
+
   const households = new Set<string>();
   let premium = 0;
   let items = 0;
@@ -382,8 +397,8 @@ async function calculateSalesProgress(
 
   for (const sale of sales) {
     const basePolicies = (sale.sale_policies || []).filter((p) => !isExcludedProduct(p.policy_type_name));
-    const scopedPolicies = productTypeId
-      ? basePolicies.filter((p) => p.product_type_id === productTypeId)
+    const scopedPolicies = policyTypeIds
+      ? basePolicies.filter((p) => p.product_type_id != null && policyTypeIds.has(p.product_type_id))
       : basePolicies;
 
     const countable = calculateCountableTotals(scopedPolicies);
@@ -458,6 +473,10 @@ async function calculateAgencyWideSalesProgress(
   endDate: string
 ): Promise<number> {
   const sales = await fetchPromoSalesRows(agencyId, startDate, endDate);
+
+  // Resolve product_types.id → set of policy_types.id for filtering
+  const policyTypeIds = productTypeId ? await resolvePolicyTypeIds(productTypeId) : null;
+
   const households = new Set<string>();
   let premium = 0;
   let items = 0;
@@ -466,8 +485,8 @@ async function calculateAgencyWideSalesProgress(
 
   for (const sale of sales) {
     const basePolicies = (sale.sale_policies || []).filter((p) => !isExcludedProduct(p.policy_type_name));
-    const scopedPolicies = productTypeId
-      ? basePolicies.filter((p) => p.product_type_id === productTypeId)
+    const scopedPolicies = policyTypeIds
+      ? basePolicies.filter((p) => p.product_type_id != null && policyTypeIds.has(p.product_type_id))
       : basePolicies;
 
     const countable = calculateCountableTotals(scopedPolicies);

@@ -347,7 +347,13 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
   // Filter goals based on user role
   const displayGoals = goals?.filter(goal => {
     if (canManageGoals) return true;
-    // Staff sees agency-wide goals or their own
+
+    // Promo goals with assignments: staff only sees if they're assigned
+    if (goal.goal_type === 'promo' && goal.sales_goal_assignments && goal.sales_goal_assignments.length > 0) {
+      return goal.sales_goal_assignments.some(a => a.team_member_id === teamMemberId);
+    }
+
+    // Standard goals & agency-wide promos: staff sees agency-wide or their own
     return goal.team_member_id === null || goal.team_member_id === teamMemberId;
   }) || [];
 

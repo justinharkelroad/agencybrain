@@ -202,6 +202,20 @@ serve(async (req) => {
   }
 });
 
+// sale_policies.product_type_id references policy_types.id, NOT product_types.id.
+// Promo goals store product_types.id. This helper resolves the indirection.
+async function resolvePolicyTypeIds(
+  supabase: any,
+  productTypeId: string
+): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from("policy_types")
+    .select("id")
+    .eq("product_type_id", productTypeId);
+  if (error) throw error;
+  return new Set((data || []).map((pt: any) => pt.id));
+}
+
 async function calculateSalesProgress(
   supabase: any,
   goal: any,
@@ -213,94 +227,52 @@ async function calculateSalesProgress(
   const measurement = goal.measurement;
   const productTypeId = goal.product_type_id;
 
-  if (measurement === "premium") {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_premium")
-      .eq("team_member_id", teamMemberId)
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
+  // Resolve product_types.id → set of policy_types.id for filtering
+  const policyTypeIds = productTypeId
+    ? await resolvePolicyTypeIds(supabase, productTypeId)
+    : null;
 
-    if (error) throw error;
-    return data?.reduce((sum: number, s: any) => sum + (s.total_premium || 0), 0) || 0;
-  }
+  // Use sale_policies join for product-type-filtered queries
+  const { data: salesRows, error: salesError } = await supabase
+    .from("sales")
+    .select("customer_name, sale_policies(product_type_id, policy_type_name, total_premium, total_items, total_points)")
+    .eq("team_member_id", teamMemberId)
+    .eq("agency_id", agencyId)
+    .gte("sale_date", startDate)
+    .lte("sale_date", endDate);
 
-  if (measurement === "items") {
-    let query = supabase.rpc("get_sale_items_count", {
-      p_team_member_id: teamMemberId,
-      p_agency_id: agencyId,
-      p_start_date: startDate,
-      p_end_date: endDate,
-      p_product_type_id: productTypeId,
-    });
+  if (salesError) throw salesError;
 
-    // Fallback to direct query if RPC doesn't exist
-    try {
-      const { data, error } = await query;
-      if (!error && data !== null) return data;
-    } catch {
-      // RPC doesn't exist, use simpler query
+  const households = new Set<string>();
+  let premium = 0;
+  let items = 0;
+  let points = 0;
+  let policies = 0;
+
+  for (const sale of salesRows || []) {
+    const allPolicies = (sale.sale_policies || []) as any[];
+    const scopedPolicies = policyTypeIds
+      ? allPolicies.filter((p: any) => p.product_type_id != null && policyTypeIds.has(p.product_type_id))
+      : allPolicies;
+
+    for (const p of scopedPolicies) {
+      premium += p.total_premium || 0;
+      items += p.total_items || 0;
+      points += p.total_points || 0;
+      policies += 1;
     }
 
-    // Direct query approach
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_items")
-      .eq("team_member_id", teamMemberId)
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
-
-    if (error) throw error;
-    return data?.reduce((sum: number, s: any) => sum + (s.total_items || 0), 0) || 0;
-  }
-
-  if (measurement === "points") {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_points")
-      .eq("team_member_id", teamMemberId)
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
-
-    if (error) throw error;
-    return data?.reduce((sum: number, s: any) => sum + (s.total_points || 0), 0) || 0;
-  }
-
-  if (measurement === "policies") {
-    let query = supabase
-      .from("sale_policies")
-      .select("id, sale:sales!inner(team_member_id, agency_id, sale_date)")
-      .eq("sale.team_member_id", teamMemberId)
-      .eq("sale.agency_id", agencyId)
-      .gte("sale.sale_date", startDate)
-      .lte("sale.sale_date", endDate);
-
-    // Apply product type filter if specified
-    if (productTypeId) {
-      query = query.eq("product_type_id", productTypeId);
+    if (scopedPolicies.length > 0) {
+      const customer = sale.customer_name?.toLowerCase().trim();
+      if (customer) households.add(customer);
     }
-
-    const { data, error } = await query;
-    if (error) throw error;
-    return data?.length || 0;
   }
 
-  if (measurement === "households") {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("customer_name")
-      .eq("team_member_id", teamMemberId)
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
-
-    if (error) throw error;
-    const uniqueHouseholds = new Set(data?.map((s: any) => s.customer_name) || []);
-    return uniqueHouseholds.size;
-  }
+  if (measurement === "premium") return premium;
+  if (measurement === "items") return items;
+  if (measurement === "points") return points;
+  if (measurement === "policies") return policies;
+  if (measurement === "households") return households.size;
 
   return 0;
 }
@@ -355,71 +327,50 @@ async function calculateAgencyWideSalesProgress(
   const measurement = goal.measurement;
   const productTypeId = goal.product_type_id;
 
-  if (measurement === "premium") {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_premium")
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
+  // Resolve product_types.id → set of policy_types.id for filtering
+  const policyTypeIds = productTypeId
+    ? await resolvePolicyTypeIds(supabase, productTypeId)
+    : null;
 
-    if (error) throw error;
-    return data?.reduce((sum: number, s: any) => sum + (s.total_premium || 0), 0) || 0;
-  }
+  const { data: salesRows, error: salesError } = await supabase
+    .from("sales")
+    .select("customer_name, sale_policies(product_type_id, policy_type_name, total_premium, total_items, total_points)")
+    .eq("agency_id", agencyId)
+    .gte("sale_date", startDate)
+    .lte("sale_date", endDate);
 
-  if (measurement === "items") {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_items")
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
+  if (salesError) throw salesError;
 
-    if (error) throw error;
-    return data?.reduce((sum: number, s: any) => sum + (s.total_items || 0), 0) || 0;
-  }
+  const households = new Set<string>();
+  let premium = 0;
+  let items = 0;
+  let points = 0;
+  let policies = 0;
 
-  if (measurement === "points") {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("total_points")
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
+  for (const sale of salesRows || []) {
+    const allPolicies = (sale.sale_policies || []) as any[];
+    const scopedPolicies = policyTypeIds
+      ? allPolicies.filter((p: any) => p.product_type_id != null && policyTypeIds.has(p.product_type_id))
+      : allPolicies;
 
-    if (error) throw error;
-    return data?.reduce((sum: number, s: any) => sum + (s.total_points || 0), 0) || 0;
-  }
-
-  if (measurement === "policies") {
-    let query = supabase
-      .from("sale_policies")
-      .select("id, sale:sales!inner(agency_id, sale_date)")
-      .eq("sale.agency_id", agencyId)
-      .gte("sale.sale_date", startDate)
-      .lte("sale.sale_date", endDate);
-
-    if (productTypeId) {
-      query = query.eq("product_type_id", productTypeId);
+    for (const p of scopedPolicies) {
+      premium += p.total_premium || 0;
+      items += p.total_items || 0;
+      points += p.total_points || 0;
+      policies += 1;
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return data?.length || 0;
+    if (scopedPolicies.length > 0) {
+      const customer = sale.customer_name?.toLowerCase().trim();
+      if (customer) households.add(customer);
+    }
   }
 
-  if (measurement === "households") {
-    const { data, error } = await supabase
-      .from("sales")
-      .select("customer_name")
-      .eq("agency_id", agencyId)
-      .gte("sale_date", startDate)
-      .lte("sale_date", endDate);
-
-    if (error) throw error;
-    const uniqueHouseholds = new Set(data?.map((s: any) => s.customer_name) || []);
-    return uniqueHouseholds.size;
-  }
+  if (measurement === "premium") return premium;
+  if (measurement === "items") return items;
+  if (measurement === "points") return points;
+  if (measurement === "policies") return policies;
+  if (measurement === "households") return households.size;
 
   return 0;
 }
