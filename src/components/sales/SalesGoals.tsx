@@ -52,6 +52,18 @@ interface SalesGoal {
   sales_goal_assignments?: { team_member_id: string; team_member: { name: string } | null }[];
 }
 
+interface FocusTotals {
+  premium: number;
+  items: number;
+  points: number;
+  policies: number;
+}
+
+interface SalesTotalsResult {
+  agency: { all: FocusTotals; vc_qualifying: FocusTotals; non_vc: FocusTotals };
+  byMember: Record<string, { all: FocusTotals; vc_qualifying: FocusTotals; non_vc: FocusTotals }>;
+}
+
 interface GoalProgress {
   target: number;
   current: number;
@@ -167,7 +179,7 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
   // Fetch current values for each measurement type
   const { data: salesTotals, isLoading: totalsLoading } = useQuery({
     queryKey: ["sales-totals-for-goals", agencyId, teamMemberId, isStaff, businessFilter],
-    queryFn: async () => {
+    queryFn: async (): Promise<SalesTotalsResult | null> => {
       if (!agencyId) return null;
 
       const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
@@ -176,6 +188,7 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
       let query = supabase
         .from("sales")
         .select(`
+          team_member_id,
           sale_policies(id, policy_type_name, is_vc_qualifying, total_premium, total_items, total_points, sale_items(is_vc_qualifying, item_count, premium, points))
         `)
         .eq("agency_id", agencyId)
@@ -197,18 +210,14 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
       const { data, error } = await query;
       if (error) throw error;
 
-      let totalPremium = 0;
-      let totalItems = 0;
-      let totalPoints = 0;
-      let totalPolicies = 0;
-      let vcPremium = 0;
-      let vcItems = 0;
-      let vcPoints = 0;
-      let nonVcPremium = 0;
-      let nonVcItems = 0;
-      let nonVcPoints = 0;
+      const emptyFocus = (): FocusTotals => ({ premium: 0, items: 0, points: 0, policies: 0 });
+      const agencyAll = emptyFocus();
+      const agencyVc = emptyFocus();
+      const agencyNonVc = emptyFocus();
+      const byMember: Record<string, { all: FocusTotals; vc_qualifying: FocusTotals; non_vc: FocusTotals }> = {};
 
-      for (const sale of data || []) {
+      for (const sale of (data || []) as Array<{ team_member_id: string | null; sale_policies: Array<any> }>) {
+        const memberId = sale.team_member_id;
         const policies = (sale.sale_policies || []) as Array<{
           policy_type_name?: string | null;
           total_premium?: number | null;
@@ -222,32 +231,54 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
           }>;
         }>;
         const countable = calculateCountableTotals(policies);
-        totalPremium += countable.premium;
-        totalItems += countable.items;
-        totalPoints += countable.points;
-        totalPolicies += countable.policyCount;
+
+        // Agency totals
+        agencyAll.premium += countable.premium;
+        agencyAll.items += countable.items;
+        agencyAll.points += countable.points;
+        agencyAll.policies += countable.policyCount;
+
+        // Per-member totals
+        if (memberId) {
+          if (!byMember[memberId]) {
+            byMember[memberId] = { all: emptyFocus(), vc_qualifying: emptyFocus(), non_vc: emptyFocus() };
+          }
+          byMember[memberId].all.premium += countable.premium;
+          byMember[memberId].all.items += countable.items;
+          byMember[memberId].all.points += countable.points;
+          byMember[memberId].all.policies += countable.policyCount;
+        }
 
         // Parse VC vs non-VC from sale_items
         for (const policy of policies) {
           if (isExcludedProduct(policy.policy_type_name)) continue;
           for (const item of policy.sale_items || []) {
             if (item.is_vc_qualifying) {
-              vcItems += item.item_count || 0;
-              vcPremium += item.premium || 0;
-              vcPoints += item.points || 0;
+              agencyVc.items += item.item_count || 0;
+              agencyVc.premium += item.premium || 0;
+              agencyVc.points += item.points || 0;
+              if (memberId && byMember[memberId]) {
+                byMember[memberId].vc_qualifying.items += item.item_count || 0;
+                byMember[memberId].vc_qualifying.premium += item.premium || 0;
+                byMember[memberId].vc_qualifying.points += item.points || 0;
+              }
             } else {
-              nonVcItems += item.item_count || 0;
-              nonVcPremium += item.premium || 0;
-              nonVcPoints += item.points || 0;
+              agencyNonVc.items += item.item_count || 0;
+              agencyNonVc.premium += item.premium || 0;
+              agencyNonVc.points += item.points || 0;
+              if (memberId && byMember[memberId]) {
+                byMember[memberId].non_vc.items += item.item_count || 0;
+                byMember[memberId].non_vc.premium += item.premium || 0;
+                byMember[memberId].non_vc.points += item.points || 0;
+              }
             }
           }
         }
       }
 
       return {
-        all: { premium: totalPremium, items: totalItems, points: totalPoints, policies: totalPolicies },
-        vc_qualifying: { premium: vcPremium, items: vcItems, points: vcPoints, policies: 0 },
-        non_vc: { premium: nonVcPremium, items: nonVcItems, points: nonVcPoints, policies: 0 },
+        agency: { all: agencyAll, vc_qualifying: agencyVc, non_vc: agencyNonVc },
+        byMember,
       };
     },
     enabled: !!agencyId,
@@ -273,11 +304,18 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
     },
   });
 
-  function getCurrentValue(goal: SalesGoal): number {
+  function getCurrentValue(goal: SalesGoal, forMemberId?: string): number {
     if (!salesTotals) return 0;
-    
-    const focusData = salesTotals[goal.goal_focus as keyof typeof salesTotals] || salesTotals.all;
-    
+
+    // Pick the right bucket: per-member if we have a member ID, otherwise agency-wide
+    const bucket = forMemberId
+      ? salesTotals.byMember[forMemberId]
+      : salesTotals.agency;
+
+    if (!bucket) return 0;
+
+    const focusData = bucket[goal.goal_focus as keyof typeof bucket] || bucket.all;
+
     switch (goal.measurement) {
       case "premium": return focusData.premium;
       case "items": return focusData.items;
@@ -424,22 +462,101 @@ export function SalesGoals({ agencyId }: SalesGoalsProps) {
                     </h3>
                   )}
                   {individualGoals.map(goal => {
-                    const currentValue = getCurrentValue(goal);
-                    const progress = calculateGoalProgress(goal, currentValue);
-                    
+                    // Goals assigned via team_member_id (AddGoalDialog): single assignee
+                    if (goal.team_member_id) {
+                      const currentValue = getCurrentValue(goal, goal.team_member_id);
+                      const progress = calculateGoalProgress(goal, currentValue);
+                      return (
+                        <GoalCard
+                          key={goal.id}
+                          goal={goal}
+                          progress={progress}
+                          currentValue={currentValue}
+                          formatValue={formatValue}
+                          getMeasurementLabel={getMeasurementLabel}
+                          canEdit={canManageGoals}
+                          onEdit={() => setEditingGoal(goal)}
+                          onDelete={() => setDeletingGoalId(goal.id)}
+                          showAssignee={canManageGoals}
+                        />
+                      );
+                    }
+
+                    // Goals assigned via sales_goal_assignments (promos)
+                    const assignments = goal.sales_goal_assignments || [];
+
+                    // Staff view: only show their own row (other members' data isn't loaded)
+                    if (isStaff && teamMemberId) {
+                      const myAssignment = assignments.find(a => a.team_member_id === teamMemberId);
+                      const memberId = myAssignment?.team_member_id || teamMemberId;
+                      const currentValue = getCurrentValue(goal, memberId);
+                      const progress = calculateGoalProgress(goal, currentValue);
+                      return (
+                        <GoalCard
+                          key={goal.id}
+                          goal={goal}
+                          progress={progress}
+                          currentValue={currentValue}
+                          formatValue={formatValue}
+                          getMeasurementLabel={getMeasurementLabel}
+                          canEdit={false}
+                          onEdit={() => {}}
+                          onDelete={() => {}}
+                        />
+                      );
+                    }
+
+                    // Admin/owner view: show per-member rows
                     return (
-                      <GoalCard 
-                        key={goal.id} 
-                        goal={goal} 
-                        progress={progress}
-                        currentValue={currentValue}
-                        formatValue={formatValue}
-                        getMeasurementLabel={getMeasurementLabel}
-                        canEdit={canManageGoals}
-                        onEdit={() => setEditingGoal(goal)}
-                        onDelete={() => setDeletingGoalId(goal.id)}
-                        showAssignee={canManageGoals}
-                      />
+                      <div key={goal.id} className="bg-muted/30 rounded-lg p-4 space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium">{goal.goal_name}</h4>
+                              {goal.goal_focus !== "all" && (
+                                <Badge variant="outline" className="text-xs">
+                                  {goal.goal_focus === "vc_qualifying" ? "VC Only" : "Non-VC"}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          {canManageGoals && (
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditingGoal(goal)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeletingGoalId(goal.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          {assignments.map(a => {
+                            const memberValue = getCurrentValue(goal, a.team_member_id);
+                            const memberProgress = calculateGoalProgress(goal, memberValue);
+                            return (
+                              <div key={a.team_member_id} className="space-y-1">
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="font-medium">{a.team_member?.name || "Unknown"}</span>
+                                  <span className="text-muted-foreground">
+                                    {formatValue(memberValue, goal.measurement)} / {formatValue(goal.target_value, goal.measurement)}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Progress value={memberProgress.percentComplete} className="h-2 flex-1" />
+                                  <span className={cn(
+                                    "text-xs font-medium w-10 text-right",
+                                    memberProgress.onPace ? "text-green-500" : "text-amber-500"
+                                  )}>
+                                    {memberProgress.percentComplete.toFixed(0)}%
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
