@@ -215,7 +215,32 @@ export function AgencyMetricRings({
   const [selectedMember, setSelectedMember] = useState<string>(AGENCY_VALUE);
   const [selectedDate, setSelectedDate] = useState<Date>(() => startOfDay(new Date()));
 
-  const { data: dashboardData } = useDashboardDaily(agencySlug, "Sales", selectedDate);
+  // Fetch ALL active team members so the dropdown isn't limited to those with data rows
+  const { data: allTeamMembers } = useQuery({
+    queryKey: ["team-members-dropdown", agencyId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("team_members")
+        .select("id, name, role")
+        .eq("agency_id", agencyId)
+        .in("role", ["Sales", "Hybrid", "Service"])
+        .eq("status", "active")
+        .order("name");
+      return data || [];
+    },
+    enabled: !!agencyId,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Determine which role to fetch: Service members need the Service dashboard
+  const dashboardRole: "Sales" | "Service" = useMemo(() => {
+    if (selectedMember === AGENCY_VALUE) return "Sales";
+    const member = allTeamMembers?.find((m) => m.id === selectedMember);
+    if (member?.role === "Service") return "Service";
+    return "Sales"; // Sales + Hybrid both use the Sales dashboard
+  }, [selectedMember, allTeamMembers]);
+
+  const { data: dashboardData } = useDashboardDaily(agencySlug, dashboardRole, selectedDate);
 
   const isTodaySelected = isToday(selectedDate);
   const isFutureBlocked = isTodaySelected; // can't go forward past today
@@ -228,11 +253,13 @@ export function AgencyMetricRings({
 
   const dateLabel = isTodaySelected ? "Today" : format(selectedDate, "EEE, MMM d");
 
-  // Build sorted member list from dashboard rows
+  // Build sorted member list: all active team members + any extra from data rows
   const members = useMemo(() => {
-    if (!dashboardData?.rows) return [];
     const seen = new Map<string, string>();
-    for (const row of dashboardData.rows) {
+    for (const tm of (allTeamMembers || [])) {
+      if (tm.id && tm.name) seen.set(tm.id, tm.name);
+    }
+    for (const row of (dashboardData?.rows || [])) {
       if (row.team_member_id && !seen.has(row.team_member_id)) {
         seen.set(row.team_member_id, row.rep_name || "Unnamed");
       }
@@ -240,7 +267,7 @@ export function AgencyMetricRings({
     return Array.from(seen.entries())
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [dashboardData?.rows]);
+  }, [dashboardData?.rows, allTeamMembers]);
 
   // Reset selection if the selected member disappears from data
   const validSelection =
