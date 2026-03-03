@@ -81,6 +81,7 @@ interface MorningDigestSections {
   renewalsDue: boolean;
   sequenceTasks: boolean;
   trainingCompletions: boolean;
+  staffActivityBreakdown: boolean;
 }
 
 const DEFAULT_SECTIONS: MorningDigestSections = {
@@ -91,6 +92,28 @@ const DEFAULT_SECTIONS: MorningDigestSections = {
   renewalsDue: true,
   sequenceTasks: true,
   trainingCompletions: true,
+  staffActivityBreakdown: false,
+};
+
+interface StaffActivityEntry {
+  displayName: string;
+  total: number;
+  breakdown: Record<string, number>;
+}
+
+interface StaffActivityBreakdown {
+  staffEntries: StaffActivityEntry[];
+  systemTotal: number;
+  truncated: number;
+}
+
+const MAX_STAFF_SHOWN = 15;
+
+const ACTIVITY_TYPE_LABELS: Record<string, string> = {
+  call: 'Calls', email: 'Emails', text: 'Texts', voicemail: 'VMs',
+  note: 'Notes', appointment: 'Appts', policy_sold: 'Sold',
+  policy_cancelled: 'Cancelled', policy_renewed: 'Renewed',
+  account_saved: 'Saved', status_change: 'Status', call_scored: 'Scored',
 };
 
 serve(async (req) => {
@@ -222,6 +245,7 @@ serve(async (req) => {
           renewalsDue,
           sequenceTasks,
           trainingCompletions,
+          staffActivity,
           recipients
         ] = await Promise.all([
           // 1. Yesterday's Sales Snapshot
@@ -245,7 +269,12 @@ serve(async (req) => {
           // 7. Training Completions
           fetchTrainingCompletions(supabase, agency.id, yesterdayStart, todayStart),
 
-          // 8. Get recipients
+          // 8. Staff Activity Breakdown (skip query if disabled)
+          sections.staffActivityBreakdown
+            ? fetchStaffActivityBreakdown(supabase, agency.id, yesterdayStart, todayStart)
+            : Promise.resolve({ staffEntries: [], systemTotal: 0, truncated: 0 } as StaffActivityBreakdown),
+
+          // 9. Get recipients
           fetchRecipients(supabase, agency.id, forceTest, testEmail)
         ]);
 
@@ -266,7 +295,8 @@ serve(async (req) => {
           atRiskPolicies,
           renewalsDue,
           sequenceTasks,
-          trainingCompletions
+          trainingCompletions,
+          staffActivity
         );
 
         const todayFormatted = new Date().toLocaleDateString('en-US', {
@@ -624,6 +654,61 @@ async function fetchTrainingCompletions(
   return completions;
 }
 
+async function fetchStaffActivityBreakdown(
+  supabase: any,
+  agencyId: string,
+  yesterdayStart: string,
+  todayStart: string
+): Promise<StaffActivityBreakdown> {
+  const { data, error } = await supabase
+    .from('contact_activities')
+    .select('created_by_display_name, activity_type')
+    .eq('agency_id', agencyId)
+    .gte('activity_date', yesterdayStart.split('T')[0])
+    .lt('activity_date', todayStart.split('T')[0]);
+
+  if (error) {
+    console.error('[send-morning-digest] Staff activity breakdown error:', error);
+    return { staffEntries: [], systemTotal: 0, truncated: 0 };
+  }
+
+  // Group by display name, then by activity type
+  const byStaff: Record<string, Record<string, number>> = {};
+  let systemTotal = 0;
+
+  for (const row of (data || []) as any[]) {
+    const name = row.created_by_display_name;
+    const type = row.activity_type || 'other';
+
+    if (!name) {
+      systemTotal++;
+      continue;
+    }
+
+    if (!byStaff[name]) {
+      byStaff[name] = {};
+    }
+    byStaff[name][type] = (byStaff[name][type] || 0) + 1;
+  }
+
+  // Build entries sorted by total desc
+  const entries: StaffActivityEntry[] = Object.entries(byStaff)
+    .map(([displayName, breakdown]) => ({
+      displayName,
+      breakdown,
+      total: Object.values(breakdown).reduce((sum, n) => sum + n, 0),
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  const truncated = Math.max(0, entries.length - MAX_STAFF_SHOWN);
+
+  return {
+    staffEntries: entries.slice(0, MAX_STAFF_SHOWN),
+    systemTotal,
+    truncated,
+  };
+}
+
 async function fetchRecipients(
   supabase: any,
   agencyId: string,
@@ -663,7 +748,8 @@ function buildEmailHtml(
   atRisk: AtRiskPolicies,
   renewals: RenewalsDue,
   sequenceTasks: SequenceTasks,
-  trainingCompletions: TrainingCompletion[]
+  trainingCompletions: TrainingCompletion[],
+  staffActivity: StaffActivityBreakdown
 ): string {
   const formatCurrency = (n: number) => `$${n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   const todayFormatted = new Date().toLocaleDateString('en-US', {
@@ -762,6 +848,56 @@ function buildEmailHtml(
 
       </div>
       ` : ''}
+
+      ${sections.staffActivityBreakdown && staffActivity.staffEntries.length > 0 ? (() => {
+        // Compute ordered activity type columns from the data
+        const allTypes = new Set<string>();
+        for (const entry of staffActivity.staffEntries) {
+          for (const type of Object.keys(entry.breakdown)) {
+            allTypes.add(type);
+          }
+        }
+        // Sort columns by total count descending
+        const typeTotals: Record<string, number> = {};
+        for (const type of allTypes) {
+          typeTotals[type] = staffActivity.staffEntries.reduce((sum, e) => sum + (e.breakdown[type] || 0), 0);
+        }
+        const orderedTypes = [...allTypes].sort((a, b) => (typeTotals[b] || 0) - (typeTotals[a] || 0));
+
+        const getLabel = (type: string) => ACTIVITY_TYPE_LABELS[type] || type.charAt(0).toUpperCase() + type.slice(1).replace(/_/g, ' ');
+
+        return `
+      <!-- Staff Activity Breakdown Section -->
+      <h2 style="font-size: 14px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 2px solid ${BRAND.colors.lightBg};">
+        Staff Activity Breakdown
+      </h2>
+
+      <div style="margin-bottom: 24px; overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+          <thead>
+            <tr style="background: ${BRAND.colors.lightBg};">
+              <th style="text-align: left; padding: 8px 12px; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb;">Staff Member</th>
+              <th style="text-align: center; padding: 8px 8px; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb;">Total</th>
+              ${orderedTypes.map(type => `<th style="text-align: center; padding: 8px 8px; font-weight: 600; color: #6b7280; border-bottom: 2px solid #e5e7eb;">${getLabel(type)}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${staffActivity.staffEntries.map((entry, i) => `
+            <tr style="background: ${i % 2 === 0 ? BRAND.colors.white : BRAND.colors.lightBg};">
+              <td style="padding: 8px 12px; border-bottom: 1px solid #f3f4f6; color: #111827;">${entry.displayName}</td>
+              <td style="padding: 8px 8px; text-align: center; border-bottom: 1px solid #f3f4f6; font-weight: 700; color: ${BRAND.colors.primary};">${entry.total}</td>
+              ${orderedTypes.map(type => `<td style="padding: 8px 8px; text-align: center; border-bottom: 1px solid #f3f4f6; color: ${entry.breakdown[type] ? '#374151' : '#d1d5db'};">${entry.breakdown[type] || '-'}</td>`).join('')}
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        ${staffActivity.systemTotal > 0 || staffActivity.truncated > 0 ? `
+        <div style="font-size: 11px; color: #9ca3af; margin-top: 8px;">
+          ${staffActivity.systemTotal > 0 ? `${staffActivity.systemTotal} system-generated ${staffActivity.systemTotal === 1 ? 'activity' : 'activities'} not shown.` : ''}
+          ${staffActivity.truncated > 0 ? ` +${staffActivity.truncated} more staff members not shown.` : ''}
+        </div>
+        ` : ''}
+      </div>`;
+      })() : ''}
 
       ${hasAttentionItems ? `
       <!-- Needs Attention Section -->

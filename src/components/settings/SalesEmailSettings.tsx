@@ -20,6 +20,7 @@ interface MorningDigestSections {
   renewalsDue: boolean;
   sequenceTasks: boolean;
   trainingCompletions: boolean;
+  staffActivityBreakdown: boolean;
 }
 
 const DEFAULT_SECTIONS: MorningDigestSections = {
@@ -30,6 +31,7 @@ const DEFAULT_SECTIONS: MorningDigestSections = {
   renewalsDue: true,
   sequenceTasks: true,
   trainingCompletions: true,
+  staffActivityBreakdown: false,
 };
 
 const SECTION_LABELS: Record<keyof MorningDigestSections, { label: string; description: string }> = {
@@ -40,6 +42,7 @@ const SECTION_LABELS: Record<keyof MorningDigestSections, { label: string; descr
   renewalsDue: { label: "Renewals Due", description: "Renewals coming up in the next 7 days" },
   sequenceTasks: { label: "Sequence Tasks", description: "Completed, overdue, and due today tasks" },
   trainingCompletions: { label: "Training Completions", description: "Sales Experience lessons completed" },
+  staffActivityBreakdown: { label: "Staff Activity Breakdown", description: "Per-staff activity counts by type (calls, emails, texts, etc.)" },
 };
 
 const TIMEZONE_OPTIONS = [
