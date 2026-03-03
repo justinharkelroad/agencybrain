@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { hasOneOnOneAccess } from "@/utils/tierAccess";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Upload, Loader2, ChevronUp, ChevronDown, ChevronsUpDown, Clock, AlertTriangle, Info } from "lucide-react";
+import { Upload, Loader2, ChevronUp, ChevronDown, ChevronsUpDown, Clock, AlertTriangle, Info, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
@@ -17,7 +17,7 @@ import { CancelAuditPagination } from "@/components/cancel-audit/CancelAuditPagi
 import { DroppedRecordsInfoModal } from "@/components/cancel-audit/DroppedRecordsInfoModal";
 import { WeeklyStatsSummary } from "@/components/cancel-audit/WeeklyStatsSummary";
 import { CancelAuditHeroStats } from "@/components/cancel-audit/CancelAuditHeroStats";
-import { CancelAuditActivitySummary } from "@/components/cancel-audit/CancelAuditActivitySummary";
+import { CancelAuditActivitySummary, type ActivityFilter } from "@/components/cancel-audit/CancelAuditActivitySummary";
 import { UrgencyTimeline } from "@/components/cancel-audit/UrgencyTimeline";
 import { ExportButton } from "@/components/cancel-audit/ExportButton";
 import { HelpButton } from "@/components/HelpButton";
@@ -112,6 +112,7 @@ const CancelAuditPage = () => {
   const [showCurrentOnly, setShowCurrentOnly] = useState(false);
   const [showDroppedOnly, setShowDroppedOnly] = useState(false);
   const [urgencyFilter, setUrgencyFilter] = useState<string | null>(null);
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter | null>(null);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -385,8 +386,13 @@ const CancelAuditPage = () => {
       }
     }
 
+    // Activity summary click-through filter
+    if (activityFilter) {
+      filtered = filtered.filter(r => activityFilter.recordIds.has(r.id));
+    }
+
     return filtered;
-  }, [records, viewMode, statusFilter, cancelStatusFilter, showUntouchedOnly, showDroppedOnly, urgencyFilter, aiExtendedFilters]);
+  }, [records, viewMode, statusFilter, cancelStatusFilter, showUntouchedOnly, showDroppedOnly, urgencyFilter, aiExtendedFilters, activityFilter]);
 
   // Count untouched records
   const untouchedCount = useMemo(() => {
@@ -728,6 +734,7 @@ const CancelAuditPage = () => {
     setShowCurrentOnly(viewMode === 'all');
     setShowDroppedOnly(false);
     setUrgencyFilter(null);
+    setActivityFilter(null);
   }, [viewMode]);
 
   // AI result → page state bridge
@@ -852,7 +859,7 @@ const CancelAuditPage = () => {
   const hasRecords = (viewCounts?.all || 0) > 0;
   const hasFilteredRecords = filteredRecords.length > 0;
   const defaultShowCurrentOnly = viewMode === 'all';
-  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || cancelStatusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly || showDroppedOnly || showCurrentOnly !== defaultShowCurrentOnly || urgencyFilter !== null || aiIsActive;
+  const isFiltering = reportTypeFilter !== 'all' || statusFilter !== 'all' || cancelStatusFilter !== 'all' || debouncedSearch.length > 0 || showUntouchedOnly || showDroppedOnly || showCurrentOnly !== defaultShowCurrentOnly || urgencyFilter !== null || activityFilter !== null || aiIsActive;
 
   return (
     <div className="min-h-screen bg-background">
@@ -951,7 +958,11 @@ const CancelAuditPage = () => {
       {/* Activity Summary */}
       {agencyId && (
         <div className="container mx-auto px-4 pb-4">
-          <CancelAuditActivitySummary agencyId={agencyId} />
+          <CancelAuditActivitySummary
+            agencyId={agencyId}
+            onActivityFilter={setActivityFilter}
+            activeFilter={activityFilter}
+          />
         </div>
       )}
 
@@ -963,6 +974,28 @@ const CancelAuditPage = () => {
             onFilterByUrgency={setUrgencyFilter}
             activeUrgencyFilter={urgencyFilter}
           />
+        </div>
+      )}
+
+      {/* Activity Filter Indicator */}
+      {activityFilter && (
+        <div className="container mx-auto px-4 pb-4">
+          <div className="flex items-center gap-3 px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+            <span className="text-sm text-purple-400">
+              Filtered by activity: {activityFilter.displayName}
+              {activityFilter.activityType && ` — ${activityFilter.activityType.replace(/_/g, ' ')}`}
+              {' '}({activityFilter.recordIds.size} record{activityFilter.recordIds.size !== 1 ? 's' : ''})
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs text-purple-400 hover:text-white hover:bg-purple-500/20"
+              onClick={() => setActivityFilter(null)}
+            >
+              <X className="h-3 w-3 mr-1" />
+              Clear
+            </Button>
+          </div>
         </div>
       )}
 

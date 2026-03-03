@@ -23,7 +23,7 @@ import { RenewalDetailDrawer } from '@/components/renewals/RenewalDetailDrawer';
 import { ScheduleActivityModal } from '@/components/renewals/ScheduleActivityModal';
 import { RenewalsDashboard } from '@/components/renewals/RenewalsDashboard';
 import { RenewalsPagination } from '@/components/renewals/RenewalsPagination';
-import { ActivitySummaryBar } from '@/components/renewals/ActivitySummaryBar';
+import { ActivitySummaryBar, type RenewalActivityFilter } from '@/components/renewals/ActivitySummaryBar';
 import { RenewalAISearch } from '@/components/renewals/RenewalAISearch';
 import { ContactProfileModal } from '@/components/contacts';
 import { DroppedRenewalsInfoModal } from '@/components/renewals/DroppedRenewalsInfoModal';
@@ -164,6 +164,7 @@ export default function Renewals() {
   // Chart filter state
   const [chartDateFilter, setChartDateFilter] = useState<string | null>(null);
   const [chartDayFilter, setChartDayFilter] = useState<number | null>(null);
+  const [activityFilter, setActivityFilter] = useState<RenewalActivityFilter | null>(null);
   const [filtersExpanded, setFiltersExpanded] = useState(false);
 
   // Contact profile modal state
@@ -267,6 +268,7 @@ export default function Renewals() {
     setAiExtendedFilters({});
     setChartDateFilter(null);
     setChartDayFilter(null);
+    setActivityFilter(null);
   };
 
   // Apply AI results when they arrive (ref avoids effect re-firing on handler identity change)
@@ -602,6 +604,11 @@ export default function Renewals() {
       result = result.filter(r => r.agent_number && aiExtendedFilters.agentNumber!.includes(r.agent_number));
     }
 
+    // Activity summary click-through filter
+    if (activityFilter) {
+      result = result.filter(r => activityFilter.recordIds.has(r.id));
+    }
+
     // Comparator used for both default and column sorting
     const compare = (a: RenewalRecord, b: RenewalRecord) => {
       // When Priority Only is active, always group starred items first
@@ -685,7 +692,7 @@ export default function Renewals() {
     if (sortCriteria.length === 0) return result;
 
     return [...result].sort(compare);
-  }, [records, sortCriteria, showPriorityOnly, hideRenewalTaken, hideInCancelAudit, showFirstTermOnly, activeCancelPolicies, chartDateFilter, chartDayFilter, aiExtendedFilters]);
+  }, [records, sortCriteria, showPriorityOnly, hideRenewalTaken, hideInCancelAudit, showFirstTermOnly, activeCancelPolicies, chartDateFilter, chartDayFilter, aiExtendedFilters, activityFilter]);
 
   const displayedRecords = showDroppedOnly ? droppedRecords : filteredAndSortedRecords;
   const toggleSelectAll = () => { selectedIds.size === displayedRecords.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(displayedRecords.map(r => r.id))); };
@@ -781,7 +788,11 @@ export default function Renewals() {
       />
       
       {/* Activity Summary - Previous Business Day */}
-      <ActivitySummaryBar agencyId={context.agencyId} />
+      <ActivitySummaryBar
+        agencyId={context.agencyId}
+        onActivityFilter={setActivityFilter}
+        activeFilter={activityFilter}
+      />
       
       {/* Active Chart Filter Indicator */}
       {(chartDateFilter || chartDayFilter !== null) && (
@@ -796,6 +807,26 @@ export default function Renewals() {
             size="sm"
             className="h-6 px-2 text-xs text-blue-400 hover:text-white hover:bg-blue-500/20"
             onClick={() => { setChartDateFilter(null); setChartDayFilter(null); }}
+          >
+            <X className="h-3 w-3 mr-1" />
+            Clear
+          </Button>
+        </div>
+      )}
+
+      {/* Activity Filter Indicator */}
+      {activityFilter && (
+        <div className="flex items-center gap-3 px-4 py-2 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+          <span className="text-sm text-purple-400">
+            Filtered by activity: {activityFilter.displayName}
+            {activityFilter.activityType && ` — ${activityFilter.activityType.replace(/_/g, ' ')}`}
+            {' '}({activityFilter.recordIds.size} record{activityFilter.recordIds.size !== 1 ? 's' : ''})
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-purple-400 hover:text-white hover:bg-purple-500/20"
+            onClick={() => setActivityFilter(null)}
           >
             <X className="h-3 w-3 mr-1" />
             Clear

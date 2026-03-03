@@ -50,7 +50,7 @@ serve(async (req) => {
     console.log('[get_staff_renewal_activities] Valid session for agency:', agencyId);
 
     const body = await req.json().catch(() => ({}));
-    const { date, renewalRecordId } = body;
+    const { date, startDate, endDate, renewalRecordId } = body;
 
     // Build query
     let query = supabase
@@ -65,7 +65,11 @@ serve(async (req) => {
     }
 
     // Filter by date if provided (for activity summary)
-    if (date) {
+    // Prefer startDate/endDate (UTC-correct) over naive date string
+    if (startDate && endDate) {
+      query = query.gte('created_at', startDate).lte('created_at', endDate);
+    } else if (date) {
+      // Backwards compat: naive date string
       const startOfDayStr = `${date}T00:00:00`;
       const endOfDayStr = `${date}T23:59:59`;
       query = query.gte('created_at', startOfDayStr).lte('created_at', endOfDayStr);

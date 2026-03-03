@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Phone, Voicemail, MessageSquare, Mail, CheckCircle2, Activity, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
@@ -10,9 +10,19 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { getStaffSessionToken } from '@/lib/cancel-audit-api';
+import { getLocalDayBoundsInUTC } from '@/lib/date-utils';
+
+export interface RenewalActivityFilter {
+  userId: string;
+  displayName: string;
+  activityType?: string;
+  recordIds: Set<string>;
+}
 
 interface ActivitySummaryBarProps {
   agencyId: string | null;
+  onActivityFilter?: (filter: RenewalActivityFilter | null) => void;
+  activeFilter?: { userId: string; activityType?: string } | null;
 }
 
 interface ActivityByUser {
@@ -25,49 +35,63 @@ interface ActivityByUser {
   reviewsDone: number;
 }
 
-export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
+// Maps display field names to activity_type values in the DB
+const RENEWAL_ACTIVITY_TYPE_MAP: Record<string, string[]> = {
+  calls: ['call', 'phone_call'],
+  voicemails: ['voicemail'],
+  texts: ['text'],
+  emails: ['email'],
+  reviewsDone: ['review_done'],
+};
+
+export function ActivitySummaryBar({ agencyId, onActivityFilter, activeFilter }: ActivitySummaryBarProps) {
   const [selectedDate, setSelectedDate] = useState(startOfDay(new Date()));
   const [calendarOpen, setCalendarOpen] = useState(false);
-  
+
   const dateStr = format(selectedDate, 'yyyy-MM-dd');
-  const displayDate = isToday(selectedDate) 
-    ? 'Today' 
+  const displayDate = isToday(selectedDate)
+    ? 'Today'
     : format(selectedDate, 'EEEE, MMM d');
-  
+
   const staffSessionToken = getStaffSessionToken();
+
+  // Clear filter when date changes
+  useEffect(() => {
+    onActivityFilter?.(null);
+  }, [selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
   
   const { data: activities, isLoading } = useQuery({
     queryKey: ['renewal-activity-summary', agencyId, dateStr, !!staffSessionToken],
     queryFn: async () => {
       if (!agencyId) return [];
       
+      // Get UTC bounds for the selected local date (handles timezone correctly)
+      const { startUTC, endUTC } = getLocalDayBoundsInUTC(selectedDate);
+
       // Staff users: call edge function to bypass RLS
       if (staffSessionToken) {
         console.log('[ActivitySummaryBar] Staff user detected, calling edge function');
         const { data, error } = await supabase.functions.invoke('get_staff_renewal_activities', {
-          body: { date: dateStr },
+          body: { startDate: startUTC, endDate: endUTC, date: dateStr },
           headers: { 'x-staff-session': staffSessionToken }
         });
-        
+
         if (error) {
           console.error('[ActivitySummaryBar] Edge function error:', error);
           return [];
         }
-        
+
         console.log('[ActivitySummaryBar] Got activities from edge function:', data?.activities?.length);
         return data?.activities || [];
       }
-      
+
       // Regular users: direct query
-      const startOfDayStr = `${dateStr}T00:00:00`;
-      const endOfDayStr = `${dateStr}T23:59:59`;
-      
       const { data, error } = await supabase
         .from('renewal_activities')
-        .select('id, activity_type, created_by, created_by_display_name, created_at')
+        .select('id, activity_type, created_by, created_by_display_name, created_at, renewal_record_id')
         .eq('agency_id', agencyId)
-        .gte('created_at', startOfDayStr)
-        .lte('created_at', endOfDayStr);
+        .gte('created_at', startUTC)
+        .lte('created_at', endUTC);
       
       if (error) {
         console.error('Error fetching activities:', error);
@@ -145,7 +169,59 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
   }, [activityByUser]);
   
   const totalActivities = totals.calls + totals.voicemails + totals.texts + totals.emails + totals.reviewsDone;
-  
+
+  // Collect renewal_record_ids for a given user (optionally filtered by activity type)
+  const getRecordIdsForFilter = useCallback(
+    (userId: string, activityTypes?: string[]): Set<string> => {
+      if (!activities) return new Set();
+      const ids = new Set<string>();
+      activities.forEach((a: any) => {
+        const aUserId = a.created_by || 'unknown';
+        if (aUserId !== userId) return;
+        if (activityTypes && !activityTypes.includes(a.activity_type)) return;
+        if (a.renewal_record_id) ids.add(a.renewal_record_id);
+      });
+      return ids;
+    },
+    [activities]
+  );
+
+  const handleNameClick = useCallback(
+    (user: ActivityByUser) => {
+      if (!onActivityFilter) return;
+      if (activeFilter?.userId === user.userId && !activeFilter.activityType) {
+        onActivityFilter(null);
+        return;
+      }
+      onActivityFilter({
+        userId: user.userId,
+        displayName: user.displayName,
+        recordIds: getRecordIdsForFilter(user.userId),
+      });
+    },
+    [onActivityFilter, activeFilter, getRecordIdsForFilter]
+  );
+
+  const handleCellClick = useCallback(
+    (user: ActivityByUser, fieldKey: string, count: number) => {
+      if (!onActivityFilter || count === 0) return;
+      const dbTypes = RENEWAL_ACTIVITY_TYPE_MAP[fieldKey];
+      // Use the first type as the canonical type for toggle comparison
+      const canonicalType = dbTypes[0];
+      if (activeFilter?.userId === user.userId && activeFilter.activityType === canonicalType) {
+        onActivityFilter(null);
+        return;
+      }
+      onActivityFilter({
+        userId: user.userId,
+        displayName: user.displayName,
+        activityType: canonicalType,
+        recordIds: getRecordIdsForFilter(user.userId, dbTypes),
+      });
+    },
+    [onActivityFilter, activeFilter, getRecordIdsForFilter]
+  );
+
   // Navigation handlers
   const goToPreviousDay = () => {
     setSelectedDate(prev => subDays(prev, 1));
@@ -292,16 +368,53 @@ export function ActivitySummaryBar({ agencyId }: ActivitySummaryBarProps) {
                 </tr>
               </thead>
               <tbody>
-                {activityByUser.map((user) => (
-                  <tr key={user.userId} className="border-b border-border/50 dark:border-gray-700/50">
-                    <td className="py-2 px-2 text-foreground">{user.displayName}</td>
-                    <td className="py-2 px-2 text-center text-blue-500 dark:text-blue-400">{user.calls || '—'}</td>
-                    <td className="py-2 px-2 text-center text-purple-500 dark:text-purple-400">{user.voicemails || '—'}</td>
-                    <td className="py-2 px-2 text-center text-cyan-500 dark:text-cyan-400">{user.texts || '—'}</td>
-                    <td className="py-2 px-2 text-center text-green-500 dark:text-green-400">{user.emails || '—'}</td>
-                    <td className="py-2 px-2 text-center text-yellow-500 dark:text-yellow-400">{user.reviewsDone || '—'}</td>
-                  </tr>
-                ))}
+                {activityByUser.map((user) => {
+                  const isRowActive = activeFilter?.userId === user.userId;
+                  const cells: Array<{ key: string; count: number; color: string }> = [
+                    { key: 'calls', count: user.calls, color: 'text-blue-500 dark:text-blue-400' },
+                    { key: 'voicemails', count: user.voicemails, color: 'text-purple-500 dark:text-purple-400' },
+                    { key: 'texts', count: user.texts, color: 'text-cyan-500 dark:text-cyan-400' },
+                    { key: 'emails', count: user.emails, color: 'text-green-500 dark:text-green-400' },
+                    { key: 'reviewsDone', count: user.reviewsDone, color: 'text-yellow-500 dark:text-yellow-400' },
+                  ];
+                  return (
+                    <tr
+                      key={user.userId}
+                      className={cn(
+                        'border-b border-border/50 dark:border-gray-700/50 transition-colors',
+                        isRowActive && 'bg-primary/10'
+                      )}
+                    >
+                      <td
+                        className={cn(
+                          'py-2 px-2 text-foreground',
+                          onActivityFilter && 'cursor-pointer hover:underline'
+                        )}
+                        onClick={() => handleNameClick(user)}
+                      >
+                        {user.displayName}
+                      </td>
+                      {cells.map(({ key, count, color }) => {
+                        const canonicalType = RENEWAL_ACTIVITY_TYPE_MAP[key][0];
+                        const isCellActive = isRowActive && activeFilter?.activityType === canonicalType;
+                        return (
+                          <td
+                            key={key}
+                            className={cn(
+                              'py-2 px-2 text-center',
+                              color,
+                              count > 0 && onActivityFilter && 'cursor-pointer hover:bg-muted/50 rounded',
+                              isCellActive && 'font-bold ring-1 ring-primary/40 rounded bg-primary/10'
+                            )}
+                            onClick={() => handleCellClick(user, key, count)}
+                          >
+                            {count || '—'}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
                 {/* Totals row */}
                 <tr className="bg-muted/50 dark:bg-gray-800/50 font-medium">
                   <td className="py-2 px-2 text-foreground">TOTAL</td>

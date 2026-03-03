@@ -945,7 +945,7 @@ async function getActivitySummary(supabase: any, agencyId: string, params: any) 
 
   const { data, error } = await supabase
     .from("cancel_audit_activities")
-    .select("id, activity_type, user_id, user_display_name, created_at")
+    .select("id, activity_type, user_id, user_display_name, created_at, record_id")
     .eq("agency_id", agencyId)
     .gte("created_at", startDate)
     .lte("created_at", endDate);
