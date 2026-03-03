@@ -96,12 +96,12 @@ serve(async (req) => {
     }
 
     // Validate role parameter
-    if (!role || !['Sales', 'Service'].includes(role)) {
+    if (!role || !['Sales', 'Service', 'Manager'].includes(role)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid or missing role parameter. Use "Sales" or "Service"' }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        JSON.stringify({ error: 'Invalid or missing role parameter. Use "Sales", "Service", or "Manager"' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -143,14 +143,17 @@ serve(async (req) => {
     }
 
     // Query vw_metrics_with_team view directly, filtering by role.
-    // Include selected role + Hybrid only. Including Manager here can cause
-    // enum/view mismatch errors in some environments and trigger 500s.
+    // Include Hybrid for Sales/Service (Hybrid = Sales+Service crossover).
+    // Manager is standalone — no Hybrid inclusion.
+    const roleFilter = role === 'Manager'
+      ? `role.eq.Manager`
+      : `role.eq.${role},role.eq.Hybrid`;
     const { data, error } = await supabase
       .from('vw_metrics_with_team')
       .select('*')
       .eq('agency_id', agencyId)
       .eq('date', workDate)
-      .or(`role.eq.${role},role.eq.Hybrid`)
+      .or(roleFilter)
       .order('rep_name', { ascending: true, nullsFirst: false });
 
     if (error) {

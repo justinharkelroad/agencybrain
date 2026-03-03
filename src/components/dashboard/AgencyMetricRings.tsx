@@ -223,7 +223,7 @@ export function AgencyMetricRings({
         .from("team_members")
         .select("id, name, role")
         .eq("agency_id", agencyId)
-        .in("role", ["Sales", "Hybrid", "Service"])
+        .in("role", ["Sales", "Hybrid", "Service", "Manager"])
         .eq("status", "active")
         .order("name");
       return data || [];
@@ -232,11 +232,12 @@ export function AgencyMetricRings({
     staleTime: 5 * 60 * 1000,
   });
 
-  // Determine which role to fetch: Service members need the Service dashboard
-  const dashboardRole: "Sales" | "Service" = useMemo(() => {
+  // Determine which role to fetch: Service/Manager members need their own dashboard
+  const dashboardRole: "Sales" | "Service" | "Manager" = useMemo(() => {
     if (selectedMember === AGENCY_VALUE) return "Sales";
     const member = allTeamMembers?.find((m) => m.id === selectedMember);
     if (member?.role === "Service") return "Service";
+    if (member?.role === "Manager") return "Manager";
     return "Sales"; // Sales + Hybrid both use the Sales dashboard
   }, [selectedMember, allTeamMembers]);
 
