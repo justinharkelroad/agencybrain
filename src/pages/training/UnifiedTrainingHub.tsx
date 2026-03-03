@@ -125,23 +125,17 @@ export default function UnifiedTrainingHub() {
         let agencyCompletedLessons = 0;
 
         if (moduleIds.length > 0) {
-          // Fetch lesson progress for this user
-          const { data: lessonProgress } = await supabase
-            .from('training_lesson_progress')
-            .select('lesson_id')
-            .eq('staff_user_id', user!.id)
-            .eq('completed', true);
-
-          const completedAgencyLessons = new Set(lessonProgress?.map(p => p.lesson_id) || []);
-
+          // Count total lessons from modules
           modules?.forEach((mod: any) => {
-            mod.training_lessons?.forEach((lesson: any) => {
+            mod.training_lessons?.forEach(() => {
               agencyTotalLessons++;
-              if (completedAgencyLessons.has(lesson.id)) {
-                agencyCompletedLessons++;
-              }
             });
           });
+
+          // training_lesson_progress uses staff_user_id (FK to staff_users),
+          // not auth.users.id. Agency owners viewing this hub don't have
+          // staff_users entries, so skip the progress query for them.
+          // Staff users track progress via /staff/training instead.
         }
 
         setAgencyStats({

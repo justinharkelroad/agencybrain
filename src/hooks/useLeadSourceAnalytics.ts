@@ -91,10 +91,7 @@ export function useLeadSourceAnalytics(startDate: string, endDate: string) {
         .select(`
           *,
           form_templates!inner(agency_id),
-          quoted_households(
-            *,
-            quoted_household_details(*)
-          )
+          quoted_household_details(*)
         `)
         .eq('form_templates.agency_id', profile.agency_id)
         .gte('work_date', startDate)
@@ -138,29 +135,26 @@ export function useLeadSourceAnalytics(startDate: string, endDate: string) {
         // Process submissions data
         submissions?.forEach(submission => {
           const payload = submission.payload_json as any || {}; // Type assertion for JSON data
-          const quotedCount = parseInt(payload.quoted_count) || 0;
           const soldItems = parseInt(payload.sold_items) || 0;
           const soldPolicies = parseInt(payload.sold_policies) || 0;
           const soldPremium = parseInt(payload.sold_premium_cents) || 0;
 
-        // Process quoted households
-        submission.quoted_households?.forEach((qh: any) => {
-          const leadSourceName = qh.lead_source || 'Unknown';
+        // Process quoted household details (sibling of submissions, not nested under quoted_households)
+        const details = submission.quoted_household_details || [];
+        details.forEach((detail: any) => {
+          const leadSourceName = detail.lead_source_label || 'Unknown';
           const metrics = leadSourceMap.get(leadSourceName);
-          
+
           if (metrics) {
-            // Count quoted households as leads
-            qh.quoted_household_details?.forEach((detail: any) => {
-              metrics.totalLeads++;
-              metrics.quotedLeads++;
-              
-              // If this submission has sold items, attribute proportionally
-              if (soldItems > 0) {
-                metrics.soldItems += soldItems / (submission.quoted_households?.length || 1);
-                metrics.soldPolicies += soldPolicies / (submission.quoted_households?.length || 1);
-                metrics.premiumSold += soldPremium / (submission.quoted_households?.length || 1);
-              }
-            });
+            metrics.totalLeads++;
+            metrics.quotedLeads++;
+
+            // If this submission has sold items, attribute proportionally
+            if (soldItems > 0) {
+              metrics.soldItems += soldItems / (details.length || 1);
+              metrics.soldPolicies += soldPolicies / (details.length || 1);
+              metrics.premiumSold += soldPremium / (details.length || 1);
+            }
           }
         });
       });

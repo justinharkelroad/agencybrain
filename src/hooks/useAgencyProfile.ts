@@ -85,7 +85,7 @@ export function useAgencyProfile(userId: string | undefined, role: MemberRole, s
         .select('*')
         .eq('agency_id', agencyId)
         .eq('role', role)
-        .single();
+        .maybeSingle();
 
       if (rulesError) {
         console.warn('Failed to load scorecard rules:', rulesError);

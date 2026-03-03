@@ -40,7 +40,8 @@ serve(async (req) => {
     const readOnlyActions = [
       'meeting_frame_list', 'meeting_frame_generate',
       'kpis_with_config_get', 'kpis_list',
-      'scorecard_rules_get', 'targets_get'
+      'scorecard_rules_get', 'targets_get',
+      'forms_list', 'team_rings_data',
     ];
 
     // Authorization: staff must be manager/owner for write actions
