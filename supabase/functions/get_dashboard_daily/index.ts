@@ -71,7 +71,7 @@ serve(async (req) => {
     const url = new URL(req.url);
     const agencySlug = url.searchParams.get('agencySlug');
     const workDate = url.searchParams.get('workDate'); // YYYY-MM-DD format
-    const role = url.searchParams.get('role'); // "Sales" or "Service"
+    const role = url.searchParams.get('role'); // "Sales", "Service", or "Manager"
 
     if (!workDate) {
       return new Response(
