@@ -52,6 +52,7 @@ import {
   Users
 } from "lucide-react";
 import { cn, todayLocal, toLocalDate, formatPhoneNumber } from "@/lib/utils";
+import { generateHouseholdKey } from "@/lib/lqs-quote-parser";
 
 interface ExtractedSaleData {
   customerName: string;
@@ -672,6 +673,7 @@ export function PdfUploadForm({
         }
 
         // Create or find unified contact so this customer appears in Contacts
+        let resolvedContactId: string | null = null;
         if (customerName.trim()) {
           try {
             const nameParts = customerName.trim().split(/\s+/);
@@ -688,6 +690,7 @@ export function PdfUploadForm({
             });
 
             if (contactId) {
+              resolvedContactId = contactId;
               await supabase
                 .from('sales')
                 .update({ contact_id: contactId })
@@ -697,6 +700,83 @@ export function PdfUploadForm({
           } catch (contactErr) {
             console.warn('[PdfUploadForm] Failed to create contact:', contactErr);
           }
+        }
+
+        // Guarantee dashboard -> LQS linkage for admin PDF uploads as well.
+        let lqsLinkErrorMessage: string | null = null;
+        try {
+          const { data: existingLqsRows, error: existingLqsError } = await supabase
+            .from("lqs_sales")
+            .select("id")
+            .eq("source_reference_id", sale.id)
+            .limit(1);
+          if (existingLqsError) throw existingLqsError;
+
+          if (!existingLqsRows || existingLqsRows.length === 0) {
+            let householdId: string | null = null;
+
+            const { data: matches, error: matchError } = await supabase.rpc(
+              "match_sale_to_lqs_household",
+              { p_sale_id: sale.id },
+            );
+            if (matchError) throw matchError;
+            householdId = matches?.[0]?.household_id ?? null;
+
+            if (!householdId) {
+              const nameParts = customerName.trim().split(/\s+/);
+              const lastName = (nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0]) || "UNKNOWN";
+              const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
+              const householdKey = generateHouseholdKey(firstName, lastName, customerZip.trim() || null);
+              const saleDateStr = format(saleDate, "yyyy-MM-dd");
+
+              const { data: existingHousehold } = await supabase
+                .from("lqs_households")
+                .select("id")
+                .eq("agency_id", effectiveAgencyId)
+                .eq("household_key", householdKey)
+                .maybeSingle();
+
+              if (existingHousehold?.id) {
+                householdId = existingHousehold.id;
+              } else {
+                const { data: createdHousehold, error: createHouseholdError } = await supabase
+                  .from("lqs_households")
+                  .insert({
+                    agency_id: effectiveAgencyId,
+                    household_key: householdKey,
+                    first_name: firstName || "UNKNOWN",
+                    last_name: lastName,
+                    zip_code: customerZip.trim() || null,
+                    phone: customerPhone.trim() ? [customerPhone.trim()] : null,
+                    email: customerEmail.trim() || null,
+                    lead_source_id: leadSourceId || null,
+                    lead_received_date: saleDateStr,
+                    status: "lead",
+                    team_member_id: producerId || null,
+                    contact_id: resolvedContactId,
+                    needs_attention: false,
+                  })
+                  .select("id")
+                  .single();
+
+                if (createHouseholdError) throw createHouseholdError;
+                householdId = createdHousehold.id;
+              }
+            }
+
+            if (householdId) {
+              const { error: linkError } = await supabase.rpc("link_sale_to_lqs_household", {
+                p_household_id: householdId,
+                p_sale_id: sale.id,
+              });
+              if (linkError) throw linkError;
+            }
+          }
+        } catch (lqsLinkError) {
+          console.error("[PdfUploadForm] Failed to sync PDF sale to LQS:", lqsLinkError);
+          lqsLinkErrorMessage = lqsLinkError instanceof Error
+            ? lqsLinkError.message
+            : "Unknown LQS sync error";
         }
 
         // Trigger sale notification email (fire and forget)
@@ -711,11 +791,14 @@ export function PdfUploadForm({
           });
         }
 
-        return { sale_id: sale.id };
+        return { sale_id: sale.id, lqsLinkErrorMessage };
       }
     },
     onSuccess: (result) => {
       toast.success('Sale created successfully!');
+      if (result?.lqsLinkErrorMessage) {
+        toast.warning('Sale saved, but LQS sync needs review');
+      }
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['staff-sales'] });
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
