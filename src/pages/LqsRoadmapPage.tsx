@@ -158,12 +158,14 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const [showSalesResultsModal, setShowSalesResultsModal] = useState(false);
   const [showSalesReviewModal, setShowSalesReviewModal] = useState(false);
   const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [producerRematchLoading, setProducerRematchLoading] = useState(false);
 
   // Permission check - staff portal users don't see revenue metrics
   const showRevenueMetrics = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
   const canUseSalesDashboardSync =
     !isStaffPortal &&
     authUser?.email?.toLowerCase() === 'justin@hfiagencies.com';
+  const canRunProducerRematch = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
 
   // Fetch team members for the forms (include email for matching)
   const { data: teamMembers = [] } = useQuery({
@@ -250,6 +252,28 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
     if (normalized === 'quoted') return 1;
     return 0;
   }, []);
+
+  const handleProducerRematch = useCallback(async () => {
+    if (!agencyProfile?.agencyId || producerRematchLoading) return;
+    setProducerRematchLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('rematch_lqs_subproducers', {
+        body: { agency_id: agencyProfile.agencyId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const matchedRows = Number(data?.matched_lqs_rows || 0);
+      const updatedSales = Number(data?.updated_sales_rows || 0);
+      toast.success(`Producer rematch complete: ${matchedRows} LQS rows, ${updatedSales} dashboard sales updated.`);
+      refetch();
+    } catch (err) {
+      console.error('[LQS] Producer rematch failed:', err);
+      toast.error('Producer rematch failed. Please try again.');
+    } finally {
+      setProducerRematchLoading(false);
+    }
+  }, [agencyProfile?.agencyId, producerRematchLoading, refetch]);
 
   const normalizeNameToken = useCallback((value: string | null | undefined): string =>
     (value || '')
@@ -698,6 +722,15 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
               onClick={() => setSyncModalOpen(true)}
             >
               Sync to Sales Dashboard
+            </Button>
+          )}
+          {canRunProducerRematch && (
+            <Button
+              variant="outline"
+              onClick={handleProducerRematch}
+              disabled={producerRematchLoading}
+            >
+              {producerRematchLoading ? 'Re-matching...' : 'Re-run Producer Matching'}
             </Button>
           )}
         </div>

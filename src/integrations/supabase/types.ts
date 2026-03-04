@@ -6388,15 +6388,22 @@ export type Database = {
         Row: {
           agency_id: string
           created_at: string
+          dedupe_fingerprint: string | null
+          dedupe_reason: string | null
+          dedupe_status: string | null
           household_id: string
           id: string
           is_one_call_close: boolean
           items_sold: number
           linked_quote_id: string | null
+          match_status: string | null
           policies_sold: number
           policy_number: string | null
           premium_cents: number
           product_type: string
+          raw_subproducer_code: string | null
+          raw_subproducer_name: string | null
+          rematched_at: string | null
           sale_date: string
           source: string
           source_reference_id: string | null
@@ -6405,15 +6412,22 @@ export type Database = {
         Insert: {
           agency_id: string
           created_at?: string
+          dedupe_fingerprint?: string | null
+          dedupe_reason?: string | null
+          dedupe_status?: string | null
           household_id: string
           id?: string
           is_one_call_close?: boolean
           items_sold?: number
           linked_quote_id?: string | null
+          match_status?: string | null
           policies_sold?: number
           policy_number?: string | null
           premium_cents?: number
           product_type: string
+          raw_subproducer_code?: string | null
+          raw_subproducer_name?: string | null
+          rematched_at?: string | null
           sale_date: string
           source?: string
           source_reference_id?: string | null
@@ -6422,15 +6436,22 @@ export type Database = {
         Update: {
           agency_id?: string
           created_at?: string
+          dedupe_fingerprint?: string | null
+          dedupe_reason?: string | null
+          dedupe_status?: string | null
           household_id?: string
           id?: string
           is_one_call_close?: boolean
           items_sold?: number
           linked_quote_id?: string | null
+          match_status?: string | null
           policies_sold?: number
           policy_number?: string | null
           premium_cents?: number
           product_type?: string
+          raw_subproducer_code?: string | null
+          raw_subproducer_name?: string | null
+          rematched_at?: string | null
           sale_date?: string
           source?: string
           source_reference_id?: string | null

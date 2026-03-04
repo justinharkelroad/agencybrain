@@ -10,6 +10,14 @@ interface TeamMember {
   sub_producer_code: string | null;
 }
 
+interface ExistingLqsSale {
+  id: string;
+  sale_date: string;
+  product_type: string;
+  premium_cents: number;
+  policy_number: string | null;
+}
+
 interface HouseholdWithQuotes {
   id: string;
   first_name: string;
@@ -68,6 +76,33 @@ const SCORE_QUOTE_DATE_BEFORE_SALE = 10;
 // Auto-match thresholds
 const AUTO_MATCH_MIN_SCORE = 75;
 const AUTO_MATCH_GAP_REQUIRED = 20;
+const LIKELY_PREMIUM_TOLERANCE = 0.03;
+const POSSIBLE_PREMIUM_TOLERANCE = 0.05;
+const POSSIBLE_DATE_WINDOW_DAYS = 3;
+
+function dayDiffAbsolute(a: string, b: string): number {
+  const left = new Date(`${a}T00:00:00Z`).getTime();
+  const right = new Date(`${b}T00:00:00Z`).getTime();
+  return Math.abs(Math.round((left - right) / (1000 * 60 * 60 * 24)));
+}
+
+function withinPremiumTolerance(base: number, candidate: number, tolerance: number): boolean {
+  if (base <= 0 || candidate <= 0) return false;
+  const diff = Math.abs(base - candidate);
+  return diff / base <= tolerance;
+}
+
+function buildDedupeFingerprint(
+  agencyId: string,
+  householdId: string,
+  saleDate: string,
+  productType: string,
+  policyNumber: string | null,
+): string {
+  const normalizedProduct = normalizeProductType(productType).toLowerCase();
+  const normalizedPolicy = (policyNumber || '').trim().toLowerCase();
+  return [agencyId, householdId, saleDate, normalizedProduct, normalizedPolicy].join('|');
+}
 
 /**
  * Normalize name for fuzzy matching (used for team member matching only)
@@ -642,12 +677,28 @@ async function processInBackground(
           // Process all sales for this household
           let salesCreatedInGroup = 0;
           let quotesLinkedInGroup = 0;
+          let existingSalesForHousehold: ExistingLqsSale[] = [];
 
           if (!householdId) {
             for (const record of groupRecords) {
               addError(record, 'could not be matched to a customer record, so this sale could not be saved.');
             }
           } else {
+          const { data: existingSalesData, error: existingSalesError } = await supabase
+            .from('lqs_sales')
+            .select('id, sale_date, product_type, premium_cents, policy_number')
+            .eq('agency_id', context.agencyId)
+            .eq('household_id', householdId);
+
+          if (existingSalesError) {
+            addError(
+              primaryRecord,
+              `could not check for duplicates because existing-sale lookup failed: ${existingSalesError.message}`
+            );
+          } else {
+            existingSalesForHousehold = (existingSalesData || []) as ExistingLqsSale[];
+          }
+
           for (const record of groupRecords) {
             // Try to find matching quote by product type
             let linkedQuoteId: string | null = null;
@@ -682,7 +733,42 @@ async function processInBackground(
                 saleTeamMemberId = matched.id;
               }
             }
-            
+
+            const normalizedProduct = normalizeProductType(record.productType).toLowerCase();
+            const normalizedPolicyNumber = (record.policyNumber || '').trim().toLowerCase();
+            const hardDuplicate = existingSalesForHousehold.find((existing) =>
+              !!normalizedPolicyNumber &&
+              (existing.policy_number || '').trim().toLowerCase() === normalizedPolicyNumber &&
+              normalizeProductType(existing.product_type).toLowerCase() === normalizedProduct
+            );
+
+            if (hardDuplicate) {
+              addError(record, 'was skipped as a duplicate (same policy number + product).');
+              continue;
+            }
+
+            const likelyDuplicate = existingSalesForHousehold.find((existing) =>
+              normalizeProductType(existing.product_type).toLowerCase() === normalizedProduct &&
+              existing.sale_date === record.saleDate &&
+              withinPremiumTolerance(record.premiumCents, existing.premium_cents, LIKELY_PREMIUM_TOLERANCE)
+            );
+
+            if (likelyDuplicate) {
+              addError(record, 'was skipped as a likely duplicate (same day + product + similar premium).');
+              continue;
+            }
+
+            const possibleDuplicate = existingSalesForHousehold.find((existing) =>
+              normalizeProductType(existing.product_type).toLowerCase() === normalizedProduct &&
+              dayDiffAbsolute(existing.sale_date, record.saleDate) <= POSSIBLE_DATE_WINDOW_DAYS &&
+              withinPremiumTolerance(record.premiumCents, existing.premium_cents, POSSIBLE_PREMIUM_TOLERANCE)
+            );
+
+            const dedupeStatus = possibleDuplicate ? 'possible_duplicate' : 'new';
+            const dedupeReason = possibleDuplicate
+              ? 'Potential duplicate: nearby date + product + premium similarity'
+              : null;
+
             // Insert sale record
             let saleError: { code?: string; message?: string } | null = null;
             for (let attempt = 1; attempt <= 3; attempt++) {
@@ -701,6 +787,18 @@ async function processInBackground(
                   source: 'lqs_upload',
                   linked_quote_id: linkedQuoteId,
                   is_one_call_close: context.isOneCallClose ?? false,
+                  raw_subproducer_code: record.subProducerCode || null,
+                  raw_subproducer_name: record.subProducerName || null,
+                  match_status: saleTeamMemberId ? 'matched' : 'unassigned',
+                  dedupe_status: dedupeStatus,
+                  dedupe_reason: dedupeReason,
+                  dedupe_fingerprint: buildDedupeFingerprint(
+                    context.agencyId,
+                    householdId,
+                    record.saleDate,
+                    record.productType,
+                    record.policyNumber
+                  ),
                 });
               saleError = attemptError;
 
@@ -718,6 +816,13 @@ async function processInBackground(
               addError(record, saleErrorMessage);
             } else {
               salesCreatedInGroup++;
+              existingSalesForHousehold.push({
+                id: `new-${record.rowNumber}-${record.saleDate}`,
+                sale_date: record.saleDate,
+                product_type: record.productType,
+                premium_cents: record.premiumCents,
+                policy_number: record.policyNumber || null,
+              });
             }
           }
           }
@@ -755,7 +860,7 @@ async function processInBackground(
           const value = result.value;
           if (value.errors.length > 0) {
             errors.push(...value.errors);
-            errorCount += value.errors.length;
+            errorCount += value.errors.filter((msg) => !isDuplicateSkipMessage(msg)).length;
           }
           if (value.matchedTeamMemberId) matchedTeamMemberIds.add(value.matchedTeamMemberId);
           if (value.householdFound) {
@@ -884,4 +989,11 @@ function buildSaleErrorPrefix(record: ParsedSaleRow): string {
   const policyLabel = record.policyNumber ? `policy ${record.policyNumber}` : 'no policy number';
   const lineLabel = `Row ${record.rowNumber}: ${record.firstName} ${record.lastName} (${policyLabel})`;
   return lineLabel;
+}
+
+function isDuplicateSkipMessage(message: string): boolean {
+  const lower = message.toLowerCase();
+  return lower.includes('skipped as a duplicate') ||
+    lower.includes('likely duplicate') ||
+    lower.includes('already exists in lqs and was skipped');
 }
