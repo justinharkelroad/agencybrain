@@ -5,9 +5,12 @@ import { hasSalesAccess } from "@/lib/salesBetaAccess";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { format, startOfMonth, endOfMonth } from "date-fns";
-import { formatDateLocal } from "@/lib/utils";
-import { Loader2, DollarSign, Package, FileText, Trophy, Pencil, Wallet } from "lucide-react";
+import { format, startOfMonth, endOfMonth, subMonths, startOfYear } from "date-fns";
+import { formatDateLocal, cn } from "@/lib/utils";
+import { Loader2, DollarSign, Package, FileText, Trophy, Pencil, Wallet, CalendarIcon } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SalesLeaderboard } from "@/components/sales/SalesLeaderboard";
 import { SalesBreakdownTabs } from "@/components/sales/SalesBreakdownTabs";
 import { StaffCommissionWidget } from "@/components/sales/StaffCommissionWidget";
@@ -17,6 +20,59 @@ import { PdfUploadForm } from "@/components/sales/PdfUploadForm";
 import { StaffAddSaleForm } from "@/components/sales/StaffAddSaleForm";
 import { StaffEditSaleModal } from "@/components/staff/StaffEditSaleModal";
 import { Button } from "@/components/ui/button";
+
+type Period = "this_month" | "last_month" | "this_year" | "last_90_days" | "custom";
+
+function getPeriodDates(period: Period, customStart?: Date, customEnd?: Date): { start: string; end: string; label: string } {
+  const now = new Date();
+  switch (period) {
+    case "this_month":
+      return {
+        start: format(startOfMonth(now), "yyyy-MM-dd"),
+        end: format(endOfMonth(now), "yyyy-MM-dd"),
+        label: format(now, "MMMM yyyy"),
+      };
+    case "last_month": {
+      const lastMonth = subMonths(now, 1);
+      return {
+        start: format(startOfMonth(lastMonth), "yyyy-MM-dd"),
+        end: format(endOfMonth(lastMonth), "yyyy-MM-dd"),
+        label: format(lastMonth, "MMMM yyyy"),
+      };
+    }
+    case "this_year":
+      return {
+        start: format(startOfYear(now), "yyyy-MM-dd"),
+        end: format(now, "yyyy-MM-dd"),
+        label: format(now, "yyyy"),
+      };
+    case "last_90_days":
+      return {
+        start: format(subMonths(now, 3), "yyyy-MM-dd"),
+        end: format(now, "yyyy-MM-dd"),
+        label: "Last 90 Days",
+      };
+    case "custom":
+      if (customStart && customEnd) {
+        return {
+          start: format(customStart, "yyyy-MM-dd"),
+          end: format(customEnd, "yyyy-MM-dd"),
+          label: `${format(customStart, "MMM d")} - ${format(customEnd, "MMM d, yyyy")}`,
+        };
+      }
+      return {
+        start: format(startOfMonth(now), "yyyy-MM-dd"),
+        end: format(endOfMonth(now), "yyyy-MM-dd"),
+        label: format(now, "MMMM yyyy"),
+      };
+    default:
+      return {
+        start: format(startOfMonth(now), "yyyy-MM-dd"),
+        end: format(endOfMonth(now), "yyyy-MM-dd"),
+        label: format(now, "MMMM yyyy"),
+      };
+  }
+}
 
 interface SalePolicy {
   id: string;
@@ -73,6 +129,19 @@ export default function StaffSales() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const [period, setPeriod] = useState<Period>("this_month");
+  const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
+  const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
+
+  const { start: monthStart, end: monthEnd, label: periodLabel } = getPeriodDates(period, customStartDate, customEndDate);
+
+  const handlePeriodChange = (value: string) => {
+    setPeriod(value as Period);
+    if (value !== "custom") {
+      setCustomStartDate(undefined);
+      setCustomEndDate(undefined);
+    }
+  };
 
   // Sync tab with URL
   useEffect(() => {
@@ -90,10 +159,6 @@ export default function StaffSales() {
   const handleSwitchToManualEntry = () => {
     handleTabChange("add");
   };
-  
-  const today = new Date();
-  const monthStart = format(startOfMonth(today), "yyyy-MM-dd");
-  const monthEnd = format(endOfMonth(today), "yyyy-MM-dd");
   
   const agencyId = user?.agency_id;
 
@@ -159,7 +224,75 @@ export default function StaffSales() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <h1 className="text-3xl font-bold mb-6">My Sales</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <h1 className="text-3xl font-bold">My Sales</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={period} onValueChange={handlePeriodChange}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select period" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="this_month">This Month</SelectItem>
+              <SelectItem value="last_month">Last Month</SelectItem>
+              <SelectItem value="last_90_days">Last 90 Days</SelectItem>
+              <SelectItem value="this_year">This Year</SelectItem>
+              <SelectItem value="custom">Custom Range</SelectItem>
+            </SelectContent>
+          </Select>
+          {period === "custom" && (
+            <div className="flex items-center gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[130px] justify-start text-left font-normal",
+                      !customStartDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customStartDate ? format(customStartDate, "MMM d, yyyy") : "Start"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={customStartDate}
+                    onSelect={setCustomStartDate}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+              <span className="text-muted-foreground">to</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[130px] justify-start text-left font-normal",
+                      !customEndDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {customEndDate ? format(customEndDate, "MMM d, yyyy") : "End"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={customEndDate}
+                    onSelect={setCustomEndDate}
+                    disabled={(date) => customStartDate ? date < customStartDate : false}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
+        </div>
+      </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="flex w-full overflow-x-auto no-scrollbar gap-1 md:grid md:grid-cols-7 md:max-w-4xl">
@@ -188,7 +321,7 @@ export default function StaffSales() {
                   ${totals.premium.toLocaleString()}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {format(today, "MMMM yyyy")}
+                  {periodLabel}
                 </p>
               </CardContent>
             </Card>
@@ -263,7 +396,7 @@ export default function StaffSales() {
                 </Table>
               ) : (
                 <p className="text-center text-muted-foreground py-8">
-                  No sales recorded this month.
+                  No sales recorded for {periodLabel}.
                 </p>
               )}
             </CardContent>
@@ -273,7 +406,7 @@ export default function StaffSales() {
         <TabsContent value="history" className="mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Sales History - {format(today, "MMMM yyyy")}</CardTitle>
+              <CardTitle>Sales History - {periodLabel}</CardTitle>
             </CardHeader>
             <CardContent>
               {isLoading ? (
@@ -333,7 +466,7 @@ export default function StaffSales() {
                 </Table>
               ) : (
                 <p className="text-center text-muted-foreground py-8">
-                  No sales recorded this month.
+                  No sales recorded for {periodLabel}.
                 </p>
               )}
             </CardContent>
