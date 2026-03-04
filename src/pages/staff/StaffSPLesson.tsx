@@ -314,7 +314,7 @@ export default function StaffSPLesson() {
                 dangerouslySetInnerHTML={{ __html: lesson.content_html }} 
               />
             ) : (
-              <div className="whitespace-pre-wrap text-slate-300 leading-relaxed">
+              <div className="whitespace-pre-wrap text-foreground/70 dark:text-slate-300 leading-relaxed">
                 {lesson.content_html}
               </div>
             )}
@@ -442,7 +442,7 @@ export default function StaffSPLesson() {
 
       {/* Completed State */}
       {completed && (
-        <Card className="border-green-500/30 bg-green-500/5">
+        <Card className="border-green-500/50 dark:border-green-500/30 bg-green-500/5">
           <CardContent className="p-6 text-center">
             <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-3" />
             <h3 className="text-lg font-medium mb-2">Lesson Complete!</h3>

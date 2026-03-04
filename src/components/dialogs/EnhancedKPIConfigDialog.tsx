@@ -488,7 +488,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
                   ) : (
                     <div className="space-y-2">
                       {enabledKpis.map((kpi) => (
-                        <Card key={kpi.id} className="border-green-500/30 bg-green-500/5">
+                        <Card key={kpi.id} className="border-green-500/50 dark:border-green-500/30 bg-green-500/5">
                           <CardContent className="p-3">
                             <div className="flex items-center gap-3">
                               <Checkbox

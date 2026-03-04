@@ -39,12 +39,12 @@ export function UrgencyTimeline({
     );
     
     const buckets: UrgencyBucket[] = [
-      { key: 'overdue', label: 'RED ALERT', count: 0, color: 'text-red-400', bgColor: 'bg-red-500/20', borderColor: 'border-red-500' },
-      { key: 'tomorrow', label: 'Tomorrow', count: 0, color: 'text-orange-400', bgColor: 'bg-orange-500/20', borderColor: 'border-orange-500' },
-      { key: '3days', label: '3 Days', count: 0, color: 'text-yellow-400', bgColor: 'bg-yellow-500/20', borderColor: 'border-yellow-500' },
-      { key: '7days', label: '7 Days', count: 0, color: 'text-blue-400', bgColor: 'bg-blue-500/20', borderColor: 'border-blue-500' },
-      { key: '14days', label: '14 Days', count: 0, color: 'text-cyan-400', bgColor: 'bg-cyan-500/20', borderColor: 'border-cyan-500' },
-      { key: 'beyond', label: '21+ Days', count: 0, color: 'text-gray-400', bgColor: 'bg-gray-500/20', borderColor: 'border-gray-500' },
+      { key: 'overdue', label: 'RED ALERT', count: 0, color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-100 dark:bg-red-500/20', borderColor: 'border-red-500' },
+      { key: 'tomorrow', label: 'Tomorrow', count: 0, color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-100 dark:bg-orange-500/20', borderColor: 'border-orange-500' },
+      { key: '3days', label: '3 Days', count: 0, color: 'text-yellow-600 dark:text-yellow-400', bgColor: 'bg-yellow-100 dark:bg-yellow-500/20', borderColor: 'border-yellow-500' },
+      { key: '7days', label: '7 Days', count: 0, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-100 dark:bg-blue-500/20', borderColor: 'border-blue-500' },
+      { key: '14days', label: '14 Days', count: 0, color: 'text-cyan-600 dark:text-cyan-400', bgColor: 'bg-cyan-100 dark:bg-cyan-500/20', borderColor: 'border-cyan-500' },
+      { key: 'beyond', label: '21+ Days', count: 0, color: 'text-gray-600 dark:text-gray-400', bgColor: 'bg-gray-100 dark:bg-gray-500/20', borderColor: 'border-gray-500' },
     ];
     
     workingRecords.forEach(record => {
@@ -126,7 +126,7 @@ export function UrgencyTimeline({
               )}
             >
               {bucket.key === 'overdue' && bucket.count > 0 && (
-                <AlertTriangle className="h-4 w-4 text-red-400 animate-pulse mb-1" />
+                <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 animate-pulse mb-1" />
               )}
               <span className={cn("text-xl font-bold", bucket.color)}>
                 {bucket.count}

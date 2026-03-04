@@ -26,13 +26,13 @@ interface WinbackActivityLogProps {
 }
 
 const activityConfig: Record<string, { icon: typeof Phone; label: string; color: string; buttonColor: string }> = {
-  called: { icon: Phone, label: 'Called', color: 'text-blue-400', buttonColor: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  left_vm: { icon: PhoneOff, label: 'Left Voicemail', color: 'text-orange-400', buttonColor: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
-  texted: { icon: MessageSquare, label: 'Texted', color: 'text-emerald-400', buttonColor: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-  emailed: { icon: Mail, label: 'Emailed', color: 'text-purple-400', buttonColor: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
-  quoted: { icon: FileText, label: 'Quoted', color: 'text-yellow-400', buttonColor: 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
-  note: { icon: StickyNote, label: 'Note', color: 'text-gray-400', buttonColor: 'bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 border-gray-500/30' },
-  status_change: { icon: ArrowRight, label: 'Status Changed', color: 'text-orange-400', buttonColor: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
+  called: { icon: Phone, label: 'Called', color: 'text-blue-600 dark:text-blue-400', buttonColor: 'bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30' },
+  left_vm: { icon: PhoneOff, label: 'Left Voicemail', color: 'text-orange-600 dark:text-orange-400', buttonColor: 'bg-orange-500/15 hover:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30' },
+  texted: { icon: MessageSquare, label: 'Texted', color: 'text-emerald-600 dark:text-emerald-400', buttonColor: 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 dark:border-emerald-500/30' },
+  emailed: { icon: Mail, label: 'Emailed', color: 'text-purple-600 dark:text-purple-400', buttonColor: 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/50 dark:border-purple-500/30' },
+  quoted: { icon: FileText, label: 'Quoted', color: 'text-yellow-600 dark:text-yellow-400', buttonColor: 'bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-600 dark:text-yellow-400 border-yellow-500/50 dark:border-yellow-500/30' },
+  note: { icon: StickyNote, label: 'Note', color: 'text-gray-600 dark:text-gray-400', buttonColor: 'bg-gray-500/15 hover:bg-gray-500/25 text-gray-600 dark:text-gray-400 border-gray-500/50 dark:border-gray-500/30' },
+  status_change: { icon: ArrowRight, label: 'Status Changed', color: 'text-orange-600 dark:text-orange-400', buttonColor: 'bg-orange-500/15 hover:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30' },
 };
 
 export function WinbackActivityLog({ activities, loading, onLogActivity }: WinbackActivityLogProps) {

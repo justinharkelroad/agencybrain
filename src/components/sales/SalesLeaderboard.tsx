@@ -52,6 +52,10 @@ interface LeaderboardSaleRow {
 interface SalesLeaderboardProps {
   agencyId: string | null;
   staffSessionToken?: string;
+  startDate?: string;
+  endDate?: string;
+  periodLabel?: string;
+  businessFilter?: string;
 }
 
 function getPeriodDates(period: Period): { start: string; end: string } {
@@ -112,16 +116,27 @@ const getInitials = (name: string) => {
     .slice(0, 2);
 };
 
-export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboardProps) {
+export function SalesLeaderboard({
+  agencyId,
+  staffSessionToken,
+  startDate,
+  endDate,
+  periodLabel: externalPeriodLabel,
+  businessFilter: externalBusinessFilter,
+}: SalesLeaderboardProps) {
   const { user } = useAuth();
   const [rankBy, setRankBy] = useState<RankMetric>("items");
   const [period, setPeriod] = useState<Period>("this_month");
-  const [businessFilter, setBusinessFilter] = useState<string>("all");
+  const [internalBusinessFilter, setInternalBusinessFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("performance");
   const isMobile = useMediaQuery("(max-width: 768px)");
 
-  const { start, end } = getPeriodDates(period);
-  const periodLabel = getPeriodLabel(period);
+  const usingExternalRange = Boolean(startDate && endDate);
+  const { start: periodStart, end: periodEnd } = getPeriodDates(period);
+  const start = startDate ?? periodStart;
+  const end = endDate ?? periodEnd;
+  const periodLabel = externalPeriodLabel ?? getPeriodLabel(period);
+  const effectiveBusinessFilter = externalBusinessFilter ?? internalBusinessFilter;
 
   // Get current user's team_member_id for highlighting
   const { data: currentUserTeamMemberId } = useQuery({
@@ -168,7 +183,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
 
   // Fetch leaderboard data
   const { data: leaderboardData, isLoading } = useQuery({
-    queryKey: ["sales-leaderboard", agencyId, start, end, staffSessionToken, businessFilter],
+    queryKey: ["sales-leaderboard", agencyId, start, end, staffSessionToken, effectiveBusinessFilter],
     queryFn: async (): Promise<LeaderboardEntry[]> => {
       if (staffSessionToken) {
         const { data, error } = await supabase.functions.invoke('get_staff_sales', {
@@ -177,7 +192,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
             date_start: start,
             date_end: end,
             include_leaderboard: true,
-            business_filter: businessFilter
+            business_filter: effectiveBusinessFilter
           }
         });
 
@@ -210,9 +225,9 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
         .lte("sale_date", end);
 
       // Filter by business type (regular vs brokered)
-      if (businessFilter === "regular") {
+      if (effectiveBusinessFilter === "regular") {
         salesQuery = salesQuery.is("brokered_carrier_id", null);
-      } else if (businessFilter === "brokered") {
+      } else if (effectiveBusinessFilter === "brokered") {
         salesQuery = salesQuery.not("brokered_carrier_id", "is", null);
       }
 
@@ -356,29 +371,33 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
 
             <div className="flex items-center gap-2">
               {/* Period Selector */}
-              <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="this_month">This Month</SelectItem>
-                  <SelectItem value="last_month">Last Month</SelectItem>
-                  <SelectItem value="this_quarter">This Quarter</SelectItem>
-                  <SelectItem value="ytd">YTD</SelectItem>
-                </SelectContent>
-              </Select>
+              {!usingExternalRange && (
+                <Select value={period} onValueChange={(v) => setPeriod(v as Period)}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="this_month">This Month</SelectItem>
+                    <SelectItem value="last_month">Last Month</SelectItem>
+                    <SelectItem value="this_quarter">This Quarter</SelectItem>
+                    <SelectItem value="ytd">YTD</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
 
               {/* Business Type Filter */}
-              <Select value={businessFilter} onValueChange={setBusinessFilter}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="All Business" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Business</SelectItem>
-                  <SelectItem value="regular">Regular Only</SelectItem>
-                  <SelectItem value="brokered">Brokered Only</SelectItem>
-                </SelectContent>
-              </Select>
+              {!externalBusinessFilter && (
+                <Select value={internalBusinessFilter} onValueChange={setInternalBusinessFilter}>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="All Business" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Business</SelectItem>
+                    <SelectItem value="regular">Regular Only</SelectItem>
+                    <SelectItem value="brokered">Brokered Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 
@@ -445,7 +464,7 @@ export function SalesLeaderboard({ agencyId, staffSessionToken }: SalesLeaderboa
             agencyId={agencyId}
             startDate={start}
             endDate={end}
-            businessFilter={businessFilter}
+            businessFilter={effectiveBusinessFilter}
             staffSessionToken={staffSessionToken}
             currentTeamMemberId={currentUserTeamMemberId}
           />

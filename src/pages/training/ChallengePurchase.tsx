@@ -212,7 +212,7 @@ export default function ChallengePurchase() {
 
       {/* Challenge Tier: Team Setup Prompt */}
       {isChallengeTierUser && totalAvailableSeats > 0 && totalAssignedSeats === 0 && (
-        <Alert className="border-green-500/30 bg-green-500/10">
+        <Alert className="border-green-500/50 dark:border-green-500/30 bg-green-500/15">
           <UserPlus className="h-4 w-4 text-green-500" />
           <AlertDescription className="flex items-center justify-between">
             <span>
@@ -231,7 +231,7 @@ export default function ChallengePurchase() {
 
       {/* Challenge Tier: Progress Link */}
       {isChallengeTierUser && totalAssignedSeats > 0 && (
-        <Alert className="border-blue-500/30 bg-blue-500/10">
+        <Alert className="border-blue-500/50 dark:border-blue-500/30 bg-blue-500/15">
           <BarChart3 className="h-4 w-4 text-blue-500" />
           <AlertDescription className="flex items-center justify-between">
             <span>
@@ -277,7 +277,7 @@ export default function ChallengePurchase() {
           <div className="p-6 sm:p-8 flex flex-col justify-center">
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white">{product.name}</h1>
             <p className="text-muted-foreground mt-2">{product.description}</p>
-            <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-slate-300">
+            <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-foreground/70 dark:text-slate-300">
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 {product.duration_weeks} weeks

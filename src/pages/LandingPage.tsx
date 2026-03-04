@@ -452,7 +452,7 @@ const LandingPage = () => {
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
-            <p className="text-sm text-gray-400 mt-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-4">
               No credit card required. Cancel anytime.
             </p>
           </div>

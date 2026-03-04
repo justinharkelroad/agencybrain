@@ -397,8 +397,8 @@ export function StaffDashboard() {
                 !hasSubmission 
                   ? 'bg-muted/50' 
                   : passRate >= 50 
-                    ? 'bg-green-500/10' 
-                    : 'bg-red-500/10'
+                    ? 'bg-green-500/15' 
+                    : 'bg-red-500/15'
               }`}>
                 <div className="flex items-center justify-center gap-2">
                   {!hasSubmission ? (

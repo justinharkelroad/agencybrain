@@ -134,11 +134,11 @@ export function WinbackActivityStats({ agencyId, wonBackCount }: WinbackActivity
   };
 
   const statItems = [
-    { key: 'called', label: 'Calls', icon: Phone, color: 'text-green-400', value: stats.called },
-    { key: 'left_vm', label: 'VMs', icon: PhoneOff, color: 'text-yellow-400', value: stats.left_vm },
-    { key: 'texted', label: 'Texts', icon: MessageSquare, color: 'text-cyan-400', value: stats.texted },
-    { key: 'emailed', label: 'Emails', icon: Mail, color: 'text-blue-400', value: stats.emailed },
-    { key: 'quoted', label: 'Quotes', icon: FileText, color: 'text-purple-400', value: stats.quoted },
+    { key: 'called', label: 'Calls', icon: Phone, color: 'text-green-600 dark:text-green-400', value: stats.called },
+    { key: 'left_vm', label: 'VMs', icon: PhoneOff, color: 'text-yellow-600 dark:text-yellow-400', value: stats.left_vm },
+    { key: 'texted', label: 'Texts', icon: MessageSquare, color: 'text-cyan-600 dark:text-cyan-400', value: stats.texted },
+    { key: 'emailed', label: 'Emails', icon: Mail, color: 'text-blue-600 dark:text-blue-400', value: stats.emailed },
+    { key: 'quoted', label: 'Quotes', icon: FileText, color: 'text-purple-600 dark:text-purple-400', value: stats.quoted },
   ];
 
   return (
@@ -175,12 +175,12 @@ export function WinbackActivityStats({ agencyId, wonBackCount }: WinbackActivity
       {/* Stats Grid */}
       <div className="grid grid-cols-3 md:grid-cols-7 gap-2">
         {/* Won Back Counter - Highlighted */}
-        <Card className="bg-green-500/10 border-green-500/30">
+        <Card className="bg-green-500/15 border-green-500/50 dark:border-green-500/30">
           <CardContent className="p-3">
             <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-green-400" />
+              <Trophy className="h-5 w-5 text-green-600 dark:text-green-400" />
               <div>
-                <p className="text-lg font-bold text-green-400">{loading ? '-' : weeklyWonBack}</p>
+                <p className="text-lg font-bold text-green-600 dark:text-green-400">{loading ? '-' : weeklyWonBack}</p>
                 <p className="text-xs text-muted-foreground">Won Back</p>
               </div>
             </div>

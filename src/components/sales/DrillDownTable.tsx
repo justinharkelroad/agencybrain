@@ -2,7 +2,10 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { calculateCountableTotals } from "@/lib/product-constants";
+import {
+  calculateCountableTotals,
+  filterCountablePolicies,
+} from "@/lib/product-constants";
 import {
   Table,
   TableBody,
@@ -43,6 +46,7 @@ interface SaleRecord {
   id: string;
   sale_date: string;
   customer_name: string;
+  policy_types?: string | null;
   lead_source_name: string | null;
   producer_name: string | null;
   total_items: number;
@@ -53,6 +57,21 @@ interface SaleRecord {
 interface DrillDownResponse {
   data: SaleRecord[];
   total_count: number;
+}
+
+interface AdminSaleRow {
+  id: string;
+  sale_date: string;
+  customer_name: string | null;
+  lead_source?: { name: string | null } | null;
+  team_member?: { name: string | null } | null;
+  sale_policies?: Array<{
+    policy_type_name?: string | null;
+    policy_type?: string | null;
+    total_premium?: number | null;
+    total_items?: number | null;
+    total_points?: number | null;
+  }> | null;
 }
 
 // Minimal sale structure for staff edit modal
@@ -196,7 +215,7 @@ export function DrillDownTable({
 
       if (queryError) throw queryError;
 
-      const records: SaleRecord[] = (sales || []).map((sale: any) => {
+      const records: SaleRecord[] = ((sales || []) as AdminSaleRow[]).map((sale) => {
         // Calculate countable totals (excluding Motor Club)
         const policies = sale.sale_policies || [];
         const countable = calculateCountableTotals(policies);
@@ -205,6 +224,10 @@ export function DrillDownTable({
           id: sale.id,
           sale_date: sale.sale_date,
           customer_name: sale.customer_name || "Unknown",
+          policy_types: filterCountablePolicies(policies)
+            .map((p) => p.policy_type_name || p.policy_type || "")
+            .filter(Boolean)
+            .join(", ") || null,
           lead_source_name: sale.lead_source?.name || null,
           producer_name: sale.team_member?.name || null,
           total_items: countable.items,
@@ -307,6 +330,7 @@ export function DrillDownTable({
                 <TableRow className="bg-muted/50">
                   <TableHead>Date</TableHead>
                   <TableHead>Customer</TableHead>
+                  <TableHead>Policy Type</TableHead>
                   <TableHead>Lead Source</TableHead>
                   <TableHead>Producer</TableHead>
                   <TableHead className="text-right">Items</TableHead>
@@ -327,6 +351,9 @@ export function DrillDownTable({
                       >
                         {record.customer_name}
                       </button>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground max-w-[240px] truncate">
+                      {record.policy_types || "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {record.lead_source_name || "Not Set"}

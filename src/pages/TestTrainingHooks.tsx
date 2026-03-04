@@ -149,7 +149,7 @@ export default function TestTrainingHooks() {
           {/* Test Log */}
           <div className="space-y-2">
             <h3 className="font-semibold">Test Log:</h3>
-            <div className="bg-black text-green-400 p-4 rounded-lg font-mono text-xs h-64 overflow-y-auto">
+            <div className="bg-black text-green-600 dark:text-green-400 p-4 rounded-lg font-mono text-xs h-64 overflow-y-auto">
               {testLog.length === 0 ? (
                 <p className="text-muted-foreground">No tests run yet. Click the button above to start.</p>
               ) : (

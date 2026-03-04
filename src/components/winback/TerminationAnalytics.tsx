@@ -597,7 +597,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {/* Premium Lost - Emerald */}
         <div className="flex flex-col items-center justify-center aspect-square rounded-full border-2 p-4 bg-transparent border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
-          <DollarSign className="h-5 w-5 text-emerald-400 mb-1" />
+          <DollarSign className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mb-1" />
           <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-100">-{formatCurrency(stats.totalPremiumLostCents)}</span>
           <span className="text-xs text-muted-foreground">Premium Lost</span>
         </div>
@@ -618,7 +618,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
 
         {/* Points Lost - Red */}
         <div className="flex flex-col items-center justify-center aspect-square rounded-full border-2 p-4 bg-transparent border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.15)]">
-          <TrendingDown className="h-5 w-5 text-red-400 mb-1" />
+          <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400 mb-1" />
           <span className="text-2xl font-bold text-red-600 dark:text-red-100">-{formatCompactNumber(stats.totalPointsLost)}</span>
           <span className="text-xs text-muted-foreground">Points Lost</span>
         </div>

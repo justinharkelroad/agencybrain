@@ -407,10 +407,10 @@ export default function AdminTeam() {
                           {m.status === 'inactive' ? (
                             <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">Deactivated</Badge>
                           ) : (
-                            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">Active</Badge>
+                            <Badge variant="outline" className="bg-green-500/15 text-green-600 border-green-500/20">Active</Badge>
                           )}
                           {m.include_in_metrics === false && (
-                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">Excluded from metrics</Badge>
+                            <Badge variant="outline" className="bg-yellow-500/15 text-yellow-600 border-yellow-500/20">Excluded from metrics</Badge>
                           )}
                         </div>
                       </TableCell>

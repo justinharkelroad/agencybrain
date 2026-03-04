@@ -779,7 +779,7 @@ export function PlannerExperiencePreview({
               today={`${actualPerDay} / ${activeRequiredPerDay}`}
               period={`${actualQuotedHHPeriod} of ${targetPeriodQuotedHH}`}
               progress={quotedPeriodProgress}
-              colorClass="text-cyan-400"
+              colorClass="text-cyan-600 dark:text-cyan-400"
             />
             <SemiGauge
               title={isPastPeriod
@@ -945,10 +945,10 @@ export function PlannerExperiencePreview({
                 >
                   <Slider
                     value={[closeRate]}
-                    min={10}
+                    min={2}
                     max={60}
                     step={1}
-                    onValueChange={(v) => setCloseRate(clamp(v[0] ?? 20, 10, 60))}
+                    onValueChange={(v) => setCloseRate(clamp(v[0] ?? 20, 2, 60))}
                   />
                 </SliderRow>
 

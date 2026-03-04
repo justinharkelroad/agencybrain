@@ -796,8 +796,8 @@ export default function Renewals() {
       
       {/* Active Chart Filter Indicator */}
       {(chartDateFilter || chartDayFilter !== null) && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-          <span className="text-sm text-blue-400">
+        <div className="flex items-center gap-3 px-4 py-2 bg-blue-500/15 border border-blue-500/20 rounded-lg">
+          <span className="text-sm text-blue-600 dark:text-blue-400">
             Filtered by: {chartDateFilter
               ? format(parseISO(chartDateFilter), 'EEEE, MMM d, yyyy')
               : `${DAY_NAMES_FULL[chartDayFilter!]}s`}
@@ -805,7 +805,7 @@ export default function Renewals() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-blue-400 hover:text-white hover:bg-blue-500/20"
+            className="h-6 px-2 text-xs text-blue-600 dark:text-blue-400 hover:text-white hover:bg-blue-500/25"
             onClick={() => { setChartDateFilter(null); setChartDayFilter(null); }}
           >
             <X className="h-3 w-3 mr-1" />
@@ -836,15 +836,15 @@ export default function Renewals() {
 
       {/* Hide Renewal Taken Indicator */}
       {hideRenewalTaken && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-green-500/10 border border-green-500/20 rounded-lg">
-          <EyeOff className="h-4 w-4 text-green-400" />
-          <span className="text-sm text-green-400">
+        <div className="flex items-center gap-3 px-4 py-2 bg-green-500/15 border border-green-500/20 rounded-lg">
+          <EyeOff className="h-4 w-4 text-green-600 dark:text-green-400" />
+          <span className="text-sm text-green-600 dark:text-green-400">
             Hiding {records.filter(r => r.renewal_status === 'Renewal Taken').length} "Renewal Taken" records
           </span>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-green-400 hover:text-white hover:bg-green-500/20"
+            className="h-6 px-2 text-xs text-green-600 dark:text-green-400 hover:text-white hover:bg-green-500/25"
             onClick={() => setHideRenewalTaken(false)}
           >
             <X className="h-3 w-3 mr-1" />
@@ -855,15 +855,15 @@ export default function Renewals() {
 
       {/* Hide In Cancel Audit Indicator */}
       {hideInCancelAudit && activeCancelPolicies && activeCancelPolicies.size > 0 && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-orange-500/10 border border-orange-500/20 rounded-lg">
-          <EyeOff className="h-4 w-4 text-orange-400" />
-          <span className="text-sm text-orange-400">
+        <div className="flex items-center gap-3 px-4 py-2 bg-orange-500/15 border border-orange-500/20 rounded-lg">
+          <EyeOff className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          <span className="text-sm text-orange-600 dark:text-orange-400">
             Hiding {records.filter(r => activeCancelPolicies.has(r.policy_number)).length} records in active Cancel Audit
           </span>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-orange-400 hover:text-white hover:bg-orange-500/20"
+            className="h-6 px-2 text-xs text-orange-600 dark:text-orange-400 hover:text-white hover:bg-orange-500/25"
             onClick={() => setHideInCancelAudit(false)}
           >
             <X className="h-3 w-3 mr-1" />
@@ -893,15 +893,15 @@ export default function Renewals() {
 
       {/* First Term Only Indicator */}
       {showFirstTermOnly && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+        <div className="flex items-center gap-3 px-4 py-2 bg-blue-500/15 border border-blue-500/20 rounded-lg">
           <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 bg-blue-100 text-blue-700 border-blue-200">1st</Badge>
-          <span className="text-sm text-blue-400">
+          <span className="text-sm text-blue-600 dark:text-blue-400">
             Showing first-term renewals only ({filteredAndSortedRecords.length} records)
           </span>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-blue-400 hover:text-white hover:bg-blue-500/20"
+            className="h-6 px-2 text-xs text-blue-600 dark:text-blue-400 hover:text-white hover:bg-blue-500/25"
             onClick={() => setShowFirstTermOnly(false)}
           >
             <X className="h-3 w-3 mr-1" />
@@ -1152,9 +1152,9 @@ export default function Renewals() {
                   className={cn(
                     "cursor-pointer hover:bg-muted/50",
                     showDroppedOnly && "opacity-60 border-dashed border-l-2 border-l-amber-500/50",
-                    !showDroppedOnly && r.premium_change_percent !== null && r.premium_change_percent > 15 && "bg-red-500/10",
+                    !showDroppedOnly && r.premium_change_percent !== null && r.premium_change_percent > 15 && "bg-red-500/15",
                     !showDroppedOnly && r.premium_change_percent !== null && r.premium_change_percent > 5 && r.premium_change_percent <= 15 && "bg-orange-500/5",
-                    !showDroppedOnly && r.premium_change_percent !== null && r.premium_change_percent < -5 && "bg-green-500/10",
+                    !showDroppedOnly && r.premium_change_percent !== null && r.premium_change_percent < -5 && "bg-green-500/15",
                     r.is_priority && "ring-2 ring-yellow-500/50 ring-inset"
                   )}
                   onClick={() => setSelectedRecord(r)}

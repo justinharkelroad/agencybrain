@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3, CheckCircle, Lock, ChevronLeft, ChevronRight, GraduationCap } from 'lucide-react';
+import { Phone, Upload, Clock, FileAudio, AlertCircle, Sparkles, Loader2, BarChart3, CheckCircle, Lock, ChevronLeft, ChevronRight, GraduationCap, Zap } from 'lucide-react';
 import { HelpButton } from '@/components/HelpButton';
 import { toast } from 'sonner';
 import { CallScorecard } from '@/components/CallScorecard';
@@ -1497,7 +1497,7 @@ export default function CallScoring() {
         </div>
         <div className="flex items-center gap-2">
           {(usage.bonus_remaining || 0) > 0 && (
-            <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-500/30 text-emerald-500">
+            <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-500/50 dark:border-emerald-500/30 text-emerald-500">
               +{usage.bonus_remaining} bonus
             </Badge>
           )}
@@ -1509,6 +1509,22 @@ export default function CallScoring() {
           </Badge>
         </div>
       </div>
+
+      {/* Upsell banner when credits low and no addon */}
+      {!isStaffUser && usage.calls_used >= effectiveLimit - 3 && effectiveLimit < 999999 && (
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sm">
+          <Zap className="w-4 h-4 text-sky-500 flex-shrink-0" />
+          <span>
+            Need more call scores?{' '}
+            <a
+              href="/settings/billing"
+              className="font-medium text-sky-500 hover:underline"
+            >
+              Add a monthly plan starting at $180/mo
+            </a>
+          </span>
+        </div>
+      )}
 
       {/* Tabs - hide Analytics for staff users (except managers) */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1779,11 +1795,11 @@ export default function CallScoring() {
                 {processingCalls.map((call) => (
                   <div
                     key={call.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-blue-500/30 bg-blue-500/5 animate-pulse"
+                    className="flex items-center justify-between p-3 rounded-lg border border-blue-500/50 dark:border-blue-500/30 bg-blue-500/5 animate-pulse"
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-full bg-blue-500/20">
-                        <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
+                        <Loader2 className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-spin" />
                       </div>
                       <div>
                         <p className="font-medium text-sm">{call.teamMemberName}</p>
@@ -1791,7 +1807,7 @@ export default function CallScoring() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="px-2 py-1 rounded text-sm bg-blue-500/20 text-blue-400 flex items-center gap-1">
+                      <div className="px-2 py-1 rounded text-sm bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" />
                         Processing
                       </div>
@@ -1848,14 +1864,14 @@ export default function CallScoring() {
                       {call.status === 'analyzed' && call.overall_score !== null && call.overall_score > 0 ? (
                         <div className={`px-2 py-1 rounded text-sm font-medium ${
                           call.call_type === 'service'
-                            ? (call.overall_score >= 8 ? 'bg-green-500/20 text-green-400' :
-                               call.overall_score >= 6 ? 'bg-yellow-500/20 text-yellow-400' :
-                               call.overall_score >= 4 ? 'bg-orange-500/20 text-orange-400' :
-                               'bg-red-500/20 text-red-400')
-                            : (call.overall_score >= 80 ? 'bg-green-500/20 text-green-400' :
-                               call.overall_score >= 60 ? 'bg-yellow-500/20 text-yellow-400' :
-                               call.overall_score >= 40 ? 'bg-orange-500/20 text-orange-400' :
-                               'bg-red-500/20 text-red-400')
+                            ? (call.overall_score >= 8 ? 'bg-green-500/20 text-green-600 dark:text-green-400' :
+                               call.overall_score >= 6 ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' :
+                               call.overall_score >= 4 ? 'bg-orange-500/20 text-orange-600 dark:text-orange-400' :
+                               'bg-red-500/20 text-red-600 dark:text-red-400')
+                            : (call.overall_score >= 80 ? 'bg-green-500/20 text-green-600 dark:text-green-400' :
+                               call.overall_score >= 60 ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' :
+                               call.overall_score >= 40 ? 'bg-orange-500/20 text-orange-600 dark:text-orange-400' :
+                               'bg-red-500/20 text-red-600 dark:text-red-400')
                         }`}>
                           {call.call_type === 'service' 
                             ? `${call.overall_score}/10`
@@ -1865,10 +1881,10 @@ export default function CallScoring() {
                       ) : call.status === 'analyzed' && call.potential_rank ? (
                         <Badge className={`text-xs ${
                           call.potential_rank === 'VERY HIGH' || call.potential_rank === 'HIGH' 
-                            ? 'bg-green-500/20 text-green-400' 
+                            ? 'bg-green-500/20 text-green-600 dark:text-green-400' 
                             : call.potential_rank === 'MEDIUM' 
-                              ? 'bg-yellow-500/20 text-yellow-400' 
-                              : 'bg-red-500/20 text-red-400'
+                              ? 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400' 
+                              : 'bg-red-500/20 text-red-600 dark:text-red-400'
                         }`}>
                           {call.potential_rank}
                         </Badge>
@@ -1877,7 +1893,7 @@ export default function CallScoring() {
                           Analyzed
                         </div>
                       ) : call.status === 'analyzing' ? (
-                        <div className="px-2 py-1 rounded text-sm bg-blue-500/20 text-blue-400 flex items-center gap-1">
+                        <div className="px-2 py-1 rounded text-sm bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center gap-1">
                           <Loader2 className="h-3 w-3 animate-spin" />
                           Analyzing
                         </div>

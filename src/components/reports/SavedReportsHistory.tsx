@@ -84,13 +84,13 @@ export function SavedReportsHistory() {
       case 'vendor_verifier':
         return <Badge variant="outline">Vendor Verifier</Badge>;
       case 'data_lead':
-        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">Data Lead</Badge>;
+        return <Badge className="bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30">Data Lead</Badge>;
       case 'mailer':
-        return <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">Mailer</Badge>;
+        return <Badge className="bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/50 dark:border-purple-500/30">Mailer</Badge>;
       case 'live_transfer':
-        return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">Live Transfer</Badge>;
+        return <Badge className="bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30">Live Transfer</Badge>;
       case 'call_efficiency':
-        return <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30">Call Efficiency</Badge>;
+        return <Badge className="bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 border-cyan-500/50 dark:border-cyan-500/30">Call Efficiency</Badge>;
       default:
         return <Badge>{type}</Badge>;
     }

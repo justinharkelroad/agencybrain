@@ -25,14 +25,14 @@ const STATUS_COLORS: Record<WorkflowStatus, string> = {
 };
 
 const activityStyles: Record<string, { icon: LucideIcon; color: string; label: string }> = {
-  call: { icon: Phone, color: 'text-blue-400 border-blue-500/30 bg-blue-500/10', label: 'Call' },
-  voicemail: { icon: Voicemail, color: 'text-purple-400 border-purple-500/30 bg-purple-500/10', label: 'Voicemail' },
-  text: { icon: MessageSquare, color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10', label: 'Text Sent' },
-  email: { icon: Mail, color: 'text-green-400 border-green-500/30 bg-green-500/10', label: 'Email' },
-  review_done: { icon: CheckCircle, color: 'text-yellow-400 border-yellow-500/30 bg-yellow-500/10', label: 'Review Done' },
-  phone_call: { icon: Phone, color: 'text-blue-400 border-blue-500/30 bg-blue-500/10', label: 'Attempted Call' },
-  appointment: { icon: Calendar, color: 'text-orange-400 border-orange-500/30 bg-orange-500/10', label: 'Appointment' },
-  note: { icon: FileText, color: 'text-gray-400 border-gray-500/30 bg-gray-500/10', label: 'Note' },
+  call: { icon: Phone, color: 'text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30 bg-blue-500/15', label: 'Call' },
+  voicemail: { icon: Voicemail, color: 'text-purple-600 dark:text-purple-400 border-purple-500/50 dark:border-purple-500/30 bg-purple-500/15', label: 'Voicemail' },
+  text: { icon: MessageSquare, color: 'text-cyan-600 dark:text-cyan-400 border-cyan-500/50 dark:border-cyan-500/30 bg-cyan-500/15', label: 'Text Sent' },
+  email: { icon: Mail, color: 'text-green-600 dark:text-green-400 border-green-500/50 dark:border-green-500/30 bg-green-500/15', label: 'Email' },
+  review_done: { icon: CheckCircle, color: 'text-yellow-600 dark:text-yellow-400 border-yellow-500/50 dark:border-yellow-500/30 bg-yellow-500/15', label: 'Review Done' },
+  phone_call: { icon: Phone, color: 'text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30 bg-blue-500/15', label: 'Attempted Call' },
+  appointment: { icon: Calendar, color: 'text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30 bg-orange-500/15', label: 'Appointment' },
+  note: { icon: FileText, color: 'text-gray-600 dark:text-gray-400 border-gray-500/50 dark:border-gray-500/30 bg-gray-500/15', label: 'Note' },
 };
 
 export function RenewalDetailDrawer({ record, open, onClose, context, teamMembers }: Props) {
@@ -125,7 +125,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
   return (
     <>
       <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-        <SheetContent className="w-full sm:max-w-2xl h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col p-0 bg-[#1a1f2e] border-gray-700 text-white [&>button.absolute]:hidden">
+        <SheetContent className="w-full sm:max-w-2xl h-[100dvh] max-h-[100dvh] overflow-hidden flex flex-col p-0 bg-card dark:bg-[#1a1f2e] border-border dark:border-gray-700 text-foreground [&>button.absolute]:hidden">
           <SheetHeader className="sr-only">
             <SheetTitle>{record.first_name} {record.last_name} - Renewal Details</SheetTitle>
             <SheetDescription>View and manage renewal record details</SheetDescription>
@@ -173,7 +173,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                 ${record.premium_new?.toLocaleString() || '—'}
               </span>
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 text-green-400">
+                <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
                   <MessageSquare className="h-4 w-4" />
                   <span className="font-medium">{activities.length}</span>
                 </div>
@@ -190,9 +190,9 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 border-b border-border text-foreground">
               {/* Contact */}
               <div className="flex items-start gap-3">
-                <Phone className="h-4 w-4 text-gray-400 mt-1" />
+                <Phone className="h-4 w-4 text-gray-600 dark:text-gray-400 mt-1" />
                 <div>
-                  <span className="text-sm font-medium text-gray-400">Contact</span>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Contact</span>
                   <p className="text-sm">Phone: {record.phone || '—'}</p>
                   <p className="text-sm break-all">Email: {record.email || '—'}</p>
                 </div>
@@ -200,9 +200,9 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
 
               {/* Policy */}
               <div className="flex items-start gap-3">
-                <FileText className="h-4 w-4 text-gray-400 mt-1" />
+                <FileText className="h-4 w-4 text-gray-600 dark:text-gray-400 mt-1" />
                 <div>
-                  <span className="text-sm font-medium text-gray-400">Policy</span>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Policy</span>
                   <p className="text-sm">Agent #: {record.agent_number || '—'}</p>
                   <p className="text-sm">Product: {record.product_name || '—'}</p>
                 </div>
@@ -210,9 +210,9 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
 
               {/* Dates */}
               <div className="flex items-start gap-3">
-                <Calendar className="h-4 w-4 text-gray-400 mt-1" />
+                <Calendar className="h-4 w-4 text-gray-600 dark:text-gray-400 mt-1" />
                 <div>
-                  <span className="text-sm font-medium text-gray-400">Dates</span>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Dates</span>
                   <p className="text-sm">Effective: {record.renewal_effective_date || '—'}</p>
                   <p className="text-sm">Bundled: <span className="capitalize">{record.multi_line_indicator}</span></p>
                 </div>
@@ -220,12 +220,12 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
 
               {/* Financials */}
               <div className="flex items-start gap-3">
-                <DollarSign className="h-4 w-4 text-gray-400 mt-1" />
+                <DollarSign className="h-4 w-4 text-gray-600 dark:text-gray-400 mt-1" />
                 <div>
-                  <span className="text-sm font-medium text-gray-400">Financials</span>
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Financials</span>
                   <p className="text-sm">Old: ${record.premium_old?.toLocaleString() || '—'}</p>
                   <p className="text-sm">New: ${record.premium_new?.toLocaleString() || '—'}</p>
-                  <p className={`text-sm font-medium ${(record.premium_change_percent || 0) < 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <p className={`text-sm font-medium ${(record.premium_change_percent || 0) < 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                     Change: {record.premium_change_percent?.toFixed(1) || 0}%
                   </p>
                 </div>
@@ -240,7 +240,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                   <Calendar className="h-4 w-4 mr-2" />Log Activity
                 </Button>
                 <Select value={localStatus} onValueChange={handleStatusChange}>
-                  <SelectTrigger className="w-[140px] bg-[#0d1117] border-gray-700 text-white">
+                  <SelectTrigger className="w-[140px] bg-muted dark:bg-[#0d1117] border-border dark:border-gray-700">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -265,7 +265,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                     });
                   }}
                 >
-                  <SelectTrigger className="w-[160px] bg-[#0d1117] border-gray-700 text-white">
+                  <SelectTrigger className="w-[160px] bg-muted dark:bg-[#0d1117] border-border dark:border-gray-700">
                     <SelectValue placeholder="Assign LSP" />
                   </SelectTrigger>
                   <SelectContent>
@@ -288,13 +288,13 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
 
               {/* Win-Back Integration - Show only for unsuccessful renewals */}
               {record.current_status === 'unsuccessful' && (
-                <div className="border-t border-gray-700 pt-4 mt-4">
-                  <p className="text-sm font-medium mb-2 text-gray-300">Win-Back HQ</p>
+                <div className="border-t border-border dark:border-gray-700 pt-4 mt-4">
+                  <p className="text-sm font-medium mb-2 text-muted-foreground">Win-Back HQ</p>
                   {record.winback_household_id ? (
-                    <div className="flex items-center gap-2 text-sm text-green-400">
+                    <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
                       <ExternalLink className="h-4 w-4" />
                       <span>Already sent to Win-Back</span>
-                      <a href="/agency/winback" className="text-blue-400 hover:underline ml-2">
+                      <a href="/agency/winback" className="text-blue-600 dark:text-blue-400 hover:underline ml-2">
                         View →
                       </a>
                     </div>
@@ -303,7 +303,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                       onClick={handleSendToWinback}
                       disabled={sendingToWinback}
                       variant="outline"
-                      className="w-full border-gray-600 text-white hover:bg-gray-700"
+                      className="w-full border-border dark:border-gray-600 hover:bg-muted"
                     >
                       {sendingToWinback ? (
                         <>
@@ -323,20 +323,20 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
 
               {/* Notes */}
               <div className="space-y-2">
-                <h3 className="font-semibold text-white text-sm">Notes</h3>
+                <h3 className="font-semibold text-foreground text-sm">Notes</h3>
                 <Textarea
                   value={noteText}
                   onChange={(e) => setNoteText(e.target.value)}
                   placeholder="Add a note..."
                   rows={3}
-                  className="bg-[#0d1117] border-gray-700 text-white"
+                  className="bg-muted dark:bg-[#0d1117] border-border dark:border-gray-700"
                 />
                 <Button
                   onClick={handleSaveNote}
                   disabled={createActivity.isPending || !noteText.trim()}
                   variant="outline"
                   size="sm"
-                  className="border-gray-600"
+                  className="border-border dark:border-gray-600"
                 >
                   {createActivity.isPending ? 'Saving...' : 'Save Note'}
                 </Button>
@@ -345,18 +345,18 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
               {/* Activity History */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-white">Activity History</h3>
-                  <Badge variant="outline" className="text-green-400 border-green-500/30 bg-green-500/10">
+                  <h3 className="font-semibold text-foreground">Activity History</h3>
+                  <Badge variant="outline" className="text-green-600 dark:text-green-400 border-green-500/50 dark:border-green-500/30 bg-green-500/15">
                     {activities.length} contacts
                   </Badge>
                 </div>
 
                 {activities.length === 0 ? (
-                  <p className="text-sm text-gray-400">No activities yet.</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">No activities yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {activities.map((a) => {
-                      const style = activityStyles[a.activity_type] || { icon: FileText, color: 'text-gray-400 border-gray-700 bg-gray-800/50', label: a.activity_type };
+                      const style = activityStyles[a.activity_type] || { icon: FileText, color: 'text-gray-600 dark:text-gray-400 border-border dark:border-gray-700 bg-muted/50 dark:bg-gray-800/50', label: a.activity_type };
                       const Icon = style.icon;
                       return (
                         <div
@@ -370,14 +370,14 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
                               <span className="font-medium">{style.label}</span>
-                              <span className="text-xs text-gray-400">
+                              <span className="text-xs text-gray-600 dark:text-gray-400">
                                 {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
                               </span>
                             </div>
                             {a.comments && (
-                              <p className="text-sm text-gray-300 mt-1">{a.comments}</p>
+                              <p className="text-sm text-muted-foreground mt-1">{a.comments}</p>
                             )}
-                            <p className="text-xs text-gray-500 mt-1">by {a.created_by_display_name}</p>
+                            <p className="text-xs text-muted-foreground/70 mt-1">by {a.created_by_display_name}</p>
                           </div>
                         </div>
                       );

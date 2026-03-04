@@ -375,7 +375,7 @@ export function CallEfficiencyTool({ onBack }: CallEfficiencyToolProps) {
 
             {/* No team members warning */}
             {teamMembers.length === 0 && (
-              <div className="flex items-start gap-2 p-3 bg-yellow-500/10 rounded-lg">
+              <div className="flex items-start gap-2 p-3 bg-yellow-500/15 rounded-lg">
                 <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5" />
                 <div className="text-sm">
                   <p className="font-medium text-yellow-500">No team members found</p>
@@ -463,7 +463,7 @@ export function CallEfficiencyTool({ onBack }: CallEfficiencyToolProps) {
             </div>
 
             {/* Parse Status */}
-            <div className="flex items-start gap-2 p-3 bg-emerald-500/10 rounded-lg">
+            <div className="flex items-start gap-2 p-3 bg-emerald-500/15 rounded-lg">
               <CheckCircle2 className="h-5 w-5 text-emerald-500 mt-0.5" />
               <div className="text-sm">
                 <p className="font-medium text-emerald-500">Successfully parsed</p>
@@ -487,7 +487,7 @@ export function CallEfficiencyTool({ onBack }: CallEfficiencyToolProps) {
                 </div>
               </div>
             ) : teamMembers.length > 0 ? (
-              <div className="flex items-start gap-2 p-3 bg-blue-500/10 rounded-lg">
+              <div className="flex items-start gap-2 p-3 bg-blue-500/15 rounded-lg">
                 <Users className="h-5 w-5 text-blue-500 mt-0.5" />
                 <div className="text-sm">
                   <p className="font-medium text-blue-500">{teamMembers.length} team member{teamMembers.length !== 1 ? 's' : ''} available</p>
@@ -497,7 +497,7 @@ export function CallEfficiencyTool({ onBack }: CallEfficiencyToolProps) {
                 </div>
               </div>
             ) : (
-              <div className="flex items-start gap-2 p-3 bg-yellow-500/10 rounded-lg">
+              <div className="flex items-start gap-2 p-3 bg-yellow-500/15 rounded-lg">
                 <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5" />
                 <div className="text-sm">
                   <p className="font-medium text-yellow-500">No team members found</p>
@@ -510,7 +510,7 @@ export function CallEfficiencyTool({ onBack }: CallEfficiencyToolProps) {
 
             {/* Parse Errors */}
             {parsedData.parseErrors.length > 0 && (
-              <div className="flex items-start gap-2 p-3 bg-yellow-500/10 rounded-lg">
+              <div className="flex items-start gap-2 p-3 bg-yellow-500/15 rounded-lg">
                 <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5" />
                 <div className="text-sm">
                   <p className="font-medium text-yellow-500">Parse warnings</p>

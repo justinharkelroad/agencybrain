@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, AlertTriangle, Users, Home, ShoppingCart, Link2, Eye, FileText } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Users, Home, ShoppingCart, Link2, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SalesUploadResult } from '@/types/lqs';
 
@@ -9,10 +9,9 @@ interface SalesUploadResultsModalProps {
   onOpenChange: (open: boolean) => void;
   results: SalesUploadResult;
   onReviewNow?: () => void;
-  onPostUploadActions?: () => void;
 }
 
-export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewNow, onPostUploadActions }: SalesUploadResultsModalProps) {
+export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewNow }: SalesUploadResultsModalProps) {
   const hasWarnings = results.unmatchedProducers.length > 0 || results.householdsNeedingAttention > 0;
   const hasErrors = results.errors.length > 0;
   const hasReviews = results.needsReview > 0;
@@ -46,10 +45,11 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
       return { ...item, count };
     })
     .filter((item) => item.count > 0);
+  const ruleSummary = results.uploadRuleSummary;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CheckCircle2 className="h-5 w-5 text-green-500" />
@@ -106,12 +106,24 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
             />
           </div>
 
+          {ruleSummary && (
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-sm font-medium">Upload Rule Summary</p>
+              <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                <li>• {ruleSummary.fileRows} rows in file</li>
+                <li>• {ruleSummary.endorsementsSkipped} skipped (endorsements / add-item)</li>
+                <li>• {ruleSummary.motorClubExcluded} excluded from dashboard metrics (Motor Club)</li>
+                <li>• {ruleSummary.countableRows} count toward dashboard metrics</li>
+              </ul>
+            </div>
+          )}
+
           {/* Warnings Section */}
           {hasWarnings && (
             <div className="space-y-3">
               {/* Unmatched Producers */}
               {results.unmatchedProducers.length > 0 && (
-                <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3">
+                <div className="rounded-lg border border-yellow-500/50 dark:border-yellow-500/30 bg-yellow-500/15 p-3">
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
                     <div className="min-w-0">
@@ -208,12 +220,6 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
 
           {/* Action Buttons */}
           <div className="flex justify-end gap-2 pt-2">
-            {results.salesCreated > 0 && onPostUploadActions && (
-              <Button variant="outline" onClick={onPostUploadActions} className="gap-2">
-                <FileText className="h-4 w-4" />
-                Breakup Letters & Sequences
-              </Button>
-            )}
             <Button onClick={() => onOpenChange(false)}>
               Close
             </Button>

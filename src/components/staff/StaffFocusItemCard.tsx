@@ -8,9 +8,9 @@ import { parseDateLocal } from "@/lib/utils";
 import type { StaffFocusItem } from "@/hooks/useStaffFocusItems";
 
 const priorityConfig = {
-  top: { label: "High", className: "bg-red-500/20 text-red-400 border-red-500/30" },
+  top: { label: "High", className: "bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/50 dark:border-red-500/30" },
   mid: { label: "Medium", className: "bg-amber-500/20 text-amber-400 border-amber-500/30" },
-  low: { label: "Low", className: "bg-green-500/20 text-green-400 border-green-500/30" },
+  low: { label: "Low", className: "bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/50 dark:border-green-500/30" },
 };
 
 interface StaffFocusItemCardProps {

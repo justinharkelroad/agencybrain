@@ -127,12 +127,28 @@ export function SalesUploadModal({
 
       // Start background upload
       console.log('[Sales Upload] Starting background upload with', parsed.records.length, 'records...');
+      const motorClubExcluded = parsed.records.filter(
+        (record) => record.productType?.toLowerCase() === 'motor club'
+      ).length;
+      const fileRows = parsed.records.length + parsed.endorsementsSkipped;
+      const countableRows = Math.max(parsed.records.length - motorClubExcluded, 0);
+
       startBackgroundUpload(parsed.records, {
         agencyId,
         userId,
         displayName,
         isOneCallClose,
-      }, onUploadResults);
+      }, (result) => {
+        onUploadResults?.({
+          ...result,
+          uploadRuleSummary: {
+            fileRows,
+            endorsementsSkipped: parsed.endorsementsSkipped,
+            motorClubExcluded,
+            countableRows,
+          },
+        });
+      });
 
       // FIX: Reset state BEFORE closing modal
       console.log('[Sales Upload] Resetting state and closing modal...');

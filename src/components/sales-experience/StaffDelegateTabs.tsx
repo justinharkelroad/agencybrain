@@ -101,7 +101,7 @@ export function DelegateTeamProgress({
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
-          <AlertCircle className="h-8 w-8 mx-auto mb-2 text-red-400" />
+          <AlertCircle className="h-8 w-8 mx-auto mb-2 text-red-600 dark:text-red-400" />
           <p>{error}</p>
         </CardContent>
       </Card>
@@ -301,7 +301,7 @@ export function DelegateMessages({
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
-          <AlertCircle className="h-8 w-8 mx-auto mb-2 text-red-400" />
+          <AlertCircle className="h-8 w-8 mx-auto mb-2 text-red-600 dark:text-red-400" />
           <p>{error}</p>
         </CardContent>
       </Card>
@@ -331,7 +331,7 @@ export function DelegateMessages({
                 key={msg.id}
                 className={`p-4 rounded-lg ${
                   msg.sender_type === 'coach'
-                    ? 'bg-blue-500/10 border border-blue-500/20'
+                    ? 'bg-blue-500/15 border border-blue-500/20'
                     : 'bg-muted/50'
                 }`}
               >
@@ -424,7 +424,7 @@ export function DelegateDeliverables({
     return (
       <Card>
         <CardContent className="py-8 text-center text-muted-foreground">
-          <AlertCircle className="h-8 w-8 mx-auto mb-2 text-red-400" />
+          <AlertCircle className="h-8 w-8 mx-auto mb-2 text-red-600 dark:text-red-400" />
           <p>{error}</p>
         </CardContent>
       </Card>

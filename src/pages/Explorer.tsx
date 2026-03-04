@@ -456,10 +456,10 @@ export default function Explorer({ staffAgencyId }: ExplorerProps) {
             <div className="flex items-center gap-4">
               <CardTitle>Results ({rows.length} records)</CardTitle>
               <div className="flex gap-2 text-sm">
-                <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                <Badge variant="secondary" className="bg-blue-500/15 text-blue-600 dark:text-blue-400">
                   {prospectCount} Prospects
                 </Badge>
-                <Badge variant="secondary" className="bg-green-500/10 text-green-600 dark:text-green-400">
+                <Badge variant="secondary" className="bg-green-500/15 text-green-600 dark:text-green-400">
                   {customerCount} Customers
                 </Badge>
               </div>
@@ -537,8 +537,8 @@ export default function Explorer({ staffAgencyId }: ExplorerProps) {
                         <Badge 
                           variant="secondary" 
                           className={row.record_type === "customer" 
-                            ? "bg-green-500/10 text-green-600 dark:text-green-400" 
-                            : "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+                            ? "bg-green-500/15 text-green-600 dark:text-green-400" 
+                            : "bg-blue-500/15 text-blue-600 dark:text-blue-400"
                           }
                         >
                           {row.record_type === "customer" ? "Sold" : "Quoted"}

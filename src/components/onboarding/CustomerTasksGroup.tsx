@@ -60,7 +60,7 @@ export function CustomerTasksGroup({
       <div className={cn(
         'border rounded-lg shadow-sm transition-shadow hover:shadow-md',
         hasOverdue
-          ? 'border-red-400/60 dark:border-red-500/50 bg-red-50/50 dark:bg-red-500/10'
+          ? 'border-red-400/60 dark:border-red-500/50 bg-red-50/50 dark:bg-red-500/15'
           : dueCount > 0
             ? 'border-blue-300/60 dark:border-blue-500/40 bg-blue-50/30 dark:bg-blue-500/5'
             : 'border-border bg-card'

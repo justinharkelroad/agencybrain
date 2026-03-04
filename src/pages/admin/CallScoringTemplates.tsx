@@ -138,11 +138,11 @@ function FollowUpPromptsTab({
                       {template.call_type}
                     </Badge>
                     {template.is_global ? (
-                      <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                      <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/50 dark:border-green-500/30 text-xs">
                         Global
                       </Badge>
                     ) : template.agency_id && (
-                      <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">
+                      <Badge className="bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30 text-xs">
                         {getAgencyName(template.agency_id)}
                       </Badge>
                     )}
@@ -689,19 +689,19 @@ export default function CallScoringTemplates() {
                           <Badge 
                             className={`shrink-0 ${
                               template.call_type === 'service' 
-                                ? 'bg-purple-500/20 text-purple-400 border-purple-500/30'
-                                : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                                ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/50 dark:border-purple-500/30'
+                                : 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border-yellow-500/50 dark:border-yellow-500/30'
                             }`}
                           >
                             {template.call_type === 'service' ? 'Service' : 'Sales'}
                           </Badge>
                           {template.is_global ? (
-                            <Badge className="bg-green-500/20 text-green-400 border-green-500/30 shrink-0">
+                            <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/50 dark:border-green-500/30 shrink-0">
                               <Globe className="h-3 w-3 mr-1" />
                               Global
                             </Badge>
                           ) : template.agency_id ? (
-                            <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 shrink-0">
+                            <Badge className="bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30 shrink-0">
                               <Building className="h-3 w-3 mr-1" />
                               {getAgencyName(template.agency_id)}
                             </Badge>
@@ -711,7 +711,7 @@ export default function CallScoringTemplates() {
                             </Badge>
                           )}
                           {!template.is_active && (
-                            <Badge variant="outline" className="text-red-400 border-red-400/30 shrink-0">
+                            <Badge variant="outline" className="text-red-600 dark:text-red-400 border-red-400/30 shrink-0">
                               Inactive
                             </Badge>
                           )}

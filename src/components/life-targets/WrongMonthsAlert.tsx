@@ -59,7 +59,7 @@ export function WrongMonthsAlert({ quarter, missions }: WrongMonthsAlertProps) {
   const expectedMonths = QUARTER_MONTHS[quarterPart as keyof typeof QUARTER_MONTHS] || [];
 
   return (
-    <Alert className="mb-6 border-yellow-500/50 bg-yellow-500/10">
+    <Alert className="mb-6 border-yellow-500/50 bg-yellow-500/15">
       <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
       <AlertDescription className="flex items-center justify-between gap-4">
         <div className="flex-1">

@@ -365,7 +365,7 @@ export default function OnboardingTasksPage() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Card className={stats.overdue > 0 ? 'border-red-300 dark:border-red-500/50 bg-red-50 dark:bg-red-500/10' : ''}>
+        <Card className={stats.overdue > 0 ? 'border-red-300 dark:border-red-500/50 bg-red-50 dark:bg-red-500/15' : ''}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-full ${stats.overdue > 0 ? 'bg-red-100 dark:bg-red-500/20' : 'bg-muted'}`}>
@@ -379,7 +379,7 @@ export default function OnboardingTasksPage() {
           </CardContent>
         </Card>
 
-        <Card className={stats.dueToday > 0 ? 'border-blue-300 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-500/10' : ''}>
+        <Card className={stats.dueToday > 0 ? 'border-blue-300 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-500/15' : ''}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-full ${stats.dueToday > 0 ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-muted'}`}>
@@ -407,7 +407,7 @@ export default function OnboardingTasksPage() {
           </CardContent>
         </Card>
 
-        <Card className={stats.completedToday > 0 ? 'border-green-200 dark:border-green-500/30 bg-green-50/50 dark:bg-green-500/10' : ''}>
+        <Card className={stats.completedToday > 0 ? 'border-green-200 dark:border-green-500/30 bg-green-50/50 dark:bg-green-500/15' : ''}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className={`p-2 rounded-full ${stats.completedToday > 0 ? 'bg-green-100 dark:bg-green-500/20' : 'bg-muted'}`}>

@@ -34,7 +34,7 @@ interface StatCardProps {
   highlightColor?: string;
 }
 
-function StatCard({ icon, title, mainValue, subItems, highlight, highlightColor = 'text-green-400' }: StatCardProps) {
+function StatCard({ icon, title, mainValue, subItems, highlight, highlightColor = 'text-green-600 dark:text-green-400' }: StatCardProps) {
   return (
     <Card className="p-4 bg-card border-border">
       <div className="flex items-center gap-2 text-muted-foreground mb-2">
@@ -191,7 +191,7 @@ export function WeeklyStatsSummary({ agencyId, weekOffset, onWeekChange }: Weekl
                 { label: 'Promised', value: stats.paymentsPromised },
               ]}
               highlight={stats.premiumRecovered > 0 ? `${formatCurrencyShort(stats.premiumRecovered)} saved` : undefined}
-              highlightColor="text-green-400"
+              highlightColor="text-green-600 dark:text-green-400"
             />
 
             <StatCard

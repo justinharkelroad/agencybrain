@@ -769,7 +769,7 @@ export default function BonusForecastCalculator({ onBack }: BonusForecastCalcula
       </Collapsible>
 
       {/* Intermediate Values Summary - Updated with Items metrics */}
-      <Card className="border-blue-500/30 bg-blue-500/5">
+      <Card className="border-blue-500/50 dark:border-blue-500/30 bg-blue-500/5">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-blue-500" />

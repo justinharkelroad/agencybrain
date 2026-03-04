@@ -90,11 +90,11 @@ function FAQItem({ q, a }: { q: string; a: string }) {
         className="w-full flex items-center justify-between p-5 text-left hover:bg-white/[0.02] transition-colors"
       >
         <span className="font-semibold text-white text-sm sm:text-base pr-4">{q}</span>
-        <ChevronDown className={`h-5 w-5 text-cyan-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-5 w-5 text-cyan-600 dark:text-cyan-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <div className="px-5 pb-5 -mt-1">
-          <p className="text-sm text-slate-400 leading-relaxed">{a}</p>
+          <p className="text-sm text-foreground/60 dark:text-slate-400 leading-relaxed">{a}</p>
         </div>
       )}
     </div>
@@ -119,7 +119,7 @@ export default function ChallengeLanding() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <img src={standardLogo} alt="Standard Playbook" className="h-8 sm:h-9 brightness-200" />
           <div className="flex items-center gap-4">
-            <Link to="/auth" className="text-sm text-slate-400 hover:text-white transition-colors hidden sm:block">
+            <Link to="/auth" className="text-sm text-foreground/60 dark:text-slate-400 hover:text-white transition-colors hidden sm:block">
               Sign In
             </Link>
             <a href="#pricing">
@@ -136,7 +136,7 @@ export default function ChallengeLanding() {
         <div className="absolute inset-0 bg-gradient-to-b from-[#050a14] via-[#050a14]/95 to-[#050a14]" />
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-20 sm:pb-32">
           <div className="text-center space-y-6 mb-12 sm:mb-16">
-            <p className="uppercase tracking-[0.3em] text-cyan-400 text-xl sm:text-2xl lg:text-3xl font-black max-w-2xl mx-auto">
+            <p className="uppercase tracking-[0.3em] text-cyan-600 dark:text-cyan-400 text-xl sm:text-2xl lg:text-3xl font-black max-w-2xl mx-auto">
               6 Weeks &middot; 30 Trainings
             </p>
           </div>
@@ -156,7 +156,7 @@ export default function ChallengeLanding() {
           </div>
 
           <div className="text-center mb-12 sm:mb-16">
-            <p className="text-base sm:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg text-foreground/60 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed">
               Transform your producer from reactive chaos to systematic execution — in 42 days. You'll see every step.
             </p>
           </div>
@@ -205,16 +205,16 @@ export default function ChallengeLanding() {
 
           {/* Problem / Possibility cards */}
           <div className="mt-12 sm:mt-16 max-w-3xl mx-auto grid sm:grid-cols-2 gap-4">
-            <div className="border border-red-500/30 bg-red-500/5 rounded-xl p-5 sm:p-6 space-y-3">
-              <p className="uppercase text-xs font-bold tracking-wider text-red-400">The Problem</p>
-              <p className="text-sm text-slate-300 leading-relaxed">
+            <div className="border border-red-500/50 dark:border-red-500/30 bg-red-500/5 rounded-xl p-5 sm:p-6 space-y-3">
+              <p className="uppercase text-xs font-bold tracking-wider text-red-600 dark:text-red-400">The Problem</p>
+              <p className="text-sm text-foreground/70 dark:text-slate-300 leading-relaxed">
                 Your producers lack structure, mood and motivation. Follow-up is positional and chaotic. They operate without a
                 standard — reacting to what's in front of them instead of executing a system.
               </p>
             </div>
-            <div className="border border-cyan-500/30 bg-cyan-500/5 rounded-xl p-5 sm:p-6 space-y-3">
-              <p className="uppercase text-xs font-bold tracking-wider text-cyan-400">The Possibility</p>
-              <p className="text-sm text-slate-300 leading-relaxed">
+            <div className="border border-cyan-500/50 dark:border-cyan-500/30 bg-cyan-500/5 rounded-xl p-5 sm:p-6 space-y-3">
+              <p className="uppercase text-xs font-bold tracking-wider text-cyan-600 dark:text-cyan-400">The Possibility</p>
+              <p className="text-sm text-foreground/70 dark:text-slate-300 leading-relaxed">
                 In 6 weeks, they execute based on a daily system — communicating takeaways and action items directly to you.
                 Daily accountability becomes automatic, not optional.
               </p>
@@ -238,13 +238,13 @@ export default function ChallengeLanding() {
       {/* ─── NOT A COURSE ─── */}
       <section className="py-16 sm:py-24 border-t border-white/5">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <p className="uppercase tracking-[0.2em] text-cyan-400 text-xs font-semibold text-center mb-3">
+          <p className="uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400 text-xs font-semibold text-center mb-3">
             This Isn't About Learning Information
           </p>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-center uppercase tracking-tight leading-tight">
             A System, Not a Course.
           </h2>
-          <p className="text-slate-400 text-center mt-4 max-w-2xl mx-auto">
+          <p className="text-foreground/60 dark:text-slate-400 text-center mt-4 max-w-2xl mx-auto">
             Other programs provide content. The 6-Week Challenge provides a framework for real, verifiable change.
           </p>
 
@@ -267,11 +267,11 @@ export default function ChallengeLanding() {
               },
             ].map((item) => (
               <div key={item.title} className="border border-cyan-900/30 bg-[#0a1020] rounded-xl p-6 space-y-3">
-                <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                  <item.icon className="h-5 w-5 text-cyan-400" />
+                <div className="w-10 h-10 rounded-lg bg-cyan-500/15 flex items-center justify-center">
+                  <item.icon className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
                 </div>
                 <h3 className="font-bold text-white">{item.title}</h3>
-                <p className="text-sm text-slate-400 leading-relaxed">{item.desc}</p>
+                <p className="text-sm text-foreground/60 dark:text-slate-400 leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -281,13 +281,13 @@ export default function ChallengeLanding() {
       {/* ─── THE DAILY RHYTHM ─── */}
       <section className="py-16 sm:py-24 border-t border-white/5 bg-[#070e1a]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <p className="uppercase tracking-[0.2em] text-cyan-400 text-xs font-semibold text-center mb-3">
+          <p className="uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400 text-xs font-semibold text-center mb-3">
             The Producer's Daily Rhythm
           </p>
           <h2 className="text-3xl sm:text-4xl font-black text-center uppercase tracking-tight">
             A Simple, Repeatable Process
           </h2>
-          <p className="text-slate-400 text-center mt-4 max-w-2xl mx-auto">
+          <p className="text-foreground/60 dark:text-slate-400 text-center mt-4 max-w-2xl mx-auto">
             Designed to build momentum and real learning into every business day.
           </p>
 
@@ -317,9 +317,9 @@ export default function ChallengeLanding() {
                   <img src={item.image} alt={item.title} className="w-full h-full object-cover object-top opacity-80" />
                 </div>
                 <div className="p-5 space-y-2">
-                  <p className="text-xs font-bold text-cyan-400 uppercase tracking-wider">{item.step}</p>
+                  <p className="text-xs font-bold text-cyan-600 dark:text-cyan-400 uppercase tracking-wider">{item.step}</p>
                   <h3 className="font-bold text-white">{item.title}</h3>
-                  <p className="text-sm text-slate-400 leading-relaxed">{item.desc}</p>
+                  <p className="text-sm text-foreground/60 dark:text-slate-400 leading-relaxed">{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -330,7 +330,7 @@ export default function ChallengeLanding() {
       {/* ─── CURRICULUM ─── */}
       <section className="py-16 sm:py-24 border-t border-white/5">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <p className="uppercase tracking-[0.2em] text-cyan-400 text-xs font-semibold text-center mb-3">
+          <p className="uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400 text-xs font-semibold text-center mb-3">
             The 6-Week Curriculum
           </p>
           <h2 className="text-3xl sm:text-4xl font-black text-center uppercase tracking-tight">
@@ -348,11 +348,11 @@ export default function ChallengeLanding() {
                     W{week.week}
                   </div>
                   <div>
-                    <p className="text-xs text-cyan-400 uppercase tracking-wider font-semibold">Week {week.week}</p>
+                    <p className="text-xs text-cyan-600 dark:text-cyan-400 uppercase tracking-wider font-semibold">Week {week.week}</p>
                     <h3 className="font-bold text-white">{week.name}</h3>
                   </div>
                 </div>
-                <p className="text-sm text-slate-400 leading-relaxed">{week.description}</p>
+                <p className="text-sm text-foreground/60 dark:text-slate-400 leading-relaxed">{week.description}</p>
                 <div className="flex items-center gap-1 text-xs text-slate-500">
                   <PlayCircle className="h-3.5 w-3.5" />
                   <span>5 lessons &middot; Mon–Fri</span>
@@ -366,13 +366,13 @@ export default function ChallengeLanding() {
       {/* ─── THE TECHNOLOGY STACK ─── */}
       <section className="py-16 sm:py-24 border-t border-white/5 bg-[#070e1a]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <p className="uppercase tracking-[0.2em] text-cyan-400 text-xs font-semibold text-center mb-3">
+          <p className="uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400 text-xs font-semibold text-center mb-3">
             The Technology Stack
           </p>
           <h2 className="text-3xl sm:text-4xl font-black text-center uppercase tracking-tight">
             Built Inside AgencyBrain
           </h2>
-          <p className="text-slate-400 text-center mt-4 max-w-2xl mx-auto">
+          <p className="text-foreground/60 dark:text-slate-400 text-center mt-4 max-w-2xl mx-auto">
             Your producers get full access to a professional-grade platform for training and personal development. No separate apps or logins.
           </p>
 
@@ -381,8 +381,8 @@ export default function ChallengeLanding() {
             <div className="grid md:grid-cols-2 gap-6">
               <div className="border border-cyan-900/30 bg-[#0a1020] rounded-xl overflow-hidden">
                 <div className="p-5 border-b border-cyan-900/20">
-                  <p className="uppercase text-xs font-bold tracking-wider text-cyan-400 mb-1">The Dashboard</p>
-                  <p className="text-sm text-slate-400">
+                  <p className="uppercase text-xs font-bold tracking-wider text-cyan-600 dark:text-cyan-400 mb-1">The Dashboard</p>
+                  <p className="text-sm text-foreground/60 dark:text-slate-400">
                     Your staff portal tracks all 30 of the 42-day journey — lessons, progress, streaks, and Core 4 at a glance.
                   </p>
                 </div>
@@ -393,8 +393,8 @@ export default function ChallengeLanding() {
 
               <div className="border border-cyan-900/30 bg-[#0a1020] rounded-xl overflow-hidden">
                 <div className="p-5 border-b border-cyan-900/20">
-                  <p className="uppercase text-xs font-bold tracking-wider text-cyan-400 mb-1">Core 4 Tracker</p>
-                  <p className="text-sm text-slate-400">
+                  <p className="uppercase text-xs font-bold tracking-wider text-cyan-600 dark:text-cyan-400 mb-1">Core 4 Tracker</p>
+                  <p className="text-sm text-foreground/60 dark:text-slate-400">
                     Daily habit tracking across Body, Being, Balance, and Business. Streak tracking keeps them accountable.
                   </p>
                 </div>
@@ -408,8 +408,8 @@ export default function ChallengeLanding() {
             <div className="grid md:grid-cols-2 gap-6">
               <div className="border border-cyan-900/30 bg-[#0a1020] rounded-xl overflow-hidden">
                 <div className="p-5 border-b border-cyan-900/20">
-                  <p className="uppercase text-xs font-bold tracking-wider text-cyan-400 mb-1">Discovery Flows</p>
-                  <p className="text-sm text-slate-400">
+                  <p className="uppercase text-xs font-bold tracking-wider text-cyan-600 dark:text-cyan-400 mb-1">Discovery Flows</p>
+                  <p className="text-sm text-foreground/60 dark:text-slate-400">
                     AI-powered weekly reflection sessions. Your producers process the week's lessons and get personalized coaching insights.
                   </p>
                 </div>
@@ -420,8 +420,8 @@ export default function ChallengeLanding() {
 
               <div className="border border-cyan-900/30 bg-[#0a1020] rounded-xl overflow-hidden">
                 <div className="p-5 border-b border-cyan-900/20">
-                  <p className="uppercase text-xs font-bold tracking-wider text-cyan-400 mb-1">Owner Visibility</p>
-                  <p className="text-sm text-slate-400">
+                  <p className="uppercase text-xs font-bold tracking-wider text-cyan-600 dark:text-cyan-400 mb-1">Owner Visibility</p>
+                  <p className="text-sm text-foreground/60 dark:text-slate-400">
                     Track every producer's daily metrics, lesson completion, reflections, and Core 4 streaks from your dashboard.
                   </p>
                 </div>
@@ -437,7 +437,7 @@ export default function ChallengeLanding() {
       {/* ─── FOR THE OWNER / FOR THE PRODUCER ─── */}
       <section className="py-16 sm:py-24 border-t border-white/5">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <p className="uppercase tracking-[0.2em] text-cyan-400 text-xs font-semibold text-center mb-3">
+          <p className="uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400 text-xs font-semibold text-center mb-3">
             The Return on Investment
           </p>
           <h2 className="text-3xl sm:text-4xl font-black text-center uppercase tracking-tight">
@@ -446,7 +446,7 @@ export default function ChallengeLanding() {
 
           <div className="mt-12 grid md:grid-cols-2 gap-6">
             <div className="border border-cyan-900/30 bg-[#0a1020] rounded-xl p-6 sm:p-8 space-y-5">
-              <p className="uppercase text-xs font-bold tracking-wider text-orange-400">For You, The Owner</p>
+              <p className="uppercase text-xs font-bold tracking-wider text-orange-600 dark:text-orange-400">For You, The Owner</p>
               <ul className="space-y-4">
                 {[
                   'Full visibility through 30 daily reports',
@@ -455,15 +455,15 @@ export default function ChallengeLanding() {
                   'A producer who takes ownership of their results',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-orange-400 shrink-0 mt-0.5" />
-                    <span className="text-sm text-slate-300">{item}</span>
+                    <CheckCircle2 className="h-5 w-5 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
+                    <span className="text-sm text-foreground/70 dark:text-slate-300">{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
             <div className="border border-cyan-900/30 bg-[#0a1020] rounded-xl p-6 sm:p-8 space-y-5">
-              <p className="uppercase text-xs font-bold tracking-wider text-cyan-400">For Your Producer</p>
+              <p className="uppercase text-xs font-bold tracking-wider text-cyan-600 dark:text-cyan-400">For Your Producer</p>
               <ul className="space-y-4">
                 {[
                   'A repeatable system for daily execution',
@@ -472,8 +472,8 @@ export default function ChallengeLanding() {
                   'A 6-week identity shift that compounds forever',
                 ].map((item, i) => (
                   <li key={i} className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-cyan-400 shrink-0 mt-0.5" />
-                    <span className="text-sm text-slate-300">{item}</span>
+                    <CheckCircle2 className="h-5 w-5 text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
+                    <span className="text-sm text-foreground/70 dark:text-slate-300">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -485,13 +485,13 @@ export default function ChallengeLanding() {
       {/* ─── THE ULTIMATE OUTCOME ─── */}
       <section className="py-16 sm:py-24 border-t border-white/5 bg-[#070e1a]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 text-center">
-          <p className="uppercase tracking-[0.2em] text-cyan-400 text-xs font-semibold mb-3">
+          <p className="uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400 text-xs font-semibold mb-3">
             The Ultimate Outcome
           </p>
           <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight">
             The goal is not just a better producer.
           </h2>
-          <p className="text-slate-400 mt-3 max-w-2xl mx-auto">
+          <p className="text-foreground/60 dark:text-slate-400 mt-3 max-w-2xl mx-auto">
             It's a transformed, more committed team member.
           </p>
 
@@ -502,11 +502,11 @@ export default function ChallengeLanding() {
               { icon: Heart, label: 'Loyalty', desc: 'They feel seen and valued because their leader is invested in their whole person, not just their production.' },
             ].map((item) => (
               <div key={item.label} className="space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-auto">
-                  <item.icon className="h-6 w-6 text-cyan-400" />
+                <div className="w-12 h-12 rounded-xl bg-cyan-500/15 border border-cyan-500/20 flex items-center justify-center mx-auto">
+                  <item.icon className="h-6 w-6 text-cyan-600 dark:text-cyan-400" />
                 </div>
-                <h3 className="font-bold text-orange-400 uppercase tracking-wide text-sm">{item.label}</h3>
-                <p className="text-sm text-slate-400 leading-relaxed">{item.desc}</p>
+                <h3 className="font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide text-sm">{item.label}</h3>
+                <p className="text-sm text-foreground/60 dark:text-slate-400 leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -516,13 +516,13 @@ export default function ChallengeLanding() {
       {/* ─── LOGISTICS ─── */}
       <section className="py-16 sm:py-24 border-t border-white/5">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <p className="uppercase tracking-[0.2em] text-cyan-400 text-xs font-semibold text-center mb-3">
+          <p className="uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400 text-xs font-semibold text-center mb-3">
             Simple &amp; Seamless Logistics
           </p>
           <h2 className="text-3xl sm:text-4xl font-black text-center uppercase tracking-tight">
             Getting your producer started is simple.
           </h2>
-          <p className="text-slate-400 text-center mt-4">Three steps, zero friction.</p>
+          <p className="text-foreground/60 dark:text-slate-400 text-center mt-4">Three steps, zero friction.</p>
 
           <div className="mt-12 grid sm:grid-cols-3 gap-6">
             {[
@@ -550,7 +550,7 @@ export default function ChallengeLanding() {
                   {item.step}
                 </div>
                 <h3 className="font-bold text-white">{item.title}</h3>
-                <p className="text-sm text-slate-400 leading-relaxed">{item.desc}</p>
+                <p className="text-sm text-foreground/60 dark:text-slate-400 leading-relaxed">{item.desc}</p>
               </div>
             ))}
           </div>
@@ -560,13 +560,13 @@ export default function ChallengeLanding() {
       {/* ─── PRICING ─── */}
       <section id="pricing" className="py-16 sm:py-24 border-t border-white/5 bg-[#070e1a]">
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <p className="uppercase tracking-[0.2em] text-cyan-400 text-xs font-semibold text-center mb-3">
+          <p className="uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400 text-xs font-semibold text-center mb-3">
             Ready to Build Your Next Top Producer?
           </p>
           <h2 className="text-3xl sm:text-4xl font-black text-center uppercase tracking-tight">
             Enroll Your Team
           </h2>
-          <p className="text-slate-400 text-center mt-4 max-w-xl mx-auto">
+          <p className="text-foreground/60 dark:text-slate-400 text-center mt-4 max-w-xl mx-auto">
             Enroll your producer by Friday to secure their spot for Monday's start.
           </p>
 
@@ -580,7 +580,7 @@ export default function ChallengeLanding() {
                   <span className="text-5xl sm:text-6xl font-black text-white">$299</span>
                   <span className="text-slate-500 ml-2 text-lg">/seat</span>
                 </div>
-                <p className="text-sm text-slate-400">Everything your producer needs for 6 weeks of guided transformation.</p>
+                <p className="text-sm text-foreground/60 dark:text-slate-400">Everything your producer needs for 6 weeks of guided transformation.</p>
                 <ul className="space-y-3 pt-2 text-left max-w-xs mx-auto">
                   {[
                     '30 daily video lessons',
@@ -591,8 +591,8 @@ export default function ChallengeLanding() {
                     'Daily email reminders',
                     'Full Core 4 + Flows access',
                   ].map((f, i) => (
-                    <li key={i} className="flex items-center gap-2.5 text-sm text-slate-300">
-                      <CheckCircle2 className="h-4 w-4 text-orange-400 shrink-0" />
+                    <li key={i} className="flex items-center gap-2.5 text-sm text-foreground/70 dark:text-slate-300">
+                      <CheckCircle2 className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
                       {f}
                     </li>
                   ))}
@@ -610,7 +610,7 @@ export default function ChallengeLanding() {
 
           <p className="text-center text-sm text-slate-500 mt-8">
             Already a Standard Playbook member?{' '}
-            <Link to="/auth" className="text-cyan-400 hover:underline">
+            <Link to="/auth" className="text-cyan-600 dark:text-cyan-400 hover:underline">
               Sign in
             </Link>{' '}
             for your member pricing.
@@ -621,7 +621,7 @@ export default function ChallengeLanding() {
       {/* ─── FAQ ─── */}
       <section className="py-16 sm:py-24 border-t border-white/5">
         <div className="max-w-3xl mx-auto px-4 sm:px-6">
-          <p className="uppercase tracking-[0.2em] text-cyan-400 text-xs font-semibold text-center mb-3">
+          <p className="uppercase tracking-[0.2em] text-cyan-600 dark:text-cyan-400 text-xs font-semibold text-center mb-3">
             Producer Challenge
           </p>
           <h2 className="text-3xl sm:text-4xl font-black text-center uppercase tracking-tight">
@@ -642,7 +642,7 @@ export default function ChallengeLanding() {
           <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight">
             Stop hoping they'll figure it out.
           </h2>
-          <p className="text-slate-400 max-w-xl mx-auto">
+          <p className="text-foreground/60 dark:text-slate-400 max-w-xl mx-auto">
             Give them the system. See the proof. Watch them transform.
           </p>
           <a href="#pricing">
@@ -659,8 +659,8 @@ export default function ChallengeLanding() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <img src={standardLogo} alt="Standard Playbook" className="h-5 brightness-200 opacity-50" />
             <div className="flex items-center gap-6 text-xs text-slate-500">
-              <Link to="/" className="hover:text-slate-300 transition-colors">Home</Link>
-              <Link to="/auth" className="hover:text-slate-300 transition-colors">Sign In</Link>
+              <Link to="/" className="hover:text-foreground/70 dark:text-slate-300 transition-colors">Home</Link>
+              <Link to="/auth" className="hover:text-foreground/70 dark:text-slate-300 transition-colors">Sign In</Link>
             </div>
           </div>
           <p className="text-center text-xs text-slate-600 mt-6">

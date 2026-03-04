@@ -36,11 +36,11 @@ const targetTypeLabels: Record<string, string> = {
 };
 
 const targetTypeColors: Record<string, string> = {
-  onboarding: "bg-blue-500/10 text-blue-700 border-blue-500/20",
+  onboarding: "bg-blue-500/15 text-blue-700 border-blue-500/20",
   lead_nurturing: "bg-amber-500/10 text-amber-700 border-amber-500/20",
-  requote: "bg-purple-500/10 text-purple-700 border-purple-500/20",
-  retention: "bg-green-500/10 text-green-700 border-green-500/20",
-  other: "bg-gray-500/10 text-gray-700 border-gray-500/20",
+  requote: "bg-purple-500/15 text-purple-700 border-purple-500/20",
+  retention: "bg-green-500/15 text-green-700 border-green-500/20",
+  other: "bg-gray-500/15 text-gray-700 border-gray-500/20",
 };
 
 function getTypeLabel(sequence: CommunitySequence): string {

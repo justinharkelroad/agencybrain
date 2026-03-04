@@ -100,7 +100,7 @@ export function LocationUploadCard({
 
         {/* Parsed State */}
         {location.status === 'parsed' && (
-          <div className="flex items-center justify-between gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+          <div className="flex items-center justify-between gap-3 p-4 bg-green-500/15 border border-green-500/50 dark:border-green-500/30 rounded-lg">
             <div className="flex items-center gap-3 min-w-0">
               <CheckCircle className="h-5 w-5 text-green-500 shrink-0" />
               <div className="min-w-0">

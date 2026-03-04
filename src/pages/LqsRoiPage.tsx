@@ -386,7 +386,7 @@ function TopLeadSourceCallout({
                       {(flaggedRows?.has(item.row.leadSourceId) ?? false) && (
                         <Badge
                           variant="outline"
-                          className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                          className="bg-emerald-500/15 text-emerald-500 border-emerald-500/50 dark:border-emerald-500/30"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
                           Priority
@@ -500,7 +500,7 @@ function TopZipCallout({
                       {(flaggedRows?.has(item.row.zipCode) ?? false) && (
                         <Badge
                           variant="outline"
-                          className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                          className="bg-emerald-500/15 text-emerald-500 border-emerald-500/50 dark:border-emerald-500/30"
                         >
                           <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
                           Priority
@@ -571,7 +571,7 @@ function ConversionFunnel({
             className="bg-blue-500/20 border border-blue-500/40 rounded-lg py-4 px-6 text-center transition-all"
             style={{ width: `${topWidth}%` }}
           >
-            <div className="text-2xl font-bold text-blue-400">{topValue.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{topValue.toLocaleString()}</div>
             <div className="text-sm text-muted-foreground">{topLabel}</div>
           </div>
           
@@ -615,7 +615,7 @@ function ConversionFunnel({
             className="bg-green-500/20 border border-green-500/40 rounded-lg py-4 px-6 text-center transition-all"
             style={{ width: `${botWidth}%` }}
           >
-            <div className="text-2xl font-bold text-green-400">{botValue.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-green-600 dark:text-green-400">{botValue.toLocaleString()}</div>
             <div className="text-sm text-muted-foreground">{botLabel}</div>
           </div>
         </div>

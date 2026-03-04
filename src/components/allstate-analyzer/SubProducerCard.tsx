@@ -110,7 +110,7 @@ export function SubProducerCard({ producer, isAgency }: Props) {
             </div>
             <div>
               <div className="text-muted-foreground text-xs">Net</div>
-              <div className={`font-medium ${producer.netPremium >= 0 ? 'text-primary' : 'text-red-400'}`}>
+              <div className={`font-medium ${producer.netPremium >= 0 ? 'text-primary' : 'text-red-600 dark:text-red-400'}`}>
                 ${producer.netPremium.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
             </div>
@@ -146,13 +146,13 @@ export function SubProducerCard({ producer, isAgency }: Props) {
             </div>
             <div>
               <div className="text-muted-foreground text-xs">Chargebacks</div>
-              <div className={`font-medium ${producer.commissionChargebacks > 0 ? 'text-red-400' : 'text-muted-foreground'}`}>
+              <div className={`font-medium ${producer.commissionChargebacks > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
                 {producer.commissionChargebacks > 0 ? '-' : ''}${producer.commissionChargebacks.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
             </div>
             <div>
               <div className="text-muted-foreground text-xs">Net</div>
-              <div className={`font-medium ${producer.netCommission >= 0 ? 'text-primary' : 'text-red-400'}`}>
+              <div className={`font-medium ${producer.netCommission >= 0 ? 'text-primary' : 'text-red-600 dark:text-red-400'}`}>
                 ${producer.netCommission.toLocaleString(undefined, { minimumFractionDigits: 2 })}
               </div>
             </div>

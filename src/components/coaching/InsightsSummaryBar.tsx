@@ -22,8 +22,8 @@ const metrics = [
     label: 'Needs Attention',
     icon: Users,
     tooltip: 'Total team members with at least one coaching insight (warning or critical).',
-    color: 'text-blue-400',
-    bgColor: 'bg-blue-500/10',
+    color: 'text-blue-600 dark:text-blue-400',
+    bgColor: 'bg-blue-500/15',
     borderColor: 'border-blue-500/20',
   },
   {
@@ -31,8 +31,8 @@ const metrics = [
     label: 'Critical Issues',
     icon: AlertCircle,
     tooltip: 'Total count of critical insights that should be addressed first.',
-    color: 'text-red-400',
-    bgColor: 'bg-red-500/10',
+    color: 'text-red-600 dark:text-red-400',
+    bgColor: 'bg-red-500/15',
     borderColor: 'border-red-500/20',
   },
   {
@@ -49,8 +49,8 @@ const metrics = [
     label: 'Team Pass Rate (30d)',
     icon: TrendingUp,
     tooltip: 'Team-level pass rate over the last 30 days, based on metrics data.',
-    color: 'text-emerald-400',
-    bgColor: 'bg-emerald-500/10',
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bgColor: 'bg-emerald-500/15',
     borderColor: 'border-emerald-500/20',
   },
 ];

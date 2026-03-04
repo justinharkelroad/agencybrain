@@ -51,7 +51,7 @@ export function PromoGoalCard({ goal, showAssigneeCount }: PromoGoalCardProps) {
     }
     if (goal.isAchieved) {
       return (
-        <Badge className="text-xs bg-green-500/20 text-green-600 border-green-500/30">
+        <Badge className="text-xs bg-green-500/20 text-green-600 border-green-500/50 dark:border-green-500/30">
           <CheckCircle2 className="h-3 w-3 mr-1" />
           Goal Met!
         </Badge>
@@ -196,7 +196,7 @@ export function PromoGoalCardCompact({ goal }: PromoGoalCardProps) {
           <span className="font-medium text-sm">{goal.goal_name}</span>
         </div>
         {goal.isAchieved ? (
-          <Badge className="text-xs bg-green-500/20 text-green-600 border-green-500/30">
+          <Badge className="text-xs bg-green-500/20 text-green-600 border-green-500/50 dark:border-green-500/30">
             <CheckCircle2 className="h-3 w-3 mr-1" />
             Done!
           </Badge>

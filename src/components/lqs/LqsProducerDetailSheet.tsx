@@ -128,9 +128,9 @@ function TemperatureRating({ temperature }: { temperature: number }) {
 // Status badge component
 function StatusBadge({ status }: { status: string | null }) {
   const colors: Record<string, string> = {
-    lead: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
+    lead: 'bg-blue-500/15 text-blue-500 border-blue-500/50 dark:border-blue-500/30',
     quoted: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
-    sold: 'bg-green-500/10 text-green-500 border-green-500/30',
+    sold: 'bg-green-500/15 text-green-500 border-green-500/50 dark:border-green-500/30',
   };
 
   return (

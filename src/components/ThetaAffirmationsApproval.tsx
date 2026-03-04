@@ -21,10 +21,10 @@ interface ThetaAffirmationsApprovalProps {
 }
 
 const categoryConfig = {
-  body: { label: 'Body', color: 'bg-red-500/10 text-red-700 border-red-500/20' },
-  being: { label: 'Being', color: 'bg-purple-500/10 text-purple-700 border-purple-500/20' },
-  balance: { label: 'Balance', color: 'bg-blue-500/10 text-blue-700 border-blue-500/20' },
-  business: { label: 'Business', color: 'bg-green-500/10 text-green-700 border-green-500/20' }
+  body: { label: 'Body', color: 'bg-red-500/15 text-red-700 border-red-500/20' },
+  being: { label: 'Being', color: 'bg-purple-500/15 text-purple-700 border-purple-500/20' },
+  balance: { label: 'Balance', color: 'bg-blue-500/15 text-blue-700 border-blue-500/20' },
+  business: { label: 'Business', color: 'bg-green-500/15 text-green-700 border-green-500/20' }
 };
 
 export function ThetaAffirmationsApproval({

@@ -39,7 +39,7 @@ export function DroppedRecordsInfoModal({
             <h4 className="text-sm font-semibold text-foreground">How it works</h4>
             <div className="space-y-3">
               <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-blue-500/10 flex items-center justify-center">
+                <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-blue-500/15 flex items-center justify-center">
                   <FileUp className="h-3.5 w-3.5 text-blue-500" />
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -47,7 +47,7 @@ export function DroppedRecordsInfoModal({
                 </p>
               </div>
               <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-green-500/10 flex items-center justify-center">
+                <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-green-500/15 flex items-center justify-center">
                   <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
                 </div>
                 <p className="text-sm text-muted-foreground">
@@ -92,15 +92,15 @@ export function DroppedRecordsInfoModal({
             <h4 className="text-sm font-semibold text-foreground">What should I do?</h4>
             <div className="space-y-2 text-sm text-muted-foreground">
               <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-green-500/10 flex items-center justify-center text-xs font-bold text-green-500">1</div>
+                <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-green-500/15 flex items-center justify-center text-xs font-bold text-green-500">1</div>
                 <p><span className="text-foreground font-medium">Review dropped records</span> — check if the customer paid or if the policy cancelled.</p>
               </div>
               <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-green-500/10 flex items-center justify-center text-xs font-bold text-green-500">2</div>
+                <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-green-500/15 flex items-center justify-center text-xs font-bold text-green-500">2</div>
                 <p><span className="text-foreground font-medium">Update the status</span> — mark as "Resolved" if saved, or "Lost" if cancelled.</p>
               </div>
               <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-green-500/10 flex items-center justify-center text-xs font-bold text-green-500">3</div>
+                <div className="flex-shrink-0 mt-0.5 h-6 w-6 rounded-full bg-green-500/15 flex items-center justify-center text-xs font-bold text-green-500">3</div>
                 <p>Dropped records stay in "Needs Attention" until you resolve them so nothing falls through the cracks.</p>
               </div>
             </div>

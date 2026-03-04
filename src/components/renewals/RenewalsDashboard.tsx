@@ -128,14 +128,14 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
       {/* Upcoming Renewals - Area Chart */}
-      <Card className="bg-[#1a1f2e] border-gray-700 lg:col-span-3">
+      <Card className="dark:bg-[#1a1f2e] dark:border-gray-700 lg:col-span-3">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-lg text-white">Upcoming Renewals</CardTitle>
+              <CalendarDays className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <CardTitle className="text-lg">Upcoming Renewals</CardTitle>
             </div>
-            <span className="text-xs text-gray-400">Last 7 days</span>
+            <span className="text-xs text-muted-foreground">Last 7 days</span>
           </div>
         </CardHeader>
         <CardContent>
@@ -204,25 +204,25 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <p className="text-xs text-gray-500 mt-2 text-center">
+          <p className="text-xs text-muted-foreground mt-2 text-center">
             Click the line to filter by date
           </p>
         </CardContent>
       </Card>
 
       {/* Day of Week Distribution - Horizontal Bar Chart */}
-      <Card className="bg-[#1a1f2e] border-gray-700 lg:col-span-1">
+      <Card className="dark:bg-[#1a1f2e] dark:border-gray-700 lg:col-span-1">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5 text-blue-400" />
-              <CardTitle className="text-base text-white">By Day</CardTitle>
+              <BarChart3 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <CardTitle className="text-base">By Day</CardTitle>
             </div>
             {hasActiveFilter && (
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="h-7 text-xs text-gray-400 hover:text-white"
+                className="h-7 text-xs text-muted-foreground hover:text-foreground"
                 onClick={() => {
                   onDateFilter(null);
                   onDayOfWeekFilter(null);
@@ -286,7 +286,7 @@ export function RenewalsDashboard({ chartRecords, onDateFilter, onDayOfWeekFilte
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-muted-foreground mt-2">
             Click a bar to filter by day of week
           </p>
         </CardContent>

@@ -93,12 +93,12 @@ export function CustomerTaskGroup({
 
         <div className="flex items-center gap-2 ml-auto">
           {overdueCount > 0 && (
-            <Badge className="bg-red-500/10 text-red-500 border-red-500/20 text-xs">
+            <Badge className="bg-red-500/15 text-red-500 border-red-500/20 text-xs">
               {overdueCount} overdue
             </Badge>
           )}
           {dueTodayCount > 0 && (
-            <Badge className="bg-blue-500/10 text-blue-500 border-blue-500/20 text-xs">
+            <Badge className="bg-blue-500/15 text-blue-500 border-blue-500/20 text-xs">
               {dueTodayCount} due today
             </Badge>
           )}

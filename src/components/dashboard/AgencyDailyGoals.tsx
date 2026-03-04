@@ -105,13 +105,13 @@ export function AgencyDailyGoals({
         <div className="flex-1 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-orange-500/10">
+              <div className="p-2 rounded-lg bg-orange-500/15">
                 <Home className="h-4 w-4 text-orange-500" />
               </div>
               <span className="font-medium">Quoted Households</span>
             </div>
             {quotedPercent >= 100 && (
-              <span className="text-xs font-semibold text-green-500 bg-green-500/10 px-2 py-1 rounded-full">
+              <span className="text-xs font-semibold text-green-500 bg-green-500/15 px-2 py-1 rounded-full">
                 ✓ Goal Met!
               </span>
             )}
@@ -143,13 +143,13 @@ export function AgencyDailyGoals({
         <div className="flex-1 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-green-500/10">
+              <div className="p-2 rounded-lg bg-green-500/15">
                 <ShoppingCart className="h-4 w-4 text-green-500" />
               </div>
               <span className="font-medium">Sold Items</span>
             </div>
             {soldPercent >= 100 && (
-              <span className="text-xs font-semibold text-green-500 bg-green-500/10 px-2 py-1 rounded-full">
+              <span className="text-xs font-semibold text-green-500 bg-green-500/15 px-2 py-1 rounded-full">
                 ✓ Goal Met!
               </span>
             )}

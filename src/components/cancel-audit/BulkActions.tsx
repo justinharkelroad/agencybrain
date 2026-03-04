@@ -68,7 +68,7 @@ export function BulkActions({
           variant="outline"
           onClick={() => onStatusUpdate('resolved')}
           disabled={isUpdating || isDeleting || isAssigning}
-          className="text-green-500 hover:text-green-400"
+          className="text-green-500 hover:text-green-600 dark:text-green-400"
         >
           Mark Resolved
         </Button>
@@ -77,7 +77,7 @@ export function BulkActions({
           variant="outline"
           onClick={() => onStatusUpdate('lost')}
           disabled={isUpdating || isDeleting || isAssigning}
-          className="text-red-500 hover:text-red-400"
+          className="text-red-500 hover:text-red-600 dark:text-red-400"
         >
           Mark Lost
         </Button>

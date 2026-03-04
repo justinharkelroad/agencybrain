@@ -23,10 +23,10 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 
 const STATUS_STYLES: Record<RecordStatus, string> = {
-  new: 'bg-gray-500/10 text-gray-400 border-gray-500/30',
-  in_progress: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-  resolved: 'bg-green-500/10 text-green-400 border-green-500/30',
-  lost: 'bg-red-500/10 text-red-400 border-red-500/30',
+  new: 'bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-500/50 dark:border-gray-500/30',
+  in_progress: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30',
+  resolved: 'bg-green-500/15 text-green-600 dark:text-green-400 border-green-500/50 dark:border-green-500/30',
+  lost: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/50 dark:border-red-500/30',
 };
 
 const STATUS_LABELS: Record<RecordStatus, string> = {
@@ -169,7 +169,7 @@ export function CancelAuditRecordCard({
           {/* Multi-policy indicator */}
           {record.household_policy_count > 1 && (
             <div 
-              className="hidden sm:flex items-center gap-1 text-xs bg-purple-500/10 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded-full flex-shrink-0"
+              className="hidden sm:flex items-center gap-1 text-xs bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/50 dark:border-purple-500/30 px-2 py-0.5 rounded-full flex-shrink-0"
               title={`${record.household_policy_count} policies for this household`}
             >
               <Users className="h-3 w-3" />
@@ -180,7 +180,7 @@ export function CancelAuditRecordCard({
           {/* Contact count - compact */}
           {record.activity_count > 0 && (
             <div 
-              className="hidden sm:flex items-center gap-1 text-green-400 text-sm flex-shrink-0" 
+              className="hidden sm:flex items-center gap-1 text-green-600 dark:text-green-400 text-sm flex-shrink-0" 
               title={`${record.activity_count} contacts made`}
             >
               <MessageSquare className="h-3.5 w-3.5" />

@@ -220,16 +220,16 @@ export function SalesPeriodSummaryTable({
                     <TableCell className="text-muted-foreground">
                       {sale.lead_source_name || "—"}
                     </TableCell>
-                    <TableCell className="text-right text-emerald-400 font-medium">
+                    <TableCell className="text-right text-emerald-600 dark:text-emerald-400 font-medium">
                       ${sale.premium.toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right text-blue-400">
+                    <TableCell className="text-right text-blue-600 dark:text-blue-400">
                       {sale.items}
                     </TableCell>
-                    <TableCell className="text-right text-purple-400">
+                    <TableCell className="text-right text-purple-600 dark:text-purple-400">
                       {sale.policies}
                     </TableCell>
-                    <TableCell className="text-right text-orange-400">
+                    <TableCell className="text-right text-orange-600 dark:text-orange-400">
                       {sale.points}
                     </TableCell>
                   </TableRow>
@@ -239,16 +239,16 @@ export function SalesPeriodSummaryTable({
                   <TableCell colSpan={4} className="text-right">
                     Totals
                   </TableCell>
-                  <TableCell className="text-right text-emerald-400">
+                  <TableCell className="text-right text-emerald-600 dark:text-emerald-400">
                     ${totals.premium.toLocaleString()}
                   </TableCell>
-                  <TableCell className="text-right text-blue-400">
+                  <TableCell className="text-right text-blue-600 dark:text-blue-400">
                     {totals.items}
                   </TableCell>
-                  <TableCell className="text-right text-purple-400">
+                  <TableCell className="text-right text-purple-600 dark:text-purple-400">
                     {totals.policies}
                   </TableCell>
-                  <TableCell className="text-right text-orange-400">
+                  <TableCell className="text-right text-orange-600 dark:text-orange-400">
                     {totals.points}
                   </TableCell>
                 </TableRow>

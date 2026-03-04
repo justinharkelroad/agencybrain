@@ -48,10 +48,10 @@ const ACTION_ICONS: Record<ActionType, React.ElementType> = {
 };
 
 const ACTION_COLORS: Record<ActionType, string> = {
-  call: 'bg-green-500/10 text-green-500',
-  text: 'bg-purple-500/10 text-purple-500',
-  email: 'bg-blue-500/10 text-blue-500',
-  other: 'bg-gray-500/10 text-gray-400',
+  call: 'bg-green-500/15 text-green-500',
+  text: 'bg-purple-500/15 text-purple-500',
+  email: 'bg-blue-500/15 text-blue-500',
+  other: 'bg-gray-500/15 text-gray-600 dark:text-gray-400',
 };
 
 const ACTION_LABELS: Record<ActionType, string> = {
@@ -67,7 +67,7 @@ function getStatusStyles(task: OnboardingTask): { border: string; bg: string; ba
       border: 'border-l-4 border-l-green-500',
       bg: '',
       badge: 'Completed',
-      badgeClass: 'bg-green-500/10 text-green-500 border-green-500/20',
+      badgeClass: 'bg-green-500/15 text-green-500 border-green-500/20',
     };
   }
 
@@ -78,7 +78,7 @@ function getStatusStyles(task: OnboardingTask): { border: string; bg: string; ba
       border: 'border-l-4 border-l-red-500',
       bg: '',
       badge: 'Overdue',
-      badgeClass: 'bg-red-500/10 text-red-500 border-red-500/20',
+      badgeClass: 'bg-red-500/15 text-red-500 border-red-500/20',
     };
   }
 
@@ -87,7 +87,7 @@ function getStatusStyles(task: OnboardingTask): { border: string; bg: string; ba
       border: 'border-l-4 border-l-blue-500',
       bg: '',
       badge: 'Due Today',
-      badgeClass: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+      badgeClass: 'bg-blue-500/15 text-blue-500 border-blue-500/20',
     };
   }
 
@@ -96,7 +96,7 @@ function getStatusStyles(task: OnboardingTask): { border: string; bg: string; ba
     border: 'border-l-4 border-l-gray-400',
     bg: '',
     badge: 'Upcoming',
-    badgeClass: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+    badgeClass: 'bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-500/20',
   };
 }
 
@@ -227,7 +227,7 @@ export function OnboardingTaskCard({
                 {relativeDate && (
                   <span className={cn(
                     'text-muted-foreground/60',
-                    isOverdue && 'text-red-400'
+                    isOverdue && 'text-red-600 dark:text-red-400'
                   )}>
                     ({relativeDate})
                   </span>

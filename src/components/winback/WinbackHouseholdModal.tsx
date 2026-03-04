@@ -546,7 +546,7 @@ export function WinbackHouseholdModal({
                             <div className="flex flex-col items-end">
                               <span>{formatCurrency(policy.premium_old_cents)}</span>
                               {premiumChange !== null && premiumChange !== 0 && (
-                                <span className={cn('text-xs', premiumChange > 0 ? 'text-red-400' : 'text-green-400')}>
+                                <span className={cn('text-xs', premiumChange > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400')}>
                                   {premiumChange > 0 ? '+' : ''}{premiumChange.toFixed(0)}%
                                 </span>
                               )}

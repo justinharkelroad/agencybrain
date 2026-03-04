@@ -428,7 +428,7 @@ export default function SalesExperienceWeek() {
 
               {/* Discovery Flow */}
               {selectedLesson?.is_discovery_flow && (
-                <Card className="border-purple-500/30 bg-purple-500/5">
+                <Card className="border-purple-500/50 dark:border-purple-500/30 bg-purple-500/5">
                   <CardContent className="py-6">
                     <div className="text-center space-y-4">
                       <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-purple-500/20 text-purple-500 mx-auto">

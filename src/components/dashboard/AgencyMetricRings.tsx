@@ -81,14 +81,19 @@ function MetricRing({
   return (
     <div className="flex flex-col items-center gap-1">
       <div className="relative">
-        <svg width={size} height={size} className="rotate-[-90deg]">
+        {/* Colored halo behind ring — light mode only */}
+        <div
+          className="absolute inset-0 rounded-full blur-xl dark:opacity-0 pointer-events-none"
+          style={{ background: color, opacity: 0.08 }}
+        />
+        <svg width={size} height={size} className="rotate-[-90deg] relative z-10">
           {/* Background ring */}
           <circle
             cx={size / 2}
             cy={size / 2}
             r={r}
-            stroke="hsl(var(--border))"
-            strokeOpacity="0.25"
+            stroke="hsl(var(--muted-foreground))"
+            strokeOpacity="0.12"
             strokeWidth={strokeWidth}
             fill="none"
           />

@@ -505,8 +505,8 @@ export function SEMessagesTab() {
                         variant="outline"
                         className={
                           message.sender_type === 'coach'
-                            ? 'bg-blue-500/10 text-blue-600'
-                            : 'bg-green-500/10 text-green-600'
+                            ? 'bg-blue-500/15 text-blue-600'
+                            : 'bg-green-500/15 text-green-600'
                         }
                       >
                         {message.sender_type === 'coach' ? 'Sent' : 'Received'}

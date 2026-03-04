@@ -127,9 +127,9 @@ function StatusBadge({ status }: { status: string | null }) {
   };
 
   const colors: Record<string, string> = {
-    lead: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
+    lead: 'bg-blue-500/15 text-blue-500 border-blue-500/50 dark:border-blue-500/30',
     quoted: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
-    sold: 'bg-green-500/10 text-green-500 border-green-500/30',
+    sold: 'bg-green-500/15 text-green-500 border-green-500/50 dark:border-green-500/30',
   };
 
   return (
@@ -159,7 +159,7 @@ function HouseholdDetailContent({
         {isPriorityZip && (
           <Badge
             variant="outline"
-            className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+            className="bg-emerald-500/15 text-emerald-500 border-emerald-500/50 dark:border-emerald-500/30"
           >
             {`Priority ZIP${priorityZipRank ? ` #${priorityZipRank}` : ''}`}
           </Badge>
@@ -549,7 +549,7 @@ export function LqsLeadSourceDetailSheet({
                               {isPriorityZip && (
                                 <Badge
                                   variant="outline"
-                                  className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30"
+                                  className="text-[10px] bg-emerald-500/15 text-emerald-500 border-emerald-500/50 dark:border-emerald-500/30"
                                 >
                                   {`Priority${priorityZipRank ? ` #${priorityZipRank}` : ''}`}
                                 </Badge>

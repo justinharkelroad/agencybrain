@@ -253,7 +253,7 @@ export function LqsSameMonthConversion({ agencyId, dateRange }: LqsSameMonthConv
                           variant="outline"
                           className={cn(
                             row.sameMonthConversionRate !== null && row.sameMonthConversionRate >= 20
-                              ? 'border-green-500/30 text-green-500'
+                              ? 'border-green-500/50 dark:border-green-500/30 text-green-500'
                               : row.sameMonthConversionRate !== null && row.sameMonthConversionRate >= 10
                               ? 'border-amber-500/30 text-amber-500'
                               : ''

@@ -213,7 +213,7 @@ export function SavedPaymentsDialog({
         )}
 
         {successMessage && (
-          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 flex items-start gap-2">
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/15 p-3 flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-emerald-600">{successMessage}</p>
           </div>

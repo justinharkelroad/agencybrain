@@ -268,9 +268,9 @@ export function LqsTimeToCloseAnalytics({ agencyId, dateRange }: LqsTimeToCloseA
                         <TableCell className="font-medium">{row.sourceName}</TableCell>
                         <TableCell className="text-right">
                           <Badge variant="outline" className={cn(
-                            row.avgDays <= 14 ? 'border-green-500/30 text-green-500' :
+                            row.avgDays <= 14 ? 'border-green-500/50 dark:border-green-500/30 text-green-500' :
                             row.avgDays <= 30 ? 'border-amber-500/30 text-amber-500' :
-                            'border-red-500/30 text-red-500'
+                            'border-red-500/50 dark:border-red-500/30 text-red-500'
                           )}>
                             {row.avgDays}d
                           </Badge>
@@ -315,9 +315,9 @@ export function LqsTimeToCloseAnalytics({ agencyId, dateRange }: LqsTimeToCloseA
                         <TableCell className="font-medium">{row.producerName}</TableCell>
                         <TableCell className="text-right">
                           <Badge variant="outline" className={cn(
-                            row.avgDays <= 14 ? 'border-green-500/30 text-green-500' :
+                            row.avgDays <= 14 ? 'border-green-500/50 dark:border-green-500/30 text-green-500' :
                             row.avgDays <= 30 ? 'border-amber-500/30 text-amber-500' :
-                            'border-red-500/30 text-red-500'
+                            'border-red-500/50 dark:border-red-500/30 text-red-500'
                           )}>
                             {row.avgDays}d
                           </Badge>

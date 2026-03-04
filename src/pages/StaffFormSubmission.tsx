@@ -1275,7 +1275,7 @@ export default function StaffFormSubmission() {
                     {performanceSummary.kpis.filter(k => k.key.startsWith('dashboard_')).map(kpi => (
                       <div key={kpi.key} className={`p-3 rounded-lg border ${
                         kpi.passed
-                          ? 'bg-green-500/10 border-green-500/30'
+                          ? 'bg-green-500/15 border-green-500/50 dark:border-green-500/30'
                           : 'bg-amber-500/10 border-amber-500/30'
                       }`}>
                         <div className="flex justify-between items-center">
@@ -1305,8 +1305,8 @@ export default function StaffFormSubmission() {
                 <div className="border-t border-b border-border py-4 my-4">
                   <div className={`text-center p-3 rounded-lg ${
                     performanceSummary.summary.overallPass
-                      ? 'bg-green-500/10 border border-green-500/20'
-                      : 'bg-red-500/10 border border-red-500/20'
+                      ? 'bg-green-500/15 border border-green-500/20'
+                      : 'bg-red-500/15 border border-red-500/20'
                   }`}>
                     <p className={`text-lg font-semibold ${
                       performanceSummary.summary.overallPass ? 'text-green-600' : 'text-red-600'

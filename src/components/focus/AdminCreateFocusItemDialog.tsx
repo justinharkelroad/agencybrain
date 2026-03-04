@@ -92,19 +92,19 @@ export function AdminCreateFocusItemDialog({
             <div className="space-y-3">
               <Label>Priority Level *</Label>
               <RadioGroup value={priorityLevel} onValueChange={(v) => setPriorityLevel(v as PriorityLevel)}>
-                <div className="flex items-center space-x-2 p-3 rounded-lg border border-red-500/30 bg-red-500/10">
+                <div className="flex items-center space-x-2 p-3 rounded-lg border border-red-500/50 dark:border-red-500/30 bg-red-500/15">
                   <RadioGroupItem value="top" id="top" />
                   <Label htmlFor="top" className="flex-1 cursor-pointer text-red-300">
                     Top Level (Urgent & Important)
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2 p-3 rounded-lg border border-orange-500/30 bg-orange-500/10">
+                <div className="flex items-center space-x-2 p-3 rounded-lg border border-orange-500/50 dark:border-orange-500/30 bg-orange-500/15">
                   <RadioGroupItem value="mid" id="mid" />
                   <Label htmlFor="mid" className="flex-1 cursor-pointer text-orange-300">
                     Mid Level (Urgent)
                   </Label>
                 </div>
-                <div className="flex items-center space-x-2 p-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10">
+                <div className="flex items-center space-x-2 p-3 rounded-lg border border-yellow-500/50 dark:border-yellow-500/30 bg-yellow-500/15">
                   <RadioGroupItem value="low" id="low" />
                   <Label htmlFor="low" className="flex-1 cursor-pointer text-yellow-300">
                     Low Level (Important)

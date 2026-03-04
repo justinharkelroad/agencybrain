@@ -238,7 +238,7 @@ function AIBuilderTab({ initialSession, onContentApplied }: AIBuilderTabProps) {
             <CardDescription>Building your custom Sales Process</CardDescription>
           </div>
           {generatedContent && (
-            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+            <Badge variant="outline" className="bg-green-500/15 text-green-600 border-green-500/50 dark:border-green-500/30">
               <CheckCircle2 className="h-3 w-3 mr-1" />
               Content Ready
             </Badge>
@@ -266,7 +266,7 @@ function AIBuilderTab({ initialSession, onContentApplied }: AIBuilderTabProps) {
 
       {generatedContent && (
         <div className="px-4 pb-3">
-          <Alert className="bg-green-500/10 border-green-500/30">
+          <Alert className="bg-green-500/15 border-green-500/50 dark:border-green-500/30">
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <AlertDescription>
               <div className="flex items-center justify-between mb-2">

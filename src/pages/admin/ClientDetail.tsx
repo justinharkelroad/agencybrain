@@ -1342,7 +1342,7 @@ const [selectedUploads, setSelectedUploads] = useState<string[]>([]);
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {['transcripts', 'reports', 'other'].map((category) => (
                   <div key={category} className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                    <Upload className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                    <Upload className="h-8 w-8 mx-auto mb-2 text-gray-600 dark:text-gray-400" />
                     <h3 className="font-medium mb-2 capitalize">{category}</h3>
                     <input
                       type="file"

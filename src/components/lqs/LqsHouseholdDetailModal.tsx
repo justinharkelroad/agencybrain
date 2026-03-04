@@ -900,7 +900,7 @@ export function LqsHouseholdDetailModal({
 
             {/* Source Conflict Alert */}
             {household.attention_reason === 'source_conflict' && conflictingSourceName && (
-              <Alert variant="destructive" className="border-orange-500 bg-orange-500/10">
+              <Alert variant="destructive" className="border-orange-500 bg-orange-500/15">
                 <AlertTriangle className="h-4 w-4 text-orange-500" />
                 <AlertTitle className="text-orange-700 dark:text-orange-400">
                   Lead Source Conflict

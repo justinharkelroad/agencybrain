@@ -333,8 +333,8 @@ export function ApplySequenceModal({
           </div>
         ) : queryError ? (
           <div className="py-6 text-center">
-            <Workflow className="w-12 h-12 mx-auto text-red-400/50 mb-3" />
-            <p className="text-red-400 mb-2">
+            <Workflow className="w-12 h-12 mx-auto text-red-600 dark:text-red-400/50 mb-3" />
+            <p className="text-red-600 dark:text-red-400 mb-2">
               Failed to load sequences
             </p>
             <p className="text-sm text-muted-foreground">

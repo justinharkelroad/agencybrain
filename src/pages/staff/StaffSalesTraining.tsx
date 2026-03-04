@@ -394,7 +394,7 @@ function LessonCard({ lesson, onStart }: LessonCardProps) {
         <div
           className={`h-12 w-12 rounded-lg flex flex-col items-center justify-center ${
             status === 'completed'
-              ? 'bg-green-500/10 text-green-600'
+              ? 'bg-green-500/15 text-green-600'
               : status === 'locked'
               ? 'bg-muted text-muted-foreground'
               : 'bg-primary/10 text-primary'

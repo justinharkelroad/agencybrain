@@ -305,7 +305,7 @@ export function SETranscriptsTab() {
                         <Card
                           key={week}
                           className={`cursor-pointer transition-all hover:shadow-md ${
-                            transcript ? 'border-green-500/30 bg-green-500/5' : ''
+                            transcript ? 'border-green-500/50 dark:border-green-500/30 bg-green-500/5' : ''
                           }`}
                           onClick={() =>
                             transcript

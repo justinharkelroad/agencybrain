@@ -110,7 +110,7 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
             {payout.tierMatch && (
               <div className="space-y-3">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tier Achieved</h4>
-                <div className="p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                <div className="p-4 rounded-lg bg-emerald-500/15 border border-emerald-500/20">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Trophy className="h-5 w-5 text-emerald-500" />
@@ -231,7 +231,7 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
 
                   {/* Self-Gen Kicker */}
                   {payout.selfGenKickerAmount && payout.selfGenKickerAmount > 0 && (
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/20">
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-4 w-4 text-emerald-500" />
                         <div>
@@ -249,7 +249,7 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
 
                   {/* Bundling Multiplier */}
                   {payout.bundlingMultiplier && payout.bundlingMultiplier > 1 && (
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-blue-500/15 border border-blue-500/20">
                       <div className="flex items-center gap-2">
                         <Layers className="h-4 w-4 text-blue-500" />
                         <div>
@@ -288,7 +288,7 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
 
             {/* No Chargebacks Rule Info */}
             {isNoChargebacks && payout.chargebackCount > 0 && (
-              <div className="flex items-center gap-2 p-3 rounded-md bg-blue-500/10 border border-blue-500/20">
+              <div className="flex items-center gap-2 p-3 rounded-md bg-blue-500/15 border border-blue-500/20">
                 <Info className="h-4 w-4 text-blue-500 flex-shrink-0" />
                 <span className="text-sm text-blue-600 dark:text-blue-400">
                   Chargebacks not applied per comp plan settings

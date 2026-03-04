@@ -14,9 +14,9 @@ interface FocusItemCardProps {
 }
 
 const priorityConfig = {
-  top: { label: "Top Level", color: "bg-red-500/20 text-red-300 border-red-500/30" },
-  mid: { label: "Mid Level", color: "bg-orange-500/20 text-orange-300 border-orange-500/30" },
-  low: { label: "Low Level", color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30" },
+  top: { label: "Top Level", color: "bg-red-500/20 text-red-300 border-red-500/50 dark:border-red-500/30" },
+  mid: { label: "Mid Level", color: "bg-orange-500/20 text-orange-300 border-orange-500/50 dark:border-orange-500/30" },
+  low: { label: "Low Level", color: "bg-yellow-500/20 text-yellow-300 border-yellow-500/50 dark:border-yellow-500/30" },
 };
 
 export function FocusItemCard({ item, onEdit, onDelete }: FocusItemCardProps) {
@@ -54,7 +54,7 @@ export function FocusItemCard({ item, onEdit, onDelete }: FocusItemCardProps) {
         glass-surface rounded-lg p-4 mb-3 cursor-grab active:cursor-grabbing
         border transition-all duration-300
         ${isCompleted 
-          ? "bg-emerald-500/10 border-emerald-500/30" 
+          ? "bg-emerald-500/15 border-emerald-500/50 dark:border-emerald-500/30" 
           : "border-border/50 hover:border-primary/50"
         }
         ${isDragging ? "ring-2 ring-primary/50" : ""}
@@ -72,7 +72,7 @@ export function FocusItemCard({ item, onEdit, onDelete }: FocusItemCardProps) {
           )}
         </div>
         {isCompleted && (
-          <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
+          <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
         )}
       </div>
 
@@ -95,7 +95,7 @@ export function FocusItemCard({ item, onEdit, onDelete }: FocusItemCardProps) {
       </div>
 
       {isCompleted && item.completed_at && (
-        <div className="mt-2 text-xs text-emerald-400">
+        <div className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">
           Completed {formatDistanceToNow(new Date(item.completed_at), { addSuffix: true })}
         </div>
       )}

@@ -34,7 +34,7 @@ export function CompletedTodaySection({ tasks, showAssignee = false, currentUser
           <span className="font-medium text-green-500">Completed Today</span>
         </div>
 
-        <Badge className="ml-auto bg-green-500/10 text-green-500 border-green-500/20 text-xs">
+        <Badge className="ml-auto bg-green-500/15 text-green-500 border-green-500/20 text-xs">
           {tasks.length} task{tasks.length !== 1 ? 's' : ''}
         </Badge>
       </button>

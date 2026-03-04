@@ -136,7 +136,7 @@ export function LqsObjectionAnalysis({ agencyId, dateRange }: LqsObjectionAnalys
             </div>
             <div className="text-xs text-muted-foreground flex items-center justify-center gap-1">
               With Objection
-              <Badge variant="outline" className="border-orange-500/30 text-orange-500 text-[10px] ml-1">
+              <Badge variant="outline" className="border-orange-500/50 dark:border-orange-500/30 text-orange-500 text-[10px] ml-1">
                 {formatPercent(data.objectionRate)}
               </Badge>
             </div>
@@ -245,7 +245,7 @@ export function LqsObjectionAnalysis({ agencyId, dateRange }: LqsObjectionAnalys
                         <TableCell className="text-right">
                           <Badge variant="outline" className={cn(
                             row.objectionRate !== null && row.objectionRate >= 50
-                              ? 'border-red-500/30 text-red-500'
+                              ? 'border-red-500/50 dark:border-red-500/30 text-red-500'
                               : row.objectionRate !== null && row.objectionRate >= 25
                               ? 'border-amber-500/30 text-amber-500'
                               : ''
@@ -294,7 +294,7 @@ export function LqsObjectionAnalysis({ agencyId, dateRange }: LqsObjectionAnalys
                         <TableCell className="text-right">
                           <Badge variant="outline" className={cn(
                             row.objectionRate !== null && row.objectionRate >= 50
-                              ? 'border-red-500/30 text-red-500'
+                              ? 'border-red-500/50 dark:border-red-500/30 text-red-500'
                               : row.objectionRate !== null && row.objectionRate >= 25
                               ? 'border-amber-500/30 text-amber-500'
                               : ''

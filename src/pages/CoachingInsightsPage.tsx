@@ -59,7 +59,7 @@ export default function CoachingInsightsPage() {
   return (
     <div className="p-6 space-y-6">
       {error && (
-        <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+        <div className="rounded-md border border-yellow-500/40 bg-yellow-500/15 p-3 text-sm text-yellow-200">
           Some insight data could not be loaded. Showing available data.
         </div>
       )}

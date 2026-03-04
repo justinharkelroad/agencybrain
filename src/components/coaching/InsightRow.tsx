@@ -95,7 +95,7 @@ export function InsightRow({ insight }: InsightRowProps) {
             <div className="flex items-center gap-2">
               <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${
                 isCritical
-                  ? 'bg-red-500/10 text-red-500'
+                  ? 'bg-red-500/15 text-red-500'
                   : 'bg-amber-500/10 text-amber-500'
               }`}>
                 {getTypeLabel(insight.type)}

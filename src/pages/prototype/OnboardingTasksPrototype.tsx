@@ -448,7 +448,7 @@ export default function OnboardingTasksPrototype() {
             className={cn(
               'cursor-pointer transition-all hover:scale-[1.02]',
               statusFilter === 'overdue' && 'ring-2 ring-red-500 ring-offset-2 ring-offset-background',
-              stats.overdue > 0 ? 'border-red-500/30 bg-red-500/5' : ''
+              stats.overdue > 0 ? 'border-red-500/50 dark:border-red-500/30 bg-red-500/5' : ''
             )}
             onClick={() => toggleStatusFilter('overdue')}
           >
@@ -467,7 +467,7 @@ export default function OnboardingTasksPrototype() {
             className={cn(
               'cursor-pointer transition-all hover:scale-[1.02]',
               statusFilter === 'due_today' && 'ring-2 ring-blue-500 ring-offset-2 ring-offset-background',
-              stats.dueToday > 0 ? 'border-blue-500/30 bg-blue-500/5' : ''
+              stats.dueToday > 0 ? 'border-blue-500/50 dark:border-blue-500/30 bg-blue-500/5' : ''
             )}
             onClick={() => toggleStatusFilter('due_today')}
           >
@@ -486,7 +486,7 @@ export default function OnboardingTasksPrototype() {
             className={cn(
               'cursor-pointer transition-all hover:scale-[1.02]',
               statusFilter === 'upcoming' && 'ring-2 ring-purple-500 ring-offset-2 ring-offset-background',
-              stats.upcoming > 0 ? 'border-purple-500/30 bg-purple-500/5' : ''
+              stats.upcoming > 0 ? 'border-purple-500/50 dark:border-purple-500/30 bg-purple-500/5' : ''
             )}
             onClick={() => toggleStatusFilter('upcoming')}
           >
@@ -506,7 +506,7 @@ export default function OnboardingTasksPrototype() {
             className={cn(
               'cursor-pointer transition-all hover:scale-[1.02]',
               statusFilter === 'completed' && 'ring-2 ring-green-500 ring-offset-2 ring-offset-background',
-              stats.completedToday > 0 ? 'border-green-500/30 bg-green-500/5' : ''
+              stats.completedToday > 0 ? 'border-green-500/50 dark:border-green-500/30 bg-green-500/5' : ''
             )}
             onClick={() => toggleStatusFilter('completed')}
           >

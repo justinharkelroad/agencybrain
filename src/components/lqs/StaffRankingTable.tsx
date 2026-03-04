@@ -96,7 +96,7 @@ function SortableHeader({
 }
 
 const RANK_STYLES: Record<number, string> = {
-  1: 'bg-yellow-500/10 border-l-2 border-l-yellow-500',
+  1: 'bg-yellow-500/15 border-l-2 border-l-yellow-500',
   2: 'bg-gray-300/10 border-l-2 border-l-gray-400',
   3: 'bg-amber-700/10 border-l-2 border-l-amber-700',
 };

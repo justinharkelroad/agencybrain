@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Check, Loader2, Phone, Sparkles } from "lucide-react";
-import { useCallPacks, usePurchaseCallPack, formatPrice } from "@/hooks/useCallBalance";
+import { Check, Loader2, Phone, Sparkles, Zap } from "lucide-react";
+import { useCallPacks, usePurchaseCallPack, useCallAddonSubscription, formatPrice } from "@/hooks/useCallBalance";
 import { useSubscription } from "@/hooks/useSubscription";
 import {
   Dialog,
@@ -20,7 +20,9 @@ interface BuyCallsModalProps {
 export function BuyCallsModal({ open, onOpenChange }: BuyCallsModalProps) {
   const { data: callPacks, isLoading: packsLoading } = useCallPacks();
   const { data: subscription } = useSubscription();
+  const { data: addonSub } = useCallAddonSubscription();
   const purchaseMutation = usePurchaseCallPack();
+  const hasAddon = !!addonSub;
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +63,21 @@ export function BuyCallsModal({ open, onOpenChange }: BuyCallsModalProps) {
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Monthly plan upsell */}
+          {canPurchase && !hasAddon && (
+            <a
+              href="/settings/billing"
+              className="flex items-center gap-2 p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sm hover:bg-sky-500/15 transition-colors"
+              onClick={() => onOpenChange(false)}
+            >
+              <Zap className="w-4 h-4 text-sky-500 flex-shrink-0" />
+              <span>
+                <span className="font-medium text-sky-500">Save with monthly plans</span>
+                <span className="text-muted-foreground"> - as low as $2.99/call</span>
+              </span>
+            </a>
+          )}
+
           {/* Subscription required warning */}
           {!canPurchase && (
             <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-500 text-sm">

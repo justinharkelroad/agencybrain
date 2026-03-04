@@ -56,7 +56,7 @@ export function ProducerPowerUpBanner() {
     <Card className="border-sky-500/40 bg-gradient-to-r from-[#1e283a] to-[#020817] text-white relative">
       <button
         onClick={handleDismiss}
-        className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors"
+        className="absolute top-3 right-3 text-gray-600 dark:text-gray-400 hover:text-white transition-colors"
         aria-label="Dismiss banner"
       >
         <X className="h-4 w-4" />

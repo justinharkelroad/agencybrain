@@ -16,16 +16,16 @@ import { toast } from 'sonner';
 interface Props { open: boolean; onClose: () => void; record: RenewalRecord; context: RenewalUploadContext; teamMembers: Array<{ id: string; name: string }>; initialActivityType?: string; }
 
 const contactActions = [
-  { type: 'call', label: 'Call', icon: Phone, color: 'border-blue-500 text-blue-400 hover:bg-blue-500/10' },
-  { type: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'border-purple-500 text-purple-400 hover:bg-purple-500/10' },
-  { type: 'text', label: 'Text', icon: MessageSquare, color: 'border-cyan-500 text-cyan-400 hover:bg-cyan-500/10' },
-  { type: 'email', label: 'Email', icon: Mail, color: 'border-green-500 text-green-400 hover:bg-green-500/10' },
-  { type: 'appointment', label: 'Appointment', icon: Calendar, color: 'border-orange-500 text-orange-400 hover:bg-orange-500/10' },
+  { type: 'call', label: 'Call', icon: Phone, color: 'border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10' },
+  { type: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'border-purple-500 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10' },
+  { type: 'text', label: 'Text', icon: MessageSquare, color: 'border-cyan-500 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10' },
+  { type: 'email', label: 'Email', icon: Mail, color: 'border-green-500 text-green-600 dark:text-green-400 hover:bg-green-500/10' },
+  { type: 'appointment', label: 'Appointment', icon: Calendar, color: 'border-orange-500 text-orange-600 dark:text-orange-400 hover:bg-orange-500/10' },
 ];
 
 const reviewActions = [
-  { type: 'review_successful', label: 'Review Done - Successful', icon: CheckCircle, color: 'border-green-500 text-green-400 hover:bg-green-500/10', targetStatus: 'success' as WorkflowStatus },
-  { type: 'review_winback', label: 'Review Done - Push to WinBack', icon: XCircle, color: 'border-red-500 text-red-400 hover:bg-red-500/10', targetStatus: 'unsuccessful' as WorkflowStatus },
+  { type: 'review_successful', label: 'Review Done - Successful', icon: CheckCircle, color: 'border-green-500 text-green-600 dark:text-green-400 hover:bg-green-500/10', targetStatus: 'success' as WorkflowStatus },
+  { type: 'review_winback', label: 'Review Done - Push to WinBack', icon: XCircle, color: 'border-red-500 text-red-600 dark:text-red-400 hover:bg-red-500/10', targetStatus: 'unsuccessful' as WorkflowStatus },
 ];
 
 export function ScheduleActivityModal({ open, onClose, record, context, teamMembers, initialActivityType }: Props) {
@@ -191,7 +191,7 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
-      <DialogContent className="bg-[#1a1f2e] border-gray-700 max-h-[85vh] overflow-y-auto">
+      <DialogContent className="bg-card dark:bg-[#1a1f2e] border-border dark:border-gray-700 max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Log Activity</DialogTitle>
           <DialogDescription className="sr-only">
@@ -216,7 +216,7 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
                 className={cn(
                   "border-2 bg-transparent",
                   action.color,
-                  selectedType === action.type && "ring-2 ring-offset-2 ring-offset-[#1a1f2e]"
+                  selectedType === action.type && "ring-2 ring-offset-2 ring-offset-card dark:ring-offset-[#1a1f2e]"
                 )}
               >
                 <action.icon className="h-4 w-4 mr-1" />
@@ -240,7 +240,7 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
                 className={cn(
                   "border-2 bg-transparent",
                   action.color,
-                  selectedType === action.type && "ring-2 ring-offset-2 ring-offset-[#1a1f2e]"
+                  selectedType === action.type && "ring-2 ring-offset-2 ring-offset-card dark:ring-offset-[#1a1f2e]"
                 )}
               >
                 <action.icon className="h-4 w-4 mr-1" />
@@ -257,7 +257,7 @@ export function ScheduleActivityModal({ open, onClose, record, context, teamMemb
             placeholder="Add notes about this activity..."
             value={comments}
             onChange={(e) => setComments(e.target.value)}
-            className="bg-[#0d1117] border-gray-700"
+            className="bg-muted dark:bg-[#0d1117] border-border dark:border-gray-700"
           />
         </div>
 

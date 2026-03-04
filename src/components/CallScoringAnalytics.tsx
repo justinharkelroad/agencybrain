@@ -64,10 +64,10 @@ function getScoreRange(score: number): typeof SCORE_RANGES[0] {
 
 // Get color class for score display
 function getScoreColorClass(score: number): string {
-  if (score >= 80) return 'bg-green-500/20 text-green-400';
-  if (score >= 60) return 'bg-yellow-500/20 text-yellow-400';
-  if (score >= 40) return 'bg-orange-500/20 text-orange-400';
-  return 'bg-red-500/20 text-red-400';
+  if (score >= 80) return 'bg-green-500/20 text-green-600 dark:text-green-400';
+  if (score >= 60) return 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400';
+  if (score >= 40) return 'bg-orange-500/20 text-orange-600 dark:text-orange-400';
+  return 'bg-red-500/20 text-red-600 dark:text-red-400';
 }
 
 // Canonicalize checklist labels for consistent aggregation
@@ -458,7 +458,7 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-500/10">
+              <div className="p-2 rounded-lg bg-green-500/15">
                 <TrendingUp className="h-5 w-5 text-green-500" />
               </div>
               <div>
@@ -472,7 +472,7 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/10">
+              <div className="p-2 rounded-lg bg-blue-500/15">
                 <Target className="h-5 w-5 text-blue-500" />
               </div>
               <div>
@@ -578,8 +578,8 @@ export function CallScoringAnalytics({ calls, teamMembers }: CallScoringAnalytic
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">{item.skill}</span>
                     <span className={`font-medium ${
-                      item.rate >= 70 ? 'text-green-400' : 
-                      item.rate >= 40 ? 'text-yellow-400' : 'text-red-400'
+                      item.rate >= 70 ? 'text-green-600 dark:text-green-400' : 
+                      item.rate >= 40 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400'
                     }`}>
                       {item.rate}%
                     </span>

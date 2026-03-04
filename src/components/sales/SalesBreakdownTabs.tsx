@@ -39,13 +39,14 @@ function getPeriodDates(period: Period, customStart?: Date, customEnd?: Date): {
         end: format(endOfMonth(now), "yyyy-MM-dd"),
         label: format(now, "MMMM yyyy"),
       };
-    case "last_month":
+    case "last_month": {
       const lastMonth = subMonths(now, 1);
       return {
         start: format(startOfMonth(lastMonth), "yyyy-MM-dd"),
         end: format(endOfMonth(lastMonth), "yyyy-MM-dd"),
         label: format(lastMonth, "MMMM yyyy"),
       };
+    }
     case "this_year":
       return {
         start: format(startOfYear(now), "yyyy-MM-dd"),
@@ -239,7 +240,14 @@ export function SalesBreakdownTabs({ agencyId, showLeaderboard = true, staffSess
 
         {showLeaderboard && (
           <TabsContent value="leaderboard" className="mt-4">
-            <SalesLeaderboard agencyId={agencyId} staffSessionToken={staffSessionToken} />
+            <SalesLeaderboard
+              agencyId={agencyId}
+              staffSessionToken={staffSessionToken}
+              startDate={start}
+              endDate={end}
+              periodLabel={label}
+              businessFilter={businessFilter}
+            />
           </TabsContent>
         )}
       </Tabs>

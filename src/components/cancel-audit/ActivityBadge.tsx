@@ -22,7 +22,7 @@ export function ActivityBadge({ activityCount, lastActivityAt }: ActivityBadgePr
   return (
     <span className={cn(
       'inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium',
-      'bg-green-500/10 text-green-400 border border-green-500/20'
+      'bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/20'
     )}>
       <MessageSquare className="h-3 w-3" />
       {activityCount} {activityCount === 1 ? 'contact' : 'contacts'}

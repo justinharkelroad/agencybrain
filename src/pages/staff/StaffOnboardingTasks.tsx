@@ -106,7 +106,7 @@ function getStatusStyles(task: StaffOnboardingTask): {
   if (task.status === 'overdue' || (isPast(dueDate) && !isToday(dueDate))) {
     return {
       border: 'border-red-300 dark:border-red-500/50 border-2',
-      bg: 'bg-red-50 dark:bg-red-500/10',
+      bg: 'bg-red-50 dark:bg-red-500/15',
       badge: 'Overdue',
       badgeVariant: 'destructive',
     };
@@ -115,7 +115,7 @@ function getStatusStyles(task: StaffOnboardingTask): {
   if (isToday(dueDate) || task.status === 'due') {
     return {
       border: 'border-blue-300 dark:border-blue-500/50 border-2',
-      bg: 'bg-blue-50 dark:bg-blue-500/10',
+      bg: 'bg-blue-50 dark:bg-blue-500/15',
       badge: 'Due Today',
       badgeVariant: 'default',
     };
@@ -462,7 +462,7 @@ function CompletedTodaySection({
 
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-      <div className="border border-green-200 dark:border-green-500/30 rounded-lg bg-green-50/30 dark:bg-green-500/10">
+      <div className="border border-green-200 dark:border-green-500/30 rounded-lg bg-green-50/30 dark:bg-green-500/15">
         <CollapsibleTrigger asChild>
           <Button
             variant="ghost"
@@ -722,7 +722,7 @@ export default function StaffOnboardingTasks() {
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4 mb-6">
-        <Card className={cn(stats.overdue > 0 && 'border-red-300 dark:border-red-500/50 bg-red-50 dark:bg-red-500/10')}>
+        <Card className={cn(stats.overdue > 0 && 'border-red-300 dark:border-red-500/50 bg-red-50 dark:bg-red-500/15')}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div
@@ -743,7 +743,7 @@ export default function StaffOnboardingTasks() {
           </CardContent>
         </Card>
 
-        <Card className={cn(stats.due_today > 0 && 'border-blue-300 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-500/10')}>
+        <Card className={cn(stats.due_today > 0 && 'border-blue-300 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-500/15')}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div
@@ -781,7 +781,7 @@ export default function StaffOnboardingTasks() {
           </CardContent>
         </Card>
 
-        <Card className={cn(stats.completed_today > 0 && 'border-green-200 dark:border-green-500/30 bg-green-50/50 dark:bg-green-500/10')}>
+        <Card className={cn(stats.completed_today > 0 && 'border-green-200 dark:border-green-500/30 bg-green-50/50 dark:bg-green-500/15')}>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className={cn('p-2 rounded-full', stats.completed_today > 0 ? 'bg-green-100 dark:bg-green-500/20' : 'bg-muted')}>

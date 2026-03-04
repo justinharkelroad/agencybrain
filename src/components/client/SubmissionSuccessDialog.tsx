@@ -84,7 +84,7 @@ export function SubmissionSuccessDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="sm:max-w-md">
         <AlertDialogHeader>
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/15">
             <CheckCircle2 className="h-8 w-8 text-green-500" />
           </div>
           <AlertDialogTitle className="text-center text-xl">

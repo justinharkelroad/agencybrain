@@ -391,7 +391,7 @@ export default function StaffSalesLesson() {
 
       {/* Discovery Flow Section */}
       {lesson.is_discovery_flow && lesson.progress?.status !== 'locked' && (
-        <Card className="mb-6 border-purple-500/30 bg-purple-500/5">
+        <Card className="mb-6 border-purple-500/50 dark:border-purple-500/30 bg-purple-500/5">
           <CardContent className="py-6">
             <div className="text-center space-y-4">
               <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-purple-500/20 text-purple-500 mx-auto">

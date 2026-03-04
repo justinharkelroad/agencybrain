@@ -72,10 +72,10 @@ const actionIcons: Record<ActionType, React.ElementType> = {
 };
 
 const actionColors: Record<ActionType, string> = {
-  call: 'text-green-500 bg-green-500/10',
-  text: 'text-purple-500 bg-purple-500/10',
-  email: 'text-blue-500 bg-blue-500/10',
-  other: 'text-gray-500 bg-gray-500/10',
+  call: 'text-green-500 bg-green-500/15',
+  text: 'text-purple-500 bg-purple-500/15',
+  email: 'text-blue-500 bg-blue-500/15',
+  other: 'text-gray-500 bg-gray-500/15',
 };
 
 export function SequenceEditorModal({

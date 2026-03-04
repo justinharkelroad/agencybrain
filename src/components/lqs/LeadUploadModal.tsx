@@ -462,7 +462,7 @@ export function LeadUploadModal({
               </div>
 
               {!requiredFieldsMapped && (
-                <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-3">
+                <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/15 p-3">
                   <p className="text-sm text-yellow-600">
                     Please map all required fields before continuing.
                   </p>

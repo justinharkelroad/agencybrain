@@ -44,7 +44,7 @@ export function WeekCard({
         <div
           className={`h-10 w-10 rounded-full flex items-center justify-center ${
             isCompleted
-              ? 'bg-green-500/10'
+              ? 'bg-green-500/15'
               : isCurrent
               ? 'bg-primary/10'
               : 'bg-muted'

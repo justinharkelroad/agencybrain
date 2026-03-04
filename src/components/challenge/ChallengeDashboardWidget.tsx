@@ -127,7 +127,7 @@ export function ChallengeDashboardWidget() {
             </div>
             <Link to="/staff/challenge" className="block group">
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                <div className={`p-2 rounded-full ${isLessonCompleted ? 'bg-green-500/10' : 'bg-primary/10'}`}>
+                <div className={`p-2 rounded-full ${isLessonCompleted ? 'bg-green-500/15' : 'bg-primary/10'}`}>
                   {isLessonCompleted ? (
                     <CheckCircle2 className="h-5 w-5 text-green-600" />
                   ) : (

@@ -83,10 +83,10 @@ interface Assignment {
 
 const statusColors: Record<string, string> = {
   pending: 'bg-amber-500/10 text-amber-600 border-amber-500/30',
-  active: 'bg-green-500/10 text-green-600 border-green-500/30',
-  paused: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
+  active: 'bg-green-500/15 text-green-600 border-green-500/50 dark:border-green-500/30',
+  paused: 'bg-blue-500/15 text-blue-600 border-blue-500/50 dark:border-blue-500/30',
   completed: 'bg-slate-500/10 text-slate-600 border-slate-500/30',
-  cancelled: 'bg-red-500/10 text-red-600 border-red-500/30',
+  cancelled: 'bg-red-500/15 text-red-600 border-red-500/50 dark:border-red-500/30',
 };
 
 async function fetchDelegateCandidates(agencyId: string): Promise<DelegateCandidate[]> {
@@ -390,7 +390,7 @@ export function SEAssignmentsTab() {
                   <div className={`text-sm p-3 rounded-md ${
                     startingWeekInfo.isArrears
                       ? 'bg-amber-500/10 border border-amber-500/30'
-                      : 'bg-green-500/10 border border-green-500/30'
+                      : 'bg-green-500/15 border border-green-500/50 dark:border-green-500/30'
                   }`}>
                     {startingWeekInfo.isArrears ? (
                       <>

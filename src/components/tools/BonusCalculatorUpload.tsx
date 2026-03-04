@@ -204,7 +204,7 @@ export default function BonusCalculatorUpload({ onExtractionComplete }: BonusCal
     const base = 'border-2 border-dashed rounded-lg p-4 transition-all cursor-pointer text-center';
     
     if (isDragActive) return `${base} border-primary bg-primary/10`;
-    if (status === 'success') return `${base} border-green-500 bg-green-500/10`;
+    if (status === 'success') return `${base} border-green-500 bg-green-500/15`;
     if (status === 'error') return `${base} border-destructive bg-destructive/10`;
     if (status === 'selected' || status === 'processing') return `${base} border-primary/50 bg-primary/5`;
     return `${base} border-border hover:border-primary/50 hover:bg-muted/50`;

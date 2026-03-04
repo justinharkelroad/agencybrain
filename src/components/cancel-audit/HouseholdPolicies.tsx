@@ -27,7 +27,7 @@ export function HouseholdPolicies({ currentRecordId, householdKey, agencyId }: H
 
   return (
     <div className="mt-4 p-3 bg-purple-500/5 border border-purple-500/20 rounded-lg">
-      <div className="flex items-center gap-2 text-sm font-medium text-purple-400 mb-2">
+      <div className="flex items-center gap-2 text-sm font-medium text-purple-600 dark:text-purple-400 mb-2">
         <AlertTriangle className="h-4 w-4" />
         <span>{otherPolicies.length} Other {otherPolicies.length === 1 ? 'Policy' : 'Policies'} for This Household</span>
       </div>
@@ -54,8 +54,8 @@ function PolicyRow({ policy }: { policy: RecordWithActivityCount }) {
         <span className={cn(
           "text-xs px-2 py-0.5 rounded border",
           policy.report_type === 'cancellation' 
-            ? "bg-red-500/10 text-red-400 border-red-500/20" 
-            : "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
+            ? "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20" 
+            : "bg-yellow-500/15 text-yellow-600 dark:text-yellow-400 border-yellow-500/20"
         )}>
           {policy.report_type === 'cancellation' ? 'Cancelled' : 'Pending'}
         </span>

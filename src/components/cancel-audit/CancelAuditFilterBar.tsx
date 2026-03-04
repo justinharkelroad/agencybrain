@@ -180,7 +180,7 @@ export function CancelAuditFilterBar({
                 variant="outline"
                 className={cn(
                   'gap-1.5',
-                  showCurrentOnly && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                  showCurrentOnly && 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 dark:border-emerald-500/30'
                 )}
               >
                 <FileCheck className="h-3.5 w-3.5" />
@@ -250,7 +250,7 @@ export function CancelAuditFilterBar({
           variant="outline"
           className={cn(
             'gap-1.5',
-            showUntouchedOnly && 'bg-orange-500/10 text-orange-400 border-orange-500/30'
+            showUntouchedOnly && 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30'
           )}
         >
           <CircleDot className="h-3.5 w-3.5" />
@@ -259,7 +259,7 @@ export function CancelAuditFilterBar({
             <span className={cn(
               'ml-1 px-1.5 py-0.5 rounded text-xs',
               showUntouchedOnly
-                ? 'bg-orange-500/20 text-orange-400'
+                ? 'bg-orange-500/20 text-orange-600 dark:text-orange-400'
                 : 'bg-muted-foreground/10'
             )}>
               {untouchedCount}

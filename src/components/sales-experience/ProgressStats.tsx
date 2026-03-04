@@ -74,7 +74,7 @@ export function ProgressStats({
           {isActive && (
             <Badge
               variant="outline"
-              className="mt-2 bg-green-500/10 text-green-600 border-green-500/30"
+              className="mt-2 bg-green-500/15 text-green-600 border-green-500/50 dark:border-green-500/30"
             >
               Active
             </Badge>

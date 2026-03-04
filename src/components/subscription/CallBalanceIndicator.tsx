@@ -57,7 +57,7 @@ export function CallBalanceIndicator({
             <TooltipTrigger asChild>
               <div className={cn(
                 "inline-flex items-center gap-1.5 px-2 py-1 rounded-md",
-                "bg-emerald-500/10 text-emerald-500 text-sm font-medium",
+                "bg-emerald-500/15 text-emerald-500 text-sm font-medium",
                 className
               )}>
                 <Infinity className="w-3.5 h-3.5" />
@@ -96,7 +96,7 @@ export function CallBalanceIndicator({
                 className={cn(
                   "inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-sm font-medium transition-colors",
                   isEmpty
-                    ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                    ? "bg-red-500/15 text-red-500 hover:bg-red-500/25"
                     : isLow
                     ? "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20"
                     : "bg-sky-500/10 text-sky-500 hover:bg-sky-500/20",
@@ -114,7 +114,7 @@ export function CallBalanceIndicator({
                   : `${balance.totalRemaining} call scores remaining`}
               </p>
               {balance.bonusRemaining > 0 && (
-                <p className="text-emerald-400 text-xs">
+                <p className="text-emerald-600 dark:text-emerald-400 text-xs">
                   Includes {balance.bonusRemaining} bonus credits
                 </p>
               )}

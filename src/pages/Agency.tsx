@@ -2102,10 +2102,10 @@ export default function Agency() {
                           {m.status === 'inactive' ? (
                             <Badge variant="outline" className="bg-muted text-muted-foreground border-muted-foreground/20">Deactivated</Badge>
                           ) : (
-                            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">Active</Badge>
+                            <Badge variant="outline" className="bg-green-500/15 text-green-600 border-green-500/20">Active</Badge>
                           )}
                           {m.include_in_metrics === false && (
-                            <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">Excluded from metrics</Badge>
+                            <Badge variant="outline" className="bg-yellow-500/15 text-yellow-600 border-yellow-500/20">Excluded from metrics</Badge>
                           )}
                         </div>
                       </TableCell>
@@ -2115,7 +2115,7 @@ export default function Agency() {
                             <div className="flex items-center gap-2">
                               <Badge 
                                 variant="outline" 
-                                className="bg-green-500/10 text-green-500 border-green-500/20"
+                                className="bg-green-500/15 text-green-500 border-green-500/20"
                               >
                                 ✅ {staffUser.username}
                               </Badge>
@@ -2695,7 +2695,7 @@ export default function Agency() {
                             ? "bg-destructive/10 text-destructive border-destructive/30"
                             : row.result === "skipped"
                               ? "bg-muted text-muted-foreground"
-                              : "bg-green-500/10 text-green-600 border-green-500/20"
+                              : "bg-green-500/15 text-green-600 border-green-500/20"
                         }
                       >
                         {row.result}
@@ -3033,7 +3033,7 @@ export default function Agency() {
             <Badge 
               variant="outline" 
               className={selectedStaffUser?.is_active 
-                ? "bg-green-500/10 text-green-500 border-green-500/20" 
+                ? "bg-green-500/15 text-green-500 border-green-500/20" 
                 : "bg-muted text-muted-foreground"
               }
             >

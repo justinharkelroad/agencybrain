@@ -55,13 +55,13 @@ export function DeliverableCard({ deliverable }: DeliverableCardProps) {
   const isDraft = deliverable.status === 'draft';
 
   return (
-    <Card className={`transition-all ${isComplete ? 'border-green-500/30 bg-green-50/30 dark:bg-green-950/10' : ''}`}>
+    <Card className={`transition-all ${isComplete ? 'border-green-500/50 dark:border-green-500/30 bg-green-50/30 dark:bg-green-950/10' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${
               isComplete
-                ? 'bg-green-500/10 text-green-600'
+                ? 'bg-green-500/15 text-green-600'
                 : 'bg-primary/10 text-primary'
             }`}>
               <Icon className="h-5 w-5" />

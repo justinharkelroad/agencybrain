@@ -254,7 +254,7 @@ export default function CallGapsTimeline({
                   {/* Noon marker */}
                   {720 >= startMinutes && 720 <= endMinutes && (
                     <div
-                      className="absolute top-0 bottom-0 w-px border-l border-dashed border-yellow-500/30"
+                      className="absolute top-0 bottom-0 w-px border-l border-dashed border-yellow-500/50 dark:border-yellow-500/30"
                       style={{ left: minuteToPixel(720) }}
                     />
                   )}
@@ -269,7 +269,7 @@ export default function CallGapsTimeline({
                       return (
                         <div
                           key={`gap-overlay-${gi}`}
-                          className="absolute top-1 bottom-1 bg-red-500/10 border border-dashed border-red-500/30 rounded z-[1]"
+                          className="absolute top-1 bottom-1 bg-red-500/15 border border-dashed border-red-500/50 dark:border-red-500/30 rounded z-[1]"
                           style={{ left, width }}
                         />
                       );
@@ -337,7 +337,7 @@ export default function CallGapsTimeline({
             Outbound
           </div>
           <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-sm bg-red-500/10 border border-dashed border-red-500/30" />
+            <div className="w-3 h-3 rounded-sm bg-red-500/15 border border-dashed border-red-500/50 dark:border-red-500/30" />
             Gap over threshold
           </div>
         </div>

@@ -13,10 +13,12 @@ import {
   Calendar,
   Package,
   Gift,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useCallBalance, useCallPacks, usePurchaseCallPack, formatPrice } from "@/hooks/useCallBalance";
+import { useCallBalance, useCallPacks, usePurchaseCallPack, useCallAddonSubscription, formatPrice } from "@/hooks/useCallBalance";
+import { CallAddonSection } from "@/components/subscription/CallAddonSection";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -91,7 +93,7 @@ export default function BillingSettings() {
     switch (subscription.status) {
       case "active":
         return (
-          <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
+          <Badge className="bg-green-500/15 text-green-500 border-green-500/20">
             <CheckCircle className="w-3 h-3 mr-1" />
             Active
           </Badge>
@@ -105,21 +107,21 @@ export default function BillingSettings() {
         );
       case "1on1_client":
         return (
-          <Badge className="bg-purple-500/10 text-purple-500 border-purple-500/20">
+          <Badge className="bg-purple-500/15 text-purple-500 border-purple-500/20">
             <Sparkles className="w-3 h-3 mr-1" />
             1-on-1 Client
           </Badge>
         );
       case "past_due":
         return (
-          <Badge className="bg-red-500/10 text-red-500 border-red-500/20">
+          <Badge className="bg-red-500/15 text-red-500 border-red-500/20">
             <AlertTriangle className="w-3 h-3 mr-1" />
             Past Due
           </Badge>
         );
       case "canceled":
         return (
-          <Badge className="bg-gray-500/10 text-gray-500 border-gray-500/20">
+          <Badge className="bg-gray-500/15 text-gray-500 border-gray-500/20">
             Canceled
           </Badge>
         );
@@ -234,7 +236,7 @@ export default function BillingSettings() {
 
               {/* Past Due Warning */}
               {subscription?.status === "past_due" && (
-                <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                <div className="p-4 rounded-lg bg-red-500/15 border border-red-500/20">
                   <div className="flex items-center gap-2 text-red-500 font-medium mb-1">
                     <AlertTriangle className="w-4 h-4" />
                     Payment Failed
@@ -299,6 +301,9 @@ export default function BillingSettings() {
             </CardContent>
           </Card>
 
+          {/* Monthly Call Scoring Add-On */}
+          <CallAddonSection />
+
           {/* Call Scoring Balance Card */}
           <Card>
             <CardHeader>
@@ -313,7 +318,7 @@ export default function BillingSettings() {
                   </CardDescription>
                 </div>
                 {callBalance?.isUnlimited ? (
-                  <Badge className="bg-purple-500/10 text-purple-500 border-purple-500/20">
+                  <Badge className="bg-purple-500/15 text-purple-500 border-purple-500/20">
                     Unlimited
                   </Badge>
                 ) : (
@@ -346,9 +351,22 @@ export default function BillingSettings() {
                     </div>
                   )}
 
+                  {/* Addon Credits */}
+                  {(callBalance?.addonRemaining || 0) > 0 && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-sky-500/10 border border-sky-500/20">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-sky-500" />
+                        <span>Monthly Add-On</span>
+                      </div>
+                      <span className="font-medium text-sky-500">
+                        +{callBalance?.addonRemaining}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Bonus Credits */}
                   {(callBalance?.bonusRemaining || 0) > 0 && (
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/20">
                       <div className="flex items-center gap-2">
                         <Gift className="w-4 h-4 text-emerald-500" />
                         <span>Bonus Credits</span>
@@ -382,7 +400,7 @@ export default function BillingSettings() {
 
                   {/* No Credits Warning */}
                   {callBalance && callBalance.totalRemaining === 0 && (
-                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
+                    <div className="p-3 rounded-lg bg-red-500/15 border border-red-500/20 text-red-500 text-sm">
                       <AlertTriangle className="w-4 h-4 inline mr-2" />
                       No credits remaining. Purchase a pack to continue scoring calls.
                     </div>

@@ -41,9 +41,9 @@ function formatDate(dateStr: string | null): string {
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
-    lead: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
+    lead: 'bg-blue-500/15 text-blue-500 border-blue-500/50 dark:border-blue-500/30',
     quoted: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
-    sold: 'bg-green-500/10 text-green-500 border-green-500/30',
+    sold: 'bg-green-500/15 text-green-500 border-green-500/50 dark:border-green-500/30',
   };
 
   return (
@@ -134,10 +134,10 @@ export function LqsTimeToCloseDetailSheet({
                             variant="outline"
                             className={cn(
                               household.daysToClose <= 14
-                                ? 'border-green-500/30 text-green-500'
+                                ? 'border-green-500/50 dark:border-green-500/30 text-green-500'
                                 : household.daysToClose <= 30
                                 ? 'border-amber-500/30 text-amber-500'
-                                : 'border-red-500/30 text-red-500'
+                                : 'border-red-500/50 dark:border-red-500/30 text-red-500'
                             )}
                           >
                             {household.daysToClose}d

@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { format, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, subDays, startOfYear } from "date-fns";
 import { toast } from "sonner";
 import { calculateCountableTotals } from "@/lib/product-constants";
 import {
@@ -42,6 +42,7 @@ import {
 import { CalendarIcon, Loader2, Pencil, Trash2, Eye } from "lucide-react";
 import { cn, formatDateLocal } from "@/lib/utils";
 import { SaleDetailModal } from "./SaleDetailModal";
+import type { DateRange } from "react-day-picker";
 
 type SalePolicy = {
   id: string;
@@ -99,10 +100,11 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
   const { user, isAdmin, isAgencyOwner } = useAuth();
   const canEditAllSales = isAdmin || isAgencyOwner;
   const queryClient = useQueryClient();
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+  const [dateRange, setDateRange] = useState<DateRange>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
   });
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedProducer, setSelectedProducer] = useState<string>("all");
   const [businessFilter, setBusinessFilter] = useState<string>("all");
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
@@ -146,13 +148,14 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
     queryKey: [
       "sales",
       profile?.agency_id,
-      dateRange.from.toISOString(),
-      dateRange.to.toISOString(),
+      dateRange.from?.toISOString() ?? "",
+      dateRange.to?.toISOString() ?? dateRange.from?.toISOString() ?? "",
       selectedProducer,
       businessFilter,
     ],
     queryFn: async () => {
-      if (!profile?.agency_id) return [];
+      if (!profile?.agency_id || !dateRange.from) return [];
+      const effectiveTo = dateRange.to ?? dateRange.from;
 
       let query = supabase
         .from("sales")
@@ -183,7 +186,7 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
         )
         .eq("agency_id", profile.agency_id)
         .gte("sale_date", format(dateRange.from, "yyyy-MM-dd"))
-        .lte("sale_date", format(dateRange.to, "yyyy-MM-dd"))
+        .lte("sale_date", format(effectiveTo, "yyyy-MM-dd"))
         .order("sale_date", { ascending: false });
 
       if (selectedProducer !== "all") {
@@ -201,7 +204,7 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
       if (error) throw error;
       
       // Calculate filtered totals for each sale (excluding Motor Club)
-      return (data || []).map((sale: any) => {
+      return (data || []).map((sale) => {
         const policies = sale.sale_policies || [];
         const countable = calculateCountableTotals(policies);
         return {
@@ -300,6 +303,28 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
     setDeleteConfirmId(saleId);
   };
 
+  const setQuickRange = (type: "thisMonth" | "last30" | "ytd" | "allTime") => {
+    const now = new Date();
+    if (type === "thisMonth") {
+      setDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
+      setCalendarOpen(false);
+      return;
+    }
+    if (type === "last30") {
+      setDateRange({ from: subDays(now, 29), to: now });
+      setCalendarOpen(false);
+      return;
+    }
+    if (type === "ytd") {
+      setDateRange({ from: startOfYear(now), to: now });
+      setCalendarOpen(false);
+      return;
+    }
+
+    setDateRange({ from: new Date(2020, 0, 1), to: now });
+    setCalendarOpen(false);
+  };
+
   return (
     <>
       <Card>
@@ -308,7 +333,7 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
             <span>Sales Log</span>
             <div className="flex flex-wrap gap-3">
               {/* Date Range Picker */}
-              <Popover>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
@@ -318,14 +343,14 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange?.from ? (
+                    {dateRange.from ? (
                       dateRange.to ? (
                         <>
                           {format(dateRange.from, "MMM d, yyyy")} -{" "}
                           {format(dateRange.to, "MMM d, yyyy")}
                         </>
                       ) : (
-                        format(dateRange.from, "MMM d, yyyy")
+                        `${format(dateRange.from, "MMM d, yyyy")} - Select end date`
                       )
                     ) : (
                       <span>Pick a date range</span>
@@ -336,13 +361,30 @@ export function SalesLog({ onEditSale }: SalesLogProps) {
                   <Calendar
                     mode="range"
                     selected={dateRange}
+                    defaultMonth={dateRange.from}
                     onSelect={(range) => {
-                      if (range?.from) {
-                        setDateRange({ from: range.from, to: range.to ?? range.from });
+                      if (!range?.from) return;
+                      setDateRange(range);
+                      if (range.from && range.to) {
+                        setCalendarOpen(false);
                       }
                     }}
                     numberOfMonths={2}
                   />
+                  <div className="border-t p-2 flex flex-wrap gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setQuickRange("thisMonth")}>
+                      This Month
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setQuickRange("last30")}>
+                      Last 30 Days
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setQuickRange("ytd")}>
+                      YTD
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setQuickRange("allTime")}>
+                      All Time
+                    </Button>
+                  </div>
                 </PopoverContent>
               </Popover>
 

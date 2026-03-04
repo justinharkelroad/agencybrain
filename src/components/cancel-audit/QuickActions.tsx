@@ -27,14 +27,14 @@ interface QuickActionsProps {
 }
 
 const ACTION_BUTTON_STYLES: Record<ActivityType, string> = {
-  attempted_call: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30',
-  voicemail_left: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30',
-  text_sent: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-  email_sent: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30',
-  spoke_with_client: 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
-  payment_made: 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30',
-  payment_promised: 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-  note: 'bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 border-gray-500/30',
+  attempted_call: 'bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30',
+  voicemail_left: 'bg-orange-500/15 hover:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30',
+  text_sent: 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 dark:border-emerald-500/30',
+  email_sent: 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/50 dark:border-purple-500/30',
+  spoke_with_client: 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-600 dark:text-cyan-400 border-cyan-500/50 dark:border-cyan-500/30',
+  payment_made: 'bg-green-500/15 hover:bg-green-500/25 text-green-600 dark:text-green-400 border-green-500/50 dark:border-green-500/30',
+  payment_promised: 'bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-600 dark:text-yellow-400 border-yellow-500/50 dark:border-yellow-500/30',
+  note: 'bg-gray-500/15 hover:bg-gray-500/25 text-gray-600 dark:text-gray-400 border-gray-500/50 dark:border-gray-500/30',
 };
 
 const ACTION_ICONS: Record<ActivityType, React.ComponentType<{ className?: string }>> = {

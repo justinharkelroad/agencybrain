@@ -240,10 +240,10 @@ export function CallScorecard({
 
   // Score ranges for the new scoring system
   const SCORE_RANGES = [
-    { label: 'Excellent', min: 80, max: 100, color: '#22c55e', textClass: 'text-green-400', bgClass: 'bg-green-500/20' },
-    { label: 'Good', min: 60, max: 79, color: '#facc15', textClass: 'text-yellow-400', bgClass: 'bg-yellow-500/20' },
-    { label: 'Needs Work', min: 40, max: 59, color: '#f97316', textClass: 'text-orange-400', bgClass: 'bg-orange-500/20' },
-    { label: 'Poor', min: 0, max: 39, color: '#ef4444', textClass: 'text-red-400', bgClass: 'bg-red-500/20' },
+    { label: 'Excellent', min: 80, max: 100, color: '#22c55e', textClass: 'text-green-600 dark:text-green-400', bgClass: 'bg-green-500/20' },
+    { label: 'Good', min: 60, max: 79, color: '#facc15', textClass: 'text-yellow-600 dark:text-yellow-400', bgClass: 'bg-yellow-500/20' },
+    { label: 'Needs Work', min: 40, max: 59, color: '#f97316', textClass: 'text-orange-600 dark:text-orange-400', bgClass: 'bg-orange-500/20' },
+    { label: 'Poor', min: 0, max: 39, color: '#ef4444', textClass: 'text-red-600 dark:text-red-400', bgClass: 'bg-red-500/20' },
   ];
 
   const getScoreRange = (score: number) => {
@@ -253,11 +253,11 @@ export function CallScorecard({
   // Legacy function for historical calls with rank but no score
   const getRankColor = (rank: string) => {
     switch (rank?.toUpperCase()) {
-      case 'VERY HIGH': return 'text-green-400 bg-green-500/20';
-      case 'HIGH': return 'text-green-400 bg-green-500/20';
-      case 'MEDIUM': return 'text-yellow-400 bg-yellow-500/20';
-      case 'LOW': return 'text-orange-400 bg-orange-500/20';
-      case 'VERY LOW': return 'text-red-400 bg-red-500/20';
+      case 'VERY HIGH': return 'text-green-600 dark:text-green-400 bg-green-500/20';
+      case 'HIGH': return 'text-green-600 dark:text-green-400 bg-green-500/20';
+      case 'MEDIUM': return 'text-yellow-600 dark:text-yellow-400 bg-yellow-500/20';
+      case 'LOW': return 'text-orange-600 dark:text-orange-400 bg-orange-500/20';
+      case 'VERY LOW': return 'text-red-600 dark:text-red-400 bg-red-500/20';
       default: return 'text-muted-foreground bg-muted';
     }
   };
@@ -677,7 +677,7 @@ export function CallScorecard({
                 <p className="text-xs text-muted-foreground mb-1">
                   {competitorQuote ? 'COMPETITOR AVG' : currentCoverage ? 'CURRENT COVERAGE' : 'COMPETITOR AVG'}
                 </p>
-                <p className="text-xl sm:text-2xl font-bold text-green-400 break-words">
+                <p className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400 break-words">
                   {competitorQuote ? `~${competitorQuote}` : currentCoverage || '--'}
                 </p>
               </CardContent>
@@ -790,10 +790,10 @@ export function CallScorecard({
                 {/* Coaching Insight */}
                 <div className={`mt-4 p-3 rounded-lg text-sm ${
                   agentTalkPercent <= 45 && customerTalkPercent >= 45 
-                    ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+                    ? 'bg-green-500/15 border border-green-500/20 text-green-600 dark:text-green-400'
                     : agentTalkPercent > 60
-                    ? 'bg-red-500/10 border border-red-500/20 text-red-400'
-                    : 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-400'
+                    ? 'bg-red-500/15 border border-red-500/20 text-red-600 dark:text-red-400'
+                    : 'bg-yellow-500/15 border border-yellow-500/20 text-yellow-600 dark:text-yellow-400'
                 }`}>
                   {agentTalkPercent <= 45 && customerTalkPercent >= 45 ? (
                     <p>✓ Great balance! You let the customer do most of the talking.</p>
@@ -838,7 +838,7 @@ export function CallScorecard({
                         {yourQuote}
                         {competitorQuote && (
                           <span className="text-sm text-muted-foreground ml-2">
-                            vs <span className="text-green-400">{competitorQuote}</span>
+                            vs <span className="text-green-600 dark:text-green-400">{competitorQuote}</span>
                           </span>
                         )}
                       </p>
@@ -875,7 +875,7 @@ export function CallScorecard({
                   {timeline ? (
                     <div>
                       <p className="text-xs text-muted-foreground">FOLLOW UP PLAN</p>
-                      <p className="text-sm text-yellow-400 flex items-center gap-1">
+                      <p className="text-sm text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {timeline}
                       </p>
@@ -892,7 +892,7 @@ export function CallScorecard({
                     <div>
                       <p className="text-xs text-muted-foreground">PAIN POINTS</p>
                       {painPoints.map((point: string, i: number) => (
-                        <p key={i} className="text-sm flex items-center gap-1 text-orange-400">
+                        <p key={i} className="text-sm flex items-center gap-1 text-orange-600 dark:text-orange-400">
                           <span className="w-1 h-4 bg-orange-500 rounded" />
                           {point}
                         </p>
@@ -939,7 +939,7 @@ export function CallScorecard({
                       
                       {/* Legacy: Wins */}
                       {rapportData?.wins?.map((win: string, i: number) => (
-                        <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
+                        <p key={`win-${i}`} className="text-sm text-green-600 dark:text-green-400 flex items-start gap-2 mb-2">
                           <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span>{win}</span>
                         </p>
@@ -947,7 +947,7 @@ export function CallScorecard({
                       
                       {/* Legacy: Failures */}
                       {rapportData?.failures?.map((failure: string, i: number) => (
-                        <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
+                        <p key={`fail-${i}`} className="text-sm text-red-600 dark:text-red-400 flex items-start gap-2 mb-2">
                           <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span>{failure}</span>
                         </p>
@@ -969,7 +969,7 @@ export function CallScorecard({
                               {parsed.strengths && (
                                 <div className="flex items-start gap-2">
                                   <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-green-500 flex-shrink-0" />
-                                  <p className="text-sm text-green-400">
+                                  <p className="text-sm text-green-600 dark:text-green-400">
                                     <span className="font-semibold">STRENGTHS:</span> {parsed.strengths}
                                   </p>
                                 </div>
@@ -985,7 +985,7 @@ export function CallScorecard({
                               {parsed.action && (
                                 <div className="flex items-start gap-2">
                                   <Target className="h-3.5 w-3.5 mt-0.5 text-blue-500 flex-shrink-0" />
-                                  <p className="text-sm text-blue-400">
+                                  <p className="text-sm text-blue-600 dark:text-blue-400">
                                     <span className="font-semibold">ACTION:</span> {parsed.action}
                                   </p>
                                 </div>
@@ -996,7 +996,7 @@ export function CallScorecard({
                         return <p className="text-sm text-muted-foreground">{rapportData.feedback}</p>;
                       })()}
                       {rapportData?.tip && (
-                        <p className="text-xs text-green-400 mt-3">💡 {rapportData.tip}</p>
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-3">💡 {rapportData.tip}</p>
                       )}
                     </CardContent>
                   </Card>
@@ -1011,7 +1011,7 @@ export function CallScorecard({
                       
                       {/* Legacy: Wins */}
                       {coverageData?.wins?.map((win: string, i: number) => (
-                        <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
+                        <p key={`win-${i}`} className="text-sm text-green-600 dark:text-green-400 flex items-start gap-2 mb-2">
                           <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span>{win}</span>
                         </p>
@@ -1019,7 +1019,7 @@ export function CallScorecard({
                       
                       {/* Legacy: Failures */}
                       {coverageData?.failures?.map((failure: string, i: number) => (
-                        <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
+                        <p key={`fail-${i}`} className="text-sm text-red-600 dark:text-red-400 flex items-start gap-2 mb-2">
                           <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span>{failure}</span>
                         </p>
@@ -1041,7 +1041,7 @@ export function CallScorecard({
                               {parsed.strengths && (
                                 <div className="flex items-start gap-2">
                                   <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-green-500 flex-shrink-0" />
-                                  <p className="text-sm text-green-400">
+                                  <p className="text-sm text-green-600 dark:text-green-400">
                                     <span className="font-semibold">STRENGTHS:</span> {parsed.strengths}
                                   </p>
                                 </div>
@@ -1057,7 +1057,7 @@ export function CallScorecard({
                               {parsed.action && (
                                 <div className="flex items-start gap-2">
                                   <Target className="h-3.5 w-3.5 mt-0.5 text-blue-500 flex-shrink-0" />
-                                  <p className="text-sm text-blue-400">
+                                  <p className="text-sm text-blue-600 dark:text-blue-400">
                                     <span className="font-semibold">ACTION:</span> {parsed.action}
                                   </p>
                                 </div>
@@ -1068,7 +1068,7 @@ export function CallScorecard({
                         return <p className="text-sm text-muted-foreground">{coverageData.feedback}</p>;
                       })()}
                       {coverageData?.tip && (
-                        <p className="text-xs text-green-400 mt-3">💡 {coverageData.tip}</p>
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-3">💡 {coverageData.tip}</p>
                       )}
                     </CardContent>
                   </Card>
@@ -1083,7 +1083,7 @@ export function CallScorecard({
                       
                       {/* Legacy: Wins */}
                       {closingData?.wins?.map((win: string, i: number) => (
-                        <p key={`win-${i}`} className="text-sm text-green-400 flex items-start gap-2 mb-2">
+                        <p key={`win-${i}`} className="text-sm text-green-600 dark:text-green-400 flex items-start gap-2 mb-2">
                           <CheckCircle2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span>{win}</span>
                         </p>
@@ -1091,7 +1091,7 @@ export function CallScorecard({
                       
                       {/* Legacy: Failures */}
                       {closingData?.failures?.map((failure: string, i: number) => (
-                        <p key={`fail-${i}`} className="text-sm text-red-400 flex items-start gap-2 mb-2">
+                        <p key={`fail-${i}`} className="text-sm text-red-600 dark:text-red-400 flex items-start gap-2 mb-2">
                           <XCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                           <span>{failure}</span>
                         </p>
@@ -1113,7 +1113,7 @@ export function CallScorecard({
                               {parsed.strengths && (
                                 <div className="flex items-start gap-2">
                                   <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-green-500 flex-shrink-0" />
-                                  <p className="text-sm text-green-400">
+                                  <p className="text-sm text-green-600 dark:text-green-400">
                                     <span className="font-semibold">STRENGTHS:</span> {parsed.strengths}
                                   </p>
                                 </div>
@@ -1129,7 +1129,7 @@ export function CallScorecard({
                               {parsed.action && (
                                 <div className="flex items-start gap-2">
                                   <Target className="h-3.5 w-3.5 mt-0.5 text-blue-500 flex-shrink-0" />
-                                  <p className="text-sm text-blue-400">
+                                  <p className="text-sm text-blue-600 dark:text-blue-400">
                                     <span className="font-semibold">ACTION:</span> {parsed.action}
                                   </p>
                                 </div>
@@ -1140,7 +1140,7 @@ export function CallScorecard({
                         return <p className="text-sm text-muted-foreground">{closingData.feedback}</p>;
                       })()}
                       {closingData?.tip && (
-                        <p className="text-xs text-green-400 mt-3">💡 {closingData.tip}</p>
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-3">💡 {closingData.tip}</p>
                       )}
                     </CardContent>
                   </Card>
@@ -1168,7 +1168,7 @@ export function CallScorecard({
                                   {parsed.strengths && (
                                     <div className="flex items-start gap-2">
                                       <CheckCircle2 className="h-3.5 w-3.5 mt-0.5 text-green-500 flex-shrink-0" />
-                                      <p className="text-xs text-green-400">
+                                      <p className="text-xs text-green-600 dark:text-green-400">
                                         <span className="font-semibold">STRENGTHS:</span> {parsed.strengths}
                                       </p>
                                     </div>
@@ -1184,7 +1184,7 @@ export function CallScorecard({
                                   {parsed.action && (
                                     <div className="flex items-start gap-2">
                                       <Target className="h-3.5 w-3.5 mt-0.5 text-blue-500 flex-shrink-0" />
-                                      <p className="text-xs text-blue-400">
+                                      <p className="text-xs text-blue-600 dark:text-blue-400">
                                         <span className="font-semibold">ACTION:</span> {parsed.action}
                                       </p>
                                     </div>
@@ -1195,7 +1195,7 @@ export function CallScorecard({
                             return <p className="text-xs text-muted-foreground mb-2">{skill.feedback}</p>;
                           })()}
                           {skill.tip && (
-                            <p className="text-xs text-green-400 mt-2">💡 {skill.tip}</p>
+                            <p className="text-xs text-green-600 dark:text-green-400 mt-2">💡 {skill.tip}</p>
                           )}
                         </div>
                       ))}
@@ -1228,7 +1228,7 @@ export function CallScorecard({
                         }}
                       />
                       <p className="text-xs text-muted-foreground mt-2">Competitor</p>
-                        <p className="text-sm font-medium text-green-400">{competitorQuote}</p>
+                        <p className="text-sm font-medium text-green-600 dark:text-green-400">{competitorQuote}</p>
                     </div>
                     
                     {/* Your Quote Bar */}
@@ -1238,7 +1238,7 @@ export function CallScorecard({
                         style={{ height: `${Math.max(20, (yourQuoteValue / maxQuote) * 100)}px` }}
                       />
                       <p className="text-xs text-muted-foreground mt-2">Your Quote</p>
-                      <p className="text-sm font-medium text-red-400">{yourQuote}</p>
+                      <p className="text-sm font-medium text-red-600 dark:text-red-400">{yourQuote}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -1286,7 +1286,7 @@ export function CallScorecard({
                     <span className="text-muted-foreground">{salespersonName}</span>
                   </div>
                   <div className="flex items-center gap-1">
-                    <div className="w-3 h-3 bg-blue-500/10 border border-blue-500 border-dashed rounded" />
+                    <div className="w-3 h-3 bg-blue-500/15 border border-blue-500 border-dashed rounded" />
                     <span className="text-muted-foreground">Target</span>
                   </div>
                 </div>
@@ -1425,7 +1425,7 @@ export function CallScorecard({
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Rapport Action */}
                     <div>
-                      <h4 className="text-red-400 font-medium text-sm mb-2">RAPPORT</h4>
+                      <h4 className="text-red-600 dark:text-red-400 font-medium text-sm mb-2">RAPPORT</h4>
                       <p className="text-sm text-muted-foreground">
                         {rapportPlanText}
                       </p>
@@ -1433,7 +1433,7 @@ export function CallScorecard({
                         <div className="mt-2 space-y-1">
                           {rapportTips.map((tip: string, i: number) => (
                             <p key={i} className="text-xs text-muted-foreground/80 flex items-start gap-1">
-                              <span className="text-green-400 flex-shrink-0">💡</span> 
+                              <span className="text-green-600 dark:text-green-400 flex-shrink-0">💡</span> 
                               <span>{tip}</span>
                             </p>
                           ))}
@@ -1443,7 +1443,7 @@ export function CallScorecard({
                     
                     {/* Value Building Action */}
                     <div>
-                      <h4 className="text-red-400 font-medium text-sm mb-2">VALUE BUILDING</h4>
+                      <h4 className="text-red-600 dark:text-red-400 font-medium text-sm mb-2">VALUE BUILDING</h4>
                       <p className="text-sm text-muted-foreground">
                         {valuePlanText}
                       </p>
@@ -1451,7 +1451,7 @@ export function CallScorecard({
                         <div className="mt-2 space-y-1">
                           {valueTips.map((tip: string, i: number) => (
                             <p key={i} className="text-xs text-muted-foreground/80 flex items-start gap-1">
-                              <span className="text-green-400 flex-shrink-0">💡</span> 
+                              <span className="text-green-600 dark:text-green-400 flex-shrink-0">💡</span> 
                               <span>{tip}</span>
                             </p>
                           ))}
@@ -1461,7 +1461,7 @@ export function CallScorecard({
                     
                     {/* Closing Action */}
                     <div>
-                      <h4 className="text-red-400 font-medium text-sm mb-2">CLOSING</h4>
+                      <h4 className="text-red-600 dark:text-red-400 font-medium text-sm mb-2">CLOSING</h4>
                       <p className="text-sm text-muted-foreground">
                         {closingPlanText}
                       </p>
@@ -1469,7 +1469,7 @@ export function CallScorecard({
                         <div className="mt-2 space-y-1">
                           {closingTips.map((tip: string, i: number) => (
                             <p key={i} className="text-xs text-muted-foreground/80 flex items-start gap-1">
-                              <span className="text-green-400 flex-shrink-0">💡</span> 
+                              <span className="text-green-600 dark:text-green-400 flex-shrink-0">💡</span> 
                               <span>{tip}</span>
                             </p>
                           ))}
@@ -1498,7 +1498,7 @@ export function CallScorecard({
                         <div className={`w-4 h-4 border rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
                           item.checked ? 'bg-green-500/20 border-green-500' : 'border-muted-foreground/30'
                         }`}>
-                          {item.checked && <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                          {item.checked && <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <span className="text-xs text-muted-foreground uppercase block">
@@ -1536,7 +1536,7 @@ export function CallScorecard({
                       <div className={`w-4 h-4 border rounded flex items-center justify-center ${
                         value ? 'bg-green-500/20 border-green-500' : 'border-muted-foreground/30'
                       }`}>
-                        {value && <CheckCircle2 className="h-3 w-3 text-green-400" />}
+                        {value && <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />}
                       </div>
                       <span className="text-xs text-muted-foreground uppercase">
                         {formatChecklistLabel(key)}
@@ -1636,7 +1636,7 @@ export function CallScorecard({
             <Card className="border-l-4 border-l-purple-500">
               <CardContent className="pt-4">
                 <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-                  <MessageSquareQuote className="h-4 w-4 text-purple-400" />
+                  <MessageSquareQuote className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                   KEY MOMENTS
                 </h3>
                 <div className="space-y-3">
@@ -1650,8 +1650,8 @@ export function CallScorecard({
                       key={idx} 
                       className={`p-3 rounded-lg border ${
                         quote.speaker === 'agent' 
-                          ? 'bg-blue-500/10 border-blue-500/30' 
-                          : 'bg-green-500/10 border-green-500/30'
+                          ? 'bg-blue-500/15 border-blue-500/50 dark:border-blue-500/30' 
+                          : 'bg-green-500/15 border-green-500/50 dark:border-green-500/30'
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -1680,8 +1680,8 @@ export function CallScorecard({
                           variant="outline" 
                           className={`flex-shrink-0 text-xs ${
                             quote.speaker === 'agent' 
-                              ? 'text-blue-400 border-blue-500/50' 
-                              : 'text-green-400 border-green-500/50'
+                              ? 'text-blue-600 dark:text-blue-400 border-blue-500/50' 
+                              : 'text-green-600 dark:text-green-400 border-green-500/50'
                           }`}
                         >
                           {quote.speaker === 'agent' ? 'Agent' : 'Customer'}
@@ -1698,12 +1698,12 @@ export function CallScorecard({
           <Card className="border-l-4 border-l-blue-500">
             <CardContent className="pt-4">
               <h3 className="font-bold text-sm mb-4 flex items-center gap-2">
-                <Search className="h-4 w-4 text-blue-400" />
+                <Search className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 CALL TIMELINE Q&A
               </h3>
               {qaEnabled && (
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs text-blue-400/90">
+                  <p className="text-xs text-blue-600 dark:text-blue-400/90">
                     Ask timeline questions right here (for example: "When did we discuss liability limits?")
                   </p>
                   <span className={`text-xs font-medium ${qaQuestionsUsed >= QA_QUESTION_LIMIT ? 'text-destructive' : 'text-muted-foreground'}`}>
@@ -1801,12 +1801,12 @@ export function CallScorecard({
                 </div>
                 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
-                    <p className="text-sm font-medium text-green-400 mb-2">What I did well:</p>
+                  <div className="p-4 rounded-lg bg-green-500/15 border border-green-500/20">
+                    <p className="text-sm font-medium text-green-600 dark:text-green-400 mb-2">What I did well:</p>
                     <p className="text-sm">{staffFeedbackPositive}</p>
                   </div>
-                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <p className="text-sm font-medium text-blue-400 mb-2">What I'm working on:</p>
+                  <div className="p-4 rounded-lg bg-blue-500/15 border border-blue-500/20">
+                    <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">What I'm working on:</p>
                     <p className="text-sm">{staffFeedbackImprovement}</p>
                   </div>
                 </div>
@@ -1832,7 +1832,7 @@ export function CallScorecard({
                   <h4 className="font-semibold text-center">Self-Reflection</h4>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="positive" className="text-green-400">
+                    <Label htmlFor="positive" className="text-green-600 dark:text-green-400">
                       What is one thing you did well on this call?
                     </Label>
                     <Textarea
@@ -1845,7 +1845,7 @@ export function CallScorecard({
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="improvement" className="text-blue-400">
+                    <Label htmlFor="improvement" className="text-blue-600 dark:text-blue-400">
                       What is one thing you're going to work on moving forward?
                     </Label>
                     <Textarea

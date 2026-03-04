@@ -49,22 +49,22 @@ const actionLabels: Record<ActionType, string> = {
 const statusStyles: Record<TaskStatus, { border: string; badge: string; badgeText: string }> = {
   overdue: {
     border: 'border-l-4 border-l-red-500',
-    badge: 'bg-red-500/10 text-red-500 border-red-500/20',
+    badge: 'bg-red-500/15 text-red-500 border-red-500/20',
     badgeText: 'Overdue',
   },
   due_today: {
     border: 'border-l-4 border-l-blue-500',
-    badge: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+    badge: 'bg-blue-500/15 text-blue-500 border-blue-500/20',
     badgeText: 'Due Today',
   },
   upcoming: {
     border: 'border-l-4 border-l-gray-400',
-    badge: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+    badge: 'bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-500/20',
     badgeText: 'Upcoming',
   },
   completed: {
     border: 'border-l-4 border-l-green-500',
-    badge: 'bg-green-500/10 text-green-500 border-green-500/20',
+    badge: 'bg-green-500/15 text-green-500 border-green-500/20',
     badgeText: 'Completed',
   },
 };
@@ -136,10 +136,10 @@ export function TaskCard({
           {/* Action Type Icon */}
           <div className={cn(
             "flex items-center justify-center w-10 h-10 rounded-full shrink-0",
-            task.actionType === 'call' && "bg-green-500/10 text-green-500",
-            task.actionType === 'text' && "bg-purple-500/10 text-purple-500",
-            task.actionType === 'email' && "bg-blue-500/10 text-blue-500",
-            task.actionType === 'other' && "bg-gray-500/10 text-gray-400",
+            task.actionType === 'call' && "bg-green-500/15 text-green-500",
+            task.actionType === 'text' && "bg-purple-500/15 text-purple-500",
+            task.actionType === 'email' && "bg-blue-500/15 text-blue-500",
+            task.actionType === 'other' && "bg-gray-500/15 text-gray-600 dark:text-gray-400",
           )}>
             <ActionIcon className="w-5 h-5" />
           </div>
@@ -193,7 +193,7 @@ export function TaskCard({
                 {formatRelativeDate(task.dueDate) && (
                   <span className={cn(
                     "text-muted-foreground/60",
-                    task.status === 'overdue' && "text-red-400"
+                    task.status === 'overdue' && "text-red-600 dark:text-red-400"
                   )}>
                     ({formatRelativeDate(task.dueDate)})
                   </span>

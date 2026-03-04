@@ -92,7 +92,7 @@ export function PeriodStatusBanner({
 
     // Overlapping but not exact match
     return (
-      <Alert className="mb-4 border-blue-500 bg-blue-500/10">
+      <Alert className="mb-4 border-blue-500 bg-blue-500/15">
         <AlertCircle className="h-4 w-4 text-blue-500" />
         <AlertTitle className="text-blue-600">
           Overlapping Period Detected
@@ -102,7 +102,7 @@ export function PeriodStatusBanner({
             Your selected dates ({periodDateRange}) overlap with an existing period: <strong>{overlappingPeriod.title || existingDateRange}</strong>.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button asChild size="sm" variant="outline" className="border-blue-500 text-blue-600 hover:bg-blue-500/20">
+            <Button asChild size="sm" variant="outline" className="border-blue-500 text-blue-600 hover:bg-blue-500/25">
               <Link to={`/submit?mode=update&periodId=${overlappingPeriod.id}`}>
                 <Edit className="h-3 w-3 mr-1" />
                 Edit Existing Period
@@ -116,7 +116,7 @@ export function PeriodStatusBanner({
 
   // No overlap - show confirmation that this is a new period
   return (
-    <Alert className="mb-4 border-green-500/50 bg-green-500/10">
+    <Alert className="mb-4 border-green-500/50 bg-green-500/15">
       <CheckCircle2 className="h-4 w-4 text-green-500" />
       <AlertDescription className="text-green-600">
         No existing submission for {periodDateRange}. You're creating a new period.

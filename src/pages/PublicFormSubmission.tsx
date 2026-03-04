@@ -1111,8 +1111,8 @@ export default function PublicFormSubmission() {
               <div className="border-t border-b border-border py-4 my-4">
                 <div className={`text-center p-3 rounded-lg ${
                   performanceSummary.summary.overallPass 
-                    ? 'bg-green-500/10 border border-green-500/20' 
-                    : 'bg-red-500/10 border border-red-500/20'
+                    ? 'bg-green-500/15 border border-green-500/20' 
+                    : 'bg-red-500/15 border border-red-500/20'
                 }`}>
                   <p className={`text-lg font-semibold ${
                     performanceSummary.summary.overallPass ? 'text-green-600' : 'text-red-600'

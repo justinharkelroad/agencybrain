@@ -484,7 +484,7 @@ export default function GrowthCenter() {
                             Uploaded: {uploadedAtLabel(report.updated_at)}
                           </div>
                           {report.parse_error ? (
-                            <div className="text-xs text-red-400">{report.parse_error}</div>
+                            <div className="text-xs text-red-600 dark:text-red-400">{report.parse_error}</div>
                           ) : null}
                         </div>
 
@@ -505,7 +505,7 @@ export default function GrowthCenter() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-red-400 border-red-500/40 hover:text-red-300"
+                            className="text-red-600 dark:text-red-400 border-red-500/40 hover:text-red-300"
                             onClick={() => handleDeleteReport(report.id, report.report_month, report.original_filename)}
                             disabled={reportsQuery.isDeletingReport}
                           >

@@ -226,7 +226,7 @@ export function RingCentralReportUpload({ agencyId }: RingCentralReportUploadPro
     <Card>
       <CardHeader>
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/10">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/15">
             <FileSpreadsheet className="h-5 w-5 text-blue-500" />
           </div>
           <div className="flex-1">

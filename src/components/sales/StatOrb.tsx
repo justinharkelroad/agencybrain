@@ -14,10 +14,10 @@ interface StatOrbProps {
 
 const orbColors = {
   green: { 
-    icon: "text-emerald-400", 
+    icon: "text-emerald-600 dark:text-emerald-400", 
   },
   blue: { 
-    icon: "text-blue-400", 
+    icon: "text-blue-600 dark:text-blue-400", 
   },
   orange: { 
     icon: "text-amber-400", 
@@ -26,7 +26,7 @@ const orbColors = {
     icon: "text-violet-400", 
   },
   cyan: {
-    icon: "text-cyan-400",
+    icon: "text-cyan-600 dark:text-cyan-400",
   },
 };
 
@@ -86,8 +86,8 @@ export function StatOrb({
           className={cn(
             "absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium",
             trend.direction === "up" 
-              ? "bg-emerald-500/20 text-emerald-400" 
-              : "bg-red-500/20 text-red-400"
+              ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400" 
+              : "bg-red-500/20 text-red-600 dark:text-red-400"
           )}
         >
           {trend.direction === "up" ? "↑" : "↓"}{trend.value}%

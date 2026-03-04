@@ -160,7 +160,7 @@ export default function SalesExperienceOverview() {
               <span className="text-muted-foreground">of 8</span>
             </div>
             {isActive && (
-              <Badge variant="outline" className="mt-2 bg-green-500/10 text-green-600 border-green-500/30">
+              <Badge variant="outline" className="mt-2 bg-green-500/15 text-green-600 border-green-500/50 dark:border-green-500/30">
                 Active
               </Badge>
             )}
@@ -208,7 +208,7 @@ export default function SalesExperienceOverview() {
         <Link to="/sales-experience/messages">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
             <CardContent className="flex items-center gap-4 p-6">
-              <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center relative">
+              <div className="h-12 w-12 rounded-full bg-blue-500/15 flex items-center justify-center relative">
                 <MessageSquare className="h-6 w-6 text-blue-500" />
                 {(data?.unread_messages || 0) > 0 && (
                   <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
@@ -232,7 +232,7 @@ export default function SalesExperienceOverview() {
         <Link to="/sales-experience/team-progress">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer h-full">
             <CardContent className="flex items-center gap-4 p-6">
-              <div className="h-12 w-12 rounded-full bg-green-500/10 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-full bg-green-500/15 flex items-center justify-center">
                 <Users className="h-6 w-6 text-green-500" />
               </div>
               <div className="flex-1">
@@ -333,7 +333,7 @@ export default function SalesExperienceOverview() {
                         {/* Status Icon */}
                         <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
                           isCompleted
-                            ? 'bg-green-500/10'
+                            ? 'bg-green-500/15'
                             : isCurrent
                             ? 'bg-primary/10'
                             : 'bg-muted'

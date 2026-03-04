@@ -276,14 +276,14 @@ export function SEAnalyticsTab() {
 
 function StatusBadge({ status }: { status: string }) {
   const config: Record<string, { icon: typeof CheckCircle2; className: string }> = {
-    active: { icon: TrendingUp, className: 'bg-green-500/10 text-green-600 border-green-500/30' },
+    active: { icon: TrendingUp, className: 'bg-green-500/15 text-green-600 border-green-500/50 dark:border-green-500/30' },
     pending: { icon: Clock, className: 'bg-amber-500/10 text-amber-600 border-amber-500/30' },
     completed: {
       icon: CheckCircle2,
       className: 'bg-slate-500/10 text-slate-600 border-slate-500/30',
     },
-    paused: { icon: Clock, className: 'bg-blue-500/10 text-blue-600 border-blue-500/30' },
-    cancelled: { icon: Clock, className: 'bg-red-500/10 text-red-600 border-red-500/30' },
+    paused: { icon: Clock, className: 'bg-blue-500/15 text-blue-600 border-blue-500/50 dark:border-blue-500/30' },
+    cancelled: { icon: Clock, className: 'bg-red-500/15 text-red-600 border-red-500/50 dark:border-red-500/30' },
   };
 
   const { icon: Icon, className } = config[status] || config.pending;

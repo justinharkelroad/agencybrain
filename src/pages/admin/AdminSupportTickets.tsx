@@ -63,17 +63,17 @@ interface SupportTicket {
 }
 
 const statusColors: Record<string, string> = {
-  open: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  in_progress: "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
-  resolved: "bg-green-500/10 text-green-500 border-green-500/20",
-  closed: "bg-gray-500/10 text-gray-500 border-gray-500/20",
+  open: "bg-blue-500/15 text-blue-500 border-blue-500/20",
+  in_progress: "bg-yellow-500/15 text-yellow-500 border-yellow-500/20",
+  resolved: "bg-green-500/15 text-green-500 border-green-500/20",
+  closed: "bg-gray-500/15 text-gray-500 border-gray-500/20",
 };
 
 const priorityColors: Record<string, string> = {
-  low: "bg-gray-500/10 text-gray-500",
-  normal: "bg-blue-500/10 text-blue-500",
-  high: "bg-orange-500/10 text-orange-500",
-  urgent: "bg-red-500/10 text-red-500",
+  low: "bg-gray-500/15 text-gray-500",
+  normal: "bg-blue-500/15 text-blue-500",
+  high: "bg-orange-500/15 text-orange-500",
+  urgent: "bg-red-500/15 text-red-500",
 };
 
 export default function AdminSupportTickets() {

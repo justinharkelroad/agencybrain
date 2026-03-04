@@ -10,10 +10,10 @@ import { useTeamCore4Stats } from '@/hooks/useTeamCore4Stats';
 import { format, startOfWeek, addDays } from 'date-fns';
 
 const DOMAIN_CONFIG = {
-  body: { label: 'Body', icon: Heart, color: 'text-red-500', bgColor: 'bg-red-500/10' },
-  being: { label: 'Being', icon: LatinCross, color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
-  balance: { label: 'Balance', icon: Scale, color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
-  business: { label: 'Business', icon: Briefcase, color: 'text-green-500', bgColor: 'bg-green-500/10' },
+  body: { label: 'Body', icon: Heart, color: 'text-red-500', bgColor: 'bg-red-500/15' },
+  being: { label: 'Being', icon: LatinCross, color: 'text-purple-500', bgColor: 'bg-purple-500/15' },
+  balance: { label: 'Balance', icon: Scale, color: 'text-blue-500', bgColor: 'bg-blue-500/15' },
+  business: { label: 'Business', icon: Briefcase, color: 'text-green-500', bgColor: 'bg-green-500/15' },
 } as const;
 
 const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];

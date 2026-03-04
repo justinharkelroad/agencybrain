@@ -11,7 +11,7 @@ export function TeamMemberInsightCard({ memberInsights }: TeamMemberInsightCardP
   const { teamMemberName, role, insights, criticalCount, warningCount } = memberInsights;
 
   return (
-    <Card className={criticalCount > 0 ? 'border-red-500/30' : 'border-amber-500/20'}>
+    <Card className={criticalCount > 0 ? 'border-red-500/50 dark:border-red-500/30' : 'border-amber-500/20'}>
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -22,7 +22,7 @@ export function TeamMemberInsightCard({ memberInsights }: TeamMemberInsightCardP
           </div>
           <div className="flex items-center gap-1.5">
             {criticalCount > 0 && (
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-500/10 text-red-500">
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-red-500/15 text-red-500">
                 {criticalCount} critical
               </span>
             )}

@@ -107,7 +107,7 @@ export default function ChallengeSuccess() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">Setting Up Your Account...</h1>
-              <p className="text-slate-400 mt-2">
+              <p className="text-foreground/60 dark:text-slate-400 mt-2">
                 We're creating your agency and preparing your challenge. This usually takes just a few seconds.
               </p>
             </div>
@@ -129,7 +129,7 @@ export default function ChallengeSuccess() {
                 <CheckCircle2 className="h-10 w-10 text-green-500" />
               </div>
               <h1 className="text-2xl font-bold text-white">Purchase Complete!</h1>
-              <p className="text-slate-400 mt-2">
+              <p className="text-foreground/60 dark:text-slate-400 mt-2">
                 {setupData.quantity} seat{setupData.quantity > 1 ? 's' : ''} purchased
                 {formattedStartDate && <> &middot; Starts {formattedStartDate}</>}
               </p>
@@ -137,12 +137,12 @@ export default function ChallengeSuccess() {
 
             {/* Primary CTA: Set Your Password */}
             {setupData.owner_setup_url && (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-5 space-y-3">
+              <div className="bg-green-500/15 border border-green-500/50 dark:border-green-500/30 rounded-lg p-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <KeyRound className="h-5 w-5 text-green-500" />
                   <h3 className="font-semibold text-white">Set Your Password</h3>
                 </div>
-                <p className="text-sm text-slate-300">
+                <p className="text-sm text-foreground/70 dark:text-slate-300">
                   Click below to set your owner portal password. You'll use this to log in, manage your team, and track progress.
                 </p>
                 <div className="flex gap-2">
@@ -159,7 +159,7 @@ export default function ChallengeSuccess() {
                   <Button
                     variant="outline"
                     size="icon"
-                    className="border-slate-600 text-slate-300 hover:text-white"
+                    className="border-slate-600 text-foreground/70 dark:text-slate-300 hover:text-white"
                     onClick={handleCopyUrl}
                   >
                     {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
@@ -182,7 +182,7 @@ export default function ChallengeSuccess() {
             {/* What Happens Next */}
             <div className="space-y-3">
               <h3 className="font-semibold text-white text-sm">What Happens Next:</h3>
-              <ul className="space-y-2 text-sm text-slate-300">
+              <ul className="space-y-2 text-sm text-foreground/70 dark:text-slate-300">
                 <li className="flex items-start gap-2">
                   <span className="bg-orange-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold shrink-0">1</span>
                   <span>Set your password using the button above</span>
@@ -204,7 +204,7 @@ export default function ChallengeSuccess() {
 
             {/* Secondary CTA */}
             <div className="pt-2 space-y-3">
-              <Button asChild variant="outline" className="w-full border-slate-600 text-slate-300 hover:text-white">
+              <Button asChild variant="outline" className="w-full border-slate-600 text-foreground/70 dark:text-slate-300 hover:text-white">
                 <Link to="/auth">
                   Already set your password? Log in here
                 </Link>
@@ -244,7 +244,7 @@ export default function ChallengeSuccess() {
               <Mail className="h-5 w-5 text-orange-500 shrink-0" />
               <div className="text-left">
                 <p className="text-sm font-medium text-white">Check Your Email</p>
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-foreground/60 dark:text-slate-400">
                   We've sent your setup instructions to the email address you provided during checkout.
                 </p>
               </div>

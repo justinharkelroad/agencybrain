@@ -25,14 +25,14 @@ const statusConfig = {
     label: "Ahead of Pace",
     bgClass: "bg-emerald-500/20",
     textClass: "text-emerald-600 dark:text-emerald-400",
-    borderClass: "border-emerald-500/30",
+    borderClass: "border-emerald-500/50 dark:border-emerald-500/30",
   },
   "on-track": {
     icon: CheckCircle2,
     label: "On Track",
     bgClass: "bg-emerald-500/20",
     textClass: "text-emerald-600 dark:text-emerald-400",
-    borderClass: "border-emerald-500/30",
+    borderClass: "border-emerald-500/50 dark:border-emerald-500/30",
   },
   behind: {
     icon: AlertTriangle,
@@ -102,9 +102,9 @@ export function PacingIndicator({
 
         {/* Streak */}
         {streak > 1 && (
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/20 border border-orange-500/30">
-            <Flame className="h-3.5 w-3.5 text-orange-400" />
-            <span className="text-xs font-medium text-orange-400">
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-500/20 border border-orange-500/50 dark:border-orange-500/30">
+            <Flame className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
+            <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
               {streak} day streak
             </span>
           </div>

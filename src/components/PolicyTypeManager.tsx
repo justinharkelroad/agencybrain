@@ -259,10 +259,10 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
       </div>
 
       {/* Info blurb about linking */}
-      <div className="flex gap-3 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm">
-        <Info className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
+      <div className="flex gap-3 p-3 rounded-lg bg-blue-500/15 border border-blue-500/20 text-sm">
+        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
         <p className="text-muted-foreground">
-          <span className="text-blue-400 font-medium">Link policy types</span> to enable accurate points, VC tracking, and bundle detection for compensation. Unlinked types show 0 points.
+          <span className="text-blue-600 dark:text-blue-400 font-medium">Link policy types</span> to enable accurate points, VC tracking, and bundle detection for compensation. Unlinked types show 0 points.
         </p>
       </div>
 
@@ -283,13 +283,13 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
                       <Badge variant="secondary">Inactive</Badge>
                     )}
                     {type.product_type ? (
-                      <Badge className="bg-green-500/20 text-green-400 border-green-500/50">
+                      <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/50">
                         <Link className="h-3 w-3 mr-1" />
                         {type.product_type.default_points} pts
                         {type.product_type.is_vc_item && " • VC"}
                       </Badge>
                     ) : (
-                      <Badge variant="outline" className="border-orange-500/50 text-orange-400">
+                      <Badge variant="outline" className="border-orange-500/50 text-orange-600 dark:text-orange-400">
                         <Link2Off className="h-3 w-3 mr-1" />
                         Not Linked
                       </Badge>

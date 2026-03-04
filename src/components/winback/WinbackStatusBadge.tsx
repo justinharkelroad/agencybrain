@@ -10,19 +10,19 @@ interface WinbackStatusBadgeProps {
 const statusConfig: Record<WinbackStatusType, { label: string; className: string }> = {
   untouched: {
     label: 'Untouched',
-    className: 'bg-gray-500/20 text-gray-600 dark:text-gray-400 border-gray-500/30',
+    className: 'bg-gray-500/20 text-gray-600 dark:text-gray-400 border-gray-500/50 dark:border-gray-500/30',
   },
   in_progress: {
     label: 'In Progress',
-    className: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30',
+    className: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30',
   },
   won_back: {
     label: 'Won Back',
-    className: 'bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/30',
+    className: 'bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/50 dark:border-green-500/30',
   },
   dismissed: {
     label: 'Dismissed',
-    className: 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30',
+    className: 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/50 dark:border-red-500/30',
   },
   moved_to_quoted: {
     label: 'Moved to Quoted',
@@ -30,11 +30,11 @@ const statusConfig: Record<WinbackStatusType, { label: string; className: string
   },
   declined: {
     label: 'Declined',
-    className: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/30',
+    className: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30',
   },
   no_contact: {
     label: 'No Contact',
-    className: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30',
+    className: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/50 dark:border-purple-500/30',
   },
 };
 

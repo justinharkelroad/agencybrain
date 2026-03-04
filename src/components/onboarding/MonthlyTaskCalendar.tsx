@@ -218,12 +218,12 @@ export function MonthlyTaskCalendar({
                   // Missed (past with incomplete tasks) - RED
                   isCurrentMonth &&
                     isMissed &&
-                    'border-red-400 dark:border-red-500/50 bg-red-50 dark:bg-red-500/10',
+                    'border-red-400 dark:border-red-500/50 bg-red-50 dark:bg-red-500/15',
                   // Today with tasks - BLUE
                   isCurrentMonth &&
                     hasDueToday &&
                     !isMissed &&
-                    'border-blue-400 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-500/10',
+                    'border-blue-400 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-500/15',
                   // Today without tasks
                   isCurrentMonth &&
                     isTodayDate &&

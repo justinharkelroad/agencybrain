@@ -191,7 +191,7 @@ function PaymentFailedLockoutPreview() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full">
         <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-4">
+          <div className="mx-auto w-16 h-16 bg-red-500/15 rounded-full flex items-center justify-center mb-4">
             <AlertTriangle className="w-8 h-8 text-red-500" />
           </div>
           <CardTitle className="text-xl">Payment Failed</CardTitle>

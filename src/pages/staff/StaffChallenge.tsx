@@ -383,7 +383,7 @@ export default function StaffChallenge() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-white">The Challenge</h1>
-            <p className="text-sm text-slate-400 mt-1">
+            <p className="text-sm text-foreground/60 dark:text-slate-400 mt-1">
               Day {current_business_day} of {assignment?.product?.total_lessons || 30}
             </p>
           </div>
@@ -392,7 +392,7 @@ export default function StaffChallenge() {
         {/* Progress */}
         <div className="mt-4 space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-slate-400">Overall Progress</span>
+            <span className="text-foreground/60 dark:text-slate-400">Overall Progress</span>
             <span className="text-white font-medium">{progress.progress_percent}%</span>
           </div>
           <Progress value={progress.progress_percent} className="h-2 bg-slate-700" />
@@ -474,7 +474,7 @@ export default function StaffChallenge() {
                     >
                       <div className={`p-2 rounded-full ${
                         isCompleted
-                          ? 'bg-green-500/10'
+                          ? 'bg-green-500/15'
                           : isLocked
                           ? 'bg-muted'
                           : 'bg-primary/10'
@@ -623,7 +623,7 @@ export default function StaffChallenge() {
                     {/* Discovery Flow Confirmation Checkbox */}
                     <div className={`flex items-start gap-3 p-3 rounded-lg border ${
                       selectedLesson.challenge_progress?.discovery_flow_completed
-                        ? 'border-green-500/30 bg-green-500/5'
+                        ? 'border-green-500/50 dark:border-green-500/30 bg-green-500/5'
                         : 'border-muted bg-muted/30'
                     }`}>
                       <Checkbox
@@ -685,7 +685,7 @@ export default function StaffChallenge() {
                 )}
 
                 {selectedLesson.challenge_progress?.status === 'completed' && (
-                  <div className="flex items-center justify-center gap-2 p-4 rounded-lg bg-green-500/10">
+                  <div className="flex items-center justify-center gap-2 p-4 rounded-lg bg-green-500/15">
                     <CheckCircle2 className="h-5 w-5 text-green-600" />
                     <span className="font-medium text-green-600">Lesson Completed</span>
                   </div>

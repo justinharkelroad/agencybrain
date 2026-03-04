@@ -170,10 +170,13 @@ const Dashboard = () => {
     <div className="min-h-screen">
       <main className="container mx-auto px-4 py-6 space-y-6 overflow-x-hidden">
         <h1 className="sr-only">Client Dashboard</h1>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="relative overflow-hidden border-b border-border/60 pb-4">
+          {/* Gradient wash — light mode only */}
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-primary/3 to-transparent dark:hidden pointer-events-none" />
+          <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Dashboard</p>
+              <p className="text-xs text-primary/70 dark:text-muted-foreground uppercase tracking-wide">Dashboard</p>
               <HelpButton videoKey="dashboard-overview" />
             </div>
             {agencyName && (
@@ -207,6 +210,7 @@ const Dashboard = () => {
             )}
           </div>
         </div>
+        </div>
         {(isAgencyOwner || isKeyEmployee) && <ProducerPowerUpBanner />}
         <PeriodRefreshProvider>
           {dashboardCallMetricsEnabled ? (
@@ -224,7 +228,7 @@ const Dashboard = () => {
                 {/* 0. Sales Dashboard Widget */}
                 {(isAdmin || hasSalesAccess(agencyId)) && (
                   <AccordionItem value="sales-performance">
-                    <AccordionTrigger className="text-lg font-semibold">
+                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/50 hover:bg-muted/80 transition-colors border-l-[3px] border-l-primary/60 dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
                       <span className="flex items-center gap-2">
                         Agency Sales Performance
                         <SectionHelpTip
@@ -268,7 +272,7 @@ const Dashboard = () => {
                 {/* 2. Performance Metrics + Month Over Month Trends (combined) */}
                 {(canViewPerformanceMetrics || canViewMonthOverMonthTrends) && (
                   <AccordionItem value="performance-metrics">
-                    <AccordionTrigger className="text-lg font-semibold">
+                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/50 hover:bg-muted/80 transition-colors border-l-[3px] border-l-primary/60 dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
                       <span className="flex items-center gap-2">
                         Performance Metrics
                         <SectionHelpTip
@@ -287,7 +291,7 @@ const Dashboard = () => {
                 {/* 4. Focus Targets */}
                 {canViewFocusTargets && (
                   <AccordionItem value="focus">
-                    <AccordionTrigger className="text-lg font-semibold">
+                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/50 hover:bg-muted/80 transition-colors border-l-[3px] border-l-primary/60 dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
                       <span className="flex items-center gap-2">
                         Focus Targets
                         <SectionHelpTip
@@ -321,7 +325,7 @@ const Dashboard = () => {
                 {/* 6. Roleplay Sessions */}
                 {canViewRoleplaySessions && (
                   <AccordionItem value="roleplay">
-                    <AccordionTrigger className="text-lg font-semibold">
+                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/50 hover:bg-muted/80 transition-colors border-l-[3px] border-l-primary/60 dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
                       <span className="flex items-center gap-2">
                         Roleplay Sessions
                         <SectionHelpTip

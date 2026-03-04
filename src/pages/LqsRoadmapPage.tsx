@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Target, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Target, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HelpButton } from '@/components/HelpButton';
 import { cn } from '@/lib/utils';
@@ -50,8 +50,8 @@ import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 import type { QuoteUploadResult, SalesUploadResult, PendingSaleReview, LeadStatus } from '@/types/lqs';
-import { PostUploadActionsModal } from '@/components/lqs/PostUploadActionsModal';
 import { SalesReviewModal, ReviewResult } from '@/components/lqs/SalesReviewModal';
+import { LqsSalesDashboardSyncModal } from '@/components/lqs/LqsSalesDashboardSyncModal';
 
 type TabValue = 'all' | 'by-date' | 'by-product' | 'by-source' | 'by-producer' | 'by-zip' | 'self-generated' | 'needs-attention' | 'missing-zip';
 type ViewMode = 'overview' | 'detail';
@@ -157,7 +157,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
   const [salesUploadResults, setSalesUploadResults] = useState<SalesUploadResult | null>(null);
   const [showSalesResultsModal, setShowSalesResultsModal] = useState(false);
   const [showSalesReviewModal, setShowSalesReviewModal] = useState(false);
-  const [showPostUploadActions, setShowPostUploadActions] = useState(false);
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
 
   // Permission check - staff portal users don't see revenue metrics
   const showRevenueMetrics = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
@@ -599,38 +599,6 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
     }
   };
 
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  const handleSyncSales = async () => {
-    if (!agencyProfile?.agencyId) return;
-    
-    setIsSyncing(true);
-    try {
-      const { data: results, error } = await supabase
-        .rpc('backfill_lqs_sales_matching', { p_agency_id: agencyProfile.agencyId });
-      
-      if (error) throw error;
-      
-      const linked = results?.filter((r: { status: string }) => r.status === 'linked').length || 0;
-      const noMatch = results?.filter((r: { status: string }) => r.status === 'no_match').length || 0;
-      
-      if (linked > 0) {
-        toast.success(`Matched ${linked} sales to households`);
-      } else if (noMatch > 0) {
-        toast.info(`Processed ${noMatch} sales - no matching households found`);
-      } else {
-        toast.info('No new sales to sync');
-      }
-      
-      refetch();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Sync failed: ' + message);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
   // Bucket counts for selector
   const bucketCounts = useMemo(() => {
     let households = effectiveHouseholds;
@@ -716,19 +684,16 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
                 result.needsReview > 0;
               if (hasIssues) {
                 setShowSalesResultsModal(true);
-              } else if (result.salesCreated > 0 && result.uploadedHouseholds.length > 0) {
-                // No issues — go straight to post-upload actions
-                setShowPostUploadActions(true);
+              } else if (result.salesCreated > 0) {
+                toast.success(`Imported ${result.salesCreated} sales`);
               }
             }}
           />
           <Button 
             variant="outline" 
-            onClick={handleSyncSales}
-            disabled={isSyncing}
+            onClick={() => setSyncModalOpen(true)}
           >
-            <RefreshCw className={cn("h-4 w-4 mr-2", isSyncing && "animate-spin")} />
-            {isSyncing ? 'Syncing...' : 'Sync Sales'}
+            Sync to Sales Dashboard
           </Button>
         </div>
       </div>
@@ -1061,14 +1026,6 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
             setShowSalesResultsModal(false);
             setShowSalesReviewModal(true);
           }}
-          onPostUploadActions={
-            salesUploadResults.uploadedHouseholds.length > 0
-              ? () => {
-                  setShowSalesResultsModal(false);
-                  setShowPostUploadActions(true);
-                }
-              : undefined
-          }
         />
       )}
 
@@ -1085,17 +1042,16 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         />
       )}
 
-      {/* Post-Upload Actions Modal (breakup letters + onboarding sequences) */}
-      {salesUploadResults && salesUploadResults.uploadedHouseholds.length > 0 && (
-        <PostUploadActionsModal
-          open={showPostUploadActions}
-          onOpenChange={setShowPostUploadActions}
-          households={salesUploadResults.uploadedHouseholds}
-          agencyId={agencyProfile.agencyId}
-          staffSessionToken={isStaffPortal ? staffSessionToken : null}
-          onComplete={() => refetch()}
-        />
-      )}
+      <LqsSalesDashboardSyncModal
+        open={syncModalOpen}
+        onOpenChange={setSyncModalOpen}
+        agencyId={agencyProfile?.agencyId ?? ''}
+        sessionToken={isStaffPortal ? staffSessionToken : null}
+        onSyncComplete={() => {
+          refetch();
+        }}
+      />
+
     </div>
   );
 }

@@ -164,9 +164,9 @@ export function SevenDayOutlook({ tasks, onDayClick, selectedDate }: SevenDayOut
                   'hover:shadow-md hover:border-primary/50',
                   isSelectedDate && 'ring-2 ring-primary ring-offset-2',
                   // Missed (past with incomplete tasks) - RED
-                  isMissed && 'border-red-400 dark:border-red-500/50 bg-red-50 dark:bg-red-500/10',
+                  isMissed && 'border-red-400 dark:border-red-500/50 bg-red-50 dark:bg-red-500/15',
                   // Today with tasks - BLUE
-                  hasDueToday && !isMissed && 'border-blue-400 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-500/10',
+                  hasDueToday && !isMissed && 'border-blue-400 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-500/15',
                   // Today without tasks
                   isTodayDate && count === 0 && 'border-primary/30 bg-primary/5',
                   // Past day completed (no tasks remaining)

@@ -110,11 +110,11 @@ function parseRetentionByMonth(reports: BusinessMetricsReport[]): ParsedMonthRet
 function heatmapClass(value: number | null): string {
   if (value === null) return 'bg-muted/10 text-muted-foreground';
   const points = value * 100;
-  if (points >= 1.0) return 'bg-emerald-500/20 text-emerald-400';
-  if (points >= 0) return 'bg-emerald-500/10 text-emerald-400';
+  if (points >= 1.0) return 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400';
+  if (points >= 0) return 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400';
   if (points >= -0.5) return 'bg-amber-500/10 text-amber-400';
   if (points < -5.0) return 'bg-red-500/30 text-red-300 font-bold';
-  return 'bg-red-500/20 text-red-400';
+  return 'bg-red-500/20 text-red-600 dark:text-red-400';
 }
 
 export function GCRetentionTab({ snapshots, reports }: GCRetentionTabProps) {
@@ -207,7 +207,7 @@ export function GCRetentionTab({ snapshots, reports }: GCRetentionTabProps) {
                 <div className="text-sm font-medium tabular-nums w-20 text-right">
                   {toPercent(row.current)}
                 </div>
-                <Badge variant="secondary" className={cn('tabular-nums', positive ? 'text-emerald-400' : 'text-red-400')}>
+                <Badge variant="secondary" className={cn('tabular-nums', positive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
                   {toPoints(row.variance)}
                 </Badge>
               </div>
@@ -297,7 +297,7 @@ export function GCRetentionTab({ snapshots, reports }: GCRetentionTabProps) {
                 <div className="font-medium">{row.label}</div>
               </div>
               <div className="flex items-center gap-3">
-                <Badge variant="secondary" className={cn('tabular-nums', (row.variance ?? 0) < 0 ? 'text-red-400' : 'text-emerald-400')}>
+                <Badge variant="secondary" className={cn('tabular-nums', (row.variance ?? 0) < 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400')}>
                   {toPoints(row.variance)} vs PY
                 </Badge>
                 <div className="text-sm text-muted-foreground tabular-nums w-24 text-right">

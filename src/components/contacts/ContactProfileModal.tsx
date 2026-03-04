@@ -1177,13 +1177,13 @@ function CancelAuditQuickActions({
   onStartSequence?: () => void;
 }) {
   const actions = [
-    { type: 'attempted_call', label: 'Call', icon: Phone, color: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
-    { type: 'voicemail_left', label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
-    { type: 'text_sent', label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-    { type: 'email_sent', label: 'Email', icon: Mail, color: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
-    { type: 'spoke_with_client', label: 'Spoke', icon: MessageCircle, color: 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
-    { type: 'payment_made', label: 'Paid', icon: DollarSign, color: 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30' },
-    { type: 'payment_promised', label: 'Promised', icon: Handshake, color: 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+    { type: 'attempted_call', label: 'Call', icon: Phone, color: 'bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30' },
+    { type: 'voicemail_left', label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/15 hover:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30' },
+    { type: 'text_sent', label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 dark:border-emerald-500/30' },
+    { type: 'email_sent', label: 'Email', icon: Mail, color: 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/50 dark:border-purple-500/30' },
+    { type: 'spoke_with_client', label: 'Spoke', icon: MessageCircle, color: 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-600 dark:text-cyan-400 border-cyan-500/50 dark:border-cyan-500/30' },
+    { type: 'payment_made', label: 'Paid', icon: DollarSign, color: 'bg-green-500/15 hover:bg-green-500/25 text-green-600 dark:text-green-400 border-green-500/50 dark:border-green-500/30' },
+    { type: 'payment_promised', label: 'Promised', icon: Handshake, color: 'bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-600 dark:text-yellow-400 border-yellow-500/50 dark:border-yellow-500/30' },
   ];
 
   return (
@@ -1236,15 +1236,15 @@ function WinbackQuickActions({
   onStartSequence?: () => void;
 }) {
   const contactActions = [
-    { type: 'called', label: 'Call', icon: Phone, color: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
-    { type: 'left_vm', label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
-    { type: 'texted', label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-    { type: 'emailed', label: 'Email', icon: Mail, color: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
+    { type: 'called', label: 'Call', icon: Phone, color: 'bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30' },
+    { type: 'left_vm', label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/15 hover:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30' },
+    { type: 'texted', label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 dark:border-emerald-500/30' },
+    { type: 'emailed', label: 'Email', icon: Mail, color: 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/50 dark:border-purple-500/30' },
   ];
 
   const outcomeActions = [
-    { outcome: 'quoted' as const, label: 'Quoted', icon: FileText, color: 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
-    { outcome: 'won_back' as const, label: 'Won Back', icon: CheckCircle2, color: 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30' },
+    { outcome: 'quoted' as const, label: 'Quoted', icon: FileText, color: 'bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-600 dark:text-yellow-400 border-yellow-500/50 dark:border-yellow-500/30' },
+    { outcome: 'won_back' as const, label: 'Won Back', icon: CheckCircle2, color: 'bg-green-500/15 hover:bg-green-500/25 text-green-600 dark:text-green-400 border-green-500/50 dark:border-green-500/30' },
   ];
 
   return (
@@ -1314,11 +1314,11 @@ function RenewalQuickActions({
   onStartSequence?: () => void;
 }) {
   const contactActions = [
-    { type: 'call' as RenewalActivityType, label: 'Call', icon: Phone, color: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
-    { type: 'voicemail' as RenewalActivityType, label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
-    { type: 'text' as RenewalActivityType, label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-    { type: 'email' as RenewalActivityType, label: 'Email', icon: Mail, color: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
-    { type: 'appointment' as RenewalActivityType, label: 'Appt', icon: Calendar, color: 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
+    { type: 'call' as RenewalActivityType, label: 'Call', icon: Phone, color: 'bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30' },
+    { type: 'voicemail' as RenewalActivityType, label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/15 hover:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30' },
+    { type: 'text' as RenewalActivityType, label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 dark:border-emerald-500/30' },
+    { type: 'email' as RenewalActivityType, label: 'Email', icon: Mail, color: 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/50 dark:border-purple-500/30' },
+    { type: 'appointment' as RenewalActivityType, label: 'Appt', icon: Calendar, color: 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-600 dark:text-cyan-400 border-cyan-500/50 dark:border-cyan-500/30' },
   ];
 
   const outcomeActions = [
@@ -1328,7 +1328,7 @@ function RenewalQuickActions({
       updateStatus: 'success' as WorkflowStatus,
       label: 'Successful',
       icon: CheckCircle2,
-      color: 'bg-green-500/10 hover:bg-green-500/20 text-green-400 border-green-500/30'
+      color: 'bg-green-500/15 hover:bg-green-500/25 text-green-600 dark:text-green-400 border-green-500/50 dark:border-green-500/30'
     },
     {
       type: 'review_done' as RenewalActivityType,
@@ -1414,11 +1414,11 @@ function LqsQuickActions({
   currentStage?: LifecycleStage;
 }) {
   const actions = [
-    { type: 'call', label: 'Call', icon: Phone, color: 'bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30' },
-    { type: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border-orange-500/30' },
-    { type: 'text', label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-    { type: 'email', label: 'Email', icon: Mail, color: 'bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border-purple-500/30' },
-    { type: 'appointment', label: 'Appt', icon: Calendar, color: 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/30' },
+    { type: 'call', label: 'Call', icon: Phone, color: 'bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30' },
+    { type: 'voicemail', label: 'Voicemail', icon: Voicemail, color: 'bg-orange-500/15 hover:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30' },
+    { type: 'text', label: 'Text', icon: MessageSquare, color: 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 dark:border-emerald-500/30' },
+    { type: 'email', label: 'Email', icon: Mail, color: 'bg-purple-500/15 hover:bg-purple-500/25 text-purple-600 dark:text-purple-400 border-purple-500/50 dark:border-purple-500/30' },
+    { type: 'appointment', label: 'Appt', icon: Calendar, color: 'bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-600 dark:text-cyan-400 border-cyan-500/50 dark:border-cyan-500/30' },
   ];
 
   // Show "Move to Quoted" only for leads (open_lead stage)
@@ -1452,7 +1452,7 @@ function LqsQuickActions({
             size="sm"
             className={cn(
               'border transition-colors',
-              'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+              'bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-600 dark:text-yellow-400 border-yellow-500/50 dark:border-yellow-500/30',
               loadingAction && 'opacity-50'
             )}
             onClick={onPromoteToQuoted}

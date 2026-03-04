@@ -93,7 +93,7 @@ export function MembershipGateModal({
         <div className="space-y-4">
           {/* Coming Soon Card */}
           {isComingSoon && (
-            <Card className="border-blue-500/30 bg-blue-500/5">
+            <Card className="border-blue-500/50 dark:border-blue-500/30 bg-blue-500/5">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
                   <Sparkles className="h-5 w-5 mt-0.5 text-blue-500" />

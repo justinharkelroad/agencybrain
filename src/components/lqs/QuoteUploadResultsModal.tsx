@@ -64,7 +64,7 @@ export function QuoteUploadResultsModal({ open, onOpenChange, results }: QuoteUp
             <div className="space-y-3">
               {/* Unmatched Producers */}
               {results.unmatchedProducers.length > 0 && (
-                <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3">
+                <div className="rounded-lg border border-yellow-500/50 dark:border-yellow-500/30 bg-yellow-500/15 p-3">
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="h-4 w-4 text-yellow-500 mt-0.5 flex-shrink-0" />
                     <div className="min-w-0">

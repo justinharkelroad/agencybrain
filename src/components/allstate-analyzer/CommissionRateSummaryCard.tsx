@@ -96,7 +96,7 @@ export function CommissionRateSummaryCard({ current, prior, period }: Props) {
           </div>
 
           {/* New Business Effective Rate */}
-          <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+          <div className="p-3 bg-green-500/15 border border-green-500/50 dark:border-green-500/30 rounded-lg">
             <p className="text-xs text-muted-foreground mb-1">New Business Rate</p>
             <p className="text-2xl font-semibold text-green-500">
               {current.newBusiness.effectiveRate.toFixed(2)}%

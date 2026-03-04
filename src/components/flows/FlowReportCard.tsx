@@ -240,7 +240,7 @@ export function FlowReportCard({
                       <Target className="h-5 w-5 text-green-500" strokeWidth={1.5} />
                       <h3 className="font-medium">Micro-Step</h3>
                     </div>
-                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                    <div className="bg-green-500/15 border border-green-500/20 rounded-lg p-4">
                       <p className="text-sm">
                         {analysis.suggested_action}
                       </p>

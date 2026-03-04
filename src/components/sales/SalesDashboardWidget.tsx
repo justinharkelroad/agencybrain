@@ -509,7 +509,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
 
           {/* Mini Leaderboard (for owners/admins) */}
           {(isAgencyOwner || isAdmin) && leaderboard.length > 0 && (
-            <div className="pt-3 border-t border-white/10">
+            <div className="pt-3 border-t border-border dark:border-white/10">
               <MiniLeaderboard
                 entries={leaderboard}
                 currentTeamMemberId={teamMemberId}
@@ -522,7 +522,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
           {/* Footer Stats Row */}
           <div className={cn(
             "grid grid-cols-4 gap-4 pt-4",
-            "border-t border-white/10 dark:border-white/5"
+            "border-t border-border dark:border-white/5"
           )}>
             <div className="text-center">
               <div className="text-lg font-semibold text-foreground">
@@ -530,13 +530,13 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
               </div>
               <div className="text-xs text-muted-foreground">Today</div>
             </div>
-            <div className="text-center border-x border-white/10 dark:border-white/5">
+            <div className="text-center border-x border-border dark:border-white/5">
               <div className="text-lg font-semibold text-foreground">
                 ${stats.weekPremium.toLocaleString()}
               </div>
               <div className="text-xs text-muted-foreground">This Week</div>
             </div>
-            <div className="text-center border-r border-white/10 dark:border-white/5">
+            <div className="text-center border-r border-border dark:border-white/5">
               <div className="text-lg font-semibold text-green-500 flex items-center justify-center gap-1">
                 <Phone className="h-3.5 w-3.5" />
                 {stats.oneCallCloses}
@@ -558,7 +558,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
 
           {/* Admin Promo Goals Section */}
           {(isAgencyOwner || isAdmin) && (
-            <div className="pt-4 border-t border-white/10 dark:border-white/5">
+            <div className="pt-4 border-t border-border dark:border-white/5">
               <AdminPromoGoalsWidget agencyId={agencyId} />
             </div>
           )}

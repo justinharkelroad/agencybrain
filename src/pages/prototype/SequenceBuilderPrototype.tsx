@@ -118,11 +118,11 @@ const targetTypeLabels: Record<SequenceTargetType, string> = {
 };
 
 const targetTypeColors: Record<SequenceTargetType, string> = {
-  onboarding: 'bg-green-500/10 text-green-500 border-green-500/20',
-  lead_nurturing: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-  requote: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
-  retention: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
-  other: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
+  onboarding: 'bg-green-500/15 text-green-500 border-green-500/20',
+  lead_nurturing: 'bg-blue-500/15 text-blue-500 border-blue-500/20',
+  requote: 'bg-orange-500/15 text-orange-500 border-orange-500/20',
+  retention: 'bg-purple-500/15 text-purple-500 border-purple-500/20',
+  other: 'bg-gray-500/15 text-gray-500 border-gray-500/20',
 };
 
 const actionIcons: Record<ActionType, React.ElementType> = {
