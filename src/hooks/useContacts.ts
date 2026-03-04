@@ -106,7 +106,7 @@ export function useContactSearch(agencyId: string | null, searchTerm: string) {
   });
 }
 
-// Find or create a contact for a source record
+// Find or create a contact for a source record (uses SECURITY DEFINER RPC for staff compatibility)
 export async function findOrCreateContact(
   agencyId: string,
   data: {
@@ -116,36 +116,22 @@ export async function findOrCreateContact(
     email?: string;
     zipCode?: string;
     householdKey: string;
+    linkHouseholdId?: string;
   }
 ): Promise<string> {
-  // First try to find existing contact by household key
-  const { data: existing } = await supabase
-    .from('agency_contacts')
-    .select('id')
-    .eq('agency_id', agencyId)
-    .eq('household_key', data.householdKey)
-    .single();
+  const staffToken = getStaffToken();
 
-  if (existing) return existing.id;
-
-  // Create new contact
-  const phones = data.phone ? [data.phone] : [];
-  const emails = data.email ? [data.email.toLowerCase()] : [];
-
-  const { data: created, error } = await supabase
-    .from('agency_contacts')
-    .insert({
-      agency_id: agencyId,
-      first_name: data.firstName.toUpperCase(),
-      last_name: data.lastName.toUpperCase(),
-      phones,
-      emails,
-      zip_code: data.zipCode,
-      household_key: data.householdKey,
-    })
-    .select('id')
-    .single();
+  const { data: contactId, error } = await supabase.rpc('find_or_create_contact', {
+    p_agency_id: agencyId,
+    p_first_name: data.firstName,
+    p_last_name: data.lastName,
+    p_zip_code: data.zipCode || null,
+    p_phone: data.phone || null,
+    p_email: data.email || null,
+    p_staff_session_token: staffToken || null,
+    p_link_household_id: data.linkHouseholdId || null,
+  });
 
   if (error) throw error;
-  return created.id;
+  return contactId;
 }

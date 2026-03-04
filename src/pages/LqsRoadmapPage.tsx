@@ -570,13 +570,8 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         email: household.email || undefined,
         zipCode: household.zip_code,
         householdKey,
+        linkHouseholdId: household.id,
       });
-
-      // Update the LQS household with the new contact_id
-      await supabase
-        .from('lqs_households')
-        .update({ contact_id: contactId })
-        .eq('id', household.id);
 
       // Now open the modal with the contact
       setProfileContactId(contactId);
