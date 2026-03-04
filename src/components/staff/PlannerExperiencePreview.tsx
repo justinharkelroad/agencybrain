@@ -174,7 +174,7 @@ export function PlannerExperiencePreview({
   managerViewLabel = "Leadership View",
 }: PlannerExperiencePreviewProps) {
   const { sessionToken, user, loading: staffAuthLoading } = useStaffAuth();
-  const simulatedDate = useMemo(() => new Date(new Date().getFullYear(), 2, 1), []); // March 1 local year for full-month testing
+  const simulatedDate = useMemo(() => new Date(), []);
 
   // Local simulation state
   const hasCompPlan = true;
@@ -214,6 +214,14 @@ export function PlannerExperiencePreview({
   const [isHydratingTargets, setIsHydratingTargets] = useState(false);
   const [isSavingTargets, setIsSavingTargets] = useState(false);
   const [currentStaffMemberId, setCurrentStaffMemberId] = useState<string | null>(null);
+  const [periodActuals, setPeriodActuals] = useState<{
+    period_quoted_count: number;
+    today_quoted_count: number;
+    period_sold_items: number;
+    today_sold_items: number;
+    days_with_data: number;
+  } | null>(null);
+  const [isLoadingActuals, setIsLoadingActuals] = useState(false);
   const periodOptions = useMemo(() => {
     const thisWeek = getWeekRange(simulatedDate, 0);
     const lastWeek = getWeekRange(simulatedDate, -1);
@@ -279,7 +287,7 @@ export function PlannerExperiencePreview({
   const targetItemsMax = viewingTeam ? 500 : memberItemsMax;
   const targetCommissionMin = viewingTeam ? 2000 : 500;
   const targetCommissionMax = viewingTeam ? 75000 : memberCommissionMax;
-  const actualQuotedHHPerDay = viewingTeam ? 20 : 5;
+  const actualQuotedHHPerDay = periodActuals?.today_quoted_count ?? 0;
   const managerActionLabel = viewingTeam
     ? "Adjust Team Targets"
     : hasMemberOverride
@@ -379,6 +387,66 @@ export function PlannerExperiencePreview({
     };
   }, [sessionToken, isManager, user?.team_member_id, invokeOptions, rowToGoal, staffAuthLoading]);
 
+  // Fetch real actuals from metrics_daily via edge function
+  useEffect(() => {
+    let mounted = true;
+    const fetchActuals = async () => {
+      // Guard: wait for auth to be ready
+      if (!sessionToken) {
+        if (staffAuthLoading) return;
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session) return;
+      }
+
+      setIsLoadingActuals(true);
+      const teamMemberId = viewingTeam
+        ? null
+        : isManager
+          ? viewAs !== "team" ? viewAs : null
+          : currentStaffMemberId || user?.team_member_id || null;
+
+      const { data, error } = await supabase.functions.invoke("get-household-focus-actuals", {
+        body: {
+          team_member_id: teamMemberId,
+          start_date: toDateInputValue(periodStart),
+          end_date: toDateInputValue(periodEnd),
+          today_date: toDateInputValue(simulatedDate),
+        },
+        ...invokeOptions,
+      });
+
+      if (mounted && !error && data) {
+        setPeriodActuals({
+          period_quoted_count: Number(data.period_quoted_count) || 0,
+          today_quoted_count: Number(data.today_quoted_count) || 0,
+          period_sold_items: Number(data.period_sold_items) || 0,
+          today_sold_items: Number(data.today_sold_items) || 0,
+          days_with_data: Number(data.days_with_data) || 0,
+        });
+      } else if (error) {
+        console.error("[PlannerExperiencePreview] Failed to fetch actuals:", error);
+        // On error, reset to zero rather than showing stale data
+        if (mounted) setPeriodActuals(null);
+      }
+      if (mounted) setIsLoadingActuals(false);
+    };
+
+    fetchActuals();
+    return () => { mounted = false; };
+  }, [
+    sessionToken,
+    staffAuthLoading,
+    invokeOptions,
+    viewingTeam,
+    isManager,
+    viewAs,
+    currentStaffMemberId,
+    user?.team_member_id,
+    periodStart,
+    periodEnd,
+    simulatedDate,
+  ]);
+
   useEffect(() => {
     if (!isManager) return;
     if (viewAs === "team") return;
@@ -472,13 +540,10 @@ export function PlannerExperiencePreview({
   ]);
 
   const requiredPerDay = derived.quotedHouseholdsPerDay;
-  // Preview-only attainment model must be range-driven (not selector-driven),
-  // so the same date range always renders the same percentages.
-  const mockAttainmentRate = isPastPeriod ? 0.88 : isFuturePeriod ? 0.2 : 0.46;
   // The plan target is monthly, so custom/weekly views should pro-rate by business days.
   const periodShare = bizTotal / baseMonthBusinessDays;
   const targetPeriodQuotedHH = ceilSafe(derived.quotedHouseholdsNeeded * periodShare);
-  const actualQuotedHHPeriod = Math.round(targetPeriodQuotedHH * mockAttainmentRate);
+  const actualQuotedHHPeriod = periodActuals?.period_quoted_count ?? 0;
   const reviewPerDay = ceilSafe(actualQuotedHHPeriod / Math.max(1, bizTotal));
   const actualPerDay = isPastPeriod ? reviewPerDay : actualQuotedHHPerDay;
   const activeRequiredPerDay = isPastPeriod
@@ -772,7 +837,12 @@ export function PlannerExperiencePreview({
               value={isPastPeriod ? actualQuotedHHPeriod.toString() : activeRequiredPerDay.toString()}
             />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {isLoadingActuals && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-background/60 backdrop-blur-[1px]">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+              </div>
+            )}
             <SemiGauge
               title={viewingTeam ? "Team Quoted HH" : "Quoted Households"}
               todayLabel={isPastPeriod ? "Avg" : "Today"}
@@ -826,7 +896,7 @@ export function PlannerExperiencePreview({
 
               <div className={cn(PANEL, "p-4 space-y-4")}>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Business days ({periodOptions[selectedPeriod].label}, simulated date: March 1)</span>
+                  <span className="text-muted-foreground">Business days ({periodOptions[selectedPeriod].label})</span>
                   <span>{bizElapsed} elapsed of {bizTotal} ({bizRemaining} left)</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
