@@ -97,21 +97,39 @@ export function RenewalSummaryWidget({ agencyId }: RenewalSummaryWidgetProps) {
             )}
           </div>
 
-          {/* Bundled vs Monoline mini bar */}
-          {total > 0 && (
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Bundled: {stats?.bundled || 0}</span>
-                <span>Monoline: {stats?.monoline || 0}</span>
+          {/* Bundled vs Monoline vs Unknown mini bar */}
+          {total > 0 && (() => {
+            const bundled = stats?.bundled || 0;
+            const monoline = stats?.monoline || 0;
+            const unknown = stats?.unknown || 0;
+            const bundledPct = (bundled / total) * 100;
+            const unknownPct = (unknown / total) * 100;
+            // Derive monoline as remainder to avoid floating-point overflow past 100%
+            const monolinePct = Math.max(0, 100 - bundledPct - unknownPct);
+            return (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>Bundled: {bundled}</span>
+                  {unknown > 0 && <span>Unclassified: {unknown}</span>}
+                  <span>Monoline: {monoline}</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden flex">
+                  <div
+                    className="h-full bg-primary transition-all"
+                    style={{ width: `${bundledPct}%` }}
+                  />
+                  <div
+                    className="h-full bg-gray-400 transition-all"
+                    style={{ width: `${unknownPct}%` }}
+                  />
+                  <div
+                    className="h-full bg-orange-400 transition-all"
+                    style={{ width: `${monolinePct}%` }}
+                  />
+                </div>
               </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-primary transition-all"
-                  style={{ width: `${total > 0 ? ((stats?.bundled || 0) / total) * 100 : 0}%` }}
-                />
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </CardContent>
     </Card>
