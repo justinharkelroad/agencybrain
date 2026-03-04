@@ -1526,6 +1526,216 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "record_won_back": {
+        // Full flow: create sale records, update winback status, log activities
+        const { householdId, policies: salePolicies, saleDate } = params;
+
+        if (!householdId || !salePolicies || !Array.isArray(salePolicies) || salePolicies.length === 0) {
+          return new Response(JSON.stringify({ error: "householdId and policies are required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Verify household belongs to agency
+        const { data: wbHousehold } = await supabase
+          .from("winback_households")
+          .select("id, status, first_name, last_name, phone, email, zip_code, contact_id")
+          .eq("id", householdId)
+          .eq("agency_id", agencyId)
+          .single();
+
+        if (!wbHousehold) {
+          return new Response(JSON.stringify({ error: "Household not found" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const wbTeamMemberId = verified.staffMemberId || null;
+
+        // Step 1: Find or create "Winback" lead source
+        let wbLeadSourceId: string | null = null;
+
+        const { data: wbExistingSource } = await supabase
+          .from("lead_sources")
+          .select("id")
+          .eq("agency_id", agencyId)
+          .ilike("name", "winback")
+          .limit(1)
+          .maybeSingle();
+
+        if (wbExistingSource) {
+          wbLeadSourceId = wbExistingSource.id;
+        } else {
+          const { data: wbNewSource, error: wbCreateErr } = await supabase
+            .from("lead_sources")
+            .insert({
+              agency_id: agencyId,
+              name: "Winback",
+              is_active: true,
+              is_self_generated: false,
+              cost_type: "per_lead",
+              cost_per_lead_cents: 0,
+            })
+            .select("id")
+            .single();
+
+          if (!wbCreateErr && wbNewSource) {
+            wbLeadSourceId = wbNewSource.id;
+          }
+        }
+
+        // Step 2: Compute totals
+        const wbTotalPolicies = salePolicies.length;
+        const wbTotalItems = salePolicies.reduce((sum: number, p: any) => sum + Math.round(p.items || 0), 0);
+        const wbTotalPremium = salePolicies.reduce((sum: number, p: any) => sum + (p.premium || 0), 0);
+        const wbCustomerName = `${wbHousehold.first_name || ""} ${wbHousehold.last_name || ""}`.trim() || "Unknown";
+        const wbSaleDate = saleDate || new Date().toISOString().split("T")[0];
+
+        // Step 3: Insert sales record
+        const { data: wbSaleRecord, error: wbSaleError } = await supabase
+          .from("sales")
+          .insert({
+            agency_id: agencyId,
+            team_member_id: wbTeamMemberId,
+            lead_source_id: wbLeadSourceId,
+            customer_name: wbCustomerName,
+            customer_email: wbHousehold.email || null,
+            customer_phone: wbHousehold.phone || null,
+            customer_zip: wbHousehold.zip_code || null,
+            sale_date: wbSaleDate,
+            effective_date: wbSaleDate,
+            total_policies: wbTotalPolicies,
+            total_items: wbTotalItems,
+            total_premium: wbTotalPremium,
+            is_bundle: wbTotalPolicies >= 2,
+            bundle_type: wbTotalPolicies >= 2 ? "Standard" : null,
+            is_one_call_close: false,
+            source: "winback",
+          })
+          .select("id")
+          .single();
+
+        if (wbSaleError || !wbSaleRecord) {
+          console.error("[record_won_back] sale insert error:", wbSaleError);
+          result = { success: false, error: wbSaleError?.message || "Failed to create sale" };
+          break;
+        }
+
+        const wbSaleId = wbSaleRecord.id;
+
+        // Step 4: Insert sale_policies + sale_items
+        for (const policy of salePolicies) {
+          const itemCount = Math.round(policy.items || 0); // Ensure integer for DB column
+
+          const { data: spRecord, error: spError } = await supabase
+            .from("sale_policies")
+            .insert({
+              sale_id: wbSaleId,
+              policy_type_name: policy.productName,
+              effective_date: wbSaleDate,
+              total_items: itemCount,
+              total_premium: policy.premium,
+            })
+            .select("id")
+            .single();
+
+          if (spError) {
+            console.error("[record_won_back] sale_policies insert error:", spError);
+            continue;
+          }
+
+          const { error: siError } = await supabase
+            .from("sale_items")
+            .insert({
+              sale_id: wbSaleId,
+              sale_policy_id: spRecord?.id || null,
+              product_type_name: policy.productName,
+              item_count: itemCount,
+              premium: policy.premium,
+            });
+
+          if (siError) {
+            console.error("[record_won_back] sale_items insert error:", siError);
+          }
+        }
+
+        // Step 5: Find or create contact and link to sale
+        // Track resolved contact for the activity mirror (household may not have one originally)
+        let wbResolvedContactId: string | null = wbHousehold.contact_id || null;
+        try {
+          const { data: wbContactId } = await supabase.rpc("find_or_create_contact", {
+            p_agency_id: agencyId,
+            p_first_name: wbHousehold.first_name || "",
+            p_last_name: wbHousehold.last_name || "",
+            p_zip_code: wbHousehold.zip_code || undefined,
+            p_phone: wbHousehold.phone || undefined,
+            p_email: wbHousehold.email || undefined,
+          });
+
+          if (wbContactId) {
+            wbResolvedContactId = wbContactId;
+            await supabase
+              .from("sales")
+              .update({ contact_id: wbContactId })
+              .eq("id", wbSaleId)
+              .is("contact_id", null);
+          }
+        } catch (contactErr) {
+          console.warn("[record_won_back] contact find/create error:", contactErr);
+        }
+
+        // Step 6: Update winback status (concurrency guard)
+        await supabase
+          .from("winback_households")
+          .update({ status: "won_back", updated_at: new Date().toISOString() })
+          .eq("id", householdId)
+          .eq("status", wbHousehold.status);
+
+        // Step 7: Log activities
+        let wbUserName = "Unknown";
+        if (wbTeamMemberId) {
+          const { data: wbMember } = await supabase
+            .from("team_members")
+            .select("name")
+            .eq("id", wbTeamMemberId)
+            .single();
+          if (wbMember) wbUserName = wbMember.name;
+        }
+
+        await supabase.from("winback_activities").insert({
+          household_id: householdId,
+          agency_id: agencyId,
+          activity_type: "status_change",
+          old_status: wbHousehold.status,
+          new_status: "won_back",
+          created_by_team_member_id: wbTeamMemberId || null,
+          created_by_name: wbUserName,
+        });
+
+        // Mirror to contact_activities (use resolved contact, not stale wbHousehold.contact_id)
+        if (wbResolvedContactId) {
+          try {
+            await supabase.rpc("insert_contact_activity", {
+              p_contact_id: wbResolvedContactId,
+              p_agency_id: agencyId,
+              p_source_module: "winback",
+              p_activity_type: "won_back",
+              p_activity_subtype: null,
+              p_source_record_id: householdId,
+              p_notes: `Won back: ${wbTotalPolicies} policies, ${wbTotalItems} items, $${wbTotalPremium.toLocaleString()}`,
+              p_created_by_display_name: wbUserName,
+            });
+          } catch (mirrorErr) {
+            console.error("[record_won_back] contact_activities mirror error:", mirrorErr);
+          }
+        }
+
+        result = { success: true, saleId: wbSaleId };
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: "Unknown operation" }), {
           status: 400,

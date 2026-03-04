@@ -1109,6 +1109,222 @@ export async function bulkDeleteHouseholds(householdIds: string[]): Promise<void
   if (error) throw error;
 }
 
+// ============ Won Back Sale ============
+
+export interface WonBackSalePolicy {
+  productName: string;
+  policyNumber: string | null;
+  items: number;
+  premium: number;
+}
+
+export async function recordWonBackSale(
+  householdId: string,
+  agencyId: string,
+  household: {
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
+    email: string | null;
+    zip_code: string | null;
+    contact_id: string | null;
+    status: string;
+  },
+  policies: WonBackSalePolicy[],
+  saleDate: string,
+  currentUserTeamMemberId: string | null,
+  teamMembers: TeamMember[]
+): Promise<{ success: boolean; saleId?: string; error?: string }> {
+  if (isStaffUser()) {
+    return callStaffWinback('record_won_back', {
+      householdId,
+      policies,
+      saleDate,
+    });
+  }
+
+  try {
+    // Step 1: Find or create "Winback" lead source
+    let winbackLeadSourceId: string | null = null;
+
+    const { data: existingSource } = await supabase
+      .from('lead_sources')
+      .select('id')
+      .eq('agency_id', agencyId)
+      .ilike('name', 'winback')
+      .limit(1)
+      .maybeSingle();
+
+    if (existingSource) {
+      winbackLeadSourceId = existingSource.id;
+    } else {
+      const { data: newSource, error: createError } = await supabase
+        .from('lead_sources')
+        .insert({
+          agency_id: agencyId,
+          name: 'Winback',
+          is_active: true,
+          is_self_generated: false,
+          cost_type: 'per_lead',
+          cost_per_lead_cents: 0,
+        })
+        .select('id')
+        .single();
+
+      if (!createError && newSource) {
+        winbackLeadSourceId = newSource.id;
+      }
+    }
+
+    // Step 2: Compute totals from policy entries
+    const totalPolicies = policies.length;
+    const totalItems = policies.reduce((sum, p) => sum + Math.round(p.items), 0);
+    const totalPremium = policies.reduce((sum, p) => sum + p.premium, 0);
+    const customerName = `${household.first_name || ''} ${household.last_name || ''}`.trim() || 'Unknown';
+
+    // Step 3: Insert sales record
+    const { data: saleRecord, error: saleError } = await supabase
+      .from('sales')
+      .insert({
+        agency_id: agencyId,
+        team_member_id: currentUserTeamMemberId || null,
+        lead_source_id: winbackLeadSourceId,
+        customer_name: customerName,
+        customer_email: household.email || null,
+        customer_phone: household.phone || null,
+        customer_zip: household.zip_code || null,
+        sale_date: saleDate,
+        effective_date: saleDate,
+        total_policies: totalPolicies,
+        total_items: totalItems,
+        total_premium: totalPremium,
+        is_bundle: totalPolicies >= 2,
+        bundle_type: totalPolicies >= 2 ? 'Standard' : null,
+        is_one_call_close: false,
+        source: 'winback',
+      })
+      .select('id')
+      .single();
+
+    if (saleError || !saleRecord) {
+      console.error('[recordWonBackSale] sale insert error:', saleError);
+      return { success: false, error: saleError?.message || 'Failed to create sale' };
+    }
+
+    const saleId = saleRecord.id;
+
+    // Step 4: Insert sale_policies and sale_items for each policy
+    for (const policy of policies) {
+      const itemCount = Math.round(policy.items); // Ensure integer for DB column
+
+      const { data: salePolicyRecord, error: spError } = await supabase
+        .from('sale_policies')
+        .insert({
+          sale_id: saleId,
+          policy_type_name: policy.productName,
+          effective_date: saleDate,
+          total_items: itemCount,
+          total_premium: policy.premium,
+        })
+        .select('id')
+        .single();
+
+      if (spError) {
+        console.error('[recordWonBackSale] sale_policies insert error:', spError);
+        continue;
+      }
+
+      // Insert sale_items
+      const { error: siError } = await supabase
+        .from('sale_items')
+        .insert({
+          sale_id: saleId,
+          sale_policy_id: salePolicyRecord?.id || null,
+          product_type_name: policy.productName,
+          item_count: itemCount,
+          premium: policy.premium,
+        });
+
+      if (siError) {
+        console.error('[recordWonBackSale] sale_items insert error:', siError);
+      }
+    }
+
+    // Step 5: Find or create contact and link to sale
+    // Use freshly resolved contactId for the activity mirror (not the stale household.contact_id)
+    let resolvedContactId: string | null = household.contact_id;
+    try {
+      const firstName = household.first_name || '';
+      const lastName = household.last_name || '';
+      const { data: contactId } = await supabase.rpc('find_or_create_contact', {
+        p_agency_id: agencyId,
+        p_first_name: firstName,
+        p_last_name: lastName,
+        p_zip_code: household.zip_code || undefined,
+        p_phone: household.phone || undefined,
+        p_email: household.email || undefined,
+      });
+
+      if (contactId) {
+        resolvedContactId = contactId;
+        await supabase
+          .from('sales')
+          .update({ contact_id: contactId })
+          .eq('id', saleId)
+          .is('contact_id', null);
+      }
+    } catch (contactErr) {
+      console.warn('[recordWonBackSale] contact find/create error:', contactErr);
+    }
+
+    // Step 6: Update winback_households.status = 'won_back' (concurrency guard)
+    const { count: updatedCount } = await supabase
+      .from('winback_households')
+      .update({ status: 'won_back', updated_at: new Date().toISOString() }, { count: 'exact' })
+      .eq('id', householdId)
+      .eq('status', household.status);
+
+    if (updatedCount === 0) {
+      console.warn('[recordWonBackSale] winback status update matched 0 rows');
+    }
+
+    // Step 7: Log activities
+    const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
+
+    await supabase.from('winback_activities').insert({
+      household_id: householdId,
+      agency_id: agencyId,
+      activity_type: 'status_change',
+      old_status: household.status,
+      new_status: 'won_back',
+      created_by_team_member_id: currentUserTeamMemberId || null,
+      created_by_name: userName,
+    });
+
+    // Mirror to contact_activities (use resolved contact, not stale household.contact_id)
+    if (resolvedContactId) {
+      try {
+        await supabase.rpc('insert_contact_activity', {
+          p_agency_id: agencyId,
+          p_contact_id: resolvedContactId,
+          p_source_module: 'winback',
+          p_activity_type: 'won_back',
+          p_source_record_id: householdId,
+          p_notes: `Won back: ${totalPolicies} policies, ${totalItems} items, $${totalPremium.toLocaleString()}`,
+          p_created_by_display_name: userName,
+        });
+      } catch (mirrorErr) {
+        console.warn('[recordWonBackSale] contact_activities mirror error:', mirrorErr);
+      }
+    }
+
+    return { success: true, saleId };
+  } catch (err) {
+    console.error('[recordWonBackSale] unexpected error:', err);
+    return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+  }
+}
+
 // ============ Termination Analytics ============
 
 export interface TerminationTeamMember {

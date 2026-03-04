@@ -15,17 +15,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { WinbackStatusBadge } from './WinbackStatusBadge';
 import { WinbackActivityLog } from './WinbackActivityLog';
 import { toast } from 'sonner';
-import { Phone, Mail, MapPin, Calendar, Play, CheckCircle, RotateCcw, Trash2, Clock } from 'lucide-react';
+import { Phone, Mail, MapPin, Calendar, Play, CheckCircle, RotateCcw, Trash2, Clock, DollarSign } from 'lucide-react';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Household } from './WinbackHouseholdTable';
 import * as winbackApi from '@/lib/winbackApi';
+import type { WonBackSalePolicy } from '@/lib/winbackApi';
 import { supabase } from '@/integrations/supabase/client';
 import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 import { MoveToQuotedDialog } from '@/components/lqs/MoveToQuotedDialog';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Policy {
   id: string;
@@ -54,6 +59,15 @@ interface Activity {
 interface TeamMember {
   id: string;
   name: string;
+}
+
+interface PolicyEntry {
+  policyId: string;
+  productName: string;
+  policyNumber: string | null;
+  selected: boolean;
+  items: string;
+  premium: string;
 }
 
 interface WinbackHouseholdModalProps {
@@ -96,6 +110,7 @@ export function WinbackHouseholdModal({
   onUpdate,
   contactDaysBefore = 45,
 }: WinbackHouseholdModalProps) {
+  const queryClient = useQueryClient();
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(false);
@@ -105,6 +120,11 @@ export function WinbackHouseholdModal({
   const [pendingQuotedNotes, setPendingQuotedNotes] = useState('');
   const [assignedTo, setAssignedTo] = useState<string>('unassigned');
   const [localStatus, setLocalStatus] = useState<Household['status']>('untouched');
+
+  // Won Back sale dialog state
+  const [wonBackDialogOpen, setWonBackDialogOpen] = useState(false);
+  const [policyEntries, setPolicyEntries] = useState<PolicyEntry[]>([]);
+  const [wonBackSaving, setWonBackSaving] = useState(false);
 
   useEffect(() => {
     if (open && household) {
@@ -408,6 +428,108 @@ export function WinbackHouseholdModal({
     }
   };
 
+  const handleOpenWonBackDialog = () => {
+    // Initialize policy entries from loaded policies, all pre-checked, blank fields
+    setPolicyEntries(
+      policies.map((p) => ({
+        policyId: p.id,
+        productName: p.product_name || p.product_code || 'Unknown Policy',
+        policyNumber: p.policy_number,
+        selected: true,
+        items: '',
+        premium: '',
+      }))
+    );
+    setWonBackDialogOpen(true);
+  };
+
+  const handleWonBack = async () => {
+    if (!household || !agencyId) return;
+
+    // Validate: at least 1 selected, all selected have items > 0 and premium > 0
+    const selectedEntries = policyEntries.filter((e) => e.selected);
+    if (selectedEntries.length === 0) {
+      toast.error('Select at least one policy');
+      return;
+    }
+
+    for (const entry of selectedEntries) {
+      const items = Number(entry.items);
+      const premium = Number(entry.premium);
+      if (!items || items <= 0) {
+        toast.error(`Enter items for ${entry.productName}`);
+        return;
+      }
+      if (!premium || premium <= 0) {
+        toast.error(`Enter premium for ${entry.productName}`);
+        return;
+      }
+    }
+
+    setWonBackSaving(true);
+    try {
+      const salePolicies: WonBackSalePolicy[] = selectedEntries.map((e) => ({
+        productName: e.productName,
+        policyNumber: e.policyNumber,
+        items: Number(e.items),
+        premium: Number(e.premium),
+      }));
+
+      const saleDate = new Date().toISOString().split('T')[0];
+
+      const result = await winbackApi.recordWonBackSale(
+        household.id,
+        agencyId,
+        {
+          first_name: household.first_name,
+          last_name: household.last_name,
+          phone: household.phone,
+          email: household.email,
+          zip_code: household.zip_code,
+          contact_id: household.contact_id || null,
+          status: localStatus,
+        },
+        salePolicies,
+        saleDate,
+        currentUserTeamMemberId,
+        teamMembers
+      );
+
+      if (!result.success) {
+        toast.error('Failed to record sale', { description: result.error });
+        return;
+      }
+
+      // Invalidate caches so dashboard/sales/contacts reflect the new sale
+      queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+
+      const totalItems = salePolicies.reduce((s, p) => s + p.items, 0);
+      const totalPremium = salePolicies.reduce((s, p) => s + p.premium, 0);
+      toast.success('Won Back!', {
+        description: `Sale recorded: ${salePolicies.length} policies, ${totalItems} items, $${totalPremium.toLocaleString()}`,
+      });
+
+      setLocalStatus('won_back');
+      setWonBackDialogOpen(false);
+      onUpdate();
+
+      // Refresh activities
+      try {
+        const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
+        setActivities(refreshedActivities as Activity[]);
+      } catch (refreshErr) {
+        console.warn('Failed to refresh activities after won back:', refreshErr);
+      }
+    } catch (err) {
+      console.error('Error recording won back sale:', err);
+      toast.error('Failed to record sale');
+    } finally {
+      setWonBackSaving(false);
+    }
+  };
+
   const handleNotNow = async () => {
     if (!household || !agencyId) return;
     setSaving(true);
@@ -631,7 +753,7 @@ export function WinbackHouseholdModal({
               
               {localStatus === 'in_progress' && (
                 <>
-                  <Button onClick={() => handleStatusChange('won_back')} disabled={saving} className="bg-green-600 hover:bg-green-700">
+                  <Button onClick={handleOpenWonBackDialog} disabled={saving || loading} className="bg-green-600 hover:bg-green-700">
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Won Back
                   </Button>
@@ -708,6 +830,120 @@ export function WinbackHouseholdModal({
           agencyId={agencyId}
         />
       )}
+
+      {/* Won Back Sale Entry Dialog */}
+      <Dialog open={wonBackDialogOpen} onOpenChange={setWonBackDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-600" />
+              Record Win-Back Sale
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Customer summary */}
+            <div className="text-sm text-muted-foreground bg-muted/50 rounded-md p-3">
+              <p className="font-medium text-foreground">{fullName || 'Unknown'}</p>
+              {household?.phone && <p>{formatPhone(household.phone)}</p>}
+              {zipCode && <p>ZIP: {zipCode}</p>}
+            </div>
+
+            {/* Policy entries */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Policies Sold</Label>
+              {policyEntries.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No policies loaded</p>
+              ) : (
+                policyEntries.map((entry, idx) => (
+                  <div key={entry.policyId} className={cn(
+                    'rounded-md border p-3 space-y-2 transition-opacity',
+                    !entry.selected && 'opacity-50'
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={`policy-${entry.policyId}`}
+                        checked={entry.selected}
+                        onCheckedChange={(checked) => {
+                          setPolicyEntries((prev) =>
+                            prev.map((e, i) => i === idx ? { ...e, selected: !!checked } : e)
+                          );
+                        }}
+                      />
+                      <label htmlFor={`policy-${entry.policyId}`} className="text-sm font-medium cursor-pointer flex-1">
+                        {entry.productName}
+                      </label>
+                      {entry.policyNumber && (
+                        <span className="text-xs text-muted-foreground font-mono">{entry.policyNumber}</span>
+                      )}
+                    </div>
+
+                    {entry.selected && (
+                      <div className="grid grid-cols-2 gap-3 pl-6">
+                        <div>
+                          <Label htmlFor={`items-${entry.policyId}`} className="text-xs text-muted-foreground">Items</Label>
+                          <Input
+                            id={`items-${entry.policyId}`}
+                            type="number"
+                            min="1"
+                            placeholder="0"
+                            value={entry.items}
+                            onChange={(e) => {
+                              setPolicyEntries((prev) =>
+                                prev.map((en, i) => i === idx ? { ...en, items: e.target.value } : en)
+                              );
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor={`premium-${entry.policyId}`} className="text-xs text-muted-foreground">Premium ($)</Label>
+                          <Input
+                            id={`premium-${entry.policyId}`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={entry.premium}
+                            onChange={(e) => {
+                              setPolicyEntries((prev) =>
+                                prev.map((en, i) => i === idx ? { ...en, premium: e.target.value } : en)
+                              );
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Summary footer */}
+            {(() => {
+              const selected = policyEntries.filter((e) => e.selected);
+              const totalItems = selected.reduce((s, e) => s + (Number(e.items) || 0), 0);
+              const totalPremium = selected.reduce((s, e) => s + (Number(e.premium) || 0), 0);
+              return selected.length > 0 ? (
+                <div className="text-sm bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md p-3 flex justify-between">
+                  <span>{selected.length} {selected.length === 1 ? 'policy' : 'policies'}</span>
+                  <span>{totalItems} items</span>
+                  <span className="font-medium">${totalPremium.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              ) : null;
+            })()}
+
+            {/* Actions */}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setWonBackDialogOpen(false)} disabled={wonBackSaving}>
+                Cancel
+              </Button>
+              <Button onClick={handleWonBack} disabled={wonBackSaving} className="bg-green-600 hover:bg-green-700">
+                {wonBackSaving ? 'Recording…' : 'Record Sale & Won Back'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
