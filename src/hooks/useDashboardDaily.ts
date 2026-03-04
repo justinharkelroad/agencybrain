@@ -85,7 +85,7 @@ export function useDashboardDaily(
         throw new Error(errorData.error || `Dashboard API error ${response.status}`);
       }
 
-      const { rows, agencyCallTotals } = await response.json();
+      const { rows, agencyCallTotals, lqsQuotedTotal } = await response.json();
       
       console.log("Raw dashboard data:", rows);
 
@@ -111,7 +111,10 @@ export function useDashboardDaily(
         },
         {
           title: "Quoted",
-          value: filteredRows.reduce((sum: number, row: DailyMetric) => sum + (row.quoted_count || 0), 0),
+          value: Math.max(
+            filteredRows.reduce((sum: number, row: DailyMetric) => sum + (row.quoted_count || 0), 0),
+            lqsQuotedTotal || 0
+          ),
           icon: "📋"
         },
         {

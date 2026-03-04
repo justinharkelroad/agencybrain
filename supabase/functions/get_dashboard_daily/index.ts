@@ -236,6 +236,33 @@ serve(async (req) => {
       });
     }
 
+    // ── LQS households: count quoted/sold with first_quote_date = workDate ──
+    // Same MAX strategy used by get-household-focus-actuals so the top circle
+    // KPIs stay in sync with Team Household Focus.
+    const { data: lqsHouseholds, error: lqsError } = await supabase
+      .from('lqs_households')
+      .select('id, team_member_id')
+      .eq('agency_id', agencyId)
+      .in('status', ['quoted', 'sold'])
+      .eq('first_quote_date', workDate);
+
+    const lqsByTeamMember = new Map<string, number>();
+    let lqsQuotedTotal = 0;
+    if (lqsError) {
+      console.error('Dashboard daily lqs_households query error:', lqsError);
+      // Non-fatal — fall back to metrics_daily only
+    } else if (lqsHouseholds) {
+      lqsQuotedTotal = lqsHouseholds.length;
+      for (const h of lqsHouseholds) {
+        if (h.team_member_id) {
+          lqsByTeamMember.set(
+            h.team_member_id,
+            (lqsByTeamMember.get(h.team_member_id) || 0) + 1
+          );
+        }
+      }
+    }
+
     let agencyCallTotals: { outbound_calls: number; talk_minutes: number } | null = null;
     if (agencyCallMetricsMode === 'on' || agencyCallMetricsMode === 'shadow') {
       // Build agency-wide totals from call_metrics_daily first.
@@ -307,7 +334,10 @@ serve(async (req) => {
         work_date: row.date,
         outbound_calls: outboundCalls,
         talk_minutes: talkMinutes,
-        quoted_count: row.quoted_households || row.quoted_count || 0,
+        quoted_count: Math.max(
+          row.quoted_households || row.quoted_count || 0,
+          lqsByTeamMember.get(row.team_member_id) || 0
+        ),
         sold_items: row.items_sold || row.sold_items || 0,
         sold_policies: row.sold_policies || 0,
         sold_premium_cents: row.sold_premium_cents || 0,
@@ -324,7 +354,7 @@ serve(async (req) => {
     console.log(`Dashboard daily [${authResult.mode}]: Found ${rows.length} rows for agency ${agencySlug || agencyId} on ${workDate} with role ${role}`);
 
     return new Response(
-      JSON.stringify({ rows, agencyCallTotals }),
+      JSON.stringify({ rows, agencyCallTotals, lqsQuotedTotal }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
