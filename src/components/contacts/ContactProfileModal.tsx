@@ -804,18 +804,22 @@ export function ContactProfileModal({
         }
 
         if (contactId) {
-          await supabase.from('contact_activities').insert({
-            contact_id: contactId,
-            agency_id: agencyId,
-            activity_type: 'status_change',
-            source_module: 'lqs',
-            source_record_id: lqsHousehold.id,
-            subject: 'Moved to Quoted',
-            notes: `Lead promoted to Quoted Household (${products.join(', ')})`,
-            created_by_user_id: userId || null,
-            created_by_staff_id: resolvedCreatedByStaffId,
-            created_by_display_name: displayName || null,
-          }).catch(err => console.warn('Activity log failed:', err));
+          try {
+            await supabase.from('contact_activities').insert({
+              contact_id: contactId,
+              agency_id: agencyId,
+              activity_type: 'status_change',
+              source_module: 'lqs',
+              source_record_id: lqsHousehold.id,
+              subject: 'Moved to Quoted',
+              notes: `Lead promoted to Quoted Household (${products.join(', ')})`,
+              created_by_user_id: userId || null,
+              created_by_staff_id: resolvedCreatedByStaffId,
+              created_by_display_name: displayName || null,
+            });
+          } catch (err) {
+            console.warn('Activity log failed:', err);
+          }
         }
       }
 

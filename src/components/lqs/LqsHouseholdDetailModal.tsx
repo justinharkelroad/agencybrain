@@ -575,15 +575,19 @@ export function LqsHouseholdDetailModal({
 
         // Log activity if contact exists
         if (household.contact_id) {
-          await supabase.from('contact_activities').insert({
-            contact_id: household.contact_id,
-            agency_id: household.agency_id,
-            activity_type: 'status_change',
-            source_module: 'lqs',
-            source_record_id: household.id,
-            subject: 'Moved to Quoted',
-            notes: `Lead promoted to Quoted Household (${products.join(', ')})`,
-          }).catch(err => console.warn('Activity log failed:', err));
+          try {
+            await supabase.from('contact_activities').insert({
+              contact_id: household.contact_id,
+              agency_id: household.agency_id,
+              activity_type: 'status_change',
+              source_module: 'lqs',
+              source_record_id: household.id,
+              subject: 'Moved to Quoted',
+              notes: `Lead promoted to Quoted Household (${products.join(', ')})`,
+            });
+          } catch (err) {
+            console.warn('Activity log failed:', err);
+          }
         }
       }
 
