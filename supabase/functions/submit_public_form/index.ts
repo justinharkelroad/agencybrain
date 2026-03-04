@@ -216,6 +216,20 @@ serve(async (req) => {
       }
     }
 
+    // --- enrich quoted_details with objection_name when only an id is provided
+    if (Array.isArray(v.quoted_details)) {
+      for (const r of v.quoted_details) {
+        if (r.objection_id && !r.objection_name) {
+          const { data: obj } = await supabase
+            .from("lqs_objections")
+            .select("id,name")
+            .eq("id", r.objection_id)
+            .single();
+          if (obj) r.objection_name = obj.name;
+        }
+      }
+    }
+
     // quotedDetails -> quoted_details
     if (Array.isArray(raw.quotedDetails)) {
       v.quoted_details = raw.quotedDetails;

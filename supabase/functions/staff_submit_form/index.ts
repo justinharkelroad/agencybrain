@@ -239,6 +239,20 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Enrich quoted_details with objection_name
+    if (Array.isArray(v.quoted_details)) {
+      for (const r of v.quoted_details) {
+        if (r.objection_id && !r.objection_name) {
+          const { data: obj } = await supabase
+            .from('lqs_objections')
+            .select('id,name')
+            .eq('id', r.objection_id)
+            .single();
+          if (obj) r.objection_name = obj.name;
+        }
+      }
+    }
+
     // Enrich soldDetails with lead_source_label
     if (Array.isArray(v.soldDetails)) {
       for (const sold of v.soldDetails) {

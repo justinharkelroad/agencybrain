@@ -99,6 +99,8 @@ Deno.serve(async (req) => {
       policies_quoted: (h as any).lqs_quotes?.length || 0,
       items_quoted: (h as any).lqs_quotes?.reduce((sum: number, q: any) => sum + (q.items_quoted || 0), 0) || 0,
       premium_potential: ((h as any).lqs_quotes?.reduce((sum: number, q: any) => sum + (q.premium_cents || 0), 0) || 0) / 100,
+      objection_id: h.objection_id || null,
+      objection_name: (h as any).lqs_objections?.name || null,
       _lqs_household_id: h.id,
       _from_dashboard: true,
     }));

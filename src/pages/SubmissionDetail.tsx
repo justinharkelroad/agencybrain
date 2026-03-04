@@ -138,7 +138,8 @@ function normalizeQuotedRows(
       "zip","zip_code","postal",
       "email","phone","phone_number",
       "items_quoted","policies_quoted","premium_potential",
-      "_from_dashboard","_lqs_household_id"
+      "_from_dashboard","_lqs_household_id",
+      "objection_id","objection_name"
     ]);
     const extras = Object.entries(row)
       .filter(([k]) => !EXCLUDE.has(k) && row[k] != null && row[k] !== "")
