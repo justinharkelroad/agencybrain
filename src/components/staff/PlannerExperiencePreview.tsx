@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { toast } from "sonner";
 import { buildHouseholdFocusSaveRequest, type SaveTargetPayload } from "@/components/staff/plannerSaveScope";
+import { HouseholdFocusDrilldownSheet, type DrilldownHousehold } from "@/components/staff/HouseholdFocusDrilldownSheet";
 
 type GoalMode = "commission" | "items";
 type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "custom";
@@ -222,6 +223,9 @@ export function PlannerExperiencePreview({
     days_with_data: number;
   } | null>(null);
   const [isLoadingActuals, setIsLoadingActuals] = useState(false);
+  const [drilldownOpen, setDrilldownOpen] = useState(false);
+  const [drilldownHouseholds, setDrilldownHouseholds] = useState<DrilldownHousehold[]>([]);
+  const [drilldownLoading, setDrilldownLoading] = useState(false);
   const periodOptions = useMemo(() => {
     const thisWeek = getWeekRange(simulatedDate, 0);
     const lastWeek = getWeekRange(simulatedDate, -1);
@@ -446,6 +450,35 @@ export function PlannerExperiencePreview({
     periodEnd,
     simulatedDate,
   ]);
+
+  const openDrilldown = useCallback(async () => {
+    setDrilldownOpen(true);
+    setDrilldownLoading(true);
+    setDrilldownHouseholds([]);
+
+    const teamMemberId = viewingTeam
+      ? null
+      : isManager
+        ? viewAs !== "team" ? viewAs : null
+        : currentStaffMemberId || user?.team_member_id || null;
+
+    const { data, error } = await supabase.functions.invoke("get-household-focus-actuals", {
+      body: {
+        action: "list",
+        team_member_id: teamMemberId,
+        start_date: toDateInputValue(periodStart),
+        end_date: toDateInputValue(periodEnd),
+      },
+      ...invokeOptions,
+    });
+
+    if (!error && data?.households) {
+      setDrilldownHouseholds(data.households as DrilldownHousehold[]);
+    } else if (error) {
+      console.error("[PlannerExperiencePreview] Failed to fetch household list:", error);
+    }
+    setDrilldownLoading(false);
+  }, [viewingTeam, isManager, viewAs, currentStaffMemberId, user?.team_member_id, periodStart, periodEnd, invokeOptions]);
 
   useEffect(() => {
     if (!isManager) return;
@@ -835,6 +868,7 @@ export function PlannerExperiencePreview({
                 ? (viewingTeam ? "Team Actual Quoted HH (Period)" : "Actual Quoted HH (Period)")
                 : (viewingTeam ? "Team Quoted HH / Day Target" : "Quoted HH / Day Target")}
               value={isPastPeriod ? actualQuotedHHPeriod.toString() : activeRequiredPerDay.toString()}
+              onClick={isPastPeriod ? openDrilldown : undefined}
             />
           </div>
           <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -850,6 +884,7 @@ export function PlannerExperiencePreview({
               period={`${actualQuotedHHPeriod} of ${targetPeriodQuotedHH}`}
               progress={quotedPeriodProgress}
               colorClass="text-cyan-600 dark:text-cyan-400"
+              onPeriodClick={openDrilldown}
             />
             <SemiGauge
               title={isPastPeriod
@@ -1146,15 +1181,29 @@ export function PlannerExperiencePreview({
             </div>
         </DialogContent>
       </Dialog>
+
+      <HouseholdFocusDrilldownSheet
+        open={drilldownOpen}
+        onOpenChange={setDrilldownOpen}
+        households={drilldownHouseholds}
+        loading={drilldownLoading}
+        title={viewingTeam ? "Team Quoted Households" : "Quoted Households"}
+      />
     </>
   );
 }
 
-function MiniStat({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+function MiniStat({ label, value, accent = false, onClick }: { label: string; value: string; accent?: boolean; onClick?: () => void }) {
   return (
-    <div className={cn(SUBPANEL, "p-3", accent && "border-amber-500/40 bg-amber-500/10")}>
+    <div
+      className={cn(SUBPANEL, "p-3", accent && "border-amber-500/40 bg-amber-500/10", onClick && "cursor-pointer hover:border-primary/40 transition-colors")}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+    >
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="text-2xl font-semibold mt-1">{value}</p>
+      <p className={cn("text-2xl font-semibold mt-1", onClick && "underline decoration-dotted underline-offset-4")}>{value}</p>
     </div>
   );
 }
@@ -1166,6 +1215,7 @@ function SemiGauge({
   period,
   progress,
   colorClass,
+  onPeriodClick,
 }: {
   title: string;
   todayLabel?: string;
@@ -1173,6 +1223,7 @@ function SemiGauge({
   period: string;
   progress: number;
   colorClass?: string;
+  onPeriodClick?: () => void;
 }) {
   const radius = 52;
   const circumference = Math.PI * radius;
@@ -1206,7 +1257,17 @@ function SemiGauge({
         </svg>
       </div>
       <p className="text-xs text-center text-muted-foreground">{todayLabel} {today}</p>
-      <p className="text-sm text-center font-medium mt-1">{period} this period</p>
+      {onPeriodClick ? (
+        <button
+          type="button"
+          className="text-sm text-center font-medium mt-1 w-full underline decoration-dotted underline-offset-4 hover:text-primary transition-colors cursor-pointer"
+          onClick={onPeriodClick}
+        >
+          {period} this period
+        </button>
+      ) : (
+        <p className="text-sm text-center font-medium mt-1">{period} this period</p>
+      )}
     </div>
   );
 }

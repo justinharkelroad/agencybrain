@@ -38,22 +38,25 @@ serve(async (req) => {
 
   try {
     const body = await req.json().catch(() => ({}));
+    const action: string = body?.action ?? "count";
     let teamMemberId: string | null = body?.team_member_id ?? null;
     const startDate: string | null = body?.start_date ?? null;
     const endDate: string | null = body?.end_date ?? null;
     const todayDate: string | null = body?.today_date ?? null;
 
-    if (!startDate || !endDate || !todayDate) {
+    if (!startDate || !endDate) {
+      return bad("start_date and end_date are required");
+    }
+    if (action === "count" && !body?.today_date) {
       return bad("start_date, end_date, and today_date are required");
     }
 
     // Validate date formats (YYYY-MM-DD)
     const datePattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (
-      !datePattern.test(startDate) ||
-      !datePattern.test(endDate) ||
-      !datePattern.test(todayDate)
-    ) {
+    if (!datePattern.test(startDate) || !datePattern.test(endDate)) {
+      return bad("Dates must be in YYYY-MM-DD format");
+    }
+    if (todayDate && !datePattern.test(todayDate)) {
       return bad("Dates must be in YYYY-MM-DD format");
     }
 
@@ -67,6 +70,9 @@ serve(async (req) => {
       // When null is passed, default to their own member — never expose team aggregate
       if (teamMemberId === null) {
         if (!verified.staffMemberId) {
+          if (action === "list") {
+            return ok({ households: [] });
+          }
           // Staff with no linked team member has no metrics
           return ok({
             period_quoted_count: 0,
@@ -78,6 +84,49 @@ serve(async (req) => {
         }
         teamMemberId = verified.staffMemberId;
       }
+    }
+
+    // ── action: "list" — return household details for the period ──
+    if (action === "list") {
+      let listQuery = sb
+        .from("lqs_households")
+        .select(`
+          id, first_name, last_name, status, first_quote_date, zip_code,
+          team_members!lqs_households_team_member_id_fkey(name),
+          lead_sources!lqs_households_lead_source_id_fkey(name),
+          lqs_quotes(product_type, items_quoted, premium_cents)
+        `)
+        .eq("agency_id", agencyId)
+        .in("status", ["quoted", "sold"])
+        .gte("first_quote_date", startDate)
+        .lte("first_quote_date", endDate)
+        .order("first_quote_date", { ascending: false })
+        .limit(500);
+
+      if (teamMemberId) {
+        listQuery = listQuery.eq("team_member_id", teamMemberId);
+      }
+
+      const { data: rows, error: listError } = await listQuery;
+
+      if (listError) {
+        console.error("[get-household-focus-actuals] list query error", listError);
+        return bad("Failed to query households", 500);
+      }
+
+      const households = (rows || []).map((row: Record<string, unknown>) => ({
+        id: row.id,
+        first_name: row.first_name,
+        last_name: row.last_name,
+        status: row.status,
+        first_quote_date: row.first_quote_date,
+        zip_code: row.zip_code,
+        team_member: row.team_members ?? null,
+        lead_source: row.lead_sources ?? null,
+        quotes: row.lqs_quotes ?? [],
+      }));
+
+      return ok({ households });
     }
 
     // ── Source 1: metrics_daily (scorecard submissions, manual entries) ──
