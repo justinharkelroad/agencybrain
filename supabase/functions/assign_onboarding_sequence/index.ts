@@ -80,11 +80,12 @@ serve(async (req) => {
 
     } else if (authHeader) {
       // Regular user authentication via Supabase Auth JWT
+      const jwt = authHeader.replace('Bearer ', '');
       const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
         global: { headers: { Authorization: authHeader } }
       });
 
-      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(jwt);
       if (authError || !user) {
         return new Response(
           JSON.stringify({ error: 'Unauthorized' }),

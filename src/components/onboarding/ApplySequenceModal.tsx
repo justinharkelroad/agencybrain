@@ -265,8 +265,15 @@ export function ApplySequenceModal({
 
       const { data, error } = await supabase.functions.invoke('assign_onboarding_sequence', invokeOptions);
 
-      // Check for network/auth errors
-      if (error) throw error;
+      // Check for network/auth errors (FunctionsHttpError has response body in error.context)
+      if (error) {
+        let msg = error.message;
+        try {
+          const body = await error.context?.json?.();
+          if (body?.error) msg = body.error;
+        } catch { /* context not available */ }
+        throw new Error(msg);
+      }
       // Check for application-level errors returned by the edge function
       if (data?.error) throw new Error(data.error);
 
