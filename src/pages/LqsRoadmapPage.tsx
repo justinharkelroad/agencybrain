@@ -161,6 +161,9 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
 
   // Permission check - staff portal users don't see revenue metrics
   const showRevenueMetrics = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
+  const canUseSalesDashboardSync =
+    !isStaffPortal &&
+    authUser?.email?.toLowerCase() === 'justin@hfiagencies.com';
 
   // Fetch team members for the forms (include email for matching)
   const { data: teamMembers = [] } = useQuery({
@@ -689,12 +692,14 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
               }
             }}
           />
-          <Button 
-            variant="outline" 
-            onClick={() => setSyncModalOpen(true)}
-          >
-            Sync to Sales Dashboard
-          </Button>
+          {canUseSalesDashboardSync && (
+            <Button
+              variant="outline"
+              onClick={() => setSyncModalOpen(true)}
+            >
+              Sync to Sales Dashboard
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1042,15 +1047,17 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
         />
       )}
 
-      <LqsSalesDashboardSyncModal
-        open={syncModalOpen}
-        onOpenChange={setSyncModalOpen}
-        agencyId={agencyProfile?.agencyId ?? ''}
-        sessionToken={isStaffPortal ? staffSessionToken : null}
-        onSyncComplete={() => {
-          refetch();
-        }}
-      />
+      {canUseSalesDashboardSync && (
+        <LqsSalesDashboardSyncModal
+          open={syncModalOpen}
+          onOpenChange={setSyncModalOpen}
+          agencyId={agencyProfile?.agencyId ?? ''}
+          sessionToken={isStaffPortal ? staffSessionToken : null}
+          onSyncComplete={() => {
+            refetch();
+          }}
+        />
+      )}
 
     </div>
   );
