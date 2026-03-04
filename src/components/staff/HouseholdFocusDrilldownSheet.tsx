@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Home } from 'lucide-react';
 import {
   Sheet,
@@ -44,6 +44,14 @@ interface HouseholdFocusDrilldownSheetProps {
   title: string;
 }
 
+/** "Bundle" is a packaging flag, not a real product line — always exclude from display */
+const EXCLUDED_PRODUCT_TYPES = new Set(['bundle']);
+
+function isRealProduct(productType: string | null): boolean {
+  if (!productType) return false;
+  return !EXCLUDED_PRODUCT_TYPES.has(productType.toLowerCase());
+}
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '-';
   try {
@@ -68,6 +76,88 @@ function StatusBadge({ status }: { status: string }) {
     <Badge variant="outline" className={cn('capitalize', colors[status] || '')}>
       {status}
     </Badge>
+  );
+}
+
+function SummaryCards({ households }: { households: DrilldownHousehold[] }) {
+  const stats = useMemo(() => {
+    const bySource: Record<string, number> = {};
+    const byStatus: Record<string, number> = {};
+    const byProducer: Record<string, number> = {};
+
+    for (const h of households) {
+      const source = h.lead_source?.name || 'Unknown';
+      bySource[source] = (bySource[source] || 0) + 1;
+
+      byStatus[h.status] = (byStatus[h.status] || 0) + 1;
+
+      const producer = h.team_member?.name || 'Unassigned';
+      byProducer[producer] = (byProducer[producer] || 0) + 1;
+    }
+
+    // Sort each by count desc, take top entries
+    const sortDesc = (obj: Record<string, number>) =>
+      Object.entries(obj).sort((a, b) => b[1] - a[1]);
+
+    return {
+      sources: sortDesc(bySource),
+      statuses: sortDesc(byStatus),
+      producers: sortDesc(byProducer),
+    };
+  }, [households]);
+
+  const quotedCount = stats.statuses.find(([s]) => s === 'quoted')?.[1] ?? 0;
+  const soldCount = stats.statuses.find(([s]) => s === 'sold')?.[1] ?? 0;
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 px-1">
+      {/* Status breakdown */}
+      <div className="rounded-lg border border-border/50 bg-card/50 p-2.5">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Status</p>
+        <div className="flex items-baseline gap-3">
+          {quotedCount > 0 && (
+            <span className="text-sm">
+              <span className="font-semibold text-amber-500">{quotedCount}</span>
+              <span className="text-muted-foreground ml-1">quoted</span>
+            </span>
+          )}
+          {soldCount > 0 && (
+            <span className="text-sm">
+              <span className="font-semibold text-green-500">{soldCount}</span>
+              <span className="text-muted-foreground ml-1">sold</span>
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Top lead sources */}
+      <div className="rounded-lg border border-border/50 bg-card/50 p-2.5 col-span-1 sm:col-span-2">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Lead Sources</p>
+        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+          {stats.sources.slice(0, 5).map(([name, count]) => (
+            <span key={name} className="text-sm">
+              <span className="font-semibold">{count}</span>
+              <span className="text-muted-foreground ml-1">{name}</span>
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Producer breakdown — only show if multiple producers */}
+      {stats.producers.length > 1 && (
+        <div className="rounded-lg border border-border/50 bg-card/50 p-2.5 col-span-2 sm:col-span-3">
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1">By Producer</p>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+            {stats.producers.map(([name, count]) => (
+              <span key={name} className="text-sm">
+                <span className="font-semibold">{count}</span>
+                <span className="text-muted-foreground ml-1">{name}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -125,13 +215,16 @@ export function HouseholdFocusDrilldownSheet({
           </div>
         ) : (
           <>
-            <ScrollArea className="flex-1">
+            <SummaryCards households={households} />
+
+            <ScrollArea className="flex-1 mt-2">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
                     <TableHead>Customer</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Quote Date</TableHead>
+                    <TableHead>Source</TableHead>
                     <TableHead>Products</TableHead>
                     <TableHead className="text-right">Premium</TableHead>
                     <TableHead>Producer</TableHead>
@@ -141,7 +234,7 @@ export function HouseholdFocusDrilldownSheet({
                   {paginatedHouseholds.map((household) => {
                     const products = (household.quotes || [])
                       .map((q) => q.product_type)
-                      .filter(Boolean)
+                      .filter(isRealProduct)
                       .join(', ');
                     const totalPremium = (household.quotes || [])
                       .reduce((sum, q) => sum + (q.premium_cents || 0), 0);
@@ -155,7 +248,10 @@ export function HouseholdFocusDrilldownSheet({
                           <StatusBadge status={household.status} />
                         </TableCell>
                         <TableCell>{formatDate(household.first_quote_date)}</TableCell>
-                        <TableCell className="text-sm max-w-[180px] truncate">
+                        <TableCell className="text-sm max-w-[140px] truncate">
+                          {household.lead_source?.name || '-'}
+                        </TableCell>
+                        <TableCell className="text-sm max-w-[160px] truncate">
                           {products || '-'}
                         </TableCell>
                         <TableCell className="text-right">
