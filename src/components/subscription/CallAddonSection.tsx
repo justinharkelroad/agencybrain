@@ -14,8 +14,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+
+// TODO: Remove admin gate once Stripe prices are configured and migration is deployed
+const ADMIN_PREVIEW_EMAILS = ['justin@hfiagencies.com'];
 
 export function CallAddonSection() {
+  const { user } = useAuth();
   const { data: subscription } = useSubscription();
   const { data: addonPlans, isLoading: plansLoading } = useCallAddonPlans();
   const { data: addonSub, isLoading: subLoading } = useCallAddonSubscription();
@@ -72,6 +77,9 @@ export function CallAddonSection() {
       setPortalLoading(false);
     }
   };
+
+  // Admin-only preview until launch
+  if (!user?.email || !ADMIN_PREVIEW_EMAILS.includes(user.email)) return null;
 
   // Don't show for non-paid or unlimited users
   if (!subscription?.isPaid || subscription?.is1on1Client) return null;
