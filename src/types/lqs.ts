@@ -288,6 +288,13 @@ export interface SalesUploadResult {
   pendingReviews: PendingSaleReview[];
   // Post-upload actions
   uploadedHouseholds: UploadedHouseholdInfo[];
+  // Optional UI summary to explain import rules at upload time
+  uploadRuleSummary?: {
+    fileRows: number;
+    endorsementsSkipped: number;
+    motorClubExcluded: number;
+    countableRows: number;
+  };
 }
 
 // ==================== Smart Match Types ====================

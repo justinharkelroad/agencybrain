@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth";
 export interface CallBalance {
   canScore: boolean;
   subscriptionRemaining: number;
+  addonRemaining: number;
   purchasedRemaining: number;
   bonusRemaining: number;
   bonusExpiresAt: string | null;
@@ -27,8 +28,32 @@ export interface CallPack {
 export interface UseCallScoreResult {
   success: boolean;
   remaining: number;
-  source: 'subscription' | 'purchased' | 'bonus' | 'unlimited' | 'none';
+  source: 'subscription' | 'addon' | 'purchased' | 'bonus' | 'unlimited' | 'none';
   message: string;
+}
+
+export interface CallAddonPlan {
+  id: string;
+  name: string;
+  description: string | null;
+  calls_per_month: number;
+  price_cents: number;
+  stripe_price_id: string | null;
+  sort_order: number;
+}
+
+export interface CallAddonSubscription {
+  id: string;
+  agency_id: string;
+  call_scoring_addon_id: string;
+  stripe_subscription_id: string | null;
+  status: string;
+  calls_per_month: number;
+  price_cents: number;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  canceled_at: string | null;
 }
 
 /**
@@ -53,6 +78,7 @@ export function useCallBalance() {
         return {
           canScore: false,
           subscriptionRemaining: 0,
+          addonRemaining: 0,
           purchasedRemaining: 0,
           bonusRemaining: 0,
           bonusExpiresAt: null,
@@ -82,6 +108,7 @@ export function useCallBalance() {
           return {
             canScore: true,
             subscriptionRemaining: 999999,
+            addonRemaining: 0,
             purchasedRemaining: 0,
             bonusRemaining: 0,
             bonusExpiresAt: null,
@@ -99,6 +126,7 @@ export function useCallBalance() {
           return {
             canScore: true,
             subscriptionRemaining: 20, // Default to standard allowance
+            addonRemaining: 0,
             purchasedRemaining: 0,
             bonusRemaining: 0,
             bonusExpiresAt: null,
@@ -123,6 +151,7 @@ export function useCallBalance() {
           return {
             canScore: true,
             subscriptionRemaining: 20,
+            addonRemaining: 0,
             purchasedRemaining: 0,
             bonusRemaining: 0,
             bonusExpiresAt: null,
@@ -135,6 +164,7 @@ export function useCallBalance() {
         return {
           canScore: false,
           subscriptionRemaining: 0,
+          addonRemaining: 0,
           purchasedRemaining: 0,
           bonusRemaining: 0,
           bonusExpiresAt: null,
@@ -148,6 +178,7 @@ export function useCallBalance() {
       const result = data?.[0] || {
         can_score: false,
         subscription_remaining: 0,
+        addon_remaining: 0,
         purchased_remaining: 0,
         bonus_remaining: 0,
         total_remaining: 0,
@@ -157,6 +188,7 @@ export function useCallBalance() {
       return {
         canScore: result.can_score,
         subscriptionRemaining: result.subscription_remaining,
+        addonRemaining: (result as any).addon_remaining ?? 0,
         purchasedRemaining: result.purchased_remaining,
         bonusRemaining: result.bonus_remaining ?? 0,
         bonusExpiresAt: null, // Expiration not returned by check_call_scoring_access
@@ -277,6 +309,107 @@ export function usePurchaseCallPack() {
     onSuccess: () => {
       // Invalidate after successful purchase starts
       queryClient.invalidateQueries({ queryKey: ["call-balance", user?.id] });
+    },
+  });
+}
+
+/**
+ * Get available call addon plans for subscription
+ */
+export function useCallAddonPlans() {
+  return useQuery({
+    queryKey: ["call-addon-plans"],
+    staleTime: 60000,
+    queryFn: async (): Promise<CallAddonPlan[]> => {
+      const { data, error } = await supabase
+        .from('call_scoring_addons')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+}
+
+/**
+ * Get agency's active addon subscription
+ */
+export function useCallAddonSubscription() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["call-addon-subscription", user?.id],
+    enabled: !!user?.id,
+    staleTime: 10000,
+    queryFn: async (): Promise<CallAddonSubscription | null> => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('agency_id')
+        .eq('id', user!.id)
+        .single();
+
+      if (!profile?.agency_id) return null;
+
+      const { data, error } = await supabase
+        .from('agency_call_addon_subscriptions')
+        .select('*')
+        .eq('agency_id', profile.agency_id)
+        .in('status', ['active', 'past_due'])
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+/**
+ * Purchase a call addon subscription - creates checkout session
+ */
+export function usePurchaseCallAddon() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      addonId,
+      successUrl,
+      cancelUrl,
+    }: {
+      addonId: string;
+      successUrl?: string;
+      cancelUrl?: string;
+    }) => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/purchase-call-addon`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({
+            addon_id: addonId,
+            success_url: successUrl || `${window.location.origin}/settings/billing?addon=success`,
+            cancel_url: cancelUrl || `${window.location.origin}/settings/billing?addon=canceled`,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create checkout session');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["call-balance", user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["call-addon-subscription", user?.id] });
     },
   });
 }

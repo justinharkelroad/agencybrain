@@ -179,8 +179,8 @@ export function filterChargebacksByThreeMonthRule(
   eligiblePremium: number;
   excludedPremium: number;
 } {
-  // Use the statement date as reference for calculating days in force
-  const statementDate = new Date(statementYear, statementMonth - 1, 28); // End of statement month
+  // statementMonth is 1-based (1=Jan). Using day 0 gives the last day of that month.
+  const statementDate = new Date(statementYear, statementMonth, 0);
   
   const eligibleChargebacks: SubProducerTransaction[] = [];
   const excludedChargebacks: SubProducerTransaction[] = [];
@@ -189,8 +189,8 @@ export function filterChargebacksByThreeMonthRule(
     const effectiveDate = parseTransactionDate(cb.origPolicyEffDate);
     
     if (!effectiveDate) {
-      // If we can't parse the date, include the chargeback (conservative approach)
-      eligibleChargebacks.push(cb);
+      // Missing/invalid original effective date cannot be validated against the term window.
+      excludedChargebacks.push(cb);
       continue;
     }
     
@@ -264,17 +264,17 @@ export function filterChargebacksByRule(
     const productType = (cb.product || '').toLowerCase();
 
     if (!effectiveDate) {
-      // Conservative: include if can't parse
-      result.eligibleChargebacks.push(cb);
-      result.eligiblePremium += premium;
+      // Missing/invalid original effective date cannot be validated against the term window.
+      result.excludedChargebacks.push(cb);
+      result.excludedPremium += premium;
       result.details.push({
         policyNumber: cb.policyNumber || 'Unknown',
         productType: cb.product || 'Unknown',
         premium,
         daysInForce: -1,
         termMonths: -1,
-        included: true,
-        reason: 'Could not parse effective date',
+        included: false,
+        reason: 'Missing or invalid original effective date',
       });
       continue;
     }
@@ -732,9 +732,10 @@ export function calculateCommission(
       break;
     case 'full':
     default:
-      // All chargebacks apply
-      effectiveChargebackPremium = performance.chargebackPremium;
-      effectiveChargebackCount = performance.chargebackCount;
+      // Full rule = full first-term window by product (auto 6mo, other 12mo unless overridden).
+      // Use filtered eligible chargebacks, not raw total statement chargebacks.
+      effectiveChargebackPremium = performance.eligibleChargebackPremium;
+      effectiveChargebackCount = performance.eligibleChargebackCount;
       break;
   }
   

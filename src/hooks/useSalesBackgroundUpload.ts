@@ -46,6 +46,18 @@ interface GroupUploadResult {
 }
 
 const BATCH_SIZE = 50;
+const GROUP_CONCURRENCY_LIMIT = 5;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableDbError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const code = (error.code || '').toUpperCase();
+  const message = (error.message || '').toLowerCase();
+  return code === '40P01' || code === '40001' || message.includes('deadlock detected') || message.includes('could not serialize');
+}
 
 // Scoring constants
 const SCORE_PRODUCT_MATCH = 40;
@@ -323,8 +335,11 @@ async function processInBackground(
         });
       }
 
-      const batchResults = await Promise.allSettled(
-        batch.map(async (group): Promise<GroupUploadResult> => {
+      const batchResults: PromiseSettledResult<GroupUploadResult>[] = [];
+      for (let groupStart = 0; groupStart < batch.length; groupStart += GROUP_CONCURRENCY_LIMIT) {
+        const groupChunk = batch.slice(groupStart, groupStart + GROUP_CONCURRENCY_LIMIT);
+        const chunkResults = await Promise.allSettled(
+          groupChunk.map(async (group): Promise<GroupUploadResult> => {
           const { householdKey, records: groupRecords, primaryRecord } = group;
           const groupErrors: string[] = [];
           const addError = (record: ParsedSaleRow, detail: string) => {
@@ -669,22 +684,31 @@ async function processInBackground(
             }
             
             // Insert sale record
-            const { error: saleError } = await supabase
-              .from('lqs_sales')
-              .insert({
-                household_id: householdId,
-                agency_id: context.agencyId,
-                team_member_id: saleTeamMemberId,
-                sale_date: record.saleDate,
-                product_type: record.productType,
-                items_sold: record.itemsSold,
-                policies_sold: 1,
-                premium_cents: record.premiumCents,
-                policy_number: record.policyNumber,
-                source: 'lqs_upload',
-                linked_quote_id: linkedQuoteId,
-                is_one_call_close: context.isOneCallClose ?? false,
-              });
+            let saleError: { code?: string; message?: string } | null = null;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              const { error: attemptError } = await supabase
+                .from('lqs_sales')
+                .insert({
+                  household_id: householdId,
+                  agency_id: context.agencyId,
+                  team_member_id: saleTeamMemberId,
+                  sale_date: record.saleDate,
+                  product_type: record.productType,
+                  items_sold: record.itemsSold,
+                  policies_sold: 1,
+                  premium_cents: record.premiumCents,
+                  policy_number: record.policyNumber,
+                  source: 'lqs_upload',
+                  linked_quote_id: linkedQuoteId,
+                  is_one_call_close: context.isOneCallClose ?? false,
+                });
+              saleError = attemptError;
+
+              if (!saleError) break;
+              if (!isRetryableDbError(saleError) || attempt === 3) break;
+
+              await sleep(120 * attempt);
+            }
             
             if (saleError) {
               const isDuplicate = saleError.code === '23505' || /duplicate/i.test(saleError.message || '');
@@ -720,8 +744,10 @@ async function processInBackground(
               premiumCents: r.premiumCents,
             })),
           };
-        })
-      );
+          })
+        );
+        batchResults.push(...chunkResults);
+      }
 
       // Count results
       for (const result of batchResults) {
@@ -824,10 +850,11 @@ async function processInBackground(
       onComplete(result);
     }
 
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred during processing';
     toast({
       title: 'Sales Upload Failed',
-      description: error.message || 'An error occurred during processing',
+      description: errorMessage,
       variant: 'destructive',
     });
     
@@ -843,7 +870,7 @@ async function processInBackground(
         unmatchedProducers: [],
         householdsNeedingAttention: 0,
         endorsementsSkipped: 0,
-        errors: [error.message || 'Unknown error'],
+        errors: [errorMessage],
         autoMatched: 0,
         needsReview: 0,
         pendingReviews: [],

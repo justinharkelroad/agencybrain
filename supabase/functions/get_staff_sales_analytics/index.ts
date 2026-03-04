@@ -232,11 +232,18 @@ serve(async (req) => {
 
         // Calculate filtered totals for each sale (excluding Motor Club)
         const records = (sales || []).map((sale: any) => {
-          const countable = calculateCountableTotals(sale.sale_policies || []);
+          const policies = sale.sale_policies || [];
+          const countable = calculateCountableTotals(policies);
+          const policyTypes = policies
+            .filter((p: any) => !isExcludedProduct(p.policy_type_name))
+            .map((p: any) => p.policy_type_name)
+            .filter((name: string | null | undefined) => !!name)
+            .join(", ");
           return {
             id: sale.id,
             sale_date: sale.sale_date,
             customer_name: sale.customer_name || "Unknown",
+            policy_types: policyTypes || null,
             lead_source_name: sale.lead_source_id ? leadSourceMap.get(sale.lead_source_id) || null : null,
             producer_name: sale.team_member_id ? teamMemberMap.get(sale.team_member_id) || null : null,
             total_items: countable.items,

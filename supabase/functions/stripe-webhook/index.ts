@@ -54,13 +54,21 @@ serve(async (req) => {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription
-        await handleSubscriptionChange(subscription)
+        if (subscription.metadata?.type === 'call_addon') {
+          await handleAddonSubscriptionChange(subscription)
+        } else {
+          await handleSubscriptionChange(subscription)
+        }
         break
       }
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription
-        await handleSubscriptionDeleted(subscription)
+        if (subscription.metadata?.type === 'call_addon') {
+          await handleAddonSubscriptionDeleted(subscription)
+        } else {
+          await handleSubscriptionDeleted(subscription)
+        }
         break
       }
 
@@ -87,7 +95,13 @@ serve(async (req) => {
 
         // If this is a subscription renewal, reset monthly calls
         if (invoice.subscription && invoice.billing_reason === 'subscription_cycle') {
-          await handleSubscriptionRenewal(invoice)
+          // Retrieve the subscription to check metadata
+          const sub = await stripe.subscriptions.retrieve(invoice.subscription as string)
+          if (sub.metadata?.type === 'call_addon') {
+            await handleAddonSubscriptionRenewal(invoice, sub)
+          } else {
+            await handleSubscriptionRenewal(invoice)
+          }
         }
         break
       }
@@ -349,18 +363,33 @@ async function handlePaymentFailed(invoice: Stripe.Invoice) {
 
   // Update subscription status
   if (invoice.subscription) {
-    await supabase
-      .from('subscriptions')
-      .update({
-        status: 'past_due',
-        updated_at: new Date().toISOString()
-      })
-      .eq('stripe_subscription_id', invoice.subscription as string)
+    // Check if this is an addon subscription
+    const sub = await stripe.subscriptions.retrieve(invoice.subscription as string)
+    if (sub.metadata?.type === 'call_addon') {
+      // Update addon subscription to past_due
+      await supabase
+        .from('agency_call_addon_subscriptions')
+        .update({
+          status: 'past_due',
+          updated_at: new Date().toISOString()
+        })
+        .eq('stripe_subscription_id', invoice.subscription as string)
 
-    await supabase
-      .from('agencies')
-      .update({ subscription_status: 'past_due' })
-      .eq('id', agencyId)
+      console.log(`Addon payment failed for agency ${agencyId}`)
+    } else {
+      await supabase
+        .from('subscriptions')
+        .update({
+          status: 'past_due',
+          updated_at: new Date().toISOString()
+        })
+        .eq('stripe_subscription_id', invoice.subscription as string)
+
+      await supabase
+        .from('agencies')
+        .update({ subscription_status: 'past_due' })
+        .eq('id', agencyId)
+    }
   }
 
   // Send payment failed email
@@ -378,6 +407,150 @@ async function getAgencyByCustomerId(customerId: string): Promise<string | null>
     .single()
 
   return data?.id || null
+}
+
+// ===========================================
+// ADDON SUBSCRIPTION HANDLERS
+// ===========================================
+
+async function handleAddonSubscriptionChange(subscription: Stripe.Subscription) {
+  const agencyId = subscription.metadata?.agency_id
+  const addonId = subscription.metadata?.addon_id
+  const callsPerMonth = parseInt(subscription.metadata?.calls_per_month || '0')
+
+  if (!agencyId || !addonId || !callsPerMonth) {
+    console.error('Missing metadata for addon subscription:', subscription.id)
+    return
+  }
+
+  // Get price from subscription items
+  const priceCents = subscription.items.data[0]?.price?.unit_amount || 0
+
+  // Upsert addon subscription record
+  const { error: addonError } = await supabase
+    .from('agency_call_addon_subscriptions')
+    .upsert({
+      agency_id: agencyId,
+      call_scoring_addon_id: addonId,
+      stripe_subscription_id: subscription.id,
+      status: subscription.status,
+      calls_per_month: callsPerMonth,
+      price_cents: priceCents,
+      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      canceled_at: subscription.canceled_at
+        ? new Date(subscription.canceled_at * 1000).toISOString()
+        : null,
+      updated_at: new Date().toISOString(),
+    }, {
+      onConflict: 'agency_id'
+    })
+
+  if (addonError) {
+    console.error('Error upserting addon subscription:', addonError)
+  }
+
+  // If active, set addon balance
+  if (subscription.status === 'active') {
+    const periodStart = new Date(subscription.current_period_start * 1000).toISOString().split('T')[0]
+
+    const { error: balanceError } = await supabase
+      .from('agency_call_balance')
+      .upsert({
+        agency_id: agencyId,
+        addon_calls_remaining: callsPerMonth,
+        addon_calls_limit: callsPerMonth,
+        addon_period_start: periodStart,
+      }, {
+        onConflict: 'agency_id'
+      })
+
+    if (balanceError) {
+      console.error('Error setting addon balance:', balanceError)
+    }
+  }
+
+  console.log(`Addon subscription ${subscription.id} updated: status=${subscription.status}, agency=${agencyId}, calls=${callsPerMonth}`)
+}
+
+async function handleAddonSubscriptionDeleted(subscription: Stripe.Subscription) {
+  const agencyId = subscription.metadata?.agency_id || await getAgencyByAddonSubscription(subscription.id)
+
+  if (!agencyId) {
+    console.error('Could not find agency for deleted addon subscription')
+    return
+  }
+
+  // Update addon subscription record
+  await supabase
+    .from('agency_call_addon_subscriptions')
+    .update({
+      status: 'canceled',
+      canceled_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('stripe_subscription_id', subscription.id)
+
+  // Zero out addon balance
+  await supabase
+    .from('agency_call_balance')
+    .update({
+      addon_calls_remaining: 0,
+      addon_calls_limit: 0,
+      addon_period_start: null,
+    })
+    .eq('agency_id', agencyId)
+
+  console.log(`Addon subscription canceled for agency ${agencyId}`)
+}
+
+async function handleAddonSubscriptionRenewal(invoice: Stripe.Invoice, subscription: Stripe.Subscription) {
+  const agencyId = subscription.metadata?.agency_id
+  const callsPerMonth = parseInt(subscription.metadata?.calls_per_month || '0')
+
+  if (!agencyId || !callsPerMonth) {
+    console.error('Missing metadata for addon renewal')
+    return
+  }
+
+  // Reset addon call allowance
+  const periodStart = invoice.period_start
+    ? new Date(invoice.period_start * 1000).toISOString().split('T')[0]
+    : new Date().toISOString().split('T')[0]
+
+  await supabase
+    .from('agency_call_balance')
+    .update({
+      addon_calls_remaining: callsPerMonth,
+      addon_calls_limit: callsPerMonth,
+      addon_period_start: periodStart,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('agency_id', agencyId)
+
+  // Update period on addon subscription record
+  await supabase
+    .from('agency_call_addon_subscriptions')
+    .update({
+      current_period_start: new Date(subscription.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('stripe_subscription_id', subscription.id)
+
+  console.log(`Addon calls reset for agency ${agencyId}: ${callsPerMonth} calls`)
+}
+
+// Helper to find agency by addon subscription ID
+async function getAgencyByAddonSubscription(stripeSubscriptionId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('agency_call_addon_subscriptions')
+    .select('agency_id')
+    .eq('stripe_subscription_id', stripeSubscriptionId)
+    .single()
+
+  return data?.agency_id || null
 }
 
 // ===========================================
