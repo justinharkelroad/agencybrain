@@ -45,6 +45,19 @@ export function getPreviousBusinessDay(date: Date): Date {
 }
 
 /**
+ * Get number of business days in a date interval (inclusive of both start and end)
+ */
+export function getBusinessDaysInInterval(start: Date, end: Date): number {
+  let count = 0;
+  const current = new Date(start);
+  while (current <= end) {
+    if (isBusinessDay(current)) count++;
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+}
+
+/**
  * Get the day name for logging purposes
  */
 export function getDayName(date: Date): string {

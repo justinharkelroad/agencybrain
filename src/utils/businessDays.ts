@@ -97,6 +97,19 @@ export function formatProjection(value: number | null, prefix: string = ''): str
 }
 
 /**
+ * Get number of business days in a date interval (inclusive of both start and end)
+ */
+export function getBusinessDaysInInterval(start: Date, end: Date): number {
+  let count = 0;
+  const current = new Date(start);
+  while (current <= end) {
+    if (isBusinessDay(current)) count++;
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+}
+
+/**
  * Get the previous business day from today
  * Used for staff portal to default to yesterday's data
  */

@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { GoalProgressRing } from "./GoalProgressRing";
 import { cn, parseDateLocal, todayLocal } from "@/lib/utils";
 import { calculateCountableTotals, isExcludedProduct } from "@/lib/product-constants";
+import { getBusinessDaysInInterval } from "@/utils/businessDays";
 
 interface AdminPromoGoalsWidgetProps {
   agencyId: string | null;
@@ -29,6 +30,7 @@ interface PromoWithProgress {
   kpi_slug: string | null;
   start_date: string;
   end_date: string;
+  count_business_days: boolean;
   status: 'active' | 'upcoming' | 'ended';
   daysRemaining: number;
   staffProgress: StaffProgress[];
@@ -101,6 +103,7 @@ export function AdminPromoGoalsWidget({ agencyId }: AdminPromoGoalsWidgetProps) 
           kpi_slug,
           start_date,
           end_date,
+          count_business_days,
           sales_goal_assignments(
             team_member_id,
             team_member:team_members(name)
@@ -131,10 +134,15 @@ export function AdminPromoGoalsWidget({ agencyId }: AdminPromoGoalsWidgetProps) 
         // Skip ended promos
         if (status === 'ended') continue;
 
+        const useBusinessDays = goal.count_business_days;
         const daysRemaining =
           status === 'active'
-            ? Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) + 1)
-            : Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            ? useBusinessDays
+              ? getBusinessDaysInInterval(today, endDate)
+              : Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+            : useBusinessDays
+              ? getBusinessDaysInInterval(today, startDate)
+              : Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
         const isAgencyWide = !goal.sales_goal_assignments || goal.sales_goal_assignments.length === 0;
         
@@ -219,6 +227,7 @@ export function AdminPromoGoalsWidget({ agencyId }: AdminPromoGoalsWidgetProps) 
           kpi_slug: goal.kpi_slug,
           start_date: goal.start_date,
           end_date: goal.end_date,
+          count_business_days: goal.count_business_days,
           status,
           daysRemaining,
           staffProgress,
@@ -302,12 +311,12 @@ function PromoCard({ promo }: { promo: PromoWithProgress }) {
             {promo.status === 'active' && (
               <span className="flex items-center gap-1 text-amber-500">
                 <Clock className="h-3 w-3" />
-                {promo.daysRemaining} days left
+                {promo.daysRemaining} {promo.count_business_days ? 'business ' : ''}days left
               </span>
             )}
             {promo.status === 'upcoming' && (
               <span className="text-blue-500">
-                Starts in {promo.daysRemaining} days
+                Starts in {promo.daysRemaining} {promo.count_business_days ? 'business ' : ''}days
               </span>
             )}
           </div>

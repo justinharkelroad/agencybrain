@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, differenceInDays, isAfter, isBefore, isWithinInterval, parseISO, startOfDay } from "date-fns";
 import { calculateCountableTotals, isExcludedProduct } from "@/lib/product-constants";
+import { getBusinessDaysInInterval } from "@/utils/businessDays";
 
 export interface PromoGoal {
   id: string;
@@ -18,6 +19,7 @@ export interface PromoGoal {
   kpi_slug: string | null;
   goal_focus: string;
   is_active: boolean;
+  count_business_days: boolean;
   product_type?: { name: string } | null;
 }
 
@@ -131,20 +133,25 @@ export function usePromoGoals(agencyId: string | null) {
       return goals?.map(goal => {
         const startDate = parseISO(goal.start_date);
         const endDate = parseISO(goal.end_date);
-        
+
         let status: 'upcoming' | 'active' | 'ended' = 'active';
         if (isBefore(today, startDate)) {
           status = 'upcoming';
         } else if (isAfter(today, endDate)) {
           status = 'ended';
         }
-        
-        const daysRemaining = status === 'active' 
-          ? Math.max(0, differenceInDays(endDate, today) + 1)
+
+        const useBusinessDays = goal.count_business_days;
+        const daysRemaining = status === 'active'
+          ? useBusinessDays
+            ? getBusinessDaysInInterval(today, endDate)
+            : Math.max(0, differenceInDays(endDate, today) + 1)
           : status === 'upcoming'
-            ? differenceInDays(startDate, today)
+            ? useBusinessDays
+              ? getBusinessDaysInInterval(today, startDate)
+              : differenceInDays(startDate, today)
             : 0;
-        
+
         return {
           ...goal,
           assignments: assignmentsByGoal[goal.id] || [],
@@ -195,20 +202,25 @@ export function useTeamMemberPromoGoals(agencyId: string | null, teamMemberId: s
       return goals?.map(goal => {
         const startDate = parseISO(goal.start_date);
         const endDate = parseISO(goal.end_date);
-        
+
         let status: 'upcoming' | 'active' | 'ended' = 'active';
         if (isBefore(today, startDate)) {
           status = 'upcoming';
         } else if (isAfter(today, endDate)) {
           status = 'ended';
         }
-        
-        const daysRemaining = status === 'active' 
-          ? Math.max(0, differenceInDays(endDate, today) + 1)
+
+        const useBusinessDays = goal.count_business_days;
+        const daysRemaining = status === 'active'
+          ? useBusinessDays
+            ? getBusinessDaysInInterval(today, endDate)
+            : Math.max(0, differenceInDays(endDate, today) + 1)
           : status === 'upcoming'
-            ? differenceInDays(startDate, today)
+            ? useBusinessDays
+              ? getBusinessDaysInInterval(today, startDate)
+              : differenceInDays(startDate, today)
             : 0;
-        
+
         return {
           ...goal,
           assignments: [],

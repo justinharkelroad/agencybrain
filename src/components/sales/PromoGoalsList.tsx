@@ -254,7 +254,7 @@ function PromoGoalRow({
             </Badge>
             {goal.status === 'upcoming' && (
               <Badge variant="secondary" className="text-xs">
-                Starts in {goal.daysRemaining} days
+                Starts in {goal.daysRemaining} {goal.count_business_days ? 'business ' : ''}days
               </Badge>
             )}
             {goal.status === 'ended' && (

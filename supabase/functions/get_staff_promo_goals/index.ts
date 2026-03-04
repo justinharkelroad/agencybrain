@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { getBusinessDaysInInterval } from "../_shared/business-days.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -88,6 +89,7 @@ serve(async (req) => {
         product_type_id,
         kpi_slug,
         goal_focus,
+        count_business_days,
         product_type:product_types(name),
         sales_goal_assignments(id)
       `)
@@ -121,11 +123,16 @@ serve(async (req) => {
           status = "ended";
         }
 
+        const useBusinessDays = goal.count_business_days;
         const daysRemaining =
           status === "active"
-            ? Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) + 1)
+            ? useBusinessDays
+              ? getBusinessDaysInInterval(today, endDate)
+              : Math.max(0, Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)) + 1)
             : status === "upcoming"
-            ? Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+            ? useBusinessDays
+              ? getBusinessDaysInInterval(today, startDate)
+              : Math.ceil((startDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
             : 0;
 
         // Calculate progress based on source and scope

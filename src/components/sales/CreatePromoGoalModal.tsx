@@ -54,6 +54,7 @@ export function CreatePromoGoalModal({
   const [targetValue, setTargetValue] = useState("");
   const [isAgencyWide, setIsAgencyWide] = useState(false);
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [countBusinessDays, setCountBusinessDays] = useState(false);
 
   // Fetch team members
   const { data: teamMembers = [] } = useQuery({
@@ -122,6 +123,7 @@ export function CreatePromoGoalModal({
         setProductTypeId(editGoal.product_type_id || "all");
         setKpiSlug(editGoal.kpi_slug || "outbound_calls");
         setTargetValue(editGoal.target_value.toString());
+        setCountBusinessDays(editGoal.count_business_days || false);
         // Agency-wide if no assignments
         const hasAssignments = editGoal.assignments && editGoal.assignments.length > 0;
         setIsAgencyWide(!hasAssignments);
@@ -137,6 +139,7 @@ export function CreatePromoGoalModal({
         setProductTypeId("all");
         setKpiSlug("outbound_calls");
         setTargetValue("");
+        setCountBusinessDays(false);
         setIsAgencyWide(false);
         setSelectedMembers([]);
       }
@@ -170,6 +173,7 @@ export function CreatePromoGoalModal({
         product_type_id: normalizedProductTypeId,
         kpi_slug: promoSource === "metrics" ? kpiSlug : null,
         target_value: parseFloat(targetValue) || 0,
+        count_business_days: countBusinessDays,
         goal_focus: "all",
         time_period: "custom",
         is_active: true,
@@ -357,6 +361,20 @@ export function CreatePromoGoalModal({
               />
             </div>
           </div>
+
+          {/* Business Days Toggle */}
+          <label className="flex items-center gap-3 p-3 border border-border rounded-md cursor-pointer hover:bg-muted/50 transition-colors">
+            <Checkbox
+              checked={countBusinessDays}
+              onCheckedChange={(checked) => setCountBusinessDays(!!checked)}
+            />
+            <div>
+              <span className="text-sm font-medium">Count business days only</span>
+              <p className="text-xs text-muted-foreground">
+                Exclude weekends from "days remaining" countdown
+              </p>
+            </div>
+          </label>
 
           <hr className="border-border" />
 

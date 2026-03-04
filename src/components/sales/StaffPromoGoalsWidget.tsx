@@ -27,6 +27,7 @@ interface PromoGoalEdgeRow {
   product_type_id: string | null;
   kpi_slug: string | null;
   goal_focus: string | null;
+  count_business_days: boolean;
   product_type: string | null;
   progress: number;
   status: string;
@@ -68,6 +69,7 @@ export function StaffPromoGoalsWidget({ sessionToken }: StaffPromoGoalsWidgetPro
         product_type_id: promo.product_type_id,
         kpi_slug: promo.kpi_slug,
         goal_focus: promo.goal_focus,
+        count_business_days: promo.count_business_days,
         product_type: promo.product_type,
         progress: promo.progress,
         status: promo.status,
@@ -144,7 +146,7 @@ function PromoGoalCardWithRing({ goal }: { goal: PromoGoalWithProgress }) {
           <Trophy className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium text-sm">{goal.goal_name}</span>
           <Badge variant="secondary" className="text-xs ml-auto">
-            Starts in {goal.daysRemaining} days
+            Starts in {goal.daysRemaining} {goal.count_business_days ? 'business ' : ''}days
           </Badge>
         </div>
       </div>
@@ -186,7 +188,7 @@ function PromoGoalCardWithRing({ goal }: { goal: PromoGoalWithProgress }) {
             {!goal.isAchieved && goal.daysRemaining > 0 && (
               <span className="flex items-center gap-1 text-muted-foreground">
                 <Clock className="h-3 w-3" />
-                {goal.daysRemaining} day{goal.daysRemaining !== 1 ? 's' : ''} left
+                {goal.daysRemaining} {goal.count_business_days ? 'business ' : ''}day{goal.daysRemaining !== 1 ? 's' : ''} left
               </span>
             )}
             {goal.bonus_amount_cents && goal.bonus_amount_cents > 0 && (

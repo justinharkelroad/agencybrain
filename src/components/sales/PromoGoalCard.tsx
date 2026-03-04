@@ -31,7 +31,7 @@ export function PromoGoalCard({ goal, showAssigneeCount }: PromoGoalCardProps) {
       return (
         <Badge variant="secondary" className="text-xs">
           <Calendar className="h-3 w-3 mr-1" />
-          Starts in {goal.daysRemaining} days
+          Starts in {goal.daysRemaining} {goal.count_business_days ? 'business ' : ''}days
         </Badge>
       );
     }
@@ -135,7 +135,7 @@ export function PromoGoalCard({ goal, showAssigneeCount }: PromoGoalCardProps) {
           {goal.status === 'active' && goal.daysRemaining > 0 && (
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Clock className="h-4 w-4" />
-              <span>{goal.daysRemaining} day{goal.daysRemaining !== 1 ? 's' : ''} left</span>
+              <span>{goal.daysRemaining} {goal.count_business_days ? 'business ' : ''}day{goal.daysRemaining !== 1 ? 's' : ''} left</span>
             </div>
           )}
         </div>
@@ -175,7 +175,7 @@ export function PromoGoalCardCompact({ goal }: PromoGoalCardProps) {
           <Target className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium text-sm">{goal.goal_name}</span>
           <Badge variant="secondary" className="text-xs ml-auto">
-            Starts in {goal.daysRemaining} days
+            Starts in {goal.daysRemaining} {goal.count_business_days ? 'business ' : ''}days
           </Badge>
         </div>
       </div>
@@ -202,7 +202,7 @@ export function PromoGoalCardCompact({ goal }: PromoGoalCardProps) {
           </Badge>
         ) : (
           <span className="text-xs text-muted-foreground">
-            {goal.daysRemaining} day{goal.daysRemaining !== 1 ? 's' : ''} left
+            {goal.daysRemaining} {goal.count_business_days ? 'business ' : ''}day{goal.daysRemaining !== 1 ? 's' : ''} left
           </span>
         )}
       </div>

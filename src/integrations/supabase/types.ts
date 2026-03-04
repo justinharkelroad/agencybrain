@@ -10095,6 +10095,7 @@ export type Database = {
         Row: {
           agency_id: string
           bonus_amount_cents: number | null
+          count_business_days: boolean
           created_at: string | null
           description: string | null
           effective_month: string | null
@@ -10119,6 +10120,7 @@ export type Database = {
         Insert: {
           agency_id: string
           bonus_amount_cents?: number | null
+          count_business_days?: boolean
           created_at?: string | null
           description?: string | null
           effective_month?: string | null
@@ -10143,6 +10145,7 @@ export type Database = {
         Update: {
           agency_id?: string
           bonus_amount_cents?: number | null
+          count_business_days?: boolean
           created_at?: string | null
           description?: string | null
           effective_month?: string | null
