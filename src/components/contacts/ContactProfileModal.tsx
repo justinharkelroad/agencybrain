@@ -32,6 +32,7 @@ import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 import { sendRenewalToWinback } from '@/lib/sendToWinback';
 import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';
 import { BreakupLetterModal } from '@/components/sales/BreakupLetterModal';
+import { MoveToQuotedDialog } from '@/components/lqs/MoveToQuotedDialog';
 
 interface ContactProfileModalProps {
   contactId: string | null;
@@ -97,6 +98,8 @@ export function ContactProfileModal({
   // State for Apply Sequence modal
   const [applySequenceModalOpen, setApplySequenceModalOpen] = useState(false);
   const [breakupLetterModalOpen, setBreakupLetterModalOpen] = useState(false);
+  const [showMoveToQuotedDialog, setShowMoveToQuotedDialog] = useState(false);
+  const [moveToQuotedSource, setMoveToQuotedSource] = useState<'lqs' | 'winback' | null>(null);
   const resolvedCreatedByStaffId = staffSessionToken ? (staffMemberId || null) : null;
 
   // Query client for cache invalidation
@@ -333,8 +336,15 @@ export function ContactProfileModal({
   };
 
   // Winback outcome handler - Won Back or Quoted
-  const handleWinbackOutcome = async (outcome: 'won_back' | 'quoted') => {
+  const handleWinbackOutcome = async (outcome: 'won_back' | 'quoted', products?: string[]) => {
     if (!agencyId || !winbackHousehold || !profile) return;
+
+    // If 'quoted' and no products yet, show the dialog to collect them
+    if (outcome === 'quoted' && !products) {
+      setMoveToQuotedSource('winback');
+      setShowMoveToQuotedDialog(true);
+      return;
+    }
 
     setModuleActionLoading(outcome);
     try {
@@ -350,7 +360,8 @@ export function ContactProfileModal({
             profile.zip_code || '',
             profile.phones || [],
             profile.emails?.[0] || null,
-            currentUserTeamMemberId || null
+            currentUserTeamMemberId || null,
+            products
           );
 
           if (!result.success) {
@@ -367,7 +378,6 @@ export function ContactProfileModal({
           let winbackLeadSourceId: string | null = null;
           let createdNewLeadSource = false;
 
-          // Look for existing "Winback" lead source (case-insensitive)
           const { data: existingSource } = await supabase
             .from('lead_sources')
             .select('id')
@@ -379,14 +389,13 @@ export function ContactProfileModal({
           if (existingSource) {
             winbackLeadSourceId = existingSource.id;
           } else {
-            // Create "Winback" lead source for this agency
             const { data: newSource, error: createError } = await supabase
               .from('lead_sources')
               .insert({
                 agency_id: agencyId,
                 name: 'Winback',
                 is_active: true,
-                is_self_generated: false, // Not self-generated - originally paid marketing
+                is_self_generated: false,
                 cost_type: 'per_lead',
                 cost_per_lead_cents: 0,
               })
@@ -406,11 +415,8 @@ export function ContactProfileModal({
             profile.zip_code
           );
 
-          const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+          const today = new Date().toISOString().split('T')[0];
 
-          // Upsert LQS record - if exists, update status to quoted; if not, create it
-          // Auto-assign to the person who clicked Quoted
-          // Carry over phone/email from the contact profile
           const { error: lqsError } = await supabase
             .from('lqs_households')
             .upsert({
@@ -422,20 +428,51 @@ export function ContactProfileModal({
               contact_id: contactId,
               status: 'quoted',
               lead_source_id: winbackLeadSourceId,
-              team_member_id: currentUserTeamMemberId || null, // Auto-assign to the person who clicked Quoted
-              first_quote_date: today, // Reset quote date for new quote cycle
+              team_member_id: currentUserTeamMemberId || null,
+              first_quote_date: today,
               lead_received_date: today,
               updated_at: new Date().toISOString(),
-              phone: profile.phones || [], // Carry over phone array from contact
-              email: profile.emails?.[0] || null, // Carry over primary email from contact
+              phone: profile.phones || [],
+              email: profile.emails?.[0] || null,
             }, {
               onConflict: 'agency_id,household_key',
             });
 
           if (lqsError) throw lqsError;
 
+          // Step 2b: Create quote rows for selected products
+          if (products && products.length > 0) {
+            // Look up the LQS household ID
+            const { data: lqsRow } = await supabase
+              .from('lqs_households')
+              .select('id')
+              .eq('agency_id', agencyId)
+              .eq('household_key', householdKey)
+              .single();
+
+            if (lqsRow) {
+              const quoteRows = products.map(productType => ({
+                household_id: lqsRow.id,
+                agency_id: agencyId,
+                team_member_id: currentUserTeamMemberId || null,
+                quote_date: today,
+                product_type: productType,
+                items_quoted: 1,
+                premium_cents: 0,
+                source: 'manual',
+              }));
+
+              const { error: quoteError } = await supabase
+                .from('lqs_quotes')
+                .insert(quoteRows);
+
+              if (quoteError) {
+                console.warn('Quote creation failed:', quoteError);
+              }
+            }
+          }
+
           // Step 3: Mark winback as moved_to_quoted using robust transition
-          // This handles any active status (untouched, in_progress, declined, no_contact)
           const winbackResult = await winbackApi.transitionToQuoted(
             winbackHousehold.id,
             agencyId,
@@ -696,8 +733,14 @@ export function ContactProfileModal({
     }
   };
 
-  // LQS: Promote lead to quoted status
-  const handleLqsPromoteToQuoted = async () => {
+  // LQS: Promote lead to quoted status — gate through product selection dialog
+  const handleLqsPromoteToQuoted = () => {
+    if (!lqsHousehold?.id || !agencyId) return;
+    setMoveToQuotedSource('lqs');
+    setShowMoveToQuotedDialog(true);
+  };
+
+  const handleLqsPromoteToQuotedWithProducts = async (products: string[]) => {
     if (!lqsHousehold?.id || !agencyId) return;
 
     setModuleActionLoading('promote_to_quoted');
@@ -705,20 +748,17 @@ export function ContactProfileModal({
       const today = new Date().toISOString().split('T')[0];
 
       if (staffSessionToken) {
-        // Staff path: use edge function
         const { data, error } = await supabase.functions.invoke('staff_promote_to_quoted', {
           headers: { 'x-staff-session': staffSessionToken },
           body: {
             household_id: lqsHousehold.id,
-            create_placeholder_quote: true,
+            products,
           },
         });
 
         if (error) throw new Error(error.message || 'Failed to move to quoted');
         if (data?.error) throw new Error(data.error);
       } else {
-        // Authenticated user path: direct Supabase update
-        // First fetch household to check lead_source_id
         const { data: householdData } = await supabase
           .from('lqs_households')
           .select('lead_source_id')
@@ -727,7 +767,6 @@ export function ContactProfileModal({
 
         const needsAttention = !householdData?.lead_source_id;
 
-        // Auto-assign to current user and set needs_attention if no lead source
         const { error: updateError } = await supabase
           .from('lqs_households')
           .update({
@@ -742,25 +781,28 @@ export function ContactProfileModal({
 
         if (updateError) throw updateError;
 
-        // Create placeholder quote for tracking
-        const { error: quoteError } = await supabase
-          .from('lqs_quotes')
-          .insert({
+        // Create one quote row per selected product
+        if (products.length > 0) {
+          const quoteRows = products.map(productType => ({
             household_id: lqsHousehold.id,
             agency_id: agencyId,
             team_member_id: currentUserTeamMemberId || null,
             quote_date: today,
-            product_type: 'Bundle',
+            product_type: productType,
             items_quoted: 1,
             premium_cents: 0,
             source: 'manual',
-          });
+          }));
 
-        if (quoteError) {
-          console.warn('Placeholder quote creation failed:', quoteError);
+          const { error: quoteError } = await supabase
+            .from('lqs_quotes')
+            .insert(quoteRows);
+
+          if (quoteError) {
+            console.warn('Quote creation failed:', quoteError);
+          }
         }
 
-        // Log activity
         if (contactId) {
           await supabase.from('contact_activities').insert({
             contact_id: contactId,
@@ -769,7 +811,7 @@ export function ContactProfileModal({
             source_module: 'lqs',
             source_record_id: lqsHousehold.id,
             subject: 'Moved to Quoted',
-            notes: 'Lead promoted to Quoted Household',
+            notes: `Lead promoted to Quoted Household (${products.join(', ')})`,
             created_by_user_id: userId || null,
             created_by_staff_id: resolvedCreatedByStaffId,
             created_by_display_name: displayName || null,
@@ -778,8 +820,6 @@ export function ContactProfileModal({
       }
 
       toast.success('Moved to Quoted');
-
-      // Invalidate queries to refresh data
       queryClient.invalidateQueries({ queryKey: ['contact-profile', contactId] });
       queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
       queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
@@ -1111,6 +1151,27 @@ export function ContactProfileModal({
             setBreakupLetterModalOpen(false);
             setApplySequenceModalOpen(true);
           }}
+        />
+      )}
+
+      {agencyId && (
+        <MoveToQuotedDialog
+          open={showMoveToQuotedDialog}
+          onOpenChange={(isOpen) => {
+            setShowMoveToQuotedDialog(isOpen);
+            if (!isOpen) setMoveToQuotedSource(null);
+          }}
+          onConfirm={(products) => {
+            setShowMoveToQuotedDialog(false);
+            if (moveToQuotedSource === 'lqs') {
+              handleLqsPromoteToQuotedWithProducts(products);
+            } else if (moveToQuotedSource === 'winback') {
+              handleWinbackOutcome('quoted', products);
+            }
+            setMoveToQuotedSource(null);
+          }}
+          loading={moduleActionLoading === 'promote_to_quoted' || moduleActionLoading === 'quoted'}
+          agencyId={agencyId}
         />
       )}
     </>

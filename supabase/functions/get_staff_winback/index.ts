@@ -1100,7 +1100,7 @@ Deno.serve(async (req) => {
 
       case "winback_to_quoted": {
         // Full flow: find/create lead source, create LQS, update winback status, log activity
-        const { householdId, contactId, firstName, lastName, zipCode, phones, email, currentUserTeamMemberId } = params;
+        const { householdId, contactId, firstName, lastName, zipCode, phones, email, currentUserTeamMemberId, products } = params;
 
         if (!householdId) {
           return new Response(JSON.stringify({ error: "householdId is required" }), {
@@ -1196,6 +1196,38 @@ Deno.serve(async (req) => {
         if (lqsError) {
           console.error("[winback_to_quoted] LQS upsert error:", lqsError);
           // Continue anyway - LQS creation is not critical
+        }
+
+        // Step 2b: Create quote rows for selected products
+        if (products && Array.isArray(products) && products.length > 0) {
+          // Look up the LQS household ID (may have been created or matched by upsert)
+          const { data: lqsHousehold } = await supabase
+            .from("lqs_households")
+            .select("id")
+            .eq("agency_id", agencyId)
+            .eq("household_key", householdKey)
+            .single();
+
+          if (lqsHousehold) {
+            const quoteRows = products.map((productType: string) => ({
+              household_id: lqsHousehold.id,
+              agency_id: agencyId,
+              team_member_id: teamMemberId || null,
+              quote_date: today,
+              product_type: productType,
+              items_quoted: 1,
+              premium_cents: 0,
+              source: "manual",
+            }));
+
+            const { error: quoteError } = await supabase
+              .from("lqs_quotes")
+              .insert(quoteRows);
+
+            if (quoteError) {
+              console.warn("[winback_to_quoted] Quote creation failed:", quoteError);
+            }
+          }
         }
 
         // Step 3: Update winback status to moved_to_quoted

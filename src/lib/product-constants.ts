@@ -1,7 +1,7 @@
 // Products excluded from ALL performance metrics (counts, premiums, items, points)
 // NOTE: These products can still be entered/logged, they just don't count toward metrics
 // NOTE: This does NOT apply to Compensation Analyzer - comp calculations include all products
-export const EXCLUDED_PRODUCTS = ['Motor Club'] as const;
+export const EXCLUDED_PRODUCTS = ['Motor Club', 'Bundle'] as const;
 
 export type ExcludedProduct = (typeof EXCLUDED_PRODUCTS)[number];
 

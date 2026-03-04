@@ -42,6 +42,7 @@ import { useLqsObjections } from '@/hooks/useLqsObjections';
 import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { useLeadSources } from '@/hooks/useLeadSources';
 import { usePriorInsuranceCompanies } from '@/hooks/usePriorInsuranceCompanies';
+import { MoveToQuotedDialog } from './MoveToQuotedDialog';
 
 const FALLBACK_PRODUCT_OPTIONS = [
   'Standard Auto',
@@ -98,6 +99,7 @@ export function LqsHouseholdDetailModal({
   const [showAddSaleForm, setShowAddSaleForm] = useState(false);
   const [isAddingSale, setIsAddingSale] = useState(false);
   const [isPromotingToQuoted, setIsPromotingToQuoted] = useState(false);
+  const [showMoveToQuotedDialog, setShowMoveToQuotedDialog] = useState(false);
 
   // Fetch objections for edit dropdown - use staff hook in staff context
   const isStaffContext = !!staffSessionToken;
@@ -511,7 +513,7 @@ export function LqsHouseholdDetailModal({
     }
   };
 
-  const handlePromoteToQuoted = async () => {
+  const handlePromoteToQuoted = async (products: string[]) => {
     if (!household) return;
 
     setIsPromotingToQuoted(true);
@@ -524,7 +526,7 @@ export function LqsHouseholdDetailModal({
           headers: { 'x-staff-session': staffSessionToken },
           body: {
             household_id: household.id,
-            create_placeholder_quote: true,
+            products,
           },
         });
 
@@ -532,12 +534,9 @@ export function LqsHouseholdDetailModal({
         if (data?.error) throw new Error(data.error);
       } else {
         // Authenticated user path: direct Supabase update
-        // Auto-assign to current user if they have a team_member_id
         const assignToTeamMemberId = currentTeamMemberId || household.team_member_id || null;
-        // Flag for attention if no lead source
         const needsAttention = !household.lead_source_id;
 
-        // Update household status and assign to current user
         const { error: updateError } = await supabase
           .from('lqs_households')
           .update({
@@ -552,23 +551,26 @@ export function LqsHouseholdDetailModal({
 
         if (updateError) throw updateError;
 
-        // Create placeholder quote for tracking
-        const { error: quoteError } = await supabase
-          .from('lqs_quotes')
-          .insert({
+        // Create one quote row per selected product
+        if (products.length > 0) {
+          const quoteRows = products.map(productType => ({
             household_id: household.id,
             agency_id: household.agency_id,
             team_member_id: assignToTeamMemberId,
             quote_date: today,
-            product_type: 'Bundle',
+            product_type: productType,
             items_quoted: 1,
             premium_cents: 0,
             source: 'manual',
-          });
+          }));
 
-        if (quoteError) {
-          console.warn('Placeholder quote creation failed:', quoteError);
-          // Don't fail - status update is primary goal
+          const { error: quoteError } = await supabase
+            .from('lqs_quotes')
+            .insert(quoteRows);
+
+          if (quoteError) {
+            console.warn('Quote creation failed:', quoteError);
+          }
         }
 
         // Log activity if contact exists
@@ -580,7 +582,7 @@ export function LqsHouseholdDetailModal({
             source_module: 'lqs',
             source_record_id: household.id,
             subject: 'Moved to Quoted',
-            notes: 'Lead promoted to Quoted Household',
+            notes: `Lead promoted to Quoted Household (${products.join(', ')})`,
           }).catch(err => console.warn('Activity log failed:', err));
         }
       }
@@ -754,7 +756,7 @@ export function LqsHouseholdDetailModal({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={handlePromoteToQuoted}
+                    onClick={() => setShowMoveToQuotedDialog(true)}
                     disabled={isPromotingToQuoted}
                     className="ml-2 text-yellow-600 border-yellow-500/50 hover:bg-yellow-500/10"
                   >
@@ -1378,6 +1380,19 @@ export function LqsHouseholdDetailModal({
           </div>
         </div>
       </DialogContent>
+
+      {household && (
+        <MoveToQuotedDialog
+          open={showMoveToQuotedDialog}
+          onOpenChange={setShowMoveToQuotedDialog}
+          onConfirm={(products) => {
+            setShowMoveToQuotedDialog(false);
+            handlePromoteToQuoted(products);
+          }}
+          loading={isPromotingToQuoted}
+          agencyId={household.agency_id}
+        />
+      )}
     </Dialog>
   );
 }

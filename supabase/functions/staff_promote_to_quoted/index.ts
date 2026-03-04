@@ -8,7 +8,8 @@ const corsHeaders = {
 
 interface PromoteToQuotedRequest {
   household_id: string;
-  create_placeholder_quote?: boolean;
+  create_placeholder_quote?: boolean; // deprecated, kept for backwards compat
+  products?: string[]; // array of product_type strings to create real quote rows
 }
 
 serve(async (req) => {
@@ -141,26 +142,31 @@ serve(async (req) => {
       throw updateError;
     }
 
-    // Step 7: Optionally create placeholder quote for tracking
-    if (body.create_placeholder_quote !== false) {
+    // Step 7: Create quote rows for selected products
+    if (body.products && body.products.length > 0) {
+      // New flow: create one quote row per selected product
+      // Use assignToTeamMemberId so quotes match the household's team_member assignment
+      const quoteRows = body.products.map((productType: string) => ({
+        household_id: body.household_id,
+        agency_id: staffUser.agency_id,
+        team_member_id: assignToTeamMemberId,
+        quote_date: today,
+        product_type: productType,
+        items_quoted: 1,
+        premium_cents: 0,
+        source: 'manual',
+      }));
+
       const { error: quoteError } = await supabase
         .from('lqs_quotes')
-        .insert({
-          household_id: body.household_id,
-          agency_id: staffUser.agency_id,
-          team_member_id: staffUser.team_member_id,
-          quote_date: today,
-          product_type: 'Bundle',
-          items_quoted: 1,
-          premium_cents: 0,
-          source: 'manual',
-        });
+        .insert(quoteRows);
 
       if (quoteError) {
-        // Log but don't fail - the status update is the primary goal
-        console.warn('[staff_promote_to_quoted] Placeholder quote creation failed:', quoteError);
+        console.warn('[staff_promote_to_quoted] Quote creation failed:', quoteError);
       }
     }
+    // Legacy fallback: no products array means old client — skip quote creation
+    // (previously created a fake 'Bundle' row)
 
     // Step 8: Log activity if contact exists
     if (household.contact_id) {

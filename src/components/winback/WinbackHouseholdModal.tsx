@@ -25,6 +25,7 @@ import type { Household } from './WinbackHouseholdTable';
 import * as winbackApi from '@/lib/winbackApi';
 import { supabase } from '@/integrations/supabase/client';
 import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
+import { MoveToQuotedDialog } from '@/components/lqs/MoveToQuotedDialog';
 
 interface Policy {
   id: string;
@@ -100,6 +101,8 @@ export function WinbackHouseholdModal({
   const [loading, setLoading] = useState(false);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showMoveToQuotedDialog, setShowMoveToQuotedDialog] = useState(false);
+  const [pendingQuotedNotes, setPendingQuotedNotes] = useState('');
   const [assignedTo, setAssignedTo] = useState<string>('unassigned');
   const [localStatus, setLocalStatus] = useState<Household['status']>('untouched');
 
@@ -128,12 +131,19 @@ export function WinbackHouseholdModal({
     }
   };
 
-  const logActivity = async (type: string, notes: string) => {
+  const logActivity = async (type: string, notes: string, products?: string[]) => {
     if (!household || !agencyId) return;
 
     try {
       // SPECIAL CASE: "quoted" triggers full LQS transition, not just activity log
       if (type === 'quoted') {
+        // If no products yet, show the dialog to collect them
+        if (!products) {
+          setPendingQuotedNotes(notes);
+          setShowMoveToQuotedDialog(true);
+          return;
+        }
+
         if (winbackApi.isStaffUser()) {
           // Staff users: call edge function for full flow
           const result = await winbackApi.winbackToQuoted(
@@ -145,7 +155,8 @@ export function WinbackHouseholdModal({
             household.zip_code || '',
             household.phone ? [household.phone] : [],
             household.email || null,
-            currentUserTeamMemberId
+            currentUserTeamMemberId,
+            products
           );
 
           if (!result.success) {
@@ -154,7 +165,7 @@ export function WinbackHouseholdModal({
           }
         } else {
           // Agency owners: replicate ContactProfileModal logic
-          
+
           // Step 1: Find or create "Winback" lead source
           let winbackLeadSourceId: string | null = null;
 
@@ -220,6 +231,37 @@ export function WinbackHouseholdModal({
           if (lqsError) {
             console.error('LQS upsert error:', lqsError);
             // Continue anyway - LQS creation is not critical for status update
+          }
+
+          // Step 2b: Create quote rows for selected products
+          if (products.length > 0) {
+            const { data: lqsRow } = await supabase
+              .from('lqs_households')
+              .select('id')
+              .eq('agency_id', agencyId)
+              .eq('household_key', householdKey)
+              .single();
+
+            if (lqsRow) {
+              const quoteRows = products.map(productType => ({
+                household_id: lqsRow.id,
+                agency_id: agencyId,
+                team_member_id: currentUserTeamMemberId || null,
+                quote_date: today,
+                product_type: productType,
+                items_quoted: 1,
+                premium_cents: 0,
+                source: 'manual',
+              }));
+
+              const { error: quoteError } = await supabase
+                .from('lqs_quotes')
+                .insert(quoteRows);
+
+              if (quoteError) {
+                console.warn('Quote creation failed:', quoteError);
+              }
+            }
           }
 
           // Step 3: Update winback status to moved_to_quoted
@@ -649,6 +691,23 @@ export function WinbackHouseholdModal({
           </div>
         </div>
       </DialogContent>
+
+      {agencyId && (
+        <MoveToQuotedDialog
+          open={showMoveToQuotedDialog}
+          onOpenChange={(isOpen) => {
+            setShowMoveToQuotedDialog(isOpen);
+            if (!isOpen) setPendingQuotedNotes('');
+          }}
+          onConfirm={(products) => {
+            setShowMoveToQuotedDialog(false);
+            logActivity('quoted', pendingQuotedNotes, products);
+            setPendingQuotedNotes('');
+          }}
+          loading={saving}
+          agencyId={agencyId}
+        />
+      )}
     </Dialog>
   );
 }

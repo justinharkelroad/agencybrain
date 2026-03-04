@@ -18,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { isExcludedProduct } from '@/lib/product-constants';
 import { format } from 'date-fns';
 
 export interface DrilldownHousehold {
@@ -44,12 +45,9 @@ interface HouseholdFocusDrilldownSheetProps {
   title: string;
 }
 
-/** "Bundle" is a packaging flag, not a real product line — always exclude from display */
-const EXCLUDED_PRODUCT_TYPES = new Set(['bundle']);
-
 function isRealProduct(productType: string | null): boolean {
   if (!productType) return false;
-  return !EXCLUDED_PRODUCT_TYPES.has(productType.toLowerCase());
+  return !isExcludedProduct(productType);
 }
 
 function formatDate(dateStr: string | null): string {
