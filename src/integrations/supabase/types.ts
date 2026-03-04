@@ -1,3 +1,4 @@
+Initialising login role...
 export type Json =
   | string
   | number
@@ -282,8 +283,74 @@ export type Database = {
         }
         Relationships: []
       }
+      agency_call_addon_subscriptions: {
+        Row: {
+          agency_id: string
+          call_scoring_addon_id: string
+          calls_per_month: number
+          cancel_at_period_end: boolean | null
+          canceled_at: string | null
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          price_cents: number
+          status: string
+          stripe_subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          call_scoring_addon_id: string
+          calls_per_month: number
+          cancel_at_period_end?: boolean | null
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          price_cents: number
+          status?: string
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          call_scoring_addon_id?: string
+          calls_per_month?: number
+          cancel_at_period_end?: boolean | null
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          price_cents?: number
+          status?: string
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_call_addon_subscriptions_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: true
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agency_call_addon_subscriptions_call_scoring_addon_id_fkey"
+            columns: ["call_scoring_addon_id"]
+            isOneToOne: false
+            referencedRelation: "call_scoring_addons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_call_balance: {
         Row: {
+          addon_calls_limit: number | null
+          addon_calls_remaining: number | null
+          addon_period_start: string | null
           agency_id: string
           bonus_calls_expires_at: string | null
           bonus_calls_remaining: number | null
@@ -297,6 +364,9 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          addon_calls_limit?: number | null
+          addon_calls_remaining?: number | null
+          addon_period_start?: string | null
           agency_id: string
           bonus_calls_expires_at?: string | null
           bonus_calls_remaining?: number | null
@@ -310,6 +380,9 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          addon_calls_limit?: number | null
+          addon_calls_remaining?: number | null
+          addon_period_start?: string | null
           agency_id?: string
           bonus_calls_expires_at?: string | null
           bonus_calls_remaining?: number | null
@@ -1890,6 +1963,45 @@ export type Database = {
           sort_order?: number | null
           stripe_price_id?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      call_scoring_addons: {
+        Row: {
+          calls_per_month: number
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          price_cents: number
+          sort_order: number
+          stripe_price_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          calls_per_month: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          price_cents: number
+          sort_order?: number
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          calls_per_month?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_cents?: number
+          sort_order?: number
+          stripe_price_id?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -5594,6 +5706,66 @@ export type Database = {
         }
         Relationships: []
       }
+      household_focus_targets: {
+        Row: {
+          agency_id: string
+          avg_items_per_household: number
+          avg_policies_per_household: number
+          avg_value_per_item: number
+          close_rate: number
+          created_at: string
+          id: string
+          mode: string
+          target_commission: number
+          target_items: number
+          team_member_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          avg_items_per_household: number
+          avg_policies_per_household: number
+          avg_value_per_item: number
+          close_rate: number
+          created_at?: string
+          id?: string
+          mode: string
+          target_commission: number
+          target_items: number
+          team_member_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          avg_items_per_household?: number
+          avg_policies_per_household?: number
+          avg_value_per_item?: number
+          close_rate?: number
+          created_at?: string
+          id?: string
+          mode?: string
+          target_commission?: number
+          target_items?: number
+          team_member_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_focus_targets_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "household_focus_targets_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       key_employee_invites: {
         Row: {
           accepted_at: string | null
@@ -6407,6 +6579,10 @@ export type Database = {
           sale_date: string
           source: string
           source_reference_id: string | null
+          sync_batch_id: string | null
+          sync_error: string | null
+          sync_status: string | null
+          synced_at: string | null
           team_member_id: string | null
         }
         Insert: {
@@ -6431,6 +6607,10 @@ export type Database = {
           sale_date: string
           source?: string
           source_reference_id?: string | null
+          sync_batch_id?: string | null
+          sync_error?: string | null
+          sync_status?: string | null
+          synced_at?: string | null
           team_member_id?: string | null
         }
         Update: {
@@ -6455,6 +6635,10 @@ export type Database = {
           sale_date?: string
           source?: string
           source_reference_id?: string | null
+          sync_batch_id?: string | null
+          sync_error?: string | null
+          sync_status?: string | null
+          synced_at?: string | null
           team_member_id?: string | null
         }
         Relationships: [
@@ -6480,10 +6664,86 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "lqs_sales_sync_batch_id_fkey"
+            columns: ["sync_batch_id"]
+            isOneToOne: false
+            referencedRelation: "lqs_sales_sync_batches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lqs_sales_team_member_id_fkey"
             columns: ["team_member_id"]
             isOneToOne: false
             referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lqs_sales_sync_batches: {
+        Row: {
+          agency_id: string
+          already_linked: number
+          date_end: string | null
+          date_start: string | null
+          failed_rows: number
+          finished_at: string | null
+          id: string
+          include_unassigned: boolean
+          inserted_sales: number
+          notes: string | null
+          started_at: string
+          started_by_staff_user_id: string | null
+          started_by_user_id: string | null
+          status: string
+          total_candidates: number
+        }
+        Insert: {
+          agency_id: string
+          already_linked?: number
+          date_end?: string | null
+          date_start?: string | null
+          failed_rows?: number
+          finished_at?: string | null
+          id?: string
+          include_unassigned?: boolean
+          inserted_sales?: number
+          notes?: string | null
+          started_at?: string
+          started_by_staff_user_id?: string | null
+          started_by_user_id?: string | null
+          status: string
+          total_candidates?: number
+        }
+        Update: {
+          agency_id?: string
+          already_linked?: number
+          date_end?: string | null
+          date_start?: string | null
+          failed_rows?: number
+          finished_at?: string | null
+          id?: string
+          include_unassigned?: boolean
+          inserted_sales?: number
+          notes?: string | null
+          started_at?: string
+          started_by_staff_user_id?: string | null
+          started_by_user_id?: string | null
+          status?: string
+          total_candidates?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lqs_sales_sync_batches_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lqs_sales_sync_batches_started_by_staff_user_id_fkey"
+            columns: ["started_by_staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
             referencedColumns: ["id"]
           },
         ]
@@ -7141,7 +7401,7 @@ export type Database = {
           is_public: boolean
           name: string
           source_sequence_id: string | null
-          target_type: Database["public"]["Enums"]["onboarding_sequence_target_type"]
+          target_type: string
           updated_at: string
         }
         Insert: {
@@ -7156,7 +7416,7 @@ export type Database = {
           is_public?: boolean
           name: string
           source_sequence_id?: string | null
-          target_type?: Database["public"]["Enums"]["onboarding_sequence_target_type"]
+          target_type?: string
           updated_at?: string
         }
         Update: {
@@ -7171,7 +7431,7 @@ export type Database = {
           is_public?: boolean
           name?: string
           source_sequence_id?: string | null
-          target_type?: Database["public"]["Enums"]["onboarding_sequence_target_type"]
+          target_type?: string
           updated_at?: string
         }
         Relationships: [
@@ -7194,80 +7454,6 @@ export type Database = {
             columns: ["source_sequence_id"]
             isOneToOne: false
             referencedRelation: "onboarding_sequences"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      onboarding_training_items: {
-        Row: {
-          agency_id: string
-          completed: boolean
-          completed_at: string | null
-          completed_by_user_id: string | null
-          created_at: string
-          created_by_user_id: string | null
-          id: string
-          label: string
-          member_id: string
-          note: string | null
-          sort_order: number
-          updated_at: string
-        }
-        Insert: {
-          agency_id: string
-          completed?: boolean
-          completed_at?: string | null
-          completed_by_user_id?: string | null
-          created_at?: string
-          created_by_user_id?: string | null
-          id?: string
-          label: string
-          member_id: string
-          note?: string | null
-          sort_order?: number
-          updated_at?: string
-        }
-        Update: {
-          agency_id?: string
-          completed?: boolean
-          completed_at?: string | null
-          completed_by_user_id?: string | null
-          created_at?: string
-          created_by_user_id?: string | null
-          id?: string
-          label?: string
-          member_id?: string
-          note?: string | null
-          sort_order?: number
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "onboarding_training_items_agency_id_fkey"
-            columns: ["agency_id"]
-            isOneToOne: false
-            referencedRelation: "agencies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "onboarding_training_items_completed_by_user_id_fkey"
-            columns: ["completed_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "onboarding_training_items_created_by_user_id_fkey"
-            columns: ["created_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "onboarding_training_items_member_id_fkey"
-            columns: ["member_id"]
-            isOneToOne: false
-            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
@@ -7427,6 +7613,66 @@ export type Database = {
             columns: ["step_id"]
             isOneToOne: false
             referencedRelation: "onboarding_sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_training_items: {
+        Row: {
+          agency_id: string
+          completed: boolean
+          completed_at: string | null
+          completed_by_user_id: string | null
+          created_at: string
+          created_by_user_id: string | null
+          id: string
+          label: string
+          member_id: string
+          note: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          completed?: boolean
+          completed_at?: string | null
+          completed_by_user_id?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          id?: string
+          label: string
+          member_id: string
+          note?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          completed?: boolean
+          completed_at?: string | null
+          completed_by_user_id?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          id?: string
+          label?: string
+          member_id?: string
+          note?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_training_items_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_training_items_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
@@ -9047,6 +9293,7 @@ export type Database = {
           agency_id: string
           assigned_by: string | null
           created_at: string
+          delegate_team_member_id: string | null
           end_date: string | null
           id: string
           notes: string | null
@@ -9059,6 +9306,7 @@ export type Database = {
           agency_id: string
           assigned_by?: string | null
           created_at?: string
+          delegate_team_member_id?: string | null
           end_date?: string | null
           id?: string
           notes?: string | null
@@ -9071,6 +9319,7 @@ export type Database = {
           agency_id?: string
           assigned_by?: string | null
           created_at?: string
+          delegate_team_member_id?: string | null
           end_date?: string | null
           id?: string
           notes?: string | null
@@ -9092,6 +9341,13 @@ export type Database = {
             columns: ["assigned_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_experience_assignments_delegate_team_member_id_fkey"
+            columns: ["delegate_team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
@@ -12902,6 +13158,8 @@ export type Database = {
           product_code: string | null
           product_name: string
           renewal_effective_date: string | null
+          source: string
+          source_upload_id: string | null
           termination_effective_date: string
           termination_reason: string | null
           termination_type: string | null
@@ -12930,6 +13188,8 @@ export type Database = {
           product_code?: string | null
           product_name: string
           renewal_effective_date?: string | null
+          source?: string
+          source_upload_id?: string | null
           termination_effective_date: string
           termination_reason?: string | null
           termination_type?: string | null
@@ -12958,6 +13218,8 @@ export type Database = {
           product_code?: string | null
           product_name?: string
           renewal_effective_date?: string | null
+          source?: string
+          source_upload_id?: string | null
           termination_effective_date?: string
           termination_reason?: string | null
           termination_type?: string | null
@@ -12976,6 +13238,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "winback_households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "winback_policies_source_upload_id_fkey"
+            columns: ["source_upload_id"]
+            isOneToOne: false
+            referencedRelation: "winback_uploads"
             referencedColumns: ["id"]
           },
         ]
@@ -13405,6 +13674,7 @@ export type Database = {
         Args: { p_agency_id: string }
         Returns: boolean
       }
+      cancel_addon_calls: { Args: { p_agency_id: string }; Returns: undefined }
       check_and_reset_call_usage: {
         Args: { p_agency_id: string; p_staff_session_token?: string }
         Returns: {
@@ -13417,6 +13687,7 @@ export type Database = {
       check_call_scoring_access: {
         Args: { p_agency_id: string }
         Returns: {
+          addon_remaining: number
           bonus_remaining: number
           can_score: boolean
           message: string
@@ -14122,6 +14393,14 @@ export type Database = {
         }
         Returns: number
       }
+      reset_addon_calls: {
+        Args: {
+          p_agency_id: string
+          p_new_limit: number
+          p_period_start: string
+        }
+        Returns: undefined
+      }
       reset_subscription_calls: {
         Args: {
           p_agency_id: string
@@ -14145,70 +14424,40 @@ export type Database = {
         Args: { p_status: string; p_stripe_subscription_id: string }
         Returns: undefined
       }
-      upsert_cancel_audit_record:
-        | {
-            Args: {
-              p_account_type: string
-              p_agency_id: string
-              p_agent_number: string
-              p_amount_due_cents: number
-              p_cancel_date: string
-              p_cancel_status?: string
-              p_household_key: string
-              p_insured_email: string
-              p_insured_first_name: string
-              p_insured_last_name: string
-              p_insured_phone: string
-              p_insured_phone_alt: string
-              p_last_upload_id: string
-              p_no_of_items: number
-              p_original_year?: string
-              p_pending_cancel_date: string
-              p_policy_number: string
-              p_premium_cents: number
-              p_product_name: string
-              p_renewal_effective_date: string
-              p_report_type: string
-            }
-            Returns: {
-              id: string
-              was_created: boolean
-            }[]
-          }
-        | {
-            Args: {
-              p_account_type: string
-              p_agency_id: string
-              p_agent_number: string
-              p_amount_due_cents: number
-              p_cancel_date: string
-              p_cancel_status?: string
-              p_city?: string
-              p_company_code?: string
-              p_household_key: string
-              p_insured_email: string
-              p_insured_first_name: string
-              p_insured_last_name: string
-              p_insured_phone: string
-              p_insured_phone_alt: string
-              p_last_upload_id: string
-              p_no_of_items: number
-              p_original_year?: string
-              p_pending_cancel_date: string
-              p_policy_number: string
-              p_premium_cents: number
-              p_premium_old_cents?: number
-              p_product_name: string
-              p_renewal_effective_date: string
-              p_report_type: string
-              p_state?: string
-              p_zip_code?: string
-            }
-            Returns: {
-              id: string
-              was_created: boolean
-            }[]
-          }
+      upsert_cancel_audit_record: {
+        Args: {
+          p_account_type: string
+          p_agency_id: string
+          p_agent_number: string
+          p_amount_due_cents: number
+          p_cancel_date: string
+          p_cancel_status?: string
+          p_city?: string
+          p_company_code?: string
+          p_household_key: string
+          p_insured_email: string
+          p_insured_first_name: string
+          p_insured_last_name: string
+          p_insured_phone: string
+          p_insured_phone_alt: string
+          p_last_upload_id: string
+          p_no_of_items: number
+          p_original_year?: string
+          p_pending_cancel_date: string
+          p_policy_number: string
+          p_premium_cents: number
+          p_premium_old_cents?: number
+          p_product_name: string
+          p_renewal_effective_date: string
+          p_report_type: string
+          p_state?: string
+          p_zip_code?: string
+        }
+        Returns: {
+          id: string
+          was_created: boolean
+        }[]
+      }
       upsert_exchange_activity: {
         Args: {
           p_update_feed?: boolean
