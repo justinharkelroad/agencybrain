@@ -53,8 +53,24 @@ serve(async (req) => {
       console.error("Error fetching metrics:", metricsError);
     }
 
-    // Calculate totals
-    const totalQuotedHouseholds = metricsData?.reduce((sum, row) => sum + (row.quoted_count || 0), 0) || 0;
+    // Also query lqs_households directly as source of truth for quoted count.
+    // The metrics_daily trigger can silently skip (e.g. when team_member_id is NULL),
+    // so we take the MAX of both sources — same pattern as get-household-focus-actuals.
+    const { count: lqsQuotedCount, error: lqsError } = await supabaseAdmin
+      .from("lqs_households")
+      .select("id", { count: "exact", head: true })
+      .eq("agency_id", agencyId)
+      .in("status", ["quoted", "sold"])
+      .eq("first_quote_date", targetDate);
+
+    if (lqsError) {
+      console.error("Error fetching lqs quoted count:", lqsError);
+    }
+
+    // Calculate totals — use MAX of metrics_daily vs lqs_households for quoted
+    const metricsQuoted = metricsData?.reduce((sum, row) => sum + (row.quoted_count || 0), 0) || 0;
+    const lqsQuoted = lqsQuotedCount || 0;
+    const totalQuotedHouseholds = Math.max(metricsQuoted, lqsQuoted);
     const totalSoldItems = metricsData?.reduce((sum, row) => sum + (row.sold_items || 0), 0) || 0;
 
     console.log(`Results: ${totalQuotedHouseholds} quoted, ${totalSoldItems} sold`);
