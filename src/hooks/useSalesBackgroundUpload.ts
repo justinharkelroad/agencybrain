@@ -825,6 +825,36 @@ async function processInBackground(
               });
             }
           }
+
+          // ── Promote household to 'sold' after creating sales ──
+          // If sales were created, this household was sold — update status and
+          // ensure first_quote_date is set (you had to quote it to sell it).
+          if (householdId && salesCreatedInGroup > 0) {
+            const { data: currentHH } = await supabase
+              .from('lqs_households')
+              .select('first_quote_date')
+              .eq('id', householdId)
+              .single();
+
+            const householdUpdate: Record<string, unknown> = {
+              status: 'sold',
+              sold_date: primaryRecord.saleDate,
+            };
+            // Only set first_quote_date if not already set — don't overwrite
+            // a real quote date with the sale date
+            if (!currentHH?.first_quote_date) {
+              householdUpdate.first_quote_date = primaryRecord.saleDate;
+            }
+
+            const { error: promoteError } = await supabase
+              .from('lqs_households')
+              .update(householdUpdate)
+              .eq('id', householdId);
+
+            if (promoteError) {
+              console.error(`[Sales Upload] Failed to promote household ${householdId} to sold:`, promoteError);
+            }
+          }
           }
 
           return {
@@ -902,6 +932,7 @@ async function processInBackground(
     queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
     queryClient.invalidateQueries({ queryKey: ['lqs-stats'] });
     queryClient.invalidateQueries({ queryKey: ['contacts'] });
+    queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] });
 
     // Build final result
     const result: SalesUploadResult = {
