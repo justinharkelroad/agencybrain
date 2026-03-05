@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import { GoalProgressRing } from "./GoalProgressRing";
 import { cn, parseDateLocal, todayLocal } from "@/lib/utils";
 import { calculateCountableTotals, isExcludedProduct } from "@/lib/product-constants";
+import { buildCustomerKey } from "@/lib/sales-bundle-classification";
 import { getBusinessDaysInInterval } from "@/utils/businessDays";
 
 interface AdminPromoGoalsWidgetProps {
@@ -58,6 +59,7 @@ async function resolvePolicyTypeIds(productTypeId: string): Promise<Set<string>>
 
 interface PromoSaleRow {
   customer_name: string | null;
+  customer_zip: string | null;
   sale_policies: PromoSalePolicy[];
 }
 
@@ -69,7 +71,7 @@ async function fetchPromoSalesRows(
 ): Promise<PromoSaleRow[]> {
   let query = supabase
     .from("sales")
-    .select("customer_name, sale_policies(product_type_id, policy_type_name, total_premium, total_items, total_points)")
+    .select("customer_name, customer_zip, sale_policies(product_type_id, policy_type_name, total_premium, total_items, total_points)")
     .eq("agency_id", agencyId)
     .gte("sale_date", startDate)
     .lte("sale_date", endDate);
@@ -417,8 +419,8 @@ async function calculateSalesProgress(
     policies += countable.policyCount;
 
     if (countable.policyCount > 0) {
-      const customer = sale.customer_name?.toLowerCase().trim();
-      if (customer) households.add(customer);
+      const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
+      if (customerKey) households.add(customerKey);
     }
   }
 
@@ -505,8 +507,8 @@ async function calculateAgencyWideSalesProgress(
     policies += countable.policyCount;
 
     if (countable.policyCount > 0) {
-      const customer = sale.customer_name?.toLowerCase().trim();
-      if (customer) households.add(customer);
+      const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
+      if (customerKey) households.add(customerKey);
     }
   }
 

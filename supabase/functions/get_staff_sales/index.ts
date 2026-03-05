@@ -643,23 +643,26 @@ serve(async (req) => {
       }
     }
 
-    const personalSalesForResponse = isTeamScope
-      ? []
-      : personalSales.map((sale) => {
-          const countable = calculateCountableTotals(sale.sale_policies || []);
-          return {
-            ...sale,
-            total_premium: countable.premium,
-            total_items: countable.items,
-            total_points: countable.points,
-            sale_policies: (sale.sale_policies || []).filter((p) => !isExcludedProduct(p.policy_type_name)),
-          };
-        });
+    const normalizeSalesForResponse = (sales: Sale[]) =>
+      sales.map((sale) => {
+        const countable = calculateCountableTotals(sale.sale_policies || []);
+        return {
+          ...sale,
+          total_premium: countable.premium,
+          total_items: countable.items,
+          total_points: countable.points,
+          sale_policies: (sale.sale_policies || []).filter((p) => !isExcludedProduct(p.policy_type_name)),
+        };
+      });
+
+    const personalSalesForResponse = isTeamScope ? [] : normalizeSalesForResponse(personalSales);
+    const teamSalesForResponse = isTeamScope ? normalizeSalesForResponse(salesForTotals) : [];
 
     console.log('Returning success response');
 
     return new Response(JSON.stringify({
       personal_sales: personalSalesForResponse,
+      team_sales: teamSalesForResponse,
       totals,
       leaderboard,
       team_member_id: teamMemberId,

@@ -7,6 +7,7 @@ import { MetricToggle, MetricType } from "./MetricToggle";
 import { DrillDownTable } from "./DrillDownTable";
 import { BarChart3, Loader2, X } from "lucide-react";
 import { calculateCountableTotals } from "@/lib/product-constants";
+import { buildCustomerKey } from "@/lib/sales-bundle-classification";
 import {
   BarChart,
   Bar,
@@ -148,8 +149,9 @@ export function SalesByZipcodeChart({ agencyId, startDate, endDate, staffSession
         
         grouped[zip].items += countable.items;
         grouped[zip].premium += countable.premium;
-        if (sale.customer_name) {
-          grouped[zip].households.add(sale.customer_name.toLowerCase().trim());
+        const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
+        if (customerKey) {
+          grouped[zip].households.add(customerKey);
         }
       }
 

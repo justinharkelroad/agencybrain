@@ -10,30 +10,6 @@ const corsHeaders = {
 
 const EXCLUDED_PRODUCTS = ["motor club"];
 
-// Smart product matching: handles canonical names AND line-code-prefixed names
-// e.g. "010 - Auto - Private Passenger Voluntary" is Standard Auto (line 010)
-function isAutoProduct(name: string): boolean {
-  const lower = name.toLowerCase().trim();
-  if (lower === "standard auto" || lower === "auto") return true;
-  // Line code 010 = Standard Auto
-  if (/^010\s*-/.test(lower)) return true;
-  return false;
-}
-
-function isHomeProduct(name: string): boolean {
-  const lower = name.toLowerCase().trim();
-  if (
-    lower === "homeowners" ||
-    lower === "north light homeowners" ||
-    lower === "condo" ||
-    lower === "north light condo" ||
-    lower === "home"
-  ) return true;
-  // Line codes: 070 = Homeowners, 074/078 = Condo
-  if (/^(070|074|078)\s*-/.test(lower)) return true;
-  return false;
-}
-
 type SyncMode = "preview" | "execute" | "undo";
 
 interface SyncRequest {
@@ -115,13 +91,63 @@ function getGroupKey(row: LqsSaleRow): string {
 function deriveBundleType(
   productNames: string[],
 ): { is_bundle: boolean; bundle_type: string | null } {
-  const normalized = productNames.map((name) => normalizeProductName(name))
-    .filter(Boolean);
-  const distinct = new Set(normalized);
+  const canonical = new Set<string>();
+  for (const raw of productNames) {
+    const name = normalizeProductName(raw);
+    if (!name || isExcludedProduct(name)) continue;
 
-  const hasAuto = normalized.some((name) => isAutoProduct(name));
-  const hasHome = normalized.some((name) => isHomeProduct(name));
-  const isBundle = distinct.size > 1 || (hasAuto && hasHome);
+    const lineCodeMatch = name.match(/^(\d{3})\s*-\s*/);
+    const lineCodeMap: Record<string, string> = {
+      "010": "standard_auto",
+      "020": "other_recognized",
+      "021": "other_recognized",
+      "070": "homeowners",
+      "072": "property_other",
+      "073": "property_other",
+      "074": "condo",
+      "078": "condo",
+      "080": "other_recognized",
+      "090": "other_recognized",
+    };
+    const lineMapped = lineCodeMatch ? lineCodeMap[lineCodeMatch[1]] : null;
+    if (lineMapped) {
+      canonical.add(lineMapped);
+      continue;
+    }
+
+    if (["standard auto", "auto", "personal auto"].includes(name)) {
+      canonical.add("standard_auto");
+    } else if (["homeowners", "north light homeowners", "home"].includes(name)) {
+      canonical.add("homeowners");
+    } else if (["condo", "north light condo", "condominium"].includes(name)) {
+      canonical.add("condo");
+    } else if ([
+      "renters",
+      "landlords",
+      "landlord package",
+      "landlord/dwelling",
+      "mobilehome",
+      "manufactured home",
+    ].includes(name)) {
+      canonical.add("property_other");
+    } else if ([
+      "non-standard auto",
+      "auto - special",
+      "specialty auto",
+      "motorcycle",
+      "boatowners",
+      "personal umbrella",
+      "off-road vehicle",
+      "recreational vehicle",
+      "flood",
+    ].includes(name)) {
+      canonical.add("other_recognized");
+    }
+  }
+
+  const hasAuto = canonical.has("standard_auto");
+  const hasHome = canonical.has("homeowners") || canonical.has("condo");
+  const isBundle = canonical.size >= 2 || (hasAuto && hasHome);
 
   if (hasAuto && hasHome) return { is_bundle: true, bundle_type: "Preferred" };
   if (isBundle) return { is_bundle: true, bundle_type: "Standard" };
@@ -672,7 +698,7 @@ serve(async (req) => {
     let insertedSales = 0;
     let linkedRows = 0;
     let failedRows = 0;
-    let skippedRows = excludedRows.length;
+    const skippedRows = excludedRows.length;
 
     for (const groupKey of selectedKeys) {
       const groupRows = groups.get(groupKey) || [];

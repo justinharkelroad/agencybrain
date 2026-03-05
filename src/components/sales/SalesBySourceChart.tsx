@@ -7,6 +7,7 @@ import { MetricToggle, MetricType } from "./MetricToggle";
 import { DrillDownTable } from "./DrillDownTable";
 import { BarChart3, Loader2, X } from "lucide-react";
 import { calculateCountableTotals } from "@/lib/product-constants";
+import { buildCustomerKey } from "@/lib/sales-bundle-classification";
 import {
   BarChart,
   Bar,
@@ -114,6 +115,7 @@ export function SalesBySourceChart({ agencyId, startDate, endDate, staffSessionT
         .select(`
           id,
           customer_name,
+          customer_zip,
           lead_source_id,
           brokered_carrier_id,
           sale_policies(id, policy_type_name, total_premium, total_items, total_points)
@@ -168,8 +170,9 @@ export function SalesBySourceChart({ agencyId, startDate, endDate, staffSessionT
         grouped[sourceName].items += countable.items;
         grouped[sourceName].premium += countable.premium;
         grouped[sourceName].policies += countable.policyCount;
-        if (sale.customer_name) {
-          grouped[sourceName].households.add(sale.customer_name.toLowerCase().trim());
+        const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
+        if (customerKey) {
+          grouped[sourceName].households.add(customerKey);
         }
       }
 

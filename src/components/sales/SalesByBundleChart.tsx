@@ -7,7 +7,7 @@ import { MetricToggle, MetricType } from "./MetricToggle";
 import { DrillDownTable } from "./DrillDownTable";
 import { BarChart3, Loader2, X } from "lucide-react";
 import { calculateCountableTotals } from "@/lib/product-constants";
-import { buildCustomerBundleMap } from "@/lib/sales-bundle-classification";
+import { buildCustomerBundleMap, buildCustomerKey } from "@/lib/sales-bundle-classification";
 import {
   BarChart,
   Bar,
@@ -79,7 +79,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
       // Admin path - direct query with sale_policies for Motor Club filtering
       let query = supabase
         .from("sales")
-        .select("bundle_type, customer_name, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+        .select("bundle_type, customer_name, customer_zip, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
         .eq("agency_id", agencyId)
         .gte("sale_date", startDate)
         .lte("sale_date", endDate);
@@ -108,7 +108,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
       if (periodCustomerNames.length > 0) {
         let allTimeQuery = supabase
           .from("sales")
-          .select("customer_name, sale_policies(policy_type_name)")
+          .select("customer_name, customer_zip, sale_policies(policy_type_name)")
           .eq("agency_id", agencyId)
           .in("customer_name", periodCustomerNames);
 
@@ -125,11 +125,12 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
 
       const customerBundleMap = buildCustomerBundleMap(allTimeSalesForCustomers as Array<{
         customer_name?: string | null;
+        customer_zip?: string | null;
         sale_policies?: Array<{ policy_type_name?: string | null }> | null;
       }>);
 
       const grouped = periodSales.reduce((acc, sale) => {
-        const customerKey = sale.customer_name?.toLowerCase().trim() || "";
+        const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
         const bundleType = customerBundleMap.get(customerKey) || "Monoline";
         
         if (!acc[bundleType]) {

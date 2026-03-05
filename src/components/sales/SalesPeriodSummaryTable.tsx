@@ -42,6 +42,13 @@ interface SaleSummaryRow {
   points: number;
 }
 
+interface StaffSalesResponseRow {
+  id: string;
+  sale_date: string;
+  customer_name: string | null;
+  sale_policies?: SalePolicy[] | null;
+}
+
 export function SalesPeriodSummaryTable({
   agencyId,
   startDate,
@@ -70,9 +77,11 @@ export function SalesPeriodSummaryTable({
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
 
-        const salesData = data?.personal_sales || [];
+        const salesData = data?.scope === "team"
+          ? (data?.team_sales || [])
+          : (data?.personal_sales || []);
 
-        return salesData.map((sale: any) => {
+        return (salesData as StaffSalesResponseRow[]).map((sale) => {
           const policies = (sale.sale_policies || []) as SalePolicy[];
           const countable = calculateCountableTotals(policies);
           return {
@@ -114,7 +123,14 @@ export function SalesPeriodSummaryTable({
 
       if (error) throw error;
 
-      return (data || []).map((sale: any) => {
+      return (data || []).map((sale: {
+        id: string;
+        sale_date: string;
+        customer_name: string | null;
+        lead_source?: { name?: string | null } | null;
+        team_member?: { name?: string | null } | null;
+        sale_policies?: SalePolicy[] | null;
+      }) => {
         const policies = (sale.sale_policies || []) as SalePolicy[];
         const countable = calculateCountableTotals(policies);
         return {

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { buildCustomerBundleMap } from "@/lib/sales-bundle-classification";
+import { buildCustomerBundleMap, buildCustomerKey } from "@/lib/sales-bundle-classification";
 
 export interface BundleMixEntry {
   team_member_id: string;
@@ -83,7 +83,7 @@ async function fetchBundleMixData(
   // Fetch sales in range (we'll classify each customer by all-time product mix)
   let salesQuery = supabase
     .from("sales")
-    .select("team_member_id, customer_name, sale_policies(policy_type_name)")
+    .select("team_member_id, customer_name, customer_zip, sale_policies(policy_type_name)")
     .eq("agency_id", agencyId)
     .gte("sale_date", startDate)
     .lte("sale_date", endDate);
@@ -110,7 +110,7 @@ async function fetchBundleMixData(
   if (customerNames.length > 0) {
     let historicalQuery = supabase
       .from("sales")
-      .select("customer_name, sale_policies(policy_type_name)")
+      .select("customer_name, customer_zip, sale_policies(policy_type_name)")
       .eq("agency_id", agencyId)
       .in("customer_name", customerNames);
 
@@ -127,6 +127,7 @@ async function fetchBundleMixData(
 
   const customerBundleMap = buildCustomerBundleMap(historicalSales as Array<{
     customer_name?: string | null;
+    customer_zip?: string | null;
     sale_policies?: Array<{ policy_type_name?: string | null }> | null;
   }>);
 
@@ -146,7 +147,7 @@ async function fetchBundleMixData(
     const tmId = sale.team_member_id;
     if (!tmId || !bestBundlePerCustomer[tmId]) continue;
 
-    const customerKey = (sale.customer_name || "").toLowerCase().trim();
+    const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
     if (!customerKey) continue;
 
     const current = bestBundlePerCustomer[tmId][customerKey];

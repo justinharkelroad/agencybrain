@@ -27,12 +27,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, ExternalLink, Users, Phone } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, ExternalLink, Phone } from "lucide-react";
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
 import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
 import { generateHouseholdKey } from "@/lib/lqs-quote-parser";
+import { classifyBundle, type ExistingProductFlag } from "@/lib/bundle-classifier";
+import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-products";
+import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
 import {
   Dialog,
   DialogContent,
@@ -127,9 +130,9 @@ interface AddSaleFormProps {
 }
 
 
-// Auto products for Preferred Bundle detection (uses canonical names from product_types)
-const AUTO_PRODUCTS = ['Standard Auto'];
-const HOME_PRODUCTS = ['Homeowners', 'North Light Homeowners', 'Condo', 'North Light Condo'];
+function mapExistingTypes(existingTypes: string[]): ExistingProductFlag[] {
+  return normalizeExistingCustomerProducts(existingTypes);
+}
 
 // Helper to detect bundle type automatically using canonical names for accurate detection
 // Accepts optional existingTypes array for customers with existing policies
@@ -137,32 +140,14 @@ const detectBundleType = (
   policies: Policy[],
   existingTypes: string[] = []
 ): { isBundle: boolean; bundleType: string | null } => {
-  // Use canonical_name (from linked product_types) for bundle detection, fallback to display name
-  const productNames = policies.map(p => p.canonical_name || p.policy_type_name).filter(Boolean);
-
-  // Check both new policies AND existing policies
-  const hasAuto = productNames.some(name =>
-    AUTO_PRODUCTS.some(auto => name.toLowerCase() === auto.toLowerCase())
-  ) || existingTypes.includes('auto');
-
-  const hasHome = productNames.some(name =>
-    HOME_PRODUCTS.some(home => name.toLowerCase() === home.toLowerCase())
-  ) || existingTypes.includes('home');
-
-  // Preferred Bundle: Auto + Home (either existing or new)
-  if (hasAuto && hasHome) {
-    return { isBundle: true, bundleType: 'Preferred' };
-  }
-
-  // Standard Bundle: Multiple policies OR 1 new + existing
-  const newPolicyCount = policies.filter(p => p.policy_type_name).length;
-  const totalPolicies = newPolicyCount + existingTypes.length;
-  if (totalPolicies > 1) {
-    return { isBundle: true, bundleType: 'Standard' };
-  }
-
-  // Monoline: Single policy
-  return { isBundle: false, bundleType: null };
+  const result = classifyBundle({
+    productNames: policies.map((p) => p.canonical_name || p.policy_type_name),
+    existingProducts: mapExistingTypes(existingTypes),
+  });
+  return {
+    isBundle: result.isBundle,
+    bundleType: result.bundleType === "Monoline" ? null : result.bundleType,
+  };
 };
 
 // Multi-item product types (uses canonical names)
@@ -252,7 +237,7 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
       const existingProducts = editSale.existing_customer_products || [];
       if (existingProducts.length > 0) {
         setHasExistingPolicies(true);
-        setExistingPolicyTypes(existingProducts);
+        setExistingPolicyTypes(normalizeExistingCustomerProducts(existingProducts));
       } else {
         setHasExistingPolicies(false);
         setExistingPolicyTypes([]);
@@ -1151,91 +1136,16 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
               )}
             </div>
 
-            {/* Existing Customer Section */}
-            <div className="space-y-3 sm:col-span-2">
-              <div className={cn(
-                "p-4 rounded-lg border transition-colors",
-                hasExistingPolicies
-                  ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20"
-                  : "border-muted bg-muted/30"
-              )}>
-                <div className="flex items-center gap-3">
-                  <Checkbox
-                    id="hasExistingPolicies"
-                    checked={hasExistingPolicies}
-                    onCheckedChange={(checked) => {
-                      setHasExistingPolicies(checked === true);
-                      if (!checked) {
-                        setExistingPolicyTypes([]);
-                      }
-                    }}
-                  />
-                  <Label
-                    htmlFor="hasExistingPolicies"
-                    className="flex items-center gap-2 cursor-pointer font-medium"
-                  >
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    Customer has existing policies with us
-                  </Label>
-                </div>
-
-                {hasExistingPolicies && (
-                  <div className="mt-4 pl-7 space-y-3">
-                    <Label className="text-sm text-muted-foreground">
-                      What products do they already have?
-                    </Label>
-                    <div className="flex flex-wrap gap-4">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="existingAuto"
-                          checked={existingPolicyTypes.includes('auto')}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setExistingPolicyTypes([...existingPolicyTypes, 'auto']);
-                            } else {
-                              setExistingPolicyTypes(existingPolicyTypes.filter(t => t !== 'auto'));
-                            }
-                          }}
-                        />
-                        <Label htmlFor="existingAuto" className="cursor-pointer">
-                          Auto
-                        </Label>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id="existingHome"
-                          checked={existingPolicyTypes.includes('home')}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setExistingPolicyTypes([...existingPolicyTypes, 'home']);
-                            } else {
-                              setExistingPolicyTypes(existingPolicyTypes.filter(t => t !== 'home'));
-                            }
-                          }}
-                        />
-                        <Label htmlFor="existingHome" className="cursor-pointer">
-                          Home/Property
-                        </Label>
-                      </div>
-                    </div>
-
-                    {/* Bundle Type Preview */}
-                    {policies.length > 0 && existingPolicyTypes.length > 0 && (
-                      <div className="mt-3 p-2 rounded bg-blue-100 dark:bg-blue-900/30 text-sm">
-                        {bundleInfo.bundleType === 'Preferred' ? (
-                          <span className="text-blue-700 dark:text-blue-300">
-                            → Adding {policies.map(p => p.policy_type_name).filter(Boolean).join(', ') || 'this policy'} = <strong>Preferred Bundle</strong>
-                          </span>
-                        ) : bundleInfo.bundleType === 'Standard' ? (
-                          <span className="text-blue-700 dark:text-blue-300">
-                            → Adding {policies.map(p => p.policy_type_name).filter(Boolean).join(', ') || 'this policy'} = <strong>Standard Bundle</strong>
-                          </span>
-                        ) : null}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+            <div className="sm:col-span-2">
+              <ExistingCustomerProductsSelector
+                idPrefix="owner-existing-products"
+                hasExistingPolicies={hasExistingPolicies}
+                selectedProducts={existingPolicyTypes}
+                onHasExistingPoliciesChange={setHasExistingPolicies}
+                onSelectedProductsChange={setExistingPolicyTypes}
+                previewBundleType={bundleInfo.bundleType}
+                previewPolicyLabel={policies.map((p) => p.policy_type_name).filter(Boolean).join(", ") || "this policy"}
+              />
             </div>
           </CardContent>
         </Card>

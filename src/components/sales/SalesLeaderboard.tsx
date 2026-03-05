@@ -19,6 +19,7 @@ import { BundleMixLeaderboard } from "./BundleMixLeaderboard";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { MetricToggle, MetricType } from "./MetricToggle";
 import { calculateCountableTotals } from "@/lib/product-constants";
+import { buildCustomerKey } from "@/lib/sales-bundle-classification";
 
 type RankMetric = MetricType;
 type Period = "this_month" | "last_month" | "this_quarter" | "ytd";
@@ -45,6 +46,7 @@ interface LeaderboardSalePolicy {
 interface LeaderboardSaleRow {
   team_member_id: string | null;
   customer_name: string | null;
+  customer_zip: string | null;
   is_one_call_close: boolean | null;
   sale_policies: LeaderboardSalePolicy[] | null;
 }
@@ -217,6 +219,7 @@ export function SalesLeaderboard({
         .select(`
           team_member_id,
           customer_name,
+          customer_zip,
           is_one_call_close,
           sale_policies(id, policy_type_name, total_premium, total_items, total_points)
         `)
@@ -269,9 +272,9 @@ export function SalesLeaderboard({
 
           // Track unique households (only if sale has countable policies)
           if (countable.policyCount > 0) {
-            const customerName = sale.customer_name?.toLowerCase().trim();
-            if (customerName) {
-              aggregated[sale.team_member_id].customerNames.add(customerName);
+            const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
+            if (customerKey) {
+              aggregated[sale.team_member_id].customerNames.add(customerKey);
             }
           }
         }

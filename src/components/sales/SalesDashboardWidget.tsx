@@ -36,6 +36,7 @@ import { useSalesTrends } from "@/hooks/useSalesTrends";
 import { useSalesStreak } from "@/hooks/useSalesStreak";
 import { useSalesLeaderboard } from "@/hooks/useSalesLeaderboard";
 import { calculateCountableTotals } from "@/lib/product-constants";
+import { buildCustomerKey } from "@/lib/sales-bundle-classification";
 
 interface SalesDashboardWidgetProps {
   agencyId: string | null;
@@ -55,6 +56,7 @@ interface SalesSummaryRow {
   id: string;
   sale_date: string;
   customer_name: string | null;
+  customer_zip: string | null;
   is_one_call_close: boolean | null;
   sale_policies: PolicySummary[] | null;
 }
@@ -114,6 +116,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
           id,
           sale_date,
           customer_name,
+          customer_zip,
           is_one_call_close,
           sale_policies(id, policy_type_name, total_premium, total_items, total_points)
         `)
@@ -158,7 +161,7 @@ export function SalesDashboardWidget({ agencyId }: SalesDashboardWidgetProps) {
       const uniqueCustomers = new Set(
         rows
           .filter((s) => calculateCountableTotals(s.sale_policies || []).policyCount > 0)
-          .map((s) => s.customer_name?.toLowerCase().trim())
+          .map((s) => buildCustomerKey(s.customer_name, s.customer_zip))
           .filter(Boolean)
       );
       const totalHouseholds = uniqueCustomers.size;

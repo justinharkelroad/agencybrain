@@ -49,10 +49,12 @@ import {
   Car,
   Home,
   AlertTriangle,
-  Users
 } from "lucide-react";
 import { cn, todayLocal, toLocalDate, formatPhoneNumber } from "@/lib/utils";
 import { generateHouseholdKey } from "@/lib/lqs-quote-parser";
+import { classifyBundle, type ExistingProductFlag } from "@/lib/bundle-classifier";
+import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-products";
+import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
 
 interface ExtractedSaleData {
   customerName: string;
@@ -121,9 +123,9 @@ interface PdfUploadFormProps {
   leadSources?: { id: string; name: string }[];
 }
 
-// Auto products for Preferred Bundle detection
-const AUTO_PRODUCTS = ['Standard Auto'];
-const HOME_PRODUCTS = ['Homeowners', 'North Light Homeowners', 'Condo', 'North Light Condo'];
+function mapExistingTypes(existingTypes: string[]): ExistingProductFlag[] {
+  return normalizeExistingCustomerProducts(existingTypes);
+}
 const DEFAULT_MULTI_ITEM_PRODUCTS = [
   'Standard Auto',
   'Non-Standard Auto',
@@ -137,24 +139,14 @@ const detectBundleType = (
   policyProductNames: string[],
   existingTypes: string[] = []
 ): { isBundle: boolean; bundleType: string | null } => {
-  const hasAuto = policyProductNames.some(name =>
-    AUTO_PRODUCTS.some(auto => name.toLowerCase() === auto.toLowerCase())
-  ) || existingTypes.includes('auto');
-
-  const hasHome = policyProductNames.some(name =>
-    HOME_PRODUCTS.some(home => name.toLowerCase() === home.toLowerCase())
-  ) || existingTypes.includes('home');
-
-  if (hasAuto && hasHome) {
-    return { isBundle: true, bundleType: 'Preferred' };
-  }
-
-  const totalPolicies = policyProductNames.filter(Boolean).length + existingTypes.length;
-  if (totalPolicies > 1) {
-    return { isBundle: true, bundleType: 'Standard' };
-  }
-
-  return { isBundle: false, bundleType: null };
+  const result = classifyBundle({
+    productNames: policyProductNames,
+    existingProducts: mapExistingTypes(existingTypes),
+  });
+  return {
+    isBundle: result.isBundle,
+    bundleType: result.bundleType === "Monoline" ? null : result.bundleType,
+  };
 };
 
 // Product type mapping for normalization
@@ -1182,74 +1174,13 @@ export function PdfUploadForm({
             </Popover>
           </div>
           <div className="space-y-3 sm:col-span-2">
-            <div className={cn(
-              "p-4 rounded-lg border transition-colors",
-              hasExistingPolicies
-                ? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20"
-                : "border-muted bg-muted/30"
-            )}>
-              <div className="flex items-center gap-3">
-                <Checkbox
-                  id="hasExistingPolicies"
-                  checked={hasExistingPolicies}
-                  onCheckedChange={(checked) => {
-                    setHasExistingPolicies(checked === true);
-                    if (!checked) {
-                      setExistingPolicyTypes([]);
-                    }
-                  }}
-                />
-                <Label
-                  htmlFor="hasExistingPolicies"
-                  className="flex items-center gap-2 cursor-pointer font-medium"
-                >
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  Customer has existing policies with us
-                </Label>
-              </div>
-
-              {hasExistingPolicies && (
-                <div className="mt-4 pl-7 space-y-3">
-                  <Label className="text-sm text-muted-foreground">
-                    What products do they already have?
-                  </Label>
-                  <div className="flex flex-wrap gap-4">
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="existingAuto"
-                        checked={existingPolicyTypes.includes('auto')}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setExistingPolicyTypes([...existingPolicyTypes, 'auto']);
-                          } else {
-                            setExistingPolicyTypes(existingPolicyTypes.filter(t => t !== 'auto'));
-                          }
-                        }}
-                      />
-                      <Label htmlFor="existingAuto" className="cursor-pointer">
-                        Auto
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="existingHome"
-                        checked={existingPolicyTypes.includes('home')}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setExistingPolicyTypes([...existingPolicyTypes, 'home']);
-                          } else {
-                            setExistingPolicyTypes(existingPolicyTypes.filter(t => t !== 'home'));
-                          }
-                        }}
-                      />
-                      <Label htmlFor="existingHome" className="cursor-pointer">
-                        Home/Property
-                      </Label>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ExistingCustomerProductsSelector
+              idPrefix="pdf-existing-products"
+              hasExistingPolicies={hasExistingPolicies}
+              selectedProducts={existingPolicyTypes}
+              onHasExistingPoliciesChange={setHasExistingPolicies}
+              onSelectedProductsChange={setExistingPolicyTypes}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="leadSource">

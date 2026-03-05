@@ -6,7 +6,7 @@ import {
   calculateCountableTotals,
   filterCountablePolicies,
 } from "@/lib/product-constants";
-import { buildCustomerBundleMap } from "@/lib/sales-bundle-classification";
+import { buildCustomerBundleMap, buildCustomerKey } from "@/lib/sales-bundle-classification";
 import {
   Table,
   TableBody,
@@ -81,6 +81,7 @@ interface BundleSaleRow {
   id: string;
   sale_date: string;
   customer_name: string | null;
+  customer_zip: string | null;
   lead_source_id: string | null;
   team_member_id: string | null;
   sale_policies?: Array<{
@@ -91,6 +92,19 @@ interface BundleSaleRow {
     total_items?: number | null;
     total_points?: number | null;
   }> | null;
+}
+
+interface BundleRollupRow {
+  id: string;
+  customer_key: string;
+  customer_name: string;
+  sale_date: string;
+  lead_source_id: string | null;
+  team_member_id: string | null;
+  policy_types: Set<string>;
+  total_items: number;
+  total_premium: number;
+  total_points: number;
 }
 
 // Minimal sale structure for staff edit modal
@@ -156,7 +170,7 @@ export function DrillDownTable({
         let bundleQuery = supabase
           .from("sales")
           .select(`
-            id, sale_date, customer_name, lead_source_id, team_member_id,
+            id, sale_date, customer_name, customer_zip, lead_source_id, team_member_id,
             sale_policies(id, policy_type_name, total_premium, total_items, total_points)
           `)
           .eq("agency_id", agencyId)
@@ -182,12 +196,13 @@ export function DrillDownTable({
 
         let historicalSales: Array<{
           customer_name?: string | null;
+          customer_zip?: string | null;
           sale_policies?: Array<{ policy_type_name?: string | null }> | null;
         }> = [];
         if (customerNames.length > 0) {
           const { data, error: historicalError } = await supabase
             .from("sales")
-            .select("customer_name, sale_policies(policy_type_name)")
+            .select("customer_name, customer_zip, sale_policies(policy_type_name)")
             .eq("agency_id", agencyId)
             .in("customer_name", customerNames);
           if (historicalError) throw historicalError;
@@ -197,14 +212,63 @@ export function DrillDownTable({
         const bundleMap = buildCustomerBundleMap(historicalSales);
 
         const filteredByBundle = typedBundleSales.filter((sale) => {
-          const key = (sale.customer_name || "").toLowerCase().trim();
+          const key = buildCustomerKey(sale.customer_name, sale.customer_zip);
           const effectiveBundle = bundleMap.get(key) || "Monoline";
           if (filter.value === "__all__") return true;
           return effectiveBundle === filter.value;
         });
 
-        const total = filteredByBundle.length;
-        const pagedRows = filteredByBundle.slice((page - 1) * pageSize, page * pageSize);
+        const rollupMap = new Map<string, BundleRollupRow>();
+        for (const sale of filteredByBundle) {
+          const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
+          if (!customerKey) continue;
+
+          const policies = sale.sale_policies || [];
+          const countable = calculateCountableTotals(policies);
+
+          const existing = rollupMap.get(customerKey);
+          if (!existing) {
+            rollupMap.set(customerKey, {
+              id: sale.id,
+              customer_key: customerKey,
+              customer_name: sale.customer_name || "Unknown",
+              sale_date: sale.sale_date,
+              lead_source_id: sale.lead_source_id || null,
+              team_member_id: sale.team_member_id || null,
+              policy_types: new Set(
+                filterCountablePolicies(policies)
+                  .map((p) => p.policy_type_name || p.policy_type || "")
+                  .filter(Boolean),
+              ),
+              total_items: countable.items,
+              total_premium: countable.premium,
+              total_points: countable.points,
+            });
+            continue;
+          }
+
+          // Keep latest sale metadata (query is already date desc).
+          if (sale.sale_date > existing.sale_date) {
+            existing.id = sale.id;
+            existing.sale_date = sale.sale_date;
+            existing.lead_source_id = sale.lead_source_id || null;
+            existing.team_member_id = sale.team_member_id || null;
+          }
+
+          for (const policy of filterCountablePolicies(policies)) {
+            const name = policy.policy_type_name || policy.policy_type || "";
+            if (name) existing.policy_types.add(name);
+          }
+          existing.total_items += countable.items;
+          existing.total_premium += countable.premium;
+          existing.total_points += countable.points;
+        }
+
+        const rollups = Array.from(rollupMap.values()).sort((a, b) =>
+          b.sale_date.localeCompare(a.sale_date)
+        );
+        const total = rollups.length;
+        const pagedRows = rollups.slice((page - 1) * pageSize, page * pageSize);
 
         const teamMemberIds = [...new Set(pagedRows.map((s) => s.team_member_id).filter(Boolean))];
         const leadSourceIds = [...new Set(pagedRows.map((s) => s.lead_source_id).filter(Boolean))];
@@ -232,22 +296,17 @@ export function DrillDownTable({
           }
         }
 
-        const records: SaleRecord[] = (pagedRows as AdminSaleRow[]).map((sale) => {
-          const policies = sale.sale_policies || [];
-          const countable = calculateCountableTotals(policies);
+        const records: SaleRecord[] = pagedRows.map((household) => {
           return {
-            id: sale.id,
-            sale_date: sale.sale_date,
-            customer_name: sale.customer_name || "Unknown",
-            policy_types: filterCountablePolicies(policies)
-              .map((p) => p.policy_type_name || p.policy_type || "")
-              .filter(Boolean)
-              .join(", ") || null,
-            lead_source_name: sale.lead_source_id ? leadSourceMap.get(sale.lead_source_id) || null : null,
-            producer_name: sale.team_member_id ? teamMemberMap.get(sale.team_member_id) || null : null,
-            total_items: countable.items,
-            total_premium: countable.premium,
-            total_points: countable.points,
+            id: household.id,
+            sale_date: household.sale_date,
+            customer_name: household.customer_name,
+            policy_types: Array.from(household.policy_types).join(", ") || null,
+            lead_source_name: household.lead_source_id ? leadSourceMap.get(household.lead_source_id) || null : null,
+            producer_name: household.team_member_id ? teamMemberMap.get(household.team_member_id) || null : null,
+            total_items: household.total_items,
+            total_premium: household.total_premium,
+            total_points: household.total_points,
           };
         });
 
@@ -356,6 +415,8 @@ export function DrillDownTable({
 
   const totalCount = data?.total_count || 0;
   const records = data?.data || [];
+  const countLabel = filter.type === "bundle_type" ? "households" : "records";
+  const sectionLabel = filter.type === "bundle_type" ? "Households" : "Sales";
   const startRecord = (page - 1) * pageSize + 1;
   const endRecord = Math.min(page * pageSize, totalCount);
   const hasNextPage = page * pageSize < totalCount;
@@ -423,7 +484,7 @@ export function DrillDownTable({
     <div className="mt-6 border-t border-border pt-6">
       <div className="flex items-center justify-between mb-4">
         <h4 className="text-sm font-medium text-foreground">
-          Sales for {filter.displayLabel} ({totalCount.toLocaleString()} records)
+          {sectionLabel} for {filter.displayLabel} ({totalCount.toLocaleString()} {countLabel})
         </h4>
         <Button variant="ghost" size="sm" onClick={onClear} className="gap-1">
           <X className="h-4 w-4" />
@@ -433,7 +494,7 @@ export function DrillDownTable({
 
       {records.length === 0 ? (
         <div className="flex items-center justify-center py-8 text-muted-foreground">
-          <p>No records found</p>
+          <p>{filter.type === "bundle_type" ? "No households found" : "No records found"}</p>
         </div>
       ) : (
         <>

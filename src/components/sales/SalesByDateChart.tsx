@@ -8,6 +8,7 @@ import { DrillDownTable } from "./DrillDownTable";
 import { BarChart3, Loader2, X } from "lucide-react";
 import { formatDateLocal } from "@/lib/utils";
 import { calculateCountableTotals } from "@/lib/product-constants";
+import { buildCustomerKey } from "@/lib/sales-bundle-classification";
 import {
   BarChart,
   Bar,
@@ -84,7 +85,7 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
       // Admin path - direct query with sale_policies for Motor Club filtering
       let query = supabase
         .from("sales")
-        .select("sale_date, customer_name, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+        .select("sale_date, customer_name, customer_zip, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
         .eq("agency_id", agencyId)
         .gte("sale_date", startDate)
         .lte("sale_date", endDate);
@@ -124,8 +125,9 @@ export function SalesByDateChart({ agencyId, startDate, endDate, staffSessionTok
         grouped[date].premium += countable.premium;
         grouped[date].points += countable.points;
         grouped[date].policies += countable.policyCount;
-        if (sale.customer_name) {
-          grouped[date].households.add(sale.customer_name.toLowerCase().trim());
+        const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
+        if (customerKey) {
+          grouped[date].households.add(customerKey);
         }
       }
 

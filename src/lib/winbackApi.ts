@@ -2,6 +2,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { hasStaffToken, fetchWithAuth } from './staffRequest';
 import { startOfWeek, endOfWeek } from 'date-fns';
 import { generateHouseholdKey } from './lqs-quote-parser';
+import { classifyBundle } from './bundle-classifier';
 import type { DateRange } from 'react-day-picker';
 
 // Types
@@ -640,7 +641,7 @@ export async function pushToNextCycle(
     const terminationDate = new Date(policy.termination_effective_date);
     const policyTermMonths = policy.policy_term_months || 12;
 
-    let competitorRenewalDate = new Date(terminationDate);
+    const competitorRenewalDate = new Date(terminationDate);
     competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
 
     while (competitorRenewalDate <= today) {
@@ -1183,13 +1184,10 @@ export async function recordWonBackSale(
     const totalPremium = policies.reduce((sum, p) => sum + p.premium, 0);
     const customerName = `${household.first_name || ''} ${household.last_name || ''}`.trim() || 'Unknown';
 
-    // Detect bundle type using same Auto+Home logic as AddSaleForm
-    const AUTO_PRODUCTS = ['standard auto'];
-    const HOME_PRODUCTS = ['homeowners', 'north light homeowners', 'condo', 'north light condo'];
-    const productNames = policies.map(p => p.productName.toLowerCase());
-    const hasAuto = productNames.some(n => AUTO_PRODUCTS.includes(n));
-    const hasHome = productNames.some(n => HOME_PRODUCTS.includes(n));
-    const bundleType = hasAuto && hasHome ? 'Preferred' : totalPolicies >= 2 ? 'Standard' : null;
+    const bundle = classifyBundle({
+      productNames: policies.map((p) => p.productName),
+    });
+    const bundleType = bundle.bundleType === 'Monoline' ? null : bundle.bundleType;
 
     // Step 3: Insert sales record
     const { data: saleRecord, error: saleError } = await supabase
@@ -1207,7 +1205,7 @@ export async function recordWonBackSale(
         total_policies: totalPolicies,
         total_items: totalItems,
         total_premium: totalPremium,
-        is_bundle: totalPolicies >= 2,
+        is_bundle: bundle.isBundle,
         bundle_type: bundleType,
         is_one_call_close: false,
         source: 'winback',

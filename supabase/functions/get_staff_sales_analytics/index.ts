@@ -30,34 +30,84 @@ function normalizeProductName(name: string | null | undefined): string {
   return (name || "").toLowerCase().trim();
 }
 
+function buildCustomerKey(
+  customerName: string | null | undefined,
+  customerZip?: string | null | undefined,
+): string {
+  const normalizedName = normalizeProductName(customerName);
+  if (!normalizedName) return "";
+  const normalizedZip = (customerZip || "").trim();
+  return normalizedZip ? `${normalizedName}|${normalizedZip}` : normalizedName;
+}
+
 function classifyBundleType(productNames: Iterable<string | null | undefined>): BundleType {
-  const normalized = new Set<string>();
+  const canonical = new Set<string>();
   for (const rawName of productNames) {
     const name = normalizeProductName(rawName);
     if (!name || isExcludedProduct(name)) continue;
-    normalized.add(name);
+
+    const lineCodeMatch = name.match(/^(\d{3})\s*-\s*/);
+    const lineCodeMap: Record<string, string> = {
+      "010": "standard_auto",
+      "020": "other_recognized",
+      "021": "other_recognized",
+      "070": "homeowners",
+      "072": "property_other",
+      "073": "property_other",
+      "074": "condo",
+      "078": "condo",
+      "080": "other_recognized",
+      "090": "other_recognized",
+    };
+    const lineMapped = lineCodeMatch ? lineCodeMap[lineCodeMatch[1]] : null;
+    if (lineMapped) {
+      canonical.add(lineMapped);
+      continue;
+    }
+
+    if (["standard auto", "auto", "personal auto"].includes(name)) {
+      canonical.add("standard_auto");
+    } else if (["homeowners", "north light homeowners", "home"].includes(name)) {
+      canonical.add("homeowners");
+    } else if (["condo", "north light condo", "condominium"].includes(name)) {
+      canonical.add("condo");
+    } else if ([
+      "renters",
+      "landlords",
+      "landlord package",
+      "landlord/dwelling",
+      "mobilehome",
+      "manufactured home",
+    ].includes(name)) {
+      canonical.add("property_other");
+    } else if ([
+      "non-standard auto",
+      "auto - special",
+      "specialty auto",
+      "motorcycle",
+      "boatowners",
+      "personal umbrella",
+      "off-road vehicle",
+      "recreational vehicle",
+      "flood",
+    ].includes(name)) {
+      canonical.add("other_recognized");
+    }
   }
 
-  const hasAuto = [...normalized].some((name) =>
-    name === "standard auto" || name === "auto" || name.startsWith("010 -") || name.startsWith("010-")
-  );
-  const hasHome = [...normalized].some((name) =>
-    ["homeowners", "north light homeowners", "condo", "north light condo", "renters", "landlords"].includes(name) ||
-    name.startsWith("070 -") || name.startsWith("070-") ||
-    name.startsWith("074 -") || name.startsWith("074-") ||
-    name.startsWith("078 -") || name.startsWith("078-")
-  );
+  const hasAuto = canonical.has("standard_auto");
+  const hasHome = canonical.has("homeowners") || canonical.has("condo");
 
   if (hasAuto && hasHome) return "Preferred";
-  if (normalized.size >= 2) return "Standard";
+  if (canonical.size >= 2) return "Standard";
   return "Monoline";
 }
 
-function buildCustomerBundleMap(sales: Array<{ customer_name?: string | null; sale_policies?: Array<{ policy_type_name?: string | null; policy_type?: string | null }> | null }>): Map<string, BundleType> {
+function buildCustomerBundleMap(sales: Array<{ customer_name?: string | null; customer_zip?: string | null; sale_policies?: Array<{ policy_type_name?: string | null; policy_type?: string | null }> | null }>): Map<string, BundleType> {
   const byCustomer = new Map<string, Set<string>>();
 
   for (const sale of sales) {
-    const customerKey = (sale.customer_name || "").toLowerCase().trim();
+    const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
     if (!customerKey) continue;
     if (!byCustomer.has(customerKey)) byCustomer.set(customerKey, new Set());
     const products = byCustomer.get(customerKey)!;
@@ -206,7 +256,7 @@ serve(async (req) => {
         if (filter_type === 'bundle_type') {
           let bundleQuery = supabaseAdmin
             .from("sales")
-            .select("id, sale_date, customer_name, team_member_id, lead_source_id, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+            .select("id, sale_date, customer_name, customer_zip, team_member_id, lead_source_id, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
             .eq("agency_id", agencyId)
             .gte("sale_date", start_date)
             .lte("sale_date", end_date)
@@ -228,7 +278,7 @@ serve(async (req) => {
           if (customerNames.length > 0) {
             let historicalQuery = supabaseAdmin
               .from("sales")
-              .select("customer_name, sale_policies(policy_type_name), brokered_carrier_id")
+              .select("customer_name, customer_zip, sale_policies(policy_type_name), brokered_carrier_id")
               .eq("agency_id", agencyId)
               .in("customer_name", customerNames);
             historicalQuery = applyBusinessFilter(historicalQuery);
@@ -240,12 +290,72 @@ serve(async (req) => {
           const bundleMap = buildCustomerBundleMap(historicalSales);
 
           const filteredSales = (bundleSales || []).filter((sale: any) => {
-            const customerKey = (sale.customer_name || "").toLowerCase().trim();
+            const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
             const effectiveBundle = bundleMap.get(customerKey) || "Monoline";
             return filter_value === "__all__" ? true : effectiveBundle === filter_value;
           });
 
-          const paged = filteredSales.slice((page - 1) * page_size, page * page_size);
+          const groupedByHousehold = new Map<string, {
+            id: string;
+            sale_date: string;
+            customer_name: string;
+            lead_source_id: string | null;
+            team_member_id: string | null;
+            policy_types: Set<string>;
+            total_items: number;
+            total_premium: number;
+            total_points: number;
+          }>();
+
+          for (const sale of filteredSales) {
+            const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
+            if (!customerKey) continue;
+
+            const policies = sale.sale_policies || [];
+            const countable = calculateCountableTotals(policies);
+
+            const existing = groupedByHousehold.get(customerKey);
+            if (!existing) {
+              groupedByHousehold.set(customerKey, {
+                id: sale.id,
+                sale_date: sale.sale_date,
+                customer_name: sale.customer_name || "Unknown",
+                lead_source_id: sale.lead_source_id || null,
+                team_member_id: sale.team_member_id || null,
+                policy_types: new Set(
+                  policies
+                    .filter((p: any) => !isExcludedProduct(p.policy_type_name))
+                    .map((p: any) => p.policy_type_name)
+                    .filter(Boolean),
+                ),
+                total_items: countable.items,
+                total_premium: countable.premium,
+                total_points: countable.points,
+              });
+              continue;
+            }
+
+            if (sale.sale_date > existing.sale_date) {
+              existing.id = sale.id;
+              existing.sale_date = sale.sale_date;
+              existing.lead_source_id = sale.lead_source_id || null;
+              existing.team_member_id = sale.team_member_id || null;
+            }
+
+            for (const policy of policies) {
+              if (!isExcludedProduct(policy.policy_type_name) && policy.policy_type_name) {
+                existing.policy_types.add(policy.policy_type_name);
+              }
+            }
+            existing.total_items += countable.items;
+            existing.total_premium += countable.premium;
+            existing.total_points += countable.points;
+          }
+
+          const householdRows = Array.from(groupedByHousehold.values()).sort((a, b) =>
+            b.sale_date.localeCompare(a.sale_date)
+          );
+          const paged = householdRows.slice((page - 1) * page_size, page * page_size);
 
           const teamMemberIds = [...new Set(paged.map((s: any) => s.team_member_id).filter(Boolean))];
           const leadSourceIds = [...new Set(paged.map((s: any) => s.lead_source_id).filter(Boolean))];
@@ -268,27 +378,20 @@ serve(async (req) => {
           }
 
           const records = paged.map((sale: any) => {
-            const policies = sale.sale_policies || [];
-            const countable = calculateCountableTotals(policies);
-            const policyTypes = policies
-              .filter((p: any) => !isExcludedProduct(p.policy_type_name))
-              .map((p: any) => p.policy_type_name)
-              .filter((name: string | null | undefined) => !!name)
-              .join(", ");
             return {
               id: sale.id,
               sale_date: sale.sale_date,
               customer_name: sale.customer_name || "Unknown",
-              policy_types: policyTypes || null,
+              policy_types: Array.from(sale.policy_types).join(", ") || null,
               lead_source_name: sale.lead_source_id ? leadSourceMap.get(sale.lead_source_id) || null : null,
               producer_name: sale.team_member_id ? teamMemberMap.get(sale.team_member_id) || null : null,
-              total_items: countable.items,
-              total_premium: countable.premium,
-              total_points: countable.points,
+              total_items: sale.total_items,
+              total_premium: sale.total_premium,
+              total_points: sale.total_points,
             };
           });
 
-          result = { data: records, total_count: filteredSales.length, page, page_size };
+          result = { data: records, total_count: householdRows.length, page, page_size };
           break;
         }
 
@@ -400,7 +503,7 @@ serve(async (req) => {
         // Fetch with sale_policies for Motor Club filtering
         let byDateQuery = supabaseAdmin
           .from("sales")
-          .select("sale_date, customer_name, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+          .select("sale_date, customer_name, customer_zip, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date);
@@ -423,8 +526,9 @@ serve(async (req) => {
           grouped[date].premium += countable.premium;
           grouped[date].points += countable.points;
           grouped[date].policies += countable.policyCount;
-          if (sale.customer_name) {
-            grouped[date].households.add(sale.customer_name.toLowerCase().trim());
+          const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
+          if (customerKey) {
+            grouped[date].households.add(customerKey);
           }
         }
 
@@ -515,7 +619,7 @@ serve(async (req) => {
         // Fetch with sale_policies for Motor Club filtering
         let bySourceQuery = supabaseAdmin
           .from("sales")
-          .select("id, customer_name, lead_source_id, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+          .select("id, customer_name, customer_zip, lead_source_id, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date);
@@ -546,8 +650,9 @@ serve(async (req) => {
           grouped[sourceName].items += countable.items;
           grouped[sourceName].premium += countable.premium;
           grouped[sourceName].policies += countable.policyCount;
-          if (sale.customer_name) {
-            grouped[sourceName].households.add(sale.customer_name.toLowerCase().trim());
+          const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
+          if (customerKey) {
+            grouped[sourceName].households.add(customerKey);
           }
         }
 
@@ -567,7 +672,7 @@ serve(async (req) => {
         // Fetch with sale_policies for Motor Club filtering
         let byBundleQuery = supabaseAdmin
           .from("sales")
-          .select("bundle_type, customer_name, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+          .select("bundle_type, customer_name, customer_zip, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date);
@@ -589,7 +694,7 @@ serve(async (req) => {
         if (customerNames.length > 0) {
           let historicalQuery = supabaseAdmin
             .from("sales")
-            .select("customer_name, sale_policies(policy_type_name), brokered_carrier_id")
+            .select("customer_name, customer_zip, sale_policies(policy_type_name), brokered_carrier_id")
             .eq("agency_id", agencyId)
             .in("customer_name", customerNames);
           historicalQuery = applyBusinessFilter(historicalQuery);
@@ -604,7 +709,7 @@ serve(async (req) => {
         const grouped: Record<string, { bundle_type: string; items: number; premium: number; households: Set<string> }> = {};
 
         for (const sale of periodSales) {
-          const customerKey = (sale.customer_name || "").toLowerCase().trim();
+          const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
           const bestType = customerKey ? (customerBundleMap.get(customerKey) || "Monoline") : "Monoline";
 
           if (!grouped[bestType]) {
@@ -658,8 +763,9 @@ serve(async (req) => {
           const countable = calculateCountableTotals(sale.sale_policies || []);
           grouped[zip].items += countable.items;
           grouped[zip].premium += countable.premium;
-          if (sale.customer_name) {
-            grouped[zip].households.add(sale.customer_name.toLowerCase().trim());
+          const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
+          if (customerKey) {
+            grouped[zip].households.add(customerKey);
           }
         }
 

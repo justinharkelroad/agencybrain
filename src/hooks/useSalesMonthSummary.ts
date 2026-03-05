@@ -63,7 +63,9 @@ export function useSalesMonthSummary({
           items: totals.items || 0,
           policies: totals.policies || 0,
           points: totals.points || 0,
-          salesCount: data?.personal_sales?.length || 0,
+          salesCount: data?.scope === "team"
+            ? (data?.team_sales?.length || 0)
+            : (data?.personal_sales?.length || 0),
         };
       }
 
@@ -90,7 +92,7 @@ export function useSalesMonthSummary({
         throw error;
       }
 
-      let totals = { premium: 0, items: 0, policies: 0, points: 0 };
+      const totals = { premium: 0, items: 0, policies: 0, points: 0 };
       for (const sale of sales || []) {
         const policies = (sale.sale_policies || []) as SalePolicy[];
         const countable = calculateCountableTotals(policies);

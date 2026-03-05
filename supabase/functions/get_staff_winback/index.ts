@@ -11,6 +11,78 @@ function localDateStr(timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
 }
 
+function normalizeProductName(value: string | null | undefined): string {
+  return (value || "").toLowerCase().trim();
+}
+
+function classifyBundleFromProducts(
+  productNames: Array<string | null | undefined>,
+): { isBundle: boolean; bundleType: "Preferred" | "Standard" | "Monoline" } {
+  const canonical = new Set<string>();
+  for (const raw of productNames) {
+    const name = normalizeProductName(raw);
+    if (!name || name === "motor club" || name === "bundle") continue;
+
+    const lineCodeMatch = name.match(/^(\d{3})\s*-\s*/);
+    const lineCodeMap: Record<string, string> = {
+      "010": "standard_auto",
+      "020": "other_recognized",
+      "021": "other_recognized",
+      "070": "homeowners",
+      "072": "property_other",
+      "073": "property_other",
+      "074": "condo",
+      "078": "condo",
+      "080": "other_recognized",
+      "090": "other_recognized",
+    };
+    const lineMapped = lineCodeMatch ? lineCodeMap[lineCodeMatch[1]] : null;
+    if (lineMapped) {
+      canonical.add(lineMapped);
+      continue;
+    }
+
+    if (["standard auto", "auto", "personal auto"].includes(name)) {
+      canonical.add("standard_auto");
+    } else if (["homeowners", "north light homeowners", "home"].includes(name)) {
+      canonical.add("homeowners");
+    } else if (["condo", "north light condo", "condominium"].includes(name)) {
+      canonical.add("condo");
+    } else if (
+      [
+        "renters",
+        "landlords",
+        "landlord package",
+        "landlord/dwelling",
+        "mobilehome",
+        "manufactured home",
+      ].includes(name)
+    ) {
+      canonical.add("property_other");
+    } else if (
+      [
+        "non-standard auto",
+        "auto - special",
+        "specialty auto",
+        "motorcycle",
+        "boatowners",
+        "personal umbrella",
+        "off-road vehicle",
+        "recreational vehicle",
+        "flood",
+      ].includes(name)
+    ) {
+      canonical.add("other_recognized");
+    }
+  }
+
+  const hasAuto = canonical.has("standard_auto");
+  const hasHome = canonical.has("homeowners") || canonical.has("condo");
+  if (hasAuto && hasHome) return { isBundle: true, bundleType: "Preferred" };
+  if (canonical.size >= 2) return { isBundle: true, bundleType: "Standard" };
+  return { isBundle: false, bundleType: "Monoline" };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -471,7 +543,7 @@ Deno.serve(async (req) => {
           const terminationDate = new Date(policy.termination_effective_date);
           const policyTermMonths = policy.policy_term_months || 12;
 
-          let competitorRenewalDate = new Date(terminationDate);
+          const competitorRenewalDate = new Date(terminationDate);
           competitorRenewalDate.setMonth(competitorRenewalDate.getMonth() + policyTermMonths);
 
           while (competitorRenewalDate <= today) {
@@ -792,7 +864,7 @@ Deno.serve(async (req) => {
             // Calculate winback date
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            let competitorRenewal = new Date(termDate);
+            const competitorRenewal = new Date(termDate);
             competitorRenewal.setMonth(competitorRenewal.getMonth() + termMonths);
             while (competitorRenewal <= today) {
               competitorRenewal.setMonth(competitorRenewal.getMonth() + termMonths);
@@ -1606,13 +1678,12 @@ Deno.serve(async (req) => {
         const wbCustomerName = `${wbHousehold.first_name || ""} ${wbHousehold.last_name || ""}`.trim() || "Unknown";
         const wbSaleDate = saleDate || localDateStr(agencyTz);
 
-        // Detect bundle type using same Auto+Home logic as AddSaleForm
-        const WB_AUTO_PRODUCTS = ["standard auto"];
-        const WB_HOME_PRODUCTS = ["homeowners", "north light homeowners", "condo", "north light condo"];
-        const wbProductNames = salePolicies.map((p: any) => (p.productName || "").toLowerCase());
-        const wbHasAuto = wbProductNames.some((n: string) => WB_AUTO_PRODUCTS.includes(n));
-        const wbHasHome = wbProductNames.some((n: string) => WB_HOME_PRODUCTS.includes(n));
-        const wbBundleType = wbHasAuto && wbHasHome ? "Preferred" : wbTotalPolicies >= 2 ? "Standard" : null;
+        const wbBundle = classifyBundleFromProducts(
+          salePolicies.map((p: any) => p.productName || null),
+        );
+        const wbBundleType = wbBundle.bundleType === "Monoline"
+          ? null
+          : wbBundle.bundleType;
 
         // Step 3: Insert sales record
         const { data: wbSaleRecord, error: wbSaleError } = await supabase
@@ -1630,7 +1701,7 @@ Deno.serve(async (req) => {
             total_policies: wbTotalPolicies,
             total_items: wbTotalItems,
             total_premium: wbTotalPremium,
-            is_bundle: wbTotalPolicies >= 2,
+            is_bundle: wbBundle.isBundle,
             bundle_type: wbBundleType,
             is_one_call_close: false,
             source: "winback",

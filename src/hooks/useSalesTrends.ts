@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { calculateCountableTotals } from "@/lib/product-constants";
+import { buildCustomerKey } from "@/lib/sales-bundle-classification";
 
 export interface SalesTrends {
   premium: number | null;
@@ -29,6 +30,7 @@ interface SalePolicy {
 
 interface SaleRow {
   customer_name: string | null;
+  customer_zip: string | null;
   sale_policies: SalePolicy[] | null;
 }
 
@@ -55,6 +57,7 @@ async function fetchMonthTotals(
     .from("sales")
     .select(`
       customer_name,
+      customer_zip,
       sale_policies(id, policy_type_name, total_premium, total_items, total_points)
     `)
     .eq("agency_id", agencyId)
@@ -83,8 +86,8 @@ async function fetchMonthTotals(
     totals.policies += countable.policyCount;
 
     if (countable.policyCount > 0) {
-      const customer = sale.customer_name?.toLowerCase().trim();
-      if (customer) uniqueCustomers.add(customer);
+      const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
+      if (customerKey) uniqueCustomers.add(customerKey);
     }
   }
 
