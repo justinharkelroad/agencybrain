@@ -62,6 +62,7 @@ import { ContactProfileModal } from '@/components/contacts/ContactProfileModal';
 import { TaskCompleteDialog } from '@/components/onboarding/TaskCompleteDialog';
 import type { ActionType } from '@/hooks/useStaffOnboardingTasks';
 import type { OnboardingTask } from '@/hooks/useOnboardingTasks';
+import { HelpButton } from '@/components/HelpButton';
 
 type CalendarViewType = 'week' | 'month';
 
@@ -697,6 +698,7 @@ export default function StaffOnboardingTasks() {
         <div className="flex items-center gap-3">
           <Workflow className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold">Your Sequence Queue</h1>
+          <HelpButton videoKey="Sequence Builder & Queue" />
         </div>
 
         <div className="flex items-center gap-2">
