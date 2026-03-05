@@ -355,6 +355,7 @@ serve(async (req) => {
         source: body.source,
         source_details: body.source_details || null,
         is_one_call_close: body.is_one_call_close ?? false,
+        created_by_staff_id: staffUser.id,
       })
       .select('id')
       .single();

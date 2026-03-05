@@ -3485,6 +3485,7 @@ export type Database = {
           comparison_data: Json
           created_at: string | null
           created_by: string | null
+          created_by_staff_id: string | null
           current_upload_id: string
           discrepancies_found: number | null
           id: string
@@ -3497,6 +3498,7 @@ export type Database = {
           comparison_data: Json
           created_at?: string | null
           created_by?: string | null
+          created_by_staff_id?: string | null
           current_upload_id: string
           discrepancies_found?: number | null
           id?: string
@@ -3509,6 +3511,7 @@ export type Database = {
           comparison_data?: Json
           created_at?: string | null
           created_by?: string | null
+          created_by_staff_id?: string | null
           current_upload_id?: string
           discrepancies_found?: number | null
           id?: string
@@ -4943,7 +4946,8 @@ export type Database = {
         Row: {
           agency_id: string
           created_at: string
-          created_by: string
+          created_by: string | null
+          created_by_staff_id: string | null
           date: string
           id: string
           mode: string
@@ -4953,7 +4957,8 @@ export type Database = {
         Insert: {
           agency_id: string
           created_at?: string
-          created_by: string
+          created_by?: string | null
+          created_by_staff_id?: string | null
           date: string
           id?: string
           mode: string
@@ -4963,7 +4968,8 @@ export type Database = {
         Update: {
           agency_id?: string
           created_at?: string
-          created_by?: string
+          created_by?: string | null
+          created_by_staff_id?: string | null
           date?: string
           id?: string
           mode?: string
@@ -5843,6 +5849,7 @@ export type Database = {
         Row: {
           action: string
           actor_id: string | null
+          actor_staff_id: string | null
           agency_id: string
           at: string
           id: string
@@ -5852,6 +5859,7 @@ export type Database = {
         Insert: {
           action: string
           actor_id?: string | null
+          actor_staff_id?: string | null
           agency_id: string
           at?: string
           id?: string
@@ -5861,6 +5869,7 @@ export type Database = {
         Update: {
           action?: string
           actor_id?: string | null
+          actor_staff_id?: string | null
           agency_id?: string
           at?: string
           id?: string
@@ -6795,7 +6804,8 @@ export type Database = {
           call_log_data: Json | null
           call_scoring_data: Json | null
           created_at: string | null
-          created_by: string
+          created_by: string | null
+          created_by_staff_id: string | null
           end_date: string
           id: string
           kpi_totals: Json | null
@@ -6810,7 +6820,8 @@ export type Database = {
           call_log_data?: Json | null
           call_scoring_data?: Json | null
           created_at?: string | null
-          created_by: string
+          created_by?: string | null
+          created_by_staff_id?: string | null
           end_date: string
           id?: string
           kpi_totals?: Json | null
@@ -6825,7 +6836,8 @@ export type Database = {
           call_log_data?: Json | null
           call_scoring_data?: Json | null
           created_at?: string | null
-          created_by?: string
+          created_by?: string | null
+          created_by_staff_id?: string | null
           end_date?: string
           id?: string
           kpi_totals?: Json | null
@@ -7179,6 +7191,7 @@ export type Database = {
           agency_id: string
           created_at: string
           created_by: string | null
+          created_by_staff_id: string | null
           id: string
           lock_type: string
           snapshot_date: string
@@ -7190,6 +7203,7 @@ export type Database = {
           agency_id: string
           created_at?: string
           created_by?: string | null
+          created_by_staff_id?: string | null
           id?: string
           lock_type?: string
           snapshot_date: string
@@ -7201,6 +7215,7 @@ export type Database = {
           agency_id?: string
           created_at?: string
           created_by?: string | null
+          created_by_staff_id?: string | null
           id?: string
           lock_type?: string
           snapshot_date?: string
@@ -7394,6 +7409,7 @@ export type Database = {
           clone_count: number
           created_at: string
           created_by: string | null
+          created_by_staff_id: string | null
           custom_type_label: string | null
           description: string | null
           id: string
@@ -7409,6 +7425,7 @@ export type Database = {
           clone_count?: number
           created_at?: string
           created_by?: string | null
+          created_by_staff_id?: string | null
           custom_type_label?: string | null
           description?: string | null
           id?: string
@@ -7424,6 +7441,7 @@ export type Database = {
           clone_count?: number
           created_at?: string
           created_by?: string | null
+          created_by_staff_id?: string | null
           custom_type_label?: string | null
           description?: string | null
           id?: string
@@ -8523,6 +8541,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           created_by_display_name: string | null
+          created_by_staff_id: string | null
           household_key: string | null
           id: string
           renewal_record_id: string
@@ -8540,6 +8559,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_display_name?: string | null
+          created_by_staff_id?: string | null
           household_key?: string | null
           id?: string
           renewal_record_id: string
@@ -8557,6 +8577,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_display_name?: string | null
+          created_by_staff_id?: string | null
           household_key?: string | null
           id?: string
           renewal_record_id?: string
@@ -9102,6 +9123,7 @@ export type Database = {
           contact_id: string | null
           created_at: string | null
           created_by: string | null
+          created_by_staff_id: string | null
           customer_email: string | null
           customer_name: string
           customer_phone: string | null
@@ -9138,6 +9160,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          created_by_staff_id?: string | null
           customer_email?: string | null
           customer_name: string
           customer_phone?: string | null
@@ -9174,6 +9197,7 @@ export type Database = {
           contact_id?: string | null
           created_at?: string | null
           created_by?: string | null
+          created_by_staff_id?: string | null
           customer_email?: string | null
           customer_name?: string
           customer_phone?: string | null
@@ -12797,6 +12821,7 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
+          created_by_staff_id: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -12804,6 +12829,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
+          created_by_staff_id?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -12811,6 +12837,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
+          created_by_staff_id?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
@@ -12822,6 +12849,7 @@ export type Database = {
           action: string
           changed_at: string | null
           changed_by: string | null
+          changed_by_staff_id: string | null
           id: string
           new_role: Database["public"]["Enums"]["app_role"] | null
           old_role: Database["public"]["Enums"]["app_role"] | null
@@ -12832,6 +12860,7 @@ export type Database = {
           action: string
           changed_at?: string | null
           changed_by?: string | null
+          changed_by_staff_id?: string | null
           id?: string
           new_role?: Database["public"]["Enums"]["app_role"] | null
           old_role?: Database["public"]["Enums"]["app_role"] | null
@@ -12842,6 +12871,7 @@ export type Database = {
           action?: string
           changed_at?: string | null
           changed_by?: string | null
+          changed_by_staff_id?: string | null
           id?: string
           new_role?: Database["public"]["Enums"]["app_role"] | null
           old_role?: Database["public"]["Enums"]["app_role"] | null

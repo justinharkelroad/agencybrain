@@ -105,6 +105,7 @@ serve(async (req) => {
         send_calendar_invite: sendCalendarInvite || false,
         assigned_team_member_id: assignedTeamMemberId || staffUser.team_member_id || null,
         created_by: null, // Staff users don't have auth.uid()
+        created_by_staff_id: staffUser.id,
         created_by_display_name: displayName,
       });
 

@@ -88,7 +88,7 @@ export function ActivitySummaryBar({ agencyId, onActivityFilter, activeFilter }:
       // Regular users: direct query
       const { data, error } = await supabase
         .from('renewal_activities')
-        .select('id, activity_type, created_by, created_by_display_name, created_at, renewal_record_id')
+        .select('id, activity_type, created_by, created_by_staff_id, created_by_display_name, created_at, renewal_record_id')
         .eq('agency_id', agencyId)
         .gte('created_at', startUTC)
         .lte('created_at', endUTC);
@@ -111,9 +111,10 @@ export function ActivitySummaryBar({ agencyId, onActivityFilter, activeFilter }:
     const userMap = new Map<string, ActivityByUser>();
     
     activities.forEach((activity) => {
-      const userId = activity.created_by || 'unknown';
+      // Group by staff ID or auth user ID so each person gets their own row
       const displayName = activity.created_by_display_name || 'Unknown User';
-      
+      const userId = activity.created_by || (activity.created_by_staff_id ? `staff:${activity.created_by_staff_id}` : `staff:${displayName}`);
+
       if (!userMap.has(userId)) {
         userMap.set(userId, {
           userId,
@@ -170,20 +171,25 @@ export function ActivitySummaryBar({ agencyId, onActivityFilter, activeFilter }:
   
   const totalActivities = totals.calls + totals.voicemails + totals.texts + totals.emails + totals.reviewsDone;
 
+  // Derive the grouping key for an activity (must match the aggregation logic above)
+  const getActivityUserId = useCallback((a: any): string => {
+    const dn = a.created_by_display_name || 'Unknown User';
+    return a.created_by || (a.created_by_staff_id ? `staff:${a.created_by_staff_id}` : `staff:${dn}`);
+  }, []);
+
   // Collect renewal_record_ids for a given user (optionally filtered by activity type)
   const getRecordIdsForFilter = useCallback(
     (userId: string, activityTypes?: string[]): Set<string> => {
       if (!activities) return new Set();
       const ids = new Set<string>();
       activities.forEach((a: any) => {
-        const aUserId = a.created_by || 'unknown';
-        if (aUserId !== userId) return;
+        if (getActivityUserId(a) !== userId) return;
         if (activityTypes && !activityTypes.includes(a.activity_type)) return;
         if (a.renewal_record_id) ids.add(a.renewal_record_id);
       });
       return ids;
     },
-    [activities]
+    [activities, getActivityUserId]
   );
 
   const handleNameClick = useCallback(
