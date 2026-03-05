@@ -7,6 +7,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,6 +31,7 @@ import type { RenewalRecord, ActivityType as RenewalActivityType, WorkflowStatus
 import { cn, formatPhoneNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import * as winbackApi from '@/lib/winbackApi';
+import type { WonBackSalePolicy } from '@/lib/winbackApi';
 import { supabase } from '@/integrations/supabase/client';
 import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 import { sendRenewalToWinback } from '@/lib/sendToWinback';
@@ -100,6 +105,17 @@ export function ContactProfileModal({
   const [breakupLetterModalOpen, setBreakupLetterModalOpen] = useState(false);
   const [showMoveToQuotedDialog, setShowMoveToQuotedDialog] = useState(false);
   const [moveToQuotedSource, setMoveToQuotedSource] = useState<'lqs' | 'winback' | null>(null);
+  // Won Back sale dialog state
+  const [wonBackDialogOpen, setWonBackDialogOpen] = useState(false);
+  const [wonBackPolicyEntries, setWonBackPolicyEntries] = useState<Array<{
+    policyId: string;
+    productName: string;
+    policyNumber: string | null;
+    selected: boolean;
+    items: string;
+    premium: string;
+  }>>([]);
+  const [wonBackSaving, setWonBackSaving] = useState(false);
   const resolvedCreatedByStaffId = staffSessionToken ? (staffMemberId || null) : null;
 
   // Query client for cache invalidation
@@ -509,47 +525,26 @@ export function ContactProfileModal({
           }
         }
       } else {
-        // Update to won_back status - this transitions contact to Customer
-        // Try from in_progress first, then from untouched if that fails
-        let result = await winbackApi.updateHouseholdStatus(
-          winbackHousehold.id,
-          agencyId,
-          'won_back',
-          'in_progress',
-          currentUserTeamMemberId || null,
-          teamMembers,
-          null
-        );
-
-        // If in_progress didn't match, try from untouched
-        if (!result.success) {
-          result = await winbackApi.updateHouseholdStatus(
-            winbackHousehold.id,
-            agencyId,
-            'won_back',
-            'untouched',
-            currentUserTeamMemberId || null,
-            teamMembers,
-            null
+        // Won Back: show sale dialog to collect policy data first
+        setModuleActionLoading(null); // Reset loading — dialog handles its own
+        try {
+          const { policies: fetchedPolicies } = await winbackApi.getHouseholdDetails(winbackHousehold.id);
+          setWonBackPolicyEntries(
+            (fetchedPolicies as Array<{ id: string; product_name: string | null; product_code: string | null; policy_number: string }>).map((p) => ({
+              policyId: p.id,
+              productName: p.product_name || p.product_code || 'Unknown Policy',
+              policyNumber: p.policy_number,
+              selected: true,
+              items: '',
+              premium: '',
+            }))
           );
+        } catch {
+          // If we can't fetch policies, start with empty list — user can still enter data
+          setWonBackPolicyEntries([]);
         }
-
-        if (!result.success) {
-          toast.error('Failed to update status', { description: 'Status may have already been changed' });
-          return;
-        }
-
-        // Log the won_back activity so it appears in Daily Activity Summary
-        await winbackApi.logActivity(
-          winbackHousehold.id,
-          agencyId,
-          'won_back',
-          'Customer won back!',
-          currentUserTeamMemberId || null,
-          teamMembers
-        );
-
-        toast.success('Customer won back!', { description: 'Contact is now a Customer' });
+        setWonBackDialogOpen(true);
+        return; // Don't proceed — handleWonBackConfirm handles the rest
       }
 
       // Invalidate and refetch to ensure fresh data after mutation
@@ -564,6 +559,94 @@ export function ContactProfileModal({
       toast.error('Failed to update status', { description: error.message });
     } finally {
       setModuleActionLoading(null);
+    }
+  };
+
+  // Won Back sale confirmation handler (called from the sale dialog)
+  const handleWonBackConfirm = async () => {
+    if (!agencyId || !winbackHousehold || !profile) return;
+
+    const selectedEntries = wonBackPolicyEntries.filter((e) => e.selected);
+    if (selectedEntries.length === 0) {
+      toast.error('Select at least one policy');
+      return;
+    }
+
+    for (const entry of selectedEntries) {
+      const items = Number(entry.items);
+      const premium = Number(entry.premium);
+      if (!items || items <= 0) {
+        toast.error(`Enter items for ${entry.productName}`);
+        return;
+      }
+      if (!premium || premium <= 0) {
+        toast.error(`Enter premium for ${entry.productName}`);
+        return;
+      }
+    }
+
+    setWonBackSaving(true);
+    try {
+      const salePolicies: WonBackSalePolicy[] = selectedEntries.map((e) => ({
+        productName: e.productName,
+        policyNumber: e.policyNumber,
+        items: Number(e.items),
+        premium: Number(e.premium),
+      }));
+
+      const saleDate = new Date().toISOString().split('T')[0];
+
+      // Determine current winback status for concurrency guard
+      const winbackRecord = profile.winback_records?.find((r: any) => r.id === winbackHousehold.id);
+      const currentStatus = winbackRecord?.status || 'in_progress';
+
+      const result = await winbackApi.recordWonBackSale(
+        winbackHousehold.id,
+        agencyId,
+        {
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          phone: profile.phones?.[0] || null,
+          email: profile.emails?.[0] || null,
+          zip_code: profile.zip_code || null,
+          contact_id: contactId,
+          status: currentStatus,
+        },
+        salePolicies,
+        saleDate,
+        currentUserTeamMemberId || null,
+        teamMembers
+      );
+
+      if (!result.success) {
+        toast.error('Failed to record sale', { description: result.error });
+        return;
+      }
+
+      // Invalidate caches (including LQS since recordWonBackSale now creates lqs_households)
+      queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] });
+      queryClient.invalidateQueries({ queryKey: ['sales'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['winback-activity-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['winback-households'] });
+      queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
+      await queryClient.refetchQueries({ queryKey: ['contact-profile', contactId] });
+      setHasMutated(true);
+      onActivityLogged?.();
+
+      const totalItems = salePolicies.reduce((s, p) => s + p.items, 0);
+      const totalPremium = salePolicies.reduce((s, p) => s + p.premium, 0);
+      toast.success('Won Back!', {
+        description: `Sale recorded: ${salePolicies.length} policies, ${totalItems} items, $${totalPremium.toLocaleString()}`,
+      });
+
+      setWonBackDialogOpen(false);
+    } catch (err: any) {
+      console.error('Error recording won back sale:', err);
+      toast.error('Failed to record sale', { description: err.message });
+    } finally {
+      setWonBackSaving(false);
     }
   };
 
@@ -1178,6 +1261,124 @@ export function ContactProfileModal({
           agencyId={agencyId}
         />
       )}
+
+      {/* Won Back Sale Entry Dialog */}
+      <Dialog open={wonBackDialogOpen} onOpenChange={setWonBackDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-600" />
+              Record Win-Back Sale
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Customer summary */}
+            {profile && (
+              <div className="text-sm text-muted-foreground bg-muted/50 rounded-md p-3">
+                <p className="font-medium text-foreground">
+                  {`${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unknown'}
+                </p>
+                {profile.phones?.[0] && <p>{formatPhoneNumber(profile.phones[0])}</p>}
+                {profile.zip_code && <p>ZIP: {profile.zip_code.substring(0, 5)}</p>}
+              </div>
+            )}
+
+            {/* Policy entries */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Policies Sold</Label>
+              {wonBackPolicyEntries.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No policies loaded</p>
+              ) : (
+                wonBackPolicyEntries.map((entry, idx) => (
+                  <div key={entry.policyId} className={cn(
+                    'rounded-md border p-3 space-y-2 transition-opacity',
+                    !entry.selected && 'opacity-50'
+                  )}>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id={`wb-policy-${entry.policyId}`}
+                        checked={entry.selected}
+                        onCheckedChange={(checked) => {
+                          setWonBackPolicyEntries((prev) =>
+                            prev.map((e, i) => i === idx ? { ...e, selected: !!checked } : e)
+                          );
+                        }}
+                      />
+                      <label htmlFor={`wb-policy-${entry.policyId}`} className="text-sm font-medium cursor-pointer flex-1">
+                        {entry.productName}
+                      </label>
+                      {entry.policyNumber && (
+                        <span className="text-xs text-muted-foreground font-mono">{entry.policyNumber}</span>
+                      )}
+                    </div>
+
+                    {entry.selected && (
+                      <div className="grid grid-cols-2 gap-3 pl-6">
+                        <div>
+                          <Label htmlFor={`wb-items-${entry.policyId}`} className="text-xs text-muted-foreground">Items</Label>
+                          <Input
+                            id={`wb-items-${entry.policyId}`}
+                            type="number"
+                            min="1"
+                            placeholder="0"
+                            value={entry.items}
+                            onChange={(e) => {
+                              setWonBackPolicyEntries((prev) =>
+                                prev.map((en, i) => i === idx ? { ...en, items: e.target.value } : en)
+                              );
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor={`wb-premium-${entry.policyId}`} className="text-xs text-muted-foreground">Premium ($)</Label>
+                          <Input
+                            id={`wb-premium-${entry.policyId}`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={entry.premium}
+                            onChange={(e) => {
+                              setWonBackPolicyEntries((prev) =>
+                                prev.map((en, i) => i === idx ? { ...en, premium: e.target.value } : en)
+                              );
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Summary footer */}
+            {(() => {
+              const selected = wonBackPolicyEntries.filter((e) => e.selected);
+              const totalItems = selected.reduce((s, e) => s + (Number(e.items) || 0), 0);
+              const totalPremium = selected.reduce((s, e) => s + (Number(e.premium) || 0), 0);
+              return selected.length > 0 ? (
+                <div className="text-sm bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md p-3 flex justify-between">
+                  <span>{selected.length} {selected.length === 1 ? 'policy' : 'policies'}</span>
+                  <span>{totalItems} items</span>
+                  <span className="font-medium">${totalPremium.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+              ) : null;
+            })()}
+
+            {/* Actions */}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setWonBackDialogOpen(false)} disabled={wonBackSaving}>
+                Cancel
+              </Button>
+              <Button onClick={handleWonBackConfirm} disabled={wonBackSaving} className="bg-green-600 hover:bg-green-700">
+                {wonBackSaving ? 'Recording…' : 'Record Sale & Won Back'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

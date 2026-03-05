@@ -1686,10 +1686,91 @@ Deno.serve(async (req) => {
           console.warn("[record_won_back] contact find/create error:", contactErr);
         }
 
+        // Step 5b: Create/update LQS household record so won-back appears in dashboard quoted HH
+        // Must happen BEFORE step 6 so the sync_winback_status_to_lqs trigger can promote to 'sold'
+        try {
+          const normalizedLast = (wbHousehold.last_name || "UNKNOWN").toUpperCase().trim().replace(/[^A-Z]/g, "");
+          const normalizedFirst = (wbHousehold.first_name || "UNKNOWN").toUpperCase().trim().replace(/[^A-Z]/g, "");
+          const normalizedZip = wbHousehold.zip_code ? wbHousehold.zip_code.substring(0, 5) : "NOZIP";
+          const wbHouseholdKey = `${normalizedLast}_${normalizedFirst}_${normalizedZip}`;
+
+          let wbLqsHouseholdId: string | null = null;
+
+          // Check if an LQS household already exists (avoid downgrading a 'sold' row to 'quoted')
+          const { data: existingLqs } = await supabase
+            .from("lqs_households")
+            .select("id")
+            .eq("agency_id", agencyId)
+            .eq("household_key", wbHouseholdKey)
+            .maybeSingle();
+
+          if (existingLqs) {
+            wbLqsHouseholdId = existingLqs.id;
+            // Ensure contact_id is set so the sync trigger can match it
+            if (wbResolvedContactId) {
+              await supabase
+                .from("lqs_households")
+                .update({ contact_id: wbResolvedContactId })
+                .eq("id", existingLqs.id)
+                .is("contact_id", null);
+            }
+          } else {
+            // Create new household as 'quoted' — triggers quoted_count increment
+            const { data: newLqs } = await supabase
+              .from("lqs_households")
+              .insert({
+                agency_id: agencyId,
+                household_key: wbHouseholdKey,
+                first_name: (wbHousehold.first_name || "").toUpperCase(),
+                last_name: (wbHousehold.last_name || "").toUpperCase(),
+                zip_code: wbHousehold.zip_code || "",
+                contact_id: wbResolvedContactId,
+                status: "quoted",
+                lead_source_id: wbLeadSourceId,
+                team_member_id: wbTeamMemberId || null,
+                first_quote_date: wbSaleDate,
+                lead_received_date: wbSaleDate,
+                phone: wbHousehold.phone ? [wbHousehold.phone] : [],
+                email: wbHousehold.email || null,
+              })
+              .select("id")
+              .single();
+
+            if (newLqs) {
+              wbLqsHouseholdId = newLqs.id;
+            }
+          }
+
+          // Create quote rows for each policy sold
+          if (wbLqsHouseholdId) {
+            const quoteRows = salePolicies.map((p: any) => ({
+              household_id: wbLqsHouseholdId!,
+              agency_id: agencyId,
+              team_member_id: wbTeamMemberId || null,
+              quote_date: wbSaleDate,
+              product_type: p.productName,
+              items_quoted: Math.round(p.items || 0),
+              premium_cents: Math.round((p.premium || 0) * 100),
+              source: "manual",
+            }));
+
+            await supabase.from("lqs_quotes").insert(quoteRows);
+          }
+        } catch (lqsErr) {
+          console.warn("[record_won_back] LQS creation error:", lqsErr);
+          // Non-critical — sale record and winback status update should still proceed
+        }
+
         // Step 6: Update winback status (concurrency guard)
+        // This fires sync_winback_status_to_lqs trigger which promotes the LQS household to 'sold'
+        // Also set contact_id so the trigger can match the LQS household by contact_id
         await supabase
           .from("winback_households")
-          .update({ status: "won_back", updated_at: new Date().toISOString() })
+          .update({
+            status: "won_back",
+            ...(wbResolvedContactId ? { contact_id: wbResolvedContactId } : {}),
+            updated_at: new Date().toISOString(),
+          })
           .eq("id", householdId)
           .eq("status", wbHousehold.status);
 

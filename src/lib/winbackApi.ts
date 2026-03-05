@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { hasStaffToken, fetchWithAuth } from './staffRequest';
 import { startOfWeek, endOfWeek } from 'date-fns';
+import { generateHouseholdKey } from './lqs-quote-parser';
 import type { DateRange } from 'react-day-picker';
 
 // Types
@@ -1277,10 +1278,92 @@ export async function recordWonBackSale(
       console.warn('[recordWonBackSale] contact find/create error:', contactErr);
     }
 
+    // Step 5b: Create/update LQS household record so won-back appears in dashboard quoted HH
+    // Must happen BEFORE step 6 so the sync_winback_status_to_lqs trigger can promote it to 'sold'
+    try {
+      const householdKey = generateHouseholdKey(
+        household.first_name || '',
+        household.last_name || '',
+        household.zip_code
+      );
+
+      let lqsHouseholdId: string | null = null;
+
+      // Check if an LQS household already exists (avoid downgrading a 'sold' row to 'quoted')
+      const { data: existingLqs } = await supabase
+        .from('lqs_households')
+        .select('id')
+        .eq('agency_id', agencyId)
+        .eq('household_key', householdKey)
+        .maybeSingle();
+
+      if (existingLqs) {
+        lqsHouseholdId = existingLqs.id;
+        // Ensure contact_id is set so the sync trigger can match it
+        if (resolvedContactId) {
+          await supabase
+            .from('lqs_households')
+            .update({ contact_id: resolvedContactId })
+            .eq('id', existingLqs.id)
+            .is('contact_id', null);
+        }
+      } else {
+        // Create new household as 'quoted' — triggers quoted_count increment in metrics_daily
+        const { data: newLqs } = await supabase
+          .from('lqs_households')
+          .insert({
+            agency_id: agencyId,
+            household_key: householdKey,
+            first_name: (household.first_name || '').toUpperCase(),
+            last_name: (household.last_name || '').toUpperCase(),
+            zip_code: household.zip_code || '',
+            contact_id: resolvedContactId,
+            status: 'quoted',
+            lead_source_id: winbackLeadSourceId,
+            team_member_id: currentUserTeamMemberId || null,
+            first_quote_date: saleDate,
+            lead_received_date: saleDate,
+            phone: household.phone ? [household.phone] : [],
+            email: household.email || null,
+          })
+          .select('id')
+          .single();
+
+        if (newLqs) {
+          lqsHouseholdId = newLqs.id;
+        }
+      }
+
+      // Create quote rows for each policy sold
+      if (lqsHouseholdId) {
+        const quoteRows = policies.map(p => ({
+          household_id: lqsHouseholdId!,
+          agency_id: agencyId,
+          team_member_id: currentUserTeamMemberId || null,
+          quote_date: saleDate,
+          product_type: p.productName,
+          items_quoted: Math.round(p.items),
+          premium_cents: Math.round(p.premium * 100),
+          source: 'manual' as const,
+        }));
+
+        await supabase.from('lqs_quotes').insert(quoteRows);
+      }
+    } catch (lqsErr) {
+      console.warn('[recordWonBackSale] LQS creation error:', lqsErr);
+      // Non-critical — sale record and winback status update should still proceed
+    }
+
     // Step 6: Update winback_households.status = 'won_back' (concurrency guard)
+    // This fires sync_winback_status_to_lqs trigger which promotes the LQS household to 'sold'
+    // Also set contact_id so the trigger can match the LQS household by contact_id
     const { count: updatedCount } = await supabase
       .from('winback_households')
-      .update({ status: 'won_back', updated_at: new Date().toISOString() }, { count: 'exact' })
+      .update({
+        status: 'won_back',
+        ...(resolvedContactId ? { contact_id: resolvedContactId } : {}),
+        updated_at: new Date().toISOString(),
+      }, { count: 'exact' })
       .eq('id', householdId)
       .eq('status', household.status);
 

@@ -500,10 +500,12 @@ export function WinbackHouseholdModal({
         return;
       }
 
-      // Invalidate caches so dashboard/sales/contacts reflect the new sale
+      // Invalidate caches so dashboard/sales/contacts/LQS reflect the new sale
       queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] });
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
 
       const totalItems = salePolicies.reduce((s, p) => s + p.items, 0);
       const totalPremium = salePolicies.reduce((s, p) => s + p.premium, 0);
