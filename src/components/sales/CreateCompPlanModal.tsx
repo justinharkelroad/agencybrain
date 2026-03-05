@@ -539,14 +539,14 @@ export function CreateCompPlanModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>
             {isEditing ? "Edit Compensation Plan" : "Create Compensation Plan"}
           </DialogTitle>
           <DialogDescription>
-            {isEditing 
-              ? "Update plan settings, tiers, and staff assignments." 
+            {isEditing
+              ? "Update plan settings, tiers, and staff assignments."
               : "Configure commission structure and assign team members."}
           </DialogDescription>
         </DialogHeader>
@@ -569,10 +569,9 @@ export function CreateCompPlanModal({
         )}
 
         <div
-          className="flex-1 overflow-auto pr-4"
-          style={{ maxHeight: "calc(90vh - 120px)" }}
+          className="flex-1 overflow-auto pr-4 min-h-0"
         >
-          <form onSubmit={handleSubmit} className="space-y-6 pb-4">
+          <form id="comp-plan-form" onSubmit={handleSubmit} className="space-y-6 pb-4">
             {/* Basic Info */}
             <div className="space-y-4">
               <div className="space-y-2">
@@ -1707,22 +1706,23 @@ export function CreateCompPlanModal({
               )}
             </div>
 
-            {/* Actions */}
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isPending}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {isEditing ? "Update Plan" : "Create Plan"}
-              </Button>
-            </div>
           </form>
+        </div>
+
+        {/* Sticky footer — always visible */}
+        <div className="flex justify-end gap-3 pt-4 border-t flex-shrink-0">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button type="submit" form="comp-plan-form" disabled={isPending}>
+            {isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isEditing ? "Update Plan" : "Create Plan"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

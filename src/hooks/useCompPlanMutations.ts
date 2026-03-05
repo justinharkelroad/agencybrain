@@ -104,10 +104,10 @@ export function useCompPlanMutations(agencyId: string | null) {
         if (brokeredTiersError) throw brokeredTiersError;
       }
 
-      // 4. Create assignments using UPSERT to handle re-assignment on same day
+      // 4. Create assignments for the new plan
       if (data.assigned_member_ids.length > 0) {
         const today = format(new Date(), "yyyy-MM-dd");
-        const assignmentsToUpsert = data.assigned_member_ids.map((memberId) => ({
+        const assignmentsToInsert = data.assigned_member_ids.map((memberId) => ({
           comp_plan_id: plan.id,
           team_member_id: memberId,
           effective_date: today,
@@ -116,9 +116,7 @@ export function useCompPlanMutations(agencyId: string | null) {
 
         const { error: assignError } = await supabase
           .from("comp_plan_assignments")
-          .upsert(assignmentsToUpsert, {
-            onConflict: 'team_member_id,effective_date'
-          });
+          .insert(assignmentsToInsert);
 
         if (assignError) throw assignError;
       }
@@ -127,6 +125,7 @@ export function useCompPlanMutations(agencyId: string | null) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["comp-plans"] });
+      queryClient.invalidateQueries({ queryKey: ["comp-plan-assignments"] });
       toast.success("Compensation plan created");
     },
     onError: (error: Error) => {
@@ -211,74 +210,104 @@ export function useCompPlanMutations(agencyId: string | null) {
         if (brokeredTiersError) throw brokeredTiersError;
       }
 
-      // 3. Handle staff assignments - use upsert logic to avoid duplicate key errors
-      if (data.assigned_member_ids && data.assigned_member_ids.length > 0) {
-        const today = format(new Date(), 'yyyy-MM-dd');
-        
-        // First, get existing active assignments for this plan
-        const { data: existingAssignments } = await supabase
+      // 3. Handle staff assignments
+      const today = format(new Date(), 'yyyy-MM-dd');
+
+      // Get ALL assignments for this plan (active and ended) to handle reactivation
+      const { data: allPlanAssignments, error: fetchAssignError } = await supabase
+        .from('comp_plan_assignments')
+        .select('id, team_member_id, end_date')
+        .eq('comp_plan_id', data.id);
+
+      if (fetchAssignError) throw fetchAssignError;
+
+      const activeAssignments = (allPlanAssignments || []).filter(a => a.end_date === null);
+      const endedAssignments = (allPlanAssignments || []).filter(a => a.end_date !== null);
+
+      const activeMemberIds = new Set(activeAssignments.map(a => a.team_member_id));
+      const newMemberIds = new Set(data.assigned_member_ids);
+
+      // End assignments for members no longer in the plan
+      const assignmentsToEnd = activeAssignments.filter(
+        a => !newMemberIds.has(a.team_member_id)
+      );
+
+      if (assignmentsToEnd.length > 0) {
+        const { error: endError } = await supabase
           .from('comp_plan_assignments')
-          .select('id, team_member_id')
-          .eq('comp_plan_id', data.id)
-          .is('end_date', null);
-        
-        const existingMemberIds = new Set(
-          (existingAssignments || []).map(a => a.team_member_id)
-        );
-        const newMemberIds = new Set(data.assigned_member_ids);
-        
-        // End assignments for members no longer in the plan
-        const membersToRemove = (existingAssignments || []).filter(
-          a => !newMemberIds.has(a.team_member_id)
-        );
-        
-        if (membersToRemove.length > 0) {
-          const { error: endError } = await supabase
-            .from('comp_plan_assignments')
-            .update({ end_date: today })
-            .in('id', membersToRemove.map(a => a.id));
-          
-          if (endError) throw endError;
+          .update({ end_date: today })
+          .in('id', assignmentsToEnd.map(a => a.id));
+
+        if (endError) throw endError;
+      }
+
+      // Add assignments for members not currently active on this plan
+      const membersToAdd = (data.assigned_member_ids || []).filter(
+        id => !activeMemberIds.has(id)
+      );
+
+      if (membersToAdd.length > 0) {
+        // Build a map of ended assignments by member for reactivation
+        const endedByMember = new Map<string, string>();
+        for (const a of endedAssignments) {
+          endedByMember.set(a.team_member_id, a.id);
         }
-        
-        // Add assignments for new members only (not already assigned)
-        const membersToAdd = data.assigned_member_ids.filter(
-          id => !existingMemberIds.has(id)
-        );
-        
-        if (membersToAdd.length > 0) {
-          const newAssignments = membersToAdd.map(memberId => ({
+
+        const toReactivate: string[] = [];
+        const toInsert: string[] = [];
+
+        for (const memberId of membersToAdd) {
+          const endedId = endedByMember.get(memberId);
+          if (endedId) {
+            toReactivate.push(endedId);
+          } else {
+            toInsert.push(memberId);
+          }
+        }
+
+        // Reactivate existing ended assignments (clear end_date)
+        if (toReactivate.length > 0) {
+          const { error: reactivateError } = await supabase
+            .from('comp_plan_assignments')
+            .update({ end_date: null })
+            .in('id', toReactivate);
+
+          if (reactivateError) throw reactivateError;
+        }
+
+        // Insert truly new assignments
+        if (toInsert.length > 0) {
+          const newAssignments = toInsert.map(memberId => ({
             comp_plan_id: data.id!,
             team_member_id: memberId,
             effective_date: today,
             end_date: null,
           }));
-          
-          // Use UPSERT to handle re-assignment on same day (reactivates ended assignment)
+
           const { error: assignError } = await supabase
             .from('comp_plan_assignments')
-            .upsert(newAssignments, {
-              onConflict: 'team_member_id,effective_date'
-            });
-          
+            .insert(newAssignments);
+
           if (assignError) throw assignError;
         }
-      } else {
-        // No members assigned - end all existing assignments
-        const today = format(new Date(), 'yyyy-MM-dd');
-        const { error: endError } = await supabase
+      }
+
+      // If no members assigned at all, end all existing active assignments
+      if (!data.assigned_member_ids || data.assigned_member_ids.length === 0) {
+        const { error: endAllError } = await supabase
           .from('comp_plan_assignments')
           .update({ end_date: today })
           .eq('comp_plan_id', data.id)
           .is('end_date', null);
-        
-        if (endError) throw endError;
+
+        if (endAllError) throw endAllError;
       }
 
       return data.id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["comp-plans"] });
+      queryClient.invalidateQueries({ queryKey: ["comp-plan-assignments"] });
       toast.success("Compensation plan updated");
     },
     onError: (error: Error) => {
