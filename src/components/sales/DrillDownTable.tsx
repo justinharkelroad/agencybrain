@@ -157,7 +157,7 @@ export function DrillDownTable({
           .from("sales")
           .select(`
             id, sale_date, customer_name, lead_source_id, team_member_id,
-            sale_policies(id, policy_type_name, policy_type, total_premium, total_items, total_points)
+            sale_policies(id, policy_type_name, total_premium, total_items, total_points)
           `)
           .eq("agency_id", agencyId)
           .gte("sale_date", startDate)
@@ -182,12 +182,12 @@ export function DrillDownTable({
 
         let historicalSales: Array<{
           customer_name?: string | null;
-          sale_policies?: Array<{ policy_type_name?: string | null; policy_type?: string | null }> | null;
+          sale_policies?: Array<{ policy_type_name?: string | null }> | null;
         }> = [];
         if (customerNames.length > 0) {
           const { data, error: historicalError } = await supabase
             .from("sales")
-            .select("customer_name, sale_policies(policy_type_name, policy_type)")
+            .select("customer_name, sale_policies(policy_type_name)")
             .eq("agency_id", agencyId)
             .in("customer_name", customerNames);
           if (historicalError) throw historicalError;

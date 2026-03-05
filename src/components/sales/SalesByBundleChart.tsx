@@ -108,7 +108,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
       if (periodCustomerNames.length > 0) {
         let allTimeQuery = supabase
           .from("sales")
-          .select("customer_name, sale_policies(policy_type_name, policy_type)")
+          .select("customer_name, sale_policies(policy_type_name)")
           .eq("agency_id", agencyId)
           .in("customer_name", periodCustomerNames);
 
@@ -125,7 +125,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
 
       const customerBundleMap = buildCustomerBundleMap(allTimeSalesForCustomers as Array<{
         customer_name?: string | null;
-        sale_policies?: Array<{ policy_type_name?: string | null; policy_type?: string | null }> | null;
+        sale_policies?: Array<{ policy_type_name?: string | null }> | null;
       }>);
 
       const grouped = periodSales.reduce((acc, sale) => {

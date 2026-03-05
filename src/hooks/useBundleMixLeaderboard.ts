@@ -83,7 +83,7 @@ async function fetchBundleMixData(
   // Fetch sales in range (we'll classify each customer by all-time product mix)
   let salesQuery = supabase
     .from("sales")
-    .select("team_member_id, customer_name, sale_policies(policy_type_name, policy_type)")
+    .select("team_member_id, customer_name, sale_policies(policy_type_name)")
     .eq("agency_id", agencyId)
     .gte("sale_date", startDate)
     .lte("sale_date", endDate);
@@ -110,7 +110,7 @@ async function fetchBundleMixData(
   if (customerNames.length > 0) {
     let historicalQuery = supabase
       .from("sales")
-      .select("customer_name, sale_policies(policy_type_name, policy_type)")
+      .select("customer_name, sale_policies(policy_type_name)")
       .eq("agency_id", agencyId)
       .in("customer_name", customerNames);
 
@@ -127,7 +127,7 @@ async function fetchBundleMixData(
 
   const customerBundleMap = buildCustomerBundleMap(historicalSales as Array<{
     customer_name?: string | null;
-    sale_policies?: Array<{ policy_type_name?: string | null; policy_type?: string | null }> | null;
+    sale_policies?: Array<{ policy_type_name?: string | null }> | null;
   }>);
 
   // First pass: determine best bundle type per customer per team member

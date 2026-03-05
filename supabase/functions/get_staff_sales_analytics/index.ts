@@ -206,7 +206,7 @@ serve(async (req) => {
         if (filter_type === 'bundle_type') {
           let bundleQuery = supabaseAdmin
             .from("sales")
-            .select("id, sale_date, customer_name, team_member_id, lead_source_id, brokered_carrier_id, sale_policies(id, policy_type_name, policy_type, total_premium, total_items, total_points)")
+            .select("id, sale_date, customer_name, team_member_id, lead_source_id, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
             .eq("agency_id", agencyId)
             .gte("sale_date", start_date)
             .lte("sale_date", end_date)
@@ -228,7 +228,7 @@ serve(async (req) => {
           if (customerNames.length > 0) {
             let historicalQuery = supabaseAdmin
               .from("sales")
-              .select("customer_name, sale_policies(policy_type_name, policy_type), brokered_carrier_id")
+              .select("customer_name, sale_policies(policy_type_name), brokered_carrier_id")
               .eq("agency_id", agencyId)
               .in("customer_name", customerNames);
             historicalQuery = applyBusinessFilter(historicalQuery);
@@ -589,7 +589,7 @@ serve(async (req) => {
         if (customerNames.length > 0) {
           let historicalQuery = supabaseAdmin
             .from("sales")
-            .select("customer_name, sale_policies(policy_type_name, policy_type), brokered_carrier_id")
+            .select("customer_name, sale_policies(policy_type_name), brokered_carrier_id")
             .eq("agency_id", agencyId)
             .in("customer_name", customerNames);
           historicalQuery = applyBusinessFilter(historicalQuery);
