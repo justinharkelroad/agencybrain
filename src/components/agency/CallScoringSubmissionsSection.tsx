@@ -328,7 +328,7 @@ export function CallScoringSubmissionsSection({
       {/* Call Scorecard Modal */}
       {selectedCall?.call_type === 'service' ? (
         <ServiceCallReportCard
-          call={{...selectedCall, section_scores: selectedCall.section_scores as unknown as import('@/components/ServiceCallReportCard').ServiceSectionScore[] | undefined} as any}
+          call={{...selectedCall, section_scores: selectedCall.section_scores as any} as any}
           open={scorecardOpen}
           onClose={handleCloseScorecard}
           isReadOnly={true}
