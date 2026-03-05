@@ -90,12 +90,11 @@ const statusColors: Record<string, string> = {
 };
 
 async function fetchDelegateCandidates(agencyId: string): Promise<DelegateCandidate[]> {
-  // Show all managers and owners from team_members for this agency
+  // Show all active team members for this agency
   const { data: teamMembers } = await supabase
     .from('team_members')
     .select('id, name, email, role')
     .eq('agency_id', agencyId)
-    .in('role', ['Manager', 'Owner'])
     .eq('status', 'active')
     .order('name');
 
