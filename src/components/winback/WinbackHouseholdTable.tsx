@@ -4,7 +4,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { WinbackStatusBadge, WinbackStatusType } from './WinbackStatusBadge';
 import { Badge } from '@/components/ui/badge';
 import { Phone, Mail, ChevronUp, ChevronDown, ChevronsUpDown, MessageSquare, Sparkles } from 'lucide-react';
-import { format, isBefore, startOfDay } from 'date-fns';
+import { format, isBefore, startOfDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export type { WinbackStatusType };
@@ -239,7 +239,7 @@ export function WinbackHouseholdTable({
         <TableBody>
           {households.map((household) => {
             const winbackDate = household.earliest_winback_date
-              ? new Date(household.earliest_winback_date)
+              ? parseISO(household.earliest_winback_date)
               : null;
             const isOverdue = winbackDate && isBefore(winbackDate, today);
 

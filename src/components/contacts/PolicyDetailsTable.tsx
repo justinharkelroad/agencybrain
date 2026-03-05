@@ -1,4 +1,4 @@
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import {
   Table,
   TableBody,
@@ -47,7 +47,7 @@ export function WinbackPoliciesTable({ policies }: WinbackPoliciesTableProps) {
               </TableCell>
               <TableCell className="py-1.5 px-2">
                 {policy.termination_effective_date
-                  ? format(new Date(policy.termination_effective_date), 'MMM d, yyyy')
+                  ? format(parseISO(policy.termination_effective_date), 'MMM d, yyyy')
                   : '—'}
               </TableCell>
               <TableCell className="py-1.5 px-2 max-w-[150px] truncate" title={policy.termination_reason || ''}>
@@ -64,7 +64,7 @@ export function WinbackPoliciesTable({ policies }: WinbackPoliciesTableProps) {
               </TableCell>
               <TableCell className="py-1.5 px-2 text-purple-600 font-medium">
                 {policy.calculated_winback_date
-                  ? format(new Date(policy.calculated_winback_date), 'MMM d, yyyy')
+                  ? format(parseISO(policy.calculated_winback_date), 'MMM d, yyyy')
                   : '—'}
               </TableCell>
             </TableRow>
@@ -105,7 +105,7 @@ export function LqsQuotesTable({ quotes }: LqsQuotesTableProps) {
             <TableRow key={quote.id} className="text-xs">
               <TableCell className="py-1.5 px-2">
                 {quote.quote_date
-                  ? format(new Date(quote.quote_date), 'MMM d, yyyy')
+                  ? format(parseISO(quote.quote_date), 'MMM d, yyyy')
                   : '—'}
               </TableCell>
               <TableCell className="py-1.5 px-2">
@@ -159,7 +159,7 @@ export function LqsSalesTable({ sales }: LqsSalesTableProps) {
             <TableRow key={sale.id} className="text-xs">
               <TableCell className="py-1.5 px-2">
                 {sale.sale_date
-                  ? format(new Date(sale.sale_date), 'MMM d, yyyy')
+                  ? format(parseISO(sale.sale_date), 'MMM d, yyyy')
                   : '—'}
               </TableCell>
               <TableCell className="py-1.5 px-2">

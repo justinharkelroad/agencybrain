@@ -22,7 +22,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { DateRange } from 'react-day-picker';
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   WinbackUploadModal,
@@ -212,8 +212,8 @@ export default function WinbackHQ() {
     // Date range
     if (f.dateRangeStart || f.dateRangeEnd) {
       setDateRange({
-        from: f.dateRangeStart ? new Date(f.dateRangeStart) : undefined,
-        to: f.dateRangeEnd ? new Date(f.dateRangeEnd) : undefined,
+        from: f.dateRangeStart ? parseISO(f.dateRangeStart) : undefined,
+        to: f.dateRangeEnd ? parseISO(f.dateRangeEnd) : undefined,
       });
     } else {
       setDateRange(undefined);

@@ -46,7 +46,7 @@ import {
   ChevronDown,
   X,
 } from 'lucide-react';
-import { format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, subDays, startOfMonth, endOfMonth, subMonths, parseISO } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import {
   calculateTerminationStats,
@@ -197,8 +197,8 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
     // Date range — reset to current month default if AI doesn't specify
     if (f.dateRangeStart || f.dateRangeEnd) {
       setDateRange({
-        from: f.dateRangeStart ? new Date(f.dateRangeStart) : undefined,
-        to: f.dateRangeEnd ? new Date(f.dateRangeEnd) : undefined,
+        from: f.dateRangeStart ? parseISO(f.dateRangeStart) : undefined,
+        to: f.dateRangeEnd ? parseISO(f.dateRangeEnd) : undefined,
       });
     } else {
       const today = new Date();
@@ -944,7 +944,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                           key={policy.id}
                           className={cn(isCancelRewrite && 'bg-cyan-50 dark:bg-cyan-950/30')}
                         >
-                          <TableCell>{format(new Date(policy.termination_effective_date), 'M/d/yyyy')}</TableCell>
+                          <TableCell>{format(parseISO(policy.termination_effective_date), 'M/d/yyyy')}</TableCell>
                           <TableCell className="font-mono text-sm">{policy.policy_number}</TableCell>
                           <TableCell className="font-mono text-sm text-muted-foreground">
                             {policy.original_year || '—'}
@@ -1192,7 +1192,7 @@ export function TerminationAnalytics({ agencyId }: TerminationAnalyticsProps) {
                   return (
                     <TableRow key={policy.id}>
                       <TableCell className="whitespace-nowrap">
-                        {format(new Date(policy.termination_effective_date), 'M/d/yyyy')}
+                        {format(parseISO(policy.termination_effective_date), 'M/d/yyyy')}
                       </TableCell>
                       <TableCell className="font-mono text-sm">{policy.policy_number}</TableCell>
                       <TableCell className="font-mono text-sm text-muted-foreground">

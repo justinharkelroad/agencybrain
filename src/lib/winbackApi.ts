@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { hasStaffToken, fetchWithAuth } from './staffRequest';
-import { startOfWeek, endOfWeek } from 'date-fns';
+import { startOfWeek, endOfWeek, format } from 'date-fns';
 import { generateHouseholdKey } from './lqs-quote-parser';
 import { classifyBundle } from './bundle-classifier';
 import type { DateRange } from 'react-day-picker';
@@ -234,8 +234,8 @@ export async function getStats(agencyId: string): Promise<WinbackStats> {
         .eq('agency_id', agencyId)
         .neq('status', 'dismissed')
         .neq('status', 'moved_to_quoted')
-        .gte('earliest_winback_date', weekStart.toISOString())
-        .lte('earliest_winback_date', weekEnd.toISOString()),
+        .gte('earliest_winback_date', format(weekStart, 'yyyy-MM-dd'))
+        .lte('earliest_winback_date', format(weekEnd, 'yyyy-MM-dd')),
     ]);
 
   return {
@@ -257,8 +257,8 @@ export async function listHouseholds(params: ListHouseholdsParams): Promise<{ ho
       search: params.search,
       statusFilter: params.statusFilter,
       dateRange: params.dateRange ? {
-        from: params.dateRange.from?.toISOString(),
-        to: params.dateRange.to?.toISOString(),
+        from: params.dateRange.from ? format(params.dateRange.from, 'yyyy-MM-dd') : undefined,
+        to: params.dateRange.to ? format(params.dateRange.to, 'yyyy-MM-dd') : undefined,
       } : undefined,
       sortColumn: params.sortColumn,
       sortDirection: params.sortDirection,
@@ -285,12 +285,13 @@ export async function listHouseholds(params: ListHouseholdsParams): Promise<{ ho
     query = query.eq('status', params.statusFilter);
   }
 
-  // Date range filter
+  // Date range filter — earliest_winback_date is a DATE column, use YYYY-MM-DD strings
+  // (not .toISOString() which shifts to UTC and breaks date comparisons for western timezones)
   if (params.dateRange?.from) {
-    query = query.gte('earliest_winback_date', params.dateRange.from.toISOString());
+    query = query.gte('earliest_winback_date', format(params.dateRange.from, 'yyyy-MM-dd'));
   }
   if (params.dateRange?.to) {
-    query = query.lte('earliest_winback_date', params.dateRange.to.toISOString());
+    query = query.lte('earliest_winback_date', format(params.dateRange.to, 'yyyy-MM-dd'));
   }
 
   // Search filter
@@ -818,15 +819,22 @@ export async function getWeeklyWonBackCount(agencyId: string, weekStart: Date, w
 // ============ Activity Summary ============
 
 export async function getActivitySummary(agencyId: string, dateStr: string): Promise<WinbackActivity[]> {
-  if (isStaffUser()) {
-    const result = await callStaffWinback<{ activities: WinbackActivity[] }>('get_activity_summary', { dateStr });
-    return result.activities;
-  }
-
   // Parse date string as local date (not UTC) to avoid timezone shift
+  // new Date("YYYY-MM-DD") parses as UTC midnight — wrong for local day boundaries
   const [year, month, day] = dateStr.split('-').map(Number);
   const localStart = new Date(year, month - 1, day, 0, 0, 0, 0);
   const localEnd = new Date(year, month - 1, day, 23, 59, 59, 999);
+
+  if (isStaffUser()) {
+    // Send pre-computed ISO boundaries from the browser (correct local timezone)
+    // instead of dateStr which the edge function would parse as UTC
+    const result = await callStaffWinback<{ activities: WinbackActivity[] }>('get_activity_summary', {
+      startISO: localStart.toISOString(),
+      endISO: localEnd.toISOString(),
+      dateStr, // fallback for old edge function versions during rolling deploy
+    });
+    return result.activities;
+  }
 
   const { data, error } = await supabase
     .from('winback_activities')

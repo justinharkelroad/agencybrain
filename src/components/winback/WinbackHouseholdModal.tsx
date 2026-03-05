@@ -619,14 +619,17 @@ export function WinbackHouseholdModal({
                     <span>ZIP: {zipCode}</span>
                   </div>
                 )}
-                {household.earliest_winback_date && (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className={cn(isBefore(parseISO(household.earliest_winback_date), today) && 'text-red-500 font-medium')}>
-                      Winback: {format(parseISO(household.earliest_winback_date), 'MMM d, yyyy')}
-                    </span>
-                  </div>
-                )}
+                {household.earliest_winback_date && (() => {
+                  const wb = parseISO(household.earliest_winback_date);
+                  return (
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className={cn(isBefore(wb, today) && 'text-red-500 font-medium')}>
+                        Winback: {format(wb, 'MMM d, yyyy')}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             </CardContent>
           </Card>

@@ -219,8 +219,8 @@ Deno.serve(async (req) => {
               .eq("agency_id", agencyId)
               .neq("status", "dismissed")
               .neq("status", "moved_to_quoted")
-              .gte("earliest_winback_date", weekStart.toISOString())
-              .lte("earliest_winback_date", weekEnd.toISOString()),
+              .gte("earliest_winback_date", weekStart.toISOString().split("T")[0])
+              .lte("earliest_winback_date", weekEnd.toISOString().split("T")[0]),
           ]);
 
         result = {
@@ -729,19 +729,30 @@ Deno.serve(async (req) => {
       }
 
       case "get_activity_summary": {
-        const { dateStr } = params;
-        const selectedDate = new Date(dateStr);
-        const localStart = new Date(selectedDate);
-        localStart.setHours(0, 0, 0, 0);
-        const localEnd = new Date(localStart);
-        localEnd.setHours(23, 59, 59, 999);
+        // Accept pre-computed ISO boundaries from the frontend (correct local timezone)
+        // Fallback to dateStr parsing for backwards compatibility
+        const { startISO, endISO, dateStr } = params;
+
+        let rangeStart: string;
+        let rangeEnd: string;
+
+        if (startISO && endISO) {
+          rangeStart = startISO;
+          rangeEnd = endISO;
+        } else {
+          // Legacy fallback: parse dateStr as UTC (may be off by timezone)
+          const selectedDate = new Date(dateStr + "T00:00:00Z");
+          rangeStart = selectedDate.toISOString();
+          const endDate = new Date(dateStr + "T23:59:59.999Z");
+          rangeEnd = endDate.toISOString();
+        }
 
         const { data, error } = await supabase
           .from("winback_activities")
           .select("id, activity_type, created_by_name, new_status, created_at")
           .eq("agency_id", agencyId)
-          .gte("created_at", localStart.toISOString())
-          .lte("created_at", localEnd.toISOString());
+          .gte("created_at", rangeStart)
+          .lte("created_at", rangeEnd);
 
         if (error) throw error;
         result = { activities: data || [] };

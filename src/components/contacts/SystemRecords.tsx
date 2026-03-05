@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ChevronDown, ChevronRight, FileText, RefreshCw, AlertTriangle, Target, DollarSign } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -288,7 +288,7 @@ function RenewalRecordCard({
           {/* Product and due date */}
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             {record.product_name && <span>{record.product_name}</span>}
-            <span>Due: {format(new Date(record.renewal_effective_date), 'MMM d, yyyy')}</span>
+            <span>Due: {format(parseISO(record.renewal_effective_date), 'MMM d, yyyy')}</span>
             {!record.is_active && (
               <span className="text-amber-500">Dropped from report</span>
             )}
@@ -394,11 +394,11 @@ function CancelAuditRecordCard({
           {/* Dates */}
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             {record.cancel_date && (
-              <span>Cancel Date: {format(new Date(record.cancel_date), 'MMM d, yyyy')}</span>
+              <span>Cancel Date: {format(parseISO(record.cancel_date), 'MMM d, yyyy')}</span>
             )}
             {record.pending_cancel_date && (
               <span className="text-orange-600">
-                Pending Cancel: {format(new Date(record.pending_cancel_date), 'MMM d, yyyy')}
+                Pending Cancel: {format(parseISO(record.pending_cancel_date), 'MMM d, yyyy')}
               </span>
             )}
           </div>
@@ -463,7 +463,7 @@ function WinbackRecordCard({
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 {record.earliest_winback_date && (
                   <span className="text-purple-600">
-                    Eligible: {format(new Date(record.earliest_winback_date), 'MMM d, yyyy')}
+                    Eligible: {format(parseISO(record.earliest_winback_date), 'MMM d, yyyy')}
                   </span>
                 )}
               </div>

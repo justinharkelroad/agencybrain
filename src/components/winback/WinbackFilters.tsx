@@ -60,7 +60,7 @@ export function WinbackFilters({
     switch (value) {
       case 'overdue':
         onDateRangeChange({
-          from: new Date('2020-01-01'),
+          from: new Date(2020, 0, 1),
           to: subDays(today, 1),
         });
         break;
