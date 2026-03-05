@@ -396,7 +396,7 @@ export function CallScorecard({
 
   // Backward compatible alias
   const sectionScores = sectionScoresMap;
-  const crmNotes = isObject(call.closing_attempts) ? call.closing_attempts : {};
+  const crmNotes = (isObject(call.closing_attempts) ? call.closing_attempts : {}) as Record<string, string>;
   const extractedData = isObject(call.client_profile) ? call.client_profile : {};
 
   const getClientProfileText = (value: Json | undefined) => {
@@ -818,7 +818,7 @@ export function CallScorecard({
                   CRITICAL ASSESSMENT
                 </p>
                 <p className="text-sm leading-relaxed">
-                  {call.critical_gaps?.assessment || call.summary || 'Analysis pending...'}
+                  {(call.critical_gaps as Record<string, unknown>)?.assessment as string || call.summary || 'Analysis pending...'}
                 </p>
               </CardContent>
             </Card>

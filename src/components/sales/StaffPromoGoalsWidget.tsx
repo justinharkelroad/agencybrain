@@ -58,6 +58,8 @@ export function StaffPromoGoalsWidget({ sessionToken }: StaffPromoGoalsWidgetPro
       // Transform response to match PromoGoalWithProgress interface
       return ((data?.promos || []) as PromoGoalEdgeRow[]).map((promo) => ({
         id: promo.id,
+        agency_id: '',
+        is_active: true,
         goal_name: promo.goal_name,
         description: promo.description,
         measurement: promo.measurement,
@@ -72,6 +74,7 @@ export function StaffPromoGoalsWidget({ sessionToken }: StaffPromoGoalsWidgetPro
         count_business_days: promo.count_business_days,
         product_type: promo.product_type,
         progress: promo.progress,
+        assignments: [],
         status: promo.status,
         daysRemaining: promo.daysRemaining,
         isAchieved: promo.isAchieved,

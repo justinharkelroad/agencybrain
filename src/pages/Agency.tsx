@@ -895,6 +895,7 @@ export default function Agency() {
           const createdStaffUser: StaffUser = {
             id: createdStaffData?.user?.id || crypto.randomUUID(),
             username: finalUsername,
+            display_name: row.name,
             is_active: true,
             last_login_at: null,
             email: row.email,
@@ -921,8 +922,8 @@ export default function Agency() {
             name: row.name,
             email: row.email,
             role: row.role,
-            employment: effectiveEmployment,
-            status: effectiveStatus,
+            employment: row.employment || "Full-time",
+            status: "active",
             username: null,
             temporaryPassword: null,
             result: "error",
