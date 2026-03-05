@@ -25,6 +25,13 @@ interface SaleNotificationRequest {
   agency_id: string;
 }
 
+function extractTeamMemberName(
+  teamMember: { name?: string | null } | { name?: string | null }[] | null | undefined
+): string {
+  const name = Array.isArray(teamMember) ? teamMember[0]?.name : teamMember?.name;
+  return (name || '').trim() || 'Unknown';
+}
+
 function summarizePolicyTypes(policies: Array<{ policy_type_name?: string | null }> | null | undefined): string {
   if (!policies || policies.length === 0) return '';
   const counts = new Map<string, number>();
@@ -57,17 +64,34 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const body: SaleNotificationRequest = await req.json();
+    let body: Partial<SaleNotificationRequest>;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const saleId = typeof body?.sale_id === 'string' ? body.sale_id.trim() : '';
+    const agencyId = typeof body?.agency_id === 'string' ? body.agency_id.trim() : '';
+
+    if (!saleId || !agencyId) {
+      return new Response(
+        JSON.stringify({ error: 'sale_id and agency_id are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     console.log('[send-sale-notification] Function invoked');
-    console.log('[send-sale-notification] Request body:', JSON.stringify(body));
-    console.log('[send-sale-notification] Processing sale:', body.sale_id);
+    console.log('[send-sale-notification] Request body:', JSON.stringify({ sale_id: saleId, agency_id: agencyId }));
+    console.log('[send-sale-notification] Processing sale:', saleId);
 
     // 1. Check if agency has real-time notifications enabled
     const { data: agency, error: agencyError } = await supabase
       .from('agencies')
       .select('id, name, sales_realtime_email_enabled, timezone')
-      .eq('id', body.agency_id)
+      .eq('id', agencyId)
       .single();
 
     if (agencyError || !agency) {
@@ -91,6 +115,7 @@ serve(async (req) => {
       .from('sales')
       .select(`
         id,
+        agency_id,
         customer_name,
         total_premium,
         total_items,
@@ -105,7 +130,8 @@ serve(async (req) => {
         lead_source:lead_sources(name, is_self_generated),
         team_member:team_members!sales_team_member_id_fkey(id, name)
       `)
-      .eq('id', body.sale_id)
+      .eq('id', saleId)
+      .eq('agency_id', agencyId)
       .single();
 
     if (saleError || !sale) {
@@ -120,7 +146,7 @@ serve(async (req) => {
     const { data: salesTeamMembers, error: teamError } = await supabase
       .from('team_members')
       .select('id, name, role, hybrid_team_assignments')
-      .eq('agency_id', body.agency_id)
+      .eq('agency_id', agencyId)
       .eq('status', 'active')
       .or('role.eq.Sales,role.eq.Hybrid,role.eq.Manager');
 
@@ -139,11 +165,7 @@ serve(async (req) => {
     });
 
     if (eligibleTeamMembers.length === 0) {
-      console.log('[send-sale-notification] No sales team members found');
-      return new Response(
-        JSON.stringify({ success: true, message: 'No sales team members' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      console.log('[send-sale-notification] No eligible sales team members found; continuing with dynamic seller rows only');
     }
 
     // 4. Calculate today's scoreboard
@@ -164,9 +186,8 @@ serve(async (req) => {
         total_policies,
         team_member:team_members!sales_team_member_id_fkey(name)
       `)
-      .eq('agency_id', body.agency_id)
-      .gte('sale_date', todayStr)
-      .lte('sale_date', todayStr);
+      .eq('agency_id', agencyId)
+      .eq('sale_date', todayStr);
 
     if (salesError) {
       console.error('[send-sale-notification] Today sales lookup failed:', salesError);
@@ -195,12 +216,13 @@ serve(async (req) => {
     // Add today's sales data - include ANYONE who sold, regardless of role
     // This ensures agency owners and non-Sales team members are included in totals
     for (const s of todaysSales || []) {
+      const sellerId = s.team_member_id || `unknown-${s.id}`;
       // If this seller isn't in scoreboard yet, add them dynamically
-      if (!scoreboard[s.team_member_id]) {
-        // team_member is an array from the join, get first element
-        const teamMemberArr = s.team_member as { name: string }[] | null;
-        const sellerName = teamMemberArr?.[0]?.name || 'Unknown';
-        scoreboard[s.team_member_id] = {
+      if (!scoreboard[sellerId]) {
+        const sellerName = extractTeamMemberName(
+          s.team_member as { name?: string | null } | { name?: string | null }[] | null
+        );
+        scoreboard[sellerId] = {
           name: sellerName,
           premium: 0,
           items: 0,
@@ -211,11 +233,11 @@ serve(async (req) => {
       }
       
       // Now add the sale data
-      scoreboard[s.team_member_id].premium += s.total_premium || 0;
-      scoreboard[s.team_member_id].items += s.total_items || 0;
-      scoreboard[s.team_member_id].policies += s.total_policies || 0;
+      scoreboard[sellerId].premium += s.total_premium || 0;
+      scoreboard[sellerId].items += s.total_items || 0;
+      scoreboard[sellerId].policies += s.total_policies || 0;
       if (s.customer_name) {
-        scoreboard[s.team_member_id].households.add(s.customer_name.toLowerCase().trim());
+        scoreboard[sellerId].households.add(s.customer_name.toLowerCase().trim());
       }
     }
 
@@ -249,7 +271,7 @@ serve(async (req) => {
     const { data: staffUsers, error: staffError } = await supabase
       .from('staff_users')
       .select('id, email')
-      .eq('agency_id', body.agency_id)
+      .eq('agency_id', agencyId)
       .eq('is_active', true)
       .not('email', 'is', null);
 
@@ -265,7 +287,7 @@ serve(async (req) => {
     const { data: profiles } = await supabase
       .from('profiles')
       .select('email')
-      .eq('agency_id', body.agency_id)
+      .eq('agency_id', agencyId)
       .not('email', 'is', null);
 
     for (const p of profiles || []) {
@@ -276,10 +298,10 @@ serve(async (req) => {
     const { data: keyEmployees } = await supabase
       .from('key_employees')
       .select('user_id')
-      .eq('agency_id', body.agency_id);
+      .eq('agency_id', agencyId);
 
     if (keyEmployees && keyEmployees.length > 0) {
-      const userIds = keyEmployees.map((ke: any) => ke.user_id);
+      const userIds = keyEmployees.map((ke: { user_id: string }) => ke.user_id);
       const { data: keProfiles } = await supabase
         .from('profiles')
         .select('email')
@@ -295,7 +317,7 @@ serve(async (req) => {
     const { data: tmManagers } = await supabase
       .from('team_members')
       .select('id, email')
-      .eq('agency_id', body.agency_id)
+      .eq('agency_id', agencyId)
       .eq('role', 'Manager');
 
     for (const m of tmManagers || []) {
@@ -316,7 +338,9 @@ serve(async (req) => {
     // 6. Build email content
     // Note: team_member may be returned as object or array depending on join
     const teamMember = sale.team_member as { id: string; name: string }[] | { id: string; name: string } | null;
-    const producerName = Array.isArray(teamMember) ? teamMember[0]?.name : teamMember?.name || 'Unknown';
+    const producerName = extractTeamMemberName(
+      teamMember as { name?: string | null } | { name?: string | null }[] | null
+    );
     const customerName = sale.customer_name || 'Unknown';
     
     // Handle lead_source join (may be object or array)
