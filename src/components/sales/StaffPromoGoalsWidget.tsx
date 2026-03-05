@@ -58,6 +58,8 @@ export function StaffPromoGoalsWidget({ sessionToken }: StaffPromoGoalsWidgetPro
       // Transform response to match PromoGoalWithProgress interface
       return ((data?.promos || []) as PromoGoalEdgeRow[]).map((promo) => ({
         id: promo.id,
+        agency_id: '',
+        is_active: true,
         goal_name: promo.goal_name,
         description: promo.description,
         measurement: promo.measurement,
@@ -65,17 +67,18 @@ export function StaffPromoGoalsWidget({ sessionToken }: StaffPromoGoalsWidgetPro
         bonus_amount_cents: promo.bonus_amount_cents,
         start_date: promo.start_date,
         end_date: promo.end_date,
-        promo_source: promo.promo_source,
+        promo_source: promo.promo_source as 'sales' | 'metrics',
         product_type_id: promo.product_type_id,
         kpi_slug: promo.kpi_slug,
         goal_focus: promo.goal_focus,
         count_business_days: promo.count_business_days,
-        product_type: promo.product_type,
+        product_type: promo.product_type as unknown as { name: string } | null,
         progress: promo.progress,
-        status: promo.status,
+        assignments: [] as any[],
+        status: promo.status as 'upcoming' | 'active' | 'ended',
         daysRemaining: promo.daysRemaining,
         isAchieved: promo.isAchieved,
-      }));
+      })) as PromoGoalWithProgress[];
     },
     enabled: !!sessionToken,
   });

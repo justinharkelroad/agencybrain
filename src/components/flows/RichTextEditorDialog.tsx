@@ -102,8 +102,8 @@ export function RichTextEditorDialog({
       }),
       Placeholder.configure({ placeholder }),
       TextStyleKit.configure({
-        textStyle: true,
-        color: true,
+        textStyle: {} as any,
+        color: {} as any,
         backgroundColor: false,
         fontFamily: false,
         fontSize: false,

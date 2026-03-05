@@ -14516,6 +14516,14 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      sync_sales_metrics_for_member: {
+        Args: {
+          p_agency_id: string
+          p_sale_date: string
+          p_team_member_id: string
+        }
+        Returns: undefined
+      }
       sync_subscription_status: {
         Args: { p_status: string; p_stripe_subscription_id: string }
         Returns: undefined

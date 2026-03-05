@@ -547,7 +547,7 @@ export default function SalesProcessBuilder() {
   }
 
   if (!data?.hasAccess) {
-    const { title, message } = accessErrorMessage(data?.accessErrorType);
+    const { title, message } = accessErrorMessage(data?.accessErrorType as SalesProcessAccessErrorType);
     return (
       <div className="container max-w-2xl mx-auto py-8 px-4">
         <Alert className="border-amber-500/40 bg-amber-500/10">

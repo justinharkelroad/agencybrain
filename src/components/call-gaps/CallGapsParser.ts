@@ -161,7 +161,7 @@ async function parseRingCentral(file: File, selectedDate?: string): Promise<Pars
   if (!filtersSheet) throw new Error('No "Filters" sheet found in workbook');
 
   const knownAgents = new Set<string>();
-  const filtersData = XLSX.utils.sheet_to_json<Record<string, unknown>>(filtersSheet, { header: 1 }) as unknown[][];
+  const filtersData = XLSX.utils.sheet_to_json<Record<string, unknown>>(filtersSheet, { header: 1 }) as unknown as unknown[][];
   for (let i = 1; i < filtersData.length; i++) {
     const row = filtersData[i];
     if (row && row[1] && typeof row[1] === 'string' && row[1].trim()) {

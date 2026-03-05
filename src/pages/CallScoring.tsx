@@ -576,7 +576,7 @@ export default function CallScoring() {
         const enrichedAnalytics: AnalyticsCall[] = (analyticsData as AnalyticsRow[]).map((call: AnalyticsRow) => ({
           id: call.id,
           team_member_id: call.team_member_id,
-          team_member_name: memberMap.get(call.team_member_id) || 'Unknown',
+          team_member_name: (memberMap.get(call.team_member_id) || 'Unknown') as string,
           template_id: call.template_id,
           template_name: call.call_scoring_templates?.name || 'Unknown Template',
           potential_rank: call.potential_rank,
@@ -1942,7 +1942,7 @@ export default function CallScoring() {
         {canSeeAdvancedTabs && (
           <TabsContent value="analytics" className="mt-6">
             <CallScoringAnalytics
-              calls={analyticsCalls}
+              calls={analyticsCalls as any}
               teamMembers={teamMembers}
             />
           </TabsContent>
@@ -1963,7 +1963,7 @@ export default function CallScoring() {
       
       {selectedCall?.call_type === 'service' ? (
         <ServiceCallReportCard
-          call={selectedCall}
+          call={selectedCall as any}
           open={scorecardOpen}
           onClose={() => setScorecardOpen(false)}
           isReadOnly={false}
