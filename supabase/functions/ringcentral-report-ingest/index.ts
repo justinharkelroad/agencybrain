@@ -229,15 +229,26 @@ interface XlsxProcessResult {
   // Debug counters for vendor exports that carry a bloated/incorrect used-range.
   calls_sheet_rows?: number;
   calls_candidate_rows?: number;
+  calls_top_to_queue?: Array<{
+    to_number: string | null;
+    queue: string | null;
+    result: string | null;
+    rows: number;
+  }>;
   users_total_calls_sum?: number;
   users_total_talk_seconds_sum?: number;
   error?: string;
+}
+
+interface ProcessXlsxOptions {
+  usersTotalCallsByDate?: Map<string, number>;
 }
 
 async function processXlsxBuffer(
   buffer: Uint8Array,
   supabase: SupabaseClient,
   lookups: AgencyLookups,
+  options?: ProcessXlsxOptions,
 ): Promise<XlsxProcessResult> {
   const agencyId = lookups.agencyId;
 
@@ -288,12 +299,16 @@ async function processXlsxBuffer(
   let contactActivitiesInserted = 0;
   let callsSheetRows: number | undefined;
   let callsCandidateRows: number | undefined;
+  let callsTopToQueue:
+    | Array<{ to_number: string | null; queue: string | null; result: string | null; rows: number }>
+    | undefined;
 
   const DEDUP_CHUNK = 1000; // Must stay ≤ PostgREST default max-rows (1000)
   const INSERT_CHUNK = 500;
   const UNMATCHED_GUARDRAIL_MIN_ROWS = 2000;
   const UNMATCHED_GUARDRAIL_MAX_RATIO = 0.95;
   const UNMATCHED_GUARDRAIL_MIN_MATCHED = 25;
+  const CROSSFILE_USERS_MIN_TOTAL_CALLS_FOR_LARGE_CALLS = 100;
   const MAX_SHEET_ROWS = 30000;
 
   if (hasCalls) {
@@ -345,6 +360,25 @@ async function processXlsxBuffer(
       if (isValidSessionId(sessionId)) candidateCount++;
     }
     callsCandidateRows = candidateCount;
+
+    const usersTotalCallsForDate = options?.usersTotalCallsByDate?.get(reportDate);
+    if (
+      !hasUsers &&
+      candidateCount >= UNMATCHED_GUARDRAIL_MIN_ROWS &&
+      usersTotalCallsForDate !== undefined &&
+      usersTotalCallsForDate <= CROSSFILE_USERS_MIN_TOTAL_CALLS_FOR_LARGE_CALLS
+    ) {
+      return {
+        success: false, file_type: "calls", report_date: reportDate, calls_processed: 0,
+        calls_skipped_duplicate: 0, calls_skipped_internal: 0, team_members_matched: 0,
+        prospects_matched: 0, contact_activities_inserted: 0, metrics_upserted: 0, row_errors: 0,
+        calls_sheet_rows: callsData.length,
+        calls_candidate_rows: candidateCount,
+        error:
+          `Rejected Calls sheet for ${reportDate}: ${candidateCount} candidate calls with users_total_calls_sum=` +
+          `${usersTotalCallsForDate} (<= ${CROSSFILE_USERS_MIN_TOTAL_CALLS_FOR_LARGE_CALLS}).`,
+      };
+    }
 
     console.log(
       `[ringcentral-report-ingest] Processing ${callsData.length} call rows ` +
@@ -463,6 +497,29 @@ async function processXlsxBuffer(
 
     console.log(`[ringcentral-report-ingest] Parsed ${parsedCalls.length} valid calls, ${callsSkippedInternal} internal skipped`);
 
+    // Capture top to_number/queue/result combinations for fast anomaly triage in ingest logs.
+    const callMixCounts = new Map<string, { to_number: string | null; queue: string | null; result: string | null; rows: number }>();
+    for (const call of parsedCalls) {
+      const queueValueRaw = getCol(call.raw, "Queue", "queue");
+      const queueValue = queueValueRaw === undefined || queueValueRaw === null ? null : String(queueValueRaw).trim() || null;
+      const resultValue = call.result ? call.result : null;
+      const key = `${call.toNumber ?? ""}|${queueValue ?? ""}|${resultValue ?? ""}`;
+      const existing = callMixCounts.get(key);
+      if (existing) {
+        existing.rows += 1;
+      } else {
+        callMixCounts.set(key, {
+          to_number: call.toNumber ?? null,
+          queue: queueValue,
+          result: resultValue,
+          rows: 1,
+        });
+      }
+    }
+    callsTopToQueue = Array.from(callMixCounts.values())
+      .sort((a, b) => b.rows - a.rows)
+      .slice(0, 20);
+
     // ── Phase 2: Batch dedup check (chunks of 1000) ──
 
     const existingIds = new Set<string>();
@@ -484,7 +541,9 @@ async function processXlsxBuffer(
     console.log(`[ringcentral-report-ingest] Dedup: ${callsSkippedDuplicate} duplicates, ${newCalls.length} new calls to insert`);
 
     let insertableCalls = newCalls;
-    if (hasUsers && newCalls.length >= UNMATCHED_GUARDRAIL_MIN_ROWS) {
+    // Apply guardrail for any large Calls import, even when Users is a separate attachment.
+    // This prevents massive unmatched floods when Calls and Users are processed independently.
+    if (newCalls.length >= UNMATCHED_GUARDRAIL_MIN_ROWS) {
       const matchedCount = newCalls.filter(c => !!c.matchedTeamMemberId).length;
       const unmatchedCount = newCalls.length - matchedCount;
       const unmatchedRatio = unmatchedCount / newCalls.length;
@@ -694,9 +753,57 @@ async function processXlsxBuffer(
     row_errors: rowErrors,
     calls_sheet_rows: callsSheetRows,
     calls_candidate_rows: callsCandidateRows,
+    calls_top_to_queue: callsTopToQueue,
     users_total_calls_sum: hasUsers ? usersTotalCallsSum : undefined,
     users_total_talk_seconds_sum: hasUsers ? usersTotalTalkSecondsSum : undefined,
   };
+}
+
+function inspectWorkbookForGuardrails(
+  buffer: Uint8Array,
+): { reportDate: string | null; hasCalls: boolean; hasUsers: boolean; usersTotalCallsSum: number | null } | null {
+  try {
+    const workbook = XLSX.read(buffer, { type: "array", raw: true });
+    const hasCalls = workbook.SheetNames.includes("Calls");
+    const hasUsers = workbook.SheetNames.includes("Users");
+    const reportDate = extractReportDateFromFilters(workbook);
+    let usersTotalCallsSum: number | null = null;
+
+    if (hasUsers) {
+      usersTotalCallsSum = 0;
+      const usersSheet = workbook.Sheets["Users"];
+      const usersData = XLSX.utils.sheet_to_json(usersSheet, { raw: true }) as Record<string, unknown>[];
+      for (const row of usersData) {
+        const inboundCalls = parseNumber(getCol(
+          row,
+          "# Inbound",
+          "# Inbound Calls",
+          "# Inbounc",
+          "Inbound Calls",
+          "inbound_calls",
+        ));
+        const outboundCalls = parseNumber(getCol(
+          row,
+          "# Outbound",
+          "# Outbound Calls",
+          "# Outbound Call",
+          "# Outboun",
+          "# Outbou",
+          "Outbound Calls",
+          "outbound_calls",
+        ));
+        const totalCalls = parseNumber(
+          getCol(row, "Total Calls", "total_calls"),
+          inboundCalls + outboundCalls,
+        );
+        usersTotalCallsSum += totalCalls >= 0 ? totalCalls : 0;
+      }
+    }
+
+    return { reportDate, hasCalls, hasUsers, usersTotalCallsSum };
+  } catch {
+    return null;
+  }
 }
 
 // ─── Mailgun signature verification ───
@@ -846,9 +953,32 @@ async function handleMailgunRoute(req: Request): Promise<Response> {
   const lookups = await loadAgencyLookups(supabase, agencyId);
 
   const fileResults: Record<string, unknown>[] = [];
+  const xlsxBuffersByIndex = new Map<number, Uint8Array>();
+  const usersTotalCallsByDate = new Map<string, number>();
   let filesProcessed = 0;
   let anySuccess = false;
   let anyError = false;
+
+  // Pre-scan XLSX attachments so Calls processing can use Users totals from the same email/report date.
+  for (let i = 1; i <= attachmentCount; i++) {
+    const attachment = formData.get(`attachment-${i}`) as File | null;
+    if (!attachment) continue;
+    const fileName = attachment.name || `attachment-${i}`;
+    const ext = fileName.split(".").pop()?.toLowerCase() || "";
+    if (ext !== "xlsx" && ext !== "xls") continue;
+    if (attachment.size > MAX_ATTACHMENT_BYTES) continue;
+
+    try {
+      const buffer = new Uint8Array(await attachment.arrayBuffer());
+      xlsxBuffersByIndex.set(i, buffer);
+      const inspected = inspectWorkbookForGuardrails(buffer);
+      if (!inspected || !inspected.reportDate || inspected.usersTotalCallsSum === null) continue;
+      const current = usersTotalCallsByDate.get(inspected.reportDate) ?? 0;
+      usersTotalCallsByDate.set(inspected.reportDate, Math.max(current, inspected.usersTotalCallsSum));
+    } catch {
+      // Ignore pre-scan failures; main processing below will surface a file-level error.
+    }
+  }
 
   for (let i = 1; i <= attachmentCount; i++) {
     const attachment = formData.get(`attachment-${i}`) as File | null;
@@ -869,8 +999,8 @@ async function handleMailgunRoute(req: Request): Promise<Response> {
 
     if (ext === "xlsx" || ext === "xls") {
       try {
-        const buffer = new Uint8Array(await attachment.arrayBuffer());
-        const result = await processXlsxBuffer(buffer, supabase, lookups);
+        const buffer = xlsxBuffersByIndex.get(i) ?? new Uint8Array(await attachment.arrayBuffer());
+        const result = await processXlsxBuffer(buffer, supabase, lookups, { usersTotalCallsByDate });
         fileResults.push({ index: i, file: fileName, type: "xlsx", ...result });
         if (result.success) { filesProcessed++; anySuccess = true; }
         else { anyError = true; }
