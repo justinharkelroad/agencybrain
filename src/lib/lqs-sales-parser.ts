@@ -184,6 +184,7 @@ export function normalizeProductType(productType: string): string {
       '072': 'Landlords',
       '073': 'Renters',
       '074': 'Condo',
+      '078': 'Condo',
       '080': 'Boatowners',
       '090': 'Personal Umbrella',
     };

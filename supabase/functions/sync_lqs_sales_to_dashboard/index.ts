@@ -29,8 +29,8 @@ function isHomeProduct(name: string): boolean {
     lower === "north light condo" ||
     lower === "home"
   ) return true;
-  // Line codes: 070 = Homeowners, 074 = Condo
-  if (/^07[04]\s*-/.test(lower)) return true;
+  // Line codes: 070 = Homeowners, 074/078 = Condo
+  if (/^(070|074|078)\s*-/.test(lower)) return true;
   return false;
 }
 
