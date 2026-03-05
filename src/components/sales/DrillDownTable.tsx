@@ -6,6 +6,7 @@ import {
   calculateCountableTotals,
   filterCountablePolicies,
 } from "@/lib/product-constants";
+import { buildCustomerBundleMap } from "@/lib/sales-bundle-classification";
 import {
   Table,
   TableBody,
@@ -63,9 +64,27 @@ interface AdminSaleRow {
   id: string;
   sale_date: string;
   customer_name: string | null;
+  lead_source_id?: string | null;
+  team_member_id?: string | null;
   lead_source?: { name: string | null } | null;
   team_member?: { name: string | null } | null;
   sale_policies?: Array<{
+    policy_type_name?: string | null;
+    policy_type?: string | null;
+    total_premium?: number | null;
+    total_items?: number | null;
+    total_points?: number | null;
+  }> | null;
+}
+
+interface BundleSaleRow {
+  id: string;
+  sale_date: string;
+  customer_name: string | null;
+  lead_source_id: string | null;
+  team_member_id: string | null;
+  sale_policies?: Array<{
+    id?: string;
     policy_type_name?: string | null;
     policy_type?: string | null;
     total_premium?: number | null;
@@ -133,6 +152,108 @@ export function DrillDownTable({
       }
 
       // Admin path - direct query with sale_policies for Motor Club filtering
+      if (filter.type === "bundle_type") {
+        let bundleQuery = supabase
+          .from("sales")
+          .select(`
+            id, sale_date, customer_name, lead_source_id, team_member_id,
+            sale_policies(id, policy_type_name, policy_type, total_premium, total_items, total_points)
+          `)
+          .eq("agency_id", agencyId)
+          .gte("sale_date", startDate)
+          .lte("sale_date", endDate)
+          .order("sale_date", { ascending: false });
+
+        if (teamMemberId) {
+          bundleQuery = bundleQuery.eq("team_member_id", teamMemberId);
+        }
+
+        const { data: bundleSales, error: bundleSalesError } = await bundleQuery;
+        if (bundleSalesError) throw bundleSalesError;
+        const typedBundleSales = (bundleSales || []) as BundleSaleRow[];
+
+        const customerNames = Array.from(
+          new Set(
+            typedBundleSales
+              .map((sale) => sale.customer_name?.trim())
+              .filter((name: string | undefined): name is string => !!name)
+          )
+        );
+
+        let historicalSales: Array<{
+          customer_name?: string | null;
+          sale_policies?: Array<{ policy_type_name?: string | null; policy_type?: string | null }> | null;
+        }> = [];
+        if (customerNames.length > 0) {
+          const { data, error: historicalError } = await supabase
+            .from("sales")
+            .select("customer_name, sale_policies(policy_type_name, policy_type)")
+            .eq("agency_id", agencyId)
+            .in("customer_name", customerNames);
+          if (historicalError) throw historicalError;
+          historicalSales = data || [];
+        }
+
+        const bundleMap = buildCustomerBundleMap(historicalSales);
+
+        const filteredByBundle = typedBundleSales.filter((sale) => {
+          const key = (sale.customer_name || "").toLowerCase().trim();
+          const effectiveBundle = bundleMap.get(key) || "Monoline";
+          if (filter.value === "__all__") return true;
+          return effectiveBundle === filter.value;
+        });
+
+        const total = filteredByBundle.length;
+        const pagedRows = filteredByBundle.slice((page - 1) * pageSize, page * pageSize);
+
+        const teamMemberIds = [...new Set(pagedRows.map((s) => s.team_member_id).filter(Boolean))];
+        const leadSourceIds = [...new Set(pagedRows.map((s) => s.lead_source_id).filter(Boolean))];
+
+        const teamMemberMap = new Map<string, string>();
+        const leadSourceMap = new Map<string, string>();
+
+        if (teamMemberIds.length > 0) {
+          const { data: teamMembers } = await supabase
+            .from("team_members")
+            .select("id, name")
+            .in("id", teamMemberIds);
+          for (const tm of teamMembers || []) {
+            teamMemberMap.set(tm.id, tm.name);
+          }
+        }
+
+        if (leadSourceIds.length > 0) {
+          const { data: leadSourcesData } = await supabase
+            .from("lead_sources")
+            .select("id, name")
+            .in("id", leadSourceIds);
+          for (const ls of leadSourcesData || []) {
+            leadSourceMap.set(ls.id, ls.name);
+          }
+        }
+
+        const records: SaleRecord[] = (pagedRows as AdminSaleRow[]).map((sale) => {
+          const policies = sale.sale_policies || [];
+          const countable = calculateCountableTotals(policies);
+          return {
+            id: sale.id,
+            sale_date: sale.sale_date,
+            customer_name: sale.customer_name || "Unknown",
+            policy_types: filterCountablePolicies(policies)
+              .map((p) => p.policy_type_name || p.policy_type || "")
+              .filter(Boolean)
+              .join(", ") || null,
+            lead_source_name: sale.lead_source_id ? leadSourceMap.get(sale.lead_source_id) || null : null,
+            producer_name: sale.team_member_id ? teamMemberMap.get(sale.team_member_id) || null : null,
+            total_items: countable.items,
+            total_premium: countable.premium,
+            total_points: countable.points,
+          };
+        });
+
+        return { data: records, total_count: total };
+      }
+
       let query = supabase
         .from("sales")
         .select(`
@@ -166,14 +287,6 @@ export function DrillDownTable({
           } else {
             return { data: [], total_count: 0 };
           }
-        }
-      } else if (filter.type === 'bundle_type') {
-        if (filter.value === '__all__') {
-          // No bundle filter — show all bundles (used by bundle mix drill-down)
-        } else if (filter.value === 'Monoline') {
-          query = query.is('bundle_type', null);
-        } else {
-          query = query.eq('bundle_type', filter.value);
         }
       } else if (filter.type === 'zipcode') {
         query = query.eq('customer_zip', filter.value);

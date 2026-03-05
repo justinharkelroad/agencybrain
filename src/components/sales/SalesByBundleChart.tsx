@@ -7,6 +7,7 @@ import { MetricToggle, MetricType } from "./MetricToggle";
 import { DrillDownTable } from "./DrillDownTable";
 import { BarChart3, Loader2, X } from "lucide-react";
 import { calculateCountableTotals } from "@/lib/product-constants";
+import { buildCustomerBundleMap } from "@/lib/sales-bundle-classification";
 import {
   BarChart,
   Bar,
@@ -94,8 +95,42 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
 
       if (error) throw error;
 
-      const grouped = (sales || []).reduce((acc, sale) => {
-        const bundleType = sale.bundle_type || "Monoline";
+      const periodSales = sales || [];
+      const periodCustomerNames = Array.from(
+        new Set(
+          periodSales
+            .map((sale) => sale.customer_name?.trim())
+            .filter((name): name is string => !!name)
+        )
+      );
+
+      let allTimeSalesForCustomers = periodSales;
+      if (periodCustomerNames.length > 0) {
+        let allTimeQuery = supabase
+          .from("sales")
+          .select("customer_name, sale_policies(policy_type_name, policy_type)")
+          .eq("agency_id", agencyId)
+          .in("customer_name", periodCustomerNames);
+
+        if (businessFilter === "regular") {
+          allTimeQuery = allTimeQuery.is("brokered_carrier_id", null);
+        } else if (businessFilter === "brokered") {
+          allTimeQuery = allTimeQuery.not("brokered_carrier_id", "is", null);
+        }
+
+        const { data: historicalSales, error: historicalError } = await allTimeQuery;
+        if (historicalError) throw historicalError;
+        allTimeSalesForCustomers = historicalSales || [];
+      }
+
+      const customerBundleMap = buildCustomerBundleMap(allTimeSalesForCustomers as Array<{
+        customer_name?: string | null;
+        sale_policies?: Array<{ policy_type_name?: string | null; policy_type?: string | null }> | null;
+      }>);
+
+      const grouped = periodSales.reduce((acc, sale) => {
+        const customerKey = sale.customer_name?.toLowerCase().trim() || "";
+        const bundleType = customerBundleMap.get(customerKey) || "Monoline";
         
         if (!acc[bundleType]) {
           acc[bundleType] = {
@@ -112,8 +147,8 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
         
         acc[bundleType].items += countable.items;
         acc[bundleType].premium += countable.premium;
-        if (sale.customer_name) {
-          acc[bundleType].households.add(sale.customer_name.toLowerCase().trim());
+        if (customerKey) {
+          acc[bundleType].households.add(customerKey);
         }
         return acc;
       }, {} as Record<string, { bundle_type: string; items: number; premium: number; households: Set<string> }>);
@@ -139,7 +174,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
     return value.toLocaleString();
   };
 
-  const handleBarClick = (data: any) => {
+  const handleBarClick = (data: { bundle_type?: string } | undefined) => {
     const clickedBundle = data?.bundle_type;
     if (!clickedBundle) return;
     

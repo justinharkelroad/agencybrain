@@ -24,6 +24,57 @@ interface SalePolicy {
   total_points: number | null;
 }
 
+type BundleType = "Preferred" | "Standard" | "Monoline";
+
+function normalizeProductName(name: string | null | undefined): string {
+  return (name || "").toLowerCase().trim();
+}
+
+function classifyBundleType(productNames: Iterable<string | null | undefined>): BundleType {
+  const normalized = new Set<string>();
+  for (const rawName of productNames) {
+    const name = normalizeProductName(rawName);
+    if (!name || isExcludedProduct(name)) continue;
+    normalized.add(name);
+  }
+
+  const hasAuto = [...normalized].some((name) =>
+    name === "standard auto" || name === "auto" || name.startsWith("010 -") || name.startsWith("010-")
+  );
+  const hasHome = [...normalized].some((name) =>
+    ["homeowners", "north light homeowners", "condo", "north light condo", "renters", "landlords"].includes(name) ||
+    name.startsWith("070 -") || name.startsWith("070-") ||
+    name.startsWith("074 -") || name.startsWith("074-") ||
+    name.startsWith("078 -") || name.startsWith("078-")
+  );
+
+  if (hasAuto && hasHome) return "Preferred";
+  if (normalized.size >= 2) return "Standard";
+  return "Monoline";
+}
+
+function buildCustomerBundleMap(sales: Array<{ customer_name?: string | null; sale_policies?: Array<{ policy_type_name?: string | null; policy_type?: string | null }> | null }>): Map<string, BundleType> {
+  const byCustomer = new Map<string, Set<string>>();
+
+  for (const sale of sales) {
+    const customerKey = (sale.customer_name || "").toLowerCase().trim();
+    if (!customerKey) continue;
+    if (!byCustomer.has(customerKey)) byCustomer.set(customerKey, new Set());
+    const products = byCustomer.get(customerKey)!;
+    for (const policy of sale.sale_policies || []) {
+      const name = normalizeProductName(policy.policy_type_name || policy.policy_type);
+      if (!name || isExcludedProduct(name)) continue;
+      products.add(name);
+    }
+  }
+
+  const result = new Map<string, BundleType>();
+  for (const [customerKey, products] of byCustomer.entries()) {
+    result.set(customerKey, classifyBundleType(products));
+  }
+  return result;
+}
+
 function calculateCountableTotals(policies: SalePolicy[]): { premium: number; items: number; points: number; policyCount: number } {
   const countable = policies.filter(p => !isExcludedProduct(p.policy_type_name));
   return {
@@ -150,6 +201,95 @@ serve(async (req) => {
           }
 
           saleIds = [...new Set(salePolicies.map((p: any) => p.sale_id))];
+        }
+
+        if (filter_type === 'bundle_type') {
+          let bundleQuery = supabaseAdmin
+            .from("sales")
+            .select("id, sale_date, customer_name, team_member_id, lead_source_id, brokered_carrier_id, sale_policies(id, policy_type_name, policy_type, total_premium, total_items, total_points)")
+            .eq("agency_id", agencyId)
+            .gte("sale_date", start_date)
+            .lte("sale_date", end_date)
+            .order("sale_date", { ascending: false });
+
+          bundleQuery = applyBusinessFilter(bundleQuery);
+          const { data: bundleSales, error: bundleError } = await bundleQuery;
+          if (bundleError) throw bundleError;
+
+          const customerNames = Array.from(
+            new Set(
+              (bundleSales || [])
+                .map((sale: any) => sale.customer_name?.trim())
+                .filter((name: string | undefined): name is string => !!name)
+            )
+          );
+
+          let historicalSales: any[] = [];
+          if (customerNames.length > 0) {
+            let historicalQuery = supabaseAdmin
+              .from("sales")
+              .select("customer_name, sale_policies(policy_type_name, policy_type), brokered_carrier_id")
+              .eq("agency_id", agencyId)
+              .in("customer_name", customerNames);
+            historicalQuery = applyBusinessFilter(historicalQuery);
+            const { data: historicalData, error: historicalError } = await historicalQuery;
+            if (historicalError) throw historicalError;
+            historicalSales = historicalData || [];
+          }
+
+          const bundleMap = buildCustomerBundleMap(historicalSales);
+
+          const filteredSales = (bundleSales || []).filter((sale: any) => {
+            const customerKey = (sale.customer_name || "").toLowerCase().trim();
+            const effectiveBundle = bundleMap.get(customerKey) || "Monoline";
+            return filter_value === "__all__" ? true : effectiveBundle === filter_value;
+          });
+
+          const paged = filteredSales.slice((page - 1) * page_size, page * page_size);
+
+          const teamMemberIds = [...new Set(paged.map((s: any) => s.team_member_id).filter(Boolean))];
+          const leadSourceIds = [...new Set(paged.map((s: any) => s.lead_source_id).filter(Boolean))];
+
+          const teamMemberMap = new Map<string, string>();
+          const leadSourceMap = new Map<string, string>();
+          if (teamMemberIds.length > 0) {
+            const { data: teamMembers } = await supabaseAdmin
+              .from("team_members")
+              .select("id, name")
+              .in("id", teamMemberIds);
+            for (const tm of teamMembers || []) teamMemberMap.set(tm.id, tm.name);
+          }
+          if (leadSourceIds.length > 0) {
+            const { data: leadSources } = await supabaseAdmin
+              .from("lead_sources")
+              .select("id, name")
+              .in("id", leadSourceIds);
+            for (const ls of leadSources || []) leadSourceMap.set(ls.id, ls.name);
+          }
+
+          const records = paged.map((sale: any) => {
+            const policies = sale.sale_policies || [];
+            const countable = calculateCountableTotals(policies);
+            const policyTypes = policies
+              .filter((p: any) => !isExcludedProduct(p.policy_type_name))
+              .map((p: any) => p.policy_type_name)
+              .filter((name: string | null | undefined) => !!name)
+              .join(", ");
+            return {
+              id: sale.id,
+              sale_date: sale.sale_date,
+              customer_name: sale.customer_name || "Unknown",
+              policy_types: policyTypes || null,
+              lead_source_name: sale.lead_source_id ? leadSourceMap.get(sale.lead_source_id) || null : null,
+              producer_name: sale.team_member_id ? teamMemberMap.get(sale.team_member_id) || null : null,
+              total_items: countable.items,
+              total_premium: countable.premium,
+              total_points: countable.points,
+            };
+          });
+
+          result = { data: records, total_count: filteredSales.length, page, page_size };
+          break;
         }
 
         // Build query - now includes sale_policies for Motor Club filtering
@@ -436,29 +576,36 @@ serve(async (req) => {
 
         if (error) throw error;
 
-        // Determine best bundle type per customer (Preferred > Standard > Monoline)
-        // Cross-sells create multiple sale records; classify each customer by highest type.
-        const customerBestBundle: Record<string, string> = {};
-        for (const sale of sales || []) {
-          if (!sale.customer_name) continue;
-          const key = sale.customer_name.toLowerCase().trim();
-          const saleType = sale.bundle_type || "Monoline";
-          const current = customerBestBundle[key];
-          if (saleType === "Preferred") {
-            customerBestBundle[key] = "Preferred";
-          } else if (saleType === "Standard" && current !== "Preferred") {
-            customerBestBundle[key] = "Standard";
-          } else if (!current) {
-            customerBestBundle[key] = "Monoline";
-          }
+        const periodSales = sales || [];
+        const customerNames = Array.from(
+          new Set(
+            periodSales
+              .map((sale) => sale.customer_name?.trim())
+              .filter((name): name is string => !!name)
+          )
+        );
+
+        let historicalSales = periodSales;
+        if (customerNames.length > 0) {
+          let historicalQuery = supabaseAdmin
+            .from("sales")
+            .select("customer_name, sale_policies(policy_type_name, policy_type), brokered_carrier_id")
+            .eq("agency_id", agencyId)
+            .in("customer_name", customerNames);
+          historicalQuery = applyBusinessFilter(historicalQuery);
+          const { data: historicalData, error: historicalError } = await historicalQuery;
+          if (historicalError) throw historicalError;
+          historicalSales = historicalData || [];
         }
+
+        const customerBundleMap = buildCustomerBundleMap(historicalSales);
 
         // Aggregate everything by customer's best bundle type so items/premium/households stay consistent
         const grouped: Record<string, { bundle_type: string; items: number; premium: number; households: Set<string> }> = {};
 
-        for (const sale of sales || []) {
+        for (const sale of periodSales) {
           const customerKey = (sale.customer_name || "").toLowerCase().trim();
-          const bestType = customerKey ? (customerBestBundle[customerKey] || "Monoline") : (sale.bundle_type || "Monoline");
+          const bestType = customerKey ? (customerBundleMap.get(customerKey) || "Monoline") : "Monoline";
 
           if (!grouped[bestType]) {
             grouped[bestType] = { bundle_type: bestType, items: 0, premium: 0, households: new Set() };

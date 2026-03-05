@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { buildCustomerBundleMap } from "@/lib/sales-bundle-classification";
 
 export interface BundleMixEntry {
   team_member_id: string;
@@ -79,10 +80,10 @@ async function fetchBundleMixData(
 
   if (tmError) throw tmError;
 
-  // Fetch sales with bundle_type and customer_name for deduplication
+  // Fetch sales in range (we'll classify each customer by all-time product mix)
   let salesQuery = supabase
     .from("sales")
-    .select("team_member_id, bundle_type, customer_name")
+    .select("team_member_id, customer_name, sale_policies(policy_type_name, policy_type)")
     .eq("agency_id", agencyId)
     .gte("sale_date", startDate)
     .lte("sale_date", endDate);
@@ -96,6 +97,38 @@ async function fetchBundleMixData(
   const { data: sales, error: salesError } = await salesQuery;
 
   if (salesError) throw salesError;
+
+  const customerNames = Array.from(
+    new Set(
+      (sales || [])
+        .map((sale) => sale.customer_name?.trim())
+        .filter((name): name is string => !!name)
+    )
+  );
+
+  let historicalSales = sales || [];
+  if (customerNames.length > 0) {
+    let historicalQuery = supabase
+      .from("sales")
+      .select("customer_name, sale_policies(policy_type_name, policy_type)")
+      .eq("agency_id", agencyId)
+      .in("customer_name", customerNames);
+
+    if (businessFilter === "regular") {
+      historicalQuery = historicalQuery.is("brokered_carrier_id", null);
+    } else if (businessFilter === "brokered") {
+      historicalQuery = historicalQuery.not("brokered_carrier_id", "is", null);
+    }
+
+    const { data, error: historicalError } = await historicalQuery;
+    if (historicalError) throw historicalError;
+    historicalSales = data || [];
+  }
+
+  const customerBundleMap = buildCustomerBundleMap(historicalSales as Array<{
+    customer_name?: string | null;
+    sale_policies?: Array<{ policy_type_name?: string | null; policy_type?: string | null }> | null;
+  }>);
 
   // First pass: determine best bundle type per customer per team member
   // Priority: Preferred > Standard > Monoline (null)
@@ -117,7 +150,7 @@ async function fetchBundleMixData(
     if (!customerKey) continue;
 
     const current = bestBundlePerCustomer[tmId][customerKey];
-    const saleType = sale.bundle_type; // null = Monoline
+    const saleType = customerBundleMap.get(customerKey) || "Monoline";
 
     // Upgrade to highest bundle type seen for this customer
     if (saleType === "Preferred") {
