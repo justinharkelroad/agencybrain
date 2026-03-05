@@ -309,7 +309,7 @@ async function processInBackground(
   const uploadedHouseholds: UploadedHouseholdInfo[] = [];
   const matchedTeamMemberIds = new Set<string>();
   let errorCount = 0;
-  let householdsNeedingAttention = 0;
+  const householdsNeedingAttentionIds = new Set<string>();
   const unmatchedProducerSet = new Set<string>();
   const errors: string[] = [];
 
@@ -901,7 +901,9 @@ async function processInBackground(
           }
           salesCreated += value.salesCreatedInGroup;
           quotesLinked += value.quotesLinkedInGroup;
-          if (value.needsAttention) householdsNeedingAttention++;
+          if (value.needsAttention && value.salesCreatedInGroup > 0 && value.householdId) {
+            householdsNeedingAttentionIds.add(value.householdId);
+          }
           if (value.wasAutoMatched) autoMatched++;
           if (value.needsManualReview) {
             needsReview++;
@@ -946,7 +948,7 @@ async function processInBackground(
       quotesLinked,
       teamMembersMatched: matchedTeamMemberIds.size,
       unmatchedProducers: Array.from(unmatchedProducerSet),
-      householdsNeedingAttention,
+      householdsNeedingAttention: householdsNeedingAttentionIds.size,
       endorsementsSkipped: 0, // Already filtered during parsing
       errors,
       autoMatched,

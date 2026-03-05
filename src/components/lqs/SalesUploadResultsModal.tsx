@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle2, AlertTriangle, Users, Home, ShoppingCart, Link2, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SalesUploadResult } from '@/types/lqs';
-import { useAuth } from '@/lib/auth';
 
 interface SalesUploadResultsModalProps {
   open: boolean;
@@ -13,14 +12,13 @@ interface SalesUploadResultsModalProps {
 }
 
 export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewNow }: SalesUploadResultsModalProps) {
-  const { user } = useAuth();
   const hasWarnings = results.unmatchedProducers.length > 0 || results.householdsNeedingAttention > 0;
   const hasErrors = results.errors.length > 0;
   const hasReviews = results.needsReview > 0;
   const quickStatus = `${results.salesCreated} of ${results.recordsProcessed} rows imported`;
   const notImportedCount = Math.max(results.recordsProcessed - results.salesCreated, 0);
   const importedHouseholds = new Set(results.uploadedHouseholds.map((h) => h.householdId)).size;
-  const canSeeDebug = import.meta.env.DEV || user?.email?.toLowerCase() === 'justin@hfiagencies.com';
+  const canSeeDebug = import.meta.env.DEV;
   const lowerErrors = results.errors.map((err) => err.toLowerCase());
   const duplicateCount = lowerErrors.filter((err) =>
     err.includes('duplicate') || err.includes('already exists in lqs and was skipped')
@@ -119,7 +117,7 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
           </div>
 
           {/* Summary Stats */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <StatCard
               icon={ShoppingCart}
               label="Rows Imported"
@@ -140,13 +138,6 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
               value={results.quotesLinked}
               subtext="imported sales linked to existing quotes"
               iconColor="text-purple-500"
-            />
-            <StatCard
-              icon={Users}
-              label="Producer Codes Found"
-              value={results.teamMembersMatched}
-              subtext="unique matched producer codes in this file"
-              iconColor="text-orange-500"
             />
           </div>
 
@@ -200,7 +191,7 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
                     <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                        {results.householdsNeedingAttention} households are missing lead source
+                        {results.householdsNeedingAttention} imported household(s) are missing lead source
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         These sales are imported, but they will be excluded from marketing ROI until a lead source is assigned.
@@ -211,6 +202,15 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
               )}
             </div>
           )}
+
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Users className="h-4 w-4 text-orange-500" />
+              <span className="text-sm font-medium">Producer Codes Found</span>
+            </div>
+            <p className="text-xl font-semibold">{results.teamMembersMatched}</p>
+            <p className="text-xs text-muted-foreground">unique matched producer codes in this file</p>
+          </div>
 
           {/* Errors */}
           {hasErrors && (
