@@ -275,9 +275,9 @@ export default function ChallengePurchase() {
           </div>
           {/* Content */}
           <div className="p-6 sm:p-8 flex flex-col justify-center">
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground dark:text-white">{product.name}</h1>
-            <p className="text-muted-foreground mt-2">{product.description}</p>
-            <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-foreground/70 dark:text-slate-300">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">{product.name}</h1>
+            <p className="text-slate-300 mt-2">{product.description}</p>
+            <div className="flex flex-wrap items-center gap-4 mt-4 text-sm text-slate-300">
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 {product.duration_weeks} weeks

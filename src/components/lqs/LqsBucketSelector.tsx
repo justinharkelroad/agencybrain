@@ -24,17 +24,17 @@ interface BucketTabProps {
 function BucketTab({ label, count, isActive, onClick, variant }: BucketTabProps) {
   const variantStyles = {
     blue: {
-      active: 'bg-blue-100 dark:bg-blue-950 border-blue-500 text-blue-700 dark:text-blue-300',
+      active: 'bg-blue-100 dark:bg-blue-950 border-blue-500 text-blue-700 dark:text-blue-300 shadow-sm dark:shadow-none',
       inactive: 'hover:bg-blue-50 dark:hover:bg-blue-950/50 text-muted-foreground hover:text-blue-600',
       badge: 'bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200',
     },
     amber: {
-      active: 'bg-amber-100 dark:bg-amber-950 border-amber-500 text-amber-700 dark:text-amber-300',
+      active: 'bg-amber-100 dark:bg-amber-950 border-amber-500 text-amber-700 dark:text-amber-300 shadow-sm dark:shadow-none',
       inactive: 'hover:bg-amber-50 dark:hover:bg-amber-950/50 text-muted-foreground hover:text-amber-600',
       badge: 'bg-amber-200 dark:bg-amber-800 text-amber-700 dark:text-amber-200',
     },
     green: {
-      active: 'bg-green-100 dark:bg-green-950 border-green-500 text-green-700 dark:text-green-300',
+      active: 'bg-green-100 dark:bg-green-950 border-green-500 text-green-700 dark:text-green-300 shadow-sm dark:shadow-none',
       inactive: 'hover:bg-green-50 dark:hover:bg-green-950/50 text-muted-foreground hover:text-green-600',
       badge: 'bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-200',
     },
@@ -60,7 +60,7 @@ function BucketTab({ label, count, isActive, onClick, variant }: BucketTabProps)
 
 export function LqsBucketSelector({ activeBucket, onBucketChange, counts }: LqsBucketSelectorProps) {
   return (
-    <div className="flex items-center gap-2 p-1 bg-muted/50 rounded-xl w-fit">
+    <div className="flex items-center gap-2 p-1 bg-muted/70 rounded-xl w-fit shadow-sm dark:bg-muted/50 dark:shadow-none">
       <BucketTab
         label="Open Leads"
         count={counts.leads}

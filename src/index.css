@@ -45,7 +45,7 @@
     --secondary: 230 45% 15%; /* #171A2F */
     --secondary-foreground: 0 0% 100%; /* White */
     
-    --background: 216 25% 97.5%; /* Warm blue-gray tint */
+    --background: 216 25% 95%; /* Warm blue-gray tint */
     --foreground: 0 0% 0%; /* Black */
 
     /* UI Colors */
@@ -55,8 +55,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 0%;
 
-    --muted: 216 25% 94%;
-    --muted-foreground: 215 16% 43%;
+    --muted: 216 25% 91%;
+    --muted-foreground: 215 20% 40%;
 
     --accent: 220 80% 69%; /* Same as primary */
     --accent-foreground: 0 0% 100%;
@@ -76,8 +76,8 @@
     --caution: 24 95% 53%;
     --caution-foreground: 0 0% 0%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 214.3 31.8% 86%;
+    --input: 214.3 31.8% 86%;
     --ring: 220 80% 69%; /* Primary color for focus rings */
     --chart-1: 214 89% 60%;
     --chart-2: 172 70% 45%;
@@ -186,12 +186,12 @@
   }
   
   .shadow-elegant {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.04);
     transition: all 0.3s ease;
   }
 
   .shadow-elegant:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.12), 0 16px 48px rgba(0, 0, 0, 0.06);
   }
 
   .dark .shadow-elegant {
@@ -228,6 +228,19 @@
     transform: scale(1.05);
   }
 
+  /* Recessed form controls — inset shadow for three-layer depth */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+  textarea,
+  [role="combobox"] {
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 0 0 1px rgba(0, 0, 0, 0.02);
+  }
+
+  .dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+  .dark textarea,
+  .dark [role="combobox"] {
+    box-shadow: none;
+  }
+
   /* Glass and Frosted utilities */
   .glass-surface {
     background-color: hsl(var(--card) / 0.8);
@@ -253,10 +266,18 @@
 
   /* Light mode card shadows for depth */
   .shadow-card {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.08), 0 8px 24px rgba(0, 0, 0, 0.04);
   }
 
   .dark .shadow-card {
+    box-shadow: none;
+  }
+
+  .shadow-card-lg {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.1), 0 16px 48px rgba(0, 0, 0, 0.06);
+  }
+
+  .dark .shadow-card-lg {
     box-shadow: none;
   }
 
@@ -265,8 +286,8 @@
   }
 
   .elevate:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1), 0 12px 36px rgba(0, 0, 0, 0.06);
   }
 
   .dark .elevate {
@@ -532,13 +553,14 @@
 :root:not(.dark) .sales-widget-glass {
   background: linear-gradient(
     135deg,
-    hsl(216 25% 98%) 0%,
-    hsl(220 20% 96%) 100%
+    hsl(0 0% 100%) 0%,
+    hsl(220 20% 98%) 100%
   );
-  border: 1px solid hsl(var(--border) / 0.5);
+  border: 1px solid hsl(var(--border));
   box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.06),
-    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 1px 2px rgba(0, 0, 0, 0.06),
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 8px 24px rgba(0, 0, 0, 0.04),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
@@ -561,11 +583,20 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.26) 50%,
+    rgba(0, 0, 0, 0.04) 50%,
     transparent 100%
   );
   pointer-events: none;
   z-index: 1;
+}
+
+.dark .panel-highlight::before {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.26) 50%,
+    transparent 100%
+  );
 }
 
 /* Hide scrollbar utility */

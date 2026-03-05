@@ -84,7 +84,7 @@ function MetricRing({
         {/* Colored halo behind ring — light mode only */}
         <div
           className="absolute inset-0 rounded-full blur-xl dark:opacity-0 pointer-events-none"
-          style={{ background: color, opacity: 0.08 }}
+          style={{ background: color, opacity: 0.15 }}
         />
         <svg width={size} height={size} className="rotate-[-90deg] relative z-10">
           {/* Background ring */}
@@ -93,7 +93,7 @@ function MetricRing({
             cy={size / 2}
             r={r}
             stroke="hsl(var(--muted-foreground))"
-            strokeOpacity="0.12"
+            strokeOpacity="0.18"
             strokeWidth={strokeWidth}
             fill="none"
           />

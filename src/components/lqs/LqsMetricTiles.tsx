@@ -33,10 +33,10 @@ function MetricTile({ title, value, icon, variant = 'default', loading, pulse, o
   };
 
   const bgStyles = {
-    default: 'bg-muted/50',
-    blue: 'bg-blue-50 dark:bg-blue-950/30',
-    green: 'bg-green-50 dark:bg-green-950/30',
-    orange: 'bg-orange-50 dark:bg-orange-950/30',
+    default: 'bg-muted/60',
+    blue: 'bg-blue-100/70 dark:bg-blue-950/30',
+    green: 'bg-green-100/70 dark:bg-green-950/30',
+    orange: 'bg-orange-100/70 dark:bg-orange-950/30',
   };
 
   return (
@@ -61,7 +61,7 @@ function MetricTile({ title, value, icon, variant = 'default', loading, pulse, o
             )}
           </div>
           <div className={cn(
-            'p-2 rounded-full',
+            'p-2.5 rounded-full',
             bgStyles[variant],
             pulse && value && value > 0 && 'animate-pulse'
           )}>

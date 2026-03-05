@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import type { LeaderboardEntry, RankMetric } from "@/hooks/useSalesLeaderboard";
 import { SectionHelpTip } from "@/components/ui/section-help-tip";
 
-const PANEL = "panel-highlight relative overflow-hidden rounded-xl border border-border/50 bg-gradient-to-br from-card/80 to-card/40";
+const PANEL = "panel-highlight relative overflow-hidden rounded-xl border border-border/60 bg-gradient-to-br from-card to-card/90 shadow-card dark:border-border/50 dark:from-card/80 dark:to-card/40 dark:shadow-none";
 
 interface MiniLeaderboardProps {
   entries: LeaderboardEntry[];

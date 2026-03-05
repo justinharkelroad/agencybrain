@@ -30,8 +30,8 @@ import { HouseholdFocusDrilldownSheet, type DrilldownHousehold } from "@/compone
 
 type GoalMode = "commission" | "items";
 type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "custom";
-const PANEL = "panel-highlight rounded-xl border border-border/50 bg-gradient-to-br from-card/80 to-card/40";
-const SUBPANEL = "panel-highlight rounded-lg border border-border/50 bg-card/50";
+const PANEL = "panel-highlight rounded-xl border border-border/60 bg-gradient-to-br from-card to-card/90 shadow-card dark:border-border/50 dark:from-card/80 dark:to-card/40 dark:shadow-none";
+const SUBPANEL = "panel-highlight rounded-lg border border-border/60 bg-card shadow-sm dark:border-border/50 dark:bg-card/50 dark:shadow-none";
 
 interface PlannerExperiencePreviewProps {
   isManager?: boolean;

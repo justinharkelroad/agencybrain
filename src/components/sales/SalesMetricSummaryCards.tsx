@@ -23,8 +23,8 @@ const metrics = [
     label: "Premium",
     icon: DollarSign,
     color: "text-emerald-600 dark:text-emerald-400",
-    bgColor: "bg-emerald-500/15",
-    borderColor: "border-emerald-500/20",
+    bgColor: "bg-emerald-100/80 dark:bg-emerald-500/15",
+    borderColor: "border-emerald-500/40 dark:border-emerald-500/20",
     format: (value: number) =>
       value >= 1000
         ? `$${(value / 1000).toFixed(1)}K`
@@ -36,8 +36,8 @@ const metrics = [
     label: "Items",
     icon: Package,
     color: "text-blue-600 dark:text-blue-400",
-    bgColor: "bg-blue-500/15",
-    borderColor: "border-blue-500/20",
+    bgColor: "bg-blue-100/80 dark:bg-blue-500/15",
+    borderColor: "border-blue-500/40 dark:border-blue-500/20",
     format: (value: number) => value.toLocaleString(),
     projectionPrefix: "",
   },
@@ -46,8 +46,8 @@ const metrics = [
     label: "Policies",
     icon: FileText,
     color: "text-purple-600 dark:text-purple-400",
-    bgColor: "bg-purple-500/15",
-    borderColor: "border-purple-500/20",
+    bgColor: "bg-purple-100/80 dark:bg-purple-500/15",
+    borderColor: "border-purple-500/40 dark:border-purple-500/20",
     format: (value: number) => value.toLocaleString(),
     projectionPrefix: "",
   },
@@ -56,8 +56,8 @@ const metrics = [
     label: "Points",
     icon: Trophy,
     color: "text-orange-600 dark:text-orange-400",
-    bgColor: "bg-orange-500/15",
-    borderColor: "border-orange-500/20",
+    bgColor: "bg-orange-100/80 dark:bg-orange-500/15",
+    borderColor: "border-orange-500/40 dark:border-orange-500/20",
     format: (value: number) =>
       value >= 1000 ? `${(value / 1000).toFixed(1)}K` : value.toLocaleString(),
     projectionPrefix: "",
@@ -91,7 +91,7 @@ export function SalesMetricSummaryCards({
         return (
           <Card
             key={metric.key}
-            className={`${metric.bgColor} ${metric.borderColor} border backdrop-blur-sm`}
+            className={`${metric.bgColor} ${metric.borderColor} border backdrop-blur-sm shadow-card dark:shadow-none`}
           >
             <CardContent className="p-4">
               {isLoading ? (

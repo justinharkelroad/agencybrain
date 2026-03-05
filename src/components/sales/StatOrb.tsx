@@ -47,7 +47,7 @@ export function StatOrb({
       onClick={onClick}
       className={cn(
         "relative group",
-        "bg-card border border-border",
+        "bg-card border border-border shadow-card dark:shadow-none",
         "rounded-2xl p-3 sm:p-4 min-w-[80px] sm:min-w-[100px]",
         "flex flex-col items-center justify-center gap-0.5 sm:gap-1",
         "transition-all duration-300 ease-out",

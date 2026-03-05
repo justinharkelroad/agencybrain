@@ -230,7 +230,7 @@ const Dashboard = () => {
                 {/* 0. Sales Dashboard Widget */}
                 {(isAdmin || hasSalesAccess(agencyId)) && (
                   <AccordionItem value="sales-performance">
-                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/50 hover:bg-muted/80 transition-colors border-l-[3px] border-l-primary/60 dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
+                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/60 hover:bg-muted/90 transition-all border-l-[3px] border-l-primary/70 shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-none dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
                       <span className="flex items-center gap-2">
                         Agency Sales Performance
                         <SectionHelpTip
@@ -275,7 +275,7 @@ const Dashboard = () => {
                 {/* 2. Performance Metrics + Month Over Month Trends (combined) */}
                 {(canViewPerformanceMetrics || canViewMonthOverMonthTrends) && (
                   <AccordionItem value="performance-metrics">
-                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/50 hover:bg-muted/80 transition-colors border-l-[3px] border-l-primary/60 dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
+                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/60 hover:bg-muted/90 transition-all border-l-[3px] border-l-primary/70 shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-none dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
                       <span className="flex items-center gap-2">
                         Performance Metrics
                         <SectionHelpTip
@@ -294,7 +294,7 @@ const Dashboard = () => {
                 {/* 4. Focus Targets */}
                 {canViewFocusTargets && (
                   <AccordionItem value="focus">
-                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/50 hover:bg-muted/80 transition-colors border-l-[3px] border-l-primary/60 dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
+                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/60 hover:bg-muted/90 transition-all border-l-[3px] border-l-primary/70 shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-none dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
                       <span className="flex items-center gap-2">
                         Focus Targets
                         <SectionHelpTip
@@ -328,7 +328,7 @@ const Dashboard = () => {
                 {/* 6. Roleplay Sessions */}
                 {canViewRoleplaySessions && (
                   <AccordionItem value="roleplay">
-                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/50 hover:bg-muted/80 transition-colors border-l-[3px] border-l-primary/60 dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
+                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/60 hover:bg-muted/90 transition-all border-l-[3px] border-l-primary/70 shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-none dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
                       <span className="flex items-center gap-2">
                         Roleplay Sessions
                         <SectionHelpTip

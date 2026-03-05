@@ -750,19 +750,19 @@ export default function Renewals() {
       {/* Dropped Records Banner */}
       {stats?.droppedUnresolved > 0 && !showDroppedOnly && (
         <div className="flex items-center gap-3 px-4 py-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
-          <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+          <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0" />
           <div className="flex-1">
-            <p className="text-sm font-medium text-amber-400">
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
               {stats.droppedUnresolved} renewal record{stats.droppedUnresolved === 1 ? '' : 's'} dropped from the latest report
             </p>
-            <p className="text-xs text-amber-400/70">
+            <p className="text-xs text-amber-600/80 dark:text-amber-400/70">
               These records were in a previous upload but not in the latest one for the same date range.
             </p>
           </div>
           <Button
             variant="ghost"
             size="sm"
-            className="text-amber-400 hover:text-amber-300 hover:bg-amber-500/20"
+            className="text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300 hover:bg-amber-500/20"
             onClick={() => setDroppedInfoOpen(true)}
           >
             Learn more
@@ -770,7 +770,7 @@ export default function Renewals() {
           <Button
             variant="outline"
             size="sm"
-            className="border-amber-500/40 text-amber-400 hover:bg-amber-500/20"
+            className="border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
             onClick={() => setShowDroppedOnly(true)}
           >
             View dropped
@@ -913,14 +913,14 @@ export default function Renewals() {
       {/* Showing Dropped Records Indicator */}
       {showDroppedOnly && (
         <div className="flex items-center gap-3 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-          <AlertTriangle className="h-4 w-4 text-amber-400" />
-          <span className="text-sm text-amber-400">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <span className="text-sm text-amber-700 dark:text-amber-400">
             Showing {droppedTotalCount} dropped unresolved record{droppedTotalCount === 1 ? '' : 's'}
           </span>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-amber-400 hover:text-white hover:bg-amber-500/20"
+            className="h-6 px-2 text-xs text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-white hover:bg-amber-500/20"
             onClick={() => setShowDroppedOnly(false)}
           >
             <X className="h-3 w-3 mr-1" />
@@ -929,7 +929,7 @@ export default function Renewals() {
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-xs text-amber-400 hover:text-white hover:bg-amber-500/20"
+            className="h-6 px-2 text-xs text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-white hover:bg-amber-500/20"
             onClick={() => setDroppedInfoOpen(true)}
           >
             What is this?

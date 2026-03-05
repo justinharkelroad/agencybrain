@@ -70,7 +70,7 @@ export function LeaderboardList({ producers, startRank, metric }: LeaderboardLis
             className={cn(
               "flex gap-2 px-4 py-3 rounded-lg transition-all duration-200",
               "hover:translate-x-1 hover:shadow-md cursor-default",
-              "bg-card/50 backdrop-blur-sm border border-border/50",
+              "bg-card backdrop-blur-sm border border-border/60 shadow-sm dark:bg-card/50 dark:border-border/50 dark:shadow-none",
               index % 2 === 0 ? "bg-muted/5" : "bg-transparent",
               producer.isCurrentUser && [
                 "border-primary/50 bg-primary/5",
@@ -176,7 +176,7 @@ export function LeaderboardListMobile({ producers, startRank, metric }: Leaderbo
             }}
             className={cn(
               "p-4 rounded-xl transition-all duration-200",
-              "bg-card/50 backdrop-blur-sm border border-border/50",
+              "bg-card backdrop-blur-sm border border-border/60 shadow-sm dark:bg-card/50 dark:border-border/50 dark:shadow-none",
               producer.isCurrentUser && [
                 "border-primary/50 bg-primary/5",
                 "shadow-[0_0_15px_rgba(var(--primary),0.15)]"
