@@ -922,7 +922,7 @@ export default function Agency() {
             name: row.name,
             email: row.email,
             role: row.role,
-            employment: row.employment || "Full-time",
+            employment: "Full-time",
             status: "active",
             username: null,
             temporaryPassword: null,

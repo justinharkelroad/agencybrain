@@ -75,7 +75,7 @@ export function StaffPromoGoalsWidget({ sessionToken }: StaffPromoGoalsWidgetPro
         product_type: promo.product_type,
         progress: promo.progress,
         assignments: [],
-        status: promo.status,
+        status: promo.status as 'upcoming' | 'active' | 'ended',
         daysRemaining: promo.daysRemaining,
         isAchieved: promo.isAchieved,
       }));
