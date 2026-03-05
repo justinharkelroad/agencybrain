@@ -128,7 +128,7 @@ interface AddSaleFormProps {
 
 
 // Auto products for Preferred Bundle detection (uses canonical names from product_types)
-const AUTO_PRODUCTS = ['Standard Auto', 'Non-Standard Auto', 'Specialty Auto'];
+const AUTO_PRODUCTS = ['Standard Auto'];
 const HOME_PRODUCTS = ['Homeowners', 'North Light Homeowners', 'Condo', 'North Light Condo'];
 
 // Helper to detect bundle type automatically using canonical names for accurate detection

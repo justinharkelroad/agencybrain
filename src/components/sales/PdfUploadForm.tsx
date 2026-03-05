@@ -122,7 +122,7 @@ interface PdfUploadFormProps {
 }
 
 // Auto products for Preferred Bundle detection
-const AUTO_PRODUCTS = ['Standard Auto', 'Non-Standard Auto', 'Specialty Auto'];
+const AUTO_PRODUCTS = ['Standard Auto'];
 const HOME_PRODUCTS = ['Homeowners', 'North Light Homeowners', 'Condo', 'North Light Condo'];
 const DEFAULT_MULTI_ITEM_PRODUCTS = [
   'Standard Auto',

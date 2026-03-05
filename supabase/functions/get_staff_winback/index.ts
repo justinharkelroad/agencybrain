@@ -1594,7 +1594,7 @@ Deno.serve(async (req) => {
         const wbSaleDate = saleDate || new Date().toISOString().split("T")[0];
 
         // Detect bundle type using same Auto+Home logic as AddSaleForm
-        const WB_AUTO_PRODUCTS = ["standard auto", "non-standard auto", "specialty auto"];
+        const WB_AUTO_PRODUCTS = ["standard auto"];
         const WB_HOME_PRODUCTS = ["homeowners", "north light homeowners", "condo", "north light condo"];
         const wbProductNames = salePolicies.map((p: any) => (p.productName || "").toLowerCase());
         const wbHasAuto = wbProductNames.some((n: string) => WB_AUTO_PRODUCTS.includes(n));

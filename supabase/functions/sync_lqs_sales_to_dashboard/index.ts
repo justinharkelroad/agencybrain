@@ -11,8 +11,6 @@ const corsHeaders = {
 const EXCLUDED_PRODUCTS = ["motor club"];
 const AUTO_PRODUCTS = new Set([
   "standard auto",
-  "non-standard auto",
-  "specialty auto",
   "auto",
 ]);
 const HOME_PRODUCTS = new Set([

@@ -1184,7 +1184,7 @@ export async function recordWonBackSale(
     const customerName = `${household.first_name || ''} ${household.last_name || ''}`.trim() || 'Unknown';
 
     // Detect bundle type using same Auto+Home logic as AddSaleForm
-    const AUTO_PRODUCTS = ['standard auto', 'non-standard auto', 'specialty auto'];
+    const AUTO_PRODUCTS = ['standard auto'];
     const HOME_PRODUCTS = ['homeowners', 'north light homeowners', 'condo', 'north light condo'];
     const productNames = policies.map(p => p.productName.toLowerCase());
     const hasAuto = productNames.some(n => AUTO_PRODUCTS.includes(n));
