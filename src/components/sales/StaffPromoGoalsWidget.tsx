@@ -67,7 +67,7 @@ export function StaffPromoGoalsWidget({ sessionToken }: StaffPromoGoalsWidgetPro
         bonus_amount_cents: promo.bonus_amount_cents,
         start_date: promo.start_date,
         end_date: promo.end_date,
-        promo_source: promo.promo_source,
+        promo_source: promo.promo_source as 'sales' | 'metrics',
         product_type_id: promo.product_type_id,
         kpi_slug: promo.kpi_slug,
         goal_focus: promo.goal_focus,
