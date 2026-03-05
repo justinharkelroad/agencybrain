@@ -212,30 +212,6 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
             <p className="text-xs text-muted-foreground">unique matched producer codes in this file</p>
           </div>
 
-          {/* Errors */}
-          {hasErrors && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
-              <p className="text-sm font-medium text-destructive">
-                {notImportedCount} row(s) skipped
-              </p>
-              <p className="text-xs text-muted-foreground mt-2">
-                See “Why rows were not imported” above, fix those rows, and re-upload.
-              </p>
-              {supportIssues.length > 0 && (
-                <div className="mt-2">
-                  <p className="text-xs font-medium text-destructive/90">Support playbook</p>
-                  <ul className="text-xs text-destructive/80 mt-1 space-y-1">
-                    {supportIssues.map((item) => (
-                      <li key={item.title}>
-                        • {item.title}: {item.count} row(s) — {item.action}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Review Button */}
           {hasReviews && onReviewNow && (
             <Button variant="outline" onClick={onReviewNow} className="gap-2">
