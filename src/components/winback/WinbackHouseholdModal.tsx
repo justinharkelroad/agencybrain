@@ -22,7 +22,7 @@ import { WinbackStatusBadge } from './WinbackStatusBadge';
 import { WinbackActivityLog } from './WinbackActivityLog';
 import { toast } from 'sonner';
 import { Phone, Mail, MapPin, Calendar, Play, CheckCircle, RotateCcw, Trash2, Clock, DollarSign } from 'lucide-react';
-import { format, isBefore, startOfDay } from 'date-fns';
+import { format, isBefore, startOfDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Household } from './WinbackHouseholdTable';
 import * as winbackApi from '@/lib/winbackApi';
@@ -333,8 +333,9 @@ export function WinbackHouseholdModal({
         currentUserTeamMemberId,
         teamMembers
       );
-      
+
       toast.success(`${type.replace('_', ' ')} logged`);
+      onUpdate();
 
       // Refresh activities (non-critical)
       try {
@@ -621,8 +622,8 @@ export function WinbackHouseholdModal({
                 {household.earliest_winback_date && (
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className={cn(isBefore(new Date(household.earliest_winback_date), today) && 'text-red-500 font-medium')}>
-                      Winback: {format(new Date(household.earliest_winback_date), 'MMM d, yyyy')}
+                    <span className={cn(isBefore(parseISO(household.earliest_winback_date), today) && 'text-red-500 font-medium')}>
+                      Winback: {format(parseISO(household.earliest_winback_date), 'MMM d, yyyy')}
                     </span>
                   </div>
                 )}
@@ -684,7 +685,7 @@ export function WinbackHouseholdModal({
                     </TableRow>
                   ) : (
                     policies.map((policy) => {
-                      const winbackDate = policy.calculated_winback_date ? new Date(policy.calculated_winback_date) : null;
+                      const winbackDate = policy.calculated_winback_date ? parseISO(policy.calculated_winback_date) : null;
                       const isOverdue = winbackDate && isBefore(winbackDate, today);
                       const premiumChange = policy.premium_old_cents && policy.premium_new_cents
                         ? ((policy.premium_new_cents - policy.premium_old_cents) / policy.premium_old_cents) * 100
@@ -702,7 +703,7 @@ export function WinbackHouseholdModal({
                             </div>
                           </TableCell>
                           <TableCell>
-                            {policy.termination_effective_date ? format(new Date(policy.termination_effective_date), 'MMM d, yyyy') : '—'}
+                            {policy.termination_effective_date ? format(parseISO(policy.termination_effective_date), 'MMM d, yyyy') : '—'}
                           </TableCell>
                           <TableCell>
                             <span className="truncate max-w-[150px] inline-block" title={policy.termination_reason || ''}>
