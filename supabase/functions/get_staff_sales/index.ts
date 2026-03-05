@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+/** Returns YYYY-MM-DD in the given IANA timezone. */
+function localDateStr(timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session',
@@ -119,7 +124,7 @@ function getPreviousMonthRange(dateStart: string, dateEnd: string): { prevStart:
 }
 
 // Helper: Calculate streak from sale dates
-function calculateStreak(saleDates: string[]): Streak {
+function calculateStreak(saleDates: string[], todayOverride?: string): Streak {
   if (saleDates.length === 0) {
     return { current: 0, longest: 0, last_sale_date: null };
   }
@@ -130,7 +135,7 @@ function calculateStreak(saleDates: string[]): Streak {
 
   // Calculate current streak (consecutive days from most recent)
   let currentStreak = 1;
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayOverride || new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
 
   // If last sale wasn't today or yesterday, streak is broken
   const lastSale = new Date(lastSaleDate);
@@ -300,6 +305,14 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
+
+    // Resolve agency timezone for date calculations
+    const { data: agencyRow } = await supabase
+      .from('agencies')
+      .select('timezone')
+      .eq('id', agencyId)
+      .single();
+    const agencyTodayStr = localDateStr(agencyRow?.timezone || 'America/New_York');
 
     // Parse request body
     const body = await req.json().catch(() => ({}));
@@ -607,7 +620,7 @@ serve(async (req) => {
 
       if (!streakError && streakSales) {
         const saleDates = streakSales.map(s => s.sale_date);
-        streak = calculateStreak(saleDates);
+        streak = calculateStreak(saleDates, agencyTodayStr);
         console.log('Streak calculated:', JSON.stringify(streak));
       }
     }

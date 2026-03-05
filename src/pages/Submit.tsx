@@ -683,8 +683,8 @@ export default function Submit() {
     const additionalFields = {
       id: periodToUse.id,
       title: periodToUse.title || `Period ${new Date().toLocaleDateString()}`,
-      start_date: startDate?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
-      end_date: endDate?.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
+      start_date: startDate ? format(startDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+      end_date: endDate ? format(endDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       status: isDraft ? 'draft' : 'active'
     };
 

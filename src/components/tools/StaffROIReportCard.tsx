@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { 
   TrendingUp, 
@@ -86,7 +87,7 @@ const StaffROIReportCard = ({ inputs, results, onClose, onRenewalPeriodChange, i
   };
 
   const getFileName = () => {
-    const date = new Date().toISOString().split('T')[0];
+    const date = format(new Date(), 'yyyy-MM-dd');
     return `AgencyBrain_Staff_ROI_Report_${date}.png`;
   };
 

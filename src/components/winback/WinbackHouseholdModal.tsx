@@ -225,7 +225,7 @@ export function WinbackHouseholdModal({
             household.zip_code
           );
 
-          const today = new Date().toISOString().split('T')[0];
+          const today = format(new Date(), 'yyyy-MM-dd');
 
           const { error: lqsError } = await supabase
             .from('lqs_households')
@@ -475,7 +475,8 @@ export function WinbackHouseholdModal({
         premium: Number(e.premium),
       }));
 
-      const saleDate = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const saleDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
       const result = await winbackApi.recordWonBackSale(
         household.id,

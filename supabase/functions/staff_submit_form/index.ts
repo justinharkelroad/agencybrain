@@ -19,7 +19,7 @@ function validateWorkDate(workDate: string): { valid: boolean; error?: string } 
   if (daysDiff > 7) {
     return {
       valid: false,
-      error: `Work date must be within 7 days of today. You submitted for ${workDate} but today is ${now.toISOString().split('T')[0]}.`
+      error: `Work date must be within 7 days of today. You submitted for ${workDate} but today is ${new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(now)}.`
     };
   }
   return { valid: true };

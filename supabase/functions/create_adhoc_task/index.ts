@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
+/** Returns YYYY-MM-DD in the given IANA timezone. */
+function localDateStr(timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session',
@@ -194,8 +199,13 @@ serve(async (req) => {
       }
     }
 
-    // Determine initial status based on due_date
-    const today = new Date().toISOString().split('T')[0];
+    // Determine initial status based on due_date (use agency timezone)
+    const { data: agencyRow } = await supabase
+      .from('agencies')
+      .select('timezone')
+      .eq('id', agencyId)
+      .single();
+    const today = localDateStr(agencyRow?.timezone || 'America/New_York');
     let status = 'pending';
     if (due_date < today) {
       status = 'overdue';

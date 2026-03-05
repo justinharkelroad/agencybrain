@@ -446,7 +446,7 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
       });
     });
 
-    exportToCSV(exportData, `training-progress-${new Date().toISOString().split('T')[0]}.csv`);
+    exportToCSV(exportData, `training-progress-${format(new Date(), 'yyyy-MM-dd')}.csv`);
     toast.success('Progress data exported to CSV');
   };
 
@@ -466,7 +466,7 @@ export function TrainingProgressTab({ agencyId }: TrainingProgressTabProps) {
       'Completed At': r.completedAt ? format(r.completedAt, 'yyyy-MM-dd HH:mm') : ''
     }));
 
-    exportToCSV(exportData, `reflections-export-${new Date().toISOString().split('T')[0]}.csv`);
+    exportToCSV(exportData, `reflections-export-${format(new Date(), 'yyyy-MM-dd')}.csv`);
     toast.success('Reflections exported to CSV');
   };
 

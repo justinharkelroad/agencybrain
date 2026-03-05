@@ -400,7 +400,8 @@ serve(async (req) => {
     // Save conversation if we have agency context
     if (agency_id && user_id) {
       try {
-        const today = new Date().toISOString().split('T')[0];
+        const { data: agencyTzRow } = await supabase.from('agencies').select('timezone').eq('id', agency_id).single();
+        const today = new Intl.DateTimeFormat("en-CA", { timeZone: agencyTzRow?.timezone || "America/New_York" }).format(new Date());
         const { data: existingConvo } = await supabase
           .from('comp_plan_assistant_conversations')
           .select('id, messages')

@@ -72,6 +72,22 @@ Deno.serve(async (req) => {
     const staffUserId = session.staff_user_id;
     console.log('[get_staff_core4_entries] Validated staff user:', staffUserId);
 
+    // Resolve agency timezone for date calculations
+    const { data: staffUserRow } = await supabase
+      .from('staff_users')
+      .select('agency_id')
+      .eq('id', staffUserId)
+      .single();
+    let agencyTz = 'America/New_York';
+    if (staffUserRow?.agency_id) {
+      const { data: agencyRow } = await supabase
+        .from('agencies')
+        .select('timezone')
+        .eq('id', staffUserRow.agency_id)
+        .single();
+      if (agencyRow?.timezone) agencyTz = agencyRow.timezone;
+    }
+
     // Parse request body for action
     let body: Record<string, unknown> = {};
     try {
@@ -96,9 +112,9 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Accept date from request or default to today
+      // Accept date from request or default to today (agency-local)
       let targetDate = body.date as string;
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Intl.DateTimeFormat("en-CA", { timeZone: agencyTz }).format(new Date());
       
       if (!targetDate) {
         targetDate = today;

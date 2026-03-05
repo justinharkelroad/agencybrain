@@ -296,9 +296,13 @@ async function handleSubscriptionRenewal(invoice: Stripe.Invoice) {
   }
 
   // Reset monthly call allowance
-  const periodStart = invoice.period_start
-    ? new Date(invoice.period_start * 1000).toISOString().split('T')[0]
-    : new Date().toISOString().split('T')[0]
+  let periodStart: string;
+  if (invoice.period_start) {
+    periodStart = new Date(invoice.period_start * 1000).toISOString().split('T')[0];
+  } else {
+    const { data: tzRow } = await supabase.from('agencies').select('timezone').eq('id', agencyId).single();
+    periodStart = new Intl.DateTimeFormat("en-CA", { timeZone: tzRow?.timezone || "America/New_York" }).format(new Date());
+  }
 
   await supabase
     .from('agency_call_balance')
@@ -515,9 +519,13 @@ async function handleAddonSubscriptionRenewal(invoice: Stripe.Invoice, subscript
   }
 
   // Reset addon call allowance
-  const periodStart = invoice.period_start
-    ? new Date(invoice.period_start * 1000).toISOString().split('T')[0]
-    : new Date().toISOString().split('T')[0]
+  let periodStart: string;
+  if (invoice.period_start) {
+    periodStart = new Date(invoice.period_start * 1000).toISOString().split('T')[0];
+  } else {
+    const { data: tzRow } = await supabase.from('agencies').select('timezone').eq('id', agencyId).single();
+    periodStart = new Intl.DateTimeFormat("en-CA", { timeZone: tzRow?.timezone || "America/New_York" }).format(new Date());
+  }
 
   await supabase
     .from('agency_call_balance')

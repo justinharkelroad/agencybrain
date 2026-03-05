@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { supabase } from '@/lib/supabaseClient';
 
 export interface DataProtectionSettings<T> {
@@ -97,7 +98,7 @@ export class UniversalDataProtectionService {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${formType}_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `${formType}_backup_${format(new Date(), 'yyyy-MM-dd')}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

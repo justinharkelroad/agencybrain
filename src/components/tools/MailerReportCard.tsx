@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { 
   TrendingUp, 
@@ -122,7 +123,7 @@ export const MailerReportCard = ({ inputs, derived, onClose, isReadOnly }: Maile
 
   const getFileName = (extension: string) => {
     const sourceName = inputs.mailSource?.replace(/[^a-zA-Z0-9]/g, '_') || 'Mailer';
-    const date = new Date().toISOString().split('T')[0];
+    const date = format(new Date(), 'yyyy-MM-dd');
     return `AgencyBrain_Mailer_${sourceName}_${date}.${extension}`;
   };
 

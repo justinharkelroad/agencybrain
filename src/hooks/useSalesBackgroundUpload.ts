@@ -722,7 +722,6 @@ async function processInBackground(
               
             if (matchingQuote) {
               linkedQuoteId = matchingQuote.id;
-              quotesLinkedInGroup++;
             }
 
             // Determine team member for this specific sale
@@ -816,6 +815,9 @@ async function processInBackground(
               addError(record, saleErrorMessage);
             } else {
               salesCreatedInGroup++;
+              if (linkedQuoteId) {
+                quotesLinkedInGroup++;
+              }
               existingSalesForHousehold.push({
                 id: `new-${record.rowNumber}-${record.saleDate}`,
                 sale_date: record.saleDate,

@@ -303,7 +303,12 @@ Deno.serve(async (req) => {
       .eq('agency_id', agencyId)
       .maybeSingle(); // Use maybeSingle in case settings don't exist yet
 
-    const today = new Date().toISOString().split('T')[0];
+    const { data: agencyTzRow } = await supabase
+      .from('agencies')
+      .select('timezone')
+      .eq('id', agencyId)
+      .single();
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: agencyTzRow?.timezone || "America/New_York" }).format(new Date());
     const { data: usageData } = await supabase
       .from('call_usage_tracking')
       .select('calls_used')

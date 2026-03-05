@@ -5,7 +5,8 @@ import { verifyRequest, isVerifyError } from "../_shared/verifyRequest.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 
-function buildSystemPrompt(teamMembers: { id: string; name: string }[], productNames: string[]): string {
+function buildSystemPrompt(teamMembers: { id: string; name: string }[], productNames: string[], todayStr?: string): string {
+  if (!todayStr) todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
   const teamMemberList = teamMembers.length > 0
     ? teamMembers.map(m => `  - "${m.name}" (id: ${m.id})`).join("\n")
     : "  (none available)";
@@ -105,7 +106,7 @@ ${productList}
 7. Only include filter fields that are relevant to the query. Do not include fields with empty/null/default values.
 8. Always return valid JSON matching this schema: { filters: {...}, sort?: {...}, activeTab?: string, summary: string, tip?: string }
 9. If the query is unclear or doesn't map to any filters, return empty filters with a helpful summary explaining what you can filter by.
-10. Today's date is ${new Date().toISOString().split('T')[0]}.`;
+10. Today's date is ${todayStr}.`;
 }
 
 serve(async (req) => {
@@ -177,8 +178,13 @@ serve(async (req) => {
       });
     }
 
+    // Resolve agency timezone for AI date context
+    const supabaseSvc = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: agencyTzRow } = await supabaseSvc.from("agencies").select("timezone").eq("id", agencyId).single();
+    const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: agencyTzRow?.timezone || "America/New_York" }).format(new Date());
+
     // Build messages: system prompt + last 6 conversation messages (3 turns) + new user query
-    const systemPrompt = buildSystemPrompt(teamMembers, productNames);
+    const systemPrompt = buildSystemPrompt(teamMembers, productNames, todayStr);
     const recentConversation = conversation.slice(-6);
 
     const messages: { role: string; content: string }[] = [

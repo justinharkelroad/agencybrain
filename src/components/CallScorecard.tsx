@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -534,7 +535,7 @@ export function CallScorecard({
   const handleExportPNG = async () => {
     if (!scorecardRef.current) return;
     setExporting(true);
-    const filename = `scorecard-${salespersonName}-${new Date().toISOString().split('T')[0]}`;
+    const filename = `scorecard-${salespersonName}-${format(new Date(), 'yyyy-MM-dd')}`;
     const success = await exportScorecardAsPNG(scorecardRef.current, filename);
     if (success) toast.success('Downloaded as PNG');
     else toast.error('Export failed');
@@ -544,7 +545,7 @@ export function CallScorecard({
   const handleExportPDF = async () => {
     if (!scorecardRef.current) return;
     setExporting(true);
-    const filename = `scorecard-${salespersonName}-${new Date().toISOString().split('T')[0]}`;
+    const filename = `scorecard-${salespersonName}-${format(new Date(), 'yyyy-MM-dd')}`;
     const success = await exportScorecardAsPDF(scorecardRef.current, filename);
     if (success) toast.success('Downloaded as PDF');
     else toast.error('Export failed');

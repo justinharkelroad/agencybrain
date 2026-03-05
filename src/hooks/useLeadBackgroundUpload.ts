@@ -1,4 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { ParsedLeadRow, LeadUploadContext } from '@/types/lqs';
@@ -236,7 +237,7 @@ async function processInBackground(
   sourceDisplayName: string,
   queryClient: ReturnType<typeof useQueryClient>
 ) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = format(new Date(), 'yyyy-MM-dd');
   let leadsCreated = 0;
   let leadsUpdated = 0;
   let errorCount = 0;

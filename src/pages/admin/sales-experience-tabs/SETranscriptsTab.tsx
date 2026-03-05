@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -179,7 +180,7 @@ export function SETranscriptsTab() {
   const handleOpenUpload = (assignment: Assignment, week: number) => {
     setSelectedAssignment(assignment);
     setSelectedWeek(week);
-    setMeetingDate(new Date().toISOString().split('T')[0]);
+    setMeetingDate(format(new Date(), 'yyyy-MM-dd'));
     setTranscriptText('');
     setIsUploadDialogOpen(true);
   };

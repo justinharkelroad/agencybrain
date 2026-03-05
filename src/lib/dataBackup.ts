@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { type CellAddr } from "../bonus_grid_web_spec/computeWithRounding";
 
 export interface BackupMetadata {
@@ -95,7 +96,7 @@ export class DataBackupManager {
     
     const link = document.createElement('a');
     link.href = URL.createObjectURL(dataBlob);
-    link.download = filename || `bonus-grid-backup-${new Date().toISOString().split('T')[0]}.json`;
+    link.download = filename || `bonus-grid-backup-${format(new Date(), 'yyyy-MM-dd')}.json`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

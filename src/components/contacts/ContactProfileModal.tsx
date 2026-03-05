@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { format } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 import { Phone, Mail, MapPin, FileText, X, MessageSquare, Loader2, Voicemail, MessageCircle, DollarSign, Handshake, StickyNote, Calendar, CheckCircle2, ArrowRightLeft, Workflow } from 'lucide-react';
 import {
@@ -431,7 +432,7 @@ export function ContactProfileModal({
             profile.zip_code
           );
 
-          const today = new Date().toISOString().split('T')[0];
+          const today = format(new Date(), 'yyyy-MM-dd');
 
           const { error: lqsError } = await supabase
             .from('lqs_households')
@@ -594,7 +595,7 @@ export function ContactProfileModal({
         premium: Number(e.premium),
       }));
 
-      const saleDate = new Date().toISOString().split('T')[0];
+      const saleDate = format(new Date(), 'yyyy-MM-dd');
 
       // Determine current winback status for concurrency guard
       const winbackRecord = profile.winback_records?.find((r: any) => r.id === winbackHousehold.id);
@@ -828,7 +829,7 @@ export function ContactProfileModal({
 
     setModuleActionLoading('promote_to_quoted');
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = format(new Date(), 'yyyy-MM-dd');
 
       if (staffSessionToken) {
         const { data, error } = await supabase.functions.invoke('staff_promote_to_quoted', {

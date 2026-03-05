@@ -1,6 +1,11 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { corsHeaders } from '../_shared/cors.ts';
 
+/** Returns YYYY-MM-DD in the given IANA timezone. */
+function localDateStr(timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
+}
+
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
@@ -64,8 +69,24 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Upsert Core 4 log for today
-    const today = new Date().toISOString().split('T')[0];
+    // Resolve agency timezone so evening actions land on the correct local date
+    const { data: staffUser } = await supabase
+      .from('staff_users')
+      .select('agency_id')
+      .eq('id', staffUserId)
+      .single();
+    let agencyTz = 'America/New_York';
+    if (staffUser?.agency_id) {
+      const { data: agency } = await supabase
+        .from('agencies')
+        .select('timezone')
+        .eq('id', staffUser.agency_id)
+        .single();
+      if (agency?.timezone) agencyTz = agency.timezone;
+    }
+
+    // Upsert Core 4 log for today (agency-local date)
+    const today = localDateStr(agencyTz);
 
     const { data: core4Log, error: upsertError } = await supabase
       .from('challenge_core4_logs')

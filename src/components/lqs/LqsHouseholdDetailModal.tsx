@@ -518,7 +518,7 @@ export function LqsHouseholdDetailModal({
 
     setIsPromotingToQuoted(true);
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = format(new Date(), 'yyyy-MM-dd');
 
       if (staffSessionToken) {
         // Staff path: use edge function

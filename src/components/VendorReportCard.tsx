@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { 
   TrendingUp, 
@@ -130,7 +131,7 @@ const VendorReportCard = ({ inputs, derived, onClose, onSave, isReadOnly }: Vend
 
   const getFileName = (extension: string) => {
     const vendorName = inputs.vendorName?.replace(/[^a-zA-Z0-9]/g, '_') || 'Unknown';
-    const date = new Date().toISOString().split('T')[0];
+    const date = format(new Date(), 'yyyy-MM-dd');
     return `AgencyBrain_Vendor_Verifier_${vendorName}_${date}.${extension}`;
   };
 

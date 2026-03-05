@@ -242,7 +242,8 @@ Deno.serve(async (req) => {
     });
 
     // Get Core 4 from the unified staff_core4_entries table
-    const todayStr = today.toISOString().split('T')[0];
+    const { data: agencyTzRow } = await supabase.from('agencies').select('timezone').eq('id', agencyId).single();
+    const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: agencyTzRow?.timezone || "America/New_York" }).format(new Date());
     const { data: core4Today } = await supabase
       .from('staff_core4_entries')
       .select('*')

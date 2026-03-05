@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Phone, PhoneIncoming, PhoneOutgoing, Clock } from 'lucide-react';
@@ -35,7 +36,7 @@ export function CallMetricsSummary({
   isStaffUser = false,
   staffTeamMemberId,
 }: CallMetricsSummaryProps) {
-  const targetDate = date || new Date().toISOString().split('T')[0];
+  const targetDate = date || format(new Date(), 'yyyy-MM-dd');
 
   const { data: metrics, isLoading } = useQuery({
     queryKey: ['call-metrics', teamMemberId, targetDate, isStaffUser, staffTeamMemberId],

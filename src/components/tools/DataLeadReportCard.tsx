@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { 
   TrendingUp, 
@@ -122,7 +123,7 @@ export const DataLeadReportCard = ({ inputs, derived, onClose, isReadOnly }: Dat
 
   const getFileName = (extension: string) => {
     const sourceName = inputs.leadSource?.replace(/[^a-zA-Z0-9]/g, '_') || 'DataLead';
-    const date = new Date().toISOString().split('T')[0];
+    const date = format(new Date(), 'yyyy-MM-dd');
     return `AgencyBrain_Data_Lead_${sourceName}_${date}.${extension}`;
   };
 

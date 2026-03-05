@@ -26,8 +26,16 @@ serve(async (req) => {
       });
     }
 
-    // Default to today if no date provided
-    const targetDate = date || new Date().toISOString().split('T')[0];
+    // Default to today (agency timezone) if no date provided
+    let targetDate = date;
+    if (!targetDate) {
+      const { data: agencyTzRow } = await supabaseAdmin
+        .from("agencies")
+        .select("timezone")
+        .eq("id", agencyId)
+        .single();
+      targetDate = new Intl.DateTimeFormat("en-CA", { timeZone: agencyTzRow?.timezone || "America/New_York" }).format(new Date());
+    }
 
     console.log(`Fetching daily progress for agency ${agencyId} on ${targetDate}`);
 

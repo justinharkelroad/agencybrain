@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { format } from 'date-fns';
 import { X, Download, FileImage } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -43,7 +44,7 @@ export default function BonusForecastReportCard({
       });
       
       const link = document.createElement('a');
-      link.download = `bonus-forecast-${new Date().toISOString().split('T')[0]}.png`;
+      link.download = `bonus-forecast-${format(new Date(), 'yyyy-MM-dd')}.png`;
       link.href = dataUrl;
       link.click();
       

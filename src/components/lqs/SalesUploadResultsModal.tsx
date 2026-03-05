@@ -19,6 +19,7 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
   const hasReviews = results.needsReview > 0;
   const quickStatus = `${results.salesCreated} of ${results.recordsProcessed} rows imported`;
   const notImportedCount = Math.max(results.recordsProcessed - results.salesCreated, 0);
+  const importedHouseholds = new Set(results.uploadedHouseholds.map((h) => h.householdId)).size;
   const canSeeDebug = import.meta.env.DEV || user?.email?.toLowerCase() === 'justin@hfiagencies.com';
   const lowerErrors = results.errors.map((err) => err.toLowerCase());
   const duplicateCount = lowerErrors.filter((err) =>
@@ -84,7 +85,7 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
           </DialogTitle>
           <DialogDescription>
             {hasErrors
-              ? `${quickStatus}. ${results.errors.length} rows were not imported.`
+              ? `${quickStatus}. ${notImportedCount} rows were not imported.`
               : hasReviews
                 ? `${results.autoMatched} auto-matched, ${results.needsReview} need manual review`
                 : results.autoMatched > 0
@@ -121,30 +122,30 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
           <div className="grid grid-cols-2 gap-3">
             <StatCard
               icon={ShoppingCart}
-              label="Sales Created"
+              label="Rows Imported"
               value={results.salesCreated}
-              subtext="new sale records"
+              subtext="new sales saved to LQS"
               iconColor="text-green-500"
             />
             <StatCard
               icon={Home}
-              label="Households"
-              value={results.householdsMatched + results.householdsCreated}
-              subtext={`${results.householdsMatched} matched, ${results.householdsCreated} new`}
+              label="Households Imported"
+              value={importedHouseholds}
+              subtext="households with at least 1 imported sale"
               iconColor="text-blue-500"
             />
             <StatCard
               icon={Link2}
-              label="Quotes Linked"
+              label="New Quote Links"
               value={results.quotesLinked}
-              subtext="matched to quotes"
+              subtext="imported sales linked to existing quotes"
               iconColor="text-purple-500"
             />
             <StatCard
               icon={Users}
-              label="Team Matched"
+              label="Producer Codes Found"
               value={results.teamMembersMatched}
-              subtext="unique producers"
+              subtext="unique matched producer codes in this file"
               iconColor="text-orange-500"
             />
           </div>

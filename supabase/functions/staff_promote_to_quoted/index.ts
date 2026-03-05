@@ -6,6 +6,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session',
 };
 
+/** Returns YYYY-MM-DD in the given IANA timezone (e.g. "America/New_York"). */
+function localDateStr(timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
+}
+
 interface PromoteToQuotedRequest {
   household_id: string;
   create_placeholder_quote?: boolean; // deprecated, kept for backwards compat
@@ -118,7 +123,13 @@ serve(async (req) => {
       );
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    // Use agency timezone so evening actions don't land on the next UTC day
+    const { data: agencyRow } = await supabase
+      .from("agencies")
+      .select("timezone")
+      .eq("id", staffUser.agency_id)
+      .single();
+    const today = localDateStr(agencyRow?.timezone || "America/New_York");
 
     // Determine if needs attention (missing lead source)
     const needsAttention = !household.lead_source_id;

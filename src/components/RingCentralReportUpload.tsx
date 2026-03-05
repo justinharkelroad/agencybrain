@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -119,7 +120,7 @@ export function RingCentralReportUpload({ agencyId }: RingCentralReportUploadPro
       return;
     }
 
-    const date = new Date().toISOString().split('T')[0];
+    const date = format(new Date(), 'yyyy-MM-dd');
     const storagePath = `${agencyId}/${date}/${file.name}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage

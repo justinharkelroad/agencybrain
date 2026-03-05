@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -55,7 +56,7 @@ export function ExportButton({
         includeActivities,
       });
       
-      const dateStr = new Date().toISOString().split('T')[0];
+      const dateStr = format(new Date(), 'yyyy-MM-dd');
       const filterStr = reportTypeFilter === 'all' ? 'all' : reportTypeFilter.replace('_', '-');
       downloadFile(csv, `cancel-audit-${filterStr}-${dateStr}.csv`, 'text/csv');
       
@@ -76,7 +77,7 @@ export function ExportButton({
     try {
       const report = await exportSummaryReport(agencyId, weekStart, weekEnd);
       
-      const dateStr = new Date().toISOString().split('T')[0];
+      const dateStr = format(new Date(), 'yyyy-MM-dd');
       downloadFile(report, `cancel-audit-summary-${dateStr}.txt`, 'text/plain');
       
       toast.success('Summary report exported');

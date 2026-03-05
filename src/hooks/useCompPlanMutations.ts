@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BundleConfigs, ProductRates, PointValues, BundlingMultipliers, CommissionModifiers } from "./useCompPlans";
@@ -105,7 +106,7 @@ export function useCompPlanMutations(agencyId: string | null) {
 
       // 4. Create assignments using UPSERT to handle re-assignment on same day
       if (data.assigned_member_ids.length > 0) {
-        const today = new Date().toISOString().split("T")[0];
+        const today = format(new Date(), "yyyy-MM-dd");
         const assignmentsToUpsert = data.assigned_member_ids.map((memberId) => ({
           comp_plan_id: plan.id,
           team_member_id: memberId,
@@ -212,7 +213,7 @@ export function useCompPlanMutations(agencyId: string | null) {
 
       // 3. Handle staff assignments - use upsert logic to avoid duplicate key errors
       if (data.assigned_member_ids && data.assigned_member_ids.length > 0) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = format(new Date(), 'yyyy-MM-dd');
         
         // First, get existing active assignments for this plan
         const { data: existingAssignments } = await supabase
@@ -264,7 +265,7 @@ export function useCompPlanMutations(agencyId: string | null) {
         }
       } else {
         // No members assigned - end all existing assignments
-        const today = new Date().toISOString().split('T')[0];
+        const today = format(new Date(), 'yyyy-MM-dd');
         const { error: endError } = await supabase
           .from('comp_plan_assignments')
           .update({ end_date: today })

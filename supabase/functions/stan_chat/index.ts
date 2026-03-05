@@ -152,7 +152,8 @@ IMPORTANT: Find the section for "${current_page}" in the knowledge base and answ
     // ============ SAVE CONVERSATION ============
     if (agency_id && (user_id || staff_user_id)) {
       try {
-        const today = new Date().toISOString().split('T')[0];
+        const { data: agencyTzRow } = await supabase.from('agencies').select('timezone').eq('id', agency_id).single();
+        const today = new Intl.DateTimeFormat("en-CA", { timeZone: agencyTzRow?.timezone || "America/New_York" }).format(new Date());
         const { data: existingConvo } = await supabase
           .from('chatbot_conversations')
           .select('id, messages')

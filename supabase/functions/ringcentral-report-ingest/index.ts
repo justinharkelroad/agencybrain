@@ -6,6 +6,11 @@ const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB
 
 // ─── Utility functions ───
 
+/** Returns YYYY-MM-DD in the given IANA timezone. */
+function localDateStr(timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
+}
+
 function normalizePhone(phone: string | number | null | undefined): string | null {
   if (!phone && phone !== 0) return null;
   const str = String(phone);
@@ -264,8 +269,14 @@ async function processXlsxBuffer(
   const fileType = hasCalls ? "calls" : "users";
   let reportDate = extractReportDateFromFilters(workbook);
   if (!reportDate) {
-    reportDate = new Date().toISOString().split("T")[0];
-    console.log(`[ringcentral-report-ingest] No report date in Filters, using today: ${reportDate}`);
+    // Use agency timezone so evening uploads don't land on tomorrow
+    const { data: agencyRow } = await supabase
+      .from("agencies")
+      .select("timezone")
+      .eq("id", agencyId)
+      .single();
+    reportDate = localDateStr(agencyRow?.timezone || "America/New_York");
+    console.log(`[ringcentral-report-ingest] No report date in Filters, using today (${agencyRow?.timezone || "America/New_York"}): ${reportDate}`);
   }
 
   let callsProcessed = 0;

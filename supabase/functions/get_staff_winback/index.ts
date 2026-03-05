@@ -6,6 +6,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-staff-session",
 };
 
+/** Returns YYYY-MM-DD in the given IANA timezone (e.g. "America/New_York"). */
+function localDateStr(timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -46,6 +51,14 @@ Deno.serve(async (req) => {
       }
       return chunks;
     };
+
+    // Fetch agency timezone once for date calculations
+    const { data: agencyRow } = await supabase
+      .from("agencies")
+      .select("timezone")
+      .eq("id", agencyId)
+      .single();
+    const agencyTz = agencyRow?.timezone || "America/New_York";
 
     switch (operation) {
       case "get_settings": {
@@ -1170,7 +1183,7 @@ Deno.serve(async (req) => {
         const normalizedFirst = (firstName || "UNKNOWN").toUpperCase().trim().replace(/[^A-Z]/g, "");
         const normalizedZip = zipCode ? zipCode.substring(0, 5) : "NOZIP";
         const householdKey = `${normalizedLast}_${normalizedFirst}_${normalizedZip}`;
-        const today = new Date().toISOString().split("T")[0];
+        const today = localDateStr(agencyTz);
 
         const { error: lqsError } = await supabase
           .from("lqs_households")
@@ -1591,7 +1604,7 @@ Deno.serve(async (req) => {
         const wbTotalItems = salePolicies.reduce((sum: number, p: any) => sum + Math.round(p.items || 0), 0);
         const wbTotalPremium = salePolicies.reduce((sum: number, p: any) => sum + (p.premium || 0), 0);
         const wbCustomerName = `${wbHousehold.first_name || ""} ${wbHousehold.last_name || ""}`.trim() || "Unknown";
-        const wbSaleDate = saleDate || new Date().toISOString().split("T")[0];
+        const wbSaleDate = saleDate || localDateStr(agencyTz);
 
         // Detect bundle type using same Auto+Home logic as AddSaleForm
         const WB_AUTO_PRODUCTS = ["standard auto"];

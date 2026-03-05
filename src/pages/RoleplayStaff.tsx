@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { format } from 'date-fns';
 import { useSearchParams } from 'react-router-dom';
 import { useConversation } from '@11labs/react';
 import { Button } from '@/components/ui/button';
@@ -591,7 +592,7 @@ const RoleplayStaff = () => {
     }
     
     // Save
-    doc.save(`roleplay-grade-${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`roleplay-grade-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     
     toast({
       title: "PDF Exported",

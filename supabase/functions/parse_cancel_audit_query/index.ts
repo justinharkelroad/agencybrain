@@ -13,7 +13,8 @@ interface DistinctValues {
   agentNumbers?: string[];
 }
 
-function buildSystemPrompt(teamMembers: { id: string; name: string }[], distinctValues?: DistinctValues): string {
+function buildSystemPrompt(teamMembers: { id: string; name: string }[], distinctValues?: DistinctValues, todayStr?: string): string {
+  if (!todayStr) todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date());
   const teamMemberList = teamMembers.length > 0
     ? teamMembers.map(m => `  - "${m.name}" (id: ${m.id})`).join("\n")
     : "  (none available)";
@@ -122,7 +123,7 @@ IMPORTANT: For productName, companyCode, city, state, and agentNumber filters, y
 7. Always return valid JSON matching this schema: { filters: {...}, sort?: {...}, viewMode?: string, summary: string, tip?: string }
 8. If the query is unclear or doesn't map to any filters, return empty filters with a helpful summary.
 9. Premium values in filters are in dollars (the frontend converts to cents for comparison).
-10. Today's date is ${new Date().toISOString().split('T')[0]}.
+10. Today's date is ${todayStr}.
 11. When filtering by workflowStatus "resolved" or "lost", ALWAYS set viewMode to "all" — the "needs_attention" view hides resolved/lost records, so without this the results would be empty.`;
 }
 
@@ -193,8 +194,13 @@ serve(async (req) => {
       });
     }
 
+    // Resolve agency timezone for AI date context
+    const supabaseSvc = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: agencyTzRow } = await supabaseSvc.from("agencies").select("timezone").eq("id", agencyId).single();
+    const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: agencyTzRow?.timezone || "America/New_York" }).format(new Date());
+
     // Build messages: system prompt + last 6 conversation messages (3 turns) + new user query
-    const systemPrompt = buildSystemPrompt(teamMembers, distinctValues);
+    const systemPrompt = buildSystemPrompt(teamMembers, distinctValues, todayStr);
     const recentConversation = conversation.slice(-6);
 
     const messages: { role: string; content: string }[] = [

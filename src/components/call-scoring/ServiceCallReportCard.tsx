@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -289,7 +290,7 @@ export function ServiceCallReportCard({
   const handleExportPNG = async () => {
     if (!reportRef.current) return;
     setExporting(true);
-    const filename = `service-scorecard-${mappedCsrName || 'agent'}-${new Date().toISOString().split('T')[0]}`;
+    const filename = `service-scorecard-${mappedCsrName || 'agent'}-${format(new Date(), 'yyyy-MM-dd')}`;
     const success = await exportScorecardAsPNG(reportRef.current, filename);
     if (success) toast.success('Downloaded as PNG');
     else toast.error('Export failed');
@@ -299,7 +300,7 @@ export function ServiceCallReportCard({
   const handleExportPDF = async () => {
     if (!reportRef.current) return;
     setExporting(true);
-    const filename = `service-scorecard-${mappedCsrName || 'agent'}-${new Date().toISOString().split('T')[0]}`;
+    const filename = `service-scorecard-${mappedCsrName || 'agent'}-${format(new Date(), 'yyyy-MM-dd')}`;
     const success = await exportScorecardAsPDF(reportRef.current, filename);
     if (success) toast.success('Downloaded as PDF');
     else toast.error('Export failed');

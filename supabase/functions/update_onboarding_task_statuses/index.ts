@@ -29,8 +29,9 @@ serve(async (req) => {
     // Use service role client (this is a CRON job, no user auth)
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get today's date in UTC (YYYY-MM-DD format)
-    const today = new Date().toISOString().split('T')[0];
+    // Use the latest US timezone (Pacific) so we never mark tasks overdue prematurely.
+    // A task in Eastern time may be marked a few hours late, but never a day early.
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
 
     console.log(`[update_onboarding_task_statuses] Running status update for date: ${today}`);
 

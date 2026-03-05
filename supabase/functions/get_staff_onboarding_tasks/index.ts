@@ -106,8 +106,13 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const { include_completed_today = true } = body;
 
-    // Get today's date for completed_today filter
-    const today = new Date().toISOString().split('T')[0];
+    // Get today's date in agency timezone for completed_today filter
+    const { data: agencyRow } = await supabase
+      .from('agencies')
+      .select('timezone')
+      .eq('id', agencyId)
+      .single();
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: agencyRow?.timezone || "America/New_York" }).format(new Date());
 
     // Fetch active tasks (pending, due, overdue) assigned to this staff user
     // Use left join to include adhoc tasks that don't have an instance

@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -239,7 +240,7 @@ export default function FormPreview({ formSchema }: FormPreviewProps) {
 
             <div>
               <Label>Submission Date</Label>
-              <Input type="date" disabled value={new Date().toISOString().split('T')[0]} />
+              <Input type="date" disabled value={format(new Date(), 'yyyy-MM-dd')} />
             </div>
 
 
