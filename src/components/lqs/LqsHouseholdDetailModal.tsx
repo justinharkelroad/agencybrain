@@ -39,6 +39,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { HouseholdWithRelations } from '@/hooks/useLqsData';
 import { filterCountableQuotes } from '@/lib/lqs-constants';
 import { formatPhoneNumber } from '@/lib/utils';
+import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
 import { useLqsObjections } from '@/hooks/useLqsObjections';
 import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { useLeadSources } from '@/hooks/useLeadSources';
@@ -411,7 +412,7 @@ export function LqsHouseholdDetailModal({
           },
         });
 
-        if (error) throw new Error(error.message || 'Failed to add quote');
+        if (error) throw new Error(await resolveFunctionErrorMessage(error));
         if (data?.error) throw new Error(data.error);
       } else {
         const { error } = await supabase

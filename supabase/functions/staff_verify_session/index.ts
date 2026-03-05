@@ -50,8 +50,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Return user data (without password hash)
+    // Return invalid for orphaned staff accounts so they cannot access the portal.
     const { password_hash, ...userData } = session.staff_users as any;
+    if (!userData.team_member_id) {
+      console.log('Orphaned staff session blocked:', userData.id);
+      return new Response(
+        JSON.stringify({ valid: false, error: 'Staff login is not linked to a team member' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // If staff user is linked to a team member, fetch the role
     let role: string | null = null;

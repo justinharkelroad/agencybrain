@@ -224,6 +224,14 @@ Deno.serve(async (req) => {
       }
     }
 
+    // A staff login must always map to a team member record.
+    if (!team_member_id && !create_team_member) {
+      return new Response(
+        JSON.stringify({ error: 'team_member_id or create_team_member is required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Handle team member linking/creation
     let finalTeamMemberId: string | null = null;
 

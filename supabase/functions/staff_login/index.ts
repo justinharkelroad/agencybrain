@@ -202,6 +202,17 @@ Deno.serve(async (req) => {
       );
     }
 
+    if (!staffUser.team_member_id) {
+      console.log('Blocked orphan staff login:', staffUser.id);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'This staff login is not linked to a team member. Have an administrator reconnect your account before signing in.'
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Generate session token
     const sessionToken = crypto.randomUUID();
     const expiresAt = new Date();

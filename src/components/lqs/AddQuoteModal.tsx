@@ -27,6 +27,7 @@ import { LqsLeadSource } from '@/hooks/useLqsData';
 import { LqsObjection } from '@/hooks/useLqsObjections';
 import { usePriorInsuranceCompanies } from '@/hooks/usePriorInsuranceCompanies';
 import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';
+import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
 import { format } from 'date-fns';
 interface AddQuoteModalProps {
   open: boolean;
@@ -223,7 +224,7 @@ export function AddQuoteModal({
         });
 
         if (error) {
-          throw new Error(error.message || 'Failed to add quote');
+          throw new Error(await resolveFunctionErrorMessage(error));
         }
         if (data?.error) {
           throw new Error(data.error);
@@ -362,7 +363,8 @@ export function AddQuoteModal({
       }
     } catch (error) {
       console.error('Error adding quote:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to add quote');
+      const message = error instanceof Error ? error.message : await resolveFunctionErrorMessage(error);
+      toast.error(message || 'Failed to add quote');
     } finally {
       setIsSubmitting(false);
     }
