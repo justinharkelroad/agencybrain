@@ -127,9 +127,9 @@ function parseCustomerName(fullName: string): { firstName: string; lastName: str
  */
 export function normalizeProductType(productType: string): string {
   if (!productType || !productType.trim()) return 'Unknown';
-  
+
   const upper = productType.toUpperCase().trim();
-  
+
   const mapping: Record<string, string> = {
     // Auto variations
     'AUTO': 'Standard Auto',
@@ -169,8 +169,40 @@ export function normalizeProductType(productType: string): string {
     'SPECIAL AUTO': 'Auto - Special',
     'NON-STANDARD AUTO': 'Auto - Special',
   };
-  
-  return mapping[upper] || productType;
+
+  if (mapping[upper]) return mapping[upper];
+
+  // Handle Allstate line-code-prefixed names: "010 - Auto - Private Passenger Voluntary"
+  const lineCodeMatch = upper.match(/^(\d{3})\s*-\s*/);
+  if (lineCodeMatch) {
+    const lineCode = lineCodeMatch[1];
+    const lineCodeMap: Record<string, string> = {
+      '010': 'Standard Auto',
+      '011': 'Standard Auto',
+      '012': 'Standard Auto',
+      '013': 'Standard Auto',
+      '014': 'Standard Auto',
+      '015': 'Standard Auto',
+      '016': 'Standard Auto',
+      '017': 'Standard Auto',
+      '018': 'Standard Auto',
+      '019': 'Standard Auto',
+      '020': 'Motorcycle',
+      '021': 'Motorcycle',
+      '070': 'Homeowners',
+      '071': 'Mobilehome',
+      '072': 'Landlords',
+      '073': 'Renters',
+      '074': 'Condo',
+      '075': 'Homeowners',
+      '076': 'Mobilehome',
+      '080': 'Boatowners',
+      '090': 'Personal Umbrella',
+    };
+    if (lineCodeMap[lineCode]) return lineCodeMap[lineCode];
+  }
+
+  return productType;
 }
 
 /**

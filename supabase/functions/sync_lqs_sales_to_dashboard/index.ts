@@ -9,17 +9,30 @@ const corsHeaders = {
 };
 
 const EXCLUDED_PRODUCTS = ["motor club"];
-const AUTO_PRODUCTS = new Set([
-  "standard auto",
-  "auto",
-]);
-const HOME_PRODUCTS = new Set([
-  "homeowners",
-  "north light homeowners",
-  "condo",
-  "north light condo",
-  "home",
-]);
+
+// Smart product matching: handles canonical names AND line-code-prefixed names
+// e.g. "010 - Auto - Private Passenger Voluntary" is Standard Auto (line 010)
+function isAutoProduct(name: string): boolean {
+  const lower = name.toLowerCase().trim();
+  if (lower === "standard auto" || lower === "auto") return true;
+  // Line codes 010-019 = Standard Auto
+  if (/^01\d\s*-/.test(lower)) return true;
+  return false;
+}
+
+function isHomeProduct(name: string): boolean {
+  const lower = name.toLowerCase().trim();
+  if (
+    lower === "homeowners" ||
+    lower === "north light homeowners" ||
+    lower === "condo" ||
+    lower === "north light condo" ||
+    lower === "home"
+  ) return true;
+  // Line codes: 070 = Homeowners, 074 = Condo
+  if (/^07[04]\s*-/.test(lower)) return true;
+  return false;
+}
 
 type SyncMode = "preview" | "execute" | "undo";
 
@@ -106,8 +119,8 @@ function deriveBundleType(
     .filter(Boolean);
   const distinct = new Set(normalized);
 
-  const hasAuto = normalized.some((name) => AUTO_PRODUCTS.has(name));
-  const hasHome = normalized.some((name) => HOME_PRODUCTS.has(name));
+  const hasAuto = normalized.some((name) => isAutoProduct(name));
+  const hasHome = normalized.some((name) => isHomeProduct(name));
   const isBundle = distinct.size > 1 || (hasAuto && hasHome);
 
   if (hasAuto && hasHome) return { is_bundle: true, bundle_type: "Preferred" };
