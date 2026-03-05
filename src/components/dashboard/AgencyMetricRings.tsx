@@ -299,20 +299,19 @@ export function AgencyMetricRings({
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch agency-level daily targets for agency aggregate view
-  const { data: agencyTargets } = useQuery({
-    queryKey: ["agency-daily-targets", agencyId],
+  // Fetch agency-level daily targets via edge function (same source as AgencyDailyGoals)
+  const workDateStr = format(selectedDate, "yyyy-MM-dd");
+  const { data: agencyProgress } = useQuery({
+    queryKey: ["daily-agency-progress", agencyId, workDateStr],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("agencies")
-        .select("daily_quoted_households_target, daily_sold_items_target")
-        .eq("id", agencyId)
-        .single();
+      const { data, error } = await supabase.functions.invoke("get-daily-agency-progress", {
+        body: { agencyId, date: workDateStr },
+      });
       if (error) throw error;
-      return data;
+      return data as { quotedHouseholds: { target: number }; soldItems: { target: number } };
     },
     enabled: !!agencyId && isAgencyView,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000, // matches AgencyDailyGoals refresh interval
   });
 
   // Resolve targets: per-member override > agency default from targets table > hardcoded default
@@ -405,9 +404,9 @@ export function AgencyMetricRings({
               // Agency aggregate — use agency daily targets from agencies table
               value = tileMap.get(metric.tileTitle) ?? 0;
               if (metric.key === "quoted_households") {
-                target = agencyTargets?.daily_quoted_households_target ?? metric.defaultTarget;
+                target = agencyProgress?.quotedHouseholds?.target ?? metric.defaultTarget;
               } else if (metric.key === "items_sold") {
-                target = agencyTargets?.daily_sold_items_target ?? metric.defaultTarget;
+                target = agencyProgress?.soldItems?.target ?? metric.defaultTarget;
               } else {
                 // Calls / talk time: scale per-member default by team size
                 target = metric.defaultTarget * Math.max(members.length, 1);
