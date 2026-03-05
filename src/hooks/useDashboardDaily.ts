@@ -47,7 +47,7 @@ interface DashboardDailyResult {
  */
 export function useDashboardDaily(
   agencySlug: string,
-  role: "Sales" | "Service" | "Manager",
+  role: "Sales" | "Service" | "Manager" | "All",
   selectedDate: Date
 ) {
   return useQuery({

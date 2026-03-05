@@ -239,9 +239,9 @@ export function AgencyMetricRings({
     staleTime: 5 * 60 * 1000,
   });
 
-  // Determine which role to fetch: Service/Manager members need their own dashboard
-  const dashboardRole: "Sales" | "Service" | "Manager" = useMemo(() => {
-    if (selectedMember === AGENCY_VALUE) return "Sales";
+  // Determine which role to fetch: "All" for Entire Agency, specific role for individual members
+  const dashboardRole: "Sales" | "Service" | "Manager" | "All" = useMemo(() => {
+    if (selectedMember === AGENCY_VALUE) return "All";
     const member = allTeamMembers?.find((m) => m.id === selectedMember);
     if (member?.role === "Service") return "Service";
     if (member?.role === "Manager") return "Manager";

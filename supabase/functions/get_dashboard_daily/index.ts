@@ -96,9 +96,9 @@ serve(async (req) => {
     }
 
     // Validate role parameter
-    if (!role || !['Sales', 'Service', 'Manager'].includes(role)) {
+    if (!role || !['Sales', 'Service', 'Manager', 'All'].includes(role)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid or missing role parameter. Use "Sales", "Service", or "Manager"' }),
+        JSON.stringify({ error: 'Invalid or missing role parameter. Use "Sales", "Service", "Manager", or "All"' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -143,17 +143,23 @@ serve(async (req) => {
     }
 
     // Query vw_metrics_with_team view directly, filtering by role.
+    // "All" = no role filter (used by "Entire Agency" dashboard view).
     // Include Hybrid for Sales/Service (Hybrid = Sales+Service crossover).
     // Manager is standalone — no Hybrid inclusion.
-    const roleFilter = role === 'Manager'
-      ? `role.eq.Manager`
-      : `role.eq.${role},role.eq.Hybrid`;
-    const { data, error } = await supabase
+    let query = supabase
       .from('vw_metrics_with_team')
       .select('*')
       .eq('agency_id', agencyId)
-      .eq('date', workDate)
-      .or(roleFilter)
+      .eq('date', workDate);
+
+    if (role !== 'All') {
+      const roleFilter = role === 'Manager'
+        ? `role.eq.Manager`
+        : `role.eq.${role},role.eq.Hybrid`;
+      query = query.or(roleFilter);
+    }
+
+    const { data, error } = await query
       .order('rep_name', { ascending: true, nullsFirst: false });
 
     if (error) {
