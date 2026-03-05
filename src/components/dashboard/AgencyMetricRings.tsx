@@ -286,16 +286,22 @@ export function AgencyMetricRings({
   const { data: memberTargets } = useQuery({
     queryKey: ["member-ring-targets", agencyId, activeMember],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("targets")
         .select("metric_key, value_number, team_member_id")
         .eq("agency_id", agencyId)
-        .in("metric_key", METRICS.map((m) => m.targetMetricKey))
-        .or(`team_member_id.is.null,team_member_id.eq.${activeMember}`);
+        .in("metric_key", METRICS.map((m) => m.targetMetricKey));
+      if (isAgencyView) {
+        // Agency view: fetch agency defaults only
+        query = query.is("team_member_id", null);
+      } else {
+        query = query.or(`team_member_id.is.null,team_member_id.eq.${activeMember}`);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
-    enabled: !!agencyId && !isAgencyView,
+    enabled: !!agencyId,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -386,10 +392,12 @@ export function AgencyMetricRings({
             let progress: number | null;
 
             if (isAgencyView) {
-              // Agency aggregate — raw numbers, no targets
+              // Agency aggregate — scale per-member target by active member count
               value = tileMap.get(metric.tileTitle) ?? 0;
-              target = null;
-              progress = null;
+              const activeMemberCount = Math.max(members.length, 1);
+              const perMemberTarget = resolvedTargets.get(metric.targetMetricKey) ?? metric.defaultTarget;
+              target = perMemberTarget * activeMemberCount;
+              progress = target > 0 ? value / target : 0;
             } else {
               // Individual member — show progress toward per-member targets
               value = memberRow ? (memberRow[metric.rowKey] || 0) : 0;
