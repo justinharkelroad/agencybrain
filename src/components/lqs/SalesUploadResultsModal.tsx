@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle2, AlertTriangle, Users, Home, ShoppingCart, Link2, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SalesUploadResult } from '@/types/lqs';
+import { useAuth } from '@/lib/auth';
 
 interface SalesUploadResultsModalProps {
   open: boolean;
@@ -12,10 +13,32 @@ interface SalesUploadResultsModalProps {
 }
 
 export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewNow }: SalesUploadResultsModalProps) {
+  const { user } = useAuth();
   const hasWarnings = results.unmatchedProducers.length > 0 || results.householdsNeedingAttention > 0;
   const hasErrors = results.errors.length > 0;
   const hasReviews = results.needsReview > 0;
   const quickStatus = `${results.salesCreated} of ${results.recordsProcessed} rows imported`;
+  const notImportedCount = Math.max(results.recordsProcessed - results.salesCreated, 0);
+  const canSeeDebug = import.meta.env.DEV || user?.email?.toLowerCase() === 'justin@hfiagencies.com';
+  const lowerErrors = results.errors.map((err) => err.toLowerCase());
+  const duplicateCount = lowerErrors.filter((err) =>
+    err.includes('duplicate') || err.includes('already exists in lqs and was skipped')
+  ).length;
+  const customerNotFoundCount = lowerErrors.filter((err) =>
+    err.includes('could not be matched to a customer record')
+  ).length;
+  const customerCreateFailedCount = lowerErrors.filter((err) =>
+    err.includes('could not create this customer in lqs')
+  ).length;
+  const quoteLinkCheckFailedCount = lowerErrors.filter((err) =>
+    err.includes('could not verify matching quote details')
+  ).length;
+  const categorizedCount =
+    duplicateCount +
+    customerNotFoundCount +
+    customerCreateFailedCount +
+    quoteLinkCheckFailedCount;
+  const otherNotImportedCount = Math.max(notImportedCount - categorizedCount, 0);
   const supportGuide = [
     {
       match: 'could not be matched to a customer record',
@@ -23,12 +46,12 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
       action: 'Check first name, last name, zip, and policy number. Create the household in LQS first if needed.',
     },
     {
-      match: 'already exists in LQS and was skipped',
+      match: 'already exists in lqs and was skipped',
       title: 'Duplicate sale',
       action: 'This sale already exists in LQS. Remove the duplicate line from the upload file and re-upload.',
     },
     {
-      match: 'could not be created this customer in LQS',
+      match: 'could not create this customer in lqs',
       title: 'Customer create failed',
       action: 'Try re-uploading once. If it keeps failing, fix the customer row fields and save in a fresh upload.',
     },
@@ -74,6 +97,26 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
         </DialogHeader>
 
         <div className="space-y-4">
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-sm font-semibold">Import Outcome</p>
+            <ul className="mt-1 space-y-1 text-sm">
+              <li>• <span className="font-medium">Imported:</span> {results.salesCreated}</li>
+              <li>• <span className="font-medium">Not imported:</span> {notImportedCount}</li>
+            </ul>
+            {notImportedCount > 0 && (
+              <div className="mt-2">
+                <p className="text-xs font-medium text-muted-foreground">Why rows were not imported</p>
+                <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
+                  {duplicateCount > 0 && <li>• {duplicateCount} duplicate row(s)</li>}
+                  {customerNotFoundCount > 0 && <li>• {customerNotFoundCount} customer match issue(s)</li>}
+                  {customerCreateFailedCount > 0 && <li>• {customerCreateFailedCount} customer create issue(s)</li>}
+                  {quoteLinkCheckFailedCount > 0 && <li>• {quoteLinkCheckFailedCount} quote-link check issue(s)</li>}
+                  {otherNotImportedCount > 0 && <li>• {otherNotImportedCount} other issue(s)</li>}
+                </ul>
+              </div>
+            )}
+          </div>
+
           {/* Summary Stats */}
           <div className="grid grid-cols-2 gap-3">
             <StatCard
@@ -141,7 +184,8 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
                         )}
                       </ul>
                       <p className="text-xs text-muted-foreground mt-2">
-                        Add the missing producer names/codes in Team Settings so these rows can auto-match on the next upload.
+                        These are producer codes found in the file. They are not always import failures by themselves.
+                        Add the missing producer names/codes in Team Settings, then click Re-run Producer Matching.
                       </p>
                     </div>
                   </div>
@@ -174,27 +218,36 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
                 Could not import these rows
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Quick fix: correct customer name, policy number, sale date, or product, then re-upload.
+                We skipped rows that failed validation, matched existing sales, or could not be safely linked.
               </p>
-              <ul className="text-xs text-destructive/80 mt-1">
-                {results.errors.slice(0, 6).map((err, idx) => (
-                  <li key={idx}>• {err}</li>
-                ))}
-              </ul>
-              {results.errors.length > 6 && (
-                <p className="text-xs text-destructive/80 mt-1">
-                  + {results.errors.length - 6} more rows
+              {!canSeeDebug && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Use the reason summary above to fix the file and re-upload. Contact support if rows continue failing.
                 </p>
               )}
-              <details className="mt-2">
-                <summary className="text-xs font-medium cursor-pointer text-destructive/80">
-                  Support/Debug view (technical details)
-                </summary>
-                <p className="text-xs text-destructive/70 mt-1">
-                  Rows failed because LQS rejected them during import matching or saving.
-                  Each row below includes the row number, customer name, and policy reference.
-                </p>
-              </details>
+              {canSeeDebug && (
+                <>
+                  <ul className="text-xs text-destructive/80 mt-1">
+                    {results.errors.slice(0, 6).map((err, idx) => (
+                      <li key={idx}>• {err}</li>
+                    ))}
+                  </ul>
+                  {results.errors.length > 6 && (
+                    <p className="text-xs text-destructive/80 mt-1">
+                      + {results.errors.length - 6} more rows
+                    </p>
+                  )}
+                  <details className="mt-2">
+                  <summary className="text-xs font-medium cursor-pointer text-destructive/80">
+                    Support/Debug view (technical details)
+                  </summary>
+                  <p className="text-xs text-destructive/70 mt-1">
+                    Rows failed because LQS rejected them during import matching or saving.
+                    Each row below includes the row number, customer name, and policy reference.
+                  </p>
+                  </details>
+                </>
+              )}
               {supportIssues.length > 0 && (
                 <div className="mt-2">
                   <p className="text-xs font-medium text-destructive/90">Support playbook</p>
