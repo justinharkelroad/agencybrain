@@ -216,13 +216,10 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
           {hasErrors && (
             <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3">
               <p className="text-sm font-medium text-destructive">
-                Could not import these rows
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                We skipped rows that failed validation, matched existing sales, or could not be safely linked.
+                {notImportedCount} row(s) skipped
               </p>
               <p className="text-xs text-muted-foreground mt-2">
-                Use the reason summary above to fix the file and re-upload.
+                See “Why rows were not imported” above, fix those rows, and re-upload.
               </p>
               {supportIssues.length > 0 && (
                 <div className="mt-2">
