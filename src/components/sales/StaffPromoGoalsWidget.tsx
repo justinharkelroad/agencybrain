@@ -72,13 +72,13 @@ export function StaffPromoGoalsWidget({ sessionToken }: StaffPromoGoalsWidgetPro
         kpi_slug: promo.kpi_slug,
         goal_focus: promo.goal_focus,
         count_business_days: promo.count_business_days,
-        product_type: promo.product_type,
+        product_type: promo.product_type as unknown as { name: string } | null,
         progress: promo.progress,
-        assignments: [],
+        assignments: [] as any[],
         status: promo.status as 'upcoming' | 'active' | 'ended',
         daysRemaining: promo.daysRemaining,
         isAchieved: promo.isAchieved,
-      }));
+      })) as PromoGoalWithProgress[];
     },
     enabled: !!sessionToken,
   });
