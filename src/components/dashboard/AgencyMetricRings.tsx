@@ -299,20 +299,30 @@ export function AgencyMetricRings({
     staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch agency-level daily targets via edge function (same source as AgencyDailyGoals)
+  // Fetch agency-level daily targets (same source as AgencyDailyGoals widget)
   const workDateStr = format(selectedDate, "yyyy-MM-dd");
-  const { data: agencyProgress } = useQuery({
-    queryKey: ["daily-agency-progress", agencyId, workDateStr],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("get-daily-agency-progress", {
-        body: { agencyId, date: workDateStr },
-      });
-      if (error) throw error;
-      return data as { quotedHouseholds: { target: number }; soldItems: { target: number } };
-    },
-    enabled: !!agencyId && isAgencyView,
-    staleTime: 30 * 1000, // matches AgencyDailyGoals refresh interval
-  });
+  const [agencyDayTargets, setAgencyDayTargets] = useState<{ quotedTarget: number; soldTarget: number } | null>(null);
+  useEffect(() => {
+    if (!agencyId || !isAgencyView) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("get-daily-agency-progress", {
+          body: { agencyId, date: workDateStr },
+        });
+        if (cancelled) return;
+        if (!error && data) {
+          setAgencyDayTargets({
+            quotedTarget: data.quotedHouseholds?.target ?? 15,
+            soldTarget: data.soldItems?.target ?? 8,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch agency day targets:", err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [agencyId, isAgencyView, workDateStr]);
 
   // Resolve targets: per-member override > agency default from targets table > hardcoded default
   const resolvedTargets = useMemo(() => {
@@ -404,9 +414,9 @@ export function AgencyMetricRings({
               // Agency aggregate — use agency daily targets from agencies table
               value = tileMap.get(metric.tileTitle) ?? 0;
               if (metric.key === "quoted_households") {
-                target = agencyProgress?.quotedHouseholds?.target ?? metric.defaultTarget;
+                target = agencyDayTargets?.quotedTarget ?? metric.defaultTarget;
               } else if (metric.key === "items_sold") {
-                target = agencyProgress?.soldItems?.target ?? metric.defaultTarget;
+                target = agencyDayTargets?.soldTarget ?? metric.defaultTarget;
               } else {
                 // Calls / talk time: scale per-member default by team size
                 target = metric.defaultTarget * Math.max(members.length, 1);
