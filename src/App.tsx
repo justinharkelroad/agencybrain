@@ -1,4 +1,4 @@
-// rebuild trigger
+
 import { lazy, Suspense, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
