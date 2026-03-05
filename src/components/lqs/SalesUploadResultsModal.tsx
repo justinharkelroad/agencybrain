@@ -18,7 +18,7 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
   const quickStatus = `${results.salesCreated} of ${results.recordsProcessed} rows imported`;
   const notImportedCount = Math.max(results.recordsProcessed - results.salesCreated, 0);
   const importedHouseholds = new Set(results.uploadedHouseholds.map((h) => h.householdId)).size;
-  const canSeeDebug = import.meta.env.DEV;
+  const leadSourceWarningCount = Math.min(results.householdsNeedingAttention, importedHouseholds);
   const lowerErrors = results.errors.map((err) => err.toLowerCase());
   const duplicateCount = lowerErrors.filter((err) =>
     err.includes('duplicate') || err.includes('already exists in lqs and was skipped')
@@ -185,13 +185,13 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
               )}
 
               {/* Needs Lead Source */}
-              {results.householdsNeedingAttention > 0 && (
+              {leadSourceWarningCount > 0 && (
                 <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
                   <div className="flex items-start gap-2">
                     <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                        {results.householdsNeedingAttention} imported household(s) are missing lead source
+                        {leadSourceWarningCount} imported household(s) are missing lead source
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         These sales are imported, but they will be excluded from marketing ROI until a lead source is assigned.
@@ -221,34 +221,9 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
               <p className="text-xs text-muted-foreground mt-1">
                 We skipped rows that failed validation, matched existing sales, or could not be safely linked.
               </p>
-              {!canSeeDebug && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Use the reason summary above to fix the file and re-upload. Contact support if rows continue failing.
-                </p>
-              )}
-              {canSeeDebug && (
-                <>
-                  <ul className="text-xs text-destructive/80 mt-1">
-                    {results.errors.slice(0, 6).map((err, idx) => (
-                      <li key={idx}>• {err}</li>
-                    ))}
-                  </ul>
-                  {results.errors.length > 6 && (
-                    <p className="text-xs text-destructive/80 mt-1">
-                      + {results.errors.length - 6} more rows
-                    </p>
-                  )}
-                  <details className="mt-2">
-                  <summary className="text-xs font-medium cursor-pointer text-destructive/80">
-                    Support/Debug view (technical details)
-                  </summary>
-                  <p className="text-xs text-destructive/70 mt-1">
-                    Rows failed because LQS rejected them during import matching or saving.
-                    Each row below includes the row number, customer name, and policy reference.
-                  </p>
-                  </details>
-                </>
-              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                Use the reason summary above to fix the file and re-upload.
+              </p>
               {supportIssues.length > 0 && (
                 <div className="mt-2">
                   <p className="text-xs font-medium text-destructive/90">Support playbook</p>
