@@ -286,22 +286,32 @@ export function AgencyMetricRings({
   const { data: memberTargets } = useQuery({
     queryKey: ["member-ring-targets", agencyId, activeMember],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from("targets")
         .select("metric_key, value_number, team_member_id")
         .eq("agency_id", agencyId)
-        .in("metric_key", METRICS.map((m) => m.targetMetricKey));
-      if (isAgencyView) {
-        // Agency view: fetch agency defaults only
-        query = query.is("team_member_id", null);
-      } else {
-        query = query.or(`team_member_id.is.null,team_member_id.eq.${activeMember}`);
-      }
-      const { data, error } = await query;
+        .in("metric_key", METRICS.map((m) => m.targetMetricKey))
+        .or(`team_member_id.is.null,team_member_id.eq.${activeMember}`);
       if (error) throw error;
       return data;
     },
-    enabled: !!agencyId,
+    enabled: !!agencyId && !isAgencyView,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Fetch agency-level daily targets for agency aggregate view
+  const { data: agencyTargets } = useQuery({
+    queryKey: ["agency-daily-targets", agencyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("agencies")
+        .select("daily_quoted_households_target, daily_sold_items_target")
+        .eq("id", agencyId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!agencyId && isAgencyView,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -392,11 +402,16 @@ export function AgencyMetricRings({
             let progress: number | null;
 
             if (isAgencyView) {
-              // Agency aggregate — scale per-member target by active member count
+              // Agency aggregate — use agency daily targets from agencies table
               value = tileMap.get(metric.tileTitle) ?? 0;
-              const activeMemberCount = Math.max(members.length, 1);
-              const perMemberTarget = resolvedTargets.get(metric.targetMetricKey) ?? metric.defaultTarget;
-              target = perMemberTarget * activeMemberCount;
+              if (metric.key === "quoted_households") {
+                target = agencyTargets?.daily_quoted_households_target ?? metric.defaultTarget;
+              } else if (metric.key === "items_sold") {
+                target = agencyTargets?.daily_sold_items_target ?? metric.defaultTarget;
+              } else {
+                // Calls / talk time: scale per-member default by team size
+                target = metric.defaultTarget * Math.max(members.length, 1);
+              }
               progress = target > 0 ? value / target : 0;
             } else {
               // Individual member — show progress toward per-member targets
