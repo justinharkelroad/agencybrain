@@ -116,7 +116,13 @@ function normalizeQuotedRows(
       (leadSourceId ? lsMap.get(String(leadSourceId)) : "") ??
       ""; // last resort, empty string
 
-    const notes = row.detailed_notes ?? row.notes ?? "";
+    const rawNotes = row.detailed_notes ?? row.notes ?? "";
+    // Extract objection from dedicated field, or parse from legacy [Objection: ...] in notes
+    const objectionPattern = /\[Objection:\s*([^\]]+)\]/;
+    const objectionFromNotes = rawNotes.match(objectionPattern)?.[1]?.trim() ?? "";
+    const objectionName = row.objection_name || objectionFromNotes;
+    // Strip the legacy [Objection: ...] from notes to avoid duplication
+    const notes = rawNotes.replace(objectionPattern, "").trim();
 
     const zip =
       row.zip ?? row.zip_code ?? row.postal ?? "";
@@ -167,7 +173,7 @@ function normalizeQuotedRows(
         return { key: label, value };
       });
 
-    return { prospect, leadSourceLabel, notes, zip, email, phone, itemsQuoted, policiesQuoted, premiumPotential, extras };
+    return { prospect, leadSourceLabel, objectionName, notes, zip, email, phone, itemsQuoted, policiesQuoted, premiumPotential, extras };
   });
 }
 
@@ -526,6 +532,11 @@ export default function SubmissionDetail() {
                             {row.premiumPotential != null && (
                               <div>
                                 <span className="font-semibold">Premium Potential:</span> ${Number(row.premiumPotential).toLocaleString()}
+                              </div>
+                            )}
+                            {row.objectionName && (
+                              <div>
+                                <span className="font-semibold">Objection:</span> {row.objectionName}
                               </div>
                             )}
                             {row.notes && (

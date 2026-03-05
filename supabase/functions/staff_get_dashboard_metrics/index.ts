@@ -92,10 +92,7 @@ Deno.serve(async (req) => {
       prospect_name: `${h.first_name || ''} ${h.last_name || ''}`.trim(),
       lead_source: h.lead_source_id || '',
       zip_code: h.zip_code || '',
-      detailed_notes: [
-        h.notes || '',
-        h.objection_id ? `[Objection: ${(h as any).lqs_objections?.name || 'Unknown'}]` : ''
-      ].filter(Boolean).join('\n') || '',
+      detailed_notes: h.notes || '',
       policies_quoted: (h as any).lqs_quotes?.length || 0,
       items_quoted: (h as any).lqs_quotes?.reduce((sum: number, q: any) => sum + (q.items_quoted || 0), 0) || 0,
       premium_potential: ((h as any).lqs_quotes?.reduce((sum: number, q: any) => sum + (q.premium_cents || 0), 0) || 0) / 100,
