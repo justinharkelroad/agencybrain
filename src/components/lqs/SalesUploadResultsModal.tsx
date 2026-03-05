@@ -68,6 +68,10 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
     })
     .filter((item) => item.count > 0);
   const ruleSummary = results.uploadRuleSummary;
+  const eligibleAfterFileRules = ruleSummary ? Math.max(ruleSummary.countableRows, 0) : 0;
+  const eligibleButNotImported = ruleSummary
+    ? Math.max(eligibleAfterFileRules - results.salesCreated, 0)
+    : 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -148,7 +152,9 @@ export function SalesUploadResultsModal({ open, onOpenChange, results, onReviewN
                 <li>• {ruleSummary.fileRows} rows in file</li>
                 <li>• {ruleSummary.endorsementsSkipped} skipped (endorsements / add-item)</li>
                 <li>• {ruleSummary.motorClubExcluded} excluded from dashboard metrics (Motor Club)</li>
-                <li>• {ruleSummary.countableRows} count toward dashboard metrics</li>
+                <li>• {eligibleAfterFileRules} eligible after file rules</li>
+                <li>• {results.salesCreated} imported</li>
+                <li>• {eligibleButNotImported} eligible but not imported (duplicates/other skips)</li>
               </ul>
             </div>
           )}
