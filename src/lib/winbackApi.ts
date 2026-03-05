@@ -1183,6 +1183,14 @@ export async function recordWonBackSale(
     const totalPremium = policies.reduce((sum, p) => sum + p.premium, 0);
     const customerName = `${household.first_name || ''} ${household.last_name || ''}`.trim() || 'Unknown';
 
+    // Detect bundle type using same Auto+Home logic as AddSaleForm
+    const AUTO_PRODUCTS = ['standard auto', 'non-standard auto', 'specialty auto'];
+    const HOME_PRODUCTS = ['homeowners', 'north light homeowners', 'condo', 'north light condo'];
+    const productNames = policies.map(p => p.productName.toLowerCase());
+    const hasAuto = productNames.some(n => AUTO_PRODUCTS.includes(n));
+    const hasHome = productNames.some(n => HOME_PRODUCTS.includes(n));
+    const bundleType = hasAuto && hasHome ? 'Preferred' : totalPolicies >= 2 ? 'Standard' : null;
+
     // Step 3: Insert sales record
     const { data: saleRecord, error: saleError } = await supabase
       .from('sales')
@@ -1200,7 +1208,7 @@ export async function recordWonBackSale(
         total_items: totalItems,
         total_premium: totalPremium,
         is_bundle: totalPolicies >= 2,
-        bundle_type: totalPolicies >= 2 ? 'Standard' : null,
+        bundle_type: bundleType,
         is_one_call_close: false,
         source: 'winback',
       })

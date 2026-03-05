@@ -1593,6 +1593,14 @@ Deno.serve(async (req) => {
         const wbCustomerName = `${wbHousehold.first_name || ""} ${wbHousehold.last_name || ""}`.trim() || "Unknown";
         const wbSaleDate = saleDate || new Date().toISOString().split("T")[0];
 
+        // Detect bundle type using same Auto+Home logic as AddSaleForm
+        const WB_AUTO_PRODUCTS = ["standard auto", "non-standard auto", "specialty auto"];
+        const WB_HOME_PRODUCTS = ["homeowners", "north light homeowners", "condo", "north light condo"];
+        const wbProductNames = salePolicies.map((p: any) => (p.productName || "").toLowerCase());
+        const wbHasAuto = wbProductNames.some((n: string) => WB_AUTO_PRODUCTS.includes(n));
+        const wbHasHome = wbProductNames.some((n: string) => WB_HOME_PRODUCTS.includes(n));
+        const wbBundleType = wbHasAuto && wbHasHome ? "Preferred" : wbTotalPolicies >= 2 ? "Standard" : null;
+
         // Step 3: Insert sales record
         const { data: wbSaleRecord, error: wbSaleError } = await supabase
           .from("sales")
@@ -1610,7 +1618,7 @@ Deno.serve(async (req) => {
             total_items: wbTotalItems,
             total_premium: wbTotalPremium,
             is_bundle: wbTotalPolicies >= 2,
-            bundle_type: wbTotalPolicies >= 2 ? "Standard" : null,
+            bundle_type: wbBundleType,
             is_one_call_close: false,
             source: "winback",
           })
