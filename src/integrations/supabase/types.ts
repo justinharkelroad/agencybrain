@@ -1,4 +1,3 @@
-Initialising login role...
 export type Json =
   | string
   | number
@@ -12,31 +11,6 @@ export type Database = {
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
   }
   public: {
     Tables: {
@@ -3535,6 +3509,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "comp_comparison_reports_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "comp_comparison_reports_current_upload_id_fkey"
             columns: ["current_upload_id"]
             isOneToOne: false
@@ -4976,7 +4957,15 @@ export type Database = {
           note?: string
           team_member_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "excusals_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       feature_limits: {
         Row: {
@@ -5876,7 +5865,15 @@ export type Database = {
           kpi_key?: string
           payload?: Json | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "kpi_audit_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       kpi_definitions: {
         Row: {
@@ -6856,6 +6853,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "meeting_frames_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "meeting_frames_team_member_id_fkey"
             columns: ["team_member_id"]
             isOneToOne: false
@@ -7238,6 +7242,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "metrics_daily_snapshots_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
         ]
       }
       onboarding_instances: {
@@ -7465,6 +7476,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_sequences_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
             referencedColumns: ["id"]
           },
           {
@@ -8367,6 +8385,8 @@ export type Database = {
           items_quoted: number | null
           lead_source_id: string | null
           lead_source_label: string | null
+          objection_id: string | null
+          objection_name: string | null
           policies_quoted: number | null
           policy_type: string[] | null
           premium_potential_cents: number | null
@@ -8385,6 +8405,8 @@ export type Database = {
           items_quoted?: number | null
           lead_source_id?: string | null
           lead_source_label?: string | null
+          objection_id?: string | null
+          objection_name?: string | null
           policies_quoted?: number | null
           policy_type?: string[] | null
           premium_potential_cents?: number | null
@@ -8403,6 +8425,8 @@ export type Database = {
           items_quoted?: number | null
           lead_source_id?: string | null
           lead_source_label?: string | null
+          objection_id?: string | null
+          objection_name?: string | null
           policies_quoted?: number | null
           policy_type?: string[] | null
           premium_potential_cents?: number | null
@@ -8440,6 +8464,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vw_submission_metrics"
             referencedColumns: ["submission_id"]
+          },
+          {
+            foreignKeyName: "quoted_household_details_objection_id_fkey"
+            columns: ["objection_id"]
+            isOneToOne: false
+            referencedRelation: "lqs_objections"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -8591,6 +8622,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_activities_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
             referencedColumns: ["id"]
           },
           {
@@ -9246,6 +9284,13 @@ export type Database = {
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "agency_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
             referencedColumns: ["id"]
           },
           {
@@ -12842,7 +12887,15 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_created_by_staff_id_fkey"
+            columns: ["created_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles_audit: {
         Row: {
@@ -12878,7 +12931,15 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_audit_changed_by_staff_id_fkey"
+            columns: ["changed_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       video_training_modules: {
         Row: {
@@ -13815,7 +13876,9 @@ export type Database = {
           p_email?: string
           p_first_name: string
           p_last_name: string
+          p_link_household_id?: string
           p_phone?: string
+          p_staff_session_token?: string
           p_state?: string
           p_street_address?: string
           p_zip_code?: string
@@ -14768,9 +14831,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_employment_type: ["Full-time", "Part-time"],

@@ -49,6 +49,7 @@ import { ContactProfileModal } from '@/components/contacts/ContactProfileModal';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useScheduleAdhocTask } from '@/hooks/useScheduleAdhocTask';
+import { HelpButton } from '@/components/HelpButton';
 
 type CalendarViewType = 'week' | 'month';
 
@@ -340,6 +341,7 @@ export default function OnboardingTasksPage() {
         <div className="flex items-center gap-3">
           <Workflow className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold">Your Sequence Queue</h1>
+          <HelpButton videoKey="Sequence Builder & Queue" />
         </div>
 
         <div className="flex items-center gap-2">

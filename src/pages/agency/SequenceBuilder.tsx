@@ -5,6 +5,7 @@ import { CommunitySequencesList } from "@/components/onboarding/CommunitySequenc
 import { SequenceTemplateEditor } from "@/components/onboarding/SequenceTemplateEditor";
 import type { StepFormData } from "@/components/onboarding/SequenceStepEditor";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { HelpButton } from "@/components/HelpButton";
 
 export default function SequenceBuilder() {
   const {
@@ -108,7 +109,10 @@ export default function SequenceBuilder() {
   return (
     <div className="container mx-auto py-6 px-4 max-w-5xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Sequence Builder</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">Sequence Builder</h1>
+          <HelpButton videoKey="Sequence Builder & Queue" />
+        </div>
         <p className="text-muted-foreground">
           Create and manage onboarding sequence templates for new customer follow-ups.
         </p>
