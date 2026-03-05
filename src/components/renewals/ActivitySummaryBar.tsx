@@ -111,6 +111,9 @@ export function ActivitySummaryBar({ agencyId, onActivityFilter, activeFilter }:
     const userMap = new Map<string, ActivityByUser>();
     
     activities.forEach((activity) => {
+      // Skip system-generated entries (e.g. auto-resolved status changes)
+      if (activity.activity_type === 'status_change' || activity.activity_type === 'note') return;
+
       // Group by staff ID or auth user ID so each person gets their own row
       const displayName = activity.created_by_display_name || 'Unknown User';
       const userId = activity.created_by || (activity.created_by_staff_id ? `staff:${activity.created_by_staff_id}` : `staff:${displayName}`);
