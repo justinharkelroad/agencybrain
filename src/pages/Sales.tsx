@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -13,14 +13,18 @@ import { PromoGoalsList } from "@/components/sales/PromoGoalsList";
 import { SalesBreakdownTabs } from "@/components/sales/SalesBreakdownTabs";
 import { CompPlansTab } from "@/components/sales/CompPlansTab";
 import { Loader2 } from "lucide-react";
+import type { LqsSalePrefill } from "@/lib/lqs-sale-prefill";
 
 export default function Sales() {
   const { isAdmin, user } = useAuth();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState(tabFromUrl || "log");
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
   const [agencyId, setAgencyId] = useState<string | null>(null);
+  const locationPrefillSale = (location.state as { prefillSale?: LqsSalePrefill } | null)?.prefillSale ?? null;
+  const [prefillSale, setPrefillSale] = useState<LqsSalePrefill | null>(locationPrefillSale);
 
   // Sync tab from URL on mount and when URL changes
   useEffect(() => {
@@ -29,6 +33,10 @@ export default function Sales() {
       setActiveTab(tabFromUrl);
     }
   }, [tabFromUrl]);
+
+  useEffect(() => {
+    setPrefillSale(locationPrefillSale);
+  }, [locationPrefillSale]);
 
   // Handle edit param from URL (for navigation from DrillDownTable)
   const editParam = searchParams.get("edit");
@@ -163,11 +171,13 @@ export default function Sales() {
   const handleSaleCreated = () => {
     setActiveTab("log");
     setEditingSaleId(null);
+    setPrefillSale(null);
   };
 
   const handleEditSale = (saleId: string) => {
     setEditingSaleId(saleId);
     setActiveTab("add");
+    setPrefillSale(null);
   };
 
   const handleCancelEdit = () => {
@@ -182,6 +192,7 @@ export default function Sales() {
     // Clear editing state when switching to log tab
     if (tab === "log") {
       setEditingSaleId(null);
+      setPrefillSale(null);
     }
   };
 
@@ -220,8 +231,9 @@ export default function Sales() {
             <AddSaleForm 
               onSuccess={handleSaleCreated} 
               editSale={editSaleData}
+              prefillSale={prefillSale}
               onCancelEdit={handleCancelEdit}
-              key={editingSaleId || "new"}
+              key={editingSaleId || prefillSale?.householdId || "new"}
             />
           )}
         </TabsContent>

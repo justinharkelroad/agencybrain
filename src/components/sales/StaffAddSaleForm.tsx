@@ -33,6 +33,7 @@ import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
 import { classifyBundle, type ExistingProductFlag } from "@/lib/bundle-classifier";
 import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-products";
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
+import type { LqsSalePrefill } from "@/lib/lqs-sale-prefill";
 import {
   Dialog,
   DialogContent,
@@ -83,6 +84,7 @@ interface StaffAddSaleFormProps {
   staffSessionToken?: string;
   staffTeamMemberId?: string | null;
   leadSources?: { id: string; name: string }[];
+  prefillSale?: LqsSalePrefill | null;
 }
 
 
@@ -131,7 +133,7 @@ const isMultiItemProduct = (
   );
 };
 
-export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staffTeamMemberId, leadSources = [] }: StaffAddSaleFormProps) {
+export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staffTeamMemberId, leadSources = [], prefillSale }: StaffAddSaleFormProps) {
   const queryClient = useQueryClient();
 
   // Form state
@@ -210,6 +212,68 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
     },
     enabled: !!agencyId,
   });
+
+  useEffect(() => {
+    if (!prefillSale) return;
+
+    setCustomerName(prefillSale.customerName || "");
+    setCustomerEmail(prefillSale.customerEmail || "");
+    setCustomerPhone(prefillSale.customerPhone || "");
+    setCustomerZip(prefillSale.customerZip || "");
+    setLeadSourceId(prefillSale.leadSourceId || "");
+    setPriorInsuranceCompanyId(prefillSale.priorInsuranceCompanyId || "");
+    setSaleDate(prefillSale.saleDate ? toLocalDate(new Date(`${prefillSale.saleDate}T12:00:00`)) : todayLocal());
+    setHasExistingPolicies(false);
+    setExistingPolicyTypes([]);
+    setBrokeredCountsTowardBundling(false);
+    setIsOneCallClose(false);
+  }, [prefillSale]);
+
+  useEffect(() => {
+    if (!prefillSale || productTypes.length === 0) return;
+
+    const effectiveDate = prefillSale.saleDate
+      ? toLocalDate(new Date(`${prefillSale.saleDate}T12:00:00`))
+      : todayLocal();
+
+    const hydratedPolicies: Policy[] = prefillSale.quoteDrafts
+      .map((draft) => {
+        const product = productTypes.find(
+          (pt) => pt.name.toLowerCase() === draft.productType.toLowerCase()
+        );
+        if (!product) return null;
+
+        const lineItem: LineItem = {
+          id: crypto.randomUUID(),
+          product_type_id: product.id,
+          product_type_name: product.name,
+          item_count: draft.items || 1,
+          premium: draft.premium || 0,
+          points: (product.default_points || 0) * (draft.items || 1),
+          is_vc_qualifying: product.is_vc_item || false,
+        };
+
+        return {
+          id: crypto.randomUUID(),
+          product_type_id: product.id,
+          policy_type_name: product.name,
+          allow_multiple_items: product.allow_multiple_items,
+          canonical_name: product.canonical_name,
+          policy_number: draft.policyNumber || "",
+          effective_date: effectiveDate,
+          is_vc_qualifying: product.is_vc_item || false,
+          lineItems: [lineItem],
+          isExpanded: true,
+          isBrokered: false,
+          brokeredCarrierId: null,
+        } satisfies Policy;
+      })
+      .filter((policy): policy is Policy => policy !== null);
+
+    if (hydratedPolicies.length > 0) {
+      setPolicies(hydratedPolicies);
+    }
+  }, [prefillSale, productTypes]);
 
   // Auto-detect bundle type based on policies and existing customer products
   const bundleInfo = useMemo(
@@ -499,6 +563,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       const saleLevelBrokeredCarrierId = firstBrokeredPolicy?.brokeredCarrierId || undefined;
 
       const salePayload = {
+        household_id: prefillSale?.householdId || undefined,
         lead_source_id: leadSourceId,
         prior_insurance_company_id: priorInsuranceCompanyId || undefined,
         brokered_carrier_id: saleLevelBrokeredCarrierId,

@@ -26,6 +26,7 @@ interface Policy {
 }
 
 interface CreateSaleRequest {
+  household_id?: string;
   lead_source_id?: string;
   prior_insurance_company_id?: string;
   brokered_carrier_id?: string;
@@ -202,10 +203,26 @@ serve(async (req) => {
       const householdKey = `${cleanLastName}_${cleanFirstName}_${cleanZip}`;
       console.log('[create_staff_sale] Generated household key:', householdKey);
 
-      // First, try to match by phone number (most reliable identifier)
+      // Use explicitly supplied household first for quote -> sale conversion.
       let existingHousehold: { id: string } | null = null;
 
-      if (body.customer_phone) {
+      if (body.household_id) {
+        const { data: directHousehold } = await supabase
+          .from('lqs_households')
+          .select('id')
+          .eq('id', body.household_id)
+          .eq('agency_id', staffUser.agency_id)
+          .maybeSingle();
+
+        if (directHousehold) {
+          existingHousehold = directHousehold;
+          console.log('[create_staff_sale] Using supplied LQS household:', directHousehold.id);
+        }
+      }
+
+      // First, try to match by phone number (most reliable identifier)
+
+      if (!existingHousehold && body.customer_phone) {
         // Normalize phone: strip all non-digits, get last 10
         const normalizedPhone = body.customer_phone.replace(/\D/g, '');
         const phoneLast10 = normalizedPhone.slice(-10);
@@ -221,15 +238,20 @@ serve(async (req) => {
 
           if (phoneMatches) {
             for (const h of phoneMatches) {
-              if (h.phone) {
-                // Convert to string in case it's stored as a number
-                const hPhoneLast10 = String(h.phone).replace(/\D/g, '').slice(-10);
+              const householdPhones = Array.isArray(h.phone)
+                ? h.phone
+                : h.phone ? [h.phone] : [];
+
+              for (const householdPhone of householdPhones) {
+                const hPhoneLast10 = String(householdPhone).replace(/\D/g, '').slice(-10);
                 if (hPhoneLast10 === phoneLast10) {
                   existingHousehold = { id: h.id };
                   console.log('[create_staff_sale] Found existing LQS household by phone:', h.id, 'key:', h.household_key);
                   break;
                 }
               }
+
+              if (existingHousehold) break;
             }
           }
         }
@@ -252,6 +274,24 @@ serve(async (req) => {
 
       if (existingHousehold) {
         lqsHouseholdId = existingHousehold.id;
+
+        const householdUpdates: Record<string, unknown> = {
+          team_member_id: staffUser.team_member_id,
+        };
+        if (body.customer_phone) householdUpdates.phone = [body.customer_phone];
+        if (body.customer_email) householdUpdates.email = body.customer_email;
+        if (body.lead_source_id) householdUpdates.lead_source_id = body.lead_source_id;
+        if (body.prior_insurance_company_id !== undefined) householdUpdates.prior_insurance_company_id = body.prior_insurance_company_id || null;
+        if (contactId) householdUpdates.contact_id = contactId;
+
+        const { error: householdUpdateErr } = await supabase
+          .from('lqs_households')
+          .update(householdUpdates)
+          .eq('id', lqsHouseholdId);
+
+        if (householdUpdateErr) {
+          console.warn('[create_staff_sale] Failed to update existing LQS household:', householdUpdateErr);
+        }
       } else {
         // Create new household (starts as 'lead')
         console.log('[create_staff_sale] Creating new LQS household with lead_source_id:', body.lead_source_id);
@@ -263,9 +303,10 @@ serve(async (req) => {
             first_name: cleanFirstName,
             last_name: cleanLastName,
             zip_code: cleanZip,
-            phone: body.customer_phone || null,
+            phone: body.customer_phone ? [body.customer_phone] : null,
             email: body.customer_email || null,
             lead_source_id: body.lead_source_id || null,
+            prior_insurance_company_id: body.prior_insurance_company_id || null,
             status: 'lead',
             lead_received_date: body.sale_date,
             team_member_id: staffUser.team_member_id,
@@ -288,6 +329,29 @@ serve(async (req) => {
         for (const policy of body.policies) {
           const premiumCents = Math.round((policy.items.reduce((sum, i) => sum + i.premium, 0)) * 100);
           const itemsCount = policy.items.reduce((sum, i) => sum + i.item_count, 0);
+
+          let existingQuoteQuery = supabase
+            .from('lqs_quotes')
+            .select('id')
+            .eq('household_id', lqsHouseholdId)
+            .eq('agency_id', staffUser.agency_id)
+            .eq('product_type', policy.policy_type_name)
+            .eq('premium_cents', premiumCents)
+            .eq('items_quoted', itemsCount);
+
+          existingQuoteQuery = policy.policy_number
+            ? existingQuoteQuery.eq('issued_policy_number', policy.policy_number)
+            : existingQuoteQuery.is('issued_policy_number', null);
+
+          const { data: existingQuote, error: existingQuoteErr } = await existingQuoteQuery.limit(1).maybeSingle();
+          if (existingQuoteErr) {
+            console.warn('[create_staff_sale] Failed to check existing LQS quote:', existingQuoteErr);
+          }
+
+          if (existingQuote) {
+            console.log('[create_staff_sale] Reusing existing LQS quote:', existingQuote.id);
+            continue;
+          }
 
           // Create quote (triggers status → 'quoted')
           const { error: quoteErr } = await supabase

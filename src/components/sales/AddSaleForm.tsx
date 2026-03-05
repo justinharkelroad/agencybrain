@@ -36,6 +36,7 @@ import { generateHouseholdKey } from "@/lib/lqs-quote-parser";
 import { classifyBundle, type ExistingProductFlag } from "@/lib/bundle-classifier";
 import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-products";
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
+import type { LqsSalePrefill } from "@/lib/lqs-sale-prefill";
 import {
   Dialog,
   DialogContent,
@@ -126,6 +127,7 @@ type SaleForEdit = {
 interface AddSaleFormProps {
   onSuccess?: () => void;
   editSale?: SaleForEdit | null;
+  prefillSale?: LqsSalePrefill | null;
   onCancelEdit?: () => void;
 }
 
@@ -175,7 +177,7 @@ const isMultiItemProduct = (
   );
 };
 
-export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormProps) {
+export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: AddSaleFormProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -285,6 +287,23 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     }
   }, [editSale]);
 
+  useEffect(() => {
+    if (isEditMode || !prefillSale) return;
+
+    setCustomerName(prefillSale.customerName || "");
+    setCustomerEmail(prefillSale.customerEmail || "");
+    setCustomerPhone(prefillSale.customerPhone || "");
+    setCustomerZip(prefillSale.customerZip || "");
+    setLeadSourceId(prefillSale.leadSourceId || "");
+    setPriorInsuranceCompanyId(prefillSale.priorInsuranceCompanyId || "");
+    setProducerId(prefillSale.teamMemberId || "");
+    setSaleDate(prefillSale.saleDate ? toLocalDate(new Date(`${prefillSale.saleDate}T12:00:00`)) : todayLocal());
+    setHasExistingPolicies(false);
+    setExistingPolicyTypes([]);
+    setBrokeredCountsTowardBundling(false);
+    setIsOneCallClose(false);
+  }, [isEditMode, prefillSale]);
+
   // Fetch user's agency_id
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
@@ -334,6 +353,52 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
     },
     enabled: !!profile?.agency_id,
   });
+
+  useEffect(() => {
+    if (isEditMode || !prefillSale || productTypes.length === 0) return;
+
+    const effectiveDate = prefillSale.saleDate
+      ? toLocalDate(new Date(`${prefillSale.saleDate}T12:00:00`))
+      : todayLocal();
+
+    const hydratedPolicies: Policy[] = prefillSale.quoteDrafts
+      .map((draft) => {
+        const product = productTypes.find(
+          (pt) => pt.name.toLowerCase() === draft.productType.toLowerCase()
+        );
+        if (!product) return null;
+
+        const lineItem: LineItem = {
+          id: crypto.randomUUID(),
+          product_type_id: product.id,
+          product_type_name: product.name,
+          item_count: draft.items || 1,
+          premium: draft.premium || 0,
+          points: (product.default_points || 0) * (draft.items || 1),
+          is_vc_qualifying: product.is_vc_item || false,
+        };
+
+        return {
+          id: crypto.randomUUID(),
+          product_type_id: product.id,
+          policy_type_name: product.name,
+          allow_multiple_items: product.allow_multiple_items,
+          canonical_name: product.canonical_name,
+          policy_number: draft.policyNumber || "",
+          effective_date: effectiveDate,
+          is_vc_qualifying: product.is_vc_item || false,
+          lineItems: [lineItem],
+          isExpanded: true,
+          isBrokered: false,
+          brokeredCarrierId: null,
+        } satisfies Policy;
+      })
+      .filter((policy): policy is Policy => policy !== null);
+
+    if (hydratedPolicies.length > 0) {
+      setPolicies(hydratedPolicies);
+    }
+  }, [isEditMode, prefillSale, productTypes]);
 
   // Fetch active team members
   const { data: teamMembers = [] } = useQuery<TeamMember[]>({
@@ -841,14 +906,16 @@ export function AddSaleForm({ onSuccess, editSale, onCancelEdit }: AddSaleFormPr
           }
 
           if (!hasExistingLqsRows || shouldRelinkExisting) {
-            let householdId: string | null = null;
+            let householdId: string | null = !isEditMode ? prefillSale?.householdId ?? null : null;
 
-            const { data: matches, error: matchError } = await supabase.rpc(
-              "match_sale_to_lqs_household",
-              { p_sale_id: saleId },
-            );
-            if (matchError) throw matchError;
-            householdId = matches?.[0]?.household_id ?? null;
+            if (!householdId) {
+              const { data: matches, error: matchError } = await supabase.rpc(
+                "match_sale_to_lqs_household",
+                { p_sale_id: saleId },
+              );
+              if (matchError) throw matchError;
+              householdId = matches?.[0]?.household_id ?? null;
+            }
 
             if (!householdId) {
               const nameParts = customerName.trim().split(/\s+/);

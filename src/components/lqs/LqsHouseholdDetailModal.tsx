@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -43,6 +44,7 @@ import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { useLeadSources } from '@/hooks/useLeadSources';
 import { usePriorInsuranceCompanies } from '@/hooks/usePriorInsuranceCompanies';
 import { MoveToQuotedDialog } from './MoveToQuotedDialog';
+import type { LqsSalePrefill } from '@/lib/lqs-sale-prefill';
 
 const FALLBACK_PRODUCT_OPTIONS = [
   'Standard Auto',
@@ -79,6 +81,7 @@ export function LqsHouseholdDetailModal({
   staffSessionToken,
   currentTeamMemberId,
 }: LqsHouseholdDetailModalProps) {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -511,6 +514,34 @@ export function LqsHouseholdDetailModal({
     } finally {
       setIsAddingSale(false);
     }
+  };
+
+  const handleConvertToSale = () => {
+    if (!household) return;
+
+    const prefillSale: LqsSalePrefill = {
+      source: 'lqs_household',
+      householdId: household.id,
+      customerName: `${household.first_name} ${household.last_name}`.trim(),
+      customerEmail: household.email || null,
+      customerPhone: Array.isArray(household.phone) ? household.phone[0] || null : household.phone || null,
+      customerZip: household.zip_code || null,
+      leadSourceId: household.lead_source_id || null,
+      priorInsuranceCompanyId: household.prior_insurance_company_id || null,
+      teamMemberId: household.team_member_id || null,
+      saleDate: format(new Date(), 'yyyy-MM-dd'),
+      quoteDrafts: (household.quotes || []).map((quote) => ({
+        productType: quote.product_type,
+        premium: (quote.premium_cents || 0) / 100,
+        items: quote.items_quoted || 1,
+        policyNumber: quote.issued_policy_number || null,
+      })),
+    };
+
+    onOpenChange(false);
+    navigate(staffSessionToken ? '/staff/sales?tab=add' : '/sales?tab=add', {
+      state: { prefillSale },
+    });
   };
 
   const handlePromoteToQuoted = async (products: string[]) => {
@@ -1236,17 +1267,23 @@ export function LqsHouseholdDetailModal({
                 <Tag className="h-4 w-4" />
                 Policies ({household.sales?.length || 0})
               </h4>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setShowAddSaleForm((prev) => !prev)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {showAddSaleForm ? 'Cancel' : 'Add Policy'}
-              </Button>
+              {household.status === 'quoted' ? (
+                <Button size="sm" onClick={handleConvertToSale}>
+                  Convert to Sale
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowAddSaleForm((prev) => !prev)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {showAddSaleForm ? 'Cancel' : 'Add Policy'}
+                </Button>
+              )}
             </div>
 
-            {showAddSaleForm && (
+            {showAddSaleForm && household.status !== 'quoted' && (
               <Card className="p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>

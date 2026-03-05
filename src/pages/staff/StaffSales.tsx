@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams, Navigate } from "react-router-dom";
+import { useLocation, useSearchParams, Navigate } from "react-router-dom";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { hasSalesAccess } from "@/lib/salesBetaAccess";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +20,7 @@ import { PdfUploadForm } from "@/components/sales/PdfUploadForm";
 import { StaffAddSaleForm } from "@/components/sales/StaffAddSaleForm";
 import { StaffEditSaleModal } from "@/components/staff/StaffEditSaleModal";
 import { Button } from "@/components/ui/button";
+import type { LqsSalePrefill } from "@/lib/lqs-sale-prefill";
 
 type Period = "this_month" | "last_month" | "this_year" | "last_90_days" | "custom";
 
@@ -126,9 +127,12 @@ interface StaffSalesResponse {
 export default function StaffSales() {
   const { user, sessionToken } = useStaffAuth();
   const queryClient = useQueryClient();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
+  const locationPrefillSale = (location.state as { prefillSale?: LqsSalePrefill } | null)?.prefillSale ?? null;
+  const [prefillSale, setPrefillSale] = useState<LqsSalePrefill | null>(locationPrefillSale);
   const [period, setPeriod] = useState<Period>("this_month");
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
@@ -151,9 +155,16 @@ export default function StaffSales() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    setPrefillSale(locationPrefillSale);
+  }, [locationPrefillSale]);
+
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setSearchParams({ tab });
+    if (tab !== "add") {
+      setPrefillSale(null);
+    }
   };
 
   const handleSwitchToManualEntry = () => {
@@ -207,6 +218,7 @@ export default function StaffSales() {
   const handleSaleCreated = () => {
     queryClient.invalidateQueries({ queryKey: ["staff-sales"] });
     setActiveTab("overview");
+    setPrefillSale(null);
   };
 
   if (!user) {
@@ -479,6 +491,7 @@ export default function StaffSales() {
             staffSessionToken={sessionToken || undefined}
             staffTeamMemberId={user?.team_member_id}
             leadSources={leadSources}
+            prefillSale={prefillSale}
             onSuccess={handleSaleCreated}
           />
         </TabsContent>
