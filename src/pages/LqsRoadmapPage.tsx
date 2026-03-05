@@ -162,9 +162,7 @@ export default function LqsRoadmapPage({ isStaffPortal = false, staffTeamMemberI
 
   // Permission check - staff portal users don't see revenue metrics
   const showRevenueMetrics = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
-  const canUseSalesDashboardSync =
-    !isStaffPortal &&
-    authUser?.email?.toLowerCase() === 'justin@hfiagencies.com';
+  const canUseSalesDashboardSync = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
   const canRunProducerRematch = !isStaffPortal && (isAgencyOwner || isKeyEmployee);
 
   // Fetch team members for the forms (include email for matching)
