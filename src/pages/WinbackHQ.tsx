@@ -328,14 +328,17 @@ export default function WinbackHQ() {
         pageSize,
       });
 
-      // Map assigned_to to assigned_name + extract unique policy types
+      // Map assigned_to to assigned_name + extract unique policy types + activity count
       const householdsWithNames = householdsData.map((h: any) => {
         const rawPolicies: { product_name: string | null }[] = h.winback_policies || [];
         const policyTypes = [...new Set(rawPolicies.map(p => p.product_name).filter(Boolean) as string[])].sort();
+        const activityCount = h.winback_activities?.[0]?.count ?? 0;
         return {
           ...h,
           winback_policies: undefined,
+          winback_activities: undefined,
           policy_types: policyTypes,
+          activity_count: activityCount,
           assigned_name: members.find((m) => m.id === h.assigned_to)?.name || null,
         };
       });

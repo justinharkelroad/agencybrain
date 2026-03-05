@@ -239,7 +239,7 @@ Deno.serve(async (req) => {
         
         let query = supabase
           .from("winback_households")
-          .select("*, winback_policies(product_name)", { count: "exact" })
+          .select("*, winback_policies(product_name), winback_activities(count)", { count: "exact" })
           .eq("agency_id", agencyId);
 
         // Tab filter

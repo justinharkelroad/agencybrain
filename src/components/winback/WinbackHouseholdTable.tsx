@@ -3,7 +3,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { WinbackStatusBadge, WinbackStatusType } from './WinbackStatusBadge';
 import { Badge } from '@/components/ui/badge';
-import { Phone, Mail, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Phone, Mail, ChevronUp, ChevronDown, ChevronsUpDown, MessageSquare, Sparkles } from 'lucide-react';
 import { format, isBefore, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -29,6 +29,7 @@ export interface Household {
   earliest_winback_date: string | null;
   policy_types?: string[];
   contact_id: string | null;
+  activity_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -224,6 +225,7 @@ export function WinbackHouseholdTable({
             >
               Status
             </SortHeader>
+            <TableHead>Contacts</TableHead>
             <SortHeader
               column="assigned_name"
               currentColumn={sortColumn}
@@ -326,6 +328,25 @@ export function WinbackHouseholdTable({
                 </TableCell>
                 <TableCell>
                   <WinbackStatusBadge status={household.status} />
+                </TableCell>
+                <TableCell>
+                  {household.activity_count > 0 ? (
+                    <span className={cn(
+                      'inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium',
+                      'bg-green-500/15 text-green-600 dark:text-green-400 border border-green-500/20'
+                    )}>
+                      <MessageSquare className="h-3 w-3" />
+                      {household.activity_count} {household.activity_count === 1 ? 'contact' : 'contacts'}
+                    </span>
+                  ) : (
+                    <span className={cn(
+                      'inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium',
+                      'bg-muted text-muted-foreground'
+                    )}>
+                      <Sparkles className="h-3 w-3" />
+                      New
+                    </span>
+                  )}
                 </TableCell>
                 <TableCell>
                   {household.assigned_name || (
