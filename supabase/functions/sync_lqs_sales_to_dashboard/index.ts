@@ -15,8 +15,8 @@ const EXCLUDED_PRODUCTS = ["motor club"];
 function isAutoProduct(name: string): boolean {
   const lower = name.toLowerCase().trim();
   if (lower === "standard auto" || lower === "auto") return true;
-  // Line codes 010-019 = Standard Auto
-  if (/^01\d\s*-/.test(lower)) return true;
+  // Line code 010 = Standard Auto
+  if (/^010\s*-/.test(lower)) return true;
   return false;
 }
 
