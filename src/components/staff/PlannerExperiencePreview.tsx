@@ -37,6 +37,7 @@ interface PlannerExperiencePreviewProps {
   isManager?: boolean;
   teamMembers?: Array<{ id: string; name: string }>;
   managerViewLabel?: string;
+  onDayTargetChanged?: (quotedHhPerDay: number, periodTarget: number) => void;
 }
 
 interface StaffGoal {
@@ -173,6 +174,7 @@ export function PlannerExperiencePreview({
   isManager = false,
   teamMembers = [],
   managerViewLabel = "Leadership View",
+  onDayTargetChanged,
 }: PlannerExperiencePreviewProps) {
   const { sessionToken, user, loading: staffAuthLoading } = useStaffAuth();
   const simulatedDate = useMemo(() => new Date(), []);
@@ -573,6 +575,14 @@ export function PlannerExperiencePreview({
   ]);
 
   const requiredPerDay = derived.quotedHouseholdsPerDay;
+
+  // Notify parent of the computed day target (used by AgencyMetricRings)
+  useEffect(() => {
+    if (onDayTargetChanged && viewingTeam) {
+      onDayTargetChanged(derived.quotedHouseholdsPerDay, derived.quotedHouseholdsNeeded);
+    }
+  }, [onDayTargetChanged, derived.quotedHouseholdsPerDay, derived.quotedHouseholdsNeeded, viewingTeam]);
+
   // The plan target is monthly, so custom/weekly views should pro-rate by business days.
   const periodShare = bizTotal / baseMonthBusinessDays;
   const targetPeriodQuotedHH = ceilSafe(derived.quotedHouseholdsNeeded * periodShare);

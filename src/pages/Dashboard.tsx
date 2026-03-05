@@ -53,6 +53,7 @@ const Dashboard = () => {
   const [agencySlug, setAgencySlug] = useState<string | null>(null);
   const [envOverride, setEnvOverride] = useState<EnvOverride | null>(getEnvironmentOverride());
   const [showQuoteModal, setShowQuoteModal] = useState(false);
+  const [hhDayTarget, setHhDayTarget] = useState<number | null>(null);
   const [leadSources, setLeadSources] = useState<Array<{ id: string; name: string; is_self_generated: boolean; bucket?: { id: string; name: string } | null }>>([]);
   const [teamMembers, setTeamMembers] = useState<Array<{ id: string; name: string }>>([]);
   const [dashboardCallMetricsEnabled, setDashboardCallMetricsEnabled] = useState(false);
@@ -221,6 +222,7 @@ const Dashboard = () => {
                   agencySlug={agencySlug}
                   agencyId={agencyId}
                   canFilterByMember={isAdmin || isAgencyOwner || isKeyEmployee}
+                  quotedHhDayTarget={hhDayTarget}
                 />
               )}
 
@@ -245,6 +247,7 @@ const Dashboard = () => {
                             isManager
                             teamMembers={teamMembers}
                             managerViewLabel="Leadership View"
+                            onDayTargetChanged={(perDay) => setHhDayTarget(perDay)}
                           />
                         </div>
                       )}
@@ -352,6 +355,7 @@ const Dashboard = () => {
                   isManager
                   teamMembers={teamMembers}
                   managerViewLabel="Leadership View"
+                  onDayTargetChanged={(perDay) => setHhDayTarget(perDay)}
                 />
               )}
               <Core4Card />
