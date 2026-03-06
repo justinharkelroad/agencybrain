@@ -42,9 +42,9 @@ export function useWinbackBackgroundUpload() {
     const { agencyId, contactDaysBefore } = context;
     const uniqueHouseholds = new Set(records.map(r => getHouseholdKey(r))).size;
 
-    // Show immediate feedback
+    // Show immediate feedback (no warning here — the persistent progress toast has it)
     toast.info(`Processing ${records.length} termination records...`, {
-      description: `${uniqueHouseholds} unique households. Do not refresh or close this tab.`,
+      description: `${uniqueHouseholds} unique households.`,
     });
 
     // Process in background (don't await - fire and forget)
@@ -119,10 +119,7 @@ async function processStaffUpload(
       );
 
       invalidateWinbackQueries(queryClient, stats.crossMatch);
-      const crossDesc = buildCrossMatchDescription(stats.crossMatch);
-      toast.success('Termination Upload Complete!', {
-        description: `${stats.processed} records (${stats.newHouseholds} new households, ${stats.newPolicies} new policies)${crossDesc}`,
-      });
+      dispatchCompletionEvent(stats);
     } else {
       // Large upload: chunk into batches to avoid edge function timeout (150s limit)
       const batchSize = BATCH_THRESHOLD;
@@ -137,12 +134,14 @@ async function processStaffUpload(
       const allPolicyNumbers: string[] = [];
 
       const progressToastId = toast.loading(`Uploading: batch 0 / ${batches.length}...`, {
+        description: 'Do not refresh or close this tab.',
         duration: Infinity,
       });
 
       for (let i = 0; i < batches.length; i++) {
         toast.loading(`Uploading: batch ${i + 1} / ${batches.length}...`, {
           id: progressToastId as string | number,
+          description: 'Do not refresh or close this tab.',
           duration: Infinity,
         });
 
@@ -167,9 +166,9 @@ async function processStaffUpload(
       const uploadResult = await winbackApi.recordUpload(filename, totalStats, allHouseholdIds, allPolicyIds, allPolicyNumbers);
 
       invalidateWinbackQueries(queryClient, uploadResult.crossMatch);
-      const crossDesc = buildCrossMatchDescription(uploadResult.crossMatch);
-      toast.success('Termination Upload Complete!', {
-        description: `${totalStats.processed} records (${totalStats.newHouseholds} new households, ${totalStats.newPolicies} new policies)${crossDesc}`,
+      dispatchCompletionEvent({
+        ...totalStats,
+        crossMatch: uploadResult.crossMatch,
       });
     }
   } catch (error: any) {
@@ -226,6 +225,7 @@ async function processInBackground(
     let householdsProcessed = 0;
     const uploadStartTime = Date.now();
     const progressToastId = toast.loading(`Uploading: 0 / ${totalHouseholds} households — starting...`, {
+      description: 'Do not refresh or close this tab.',
       duration: Infinity,
     });
 
@@ -424,6 +424,7 @@ async function processInBackground(
       const pct = Math.round((householdsProcessed / totalHouseholds) * 100);
       toast.loading(`Uploading: ${householdsProcessed} / ${totalHouseholds} households (${pct}%) — ${timeStr}`, {
         id: progressToastId as string | number,
+        description: 'Do not refresh or close this tab.',
         duration: Infinity,
       });
     }
@@ -491,17 +492,8 @@ async function processInBackground(
     // Invalidate queries
     invalidateWinbackQueries(queryClient, crossMatch);
 
-    // Show success toast
-    const crossDesc = buildCrossMatchDescription(crossMatch);
-    if (stats.skipped === 0) {
-      toast.success('Termination Upload Complete!', {
-        description: `${stats.processed} records (${stats.newHouseholds} new households, ${stats.newPolicies} new policies)${crossDesc}`,
-      });
-    } else {
-      toast.warning('Upload completed with issues', {
-        description: `${stats.processed} processed, ${stats.skipped} skipped${crossDesc}`,
-      });
-    }
+    // Dispatch completion event (page shows modal)
+    dispatchCompletionEvent({ ...stats, crossMatch });
   } catch (error: any) {
     console.error('Background processing error:', error);
     toast.error('Termination Upload Failed', {
@@ -549,4 +541,27 @@ function invalidateWinbackQueries(queryClient: ReturnType<typeof useQueryClient>
 
   // Dispatch custom event to trigger TerminationAnalytics refresh
   window.dispatchEvent(new CustomEvent('winback-upload-complete'));
+}
+
+export interface WinbackUploadCompletionData {
+  processed: number;
+  newHouseholds: number;
+  totalHouseholds: number;
+  newPolicies: number;
+  updated: number;
+  skipped: number;
+  crossMatch?: CrossMatchResult;
+}
+
+function dispatchCompletionEvent(stats: UploadStats) {
+  const detail: WinbackUploadCompletionData = {
+    processed: stats.processed,
+    newHouseholds: stats.newHouseholds,
+    totalHouseholds: stats.totalHouseholds,
+    newPolicies: stats.newPolicies,
+    updated: stats.updated,
+    skipped: stats.skipped,
+    crossMatch: stats.crossMatch,
+  };
+  window.dispatchEvent(new CustomEvent('winback-upload-complete-detail', { detail }));
 }

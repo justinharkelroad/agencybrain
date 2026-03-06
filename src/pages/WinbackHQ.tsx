@@ -36,8 +36,10 @@ import {
   TerminationAnalytics,
   WinbackUploadHistory,
   WinbackAISearch,
+  WinbackUploadCompleteModal,
 } from '@/components/winback';
 import { ContactProfileModal } from '@/components/contacts';
+import type { WinbackUploadCompletionData } from '@/hooks/useWinbackBackgroundUpload';
 import type { WinbackStatus, QuickDateFilter } from '@/components/winback/WinbackFilters';
 import type { Household, SortColumn, SortDirection } from '@/components/winback/WinbackHouseholdTable';
 import * as winbackApi from '@/lib/winbackApi';
@@ -182,6 +184,28 @@ export default function WinbackHQ() {
   // Bulk selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // Upload completion modal
+  const [completionData, setCompletionData] = useState<WinbackUploadCompletionData | null>(null);
+  const [completionModalOpen, setCompletionModalOpen] = useState(false);
+
+  // Listen for upload completion — refresh data and show modal
+  useEffect(() => {
+    const handleCompletion = (e: Event) => {
+      const detail = (e as CustomEvent<WinbackUploadCompletionData>).detail;
+      if (detail) {
+        setCompletionData(detail);
+        setCompletionModalOpen(true);
+      }
+      // Refresh stats and households
+      if (agencyId && teamMembers.length > 0) {
+        loadStats(agencyId);
+        loadHouseholds(agencyId, teamMembers);
+      }
+    };
+    window.addEventListener('winback-upload-complete-detail', handleCompletion);
+    return () => window.removeEventListener('winback-upload-complete-detail', handleCompletion);
+  }, [agencyId, teamMembers]);
 
   // AI Search
   const [aiExtendedFilters, setAiExtendedFilters] = useState<AIWinbackExtendedFilters>({});
@@ -866,6 +890,13 @@ export default function WinbackHQ() {
         currentUserTeamMemberId={currentUserTeamMemberId}
         agencyId={agencyId}
         onUpdate={handleModalUpdate}
+      />
+
+      {/* Upload Completion Modal */}
+      <WinbackUploadCompleteModal
+        open={completionModalOpen}
+        onClose={() => setCompletionModalOpen(false)}
+        data={completionData}
       />
 
       {/* Contact Profile Modal */}
