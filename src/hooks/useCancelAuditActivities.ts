@@ -88,7 +88,7 @@ export function useLogActivity() {
 
       // Determine what status to set based on activity type
       if (params.activityType === 'payment_made') {
-        // Payment made = account saved, transition to Customer
+        // Payment made = this specific policy saved (not entire household)
         await supabase
           .from('cancel_audit_records')
           .update({
@@ -96,8 +96,18 @@ export function useLogActivity() {
             cancel_status: 'Saved',
             updated_at: new Date().toISOString()
           })
+          .eq('id', params.recordId)
+          .eq('agency_id', params.agencyId);
+
+        // Check if other policies in this household still need attention
+        const { data: remainingRecords } = await supabase
+          .from('cancel_audit_records')
+          .select('id, product_name')
           .eq('agency_id', params.agencyId)
-          .eq('household_key', params.householdKey);
+          .eq('household_key', params.householdKey)
+          .in('status', ['new', 'in_progress']);
+
+        return { ...data, remainingPolicies: remainingRecords || [] };
       } else if (params.activityType === 'payment_promised') {
         await supabase
           .from('cancel_audit_records')

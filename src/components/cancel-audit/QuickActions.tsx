@@ -95,7 +95,7 @@ export function QuickActions({
 
     try {
       console.log('[QuickActions] Calling logActivity.mutateAsync...');
-      await logActivity.mutateAsync({
+      const result = await logActivity.mutateAsync({
         agencyId,
         recordId: record.id,
         householdKey: record.household_key,
@@ -109,9 +109,18 @@ export function QuickActions({
 
       // Show appropriate toast
       if (activityType === 'payment_made') {
-        toast.success('🎉 Payment recorded!', {
-          description: 'Great job saving this policy!',
-        });
+        const remaining = result?.remainingPolicies || [];
+        if (remaining.length > 0) {
+          const policyNames = remaining.map((r: any) => r.product_name || 'Unknown').join(', ');
+          toast.success('Payment recorded!', {
+            description: `${record.product_name || 'Policy'} marked as saved. Still in cancel status: ${policyNames}`,
+            duration: 5000,
+          });
+        } else {
+          toast.success('Payment recorded!', {
+            description: 'Great job saving this policy!',
+          });
+        }
       } else if (activityType === 'payment_promised') {
         toast.success('Payment promised logged', {
           description: 'Follow up if not received',

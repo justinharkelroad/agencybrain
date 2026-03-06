@@ -547,36 +547,13 @@ async function logActivity(supabase: any, agencyId: string, teamMemberId: string
 
   if (error) throw error;
 
-  // Update status based on activity type
-  if (activityType === "payment_made") {
-    await supabase
-      .from("cancel_audit_records")
-      .update({ status: "resolved", cancel_status: "Saved", updated_at: new Date().toISOString() })
-      .eq("agency_id", agencyId)
-      .eq("household_key", householdKey);
-  } else if (activityType === "payment_promised") {
-    await supabase
-      .from("cancel_audit_records")
-      .update({ status: "in_progress", updated_at: new Date().toISOString() })
-      .eq("agency_id", agencyId)
-      .eq("household_key", householdKey)
-      .in("status", ["new"]);
-  } else if (CONTACT_ACTIVITY_TYPES.includes(activityType)) {
-    await supabase
-      .from("cancel_audit_records")
-      .update({ status: "in_progress", updated_at: new Date().toISOString() })
-      .eq("agency_id", agencyId)
-      .eq("household_key", householdKey)
-      .eq("status", "new");
-  }
-
-  // Mirror to contact_activities for "Last Activity" display
-  // First get the contact_id from the cancel audit record
+  // Mirror to contact_activities for "Last Activity" display (before early returns)
+  // Use recordId (not household_key) to avoid multi-row error on multi-policy households
   const { data: recordData } = await supabase
     .from("cancel_audit_records")
     .select("contact_id")
+    .eq("id", recordId)
     .eq("agency_id", agencyId)
-    .eq("household_key", householdKey)
     .maybeSingle();
 
   if (recordData?.contact_id) {
@@ -595,6 +572,40 @@ async function logActivity(supabase: any, agencyId: string, teamMemberId: string
       console.error("[logActivity] contact_activities mirror error:", mirrorError);
       // Don't fail - this is for display only
     }
+  }
+
+  // Update status based on activity type
+  if (activityType === "payment_made") {
+    // Only resolve the specific policy record, not the entire household
+    await supabase
+      .from("cancel_audit_records")
+      .update({ status: "resolved", cancel_status: "Saved", updated_at: new Date().toISOString() })
+      .eq("id", recordId)
+      .eq("agency_id", agencyId);
+
+    // Check if other policies in this household still need attention (for toast)
+    const { data: remainingRecords } = await supabase
+      .from("cancel_audit_records")
+      .select("id, product_name")
+      .eq("agency_id", agencyId)
+      .eq("household_key", householdKey)
+      .in("status", ["new", "in_progress"]);
+
+    return { ...data, remainingPolicies: remainingRecords || [] };
+  } else if (activityType === "payment_promised") {
+    await supabase
+      .from("cancel_audit_records")
+      .update({ status: "in_progress", updated_at: new Date().toISOString() })
+      .eq("agency_id", agencyId)
+      .eq("household_key", householdKey)
+      .in("status", ["new"]);
+  } else if (CONTACT_ACTIVITY_TYPES.includes(activityType)) {
+    await supabase
+      .from("cancel_audit_records")
+      .update({ status: "in_progress", updated_at: new Date().toISOString() })
+      .eq("agency_id", agencyId)
+      .eq("household_key", householdKey)
+      .eq("status", "new");
   }
 
   return data;
@@ -1077,34 +1088,34 @@ async function undoPayment(supabase: any, agencyId: string, params: any) {
 
   console.log(`[undoPayment] Deleted activity ${activityId}`);
 
-  // Check if there are any other payment_made activities for this household
-  const { data: otherPayments, error: checkError } = await supabase
+  // Check if there are any other payment_made activities for this specific record
+  const { data: otherPaymentsForRecord, error: checkError } = await supabase
     .from("cancel_audit_activities")
     .select("id")
     .eq("agency_id", agencyId)
-    .eq("household_key", householdKey)
+    .eq("record_id", recordId)
     .eq("activity_type", "payment_made");
 
   if (checkError) {
     console.error("[undoPayment] Failed to check other payments:", checkError);
   }
 
-  // If no other payment_made activities exist for this household, revert status to in_progress
-  if (!otherPayments || otherPayments.length === 0) {
+  // If no other payment_made activities exist for this record, revert its status to in_progress
+  if (!otherPaymentsForRecord || otherPaymentsForRecord.length === 0) {
     const { error: updateError } = await supabase
       .from("cancel_audit_records")
       .update({ status: "in_progress", updated_at: new Date().toISOString() })
+      .eq("id", recordId)
       .eq("agency_id", agencyId)
-      .eq("household_key", householdKey)
       .eq("status", "resolved"); // Only update if currently resolved
 
     if (updateError) {
       console.error("[undoPayment] Failed to update record status:", updateError);
     } else {
-      console.log(`[undoPayment] Reverted record status to in_progress for household ${householdKey}`);
+      console.log(`[undoPayment] Reverted record status to in_progress for record ${recordId}`);
     }
   } else {
-    console.log(`[undoPayment] Other payments exist for household ${householdKey}, keeping status as resolved`);
+    console.log(`[undoPayment] Other payments exist for record ${recordId}, keeping status as resolved`);
   }
 
   return { success: true, message: "Payment undone successfully" };

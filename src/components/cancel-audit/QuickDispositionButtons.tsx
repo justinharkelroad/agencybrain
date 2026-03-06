@@ -49,7 +49,7 @@ export function QuickDispositionButtons({
     e.stopPropagation();
     setIsWonLoading(true);
     try {
-      await logActivity.mutateAsync({
+      const result = await logActivity.mutateAsync({
         agencyId,
         recordId: record.id,
         householdKey: record.household_key,
@@ -58,9 +58,19 @@ export function QuickDispositionButtons({
         staffMemberId,
         userDisplayName,
       });
-      toast.success('Payment recorded!', {
-        description: 'Policy marked as saved.',
-      });
+
+      const remaining = result?.remainingPolicies || [];
+      if (remaining.length > 0) {
+        const policyNames = remaining.map((r: any) => r.product_name || 'Unknown').join(', ');
+        toast.success('Payment recorded!', {
+          description: `${record.product_name || 'Policy'} marked as saved. Still in cancel status: ${policyNames}`,
+          duration: 5000,
+        });
+      } else {
+        toast.success('Payment recorded!', {
+          description: 'Policy marked as saved.',
+        });
+      }
     } catch (error: any) {
       toast.error('Failed to mark as won', {
         description: error.message || 'Please try again',
