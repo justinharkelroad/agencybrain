@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Loader2, TrendingUp, DollarSign, Target, Award, BarChart3, CheckCircle2, Building } from "lucide-react";
+import { Loader2, TrendingUp, DollarSign, Target, Award, BarChart3, CheckCircle2, Building, CircleAlert, ShieldCheck } from "lucide-react";
 import { 
   getBusinessDaysInMonth, 
   getBusinessDaysElapsed 
@@ -102,6 +102,18 @@ function formatMetricDisplay(value: number, tierMetric: string): string {
   return value.toLocaleString();
 }
 
+function getPayoutStatusLabel(status: string): string {
+  switch (status) {
+    case "paid":
+      return "Paid";
+    case "finalized":
+      return "Finalized";
+    case "draft":
+    default:
+      return "Draft";
+  }
+}
+
 function getProductionLabel(tierMetric: string): string {
   switch (tierMetric) {
     case 'items': return 'Items Written';
@@ -196,6 +208,8 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
 
   const { plan, tiers, brokered_tiers, current_payout, current_month_written_premium, current_month_written_items, current_month_written_policies, current_month_written_households } = data;
   const periodLabel = `${MONTHS[currentMonth - 1]} ${currentYear}`;
+  const hasOfficialPayout = current_payout?.status === "finalized" || current_payout?.status === "paid";
+  const hasDraftPayout = current_payout?.status === "draft";
 
   // Get the correct metric value based on plan settings
   const metricValue = getMetricValue(data);
@@ -379,13 +393,26 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <DollarSign className="h-5 w-5" />
-            My Commission - {periodLabel}
+            Compensation Progress - {periodLabel}
           </CardTitle>
           <CardDescription>
-            Based on your current production and assigned plan
+            Live progress based on your assigned plan and current production
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-100">
+            <div className="flex items-start gap-2">
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                <p className="font-medium">Provisional view only</p>
+                <p className="mt-1 text-xs sm:text-sm">
+                  Tier progress is live. Commission estimates can change at month end based on issued timing, chargebacks,
+                  self-generated business, bundle or product rules, brokered business, and other plan-specific adjustments.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Plan Info */}
           <div className="flex items-center justify-between">
             <div>
@@ -404,10 +431,11 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
               <p className="text-2xl font-bold">{formatMetricDisplay(metricValue, plan.tier_metric)}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Estimated Payout</p>
+              <p className="text-sm text-muted-foreground">Provisional Estimate</p>
               <p className="text-2xl font-bold text-green-600">
                 ${estimatedPayout.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
               </p>
+              <p className="text-xs text-muted-foreground">Not your official payout</p>
             </div>
           </div>
 
@@ -499,7 +527,7 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
                       <span className="text-2xl">💰</span>
                       <div>
                         <p className="text-sm font-medium text-green-800 dark:text-green-200">
-                          Projected Payout
+                          Projected Provisional Estimate
                         </p>
                         <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                           ${projectedPayout.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -512,6 +540,9 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
                       {getProjectionMessage()}
                     </p>
                   )}
+                  <p className="mt-2 text-xs text-green-700/80 dark:text-green-300/80">
+                    Projection excludes unknown month-end adjustments and is not payroll-final.
+                  </p>
                 </div>
               </div>
             </>
@@ -586,17 +617,27 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
         </CardContent>
       </Card>
 
-      {/* Payout Status (if exists) */}
+      {/* Official / saved payout status */}
       {current_payout && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Payout Status</CardTitle>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              {hasOfficialPayout ? <ShieldCheck className="h-5 w-5 text-emerald-600" /> : <DollarSign className="h-5 w-5" />}
+              {hasOfficialPayout ? "Official Payout" : "Saved Payout Status"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Calculated Payout</p>
+                <p className="text-sm text-muted-foreground">
+                  {hasOfficialPayout ? "Finalized amount" : "Saved draft amount"}
+                </p>
                 <p className="text-xl font-bold">${current_payout.total_payout.toLocaleString()}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {hasOfficialPayout
+                    ? "This is the official saved payout for this month."
+                    : "Draft payouts can change before finance finalizes the month."}
+                </p>
               </div>
               <Badge
                 variant={
@@ -608,13 +649,14 @@ export function StaffCommissionWidget({ sessionToken }: StaffCommissionWidgetPro
                 }
                 className={current_payout.status === "paid" ? "bg-green-600" : ""}
               >
-                {current_payout.status === "paid"
-                  ? "Paid"
-                  : current_payout.status === "finalized"
-                  ? "Finalized"
-                  : "Draft"}
+                {getPayoutStatusLabel(current_payout.status)}
               </Badge>
             </div>
+            {hasDraftPayout && (
+              <div className="mt-4 rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                Draft payouts are internal work in progress and should not be treated as final compensation.
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

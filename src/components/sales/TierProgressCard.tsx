@@ -112,7 +112,7 @@ export function TierProgressCard({
           <span className="font-semibold text-sm">Tier Progress</span>
           <SectionHelpTip
             title="Tier Progress"
-            body="Shows your current compensation tier, progress to the next tier threshold, and the incremental upside if you reach it."
+            body="Shows live tier progress based on current production. Final compensation can still change at month end based on issued timing, chargebacks, and plan-specific adjustments."
           />
         </div>
         {current_tier && (

@@ -42,6 +42,15 @@ interface StaffSalesDashboardWidgetProps {
 
 type MeasurementType = "premium" | "items" | "points" | "policies";
 
+interface PersonalSaleSummary {
+  sale_date: string;
+  total_premium: number | null;
+}
+
+interface LeaderboardEntry {
+  items: number;
+}
+
 const MEASUREMENT_LABELS: Record<MeasurementType, string> = {
   premium: "Premium",
   items: "Items",
@@ -129,20 +138,17 @@ export function StaffSalesDashboardWidget({
   const todayWeekStats = useMemo(() => {
     if (!salesData?.personal_sales) return { todayPremium: 0, weekPremium: 0 };
 
-    const todaySales = salesData.personal_sales.filter(
-      (s: any) => s.sale_date === todayStr
-    );
-    const weekSales = salesData.personal_sales.filter(
-      (s: any) => s.sale_date >= weekStart
-    );
+    const personalSales = salesData.personal_sales as PersonalSaleSummary[];
+    const todaySales = personalSales.filter((s) => s.sale_date === todayStr);
+    const weekSales = personalSales.filter((s) => s.sale_date >= weekStart);
 
     return {
       todayPremium: todaySales.reduce(
-        (sum: number, s: any) => sum + (s.total_premium || 0),
+        (sum: number, s: PersonalSaleSummary) => sum + (s.total_premium || 0),
         0
       ),
       weekPremium: weekSales.reduce(
-        (sum: number, s: any) => sum + (s.total_premium || 0),
+        (sum: number, s: PersonalSaleSummary) => sum + (s.total_premium || 0),
         0
       ),
     };
@@ -151,7 +157,7 @@ export function StaffSalesDashboardWidget({
   // Sort leaderboard by items
   const sortedLeaderboard = useMemo(() => {
     if (!salesData?.leaderboard) return [];
-    return [...salesData.leaderboard].sort((a: any, b: any) => b.items - a.items);
+    return [...(salesData.leaderboard as LeaderboardEntry[])].sort((a, b) => b.items - a.items);
   }, [salesData?.leaderboard]);
 
   const isLoading = salesLoading || commissionLoading;
@@ -288,10 +294,15 @@ export function StaffSalesDashboardWidget({
 
       {/* Tier Progress (Personal view only) */}
       {isPersonalView && tierProgress && (
-        <TierProgressCard
-          tierProgress={tierProgress}
-          payoutType={commissionData?.plan?.payout_type}
-        />
+        <div className="space-y-2">
+          <TierProgressCard
+            tierProgress={tierProgress}
+            payoutType={commissionData?.plan?.payout_type}
+          />
+          <p className="px-1 text-xs text-muted-foreground">
+            Tier progress is live. Official compensation may change after issued business, chargebacks, and other plan-specific month-end adjustments.
+          </p>
+        </div>
       )}
 
       {/* Hero Stat - Points with trend */}
