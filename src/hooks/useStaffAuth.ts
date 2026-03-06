@@ -30,6 +30,8 @@ interface StaffAuthState {
 const WARNING_THRESHOLD_MS = 15 * 60 * 1000;
 // Check interval: 1 minute
 const CHECK_INTERVAL_MS = 60 * 1000;
+// Auto-refresh when less than 20 hours remain (i.e., session is 4+ hours old)
+const AUTO_REFRESH_THRESHOLD_MS = 20 * 60 * 60 * 1000;
 
 export function useStaffAuth() {
   const [state, setState] = useState<StaffAuthState>({
@@ -260,6 +262,27 @@ export function useStaffAuth() {
           error: null,
           isImpersonation: isImpersonation || data.user?.is_impersonation || false,
         });
+
+        // Auto-extend session on page load if it's getting stale
+        // This handles Chrome tab restore after computer restart — localStorage
+        // persists but the session's expires_at keeps ticking down
+        if (expiresAt) {
+          const timeRemaining = expiresAt.getTime() - Date.now();
+          if (timeRemaining > 0 && timeRemaining < AUTO_REFRESH_THRESHOLD_MS) {
+            try {
+              const refreshResult = await supabase.functions.invoke('staff_refresh_session', {
+                body: { session_token: token }
+              });
+              if (refreshResult.data?.success && refreshResult.data?.expires_at) {
+                const newExpiry = new Date(refreshResult.data.expires_at);
+                localStorage.setItem('staff_session_expiry', refreshResult.data.expires_at);
+                setState(prev => ({ ...prev, expiresAt: newExpiry }));
+              }
+            } catch {
+              // Silent — the periodic check will retry later
+            }
+          }
+        }
       } catch (err) {
         console.error('Session verification error:', err);
         localStorage.removeItem('staff_session_token');
@@ -273,11 +296,11 @@ export function useStaffAuth() {
     checkSession();
   }, []);
 
-  // Monitor session expiry
+  // Monitor session expiry and auto-refresh during active use
   useEffect(() => {
     if (!state.sessionToken || !state.expiresAt) return;
 
-    const checkExpiry = () => {
+    const checkExpiry = async () => {
       const now = new Date();
       const expiresAt = state.expiresAt;
       if (!expiresAt) return;
@@ -291,7 +314,17 @@ export function useStaffAuth() {
         return;
       }
 
-      // Warning threshold reached - show toast with action button
+      // Auto-refresh: silently extend if session is getting stale but not yet critical
+      // The server-side 30-min cooldown prevents excessive calls
+      if (timeRemaining < AUTO_REFRESH_THRESHOLD_MS && timeRemaining > WARNING_THRESHOLD_MS) {
+        const result = await refreshSession();
+        if (result.success) {
+          console.log('[StaffAuth] Session auto-refreshed');
+          return; // expiresAt state update will re-trigger this effect
+        }
+      }
+
+      // Warning threshold reached - show toast with action button (last resort)
       if (timeRemaining <= WARNING_THRESHOLD_MS && !warningShownRef.current) {
         warningShownRef.current = true;
         const minutes = Math.ceil(timeRemaining / 60000);
