@@ -15,6 +15,7 @@ interface DailyMetric {
   sold_premium_cents: number;
   cross_sells_uncovered: number;
   mini_reviews: number;
+  custom_kpis: Record<string, number> | null;
   pass: boolean;
   hits: number;
   daily_score: number;

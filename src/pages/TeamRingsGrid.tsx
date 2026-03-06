@@ -27,6 +27,7 @@ type TeamMetricRow = {
   sold_premium_cents: number;
   cross_sells_uncovered: number;
   mini_reviews: number;
+  custom_kpis: Record<string, number> | null;
 };
 
 type Target = {
@@ -201,7 +202,11 @@ export default function TeamRingsGrid() {
             case "sold_premium": return Math.round((row.sold_premium_cents || 0) / 100);
             case "cross_sells_uncovered": return row.cross_sells_uncovered;
             case "mini_reviews": return row.mini_reviews;
-            default: return 0;
+            default: {
+              // Check custom_kpis JSONB for non-standard metrics
+              const customVal = row.custom_kpis?.[key];
+              return customVal != null ? Number(customVal) || 0 : 0;
+            }
           }
         })();
 

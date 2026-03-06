@@ -20,6 +20,7 @@ interface DashboardDailyRow {
   sold_premium_cents: number | null;
   cross_sells_uncovered: number | null;
   mini_reviews: number | null;
+  custom_kpis: Record<string, number> | null;
   pass: boolean | null;
   hits: number | null;
   daily_score: number | null;
@@ -349,6 +350,7 @@ serve(async (req) => {
         sold_premium_cents: row.sold_premium_cents || 0,
         cross_sells_uncovered: row.cross_sells_uncovered || 0,
         mini_reviews: row.mini_reviews || 0,
+        custom_kpis: row.custom_kpis || null,
         pass: row.pass || false,
         hits: row.hits || 0,
         daily_score: row.daily_score || 0,
