@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Upload, FileSpreadsheet, AlertCircle, X, Phone } from 'lucide-react';
+import { HowItWorksModal } from '@/components/HowItWorksModal';
 import { parseLqsSalesExcel } from '@/lib/lqs-sales-parser';
 import { useSalesBackgroundUpload } from '@/hooks/useSalesBackgroundUpload';
 import type { SalesUploadResult } from '@/types/lqs';
@@ -176,7 +177,26 @@ export function SalesUploadModal({
     <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Upload Sales Report</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Upload Sales Report</DialogTitle>
+            <HowItWorksModal title="How the Sales Upload Works">
+              <p className="font-medium text-foreground">What happens when you upload a sales report:</p>
+              <ul className="list-disc list-inside space-y-2 ml-1">
+                <li><span className="font-medium text-foreground">3-tier matching</span> — AgencyBrain links each sale to an existing household using three priority levels: (1) policy number match against a quoted policy, (2) exact name + ZIP match, and (3) name-based scoring that factors in product type, premium similarity, sub-producer, and quote date. If there's a clear winner, it auto-matches. If it's ambiguous, the sale is queued for your manual review.</li>
+                <li><span className="font-medium text-foreground">Promotes to "Sold"</span> — once a sale is linked to a household, the status is promoted from "Lead" or "Quoted" to "Sold," and the sale date is recorded. If the household had a quote uploaded earlier, the sale is linked to the matching quote by product type.</li>
+                <li><span className="font-medium text-foreground">New customers</span> — if no matching household exists at all, a new one is created and flagged as "Needs Attention" so you can assign a lead source later. This covers one-call closes where the customer was never uploaded as a lead or quote.</li>
+                <li><span className="font-medium text-foreground">Duplicate protection</span> — sales are checked against existing records by policy number + product, then by same day + product + similar premium. Duplicates are skipped automatically. Possible duplicates (nearby dates) are flagged but still imported.</li>
+                <li><span className="font-medium text-foreground">Endorsements filtered</span> — rows with a "Disposition Code" that isn't "New Policy Issued" are automatically excluded. Only new business counts.</li>
+                <li><span className="font-medium text-foreground">Team member matching</span> — the "Sub Producer" column is matched to your team members by code first, then by fuzzy name match. Unmatched producers are reported in the upload summary.</li>
+                <li><span className="font-medium text-foreground">One-Call Close</span> — check the box below to mark every sale in this upload as closed on the first call, which feeds into your one-call close rate analytics.</li>
+              </ul>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50 p-3 mt-2">
+                <p className="text-xs text-blue-800 dark:text-blue-200">
+                  <span className="font-medium">Full pipeline connection:</span> This upload completes the Lead → Quoted → Sold pipeline. Each sale links back to the original lead source and quote, so your ROI analytics can track the full journey — from how much you spent on a lead source, to how many leads converted to quotes, to how many quotes closed as sales and at what premium.
+                </p>
+              </div>
+            </HowItWorksModal>
+          </div>
           <DialogDescription>
             Upload a sales report Excel file to import sold policies into the LQS tracker.
           </DialogDescription>
