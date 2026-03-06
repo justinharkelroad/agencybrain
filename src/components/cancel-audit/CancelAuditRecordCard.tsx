@@ -12,6 +12,7 @@ import { StatusDropdown } from './StatusDropdown';
 import { QuickActions } from './QuickActions';
 import { ActivityTimeline } from './ActivityTimeline';
 import { HouseholdPolicies } from './HouseholdPolicies';
+import { QuickDispositionButtons } from './QuickDispositionButtons';
 import { useHouseholdActivities, useUpdateCancelAuditAssignment } from '@/hooks/useCancelAuditActivities';
 import {
   formatCentsToCurrency,
@@ -189,8 +190,8 @@ export function CancelAuditRecordCard({
           )}
 
           {/* Status badge - always visible */}
-          <Badge 
-            variant="outline" 
+          <Badge
+            variant="outline"
             className={cn(
               "text-xs font-medium flex-shrink-0",
               STATUS_STYLES[record.status as RecordStatus] || STATUS_STYLES.new
@@ -198,6 +199,19 @@ export function CancelAuditRecordCard({
           >
             {STATUS_LABELS[record.status as RecordStatus] || 'New'}
           </Badge>
+
+          {/* Quick disposition buttons - show for actionable records */}
+          {(record.status === 'new' || record.status === 'in_progress') && !isExpanded && (
+            <div className="hidden sm:block flex-shrink-0">
+              <QuickDispositionButtons
+                record={record}
+                agencyId={agencyId}
+                userId={userId}
+                staffMemberId={staffMemberId}
+                userDisplayName={userDisplayName}
+              />
+            </div>
+          )}
 
           {/* Expand chevron */}
           <div className="flex-shrink-0 ml-auto">
