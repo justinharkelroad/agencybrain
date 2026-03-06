@@ -118,6 +118,13 @@ export interface CompPayout {
   calculation_snapshot_json: unknown | null;
 }
 
+interface SavedPayoutRow {
+  id: string;
+  team_member_id: string;
+  period_month: number;
+  period_year: number;
+}
+
 // Fetch brokered business metrics from sales data for a given period
 async function fetchBrokeredMetrics(
   agencyId: string,
@@ -407,7 +414,8 @@ export function usePayoutCalculator(agencyId: string | null) {
     },
   });
 
-  // Fetch all active assignments
+  // The currently active assignment set is authoritative at run time.
+  // Monthly comp uses whatever plan assignment is active when the admin calculates/finalizes.
   const { data: assignments = [] } = useQuery<Assignment[]>({
     queryKey: ["comp-plan-assignments", agencyId],
     enabled: !!agencyId,
@@ -434,6 +442,92 @@ export function usePayoutCalculator(agencyId: string | null) {
     
     if (error) throw error;
     return data || [];
+  };
+
+  const persistPayoutSet = async (payouts: PayoutCalculation[]): Promise<SavedPayoutRow[]> => {
+    if (!agencyId) throw new Error("No agency ID");
+    if (payouts.length === 0) return [];
+
+    const periodMonth = payouts[0].periodMonth;
+    const periodYear = payouts[0].periodYear;
+    const mixedPeriod = payouts.some(
+      (p) => p.periodMonth !== periodMonth || p.periodYear !== periodYear
+    );
+    if (mixedPeriod) {
+      throw new Error("All payouts in a save batch must belong to the same month and year");
+    }
+
+    const payoutRows = payouts.map((p) => ({
+      team_member_id: p.teamMemberId,
+      agency_id: agencyId,
+      comp_plan_id: p.compPlanId,
+      period_month: p.periodMonth,
+      period_year: p.periodYear,
+      written_premium: p.writtenPremium,
+      written_items: p.writtenItems,
+      written_policies: p.writtenPolicies,
+      written_households: p.writtenHouseholds,
+      written_points: p.writtenPoints,
+      issued_premium: p.issuedPremium,
+      issued_items: p.issuedItems,
+      issued_policies: p.issuedPolicies,
+      issued_points: p.issuedPoints,
+      chargeback_premium: p.chargebackPremium,
+      chargeback_count: p.chargebackCount,
+      net_premium: p.netPremium,
+      net_items: p.netItems,
+      tier_threshold_met: p.tierThresholdMet,
+      tier_commission_value: p.tierCommissionValue,
+      base_commission: p.baseCommission,
+      bonus_amount: p.bonusAmount,
+      total_payout: p.totalPayout,
+      rollover_premium: p.rolloverPremium,
+      status: p.status,
+      self_gen_percent: p.selfGenPercent ?? null,
+      self_gen_met_requirement: p.selfGenMetRequirement ?? null,
+      self_gen_penalty_amount: p.selfGenPenaltyAmount ?? 0,
+      self_gen_bonus_amount: p.selfGenBonusAmount ?? 0,
+      bundling_percent: p.bundlingPercent ?? null,
+      bundling_multiplier: p.bundlingMultiplier ?? 1,
+      brokered_commission: p.brokeredCommission ?? 0,
+      chargeback_details_json: p.chargebackDetails ?? null,
+      calculation_snapshot_json: p.calculationSnapshot ?? null,
+    }));
+
+    const { data: savedRows, error: upsertError } = await supabase
+      .from("comp_payouts")
+      .upsert(payoutRows, {
+        onConflict: "team_member_id,period_month,period_year",
+      })
+      .select("id, team_member_id, period_month, period_year");
+
+    if (upsertError) throw upsertError;
+
+    const savedIds = new Set((savedRows || []).map((row) => row.id));
+    const { data: draftRows, error: draftRowsError } = await supabase
+      .from("comp_payouts")
+      .select("id")
+      .eq("agency_id", agencyId)
+      .eq("period_month", periodMonth)
+      .eq("period_year", periodYear)
+      .eq("status", "draft");
+
+    if (draftRowsError) throw draftRowsError;
+
+    const staleDraftIds = (draftRows || [])
+      .map((row) => row.id)
+      .filter((id) => !savedIds.has(id));
+
+    if (staleDraftIds.length > 0) {
+      const { error: deleteError } = await supabase
+        .from("comp_payouts")
+        .delete()
+        .in("id", staleDraftIds);
+
+      if (deleteError) throw deleteError;
+    }
+
+    return (savedRows || []) as SavedPayoutRow[];
   };
 
   // Calculate payouts from sub-producer data (async for promo bonus calculation)
@@ -505,59 +599,12 @@ export function usePayoutCalculator(agencyId: string | null) {
   // Save payouts to database
   const savePayoutsMutation = useMutation({
     mutationFn: async (payouts: PayoutCalculation[]) => {
-      if (!agencyId) throw new Error("No agency ID");
-      
-      const payoutRows = payouts.map(p => ({
-        team_member_id: p.teamMemberId,
-        agency_id: agencyId,
-        comp_plan_id: p.compPlanId,
-        period_month: p.periodMonth,
-        period_year: p.periodYear,
-        written_premium: p.writtenPremium,
-        written_items: p.writtenItems,
-        written_policies: p.writtenPolicies,
-        written_households: p.writtenHouseholds,
-        written_points: p.writtenPoints,
-        issued_premium: p.issuedPremium,
-        issued_items: p.issuedItems,
-        issued_policies: p.issuedPolicies,
-        issued_points: p.issuedPoints,
-        chargeback_premium: p.chargebackPremium,
-        chargeback_count: p.chargebackCount,
-        net_premium: p.netPremium,
-        net_items: p.netItems,
-        tier_threshold_met: p.tierThresholdMet,
-        tier_commission_value: p.tierCommissionValue,
-        base_commission: p.baseCommission,
-        bonus_amount: p.bonusAmount,
-        total_payout: p.totalPayout,
-        rollover_premium: p.rolloverPremium,
-        status: p.status,
-        // Phase 3/8: Audit trail fields
-        self_gen_percent: p.selfGenPercent ?? null,
-        self_gen_met_requirement: p.selfGenMetRequirement ?? null,
-        self_gen_penalty_amount: p.selfGenPenaltyAmount ?? 0,
-        self_gen_bonus_amount: p.selfGenBonusAmount ?? 0,
-        bundling_percent: p.bundlingPercent ?? null,
-        bundling_multiplier: p.bundlingMultiplier ?? 1,
-        brokered_commission: p.brokeredCommission ?? 0,
-        chargeback_details_json: p.chargebackDetails ?? null,
-        calculation_snapshot_json: p.calculationSnapshot ?? null,
-      }));
-
-      // Upsert payouts (update if exists for same member/period)
-      const { error } = await supabase
-        .from("comp_payouts")
-        .upsert(payoutRows, {
-          onConflict: "team_member_id,period_month,period_year",
-        });
-
-      if (error) throw error;
-      return payouts.length;
+      return await persistPayoutSet(payouts);
     },
-    onSuccess: (count) => {
-      toast.success(`Saved ${count} payout calculations`);
+    onSuccess: (rows) => {
+      toast.success(`Saved ${rows.length} payout calculations`);
       queryClient.invalidateQueries({ queryKey: ["comp-payouts"] });
+      queryClient.invalidateQueries({ queryKey: ["comp-payouts-history"] });
     },
     onError: (error) => {
       console.error("Error saving payouts:", error);
@@ -587,6 +634,7 @@ export function usePayoutCalculator(agencyId: string | null) {
     onSuccess: async ({ month, year }) => {
       toast.success("Payouts finalized");
       queryClient.invalidateQueries({ queryKey: ["comp-payouts"] });
+      queryClient.invalidateQueries({ queryKey: ["comp-payouts-history"] });
 
       // Send notification emails
       if (agencyId) {
@@ -617,6 +665,55 @@ export function usePayoutCalculator(agencyId: string | null) {
     },
   });
 
+  const finalizeCalculatedPayoutsMutation = useMutation({
+    mutationFn: async (payouts: PayoutCalculation[]) => {
+      if (!agencyId) throw new Error("No agency ID");
+      if (payouts.length === 0) throw new Error("No calculated payouts to finalize");
+
+      const savedRows = await persistPayoutSet(payouts);
+      const payoutIds = savedRows.map((row) => row.id);
+      if (payoutIds.length === 0) {
+        throw new Error("No payout rows were saved for finalization");
+      }
+
+      const { error } = await supabase
+        .from("comp_payouts")
+        .update({
+          status: "finalized",
+          finalized_at: new Date().toISOString(),
+        })
+        .in("id", payoutIds)
+        .eq("status", "draft");
+
+      if (error) throw error;
+
+      return {
+        payoutIds,
+        month: payouts[0].periodMonth,
+        year: payouts[0].periodYear,
+      };
+    },
+    onSuccess: async ({ payoutIds }) => {
+      toast.success("Payouts saved and finalized");
+      queryClient.invalidateQueries({ queryKey: ["comp-payouts"] });
+      queryClient.invalidateQueries({ queryKey: ["comp-payouts-history"] });
+
+      if (agencyId && payoutIds.length > 0) {
+        const result = await sendPayoutNotifications(payoutIds, 'finalized', agencyId);
+        if (result.sent > 0) {
+          toast.success(`Statement emails sent to ${result.sent} team member${result.sent !== 1 ? 's' : ''}`);
+        }
+        if (result.errors && result.errors.length > 0) {
+          toast.error("Some notification emails failed to send");
+        }
+      }
+    },
+    onError: (error) => {
+      console.error("Error saving and finalizing payouts:", error);
+      toast.error("Failed to save and finalize payouts");
+    },
+  });
+
   // Mark payouts as paid
   const markPaidMutation = useMutation({
     mutationFn: async ({ month, year }: { month: number; year: number }) => {
@@ -639,6 +736,7 @@ export function usePayoutCalculator(agencyId: string | null) {
     onSuccess: async ({ month, year }) => {
       toast.success("Payouts marked as paid");
       queryClient.invalidateQueries({ queryKey: ["comp-payouts"] });
+      queryClient.invalidateQueries({ queryKey: ["comp-payouts-history"] });
 
       // Send notification emails
       if (agencyId) {
@@ -669,6 +767,55 @@ export function usePayoutCalculator(agencyId: string | null) {
     },
   });
 
+  const deleteDraftPayoutsMutation = useMutation({
+    mutationFn: async ({ month, year }: { month: number; year: number }) => {
+      if (!agencyId) throw new Error("No agency ID");
+
+      const { data: existingRows, error: fetchError } = await supabase
+        .from("comp_payouts")
+        .select("id, status")
+        .eq("agency_id", agencyId)
+        .eq("period_month", month)
+        .eq("period_year", year);
+
+      if (fetchError) throw fetchError;
+
+      const rows = existingRows || [];
+      const blockingStatuses = rows.filter((row) => row.status === "finalized" || row.status === "paid");
+      if (blockingStatuses.length > 0) {
+        throw new Error("This period already has finalized or paid payouts. Re-open that run before starting over.");
+      }
+
+      const draftIds = rows
+        .filter((row) => row.status === "draft")
+        .map((row) => row.id);
+
+      if (draftIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("comp_payouts")
+          .delete()
+          .in("id", draftIds);
+
+        if (deleteError) throw deleteError;
+      }
+
+      return draftIds.length;
+    },
+    onSuccess: (deletedCount) => {
+      if (deletedCount > 0) {
+        toast.success(`Deleted ${deletedCount} draft payout${deletedCount === 1 ? "" : "s"} and reset the run`);
+      } else {
+        toast.success("Run reset");
+      }
+      queryClient.invalidateQueries({ queryKey: ["comp-payouts"] });
+      queryClient.invalidateQueries({ queryKey: ["comp-payouts-history"] });
+    },
+    onError: (error) => {
+      console.error("Error deleting draft payouts:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to reset the draft run");
+    },
+  });
+
   return {
     plans,
     teamMembers,
@@ -678,9 +825,15 @@ export function usePayoutCalculator(agencyId: string | null) {
     savePayouts: savePayoutsMutation.mutate,
     savePayoutsAsync: savePayoutsMutation.mutateAsync,
     isSaving: savePayoutsMutation.isPending,
+    finalizeCalculatedPayouts: finalizeCalculatedPayoutsMutation.mutate,
+    finalizeCalculatedPayoutsAsync: finalizeCalculatedPayoutsMutation.mutateAsync,
+    isFinalizingCalculatedPayouts: finalizeCalculatedPayoutsMutation.isPending,
     finalizePayouts: finalizePayoutsMutation.mutate,
     isFinalizingPayouts: finalizePayoutsMutation.isPending,
     markPaid: markPaidMutation.mutate,
     isMarkingPaid: markPaidMutation.isPending,
+    deleteDraftPayoutsForPeriod: deleteDraftPayoutsMutation.mutate,
+    deleteDraftPayoutsForPeriodAsync: deleteDraftPayoutsMutation.mutateAsync,
+    isDeletingDraftPayouts: deleteDraftPayoutsMutation.isPending,
   };
 }

@@ -21,6 +21,7 @@ import { usePayoutCalculator } from "@/hooks/usePayoutCalculator";
 import { PayoutCalculation } from "@/lib/payout-calculator/types";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { PayoutDetailRow } from "./PayoutDetailRow";
 import { PayoutDetailSheet } from "./PayoutDetailSheet";
 import { ManualOverridePanel, ManualOverride } from "./ManualOverridePanel";
@@ -44,6 +45,39 @@ interface PayoutPreviewProps {
   statementYear?: number;
 }
 
+interface PreRunAuditResult {
+  blockers: string[];
+  warnings: string[];
+}
+
+interface ProductTypeTermConfig {
+  name: string | null;
+  term_months: number | null;
+  agency_id: string | null;
+}
+
+function normalizeProductKey(product: string | null | undefined): string {
+  return (product || "").trim().toLowerCase();
+}
+
+function isTermFallbackSafe(product: string): boolean {
+  const normalized = normalizeProductKey(product);
+  return (
+    normalized.includes("motor club") ||
+    normalized.includes("specialty") ||
+    normalized.includes("motorcycle") ||
+    normalized.includes("auto") ||
+    normalized.includes("alpac") ||
+    normalized.includes("home") ||
+    normalized.includes("condo") ||
+    normalized.includes("renter") ||
+    normalized.includes("landlord") ||
+    normalized.includes("dwelling") ||
+    normalized.includes("umbrella") ||
+    normalized.includes("manufactured")
+  );
+}
+
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
@@ -65,6 +99,8 @@ export function PayoutPreview({
   const [selectedPayout, setSelectedPayout] = useState<PayoutCalculation | null>(null);
   const [manualOverrides, setManualOverrides] = useState<ManualOverride[]>([]);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const [preRunAudit, setPreRunAudit] = useState<PreRunAuditResult | null>(null);
+  const [warningAcknowledgeOpen, setWarningAcknowledgeOpen] = useState(false);
 
   // Sales report data (new flow)
   const [dataSource] = useState<"sales_report">("sales_report");
@@ -78,6 +114,7 @@ export function PayoutPreview({
   const clearCalculatedResults = useCallback(() => {
     setCalculatedPayouts([]);
     setWarnings([]);
+    setPreRunAudit(null);
     setHasCalculated(false);
   }, []);
 
@@ -391,7 +428,117 @@ export function PayoutPreview({
     return null;
   }, [dataSource, salesReportMetrics, chargebacksByProducer, transactionDetailByProducer]);
 
-  const handleCalculate = async () => {
+  const runPreRunAudit = useCallback(async (producers: SubProducerMetrics[]): Promise<PreRunAuditResult> => {
+    const blockers: string[] = [];
+    const auditWarnings: string[] = [];
+
+    const memberByCode = new Map(
+      teamMembers
+        .filter((member) => member.sub_producer_code)
+        .map((member) => [String(member.sub_producer_code).trim(), member] as const)
+    );
+
+    const planById = new Map(plans.map((plan) => [plan.id, plan] as const));
+    const assignmentsByMember = new Map<string, string[]>();
+    for (const assignment of assignments) {
+      const existing = assignmentsByMember.get(assignment.team_member_id) || [];
+      existing.push(assignment.comp_plan_id);
+      assignmentsByMember.set(assignment.team_member_id, existing);
+    }
+
+    const fullRuleProducts = new Set<string>();
+
+    for (const producer of producers) {
+      const code = producer.code.trim();
+      if (!code) {
+        auditWarnings.push("Some report rows have no sub-producer code and will be excluded from Agency Brain comp.");
+        continue;
+      }
+
+      const teamMember = memberByCode.get(code);
+      if (!teamMember) {
+        auditWarnings.push(`Sub-producer code ${code} is not mapped to an active Agency Brain team member and will be excluded from payouts.`);
+        continue;
+      }
+
+      const memberPlanIds = assignmentsByMember.get(teamMember.id) || [];
+      if (memberPlanIds.length === 0) {
+        auditWarnings.push(`${teamMember.name} has no compensation plan assignment and will be excluded from payouts.`);
+        continue;
+      }
+
+      if (memberPlanIds.length > 1) {
+        blockers.push(`${teamMember.name} has multiple active compensation plans. Remove the duplicate assignment before running comp.`);
+        continue;
+      }
+
+      const plan = planById.get(memberPlanIds[0]);
+      if (!plan) {
+        blockers.push(`${teamMember.name} is assigned to a compensation plan that no longer exists.`);
+        continue;
+      }
+
+      if (!plan.is_active) {
+        blockers.push(`${teamMember.name} is assigned to inactive plan "${plan.name}". Activate it or reassign them before running comp.`);
+        continue;
+      }
+
+      if (plan.chargeback_rule === "full") {
+        for (const tx of producer.chargebackTransactions || []) {
+          const product = (tx.product || "").trim();
+          if (product) {
+            fullRuleProducts.add(product);
+          }
+        }
+      }
+    }
+
+    const { data: productTypes, error: productTypesError } = await supabase
+      .from("product_types")
+      .select("name, term_months, agency_id")
+      .or(`agency_id.eq.${agencyId},agency_id.is.null`);
+
+    if (productTypesError) {
+      blockers.push(`Could not load product term configuration: ${productTypesError.message}`);
+      return { blockers: Array.from(new Set(blockers)), warnings: Array.from(new Set(auditWarnings)) };
+    }
+
+    const productTermMonths = new Map<string, number | null>();
+    for (const productType of (productTypes || []) as ProductTypeTermConfig[]) {
+      const key = normalizeProductKey(productType.name);
+      if (!key) continue;
+
+      if (productType.agency_id === agencyId || !productTermMonths.has(key)) {
+        productTermMonths.set(key, productType.term_months);
+      }
+    }
+
+    for (const product of fullRuleProducts) {
+      const key = normalizeProductKey(product);
+      const configured = productTermMonths.get(key);
+      if (configured === undefined && !isTermFallbackSafe(product)) {
+        blockers.push(`Missing term-month configuration for full chargeback product "${product}". Add a product type term before running comp.`);
+      }
+    }
+
+    return {
+      blockers: Array.from(new Set(blockers)),
+      warnings: Array.from(new Set(auditWarnings)),
+    };
+  }, [agencyId, assignments, plans, teamMembers]);
+
+  const performCalculation = useCallback(async (producers: SubProducerMetrics[]) => {
+    if (manualOverrides.some((o) => o.writtenItems !== null || o.writtenPremium !== null)) {
+      toast.info("Calculating with manual overrides applied");
+    }
+
+    const result = await calculatePayouts(producers, selectedMonth, selectedYear, manualOverrides);
+    setCalculatedPayouts(result.payouts);
+    setWarnings(result.warnings);
+    setHasCalculated(true);
+  }, [calculatePayouts, manualOverrides, selectedMonth, selectedYear]);
+
+  const handleCalculate = async (allowWarnings = false) => {
     const producers = getProducersForCalculation();
 
     if (!salesReportMetrics || salesReportMetrics.length === 0) {
@@ -412,18 +559,24 @@ export function PayoutPreview({
       return;
     }
 
-    // Check if any overrides are active for user feedback
-    const hasActiveOverrides = manualOverrides.some(
-      (o) => o.writtenItems !== null || o.writtenPremium !== null
-    );
-    if (hasActiveOverrides) {
-      toast.info("Calculating with manual overrides applied");
+    const audit = await runPreRunAudit(producers);
+    setPreRunAudit(audit);
+
+    if (audit.blockers.length > 0) {
+      setWarnings(audit.blockers);
+      setHasCalculated(false);
+      toast.error("Pre-run audit found blockers that must be fixed before running comp");
+      return;
     }
 
-    const result = await calculatePayouts(producers, selectedMonth, selectedYear, manualOverrides);
-    setCalculatedPayouts(result.payouts);
-    setWarnings(result.warnings);
-    setHasCalculated(true);
+    if (audit.warnings.length > 0 && !allowWarnings) {
+      setWarningAcknowledgeOpen(true);
+      toast.warning("Pre-run audit found warnings. Review them before continuing.");
+      return;
+    }
+
+    setWarningAcknowledgeOpen(false);
+    await performCalculation(producers);
   };
 
   // Check if we have data ready for calculation
@@ -518,6 +671,12 @@ export function PayoutPreview({
                   Official monthly comp run: tier qualification comes from the sales dashboard, issued production comes from New Business Details, and chargebacks come from Agent Transaction Detail.
                 </AlertDescription>
               </Alert>
+              <Alert>
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>
+                  The active compensation plan at the time you run comp is the plan used for that month&apos;s payout. Same-day plan or assignment changes apply if they are active when you calculate and finalize.
+                </AlertDescription>
+              </Alert>
               <SalesReportUpload
                 agencyId={agencyId}
                 teamMembers={teamMembers}
@@ -588,7 +747,7 @@ export function PayoutPreview({
               </Select>
             </div>
 
-            <Button onClick={handleCalculate} disabled={!hasDataForCalculation}>
+            <Button onClick={() => void handleCalculate()} disabled={!hasDataForCalculation}>
               <Calculator className="h-4 w-4 mr-2" />
               Calculate Payouts
             </Button>
@@ -657,6 +816,35 @@ export function PayoutPreview({
             setManualOverrides(nextOverrides);
           }}
         />
+      )}
+
+      {/* Pre-Run Audit */}
+      {preRunAudit && (preRunAudit.blockers.length > 0 || preRunAudit.warnings.length > 0) && (
+        <Alert variant={preRunAudit.blockers.length > 0 ? "destructive" : "default"}>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="space-y-3">
+            {preRunAudit.blockers.length > 0 && (
+              <div>
+                <div className="font-medium">Pre-Run Blockers</div>
+                <ul className="list-disc list-inside space-y-1 mt-1">
+                  {preRunAudit.blockers.map((blocker, idx) => (
+                    <li key={`blocker-${idx}`}>{blocker}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {preRunAudit.warnings.length > 0 && (
+              <div>
+                <div className="font-medium">Pre-Run Warnings</div>
+                <ul className="list-disc list-inside space-y-1 mt-1">
+                  {preRunAudit.warnings.map((warning, idx) => (
+                    <li key={`audit-warning-${idx}`}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Warnings */}
@@ -777,6 +965,30 @@ export function PayoutPreview({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Delete Draft Run
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={warningAcknowledgeOpen} onOpenChange={setWarningAcknowledgeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Continue With Pre-Run Warnings?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The audit found warnings that will exclude some report data from Agency Brain comp, but the run can continue. Review the warnings below before proceeding.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-64 overflow-y-auto text-sm">
+            <ul className="list-disc list-inside space-y-2">
+              {preRunAudit?.warnings.map((warning, idx) => (
+                <li key={`warning-confirm-${idx}`}>{warning}</li>
+              ))}
+            </ul>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleCalculate(true)}>
+              Continue Anyway
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1673,6 +1673,10 @@ export function CreateCompPlanModal({
                 </span>
               </div>
 
+              <p className="text-sm text-muted-foreground">
+                The active plan assignment when you run monthly comp is the plan used for that month&apos;s payout. If you change assignments before calculating/finalizing, the updated active assignment will apply.
+              </p>
+
               {teamMembers.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No active team members found.
