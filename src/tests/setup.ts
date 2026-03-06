@@ -56,11 +56,13 @@ vi.mock('react-router-dom', () => ({
   Route: ({ element }: { element: React.ReactNode }) => element,
 }));
 
-// Mock environment variables
-Object.defineProperty(window, 'location', {
-  value: {
-    href: 'http://localhost:3000',
-    origin: 'http://localhost:3000',
-  },
-  writable: true,
-});
+// Mock environment variables for browser-based tests only
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'location', {
+    value: {
+      href: 'http://localhost:3000',
+      origin: 'http://localhost:3000',
+    },
+    writable: true,
+  });
+}
