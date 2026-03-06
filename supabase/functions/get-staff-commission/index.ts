@@ -237,14 +237,22 @@ Deno.serve(async (req) => {
     }
 
     // Get comp plan assignment
-    const { data: assignment, error: assignError } = await supabase
+    const { data: assignments, error: assignError } = await supabase
       .from("comp_plan_assignments")
-      .select("comp_plan_id")
+      .select("comp_plan_id, comp_plans(name)")
       .eq("team_member_id", staffUser.team_member_id)
       .is("end_date", null)
-      .maybeSingle();
+      .limit(5);
 
-    if (!assignment) {
+    if (assignError) {
+      console.log("[get-staff-commission] Error fetching active plan assignments", assignError);
+      return new Response(
+        JSON.stringify({ error: "Could not load compensation plan assignment" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!assignments || assignments.length === 0) {
       console.log("[get-staff-commission] No plan assignment found");
       return new Response(
         JSON.stringify({
@@ -257,6 +265,29 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    if (assignments.length > 1) {
+      const planNames = assignments
+        .map((assignment) => {
+          const plan = Array.isArray(assignment.comp_plans) ? assignment.comp_plans[0] : assignment.comp_plans;
+          return plan?.name || null;
+        })
+        .filter((name): name is string => Boolean(name))
+        .join('", "');
+
+      console.log("[get-staff-commission] Multiple active plan assignments found");
+      return new Response(
+        JSON.stringify({
+          error: planNames
+            ? `You are assigned to multiple active compensation plans ("${planNames}"). Ask your admin to remove the duplicate assignment before viewing commission.`
+            : "You are assigned to multiple active compensation plans. Ask your admin to remove the duplicate assignment before viewing commission.",
+          plan: null,
+        }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const assignment = assignments[0];
 
     // Get comp plan with brokered settings
     const { data: plan, error: planError } = await supabase

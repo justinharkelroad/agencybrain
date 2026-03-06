@@ -37,12 +37,90 @@ export interface TierFormData {
   sort_order: number;
 }
 
+interface AssignmentConflict {
+  memberId: string;
+  memberName: string;
+  existingPlanName: string;
+}
+
+function buildAssignmentConflictMessage(conflicts: AssignmentConflict[]): string {
+  if (conflicts.length === 0) {
+    return "One or more team members already have an active compensation plan.";
+  }
+
+  if (conflicts.length === 1) {
+    const conflict = conflicts[0];
+    return `${conflict.memberName} is already assigned to "${conflict.existingPlanName}". Remove them from that plan before assigning them here.`;
+  }
+
+  const preview = conflicts
+    .slice(0, 3)
+    .map((conflict) => `${conflict.memberName} -> ${conflict.existingPlanName}`)
+    .join("; ");
+
+  const remaining = conflicts.length - 3;
+  return remaining > 0
+    ? `${preview}; plus ${remaining} more active plan conflict${remaining === 1 ? "" : "s"}. Remove those assignments before saving.`
+    : `${preview}. Remove those assignments before saving.`;
+}
+
 export function useCompPlanMutations(agencyId: string | null) {
   const queryClient = useQueryClient();
+
+  const findAssignmentConflicts = async (
+    memberIds: string[],
+    excludedPlanId?: string
+  ): Promise<AssignmentConflict[]> => {
+    if (!agencyId || memberIds.length === 0) {
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from("comp_plan_assignments")
+      .select(`
+        team_member_id,
+        comp_plan_id,
+        comp_plans!inner(name, agency_id),
+        team_members!inner(name)
+      `)
+      .in("team_member_id", memberIds)
+      .is("end_date", null)
+      .eq("comp_plans.agency_id", agencyId);
+
+    if (error) throw error;
+
+    const conflicts: AssignmentConflict[] = [];
+    for (const row of data || []) {
+      if (excludedPlanId && row.comp_plan_id === excludedPlanId) continue;
+
+      const plan = Array.isArray(row.comp_plans) ? row.comp_plans[0] : row.comp_plans;
+      const member = Array.isArray(row.team_members) ? row.team_members[0] : row.team_members;
+
+      conflicts.push({
+        memberId: row.team_member_id,
+        memberName: member?.name || "This team member",
+        existingPlanName: plan?.name || "another compensation plan",
+      });
+    }
+
+    const deduped = new Map<string, AssignmentConflict>();
+    for (const conflict of conflicts) {
+      if (!deduped.has(conflict.memberId)) {
+        deduped.set(conflict.memberId, conflict);
+      }
+    }
+
+    return Array.from(deduped.values());
+  };
 
   const createPlan = useMutation({
     mutationFn: async (data: CompPlanFormData) => {
       if (!agencyId) throw new Error("Agency ID required");
+
+      const conflicts = await findAssignmentConflicts(data.assigned_member_ids);
+      if (conflicts.length > 0) {
+        throw new Error(buildAssignmentConflictMessage(conflicts));
+      }
 
       // 1. Create the comp plan
       const { data: plan, error: planError } = await supabase
@@ -137,6 +215,11 @@ export function useCompPlanMutations(agencyId: string | null) {
   const updatePlan = useMutation({
     mutationFn: async (data: CompPlanFormData) => {
       if (!data.id) throw new Error("Plan ID required for update");
+
+      const conflicts = await findAssignmentConflicts(data.assigned_member_ids, data.id);
+      if (conflicts.length > 0) {
+        throw new Error(buildAssignmentConflictMessage(conflicts));
+      }
 
       // 1. Update the comp plan
       const { error: planError } = await supabase

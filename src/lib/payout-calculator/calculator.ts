@@ -33,6 +33,13 @@ interface Assignment {
   comp_plan_id: string;
 }
 
+function formatActivePlanNames(planIds: string[], planById: Map<string, CompPlan>): string {
+  return planIds
+    .map((planId) => planById.get(planId)?.name)
+    .filter((name): name is string => Boolean(name))
+    .join('", "');
+}
+
 // Manual override interface for testing compensation calculations
 export interface ManualOverride {
   subProdCode: string;
@@ -1761,6 +1768,16 @@ export async function calculateAllPayouts(
     const memberPlanIds = assignmentsByMember.get(teamMember.id);
     if (!memberPlanIds || memberPlanIds.length === 0) {
       warnings.push(`No compensation plan assigned to: ${teamMember.name}`);
+      continue;
+    }
+
+    if (memberPlanIds.length > 1) {
+      const planNames = formatActivePlanNames(memberPlanIds, planById);
+      warnings.push(
+        planNames
+          ? `${teamMember.name} has multiple active compensation plans ("${planNames}"). Remove the duplicate assignment before running payouts.`
+          : `${teamMember.name} has multiple active compensation plans. Remove the duplicate assignment before running payouts.`
+      );
       continue;
     }
     
