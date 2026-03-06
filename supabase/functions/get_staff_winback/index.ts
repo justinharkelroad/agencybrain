@@ -798,6 +798,7 @@ Deno.serve(async (req) => {
         };
         const uploadedHouseholdIds = new Set<string>();
         const insertedPolicyIds = new Set<string>();
+        const allPolicyNumbers = new Set<string>();
 
         // Group by household key (firstName + lastName + zip5)
         const householdGroups = new Map<string, ParsedRecord[]>();
@@ -827,12 +828,31 @@ Deno.serve(async (req) => {
 
           let householdId: string;
 
+          // Find or create unified contact for this household
+          let contactId: string | null = null;
+          if (firstRecord.lastName?.trim()) {
+            try {
+              const { data: foundContactId } = await supabase.rpc("find_or_create_contact", {
+                p_agency_id: agencyId,
+                p_first_name: firstRecord.firstName || null,
+                p_last_name: firstRecord.lastName,
+                p_zip_code: firstRecord.zipCode || null,
+                p_phone: firstRecord.phone || null,
+                p_email: firstRecord.email || null,
+              });
+              contactId = foundContactId;
+            } catch (contactErr) {
+              console.warn("Failed to create contact for winback household:", contactErr);
+            }
+          }
+
           if (existingHousehold) {
             householdId = existingHousehold.id;
             // Update contact info
             const updateData: Record<string, string> = {};
             if (firstRecord.email) updateData.email = firstRecord.email;
             if (firstRecord.phone) updateData.phone = firstRecord.phone;
+            if (contactId) updateData.contact_id = contactId;
 
             if (Object.keys(updateData).length > 0) {
               await supabase
@@ -852,6 +872,7 @@ Deno.serve(async (req) => {
                 email: firstRecord.email || null,
                 phone: firstRecord.phone || null,
                 status: "untouched",
+                contact_id: contactId,
               })
               .select("id")
               .single();
@@ -890,6 +911,8 @@ Deno.serve(async (req) => {
               premiumChangeCents = record.premiumNewCents - record.premiumOldCents;
               premiumChangePercent = Math.round((premiumChangeCents / record.premiumOldCents) * 10000) / 100;
             }
+
+            if (record.policyNumber) allPolicyNumbers.add(record.policyNumber);
 
             // Check if policy exists
             const { data: existingPolicy } = await supabase
@@ -970,6 +993,7 @@ Deno.serve(async (req) => {
             ...stats,
             householdIds: Array.from(uploadedHouseholdIds),
             policyIds: Array.from(insertedPolicyIds),
+            policyNumbers: Array.from(allPolicyNumbers),
           };
         } else {
           // Single-call mode: create upload record and stamp IDs
@@ -1015,7 +1039,29 @@ Deno.serve(async (req) => {
             }
           }
 
-          result = stats;
+          // Auto-link cancel audit and renewal records to winback
+          try {
+            const policyNumbersArr = Array.from(allPolicyNumbers);
+            if (policyNumbersArr.length > 0) {
+              const { data: crossMatch, error: crossMatchError } = await supabase.rpc("auto_link_terminations_to_cancel_and_renewal", {
+                p_agency_id: agencyId,
+                p_policy_numbers: policyNumbersArr,
+              });
+              if (crossMatchError) {
+                console.error("Cross-match RPC error (non-fatal):", crossMatchError);
+                result = stats;
+              } else if (crossMatch) {
+                result = { ...stats, crossMatch };
+              } else {
+                result = stats;
+              }
+            } else {
+              result = stats;
+            }
+          } catch (crossMatchErr) {
+            console.error("Cross-match cancel/renewal to winback failed (non-fatal):", crossMatchErr);
+            result = stats;
+          }
         }
         break;
       }
@@ -1063,7 +1109,26 @@ Deno.serve(async (req) => {
           }
         }
 
-        result = { success: true, uploadId: uploadRecord?.id };
+        // Auto-link cancel audit and renewal records to winback
+        let crossMatch = null;
+        try {
+          const policyNumbers: string[] = params.policyNumbers || [];
+          if (policyNumbers.length > 0) {
+            const { data, error: crossMatchError } = await supabase.rpc("auto_link_terminations_to_cancel_and_renewal", {
+              p_agency_id: agencyId,
+              p_policy_numbers: policyNumbers,
+            });
+            if (crossMatchError) {
+              console.error("Cross-match RPC error (non-fatal):", crossMatchError);
+            } else {
+              crossMatch = data;
+            }
+          }
+        } catch (crossMatchErr) {
+          console.error("Cross-match cancel/renewal to winback failed (non-fatal):", crossMatchErr);
+        }
+
+        result = { success: true, uploadId: uploadRecord?.id, crossMatch };
         break;
       }
 

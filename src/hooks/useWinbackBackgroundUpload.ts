@@ -11,6 +11,14 @@ interface WinbackUploadContext {
   contactDaysBefore: number;
 }
 
+interface CrossMatchResult {
+  cancel_audit_linked: number;
+  cancel_audit_demoted: number;
+  renewals_linked: number;
+  renewals_demoted: number;
+  contacts_linked: number;
+}
+
 interface UploadStats {
   processed: number;
   newHouseholds: number;
@@ -18,6 +26,7 @@ interface UploadStats {
   newPolicies: number;
   updated: number;
   skipped: number;
+  crossMatch?: CrossMatchResult;
 }
 
 export function useWinbackBackgroundUpload() {
@@ -109,9 +118,10 @@ async function processStaffUpload(
         totalUniqueHouseholds
       );
 
-      invalidateWinbackQueries(queryClient);
+      invalidateWinbackQueries(queryClient, stats.crossMatch);
+      const crossDesc = buildCrossMatchDescription(stats.crossMatch);
       toast.success('Termination Upload Complete!', {
-        description: `${stats.processed} records (${stats.newHouseholds} new households, ${stats.newPolicies} new policies)`,
+        description: `${stats.processed} records (${stats.newHouseholds} new households, ${stats.newPolicies} new policies)${crossDesc}`,
       });
     } else {
       // Large upload: chunk into batches to avoid edge function timeout (150s limit)
@@ -124,6 +134,7 @@ async function processStaffUpload(
       const totalStats: UploadStats = { processed: 0, newHouseholds: 0, totalHouseholds: totalUniqueHouseholds, newPolicies: 0, updated: 0, skipped: 0 };
       const allHouseholdIds: string[] = [];
       const allPolicyIds: string[] = [];
+      const allPolicyNumbers: string[] = [];
 
       const progressToastId = toast.loading(`Uploading: batch 0 / ${batches.length}...`, {
         duration: Infinity,
@@ -147,16 +158,18 @@ async function processStaffUpload(
         totalStats.skipped += batchResult.skipped;
         allHouseholdIds.push(...batchResult.householdIds);
         allPolicyIds.push(...batchResult.policyIds);
+        if (batchResult.policyNumbers) allPolicyNumbers.push(...batchResult.policyNumbers);
       }
 
       toast.dismiss(progressToastId);
 
-      // Finalize: create upload record and stamp IDs
-      await winbackApi.recordUpload(filename, totalStats, allHouseholdIds, allPolicyIds);
+      // Finalize: create upload record, stamp IDs, and cross-match cancel/renewal
+      const uploadResult = await winbackApi.recordUpload(filename, totalStats, allHouseholdIds, allPolicyIds, allPolicyNumbers);
 
-      invalidateWinbackQueries(queryClient);
+      invalidateWinbackQueries(queryClient, uploadResult.crossMatch);
+      const crossDesc = buildCrossMatchDescription(uploadResult.crossMatch);
       toast.success('Termination Upload Complete!', {
-        description: `${totalStats.processed} records (${totalStats.newHouseholds} new households, ${totalStats.newPolicies} new policies)`,
+        description: `${totalStats.processed} records (${totalStats.newHouseholds} new households, ${totalStats.newPolicies} new policies)${crossDesc}`,
       });
     }
   } catch (error: any) {
@@ -455,17 +468,38 @@ async function processInBackground(
       }
     }
 
+    // Auto-link cancel audit and renewal records to winback
+    let crossMatch: CrossMatchResult | undefined;
+    try {
+      const policyNumbers = records.map(r => r.policyNumber).filter(Boolean);
+      const uniquePolicyNumbers = [...new Set(policyNumbers)];
+      if (uniquePolicyNumbers.length > 0) {
+        const { data, error } = await supabase.rpc('auto_link_terminations_to_cancel_and_renewal', {
+          p_agency_id: agencyId,
+          p_policy_numbers: uniquePolicyNumbers,
+        });
+        if (error) {
+          console.error('Cross-match RPC error (non-fatal):', error);
+        } else {
+          crossMatch = data as CrossMatchResult | undefined;
+        }
+      }
+    } catch (crossMatchErr) {
+      console.error('Cross-match cancel/renewal to winback failed (non-fatal):', crossMatchErr);
+    }
+
     // Invalidate queries
-    invalidateWinbackQueries(queryClient);
+    invalidateWinbackQueries(queryClient, crossMatch);
 
     // Show success toast
+    const crossDesc = buildCrossMatchDescription(crossMatch);
     if (stats.skipped === 0) {
       toast.success('Termination Upload Complete!', {
-        description: `${stats.processed} records (${stats.newHouseholds} new households, ${stats.newPolicies} new policies)`,
+        description: `${stats.processed} records (${stats.newHouseholds} new households, ${stats.newPolicies} new policies)${crossDesc}`,
       });
     } else {
       toast.warning('Upload completed with issues', {
-        description: `${stats.processed} processed, ${stats.skipped} skipped`,
+        description: `${stats.processed} processed, ${stats.skipped} skipped${crossDesc}`,
       });
     }
   } catch (error: any) {
@@ -478,12 +512,41 @@ async function processInBackground(
   }
 }
 
-function invalidateWinbackQueries(queryClient: ReturnType<typeof useQueryClient>) {
+function buildCrossMatchDescription(crossMatch?: CrossMatchResult): string {
+  if (!crossMatch) return '';
+  const moved = (crossMatch.cancel_audit_demoted || 0) + (crossMatch.renewals_demoted || 0);
+  if (moved === 0) return '';
+  const parts: string[] = [];
+  if (crossMatch.cancel_audit_demoted > 0) parts.push(`${crossMatch.cancel_audit_demoted} cancel audit`);
+  if (crossMatch.renewals_demoted > 0) parts.push(`${crossMatch.renewals_demoted} renewal`);
+  return `. Auto-moved: ${parts.join(', ')} records to Win-Back`;
+}
+
+function invalidateWinbackQueries(queryClient: ReturnType<typeof useQueryClient>, crossMatch?: CrossMatchResult) {
   queryClient.invalidateQueries({ queryKey: ['winback-households'] });
   queryClient.invalidateQueries({ queryKey: ['winback-policies'] });
   queryClient.invalidateQueries({ queryKey: ['winback-uploads'] });
   queryClient.invalidateQueries({ queryKey: ['winback-stats'] });
-  
+
+  // If cross-match linked or demoted records, invalidate cancel-audit and renewal caches
+  // Must check both linked AND demoted — records may have been linked in a prior upload
+  // but only now get demoted (linked=0, demoted>0)
+  const anyCancel = (crossMatch?.cancel_audit_linked || 0) + (crossMatch?.cancel_audit_demoted || 0);
+  const anyRenewal = (crossMatch?.renewals_linked || 0) + (crossMatch?.renewals_demoted || 0);
+  if (anyCancel > 0) {
+    queryClient.invalidateQueries({ queryKey: ['cancel-audit-records'] });
+    queryClient.invalidateQueries({ queryKey: ['cancel-audit-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['cancel-audit-counts'] });
+  }
+  if (anyRenewal > 0) {
+    queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
+    queryClient.invalidateQueries({ queryKey: ['renewal-stats'] });
+  }
+  // If contacts were linked to winback households, contacts page stage derivation changed
+  if ((crossMatch?.contacts_linked || 0) > 0) {
+    queryClient.invalidateQueries({ queryKey: ['contacts'] });
+  }
+
   // Dispatch custom event to trigger TerminationAnalytics refresh
   window.dispatchEvent(new CustomEvent('winback-upload-complete'));
 }

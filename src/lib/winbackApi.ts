@@ -88,6 +88,13 @@ interface UploadStats {
   newPolicies: number;
   updated: number;
   skipped: number;
+  crossMatch?: {
+    cancel_audit_linked: number;
+    cancel_audit_demoted: number;
+    renewals_linked: number;
+    renewals_demoted: number;
+    contacts_linked: number;
+  };
 }
 
 // Helper to call staff edge function using fetchWithAuth to avoid invalid JWT issues
@@ -870,7 +877,7 @@ export async function uploadTerminations(
 export async function uploadTerminationsBatch(
   records: any[],
   contactDaysBefore: number,
-): Promise<UploadStats & { householdIds: string[]; policyIds: string[] }> {
+): Promise<UploadStats & { householdIds: string[]; policyIds: string[]; policyNumbers: string[] }> {
   return callStaffWinback('upload_terminations', {
     records,
     contactDaysBefore,
@@ -884,12 +891,14 @@ export async function recordUpload(
   totalStats: UploadStats,
   householdIds: string[],
   policyIds: string[],
-): Promise<{ success: boolean; uploadId?: string }> {
+  policyNumbers?: string[],
+): Promise<{ success: boolean; uploadId?: string; crossMatch?: UploadStats['crossMatch'] }> {
   return callStaffWinback('record_upload', {
     filename,
     totalStats,
     householdIds,
     policyIds,
+    policyNumbers,
   });
 }
 
