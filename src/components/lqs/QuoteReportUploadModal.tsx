@@ -149,12 +149,12 @@ export function QuoteReportUploadModal({
                 <li><span className="font-medium text-foreground">New households</span> — if no matching lead exists, a new household is created with "Quoted" status. It will be flagged as "Needs Attention" if there's no lead source assigned, so you can attribute it later.</li>
                 <li><span className="font-medium text-foreground">Duplicate handling</span> — quotes are deduplicated by household + quote date + product type + premium. Re-uploading the same report safely skips already-imported quotes without creating duplicates.</li>
                 <li><span className="font-medium text-foreground">Team member matching</span> — the "Sub Producer" column is matched to your team members, first by sub-producer code, then by fuzzy name match. Unmatched producers are reported in the upload summary.</li>
-                <li><span className="font-medium text-foreground">Auto sales linking</span> — after processing, AgencyBrain automatically checks for any recorded sales that match these households. If a match is found, the household is promoted to "Sold" and the sale is linked.</li>
+                <li><span className="font-medium text-foreground">Auto sales linking</span> — after processing, AgencyBrain scans the Sales Dashboard for any recorded sales that match these households by contact. If a match is found, the sale is linked to the household and the status is promoted to "Sold." This works in both directions — upload quotes first and record sales later, or record sales first and upload quotes later. Either way, the link is made automatically.</li>
                 <li><span className="font-medium text-foreground">Status never downgrades</span> — if a household is already "Sold," uploading new quotes won't change it back to "Quoted."</li>
               </ul>
               <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50 p-3 mt-2">
                 <p className="text-xs text-blue-800 dark:text-blue-200">
-                  <span className="font-medium">Pipeline flow:</span> Lead → Quoted → Sold. This upload handles the Lead-to-Quoted promotion. Sales recorded via the Sales Dashboard or daily sales summary automatically handle the Quoted-to-Sold promotion.
+                  <span className="font-medium">Connection to Sales Dashboard:</span> When a team member records a sale on the Sales Dashboard, AgencyBrain matches the customer to their quoted household and promotes it to "Sold." This ties the full pipeline together — from lead source spend, to lead received, to quote logged, to sale closed — powering your ROI analytics with accurate conversion tracking across every step.
                 </p>
               </div>
             </HowItWorksModal>
