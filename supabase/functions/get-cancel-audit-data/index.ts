@@ -170,7 +170,7 @@ async function getRecords(supabase: any, agencyId: string, params: any) {
 
   let query = supabase
     .from("cancel_audit_records")
-    .select("*, cancel_audit_activities(id, created_at)")
+    .select("*, cancel_audit_activities(id, activity_type, created_at)")
     .eq("agency_id", agencyId);
 
   if (viewMode === "needs_attention") {
@@ -227,6 +227,9 @@ async function getRecords(supabase: any, agencyId: string, params: any) {
     householdCounts.set(r.household_key, count + 1);
   });
 
+  // Only these activity types count as actual contact attempts
+  const CONTACT_TYPES = ["attempted_call", "voicemail_left", "text_sent", "email_sent", "spoke_with_client"];
+
   // Transform data to include activity count and household policy count
   return (data || []).map((record: any) => {
     const activities = record.cancel_audit_activities || [];
@@ -238,7 +241,7 @@ async function getRecords(supabase: any, agencyId: string, params: any) {
 
     return {
       ...cleanRecord,
-      activity_count: activities.length,
+      activity_count: activities.filter((a: any) => CONTACT_TYPES.includes(a.activity_type)).length,
       last_activity_at: sortedActivities[0]?.created_at || null,
       household_policy_count: householdCounts.get(record.household_key) || 1,
       is_active: record.is_active,

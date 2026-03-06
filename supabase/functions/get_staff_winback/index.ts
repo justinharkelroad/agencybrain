@@ -240,7 +240,8 @@ Deno.serve(async (req) => {
         let query = supabase
           .from("winback_households")
           .select("*, winback_policies(product_name), winback_activities(count)", { count: "exact" })
-          .eq("agency_id", agencyId);
+          .eq("agency_id", agencyId)
+          .in("winback_activities.activity_type", ["called", "left_vm", "texted", "emailed"]);
 
         // Tab filter
         if (activeTab === "dismissed") {

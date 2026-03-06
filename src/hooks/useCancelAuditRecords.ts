@@ -62,7 +62,7 @@ export function useCancelAuditRecords({
         .from('cancel_audit_records')
         .select(`
           *,
-          cancel_audit_activities(id, created_at)
+          cancel_audit_activities(id, activity_type, created_at)
         `)
         .eq('agency_id', agencyId);
 
@@ -132,17 +132,20 @@ export function useCancelAuditRecords({
       });
 
       // Transform the data to include activity count, last activity, and household policy count
+      // Only these activity types count as actual contact attempts
+      const CONTACT_TYPES = ['attempted_call', 'voicemail_left', 'text_sent', 'email_sent', 'spoke_with_client'];
+
       return (data || []).map(record => {
         const activities = (record as any).cancel_audit_activities || [];
-        const sortedActivities = [...activities].sort((a: any, b: any) => 
+        const sortedActivities = [...activities].sort((a: any, b: any) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
-        
+
         const { cancel_audit_activities, ...cleanRecord } = record as any;
-        
+
         return {
           ...cleanRecord,
-          activity_count: activities.length,
+          activity_count: activities.filter((a: any) => CONTACT_TYPES.includes(a.activity_type)).length,
           last_activity_at: sortedActivities[0]?.created_at || null,
           household_policy_count: householdPolicyCounts.get(record.household_key) || 1,
           is_active: record.is_active,
