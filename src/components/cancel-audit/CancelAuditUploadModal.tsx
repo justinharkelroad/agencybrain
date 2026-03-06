@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, FileSpreadsheet, AlertCircle, X } from 'lucide-react';
-import { HelpButton } from '@/components/HelpButton';
+import { HowItWorksModal } from '@/components/HowItWorksModal';
 import { parseCancelAuditExcel, type ParseResult } from '@/lib/cancel-audit-parser';
 import { useCancelAuditBackgroundUpload } from '@/hooks/useCancelAuditBackgroundUpload';
 import type { ReportType } from '@/types/cancel-audit';
@@ -130,7 +130,21 @@ export function CancelAuditUploadModal({
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle>Upload Cancel Audit Report</DialogTitle>
-            <HelpButton videoKey="cancel_audit_upload" label="How It Works" />
+            <HowItWorksModal title="How the Cancel Audit Upload Works">
+              <p className="font-medium text-foreground">What happens when you upload a report:</p>
+              <ul className="list-disc list-inside space-y-2 ml-1">
+                <li><span className="font-medium text-foreground">New records</span> are created for any policy number AgencyBrain hasn't seen before. A contact is automatically created (or matched to an existing one) based on the insured's name, phone, and email.</li>
+                <li><span className="font-medium text-foreground">Returning records</span> — policies that appeared in your last upload and are still in this one — are updated with the latest carrier data. Your status, assignment, and activity history are preserved.</li>
+                <li><span className="font-medium text-foreground">Dropped records</span> — policies from your last upload that are <em>not</em> in this one — get flagged with a "Not in latest" badge. This usually means the customer made a payment or the policy fully cancelled. They stay in your "Needs Attention" view until you mark them Resolved or Lost.</li>
+                <li><span className="font-medium text-foreground">Resolved records that reappear</span> — if you previously marked a record as Resolved but it shows back up, AgencyBrain resets it to "New" so your team knows it needs attention again.</li>
+                <li><span className="font-medium text-foreground">Assignments are never cleared</span> — if a record was assigned to a team member, it stays assigned through every upload cycle.</li>
+              </ul>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/50 p-3 mt-2">
+                <p className="text-xs text-amber-800 dark:text-amber-200">
+                  <span className="font-medium">Important:</span> Make sure you select the correct report type (Cancellation Audit vs. Pending Cancel). Each one tracks a different set of records — uploading the wrong type will flag records from the other type as dropped.
+                </p>
+              </div>
+            </HowItWorksModal>
           </div>
           <DialogDescription className="sr-only">
             Upload and process cancel audit report files

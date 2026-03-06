@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, FileSpreadsheet, AlertTriangle, X } from 'lucide-react';
-import { HelpButton } from '@/components/HelpButton';
+import { HowItWorksModal } from '@/components/HowItWorksModal';
 import { parseWinbackExcel, getHouseholdKey, type ParsedWinbackRecord } from '@/lib/winbackParser';
 import { toast } from 'sonner';
 import { useWinbackBackgroundUpload } from '@/hooks/useWinbackBackgroundUpload';
@@ -104,7 +104,44 @@ export function WinbackUploadModal({
               <Upload className="h-5 w-5" />
               Upload Termination Audit
             </DialogTitle>
-            <HelpButton videoKey="winback_upload" label="How It Works" />
+            <HowItWorksModal title="How the Termination Upload Works">
+              <p className="font-medium text-foreground">What happens when you upload a termination report:</p>
+              <ul className="list-disc list-inside space-y-2 ml-1">
+                <li><span className="font-medium text-foreground">Cancel Audit</span> — If a terminated policy has an open cancel audit record, that record is automatically closed and moved here to Win-Back HQ. You won't lose any history — it's all linked together.</li>
+                <li><span className="font-medium text-foreground">Renewals</span> — If a terminated policy has a pending renewal, that renewal is automatically marked as unsuccessful and linked to the new win-back record.</li>
+                <li><span className="font-medium text-foreground">Multi-policy households</span> — If a customer has other active policies still being worked (cancel audit, renewals, or existing coverage), they'll stay in their current stage with a "Winback Opp" tag so you know there's also a win-back opportunity. They won't disappear from your other workflows.</li>
+              </ul>
+              <p className="text-xs mt-2">All automatic changes are logged with an "Auto-moved to Win-Back" note in the activity history.</p>
+              <div className="rounded-lg border p-3 mt-2">
+                <p className="text-xs font-medium text-foreground mb-2">How a contact's stage is determined:</p>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-1 pr-2 font-medium text-foreground">Situation</th>
+                      <th className="text-left py-1 font-medium text-foreground">Stage shown</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    <tr>
+                      <td className="py-1.5 pr-2">Only relationship is the terminated policy</td>
+                      <td className="py-1.5 font-medium text-foreground">Win-Back</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1.5 pr-2">Also has open cancel audit work on other policies</td>
+                      <td className="py-1.5 font-medium text-foreground">Cancel Audit + Winback Opp tag</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1.5 pr-2">Also has a pending renewal on other policies</td>
+                      <td className="py-1.5 font-medium text-foreground">Renewal + Winback Opp tag</td>
+                    </tr>
+                    <tr>
+                      <td className="py-1.5 pr-2">Also an active customer on other policies</td>
+                      <td className="py-1.5 font-medium text-foreground">Customer + Winback Opp tag</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </HowItWorksModal>
           </div>
           <DialogDescription>
             Upload an Allstate termination audit Excel file to import terminated policies.
