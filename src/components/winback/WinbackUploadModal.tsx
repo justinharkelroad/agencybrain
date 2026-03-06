@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, FileSpreadsheet, AlertTriangle, X } from 'lucide-react';
+import { HelpButton } from '@/components/HelpButton';
 import { parseWinbackExcel, getHouseholdKey, type ParsedWinbackRecord } from '@/lib/winbackParser';
 import { toast } from 'sonner';
 import { useWinbackBackgroundUpload } from '@/hooks/useWinbackBackgroundUpload';
@@ -98,10 +99,13 @@ export function WinbackUploadModal({
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Upload Termination Audit
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <Upload className="h-5 w-5" />
+              Upload Termination Audit
+            </DialogTitle>
+            <HelpButton videoKey="winback_upload" label="How It Works" />
+          </div>
           <DialogDescription>
             Upload an Allstate termination audit Excel file to import terminated policies.
           </DialogDescription>

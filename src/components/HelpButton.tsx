@@ -15,9 +15,10 @@ interface HelpButtonProps {
   videoKey: string;
   size?: 'sm' | 'md';
   className?: string;
+  label?: string;
 }
 
-export function HelpButton({ videoKey, size = 'sm', className }: HelpButtonProps) {
+export function HelpButton({ videoKey, size = 'sm', className, label = 'Help' }: HelpButtonProps) {
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState<HelpContent | null>(null);
 
@@ -59,7 +60,7 @@ export function HelpButton({ videoKey, size = 'sm', className }: HelpButtonProps
         title={`Help: ${content.title}`}
       >
         <HelpCircle className={iconSize} />
-        <span className="text-xs font-medium">Help</span>
+        <span className="text-xs font-medium">{label}</span>
       </Button>
 
       <HelpModal
