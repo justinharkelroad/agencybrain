@@ -137,25 +137,41 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
     enabled: !!selectedMember && !!selectedMemberRole,
   });
 
-  // Get the KPIs to display - use enabledKpis if configured, fallback to all role KPIs
+  // Get the KPIs to display — use ring_metrics from scorecard_rules (consistent with
+  // TeamPerformanceRings, TeamRingsGrid, StaffTeamRings), then fall back to selected_metrics,
+  // then role defaults. Never fall back to ALL KPIs — that produces 14+ chaotic rings.
   const displayKpis: KPI[] = useMemo(() => {
     if (!kpiConfig) return [];
-    // If scorecard_rules configured with selected_metrics: use filtered KPIs
-    // If NO scorecard_rules or empty selected_metrics: fall back to ALL role-appropriate KPIs
-    return (kpiConfig.enabledKpis?.length > 0)
-      ? kpiConfig.enabledKpis.map(k => ({
-          id: k.id,
-          key: k.key,
-          label: k.label,
-          type: k.type,
-        }))
-      : kpiConfig.kpis.map(k => ({
-          id: k.id,
-          key: k.key,
-          label: k.label,
-          type: k.type,
-        }));
-  }, [kpiConfig]);
+
+    const rules = kpiConfig.scorecardRules;
+    const ringMetrics = rules?.ring_metrics?.length ? rules.ring_metrics
+      : rules?.selected_metrics?.length ? rules.selected_metrics
+      : null;
+
+    // Build a lookup from all available KPIs (by key)
+    const kpiByKey = new Map(kpiConfig.kpis.map(k => [k.key, k]));
+
+    if (ringMetrics) {
+      // Show only configured ring metrics, in their configured order
+      return ringMetrics
+        .filter(key => kpiByKey.has(key))
+        .map(key => {
+          const k = kpiByKey.get(key)!;
+          return { id: k.id, key: k.key, label: k.label, type: k.type };
+        });
+    }
+
+    // No rules at all — use role defaults (same 4 as other ring displays)
+    const defaults = selectedMemberRole === 'Service'
+      ? ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews']
+      : ['outbound_calls', 'talk_minutes', 'quoted_households', 'items_sold'];
+    return defaults
+      .filter(key => kpiByKey.has(key))
+      .map(key => {
+        const k = kpiByKey.get(key)!;
+        return { id: k.id, key: k.key, label: k.label, type: k.type };
+      });
+  }, [kpiConfig, selectedMemberRole]);
   const [loading, setLoading] = useState(false);
   const [reportGenerated, setReportGenerated] = useState(false);
   const [callLogData, setCallLogData] = useState<CallLogData | null>(null);
