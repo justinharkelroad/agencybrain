@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Upload, FileSpreadsheet, AlertCircle, X } from 'lucide-react';
+import { HowItWorksModal } from '@/components/HowItWorksModal';
 import { parseLqsQuoteExcel } from '@/lib/lqs-quote-parser';
 import { useQuoteBackgroundUpload } from '@/hooks/useQuoteBackgroundUpload';
 import type { QuoteParseResult } from '@/types/lqs';
@@ -139,7 +140,25 @@ export function QuoteReportUploadModal({
     <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Upload Allstate Quote Report</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Upload Allstate Quote Report</DialogTitle>
+            <HowItWorksModal title="How the Quote Upload Works">
+              <p className="font-medium text-foreground">What happens when you upload a quote report:</p>
+              <ul className="list-disc list-inside space-y-2 ml-1">
+                <li><span className="font-medium text-foreground">Matching to existing leads</span> — each quote is matched by last name + first name + ZIP code. If a household already exists from a lead upload, the quote attaches to it and automatically promotes the status from "Lead" to "Quoted."</li>
+                <li><span className="font-medium text-foreground">New households</span> — if no matching lead exists, a new household is created with "Quoted" status. It will be flagged as "Needs Attention" if there's no lead source assigned, so you can attribute it later.</li>
+                <li><span className="font-medium text-foreground">Duplicate handling</span> — quotes are deduplicated by household + quote date + product type + premium. Re-uploading the same report safely skips already-imported quotes without creating duplicates.</li>
+                <li><span className="font-medium text-foreground">Team member matching</span> — the "Sub Producer" column is matched to your team members, first by sub-producer code, then by fuzzy name match. Unmatched producers are reported in the upload summary.</li>
+                <li><span className="font-medium text-foreground">Auto sales linking</span> — after processing, AgencyBrain automatically checks for any recorded sales that match these households. If a match is found, the household is promoted to "Sold" and the sale is linked.</li>
+                <li><span className="font-medium text-foreground">Status never downgrades</span> — if a household is already "Sold," uploading new quotes won't change it back to "Quoted."</li>
+              </ul>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50 p-3 mt-2">
+                <p className="text-xs text-blue-800 dark:text-blue-200">
+                  <span className="font-medium">Pipeline flow:</span> Lead → Quoted → Sold. This upload handles the Lead-to-Quoted promotion. Sales recorded via the Sales Dashboard or daily sales summary automatically handle the Quoted-to-Sold promotion.
+                </p>
+              </div>
+            </HowItWorksModal>
+          </div>
           <DialogDescription>
             Upload a "Quotes Detail and Conversion Rate Report" Excel file to import quote data.
           </DialogDescription>
