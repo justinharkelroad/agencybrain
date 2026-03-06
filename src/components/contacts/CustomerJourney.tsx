@@ -126,7 +126,13 @@ export function CustomerJourneyCompact({ currentStage }: { currentStage: Lifecyc
 }
 
 // Badge version for tables/lists
-export function CustomerJourneyBadge({ currentStage }: { currentStage: LifecycleStage }) {
+export function CustomerJourneyBadge({
+  currentStage,
+  hasWinbackOpportunity,
+}: {
+  currentStage: LifecycleStage;
+  hasWinbackOpportunity?: boolean;
+}) {
   const config = LIFECYCLE_STAGE_CONFIGS[currentStage];
 
   const bgColors: Record<LifecycleStage, string> = {
@@ -143,15 +149,22 @@ export function CustomerJourneyBadge({ currentStage }: { currentStage: Lifecycle
   }
 
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border',
-        bgColors[currentStage] || 'bg-gray-100 text-gray-700 border-gray-200'
+    <div className="inline-flex items-center gap-1.5">
+      <span
+        className={cn(
+          'inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full border',
+          bgColors[currentStage] || 'bg-gray-100 text-gray-700 border-gray-200'
+        )}
+      >
+        <span>{config.icon}</span>
+        <span>{config.label}</span>
+      </span>
+      {hasWinbackOpportunity && currentStage !== 'winback' && (
+        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded-full border border-purple-300 text-purple-700 bg-purple-50">
+          🎯 Winback Opp
+        </span>
       )}
-    >
-      <span>{config.icon}</span>
-      <span>{config.label}</span>
-    </span>
+    </div>
   );
 }
 

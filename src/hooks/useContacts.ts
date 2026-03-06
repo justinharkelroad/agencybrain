@@ -25,6 +25,7 @@ export function useContacts(agencyId: string | null, filters: ContactFilters = {
         p_sort_by: filters.sortBy || 'name',
         p_sort_direction: filters.sortDirection || 'asc',
         p_staff_session_token: staffSessionToken || null,
+        p_has_winback_opportunity: filters.hasWinbackOpportunity ?? null,
       });
 
       if (error) {
@@ -53,6 +54,7 @@ export function useContacts(agencyId: string | null, filters: ContactFilters = {
         last_activity_at: c.last_activity_at || null,
         last_activity_type: c.last_activity_type || null,
         assigned_team_member_name: c.assigned_team_member_name || null,
+        has_winback_opportunity: c.has_winback_opportunity || false,
       }));
 
       const hasMore = (pageParam + PAGE_SIZE) < total;

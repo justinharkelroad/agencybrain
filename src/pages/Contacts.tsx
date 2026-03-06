@@ -52,6 +52,7 @@ export default function Contacts() {
   const [showLifecycleModal, setShowLifecycleModal] = useState(false);
   const [sortBy, setSortBy] = useState<SortColumn>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [showWinbackOpps, setShowWinbackOpps] = useState(false);
 
   // Handle column header click for sorting
   const handleSort = (column: SortColumn) => {
@@ -97,10 +98,11 @@ export default function Contacts() {
     () => ({
       search: searchQuery || undefined,
       stage: stageFilter !== 'all' ? [stageFilter] : undefined,
+      hasWinbackOpportunity: showWinbackOpps || undefined,
       sortBy,
       sortDirection,
     }),
-    [searchQuery, stageFilter, sortBy, sortDirection]
+    [searchQuery, stageFilter, showWinbackOpps, sortBy, sortDirection]
   );
 
   // Fetch contacts with infinite scroll
@@ -291,6 +293,17 @@ export default function Contacts() {
               ))}
             </SelectContent>
           </Select>
+
+          {/* Winback opportunity filter */}
+          <label className="flex items-center gap-2 cursor-pointer whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={showWinbackOpps}
+              onChange={(e) => setShowWinbackOpps(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            <span className="text-sm">🎯 Winback Opps</span>
+          </label>
         </div>
       </Card>
 
@@ -343,7 +356,10 @@ export default function Contacts() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <CustomerJourneyBadge currentStage={contact.current_stage} />
+                    <CustomerJourneyBadge
+                      currentStage={contact.current_stage}
+                      hasWinbackOpportunity={contact.has_winback_opportunity}
+                    />
                   </TableCell>
                   <TableCell>
                     {contact.assigned_team_member_name ? (
@@ -374,7 +390,7 @@ export default function Contacts() {
             <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No contacts found</h3>
             <p className="text-muted-foreground">
-              {searchQuery || stageFilter !== 'all'
+              {searchQuery || stageFilter !== 'all' || showWinbackOpps
                 ? 'Try adjusting your search or filters'
                 : 'Contacts will appear here as they are added through LQS, Renewals, and other modules'}
             </p>

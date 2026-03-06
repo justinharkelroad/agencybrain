@@ -168,11 +168,12 @@ BEGIN
   -- Log activity for demoted renewal records
   logged_rr AS (
     INSERT INTO renewal_activities (
-      agency_id, renewal_record_id, activity_type, comments, created_by_display_name
+      agency_id, renewal_record_id, household_key, activity_type, comments, created_by_display_name
     )
     SELECT
       d.agency_id,
       d.id,
+      d.household_key,
       'note',
       'Auto-moved to Win-Back (termination upload)',
       'System'

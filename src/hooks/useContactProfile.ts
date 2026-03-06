@@ -857,47 +857,45 @@ function determineLifecycleStage(
   cancelAuditRecords: LinkedCancelAuditRecord[],
   winbackRecords: LinkedWinbackRecord[]
 ): LifecycleStage {
-  // Check for active winback - priority 1
-  const activeWinback = winbackRecords.find(r =>
-    r.status === 'in_progress' || r.status === 'untouched'
-  );
-  if (activeWinback) return 'winback';
+  // Priority order matches get_contacts_by_stage RPC
 
-  // Check for cancel audit - need to handle both active and resolved states
-  // A record is "resolved" if cancel_status is 'Saved' (account saved/paid)
-  // A record is "active" if cancel_status is null or not 'Saved'
+  // P1: Cancel audit active (new/in_progress) → still in cancel process
+  // Must come before saved check: active work on ANY policy takes priority
   const activeCancelAudit = cancelAuditRecords.find(r =>
     !r.cancel_status || (r.cancel_status !== 'Saved' && r.cancel_status !== 'saved')
   );
-
-  // If there's an active cancel audit, show cancel_audit stage
   if (activeCancelAudit) return 'cancel_audit';
 
-  // If ALL cancel audits are saved (no active ones), they're a customer
+  // P2: Cancel audit SAVED + resolved (no active work remaining) → customer
   const savedCancelAudit = cancelAuditRecords.find(r =>
     r.cancel_status === 'Saved' || r.cancel_status === 'saved'
   );
   if (savedCancelAudit) return 'customer';
 
-  // Check for pending renewal - priority 3
+  // P3: Pending renewal
   const pendingRenewal = renewalRecords.find(r =>
     r.current_status === 'uncontacted' || r.current_status === 'pending'
   );
   if (pendingRenewal) return 'renewal';
 
-  // Check for customer (sold LQS, successful renewal, or won_back) - priority 4
+  // P4: Customer (sold LQS, successful renewal, or won_back)
   const wonBack = winbackRecords.find(r => r.status === 'won_back');
   const successfulRenewal = renewalRecords.find(r => r.current_status === 'success');
   const soldLqs = lqsRecords.find(r => (r.status || '').toLowerCase() === 'sold');
   if (successfulRenewal || soldLqs || wonBack) return 'customer';
 
-  // Check for quoted - priority 5
-  // LQS 'quoted' status OR winback 'moved_to_quoted' (agreed to get a quote)
+  // P5: Winback (untouched/in_progress) — only if no higher-priority stage
+  const activeWinback = winbackRecords.find(r =>
+    r.status === 'in_progress' || r.status === 'untouched'
+  );
+  if (activeWinback) return 'winback';
+
+  // P6: Quoted
   const quotedLqs = lqsRecords.find(r => (r.status || '').toLowerCase() === 'quoted');
   const movedToQuotedWinback = winbackRecords.find(r => r.status === 'moved_to_quoted');
   if (quotedLqs || movedToQuotedWinback) return 'quoted';
 
-  // Check for open lead - priority 6
+  // P7: Open lead
   const leadLqs = lqsRecords.find(r => (r.status || '').toLowerCase() === 'lead');
   if (leadLqs) return 'open_lead';
 

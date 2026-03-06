@@ -293,34 +293,43 @@ serve(async (req) => {
     // Calculate lifecycle stage based on linked records
     // Priority order matches get_contacts_by_stage RPC for consistency
     let lifecycleStage = 'open_lead';  // Default to valid stage
+    const hasActiveWinback = winbackRecords.some((r: any) =>
+      r.status === 'untouched' || r.status === 'in_progress'
+    );
 
-    // 1. Winback (highest priority) - only ACTIVE winback records (NOT moved_to_quoted)
-    if (winbackRecords.length > 0 && winbackRecords.some((r: any) =>
-        r.status === 'untouched' || r.status === 'in_progress'
-    )) {
-      lifecycleStage = 'winback';
-    }
-    // 2. Cancel Audit - active records not saved
-    else if (cancelAuditRecords.length > 0 && cancelAuditRecords.some((r: any) =>
-        r.cancel_status !== 'Saved' && r.cancel_status !== 'saved'
+    // P1: Cancel audit active (new/in_progress) → still in cancel process
+    // Must come before saved check: active work on ANY policy takes priority
+    if (cancelAuditRecords.some((r: any) =>
+        r.status === 'new' || r.status === 'in_progress'
     )) {
       lifecycleStage = 'cancel_audit';
     }
-    // 3. Customer - has sales, successful renewals, or saved cancel audits
-    else if (
-      lqsRecords.some((r: any) => r.sales && r.sales.length > 0) ||
-      renewalRecords.some((r: any) => r.current_status === 'success') ||
-      cancelAuditRecords.some((r: any) => r.cancel_status === 'Saved' || r.cancel_status === 'saved')
-    ) {
+    // P2: Cancel audit SAVED + resolved (no active work remaining) → customer
+    else if (cancelAuditRecords.some((r: any) =>
+        r.status === 'resolved' && (r.cancel_status === 'Saved' || r.cancel_status === 'saved')
+    )) {
       lifecycleStage = 'customer';
     }
-    // 4. Renewal - active renewal records
-    else if (renewalRecords.length > 0 && renewalRecords.some((r: any) =>
+    // P3: Renewal - active renewal records
+    else if (renewalRecords.some((r: any) =>
         r.current_status === 'uncontacted' || r.current_status === 'pending'
     )) {
       lifecycleStage = 'renewal';
     }
-    // 5. Quoted - has quotes OR lqs_households with status='quoted' OR winback moved_to_quoted
+    // P4: Customer - has sales, successful renewals, won_back winback, or saved cancel audits
+    else if (
+      lqsRecords.some((r: any) => r.sales && r.sales.length > 0) ||
+      renewalRecords.some((r: any) => r.current_status === 'success') ||
+      winbackRecords.some((r: any) => r.status === 'won_back') ||
+      cancelAuditRecords.some((r: any) => r.cancel_status === 'Saved' || r.cancel_status === 'saved')
+    ) {
+      lifecycleStage = 'customer';
+    }
+    // P5: Winback (untouched/in_progress) — only if no higher-priority stage
+    else if (hasActiveWinback) {
+      lifecycleStage = 'winback';
+    }
+    // P6: Quoted - has quotes OR lqs_households with status='quoted' OR winback moved_to_quoted
     else if (
       lqsRecords.some((r: any) => r.quotes && r.quotes.length > 0) ||
       lqsRecords.some((r: any) => r.status === 'quoted') ||
@@ -328,7 +337,7 @@ serve(async (req) => {
     ) {
       lifecycleStage = 'quoted';
     }
-    // 6. Default: open_lead (already set)
+    // P7: Default: open_lead (already set)
 
     // Build journey events from all activities and records
     const journeyEvents: any[] = [];

@@ -56,6 +56,7 @@ export interface ContactWithStatus extends Contact {
   last_activity_at: string | null;
   last_activity_type: ContactActivityType | null;
   assigned_team_member_name: string | null;
+  has_winback_opportunity?: boolean;
 }
 
 // Activity record from contact_activities table
@@ -214,6 +215,7 @@ export interface ContactFilters {
   search?: string;
   stage?: LifecycleStage[];
   hasActivity?: boolean;
+  hasWinbackOpportunity?: boolean;
   sortBy?: 'name' | 'last_activity' | 'status' | 'assigned';
   sortDirection?: 'asc' | 'desc';
 }
