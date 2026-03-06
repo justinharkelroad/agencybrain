@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Upload, FileSpreadsheet, AlertCircle, X } from 'lucide-react';
+import { HelpButton } from '@/components/HelpButton';
 import { parseCancelAuditExcel, type ParseResult } from '@/lib/cancel-audit-parser';
 import { useCancelAuditBackgroundUpload } from '@/hooks/useCancelAuditBackgroundUpload';
 import type { ReportType } from '@/types/cancel-audit';
@@ -127,7 +128,10 @@ export function CancelAuditUploadModal({
     <Dialog open={open} onOpenChange={(open) => !open && handleClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Upload Cancel Audit Report</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Upload Cancel Audit Report</DialogTitle>
+            <HelpButton videoKey="cancel_audit_upload" label="How It Works" />
+          </div>
           <DialogDescription className="sr-only">
             Upload and process cancel audit report files
           </DialogDescription>
