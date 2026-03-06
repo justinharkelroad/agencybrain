@@ -25,6 +25,7 @@ interface Props {
     any,
     { targetMemberIds: string[]; items: { label: string; sort_order: number }[] }
   >;
+  itemLabel?: string;
 }
 
 export default function CopyChecklistModal({
@@ -34,6 +35,7 @@ export default function CopyChecklistModal({
   sourceMemberId,
   items,
   copyToMembers,
+  itemLabel = "training item",
 }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<{ copied: number; skipped: number } | null>(null);
@@ -114,7 +116,7 @@ export default function CopyChecklistModal({
         <DialogHeader>
           <DialogTitle>Copy Checklist to Others</DialogTitle>
           <DialogDescription>
-            Copy {items.length} training item{items.length !== 1 ? "s" : ""} to selected team members. Duplicates will be skipped.
+            Copy {items.length} {itemLabel}{items.length !== 1 ? "s" : ""} to selected team members. Duplicates will be skipped.
           </DialogDescription>
         </DialogHeader>
 

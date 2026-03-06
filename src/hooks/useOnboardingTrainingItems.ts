@@ -16,12 +16,17 @@ export type OnboardingTrainingItem = {
   created_at: string;
   updated_at: string;
   created_by_user_id: string | null;
+  checklist_type: string;
 };
 
-export function useOnboardingTrainingItems(memberId: string | undefined, agencyId: string | undefined) {
+export function useOnboardingTrainingItems(
+  memberId: string | undefined,
+  agencyId: string | undefined,
+  checklistType: string = 'onboarding',
+) {
   const { user } = useAuth();
   const qc = useQueryClient();
-  const queryKey = ['onboarding-training-items', memberId];
+  const queryKey = ['onboarding-training-items', memberId, checklistType];
 
   const query = useQuery({
     queryKey,
@@ -31,6 +36,7 @@ export function useOnboardingTrainingItems(memberId: string | undefined, agencyI
         .from('onboarding_training_items')
         .select('*')
         .eq('member_id', memberId!)
+        .eq('checklist_type', checklistType)
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: true });
       if (error) throw error;
@@ -50,12 +56,13 @@ export function useOnboardingTrainingItems(memberId: string | undefined, agencyI
           label,
           sort_order: maxSort + 1,
           created_by_user_id: user?.id ?? null,
+          checklist_type: checklistType,
         });
       if (error) throw error;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey });
-      toast.success('Training item added');
+      toast.success('Item added');
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to add item'),
   });
@@ -90,9 +97,48 @@ export function useOnboardingTrainingItems(memberId: string | undefined, agencyI
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey });
-      toast.success('Training item removed');
+      toast.success('Item removed');
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to remove item'),
+  });
+
+  const reorderItems = useMutation({
+    mutationFn: async ({ id, direction }: { id: string; direction: 'up' | 'down' }) => {
+      const items = query.data || [];
+      const idx = items.findIndex((it) => it.id === id);
+      if (idx < 0) return;
+      const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= items.length) return;
+
+      const a = items[idx];
+      const b = items[swapIdx];
+
+      // If sort_order values are equal (concurrent insert edge case), assign distinct values
+      let sortA = a.sort_order;
+      let sortB = b.sort_order;
+      if (sortA === sortB) {
+        // Use array index to break the tie
+        sortA = idx + 1;
+        sortB = swapIdx + 1;
+      }
+
+      // Swap sort_order values
+      const { error: e1 } = await supabase
+        .from('onboarding_training_items')
+        .update({ sort_order: sortB })
+        .eq('id', a.id);
+      if (e1) throw e1;
+
+      const { error: e2 } = await supabase
+        .from('onboarding_training_items')
+        .update({ sort_order: sortA })
+        .eq('id', b.id);
+      if (e2) throw e2;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey });
+    },
+    onError: (e: any) => toast.error(e?.message || 'Failed to reorder items'),
   });
 
   const copyToMembers = useMutation({
@@ -110,7 +156,8 @@ export function useOnboardingTrainingItems(memberId: string | undefined, agencyI
       const { data: existing, error: fetchErr } = await supabase
         .from('onboarding_training_items')
         .select('member_id, label, sort_order')
-        .in('member_id', targetMemberIds);
+        .in('member_id', targetMemberIds)
+        .eq('checklist_type', checklistType);
       if (fetchErr) throw fetchErr;
 
       // Group existing labels (lowercased) and max sort_order by member
@@ -130,6 +177,7 @@ export function useOnboardingTrainingItems(memberId: string | undefined, agencyI
         label: string;
         sort_order: number;
         created_by_user_id: string | null;
+        checklist_type: string;
       }[] = [];
       let skipped = 0;
 
@@ -147,6 +195,7 @@ export function useOnboardingTrainingItems(memberId: string | undefined, agencyI
             label: item.label,
             sort_order: nextSort++,
             created_by_user_id: user?.id ?? null,
+            checklist_type: checklistType,
           });
         }
       }
@@ -162,11 +211,11 @@ export function useOnboardingTrainingItems(memberId: string | undefined, agencyI
     },
     onSuccess: (_data, variables) => {
       for (const mid of variables.targetMemberIds) {
-        qc.invalidateQueries({ queryKey: ['onboarding-training-items', mid] });
+        qc.invalidateQueries({ queryKey: ['onboarding-training-items', mid, checklistType] });
       }
     },
     onError: (e: any) => toast.error(e?.message || 'Failed to copy items'),
   });
 
-  return { query, addItem, toggleComplete, removeItem, copyToMembers };
+  return { query, addItem, toggleComplete, removeItem, reorderItems, copyToMembers };
 }

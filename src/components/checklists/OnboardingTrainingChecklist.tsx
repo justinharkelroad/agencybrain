@@ -8,12 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Copy, Plus, Trash2, StickyNote } from "lucide-react";
+import { ArrowUp, ArrowDown, Copy, Plus, Trash2, StickyNote } from "lucide-react";
 import CopyChecklistModal from "./CopyChecklistModal";
 
 interface Props {
   memberId: string;
   agencyId: string;
+  checklistType?: string;
+  title?: string;
+  description?: string;
 }
 
 function formatDate(iso: string | null): string {
@@ -27,9 +30,16 @@ function formatDate(iso: string | null): string {
   }).format(new Date(iso));
 }
 
-export default function OnboardingTrainingChecklist({ memberId, agencyId }: Props) {
+export default function OnboardingTrainingChecklist({
+  memberId,
+  agencyId,
+  checklistType = "onboarding",
+  title = "Onboarding Training Checklist",
+  description = "Track training items for this team member",
+}: Props) {
   const qc = useQueryClient();
-  const { query, addItem, toggleComplete, removeItem, copyToMembers } = useOnboardingTrainingItems(memberId, agencyId);
+  const { query, addItem, toggleComplete, removeItem, reorderItems, copyToMembers } =
+    useOnboardingTrainingItems(memberId, agencyId, checklistType);
 
   const [newLabel, setNewLabel] = useState("");
   const [copyModalOpen, setCopyModalOpen] = useState(false);
@@ -40,15 +50,15 @@ export default function OnboardingTrainingChecklist({ memberId, agencyId }: Prop
   // Realtime subscription
   useEffect(() => {
     const channel = supabase
-      .channel(`oti-${memberId}`)
+      .channel(`oti-${memberId}-${checklistType}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "onboarding_training_items", filter: `member_id=eq.${memberId}` },
-        () => qc.invalidateQueries({ queryKey: ["onboarding-training-items", memberId] })
+        () => qc.invalidateQueries({ queryKey: ["onboarding-training-items", memberId, checklistType] })
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [memberId, qc]);
+  }, [memberId, checklistType, qc]);
 
   const handleAdd = () => {
     const label = newLabel.trim();
@@ -96,8 +106,8 @@ export default function OnboardingTrainingChecklist({ memberId, agencyId }: Prop
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div>
-          <CardTitle>Onboarding Training Checklist</CardTitle>
-          <CardDescription>Track training items for this team member</CardDescription>
+          <CardTitle>{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
         </div>
         {items.length > 0 && (
           <Button
@@ -115,7 +125,7 @@ export default function OnboardingTrainingChecklist({ memberId, agencyId }: Prop
         {/* Add row */}
         <div className="flex items-center gap-2">
           <Input
-            placeholder="Add a training item..."
+            placeholder={checklistType === "offboarding" ? "Add an offboarding item..." : "Add a training item..."}
             value={newLabel}
             onChange={(e) => setNewLabel(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
@@ -133,7 +143,9 @@ export default function OnboardingTrainingChecklist({ memberId, agencyId }: Prop
         </div>
 
         {items.length === 0 ? (
-          <p className="text-center text-muted-foreground py-6">No training items yet</p>
+          <p className="text-center text-muted-foreground py-6">
+            {checklistType === "offboarding" ? "No offboarding items yet" : "No training items yet"}
+          </p>
         ) : (
           <Table>
             <TableHeader>
@@ -143,11 +155,12 @@ export default function OnboardingTrainingChecklist({ memberId, agencyId }: Prop
                 <TableHead>Added</TableHead>
                 <TableHead>Completed</TableHead>
                 <TableHead className="w-10"></TableHead>
+                <TableHead className="w-20"></TableHead>
                 <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {items.map((item) => (
+              {items.map((item, idx) => (
                 <React.Fragment key={item.id}>
                   <TableRow>
                     <TableCell>
@@ -182,6 +195,28 @@ export default function OnboardingTrainingChecklist({ memberId, agencyId }: Prop
                       )}
                     </TableCell>
                     <TableCell>
+                      <div className="flex items-center gap-0.5">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => reorderItems.mutate({ id: item.id, direction: 'up' })}
+                          disabled={idx === 0 || reorderItems.isPending}
+                        >
+                          <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => reorderItems.mutate({ id: item.id, direction: 'down' })}
+                          disabled={idx === items.length - 1 || reorderItems.isPending}
+                        >
+                          <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -196,7 +231,7 @@ export default function OnboardingTrainingChecklist({ memberId, agencyId }: Prop
                   {checkingItemId === item.id && (
                     <TableRow>
                       <TableCell />
-                      <TableCell colSpan={5}>
+                      <TableCell colSpan={6}>
                         <div className="flex items-center gap-2 py-1">
                           <Input
                             placeholder="Optional note..."
@@ -230,6 +265,7 @@ export default function OnboardingTrainingChecklist({ memberId, agencyId }: Prop
       sourceMemberId={memberId}
       items={items.map((it) => ({ label: it.label, sort_order: it.sort_order }))}
       copyToMembers={copyToMembers}
+      itemLabel={checklistType === "offboarding" ? "offboarding item" : "training item"}
     />
     </TooltipProvider>
   );

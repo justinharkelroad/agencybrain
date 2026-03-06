@@ -10,7 +10,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Upload, ArrowLeft, Users } from "lucide-react";
+import { Upload, ArrowLeft, Users, Trash2 } from "lucide-react";
 import OnboardingTrainingChecklist from "@/components/checklists/OnboardingTrainingChecklist";
 
 export default function AdminMember() {
@@ -193,6 +193,23 @@ export default function AdminMember() {
     onError: (e: any) => toast({ title: "Upload failed", description: e?.message || "Unable to upload", variant: "destructive" }),
   });
 
+  const removeItemMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      if (!memberId) throw new Error("Missing member");
+      const { error } = await supa
+        .from('member_checklist_items')
+        .delete()
+        .eq('member_id', memberId as string)
+        .eq('template_item_id', templateId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["mci", memberId] });
+      toast({ title: "Removed", description: "Checklist item removed for this member" });
+    },
+    onError: (e: any) => toast({ title: "Remove failed", description: e?.message || "Unable to remove item", variant: "destructive" }),
+  });
+
   const onFileChange = (templateId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -249,6 +266,7 @@ export default function AdminMember() {
                     <TableHead>Secured</TableHead>
                     <TableHead>Attachments</TableHead>
                     <TableHead>Upload</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -261,15 +279,28 @@ export default function AdminMember() {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Label htmlFor={`file-${template.id}`} className="sr-only">Upload file</Label>
-                          <Input id={`file-${template.id}`} type="file" className="max-w-xs" onChange={(e) => onFileChange(template.id, e)} />
+                          <Input id={`file-${template.id}`} type="file" className="max-w-xs" onChange={(e) => onFileChange(template.id, e)} disabled={!mci} />
                           <Upload className="h-4 w-4 text-muted-foreground" />
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {mci && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 group"
+                            onClick={() => removeItemMutation.mutate(template.id)}
+                            disabled={removeItemMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground group-hover:text-destructive" />
+                          </Button>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
                   {checklist.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">No checklist items</TableCell>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">No checklist items</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -278,7 +309,16 @@ export default function AdminMember() {
           </Card>
 
           {memberId && memberQuery.data?.agency_id && (
-            <OnboardingTrainingChecklist memberId={memberId} agencyId={memberQuery.data.agency_id} />
+            <>
+              <OnboardingTrainingChecklist memberId={memberId} agencyId={memberQuery.data.agency_id} />
+              <OnboardingTrainingChecklist
+                memberId={memberId}
+                agencyId={memberQuery.data.agency_id}
+                checklistType="offboarding"
+                title="Offboarding Checklist"
+                description="Track offboarding tasks for this team member"
+              />
+            </>
           )}
         </article>
       </main>

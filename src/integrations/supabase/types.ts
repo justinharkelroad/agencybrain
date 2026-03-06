@@ -7656,6 +7656,7 @@ export type Database = {
       onboarding_training_items: {
         Row: {
           agency_id: string
+          checklist_type: string
           completed: boolean
           completed_at: string | null
           completed_by_user_id: string | null
@@ -7670,6 +7671,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          checklist_type?: string
           completed?: boolean
           completed_at?: string | null
           completed_by_user_id?: string | null
@@ -7684,6 +7686,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          checklist_type?: string
           completed?: boolean
           completed_at?: string | null
           completed_by_user_id?: string | null

@@ -11,7 +11,7 @@ import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, Tabl
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, Upload, Save } from "lucide-react";
+import { ArrowLeft, Upload, Save, Trash2 } from "lucide-react";
 import OnboardingTrainingChecklist from "@/components/checklists/OnboardingTrainingChecklist";
 
 export default function AgencyMember() {
@@ -149,8 +149,19 @@ export default function AgencyMember() {
         .eq('member_id', memberId as string)
         .eq('template_item_id', templateId);
       if (error) throw error;
+      return templateId;
     },
-    onSuccess: () => {
+    onSuccess: (deletedTemplateId) => {
+      // Clear any staged files for the deleted item
+      setStagedFiles(prev => {
+        if (!prev[deletedTemplateId]) return prev;
+        const next = { ...prev };
+        delete next[deletedTemplateId];
+        return next;
+      });
+      // Clear the file input element
+      const fileInput = document.getElementById(`file-${deletedTemplateId}`) as HTMLInputElement;
+      if (fileInput) fileInput.value = "";
       qc.invalidateQueries({ queryKey: ["mci", memberId] });
       toast({ title: "Removed", description: "Checklist item removed for this member" });
     },
@@ -310,25 +321,26 @@ export default function AgencyMember() {
                     <TableHead>Files</TableHead>
                     <TableHead>Upload</TableHead>
                     <TableHead>Action</TableHead>
+                    <TableHead className="w-10"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {checklist.map(({ template, mci }) => (
                     <TableRow key={template.id}>
                       <TableCell>{template.label}</TableCell>
-                      
+
                       <TableCell>{mci?.secured ? 'Yes' : 'No'}</TableCell>
                       <TableCell>{mci?.attachments_count ?? 0}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Label htmlFor={`file-${template.id}`} className="sr-only">Upload file</Label>
-                          <Input 
-                            id={`file-${template.id}`} 
-                            type="file" 
+                          <Input
+                            id={`file-${template.id}`}
+                            type="file"
                             multiple
-                            className="max-w-xs" 
-                            onChange={(e) => onFileChange(template.id, e)} 
-                            disabled={!mci} 
+                            className="max-w-xs"
+                            onChange={(e) => onFileChange(template.id, e)}
+                            disabled={!mci}
                           />
                           <Upload className="h-4 w-4 text-muted-foreground" />
                           {stagedFiles[template.id] && (
@@ -354,15 +366,6 @@ export default function AgencyMember() {
                                   {saveFilesMutation.isPending ? "Uploading..." : `Save (${stagedFiles[template.id].length})`}
                                 </Button>
                               )}
-                              <Button
-                                variant="secondary"
-                                size="sm"
-                                className="rounded-full"
-                                onClick={() => removeItemMutation.mutate(template.id)}
-                                disabled={removeItemMutation.isPending}
-                              >
-                                {removeItemMutation.isPending ? "Removing..." : "Remove"}
-                              </Button>
                             </>
                           ) : (
                             <Button
@@ -376,11 +379,24 @@ export default function AgencyMember() {
                           )}
                         </div>
                       </TableCell>
+                      <TableCell>
+                        {mci && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 group"
+                            onClick={() => removeItemMutation.mutate(template.id)}
+                            disabled={removeItemMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4 text-muted-foreground group-hover:text-destructive" />
+                          </Button>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                   {checklist.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">No checklist items</TableCell>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">No checklist items</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -389,7 +405,16 @@ export default function AgencyMember() {
           </Card>
 
           {memberId && agencyId && (
-            <OnboardingTrainingChecklist memberId={memberId} agencyId={agencyId} />
+            <>
+              <OnboardingTrainingChecklist memberId={memberId} agencyId={agencyId} />
+              <OnboardingTrainingChecklist
+                memberId={memberId}
+                agencyId={agencyId}
+                checklistType="offboarding"
+                title="Offboarding Checklist"
+                description="Track offboarding tasks for this team member"
+              />
+            </>
           )}
         </article>
       </main>
