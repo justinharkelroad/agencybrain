@@ -13,6 +13,8 @@
  */
 
 import * as XLSX from 'xlsx';
+import { classifyBundle } from '@/lib/bundle-classifier';
+import { buildCustomerKey } from '@/lib/sales-bundle-classification';
 
 // Individual parsed row from the report
 export interface NewBusinessRecord {
@@ -377,59 +379,41 @@ export function normalizeProductType(product: string): string {
 }
 
 /**
- * Infer bundle type based on products sold to same customer
- * - Monoline: Single product (just auto OR just home)
- * - Standard: Auto + 1 property product
- * - Preferred: Auto + 2+ property products
+ * Infer bundle type based on the shared canonical bundle classifier.
+ * This keeps monthly comp bundle treatment aligned with sales and staff views.
  */
-function inferBundleTypes(
+export function inferBundleTypes(
   records: NewBusinessRecord[]
 ): Map<string, 'monoline' | 'standard' | 'preferred'> {
-  // Group by customer (using policy number prefix or customer name)
-  const customerProducts = new Map<string, { hasAuto: boolean; propertyProducts: Set<string> }>();
+  const customerProducts = new Map<string, Set<string>>();
 
   for (const record of records) {
-    // Use customer name as key (uppercase, normalized)
-    const key = record.customerName.toUpperCase().replace(/\s+/g, '_');
+    const key = buildCustomerKey(record.customerName);
+    if (!key) continue;
 
     if (!customerProducts.has(key)) {
-      customerProducts.set(key, { hasAuto: false, propertyProducts: new Set<string>() });
+      customerProducts.set(key, new Set<string>());
     }
 
-    const products = customerProducts.get(key)!;
-    const normalizedProduct = normalizeProductType(record.product);
-
-    // Categorize as auto or property
-    if (normalizedProduct === 'Auto') {
-      products.hasAuto = true;
-    } else if (['Homeowners', 'Renters', 'Condo', 'Landlord/Dwelling', 'Manufactured Home'].includes(normalizedProduct)) {
-      products.propertyProducts.add(normalizedProduct);
-    }
+    customerProducts.get(key)!.add(record.product);
   }
 
-  // Determine bundle type for each customer
   const customerBundleType = new Map<string, 'monoline' | 'standard' | 'preferred'>();
 
   for (const [key, products] of customerProducts) {
-    const hasAuto = products.hasAuto;
-    const propertyCount = products.propertyProducts.size;
+    const classification = classifyBundle({
+      productNames: Array.from(products),
+    }).bundleType;
 
-    if (hasAuto && propertyCount >= 2) {
-      customerBundleType.set(key, 'preferred');
-    } else if (hasAuto && propertyCount === 1) {
-      customerBundleType.set(key, 'standard');
-    } else {
-      customerBundleType.set(key, 'monoline');
-    }
+    customerBundleType.set(key, classification.toLowerCase() as 'monoline' | 'standard' | 'preferred');
   }
 
-  // Map back to records
   const recordBundleType = new Map<string, 'monoline' | 'standard' | 'preferred'>();
 
   for (const record of records) {
-    const key = record.customerName.toUpperCase().replace(/\s+/g, '_');
+    const key = buildCustomerKey(record.customerName);
+    if (!key) continue;
     const bundleType = customerBundleType.get(key) || 'monoline';
-    // Use policy number as unique identifier
     recordBundleType.set(record.policyNumber, bundleType);
   }
 
