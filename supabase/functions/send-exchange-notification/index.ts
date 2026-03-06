@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-const APP_URL = Deno.env.get('SITE_URL') || 'https://app.standardplaybook.com';
+const APP_URL = Deno.env.get('SITE_URL') || 'https://myagencybrain.com';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +12,7 @@ const corsHeaders = {
 };
 
 const LOGO_URL = 'https://wjqyccbytctqwceuhzhk.supabase.co/storage/v1/object/public/AgencyBrain%20Logo/Agency%20Brain%20Logo%20Stan.png';
-const EXCHANGE_URL = 'https://app.standardplaybook.com/exchange';
+const EXCHANGE_URL = `${APP_URL}/exchange`;
 
 // Helper to build email HTML
 function buildEmailHtml(posterName: string, messageContent: string, fileName?: string) {

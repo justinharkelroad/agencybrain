@@ -156,7 +156,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const siteUrl = Deno.env.get("SITE_URL") || "https://agencybrain.standardplaybook.com";
+    const siteUrl = Deno.env.get("SITE_URL") || "https://myagencybrain.com";
     
     const supabase = createClient(supabaseUrl, supabaseKey);
 
