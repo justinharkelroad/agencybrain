@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
+import { HowItWorksModal } from '@/components/HowItWorksModal';
 import { useRenewalBackgroundUpload } from '@/hooks/useRenewalBackgroundUpload';
 import { parseRenewalExcel, getRenewalDateRange } from '@/lib/renewalParser';
 import type { ParsedRenewalRecord, RenewalUploadContext } from '@/types/renewal';
@@ -89,7 +90,25 @@ export function RenewalUploadModal({ open, onClose, context }: Props) {
     <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Upload Renewal Audit Report</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Upload Renewal Audit Report</DialogTitle>
+            <HowItWorksModal title="How the Renewal Upload Works">
+              <p className="font-medium text-foreground">What happens when you upload a renewal report:</p>
+              <ul className="list-disc list-inside space-y-2 ml-1">
+                <li><span className="font-medium text-foreground">New records</span> are created for any policy that AgencyBrain hasn't seen before (matched by policy number + renewal effective date). A contact is automatically created or matched based on name, phone, and email.</li>
+                <li><span className="font-medium text-foreground">Returning records</span> — policies from your last upload that are still in this one — are updated with the latest carrier data. Your status, assignment, and activity history are preserved.</li>
+                <li><span className="font-medium text-foreground">Dropped records</span> — policies from your last upload that are <em>not</em> in this one — get flagged and moved to the "Dropped" tab. This usually means the customer renewed, cancelled, or rewrote the policy. They stay visible until you mark them as Success or Unsuccessful.</li>
+                <li><span className="font-medium text-foreground">"Renewal Taken" auto-resolution</span> — if a dropped record had a carrier status of "Renewal Taken," AgencyBrain automatically marks it as Success. No follow-up needed — the carrier already confirmed the renewal.</li>
+                <li><span className="font-medium text-foreground">Assignments are never cleared</span> — if a record was assigned to a team member, it stays assigned through every upload cycle.</li>
+                <li><span className="font-medium text-foreground">Date range matters</span> — only records within the upload's date range are compared. Records outside that range are untouched.</li>
+              </ul>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50 p-3 mt-2">
+                <p className="text-xs text-blue-800 dark:text-blue-200">
+                  <span className="font-medium">Connection to other workflows:</span> While you have uncontacted or pending renewals, the contact shows as "Renewal" stage on the Contacts page. If you mark a renewal as Unsuccessful, you can send it directly to Win-Back HQ. If the same customer has active cancel audit work, their stage stays "Cancel Audit" — renewals don't override higher-priority workflows.
+                </p>
+              </div>
+            </HowItWorksModal>
+          </div>
           <DialogDescription>Upload an Allstate BOB Renewal Audit Report (.xlsx)</DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-hidden space-y-4">
