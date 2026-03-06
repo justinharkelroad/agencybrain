@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Upload, FileSpreadsheet, AlertCircle, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
+import { HowItWorksModal } from '@/components/HowItWorksModal';
 import { parseLeadFile, applyLeadColumnMapping } from '@/lib/lead-csv-parser';
 import { useLeadBackgroundUpload } from '@/hooks/useLeadBackgroundUpload';
 import { LqsLeadSource } from '@/hooks/useLqsData';
@@ -209,7 +210,24 @@ export function LeadUploadModal({
         {currentStep === 'source' && (
           <>
             <DialogHeader>
-              <DialogTitle>Upload Leads - Step 1 of 3</DialogTitle>
+              <div className="flex items-center justify-between">
+                <DialogTitle>Upload Leads - Step 1 of 3</DialogTitle>
+                <HowItWorksModal title="How the Lead Upload Works">
+                  <p className="font-medium text-foreground">What happens when you upload leads:</p>
+                  <ul className="list-disc list-inside space-y-2 ml-1">
+                    <li><span className="font-medium text-foreground">New leads</span> are created for any person AgencyBrain hasn't seen before. Each lead is matched by last name + first name + ZIP code. A unified contact is automatically created (or matched to an existing one) based on phone, name, and email.</li>
+                    <li><span className="font-medium text-foreground">Existing households</span> — if someone with the same name and ZIP already exists (even if they've been quoted or sold) — are updated with any new data. Phone numbers are merged, and email is filled in only if it was previously blank. The household's status and history are never overwritten.</li>
+                    <li><span className="font-medium text-foreground">Lead source assignment</span> — every lead in the upload is assigned to the source you select in Step 1. If a household already has a different lead source, AgencyBrain flags it for review instead of overwriting — so you never lose track of the original source.</li>
+                    <li><span className="font-medium text-foreground">Column mapping</span> — in Step 3, you map your file's columns to AgencyBrain fields. Phone columns are auto-detected, and you can select multiple phone columns to merge into a single contact.</li>
+                    <li><span className="font-medium text-foreground">Duplicate handling</span> — duplicates within the same file are automatically skipped. Across uploads, the same person is matched and merged rather than duplicated.</li>
+                  </ul>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/50 p-3 mt-2">
+                    <p className="text-xs text-blue-800 dark:text-blue-200">
+                      <span className="font-medium">What happens next:</span> New leads start as "Open Lead" on the LQS Roadmap and the Contacts page. When a quote is logged (via scorecard or quote upload), the household automatically promotes to "Quoted." When a sale is recorded, it promotes to "Sold."
+                    </p>
+                  </div>
+                </HowItWorksModal>
+              </div>
               <DialogDescription>
                 Select the lead source for this upload. All leads will be assigned to this source.
               </DialogDescription>
