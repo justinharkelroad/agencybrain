@@ -1370,16 +1370,20 @@ Deno.serve(async (req) => {
             .single();
 
           if (lqsHousehold) {
-            const quoteRows = products.map((productType: string) => ({
-              household_id: lqsHousehold.id,
-              agency_id: agencyId,
-              team_member_id: teamMemberId || null,
-              quote_date: today,
-              product_type: productType,
-              items_quoted: 1,
-              premium_cents: 0,
-              source: "manual",
-            }));
+            const quoteRows = products.map((entry: any) => {
+              // Support both legacy string[] and enriched object[] formats
+              const isObject = typeof entry === "object" && entry !== null;
+              return {
+                household_id: lqsHousehold.id,
+                agency_id: agencyId,
+                team_member_id: teamMemberId || null,
+                quote_date: today,
+                product_type: isObject ? entry.productType : entry,
+                items_quoted: isObject ? Math.max(1, Math.floor(entry.items ?? 1)) : 1,
+                premium_cents: isObject ? Math.floor(entry.premiumCents ?? 0) : 0,
+                source: "manual",
+              };
+            });
 
             const { error: quoteError } = await supabase
               .from("lqs_quotes")

@@ -565,7 +565,7 @@ export async function winbackToQuoted(
   phones: string[],
   email: string | null,
   currentUserTeamMemberId: string | null,
-  products?: string[]
+  products?: Array<{ productType: string; items: number; premiumCents: number }>
 ): Promise<{ success: boolean; leadSourceId?: string; error?: string }> {
   if (isStaffUser()) {
     return callStaffWinback('winback_to_quoted', {

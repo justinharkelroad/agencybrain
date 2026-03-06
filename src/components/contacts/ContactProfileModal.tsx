@@ -38,7 +38,7 @@ import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 import { sendRenewalToWinback } from '@/lib/sendToWinback';
 import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';
 import { BreakupLetterModal } from '@/components/sales/BreakupLetterModal';
-import { MoveToQuotedDialog } from '@/components/lqs/MoveToQuotedDialog';
+import { MoveToQuotedDialog, type QuotedProduct } from '@/components/lqs/MoveToQuotedDialog';
 
 interface ContactProfileModalProps {
   contactId: string | null;
@@ -353,7 +353,7 @@ export function ContactProfileModal({
   };
 
   // Winback outcome handler - Won Back or Quoted
-  const handleWinbackOutcome = async (outcome: 'won_back' | 'quoted', products?: string[]) => {
+  const handleWinbackOutcome = async (outcome: 'won_back' | 'quoted', products?: QuotedProduct[]) => {
     if (!agencyId || !winbackHousehold || !profile) return;
 
     // If 'quoted' and no products yet, show the dialog to collect them
@@ -468,14 +468,14 @@ export function ContactProfileModal({
               .single();
 
             if (lqsRow) {
-              const quoteRows = products.map(productType => ({
+              const quoteRows = products.map(p => ({
                 household_id: lqsRow.id,
                 agency_id: agencyId,
                 team_member_id: currentUserTeamMemberId || null,
                 quote_date: today,
-                product_type: productType,
-                items_quoted: 1,
-                premium_cents: 0,
+                product_type: p.productType,
+                items_quoted: p.items,
+                premium_cents: p.premiumCents,
                 source: 'manual',
               }));
 
@@ -824,7 +824,7 @@ export function ContactProfileModal({
     setShowMoveToQuotedDialog(true);
   };
 
-  const handleLqsPromoteToQuotedWithProducts = async (products: string[]) => {
+  const handleLqsPromoteToQuotedWithProducts = async (products: QuotedProduct[]) => {
     if (!lqsHousehold?.id || !agencyId) return;
 
     setModuleActionLoading('promote_to_quoted');
@@ -867,14 +867,14 @@ export function ContactProfileModal({
 
         // Create one quote row per selected product
         if (products.length > 0) {
-          const quoteRows = products.map(productType => ({
+          const quoteRows = products.map(p => ({
             household_id: lqsHousehold.id,
             agency_id: agencyId,
             team_member_id: currentUserTeamMemberId || null,
             quote_date: today,
-            product_type: productType,
-            items_quoted: 1,
-            premium_cents: 0,
+            product_type: p.productType,
+            items_quoted: p.items,
+            premium_cents: p.premiumCents,
             source: 'manual',
           }));
 
@@ -896,7 +896,7 @@ export function ContactProfileModal({
               source_module: 'lqs',
               source_record_id: lqsHousehold.id,
               subject: 'Moved to Quoted',
-              notes: `Lead promoted to Quoted Household (${products.join(', ')})`,
+              notes: `Lead promoted to Quoted Household (${products.map(p => p.productType).join(', ')})`,
               created_by_user_id: userId || null,
               created_by_staff_id: resolvedCreatedByStaffId,
               created_by_display_name: displayName || null,

@@ -44,7 +44,7 @@ import { useLqsObjections } from '@/hooks/useLqsObjections';
 import { useStaffLqsObjections } from '@/hooks/useStaffLqsData';
 import { useLeadSources } from '@/hooks/useLeadSources';
 import { usePriorInsuranceCompanies } from '@/hooks/usePriorInsuranceCompanies';
-import { MoveToQuotedDialog } from './MoveToQuotedDialog';
+import { MoveToQuotedDialog, type QuotedProduct } from './MoveToQuotedDialog';
 import type { LqsSalePrefill } from '@/lib/lqs-sale-prefill';
 
 const FALLBACK_PRODUCT_OPTIONS = [
@@ -545,7 +545,7 @@ export function LqsHouseholdDetailModal({
     });
   };
 
-  const handlePromoteToQuoted = async (products: string[]) => {
+  const handlePromoteToQuoted = async (products: QuotedProduct[]) => {
     if (!household) return;
 
     setIsPromotingToQuoted(true);
@@ -585,14 +585,14 @@ export function LqsHouseholdDetailModal({
 
         // Create one quote row per selected product
         if (products.length > 0) {
-          const quoteRows = products.map(productType => ({
+          const quoteRows = products.map(p => ({
             household_id: household.id,
             agency_id: household.agency_id,
             team_member_id: assignToTeamMemberId,
             quote_date: today,
-            product_type: productType,
-            items_quoted: 1,
-            premium_cents: 0,
+            product_type: p.productType,
+            items_quoted: p.items,
+            premium_cents: p.premiumCents,
             source: 'manual',
           }));
 
@@ -615,7 +615,7 @@ export function LqsHouseholdDetailModal({
               source_module: 'lqs',
               source_record_id: household.id,
               subject: 'Moved to Quoted',
-              notes: `Lead promoted to Quoted Household (${products.join(', ')})`,
+              notes: `Lead promoted to Quoted Household (${products.map(p => p.productType).join(', ')})`,
             });
           } catch (err) {
             console.warn('Activity log failed:', err);

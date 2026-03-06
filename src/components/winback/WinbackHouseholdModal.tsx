@@ -29,7 +29,7 @@ import * as winbackApi from '@/lib/winbackApi';
 import type { WonBackSalePolicy } from '@/lib/winbackApi';
 import { supabase } from '@/integrations/supabase/client';
 import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
-import { MoveToQuotedDialog } from '@/components/lqs/MoveToQuotedDialog';
+import { MoveToQuotedDialog, type QuotedProduct } from '@/components/lqs/MoveToQuotedDialog';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface Policy {
@@ -151,7 +151,7 @@ export function WinbackHouseholdModal({
     }
   };
 
-  const logActivity = async (type: string, notes: string, products?: string[]) => {
+  const logActivity = async (type: string, notes: string, products?: QuotedProduct[]) => {
     if (!household || !agencyId) return;
 
     try {
@@ -263,14 +263,14 @@ export function WinbackHouseholdModal({
               .single();
 
             if (lqsRow) {
-              const quoteRows = products.map(productType => ({
+              const quoteRows = products.map(p => ({
                 household_id: lqsRow.id,
                 agency_id: agencyId,
                 team_member_id: currentUserTeamMemberId || null,
                 quote_date: today,
-                product_type: productType,
-                items_quoted: 1,
-                premium_cents: 0,
+                product_type: p.productType,
+                items_quoted: p.items,
+                premium_cents: p.premiumCents,
                 source: 'manual',
               }));
 

@@ -11,10 +11,16 @@ function localDateStr(timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
 }
 
+interface QuotedProductEntry {
+  productType: string;
+  items?: number;
+  premiumCents?: number;
+}
+
 interface PromoteToQuotedRequest {
   household_id: string;
   create_placeholder_quote?: boolean; // deprecated, kept for backwards compat
-  products?: string[]; // array of product_type strings to create real quote rows
+  products?: (string | QuotedProductEntry)[]; // string[] for legacy clients, object[] for enriched
 }
 
 serve(async (req) => {
@@ -157,16 +163,20 @@ serve(async (req) => {
     if (body.products && body.products.length > 0) {
       // New flow: create one quote row per selected product
       // Use assignToTeamMemberId so quotes match the household's team_member assignment
-      const quoteRows = body.products.map((productType: string) => ({
-        household_id: body.household_id,
-        agency_id: staffUser.agency_id,
-        team_member_id: assignToTeamMemberId,
-        quote_date: today,
-        product_type: productType,
-        items_quoted: 1,
-        premium_cents: 0,
-        source: 'manual',
-      }));
+      const quoteRows = body.products.map((entry) => {
+        // Support both legacy string[] and enriched object[] formats
+        const isObject = typeof entry === 'object' && entry !== null;
+        return {
+          household_id: body.household_id,
+          agency_id: staffUser.agency_id,
+          team_member_id: assignToTeamMemberId,
+          quote_date: today,
+          product_type: isObject ? (entry as QuotedProductEntry).productType : entry as string,
+          items_quoted: isObject ? Math.max(1, Math.floor((entry as QuotedProductEntry).items ?? 1)) : 1,
+          premium_cents: isObject ? Math.floor((entry as QuotedProductEntry).premiumCents ?? 0) : 0,
+          source: 'manual',
+        };
+      });
 
       const { error: quoteError } = await supabase
         .from('lqs_quotes')
