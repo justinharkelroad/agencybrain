@@ -104,6 +104,99 @@ function normalizeProductKey(product: string): string {
   return (product || '').trim().toLowerCase();
 }
 
+function isMotorClubProduct(product: string): boolean {
+  const normalized = normalizeProductKey(product);
+  return normalized.includes('motor club');
+}
+
+function classifyChargebackTransaction(tx: SubProducerTransaction): {
+  classification: string;
+  defaultIncluded: boolean;
+  reason: string;
+} {
+  const transType = (tx.transType || '').trim().toLowerCase();
+  const premium = tx.premium || 0;
+  const product = tx.product || 'Unknown';
+
+  if (isMotorClubProduct(product)) {
+    return {
+      classification: 'excluded_product',
+      defaultIncluded: false,
+      reason: 'Excluded product: Motor Club does not count for chargebacks',
+    };
+  }
+
+  if (transType.includes('reinstatement')) {
+    return {
+      classification: 'reinstatement',
+      defaultIncluded: false,
+      reason: 'Reinstatement is excluded from chargebacks',
+    };
+  }
+
+  if (premium > 0.009) {
+    return {
+      classification: 'positive_adjustment',
+      defaultIncluded: false,
+      reason: 'Positive premium adjustment is not a chargeback',
+    };
+  }
+
+  if (Math.abs(premium) <= 0.009) {
+    return {
+      classification: 'zero_adjustment',
+      defaultIncluded: false,
+      reason: 'Zero-dollar transaction is not a chargeback',
+    };
+  }
+
+  if (transType.includes('cancellation of new issued transaction')) {
+    return {
+      classification: 'cancellation_of_new_issue',
+      defaultIncluded: true,
+      reason: 'Cancellation of newly issued business',
+    };
+  }
+
+  if (transType.includes('cancel-rewrite') || transType.includes('rewrite')) {
+    return {
+      classification: 'rewrite_cancellation',
+      defaultIncluded: true,
+      reason: 'Rewrite or transfer cancellation during first term',
+    };
+  }
+
+  if (transType.includes('cancel') || transType.includes('cancelled')) {
+    return {
+      classification: 'cancellation',
+      defaultIncluded: true,
+      reason: 'Cancellation during first term',
+    };
+  }
+
+  if (transType.includes('drop item') || transType.includes('drop coverage') || transType.includes('coverage cancelled')) {
+    return {
+      classification: 'coverage_reduction',
+      defaultIncluded: true,
+      reason: 'Coverage or item removed during first term',
+    };
+  }
+
+  if (transType.includes('endorsement') || transType.includes('changes')) {
+    return {
+      classification: 'endorsement_reduction',
+      defaultIncluded: true,
+      reason: 'Premium-reducing endorsement during first term',
+    };
+  }
+
+  return {
+    classification: 'negative_adjustment',
+    defaultIncluded: true,
+    reason: 'Negative premium adjustment during first term',
+  };
+}
+
 function getFilteredWrittenMetrics(
   writtenMetrics: WrittenMetrics,
   policyTypeFilter: string[] | null
@@ -251,14 +344,19 @@ export function filterChargebacksByRule(
     result.excludedChargebacks = chargebackTransactions;
     for (const cb of chargebackTransactions) {
       const premium = Math.abs(cb.premium || 0);
+      const classification = classifyChargebackTransaction(cb);
       result.excludedPremium += premium;
       result.details.push({
         policyNumber: cb.policyNumber || 'Unknown',
         productType: cb.product || 'Unknown',
+        transactionType: cb.transType || 'Unknown',
+        businessType: cb.businessType || 'Unknown',
+        originalEffectiveDate: cb.origPolicyEffDate || '',
         premium,
         daysInForce: 0,
         termMonths: 0,
         included: false,
+        classification: classification.classification,
         reason: 'Chargeback rule: none',
       });
     }
@@ -266,9 +364,29 @@ export function filterChargebacksByRule(
   }
 
   for (const cb of chargebackTransactions) {
+    const classification = classifyChargebackTransaction(cb);
     const effectiveDate = parseTransactionDate(cb.origPolicyEffDate);
     const premium = Math.abs(cb.premium || 0);
     const productType = (cb.product || '').toLowerCase();
+
+    if (!classification.defaultIncluded) {
+      result.excludedChargebacks.push(cb);
+      result.excludedPremium += premium;
+      result.details.push({
+        policyNumber: cb.policyNumber || 'Unknown',
+        productType: cb.product || 'Unknown',
+        transactionType: cb.transType || 'Unknown',
+        businessType: cb.businessType || 'Unknown',
+        originalEffectiveDate: cb.origPolicyEffDate || '',
+        premium,
+        daysInForce: -1,
+        termMonths: -1,
+        included: false,
+        classification: classification.classification,
+        reason: classification.reason,
+      });
+      continue;
+    }
 
     if (!effectiveDate) {
       // Missing/invalid original effective date cannot be validated against the term window.
@@ -277,10 +395,14 @@ export function filterChargebacksByRule(
       result.details.push({
         policyNumber: cb.policyNumber || 'Unknown',
         productType: cb.product || 'Unknown',
+        transactionType: cb.transType || 'Unknown',
+        businessType: cb.businessType || 'Unknown',
+        originalEffectiveDate: cb.origPolicyEffDate || '',
         premium,
         daysInForce: -1,
         termMonths: -1,
         included: false,
+        classification: 'missing_effective_date',
         reason: 'Missing or invalid original effective date',
       });
       continue;
@@ -324,13 +446,17 @@ export function filterChargebacksByRule(
     result.details.push({
       policyNumber: cb.policyNumber || 'Unknown',
       productType: cb.product || 'Unknown',
+      transactionType: cb.transType || 'Unknown',
+      businessType: cb.businessType || 'Unknown',
+      originalEffectiveDate: cb.origPolicyEffDate || '',
       premium,
       daysInForce,
       termMonths,
       included,
+      classification: classification.classification,
       reason: included
-        ? `Within ${termMonths}-month term (${daysInForce} days)`
-        : `Exceeded ${termMonths}-month term (${daysInForce} days)`,
+        ? `${classification.reason}; within ${termMonths}-month term (${daysInForce} days)`
+        : `${classification.reason}; exceeded ${termMonths}-month term (${daysInForce} days)`,
     });
   }
 

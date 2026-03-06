@@ -6,6 +6,7 @@ export interface SubProducerTransaction {
   insuredName: string;
   product: string;
   transType: string;
+  businessType?: string;
   premium: number;
   commission: number;
   origPolicyEffDate: string;
@@ -75,6 +76,9 @@ export interface SubProducerMetrics {
   // Keep raw transactions for reference if needed
   creditTransactions: SubProducerTransaction[];
   chargebackTransactions: SubProducerTransaction[];
+  reinstatementTransactions: SubProducerTransaction[];
+  reinstatementPremium: number;
+  reinstatementCount: number;
 
   // Breakdowns for advanced compensation calculation
   byBundleType: BundleTypeBreakdown[];
@@ -143,6 +147,17 @@ function parseOrigDate(dateStr: string): Date | null {
   } catch {
     return null;
   }
+}
+
+function isExplicitFirstTermReinstatement(tx: Pick<SubProducerTransaction, 'transType' | 'businessType' | 'premium'>): boolean {
+  const transType = (tx.transType || '').toLowerCase();
+  const businessType = (tx.businessType || '').toLowerCase();
+  const premium = tx.premium || 0;
+
+  if (premium <= 0) return false;
+  if (!transType.includes('reinstatement')) return false;
+
+  return transType.includes('first term') || businessType.includes('new business');
 }
 
 // Helper: Check if product is Auto (6-month term)
@@ -334,7 +349,6 @@ export function analyzeSubProducers(
   transactions: StatementTransaction[],
   statementMonth?: Date  // Optional - will auto-detect if not provided
 ): SubProducerSummary {
-  
   // Auto-detect statement month from transactions if not provided
   // Use the most recent Policy Eff Date in the data
   let detectedMonth: Date;
@@ -538,18 +552,22 @@ export function analyzeSubProducers(
     if (transType.includes('policies issued')) data.policiesIssued += 1;
     if (transType.includes('coverage issued')) data.itemsIssued += 1;
     
-    // Store transaction for reference
-    data.transactions.push({
+    const normalizedTransaction: SubProducerTransaction = {
       policyNumber: tx.policyNumber || '',
       insuredName: insuredName,
       product: tx.product || '',
       transType: tx.transType || '',
+      businessType: tx.businessType || '',
       premium: premium,
       commission: commission,
       origPolicyEffDate: tx.origPolicyEffDate || '',
       isAuto: isAutoProduct(tx.product || ''),
       bundleType: normalizeBundleType(tx.policyBundleType || '')
-    });
+    };
+
+    // Store transaction for reference
+    data.transactions.push(normalizedTransaction);
+
   }
   
   // Debug: Log first-term filter results (credits only; chargebacks pass through)
@@ -570,6 +588,7 @@ export function analyzeSubProducers(
     const chargebackInsureds: InsuredAggregate[] = [];
     const creditTransactions: SubProducerTransaction[] = [];
     const chargebackTransactions: SubProducerTransaction[] = [];
+    const reinstatementTransactions: SubProducerTransaction[] = [];
 
     // Debug: Log code 850's insured map
     if (code === '850') {
@@ -605,6 +624,7 @@ export function analyzeSubProducers(
         commissionEarned += data.netCommission;
         creditInsureds.push(aggregate);
         creditTransactions.push(...data.transactions);
+        reinstatementTransactions.push(...data.transactions.filter(isExplicitFirstTermReinstatement));
       } else {
         // Negative net = chargeback
         premiumChargebacks += Math.abs(data.netPremium);
@@ -624,6 +644,8 @@ export function analyzeSubProducers(
     // Calculate breakdowns by bundle type and product
     const byBundleType = calculateBundleTypeBreakdown(creditTransactions, chargebackTransactions);
     const byProduct = calculateProductBreakdown(creditTransactions, chargebackTransactions);
+    const reinstatementPremium = reinstatementTransactions.reduce((sum, tx) => sum + Math.max(0, tx.premium || 0), 0);
+    const reinstatementCount = reinstatementTransactions.length;
 
     producers.push({
       code,
@@ -643,6 +665,9 @@ export function analyzeSubProducers(
       chargebackInsureds,
       creditTransactions,
       chargebackTransactions,
+      reinstatementTransactions,
+      reinstatementPremium,
+      reinstatementCount,
       byBundleType,
       byProduct
     });
@@ -660,12 +685,14 @@ export function analyzeSubProducers(
   const allChargebackInsureds: InsuredAggregate[] = [];
   const allCreditTx: SubProducerTransaction[] = [];
   const allChargebackTx: SubProducerTransaction[] = [];
+  const allReinstatementTx: SubProducerTransaction[] = [];
   
   producers.forEach(p => {
     allCreditInsureds.push(...p.creditInsureds);
     allChargebackInsureds.push(...p.chargebackInsureds);
     allCreditTx.push(...p.creditTransactions);
     allChargebackTx.push(...p.chargebackTransactions);
+    allReinstatementTx.push(...p.reinstatementTransactions);
   });
   
   // Sort totals
@@ -694,6 +721,9 @@ export function analyzeSubProducers(
     chargebackInsureds: allChargebackInsureds,
     creditTransactions: allCreditTx,
     chargebackTransactions: allChargebackTx,
+    reinstatementTransactions: allReinstatementTx,
+    reinstatementPremium: producers.reduce((sum, p) => sum + p.reinstatementPremium, 0),
+    reinstatementCount: producers.reduce((sum, p) => sum + p.reinstatementCount, 0),
     byBundleType: totalByBundleType,
     byProduct: totalByProduct
   };

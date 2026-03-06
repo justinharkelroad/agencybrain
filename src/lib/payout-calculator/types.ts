@@ -229,10 +229,14 @@ export interface SelfGenBonusResult {
 export interface ChargebackDetail {
   policyNumber: string;
   productType: string;
+  transactionType: string;
+  businessType: string;
+  originalEffectiveDate: string;
   premium: number;
   daysInForce: number;
   termMonths: number;
   included: boolean;
+  classification: string;
   reason: string;
 }
 

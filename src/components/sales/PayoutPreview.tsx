@@ -1,12 +1,22 @@
 import { useState, useMemo, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Calculator, Save, CheckCircle, DollarSign, AlertTriangle, Users, FileSpreadsheet, FileText } from "lucide-react";
+import { Calculator, Save, CheckCircle, DollarSign, AlertTriangle, Users, FileSpreadsheet, RotateCcw } from "lucide-react";
 import { usePayoutCalculator } from "@/hooks/usePayoutCalculator";
 import { PayoutCalculation } from "@/lib/payout-calculator/types";
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
@@ -16,7 +26,6 @@ import { PayoutDetailSheet } from "./PayoutDetailSheet";
 import { ManualOverridePanel, ManualOverride } from "./ManualOverridePanel";
 import { SalesReportUpload } from "./SalesReportUpload";
 import { AgentTransactionDetailUpload } from "./AgentTransactionDetailUpload";
-import { StatementReportSelector } from "./StatementReportSelector";
 import { SubProducerSalesMetrics, NewBusinessParseResult, convertToCompensationMetrics } from "@/lib/new-business-details-parser";
 import { StatementTransaction } from "@/lib/allstate-parser/excel-parser";
 
@@ -28,19 +37,11 @@ interface SubProducerDataWrapper {
   statementMonth?: string;
 }
 
-interface StatementReport {
-  id: string;
-  statement_month: number;
-  statement_year: number;
-  comparison_data: { subProducerData?: SubProducerDataWrapper };
-}
-
 interface PayoutPreviewProps {
   agencyId: string | null;
   subProducerData?: SubProducerDataWrapper;
   statementMonth?: number;
   statementYear?: number;
-  onStatementReportSelect?: (report: StatementReport | null) => void;
 }
 
 const MONTHS = [
@@ -53,46 +54,41 @@ export function PayoutPreview({
   subProducerData,
   statementMonth,
   statementYear,
-  onStatementReportSelect
 }: PayoutPreviewProps) {
-  const currentDate = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(statementMonth || currentDate.getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(statementYear || currentDate.getFullYear());
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1;
+  const [selectedMonth, setSelectedMonth] = useState(statementMonth || currentMonth);
+  const [selectedYear, setSelectedYear] = useState(statementYear || currentYear);
   const [calculatedPayouts, setCalculatedPayouts] = useState<PayoutCalculation[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [hasCalculated, setHasCalculated] = useState(false);
   const [selectedPayout, setSelectedPayout] = useState<PayoutCalculation | null>(null);
   const [manualOverrides, setManualOverrides] = useState<ManualOverride[]>([]);
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
 
   // Sales report data (new flow)
-  const [dataSource, setDataSource] = useState<"sales_report" | "commission_statement">("sales_report");
+  const [dataSource] = useState<"sales_report">("sales_report");
   const [salesReportMetrics, setSalesReportMetrics] = useState<SubProducerSalesMetrics[] | null>(null);
   const [salesReportResult, setSalesReportResult] = useState<NewBusinessParseResult | null>(null);
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
   // Agent Transaction Detail data (chargebacks with sub-producer codes)
   const [transactionDetailMetrics, setTransactionDetailMetrics] = useState<SubProducerMetrics[] | null>(null);
   const [transactionDetailTransactions, setTransactionDetailTransactions] = useState<StatementTransaction[] | null>(null);
 
-  // Handle statement report selection
-  const handleStatementReportSelect = useCallback((report: StatementReport | null) => {
-    if (report) {
-      setSelectedReportId(report.id);
-      if (report.statement_month) setSelectedMonth(report.statement_month);
-      if (report.statement_year) setSelectedYear(report.statement_year);
-    } else {
-      setSelectedReportId(null);
-    }
-    onStatementReportSelect?.(report);
-  }, [onStatementReportSelect]);
+  const clearCalculatedResults = useCallback(() => {
+    setCalculatedPayouts([]);
+    setWarnings([]);
+    setHasCalculated(false);
+  }, []);
 
   const {
     calculatePayouts,
-    savePayouts,
     savePayoutsAsync,
     isSaving,
-    finalizePayouts,
-    isFinalizingPayouts,
+    finalizeCalculatedPayoutsAsync,
+    isFinalizingCalculatedPayouts,
+    deleteDraftPayoutsForPeriodAsync,
+    isDeletingDraftPayouts,
     teamMembers,
     plans,
     assignments
@@ -101,15 +97,16 @@ export function PayoutPreview({
   // Generate year options
   const yearOptions = useMemo(() => {
     const years = [];
-    for (let y = currentDate.getFullYear(); y >= currentDate.getFullYear() - 2; y--) {
+    for (let y = currentYear; y >= currentYear - 2; y--) {
       years.push(y);
     }
     return years;
-  }, [currentDate]);
+  }, [currentYear]);
 
   // Handler for when sales report is parsed
   const handleSalesReportParsed = useCallback(
     (metrics: SubProducerSalesMetrics[], result: NewBusinessParseResult) => {
+      clearCalculatedResults();
       setSalesReportMetrics(metrics);
       setSalesReportResult(result);
 
@@ -122,12 +119,13 @@ export function PayoutPreview({
 
       toast.success(`Loaded ${result.summary.totalRecords} sales records`);
     },
-    []
+    [clearCalculatedResults]
   );
 
   // Handler for when Agent Transaction Detail is parsed
   const handleTransactionDetailParsed = useCallback(
     (metrics: SubProducerMetrics[], transactions: StatementTransaction[]) => {
+      clearCalculatedResults();
       setTransactionDetailMetrics(metrics);
       setTransactionDetailTransactions(transactions);
 
@@ -138,7 +136,7 @@ export function PayoutPreview({
 
       toast.success(`Loaded ${transactions.length} transactions (${totalChargebacks} chargebacks, ${formattedPremium})`);
     },
-    []
+    [clearCalculatedResults]
   );
 
   // Build data by producer from Agent Transaction Detail (chargebacks AND bundle type breakdown)
@@ -149,6 +147,9 @@ export function PayoutPreview({
         count: number;
         chargebackInsureds: typeof transactionDetailMetrics[0]['chargebackInsureds'];
         chargebackTransactions: typeof transactionDetailMetrics[0]['chargebackTransactions'];
+        reinstatementPremium: number;
+        reinstatementCount: number;
+        reinstatementTransactions: typeof transactionDetailMetrics[0]['reinstatementTransactions'];
         byBundleType: typeof transactionDetailMetrics[0]['byBundleType'];
         byProduct: typeof transactionDetailMetrics[0]['byProduct'];
       }>();
@@ -169,6 +170,9 @@ export function PayoutPreview({
       count: number;
       chargebackInsureds: typeof transactionDetailMetrics[0]['chargebackInsureds'];
       chargebackTransactions: typeof transactionDetailMetrics[0]['chargebackTransactions'];
+      reinstatementPremium: number;
+      reinstatementCount: number;
+      reinstatementTransactions: typeof transactionDetailMetrics[0]['reinstatementTransactions'];
       byBundleType: typeof transactionDetailMetrics[0]['byBundleType'];
       byProduct: typeof transactionDetailMetrics[0]['byProduct'];
     }>();
@@ -181,6 +185,9 @@ export function PayoutPreview({
         count: metrics.chargebackCount,
         chargebackInsureds: metrics.chargebackInsureds,
         chargebackTransactions: metrics.chargebackTransactions,
+        reinstatementPremium: metrics.reinstatementPremium,
+        reinstatementCount: metrics.reinstatementCount,
+        reinstatementTransactions: metrics.reinstatementTransactions,
         byBundleType: metrics.byBundleType,
         byProduct: metrics.byProduct,
       });
@@ -225,13 +232,27 @@ export function PayoutPreview({
 
         const chargebackPremium = producerData?.premium || 0;
         const chargebackCount = producerData?.count || 0;
+        const existingCreditKeys = new Set(
+          (m.creditTransactions || []).map((tx) => {
+            const policyNumber = (tx.policyNumber || '').trim();
+            return policyNumber || `${tx.insuredName}|${tx.product}|${tx.premium}`;
+          })
+        );
+        const reinstatementTransactions = (producerData?.reinstatementTransactions || []).filter((tx) => {
+          const policyNumber = (tx.policyNumber || '').trim();
+          const key = policyNumber || `${tx.insuredName}|${tx.product}|${tx.premium}`;
+          return !existingCreditKeys.has(key);
+        });
+        const reinstatementPremium = reinstatementTransactions.reduce((sum, tx) => sum + Math.max(0, tx.premium || 0), 0);
+        const reinstatementCount = reinstatementTransactions.length;
 
         // Keep New Business issued bundle/product amounts as payout basis.
-        // Merge only chargeback amounts/counts from Agent Transaction Detail.
+        // Merge chargebacks from Agent Transaction Detail and restore explicit first-term reinstatements
+        // that are not already present in New Business Details.
         let byBundleType = m.byBundleType;
         let byProduct = m.byProduct;
 
-        if (producerData?.byBundleType && producerData.byBundleType.length > 0) {
+        if ((producerData?.byBundleType && producerData.byBundleType.length > 0) || reinstatementTransactions.length > 0) {
           const normalizeBundle = (bundleType: string) => {
             const normalized = (bundleType || '').trim().toLowerCase();
             if (!normalized || normalized === 'mono' || normalized === 'mono line' || normalized === 'monoline') return 'monoline';
@@ -240,8 +261,14 @@ export function PayoutPreview({
             return normalized;
           };
 
+          const bundleMap = new Map<string, typeof m.byBundleType[number]>();
+          for (const bundle of m.byBundleType) {
+            const key = normalizeBundle(bundle.bundleType);
+            bundleMap.set(key, { ...bundle, bundleType: key });
+          }
+
           const chargebackByBundle = new Map<string, { premiumChargebacks: number; chargebackCount: number }>();
-          for (const b of producerData.byBundleType) {
+          for (const b of producerData?.byBundleType || []) {
             const key = normalizeBundle(b.bundleType);
             const existing = chargebackByBundle.get(key) || { premiumChargebacks: 0, chargebackCount: 0 };
             existing.premiumChargebacks += b.premiumChargebacks || 0;
@@ -249,14 +276,30 @@ export function PayoutPreview({
             chargebackByBundle.set(key, existing);
           }
 
-          byBundleType = m.byBundleType.map((b) => {
-            const key = normalizeBundle(b.bundleType);
+          for (const tx of reinstatementTransactions) {
+            const key = normalizeBundle(tx.bundleType);
+            const existing = bundleMap.get(key) || {
+              bundleType: key,
+              premiumWritten: 0,
+              premiumChargebacks: 0,
+              netPremium: 0,
+              itemsIssued: 0,
+              creditCount: 0,
+              chargebackCount: 0,
+            };
+            existing.premiumWritten += Math.max(0, tx.premium || 0);
+            existing.itemsIssued += 1;
+            existing.creditCount += 1;
+            bundleMap.set(key, existing);
+          }
+
+          byBundleType = Array.from(bundleMap.entries()).map(([key, b]) => {
             const chargeback = chargebackByBundle.get(key);
             return {
               ...b,
               premiumChargebacks: chargeback?.premiumChargebacks || 0,
               chargebackCount: chargeback?.chargebackCount || 0,
-              netPremium: b.premiumWritten - (chargeback?.premiumChargebacks || 0),
+              netPremium: (b.premiumWritten || 0) - (chargeback?.premiumChargebacks || 0),
             };
           });
 
@@ -266,9 +309,15 @@ export function PayoutPreview({
           console.log(`[PayoutPreview] ${m.code}: Using New Business bundle breakdown (no Agent Transaction Detail data)`);
         }
 
-        if (producerData?.byProduct && producerData.byProduct.length > 0) {
+        if ((producerData?.byProduct && producerData.byProduct.length > 0) || reinstatementTransactions.length > 0) {
+          const productMap = new Map<string, typeof m.byProduct[number]>();
+          for (const product of m.byProduct) {
+            const key = (product.product || '').trim().toLowerCase();
+            productMap.set(key, { ...product });
+          }
+
           const chargebackByProduct = new Map<string, { premiumChargebacks: number; chargebackCount: number }>();
-          for (const p of producerData.byProduct) {
+          for (const p of producerData?.byProduct || []) {
             const key = (p.product || '').trim().toLowerCase();
             const existing = chargebackByProduct.get(key) || { premiumChargebacks: 0, chargebackCount: 0 };
             existing.premiumChargebacks += p.premiumChargebacks || 0;
@@ -276,14 +325,30 @@ export function PayoutPreview({
             chargebackByProduct.set(key, existing);
           }
 
-          byProduct = m.byProduct.map((p) => {
-            const key = (p.product || '').trim().toLowerCase();
+          for (const tx of reinstatementTransactions) {
+            const key = (tx.product || '').trim().toLowerCase();
+            const existing = productMap.get(key) || {
+              product: tx.product || 'Unknown',
+              premiumWritten: 0,
+              premiumChargebacks: 0,
+              netPremium: 0,
+              itemsIssued: 0,
+              creditCount: 0,
+              chargebackCount: 0,
+            };
+            existing.premiumWritten += Math.max(0, tx.premium || 0);
+            existing.itemsIssued += 1;
+            existing.creditCount += 1;
+            productMap.set(key, existing);
+          }
+
+          byProduct = Array.from(productMap.entries()).map(([key, p]) => {
             const chargeback = chargebackByProduct.get(key);
             return {
               ...p,
               premiumChargebacks: chargeback?.premiumChargebacks || 0,
               chargebackCount: chargeback?.chargebackCount || 0,
-              netPremium: p.premiumWritten - (chargeback?.premiumChargebacks || 0),
+              netPremium: (p.premiumWritten || 0) - (chargeback?.premiumChargebacks || 0),
             };
           });
         }
@@ -294,23 +359,26 @@ export function PayoutPreview({
         if (chargebackCount > 0) {
           console.log(`[PayoutPreview] ${m.code}: Merged ${chargebackCount} chargebacks from Agent Transaction Detail ($${chargebackPremium.toFixed(2)})`);
         }
+        if (reinstatementCount > 0) {
+          console.log(`[PayoutPreview] ${m.code}: Restored ${reinstatementCount} ATD reinstatements to issued basis ($${reinstatementPremium.toFixed(2)})`);
+        }
 
         return {
           code: m.code,
           displayName: m.displayName,
-          itemsIssued: m.itemsIssued,
-          policiesIssued: m.policiesIssued,
-          premiumWritten: m.premiumWritten,
-          creditCount: m.creditCount,
-          netPremium: m.netPremium - chargebackPremium, // Subtract chargebacks from net
+          itemsIssued: m.itemsIssued + reinstatementCount,
+          policiesIssued: m.policiesIssued + reinstatementCount,
+          premiumWritten: m.premiumWritten + reinstatementPremium,
+          creditCount: m.creditCount + reinstatementCount,
+          netPremium: m.netPremium - chargebackPremium + reinstatementPremium,
           premiumChargebacks: chargebackPremium,
           chargebackCount: chargebackCount,
-          commissionEarned: m.commissionEarned,
+          commissionEarned: m.commissionEarned + (reinstatementPremium * 0.15),
           commissionChargebacks: chargebackPremium * 0.15, // Approximate commission on chargebacks
-          netCommission: m.netCommission - (chargebackPremium * 0.15),
+          netCommission: m.netCommission - (chargebackPremium * 0.15) + (reinstatementPremium * 0.15),
           effectiveRate: m.effectiveRate,
           // Pass through credit/chargeback detail data for PayoutDetailSheet
-          creditTransactions: m.creditTransactions,
+          creditTransactions: m.creditTransactions.concat(reinstatementTransactions),
           chargebackTransactions: producerData?.chargebackTransactions || [],
           creditInsureds: m.creditInsureds,
           chargebackInsureds: producerData?.chargebackInsureds || [],
@@ -319,23 +387,28 @@ export function PayoutPreview({
           byProduct,
         };
       }) as SubProducerMetrics[];
-    } else if (dataSource === "commission_statement" && subProducerData?.producers) {
-      return subProducerData.producers;
     }
     return null;
-  }, [dataSource, salesReportMetrics, subProducerData, chargebacksByProducer]);
+  }, [dataSource, salesReportMetrics, chargebacksByProducer, transactionDetailByProducer]);
 
   const handleCalculate = async () => {
     const producers = getProducersForCalculation();
 
+    if (!salesReportMetrics || salesReportMetrics.length === 0) {
+      toast.error("Upload a New Business Details report before running monthly comp");
+      setWarnings(["Monthly comp requires a New Business Details report for issued production."]);
+      return;
+    }
+
+    if (!transactionDetailMetrics || transactionDetailMetrics.length === 0) {
+      toast.error("Upload Agent Transaction Detail before running monthly comp");
+      setWarnings(["Monthly comp requires Agent Transaction Detail for chargebacks."]);
+      return;
+    }
+
     if (!producers || producers.length === 0) {
-      if (dataSource === "sales_report") {
-        toast.error("Please upload a New Business Details report first");
-        setWarnings(["No sales data available. Upload a New Business Details report."]);
-      } else {
-        toast.error("Please select a statement report with sub-producer data");
-        setWarnings(["No sub-producer data available. Upload a commission statement first."]);
-      }
+      toast.error("No comp data available from the uploaded reports");
+      setWarnings(["No sub-producer data available from the required monthly comp reports."]);
       return;
     }
 
@@ -355,16 +428,28 @@ export function PayoutPreview({
 
   // Check if we have data ready for calculation
   const hasDataForCalculation =
-    (dataSource === "sales_report" && salesReportMetrics && salesReportMetrics.length > 0) ||
-    (dataSource === "commission_statement" && subProducerData?.producers && subProducerData.producers.length > 0);
+    !!salesReportMetrics?.length && !!transactionDetailMetrics?.length;
 
   const handleSave = async () => {
     if (calculatedPayouts.length === 0) return;
     await savePayoutsAsync(calculatedPayouts);
   };
 
-  const handleFinalize = () => {
-    finalizePayouts({ month: selectedMonth, year: selectedYear });
+  const handleFinalize = async () => {
+    if (calculatedPayouts.length === 0) return;
+    await finalizeCalculatedPayoutsAsync(calculatedPayouts);
+  };
+
+  const handleStartOver = async () => {
+    await deleteDraftPayoutsForPeriodAsync({ month: selectedMonth, year: selectedYear });
+    clearCalculatedResults();
+    setSelectedPayout(null);
+    setManualOverrides([]);
+    setSalesReportMetrics(null);
+    setSalesReportResult(null);
+    setTransactionDetailMetrics(null);
+    setTransactionDetailTransactions(null);
+    setConfirmResetOpen(false);
   };
 
   // Calculate totals
@@ -398,9 +483,7 @@ export function PayoutPreview({
 
   // Get sub-producer count based on data source
   const subProducerCount =
-    dataSource === "sales_report"
-      ? salesReportMetrics?.length || 0
-      : subProducerData?.producerCount || subProducerData?.producers?.length || 0;
+    salesReportMetrics?.length || 0;
 
   // Get producers for manual override panel
   const producersForOverride = getProducersForCalculation();
@@ -420,50 +503,26 @@ export function PayoutPreview({
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Data Source Tabs */}
-          <Tabs value={dataSource} onValueChange={(v) => setDataSource(v as "sales_report" | "commission_statement")}>
-            <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <Tabs value={dataSource}>
+            <TabsList className="grid w-full grid-cols-1 max-w-md">
               <TabsTrigger value="sales_report" className="flex items-center gap-2">
                 <FileSpreadsheet className="h-4 w-4" />
-                Sales Report
-              </TabsTrigger>
-              <TabsTrigger value="commission_statement" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Commission Statement
+                Monthly Comp Run
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="sales_report" className="mt-4 space-y-4">
+              <Alert>
+                <CheckCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Official monthly comp run: tier qualification comes from the sales dashboard, issued production comes from New Business Details, and chargebacks come from Agent Transaction Detail.
+                </AlertDescription>
+              </Alert>
               <SalesReportUpload
                 agencyId={agencyId}
                 teamMembers={teamMembers}
                 onDataParsed={handleSalesReportParsed}
               />
-            </TabsContent>
-
-            <TabsContent value="commission_statement" className="mt-4 space-y-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Select Commission Statement</CardTitle>
-                  <CardDescription>
-                    Choose a statement from the Comp Analyzer to use for calculations
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <StatementReportSelector
-                    agencyId={agencyId}
-                    selectedReportId={selectedReportId}
-                    onSelect={handleStatementReportSelect}
-                  />
-                </CardContent>
-              </Card>
-              {subProducerData?.producers && subProducerData.producers.length > 0 && (
-                <Alert>
-                  <CheckCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Commission statement loaded with {subProducerData.producers.length} sub-producers.
-                  </AlertDescription>
-                </Alert>
-              )}
             </TabsContent>
           </Tabs>
 
@@ -489,7 +548,10 @@ export function PayoutPreview({
               <label className="text-sm font-medium">Month</label>
               <Select
                 value={String(selectedMonth)}
-                onValueChange={(v) => setSelectedMonth(parseInt(v))}
+                onValueChange={(v) => {
+                  clearCalculatedResults();
+                  setSelectedMonth(parseInt(v));
+                }}
               >
                 <SelectTrigger className="w-[140px]">
                   <SelectValue />
@@ -508,7 +570,10 @@ export function PayoutPreview({
               <label className="text-sm font-medium">Year</label>
               <Select
                 value={String(selectedYear)}
-                onValueChange={(v) => setSelectedYear(parseInt(v))}
+                onValueChange={(v) => {
+                  clearCalculatedResults();
+                  setSelectedYear(parseInt(v));
+                }}
               >
                 <SelectTrigger className="w-[100px]">
                   <SelectValue />
@@ -528,6 +593,15 @@ export function PayoutPreview({
               Calculate Payouts
             </Button>
 
+            <Button
+              onClick={() => setConfirmResetOpen(true)}
+              disabled={isDeletingDraftPayouts}
+              variant="outline"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              {isDeletingDraftPayouts ? "Resetting..." : "Delete Draft Run & Start Over"}
+            </Button>
+
             {hasCalculated && calculatedPayouts.length > 0 && (
               <>
                 <Button
@@ -540,11 +614,11 @@ export function PayoutPreview({
                 </Button>
                 <Button
                   onClick={handleFinalize}
-                  disabled={isFinalizingPayouts}
+                  disabled={isFinalizingCalculatedPayouts}
                   variant="default"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  {isFinalizingPayouts ? "Finalizing..." : "Finalize"}
+                  {isFinalizingCalculatedPayouts ? "Saving & Finalizing..." : "Save & Finalize"}
                 </Button>
               </>
             )}
@@ -578,7 +652,10 @@ export function PayoutPreview({
           subProducerData={producersForOverride}
           teamMembers={teamMembers}
           overrides={manualOverrides}
-          onChange={setManualOverrides}
+          onChange={(nextOverrides) => {
+            clearCalculatedResults();
+            setManualOverrides(nextOverrides);
+          }}
         />
       )}
 
@@ -684,6 +761,26 @@ export function PayoutPreview({
         onOpenChange={(open) => !open && setSelectedPayout(null)}
         formatCurrency={formatCurrency}
       />
+
+      <AlertDialog open={confirmResetOpen} onOpenChange={setConfirmResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Draft Run And Start Over?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete draft payouts for {MONTHS[selectedMonth - 1]} {selectedYear} and clear the uploaded monthly comp files from this screen. Finalized or paid runs are not deleted here.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleStartOver}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Draft Run
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

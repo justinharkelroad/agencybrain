@@ -112,7 +112,6 @@ const CHARGEBACK_DISPOSITION_PATTERNS = [
   /cancel/i,
   /cancelled/i,
   /flat\s*cancel/i,
-  /reinstatement/i, // Often has negative premium to reverse a cancellation
   /rescind/i,
   /rescission/i,
   /void/i,
@@ -142,6 +141,14 @@ function classifyChargeback(
 ): { isChargeback: boolean; reason: string | null } {
   const disp = (dispositionCode || '').trim();
   const trans = (transactionType || '').trim();
+  const combined = `${disp} ${trans}`.toLowerCase();
+
+  if (combined.includes('reinstatement')) {
+    return {
+      isChargeback: false,
+      reason: 'Reinstatement does not count as a chargeback'
+    };
+  }
 
   // Rule 1: Negative premium is always a chargeback
   if (writtenPremium < 0) {
@@ -281,7 +288,7 @@ function shouldIncludeRecord(
 /**
  * Parse date from Excel - handles serial dates and MM/DD/YYYY strings
  */
-function parseDate(value: any): string | null {
+function parseDate(value: string | number | null | undefined): string | null {
   if (!value) return null;
 
   // Handle Excel serial dates
@@ -311,7 +318,7 @@ function parseDate(value: any): string | null {
 /**
  * Parse currency to dollars: "$1,234.56" -> 1234.56
  */
-function parseCurrency(value: any): number {
+function parseCurrency(value: string | number | null | undefined): number {
   if (value === null || value === undefined || value === '') return 0;
   if (typeof value === 'number') return value;
   const numStr = String(value).replace(/[$,]/g, '');
@@ -562,7 +569,7 @@ export function parseNewBusinessDetails(file: ArrayBuffer): NewBusinessParseResu
     const rawData = XLSX.utils.sheet_to_json(sheet, {
       header: 1,
       defval: null
-    }) as any[][];
+    }) as Array<Array<string | number | null>>;
 
     // Find header row - look for rows containing expected column names
     let headerRowIndex = -1;
@@ -877,6 +884,7 @@ interface SubProducerTransaction {
   insuredName: string;
   product: string;
   transType: string;
+  businessType?: string;
   premium: number;
   commission: number;
   origPolicyEffDate: string;
@@ -1002,6 +1010,7 @@ export function convertToCompensationMetrics(
         insuredName: tx.customerName,
         product: normalizedProduct,
         transType: 'New Business',
+        businessType: 'New Business',
         premium: tx.writtenPremium,
         commission: tx.writtenPremium * 0.15,
         origPolicyEffDate: tx.issuedDate.replace(/-/g, '/'),
@@ -1020,6 +1029,7 @@ export function convertToCompensationMetrics(
         insuredName: tx.customerName,
         product: normalizedProduct,
         transType: tx.chargebackReason || 'Cancellation',
+        businessType: 'New Business',
         premium: -absAmount,  // Negative for chargebacks
         commission: -absAmount * 0.15,
         origPolicyEffDate: tx.issuedDate.replace(/-/g, '/'),

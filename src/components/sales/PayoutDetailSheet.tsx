@@ -26,6 +26,7 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
   const hasExcludedChargebacks = payout.excludedChargebackCount > 0;
   const is3MonthRule = payout.chargebackRule === 'three_month';
   const isNoChargebacks = payout.chargebackRule === 'none';
+  const chargebackDetails = payout.chargebackDetails || [];
   
   const creditInsureds = payout.creditInsureds || [];
   const chargebackInsureds = payout.chargebackInsureds || [];
@@ -36,6 +37,28 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
       case 'three_month': return '3-Month Rule';
       case 'full': return 'Full Chargeback';
       default: return 'Full Chargeback';
+    }
+  };
+
+  const chargebackReasonSummary = chargebackDetails.reduce<Record<string, number>>((summary, detail) => {
+    summary[detail.classification] = (summary[detail.classification] || 0) + 1;
+    return summary;
+  }, {});
+
+  const formatChargebackClassification = (classification: string) => {
+    switch (classification) {
+      case 'cancellation_of_new_issue': return 'Cancel New Issue';
+      case 'rewrite_cancellation': return 'Rewrite Cancel';
+      case 'cancellation': return 'Cancellation';
+      case 'coverage_reduction': return 'Coverage Reduction';
+      case 'endorsement_reduction': return 'Premium Reduction';
+      case 'negative_adjustment': return 'Negative Adjustment';
+      case 'excluded_product': return 'Excluded Product';
+      case 'reinstatement': return 'Reinstatement';
+      case 'positive_adjustment': return 'Positive Offset';
+      case 'zero_adjustment': return 'Zero-Dollar';
+      case 'missing_effective_date': return 'Missing Effective Date';
+      default: return classification;
     }
   };
 
@@ -293,6 +316,61 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
                 <span className="text-sm text-blue-600 dark:text-blue-400">
                   Chargebacks not applied per comp plan settings
                 </span>
+              </div>
+            )}
+
+            {/* Chargeback Audit */}
+            {chargebackDetails.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Chargeback Audit</h4>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(chargebackReasonSummary).map(([classification, count]) => (
+                    <Badge key={classification} variant="outline" className="text-xs">
+                      {formatChargebackClassification(classification)}: {count}
+                    </Badge>
+                  ))}
+                </div>
+                <div className="border rounded-md">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Policy</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="text-right">Premium</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {chargebackDetails.map((detail, idx) => (
+                        <TableRow key={`${detail.policyNumber}-${idx}`}>
+                          <TableCell>
+                            <div className="font-medium">{detail.policyNumber}</div>
+                            <div className="text-xs text-muted-foreground">{detail.productType}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">{formatChargebackClassification(detail.classification)}</div>
+                            <div className="text-xs text-muted-foreground">{detail.transactionType}</div>
+                          </TableCell>
+                          <TableCell>
+                            <div className={`text-sm font-medium ${detail.included ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                              {detail.included ? 'Included' : 'Excluded'}
+                            </div>
+                            <div className="text-xs text-muted-foreground">{detail.reason}</div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="font-medium">{formatCurrency(detail.premium)}</div>
+                            {(detail.daysInForce >= 0 || detail.originalEffectiveDate) && (
+                              <div className="text-xs text-muted-foreground">
+                                {detail.originalEffectiveDate ? `Eff ${detail.originalEffectiveDate}` : ''}
+                                {detail.daysInForce >= 0 ? ` · ${detail.daysInForce}d` : ''}
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </div>
             )}
 
