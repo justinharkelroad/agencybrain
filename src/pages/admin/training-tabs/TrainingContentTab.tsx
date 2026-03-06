@@ -294,6 +294,9 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
         name: quizData.name,
         description: quizData.description || '',
         is_active: true,
+        include_reflections: quizData.includeReflections,
+        reflection_question_1: quizData.reflectionQuestion1 || null,
+        reflection_question_2: quizData.reflectionQuestion2 || null,
       },
       questions: quizData.questions,
     });
@@ -1142,7 +1145,7 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                               name: quizzes[0].name || 'AI Generated Quiz',
                               description: quizzes[0].description || '',
                               questions: (quizzes[0].questions || [])
-                                .filter((q: any) => !q.is_required_reflection)
+                                .filter((q: any) => !q.is_required_reflection && !(q.sort_order >= 1000 && q.question_type === 'text_response'))
                                 .map((q: any) => ({
                                   question_text: q.question_text,
                                   question_type: q.question_type,
@@ -1153,6 +1156,9 @@ export function TrainingContentTab({ agencyId }: TrainingContentTabProps) {
                                     sort_order: o.sort_order ?? 0,
                                   })),
                                 })),
+                              includeReflections: quizzes[0].include_reflections ?? true,
+                              reflectionQuestion1: quizzes[0].reflection_question_1 || '',
+                              reflectionQuestion2: quizzes[0].reflection_question_2 || '',
                             } : undefined}
                           />
               )}

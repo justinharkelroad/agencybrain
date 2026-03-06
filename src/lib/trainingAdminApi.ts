@@ -164,6 +164,9 @@ export interface TrainingQuiz {
   name: string;
   description: string | null;
   is_active: boolean | null;
+  include_reflections: boolean;
+  reflection_question_1: string | null;
+  reflection_question_2: string | null;
   created_at: string;
   updated_at: string;
   questions?: TrainingQuizQuestion[];
@@ -176,6 +179,9 @@ export interface QuizWithQuestionsInsert {
     name: string;
     description?: string;
     is_active?: boolean;
+    include_reflections?: boolean;
+    reflection_question_1?: string | null;
+    reflection_question_2?: string | null;
   };
   questions: {
     question_text: string;
@@ -571,6 +577,9 @@ export async function createQuizWithQuestions(quizData: QuizWithQuestionsInsert)
       name: quizData.quiz.name,
       description: quizData.quiz.description,
       is_active: quizData.quiz.is_active,
+      include_reflections: quizData.quiz.include_reflections,
+      reflection_question_1: quizData.quiz.reflection_question_1,
+      reflection_question_2: quizData.quiz.reflection_question_2,
       questions: quizData.questions,
     });
     return data.quiz;
@@ -585,6 +594,9 @@ export async function createQuizWithQuestions(quizData: QuizWithQuestionsInsert)
       name: quizData.quiz.name,
       description: quizData.quiz.description,
       is_active: quizData.quiz.is_active ?? true,
+      include_reflections: quizData.quiz.include_reflections ?? true,
+      reflection_question_1: quizData.quiz.reflection_question_1 ?? null,
+      reflection_question_2: quizData.quiz.reflection_question_2 ?? null,
     })
     .select()
     .single();

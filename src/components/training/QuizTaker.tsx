@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { QuizResultsWithFeedback } from './QuizResultsWithFeedback';
 import { RevisionRequiredCard } from './RevisionRequiredCard';
+import { DEFAULT_REFLECTION_Q1, DEFAULT_REFLECTION_Q2 } from './QuizBuilder';
 
 interface QuizTakerProps {
   quiz: TrainingQuiz;
@@ -42,7 +43,14 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
   const [revisionCount, setRevisionCount] = useState(0);
   const [isEvaluating, setIsEvaluating] = useState(false);
 
-  const questions = quiz.questions || [];
+  // Filter out old reflection questions (sort_order >= 1000, text_response) that were
+  // saved by the previous builder before reflection settings moved to the quiz record
+  const questions = (quiz.questions || []).filter(
+    q => !(q.sort_order != null && q.sort_order >= 1000 && q.question_type === 'text_response')
+  );
+  const includeReflections = quiz.include_reflections ?? true;
+  const reflectionQ1Text = quiz.reflection_question_1 || DEFAULT_REFLECTION_Q1;
+  const reflectionQ2Text = quiz.reflection_question_2 || DEFAULT_REFLECTION_Q2;
 
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers(prev => ({ ...prev, [questionId]: answer }));
@@ -96,21 +104,24 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
       return;
     }
 
-    // Validate reflection answers exist
-    if (!answers['reflection_1']?.trim() || !answers['reflection_2']?.trim()) {
-      toast.error('Please complete both reflection questions');
-      return;
+    // Validate reflection answers exist (only when reflections are enabled)
+    if (includeReflections) {
+      if (!answers['reflection_1']?.trim() || !answers['reflection_2']?.trim()) {
+        toast.error('Please complete both reflection questions');
+        return;
+      }
     }
 
     setIsSubmitting(true);
 
     try {
-      // Step 1: Evaluate engagement (only if not in revision mode or first submission)
-      const engagementPassed = await evaluateEngagement();
-
-      if (!engagementPassed) {
-        setIsSubmitting(false);
-        return;
+      // Step 1: Evaluate engagement (only when reflections are enabled)
+      if (includeReflections) {
+        const engagementPassed = await evaluateEngagement();
+        if (!engagementPassed) {
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       // Step 2: Submit the quiz
@@ -160,6 +171,7 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
       <QuizResultsWithFeedback
         results={results}
         sessionToken={sessionToken}
+        includeReflections={includeReflections}
         onConfirm={handleConfirmComplete}
         onBack={onBack}
       />
@@ -191,10 +203,14 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
         <div className="flex flex-col items-center justify-center space-y-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
           <div className="text-center">
-            <h3 className="text-lg font-semibold mb-2">Generating your coaching feedback...</h3>
-            <p className="text-sm text-muted-foreground">
-              This may take a few seconds as we analyze your reflections
-            </p>
+            <h3 className="text-lg font-semibold mb-2">
+              {includeReflections ? 'Generating your coaching feedback...' : 'Submitting your quiz...'}
+            </h3>
+            {includeReflections && (
+              <p className="text-sm text-muted-foreground">
+                This may take a few seconds as we analyze your reflections
+              </p>
+            )}
           </div>
         </div>
       </Card>
@@ -280,48 +296,50 @@ export function QuizTaker({ quiz, sessionToken, onBack, onComplete }: QuizTakerP
               </Card>
             ))}
 
-            {/* Reflection Questions */}
-            <Card className="border-primary/50">
-              <CardHeader>
-                <CardTitle className="text-base">Reflection Questions</CardTitle>
-                <CardDescription>
-                  These questions help you integrate what you learned. Your answers will be evaluated for depth and specificity.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="reflection1" className="font-medium">
-                    1. What was the most valuable insight you gained from this lesson?
-                  </Label>
-                  <Textarea
-                    id="reflection1"
-                    placeholder="Be specific about concepts, techniques, or examples from the lesson..."
-                    value={answers['reflection_1'] || ''}
-                    onChange={(e) => handleAnswerChange('reflection_1', e.target.value)}
-                    rows={4}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Tip: Reference specific concepts from the training content, not generic statements.
-                  </p>
-                </div>
+            {/* Reflection Questions - conditional */}
+            {includeReflections && (
+              <Card className="border-primary/50">
+                <CardHeader>
+                  <CardTitle className="text-base">Reflection Questions</CardTitle>
+                  <CardDescription>
+                    These questions help you integrate what you learned. Your answers will be evaluated for depth and specificity.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reflection1" className="font-medium">
+                      1. {reflectionQ1Text}
+                    </Label>
+                    <Textarea
+                      id="reflection1"
+                      placeholder="Be specific about concepts, techniques, or examples from the lesson..."
+                      value={answers['reflection_1'] || ''}
+                      onChange={(e) => handleAnswerChange('reflection_1', e.target.value)}
+                      rows={4}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Tip: Reference specific concepts from the training content, not generic statements.
+                    </p>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="reflection2" className="font-medium">
-                    2. How will you apply what you learned to your work?
-                  </Label>
-                  <Textarea
-                    id="reflection2"
-                    placeholder="Describe a specific situation where you'll use this..."
-                    value={answers['reflection_2'] || ''}
-                    onChange={(e) => handleAnswerChange('reflection_2', e.target.value)}
-                    rows={4}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Tip: Be concrete about WHEN and HOW you'll apply this learning.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="space-y-2">
+                    <Label htmlFor="reflection2" className="font-medium">
+                      2. {reflectionQ2Text}
+                    </Label>
+                    <Textarea
+                      id="reflection2"
+                      placeholder="Describe a specific situation where you'll use this..."
+                      value={answers['reflection_2'] || ''}
+                      onChange={(e) => handleAnswerChange('reflection_2', e.target.value)}
+                      rows={4}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Tip: Be concrete about WHEN and HOW you'll apply this learning.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Button
               onClick={handleSubmit}

@@ -12713,9 +12713,12 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          include_reflections: boolean
           is_active: boolean | null
           lesson_id: string
           name: string
+          reflection_question_1: string | null
+          reflection_question_2: string | null
           updated_at: string
         }
         Insert: {
@@ -12723,9 +12726,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          include_reflections?: boolean
           is_active?: boolean | null
           lesson_id: string
           name: string
+          reflection_question_1?: string | null
+          reflection_question_2?: string | null
           updated_at?: string
         }
         Update: {
@@ -12733,9 +12739,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          include_reflections?: boolean
           is_active?: boolean | null
           lesson_id?: string
           name?: string
+          reflection_question_1?: string | null
+          reflection_question_2?: string | null
           updated_at?: string
         }
         Relationships: [

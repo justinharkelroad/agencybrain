@@ -30,6 +30,7 @@ interface QuizResultsWithFeedbackProps {
     ai_feedback: string | null;
   };
   sessionToken: string;
+  includeReflections?: boolean;
   onConfirm: () => void;
   onBack: () => void;
 }
@@ -37,6 +38,7 @@ interface QuizResultsWithFeedbackProps {
 export function QuizResultsWithFeedback({
   results,
   sessionToken,
+  includeReflections = true,
   onConfirm,
   onBack,
 }: QuizResultsWithFeedbackProps) {
@@ -143,80 +145,84 @@ export function QuizResultsWithFeedback({
         </div>
       </Card>
 
-      {/* AI Coaching Feedback */}
-      {results.ai_feedback ? (
-        <Card className="p-6 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border-purple-200 dark:border-purple-800">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
-              <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+      {/* AI Coaching Feedback - only when reflections are enabled */}
+      {includeReflections && (
+        results.ai_feedback ? (
+          <Card className="p-6 bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/20 dark:to-blue-950/20 border-purple-200 dark:border-purple-800">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900">
+                <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-purple-900 dark:text-purple-100">
+                  Your Coaching Feedback
+                </h3>
+                <p className="text-sm text-purple-700 dark:text-purple-300">
+                  Personalized insights on your reflections
+                </p>
+              </div>
             </div>
+            <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed">
+              {formatAIFeedback(results.ai_feedback)}
+            </div>
+          </Card>
+        ) : (
+          <Card className="p-6 border-dashed">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Sparkles className="h-5 w-5" />
+              <p>Coaching feedback unavailable. You can still continue.</p>
+            </div>
+          </Card>
+        )
+      )}
+
+      {/* Editable Reflections - only when reflections are enabled */}
+      {includeReflections && (
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">📝 Your Reflections</h3>
+            {hasEdited && (
+              <Button
+                onClick={handleSaveChanges}
+                disabled={isSaving}
+                size="sm"
+                className="gap-2"
+              >
+                {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            )}
+          </div>
+
+          <div className="space-y-4">
             <div>
-              <h3 className="text-xl font-bold text-purple-900 dark:text-purple-100">
-                Your Coaching Feedback
-              </h3>
-              <p className="text-sm text-purple-700 dark:text-purple-300">
-                Personalized insights on your reflections
-              </p>
+              <label className="block text-sm font-medium mb-2">
+                What is your main takeaway from this lesson?
+              </label>
+              <Textarea
+                value={reflection1}
+                onChange={(e) => handleReflectionChange('reflection_1', e.target.value)}
+                rows={4}
+                className="resize-none"
+                placeholder="Your main takeaway..."
+              />
             </div>
-          </div>
-          <div className="prose prose-sm dark:prose-invert max-w-none text-foreground leading-relaxed">
-            {formatAIFeedback(results.ai_feedback)}
-          </div>
-        </Card>
-      ) : (
-        <Card className="p-6 border-dashed">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Sparkles className="h-5 w-5" />
-            <p>Coaching feedback unavailable. You can still continue.</p>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Why is that important to you?
+              </label>
+              <Textarea
+                value={reflection2}
+                onChange={(e) => handleReflectionChange('reflection_2', e.target.value)}
+                rows={4}
+                className="resize-none"
+                placeholder="Why it matters to you..."
+              />
+            </div>
           </div>
         </Card>
       )}
-
-      {/* Editable Reflections */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">📝 Your Reflections</h3>
-          {hasEdited && (
-            <Button 
-              onClick={handleSaveChanges} 
-              disabled={isSaving}
-              size="sm"
-              className="gap-2"
-            >
-              {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-              Save Changes
-            </Button>
-          )}
-        </div>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              What is your main takeaway from this lesson?
-            </label>
-            <Textarea
-              value={reflection1}
-              onChange={(e) => handleReflectionChange('reflection_1', e.target.value)}
-              rows={4}
-              className="resize-none"
-              placeholder="Your main takeaway..."
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Why is that important to you?
-            </label>
-            <Textarea
-              value={reflection2}
-              onChange={(e) => handleReflectionChange('reflection_2', e.target.value)}
-              rows={4}
-              className="resize-none"
-              placeholder="Why it matters to you..."
-            />
-          </div>
-        </div>
-      </Card>
 
       {/* Confirm Button */}
       <div className="flex justify-center pb-8">

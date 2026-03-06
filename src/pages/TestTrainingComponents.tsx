@@ -147,6 +147,9 @@ export default function TestTrainingComponents() {
         name: quizData.name,
         description: quizData.description,
         is_active: true,
+        include_reflections: quizData.includeReflections,
+        reflection_question_1: quizData.reflectionQuestion1 || null,
+        reflection_question_2: quizData.reflectionQuestion2 || null,
       },
       questions: quizData.questions,
     });

@@ -6,8 +6,12 @@ import { Card } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, Save } from "lucide-react";
 import { toast } from "sonner";
+
+export const DEFAULT_REFLECTION_Q1 = "What was the most valuable insight you gained from this lesson?";
+export const DEFAULT_REFLECTION_Q2 = "How will you apply what you learned to your work?";
 
 export interface QuizQuestion {
   question_text: string;
@@ -27,6 +31,9 @@ export interface QuizData {
   name: string;
   description: string;
   questions: QuizQuestion[];
+  includeReflections: boolean;
+  reflectionQuestion1: string;
+  reflectionQuestion2: string;
 }
 
 interface QuizBuilderProps {
@@ -44,24 +51,15 @@ export function QuizBuilder({ lessonId, agencyId, onSave, initialData }: QuizBui
       ? initialData.questions
       : [createEmptyQuestion(0)]
   );
-
-  // Default reflection questions - always required
-  const reflectionQuestions: QuizQuestion[] = [
-    {
-      question_text: "What is the main takeaway?",
-      question_type: "text_response",
-      sort_order: 1000,
-      options: [],
-      is_required_reflection: true,
-    },
-    {
-      question_text: "Why do you feel that is an important takeaway?",
-      question_type: "text_response",
-      sort_order: 1001,
-      options: [],
-      is_required_reflection: true,
-    },
-  ];
+  const [includeReflections, setIncludeReflections] = useState(
+    initialData?.includeReflections ?? true
+  );
+  const [reflectionQ1, setReflectionQ1] = useState(
+    initialData?.reflectionQuestion1 || DEFAULT_REFLECTION_Q1
+  );
+  const [reflectionQ2, setReflectionQ2] = useState(
+    initialData?.reflectionQuestion2 || DEFAULT_REFLECTION_Q2
+  );
 
   function createEmptyQuestion(index: number): QuizQuestion {
     return {
@@ -179,13 +177,13 @@ export function QuizBuilder({ lessonId, agencyId, onSave, initialData }: QuizBui
       if (q.question_type === "multiple_choice") {
         // Filter to only non-empty options
         const nonEmptyOptions = q.options.filter((opt) => opt.option_text.trim());
-        
+
         // Need at least 2 non-empty options for multiple choice
         if (nonEmptyOptions.length < 2) {
           toast.error("Multiple choice questions need at least 2 options with text");
           return;
         }
-        
+
         // Check that at least one non-empty option is marked correct
         const hasCorrectNonEmpty = nonEmptyOptions.some((opt) => opt.is_correct);
         if (!hasCorrectNonEmpty) {
@@ -202,16 +200,24 @@ export function QuizBuilder({ lessonId, agencyId, onSave, initialData }: QuizBui
       }
     }
 
+    if (includeReflections && (!reflectionQ1.trim() || !reflectionQ2.trim())) {
+      toast.error("Reflection questions must have text when enabled");
+      return;
+    }
+
     onSave?.({
       name: quizName,
       description: quizDescription,
-      questions: [...questions.map(q => ({
+      questions: questions.map(q => ({
         ...q,
         // Filter out empty options for multiple choice
-        options: q.question_type === "multiple_choice" 
+        options: q.question_type === "multiple_choice"
           ? q.options.filter(opt => opt.option_text.trim())
           : q.options
-      })), ...reflectionQuestions],
+      })),
+      includeReflections,
+      reflectionQuestion1: includeReflections ? reflectionQ1 : '',
+      reflectionQuestion2: includeReflections ? reflectionQ2 : '',
     });
   };
 
@@ -340,25 +346,61 @@ export function QuizBuilder({ lessonId, agencyId, onSave, initialData }: QuizBui
         </Card>
       ))}
 
-      {/* Required Reflection Questions (Read-only) */}
-      <Card className="p-4 border-dashed border-2 border-primary/30 bg-primary/5">
-        <div className="flex items-center gap-2 mb-4">
-          <span className="text-sm font-semibold">Required Takeaway Questions</span>
-        </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          These questions are automatically added to every quiz and are required for submission.
-        </p>
-        
-        <div className="space-y-3">
-          <div className="p-3 bg-background rounded-md">
-            <Label className="text-sm">1. What is the main takeaway?</Label>
-            <p className="text-xs text-muted-foreground mt-1">Text response (required)</p>
+      {/* Reflection Questions - Toggleable */}
+      <Card className={`p-4 border-dashed border-2 ${includeReflections ? 'border-primary/30 bg-primary/5' : 'border-muted bg-muted/5'}`}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <span className="text-sm font-semibold">Reflection Questions</span>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Open-ended questions added after the quiz to encourage deeper thinking
+            </p>
           </div>
-          <div className="p-3 bg-background rounded-md">
-            <Label className="text-sm">2. Why do you feel that is an important takeaway?</Label>
-            <p className="text-xs text-muted-foreground mt-1">Text response (required)</p>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="reflection-toggle" className="text-sm text-muted-foreground">
+              {includeReflections ? 'Enabled' : 'Disabled'}
+            </Label>
+            <Switch
+              id="reflection-toggle"
+              checked={includeReflections}
+              onCheckedChange={setIncludeReflections}
+            />
           </div>
         </div>
+
+        {includeReflections && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-sm">Question 1</Label>
+              <Input
+                value={reflectionQ1}
+                onChange={(e) => setReflectionQ1(e.target.value)}
+                placeholder={DEFAULT_REFLECTION_Q1}
+              />
+              <p className="text-xs text-muted-foreground">Text response (required for submission)</p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm">Question 2</Label>
+              <Input
+                value={reflectionQ2}
+                onChange={(e) => setReflectionQ2(e.target.value)}
+                placeholder={DEFAULT_REFLECTION_Q2}
+              />
+              <p className="text-xs text-muted-foreground">Text response (required for submission)</p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground"
+              onClick={() => {
+                setReflectionQ1(DEFAULT_REFLECTION_Q1);
+                setReflectionQ2(DEFAULT_REFLECTION_Q2);
+              }}
+            >
+              Reset to defaults
+            </Button>
+          </div>
+        )}
       </Card>
     </div>
   );

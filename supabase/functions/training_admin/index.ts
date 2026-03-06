@@ -449,7 +449,7 @@ Deno.serve(async (req) => {
       }
 
       case 'quiz_create': {
-        const { lesson_id, name, description, is_active, questions } = params;
+        const { lesson_id, name, description, is_active, include_reflections, reflection_question_1, reflection_question_2, questions } = params;
         // Verify lesson belongs to this agency
         const { data: lesson } = await supabase
           .from('training_lessons')
@@ -463,7 +463,16 @@ Deno.serve(async (req) => {
         // Create quiz
         const { data: quiz, error: quizError } = await supabase
           .from('training_quizzes')
-          .insert({ agency_id: agencyId, lesson_id, name, description, is_active: is_active ?? true })
+          .insert({
+            agency_id: agencyId,
+            lesson_id,
+            name,
+            description,
+            is_active: is_active ?? true,
+            include_reflections: include_reflections ?? true,
+            reflection_question_1: reflection_question_1 ?? null,
+            reflection_question_2: reflection_question_2 ?? null,
+          })
           .select()
           .single();
         if (quizError) throw quizError;
