@@ -49,7 +49,7 @@ serve(async (req) => {
     // Get user's agency and profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('agency_id, display_name, email')
+      .select('agency_id, full_name, email')
       .eq('id', authResult.userId)
       .single()
 
