@@ -25,7 +25,7 @@ export function BuyCallsModal({ open, onOpenChange }: BuyCallsModalProps) {
   const { data: addonSub } = useCallAddonSubscription();
   const purchaseMutation = usePurchaseCallPack();
   const hasAddon = !!addonSub;
-  const isAdminPreview = user?.email === 'justin@hfiagencies.com';
+  const isAdminPreview = user?.email === 'justin@hfiagencies.com' || user?.email === 'agencybraintester@aol.com';
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 

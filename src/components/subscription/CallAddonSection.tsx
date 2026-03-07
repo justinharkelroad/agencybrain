@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 
 // TODO: Remove admin gate after testing checkout flow end-to-end
-const ADMIN_PREVIEW_EMAILS = ['justin@hfiagencies.com'];
+const ADMIN_PREVIEW_EMAILS = ['justin@hfiagencies.com', 'agencybraintester@aol.com'];
 
 export function CallAddonSection() {
   const { user } = useAuth();
@@ -78,12 +78,11 @@ export function CallAddonSection() {
     }
   };
 
-  const isAdminPreview = user?.email && ADMIN_PREVIEW_EMAILS.includes(user.email);
+  // Admin-only preview until checkout flow is tested end-to-end
+  if (!user?.email || !ADMIN_PREVIEW_EMAILS.includes(user.email)) return null;
 
-  // Admin can always see for testing; others need paid + non-unlimited
-  if (!isAdminPreview) {
-    if (!subscription?.isPaid || subscription?.is1on1Client) return null;
-  }
+  // Don't show for non-paid or unlimited users
+  if (!subscription?.isPaid || subscription?.is1on1Client) return null;
 
   return (
     <Card>
