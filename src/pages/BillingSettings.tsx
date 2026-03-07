@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useCallBalance, useCallPacks, usePurchaseCallPack, useCallAddonSubscription, formatPrice } from "@/hooks/useCallBalance";
+import { useCallBalance, useCallAddonSubscription, formatPrice } from "@/hooks/useCallBalance";
 import { CallAddonSection } from "@/components/subscription/CallAddonSection";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,15 +26,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+
 
 export default function BillingSettings() {
   const { user } = useAuth();
   const { data: subscription, isLoading: subLoading } = useSubscription();
   const { data: callBalance, isLoading: balanceLoading } = useCallBalance();
-  const { data: callPacks, isLoading: packsLoading } = useCallPacks();
-  const purchaseMutation = usePurchaseCallPack();
-
   const [portalLoading, setPortalLoading] = useState(false);
 
   const isLoading = subLoading || balanceLoading;
@@ -70,19 +67,6 @@ export default function BillingSettings() {
       console.error("Portal error:", error);
       toast.error("Failed to open billing portal");
       setPortalLoading(false);
-    }
-  };
-
-  // Handle purchasing a call pack
-  const handlePurchasePack = async (packId: string) => {
-    try {
-      const result = await purchaseMutation.mutateAsync({ callPackId: packId });
-      if (result.url) {
-        window.location.href = result.url;
-      }
-    } catch (error) {
-      console.error("Purchase error:", error);
-      toast.error("Failed to start purchase");
     }
   };
 
@@ -394,7 +378,7 @@ export default function BillingSettings() {
                   {callBalance && callBalance.totalRemaining <= 3 && callBalance.totalRemaining > 0 && (
                     <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm">
                       <AlertTriangle className="w-4 h-4 inline mr-2" />
-                      Running low on credits. Purchase more to keep scoring calls.
+                      Running low on credits. Consider adding a monthly add-on.
                     </div>
                   )}
 
@@ -402,63 +386,12 @@ export default function BillingSettings() {
                   {callBalance && callBalance.totalRemaining === 0 && (
                     <div className="p-3 rounded-lg bg-red-500/15 border border-red-500/20 text-red-500 text-sm">
                       <AlertTriangle className="w-4 h-4 inline mr-2" />
-                      No credits remaining. Purchase a pack to continue scoring calls.
+                      No credits remaining. Add a monthly add-on to continue scoring calls.
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Call Packs */}
-              {subscription?.isPaid && !callBalance?.isUnlimited && (
-                <>
-                  <Separator />
-                  <div>
-                    <h4 className="font-medium mb-3">Buy More Credits</h4>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Purchased credits never expire and can be used anytime.
-                    </p>
-
-                    {packsLoading ? (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : (
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        {callPacks?.map((pack) => {
-                          const isPurchasing = purchaseMutation.isPending;
-                          const pricePerCall = pack.price_cents / pack.call_count;
-
-                          return (
-                            <button
-                              key={pack.id}
-                              onClick={() => handlePurchasePack(pack.id)}
-                              disabled={isPurchasing}
-                              className={cn(
-                                "relative p-4 rounded-lg border text-left transition-all",
-                                "hover:border-primary/50 hover:bg-muted/50",
-                                "disabled:opacity-50 disabled:cursor-not-allowed"
-                              )}
-                            >
-                              {pack.call_count === 50 && (
-                                <div className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full bg-green-500 text-white text-xs font-medium">
-                                  Best Value
-                                </div>
-                              )}
-                              <div className="font-semibold">{pack.call_count} Credits</div>
-                              <div className="text-2xl font-bold mt-1">
-                                {formatPrice(pack.price_cents)}
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {formatPrice(pricePerCall)} per call
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
 
               {/* Trial User - Upgrade Prompt */}
               {subscription?.isTrialing && (

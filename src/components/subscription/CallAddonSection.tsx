@@ -157,8 +157,8 @@ export function CallAddonSection() {
           // Plan selection view
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Stack additional calls on top of your 20 included monthly calls.
-              Addon calls reset each billing period.
+              Need more than your 20 included calls? Add a recurring monthly
+              package — billed separately each month alongside your subscription.
             </p>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
