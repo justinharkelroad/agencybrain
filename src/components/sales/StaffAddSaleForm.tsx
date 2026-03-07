@@ -266,7 +266,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
           isExpanded: true,
           isBrokered: false,
           brokeredCarrierId: null,
-        } satisfies Policy;
+        } as Policy;
       })
       .filter((policy): policy is Policy => policy !== null);
 

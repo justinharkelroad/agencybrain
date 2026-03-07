@@ -43,6 +43,7 @@ interface PayoutPreviewProps {
   subProducerData?: SubProducerDataWrapper;
   statementMonth?: number;
   statementYear?: number;
+  onStatementReportSelect?: (report: any) => void;
 }
 
 interface PreRunAuditResult {
