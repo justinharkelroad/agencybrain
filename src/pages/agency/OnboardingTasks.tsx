@@ -36,6 +36,7 @@ import {
   useStaffUsersForFilter,
   useProfileUsersForFilter,
 } from '@/hooks/useOnboardingTasks';
+import type { OnboardingTask } from '@/hooks/useOnboardingTasks';
 import {
   CustomerTasksGroup,
   groupTasksByCustomer,
@@ -45,11 +46,23 @@ import { ReassignSequenceModal } from '@/components/onboarding/ReassignSequenceM
 import { SevenDayOutlook } from '@/components/onboarding/SevenDayOutlook';
 import { MonthlyTaskCalendar } from '@/components/onboarding/MonthlyTaskCalendar';
 import { ScheduleTaskDialog } from '@/components/onboarding/ScheduleTaskDialog';
-import { ContactProfileModal } from '@/components/contacts/ContactProfileModal';
+import { ContactIntelligencePanel } from '@/components/onboarding/ContactIntelligencePanel';
+import type { FollowUpData } from '@/components/onboarding/TaskCompleteDialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useScheduleAdhocTask } from '@/hooks/useScheduleAdhocTask';
+import { useManageSequence } from '@/hooks/useManageSequence';
 import { HelpButton } from '@/components/HelpButton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 type CalendarViewType = 'week' | 'month';
 
@@ -62,6 +75,7 @@ interface ReassignState {
 interface ProfileViewState {
   contactId: string;
   customerName: string;
+  currentTask?: OnboardingTask;
 }
 
 // Composite filter option for unified dropdown
@@ -195,14 +209,38 @@ export default function OnboardingTasksPage() {
   // Complete task mutation
   const completeTask = useCompleteOnboardingTask();
 
-  const handleCompleteTask = async (taskId: string, notes?: string) => {
+  const handleCompleteTask = async (taskId: string, notes?: string, followUp?: FollowUpData) => {
     setCompletingTaskId(taskId);
     try {
       await completeTask.mutateAsync({ taskId, notes });
-      toast.success('Task completed!');
+
+      // Handle follow-up scheduling (when called from ContactIntelligencePanel)
+      if (followUp) {
+        const task = activeTasks.find(t => t.id === taskId);
+        const contactId = task?.instance?.contact_id || (task as any)?.contact_id;
+        if (contactId) {
+          try {
+            await scheduleTask.mutateAsync({
+              contactId,
+              dueDate: format(followUp.dueDate, 'yyyy-MM-dd'),
+              actionType: followUp.actionType,
+              title: followUp.title,
+            });
+            toast.success(`Task completed! Follow-up scheduled for ${format(followUp.dueDate, 'MMM d')}.`);
+          } catch {
+            toast.success('Task completed!');
+            toast.error('Follow-up scheduling failed');
+          }
+        } else {
+          toast.success('Task completed!');
+        }
+      } else {
+        toast.success('Task completed!');
+      }
     } catch (error: any) {
       console.error('Error completing task:', error);
       toast.error(error.message || 'Failed to complete task');
+      throw error; // Re-throw so callers (e.g. ContactIntelligencePanel) can detect failure
     } finally {
       setCompletingTaskId(null);
     }
@@ -210,6 +248,38 @@ export default function OnboardingTasksPage() {
 
   // Schedule adhoc task
   const scheduleTask = useScheduleAdhocTask();
+
+  // Sequence management
+  const manageSequence = useManageSequence();
+  const [sequenceConfirm, setSequenceConfirm] = useState<{
+    action: 'complete' | 'pause';
+    instanceId: string;
+    customerName: string;
+    pendingCount: number;
+  } | null>(null);
+
+  const handleCompleteSequence = (instanceId: string, customerName: string, pendingCount: number) => {
+    setSequenceConfirm({ action: 'complete', instanceId, customerName, pendingCount });
+  };
+
+  const handlePauseSequence = (instanceId: string, customerName: string) => {
+    setSequenceConfirm({ action: 'pause', instanceId, customerName, pendingCount: 0 });
+  };
+
+  const handleConfirmSequenceAction = async () => {
+    if (!sequenceConfirm || !profile?.agency_id) return;
+    try {
+      await manageSequence.mutateAsync({
+        instanceId: sequenceConfirm.instanceId,
+        action: sequenceConfirm.action,
+        agencyId: profile.agency_id,
+        completedByUserId: user?.id || null,
+      });
+      setSequenceConfirm(null);
+    } catch {
+      // Error handled by hook
+    }
+  };
 
   const handleScheduleTask = async (data: {
     contactId: string;
@@ -321,9 +391,17 @@ export default function OnboardingTasksPage() {
     setReassignState({ instanceId, customerName, pendingCount });
   };
 
-  // Handle view profile button click
+  // Handle view profile button click (customer name)
   const handleViewProfile = (contactId: string, customerName: string) => {
     setProfileViewState({ contactId, customerName });
+  };
+
+  // Handle task title click (opens panel with task context)
+  const handleClickTask = (task: OnboardingTask) => {
+    const contactId = task.instance?.contact_id || (task as any).contact_id;
+    if (!contactId) return;
+    const customerName = task.instance?.customer_name || 'Unknown';
+    setProfileViewState({ contactId, customerName, currentTask: task });
   };
 
   // Get instance info for the reassign modal
@@ -648,7 +726,10 @@ export default function OnboardingTasksPage() {
               canReassign={canReassign}
               onReassign={handleReassign}
               onViewProfile={handleViewProfile}
+              onClickTask={handleClickTask}
               defaultExpanded={!shouldAutoCollapse}
+              onCompleteSequence={handleCompleteSequence}
+              onPauseSequence={handlePauseSequence}
             />
           ))}
 
@@ -712,15 +793,17 @@ export default function OnboardingTasksPage() {
         }}
       />
 
-      {/* Contact Profile Sidebar */}
-      <ContactProfileModal
+      {/* Contact Intelligence Panel */}
+      <ContactIntelligencePanel
         contactId={profileViewState?.contactId || null}
         open={!!profileViewState}
         onClose={() => setProfileViewState(null)}
         agencyId={profile?.agency_id || null}
-        displayName={profile?.full_name || user?.email || undefined}
-        defaultSourceModule="manual"
+        currentTask={profileViewState?.currentTask}
         userId={user?.id}
+        displayName={profile?.full_name || user?.email || undefined}
+        onCompleteTask={handleCompleteTask}
+        onTaskCompleted={() => { setProfileViewState(null); refetch(); }}
         onActivityLogged={() => refetch()}
       />
 
@@ -731,6 +814,46 @@ export default function OnboardingTasksPage() {
         agencyId={profile?.agency_id || null}
         onSchedule={handleScheduleTask}
       />
+
+      {/* Sequence Management Confirmation Dialog */}
+      <AlertDialog open={!!sequenceConfirm} onOpenChange={(open) => !open && setSequenceConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {sequenceConfirm?.action === 'complete' ? 'Complete Sequence' : 'Pause Sequence'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {sequenceConfirm?.action === 'complete' ? (
+                <>
+                  This will complete the sequence for <strong>{sequenceConfirm.customerName}</strong> and
+                  mark all {sequenceConfirm.pendingCount} remaining task(s) as done.
+                  Already-completed tasks will not be affected.
+                </>
+              ) : (
+                <>
+                  This will pause the sequence for <strong>{sequenceConfirm?.customerName}</strong>.
+                  Remaining tasks will be removed from the queue until the sequence is resumed.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={manageSequence.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmSequenceAction();
+              }}
+              disabled={manageSequence.isPending}
+            >
+              {manageSequence.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+              ) : null}
+              {sequenceConfirm?.action === 'complete' ? 'Complete' : 'Pause'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

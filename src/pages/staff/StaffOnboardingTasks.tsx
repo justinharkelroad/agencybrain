@@ -31,6 +31,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
   Phone,
@@ -53,15 +59,29 @@ import {
   RefreshCw,
   Zap,
   Plus,
+  PanelRightOpen,
+  Pause,
 } from 'lucide-react';
 import { format, parseISO, isToday, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { SevenDayOutlook } from '@/components/onboarding/SevenDayOutlook';
 import { MonthlyTaskCalendar } from '@/components/onboarding/MonthlyTaskCalendar';
-import { ContactProfileModal } from '@/components/contacts/ContactProfileModal';
+import { ContactIntelligencePanel } from '@/components/onboarding/ContactIntelligencePanel';
 import { TaskCompleteDialog } from '@/components/onboarding/TaskCompleteDialog';
+import type { FollowUpData } from '@/components/onboarding/TaskCompleteDialog';
 import type { ActionType } from '@/hooks/useStaffOnboardingTasks';
 import type { OnboardingTask } from '@/hooks/useOnboardingTasks';
+import { useManageSequence } from '@/hooks/useManageSequence';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { HelpButton } from '@/components/HelpButton';
 
 type CalendarViewType = 'week' | 'month';
@@ -130,17 +150,12 @@ function getStatusStyles(task: StaffOnboardingTask): {
   };
 }
 
-interface FollowUpData {
-  dueDate: Date;
-  actionType: ActionType;
-  title: string;
-}
-
 interface StaffTaskCardProps {
   task: StaffOnboardingTask;
   onComplete: (taskId: string, notes?: string, followUp?: FollowUpData) => Promise<void>;
   isCompleting?: boolean;
   onViewProfile?: (contactId: string, customerName: string) => void;
+  onClickTask?: (task: StaffOnboardingTask) => void;
 }
 
 /**
@@ -179,7 +194,7 @@ function getCustomerEmail(task: StaffOnboardingTask): string | null {
   return task.instance?.customer_email || task.contact?.email || null;
 }
 
-function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }: StaffTaskCardProps) {
+function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile, onClickTask }: StaffTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
@@ -205,6 +220,8 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
     setCompleting(true);
     try {
       await onComplete(task.id);
+    } catch {
+      // Parent already shows error toast
     } finally {
       setCompleting(false);
     }
@@ -215,6 +232,8 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
     setCompleting(true);
     try {
       await onComplete(taskId, notes, followUp);
+    } catch {
+      // Parent already shows error toast
     } finally {
       setCompleting(false);
     }
@@ -401,6 +420,25 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile }
               </p>
             )}
           </div>
+
+          {/* Open Panel Arrow */}
+          {onClickTask && contactId && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="shrink-0 self-center p-2 rounded-md text-primary hover:bg-primary/10 transition-colors"
+                    onClick={(e) => { e.stopPropagation(); onClickTask(task); }}
+                  >
+                    <PanelRightOpen className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  <p>View contact details</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </CardContent>
 
@@ -503,6 +541,7 @@ function CompletedTodaySection({
 interface ProfileViewState {
   contactId: string;
   customerName: string;
+  currentTask?: StaffOnboardingTask;
 }
 
 export default function StaffOnboardingTasks() {
@@ -529,6 +568,39 @@ export default function StaffOnboardingTasks() {
   // Schedule task dialog
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const scheduleTask = useScheduleAdhocTask({ staffSessionToken: sessionToken });
+
+  // Sequence management
+  const manageSequence = useManageSequence();
+  const [sequenceConfirm, setSequenceConfirm] = useState<{
+    action: 'complete' | 'pause';
+    instanceId: string;
+    customerName: string;
+    pendingCount: number;
+  } | null>(null);
+
+  const handleCompleteSequence = (instanceId: string, customerName: string, pendingCount: number) => {
+    setSequenceConfirm({ action: 'complete', instanceId, customerName, pendingCount });
+  };
+
+  const handlePauseSequence = (instanceId: string, customerName: string) => {
+    setSequenceConfirm({ action: 'pause', instanceId, customerName, pendingCount: 0 });
+  };
+
+  const handleConfirmSequenceAction = async () => {
+    if (!sequenceConfirm || !user?.agency_id) return;
+    try {
+      await manageSequence.mutateAsync({
+        instanceId: sequenceConfirm.instanceId,
+        action: sequenceConfirm.action,
+        agencyId: user.agency_id,
+        completedByStaffId: user.id || null,
+        staffSessionToken: sessionToken || null,
+      });
+      setSequenceConfirm(null);
+    } catch {
+      // Error handled by hook
+    }
+  };
 
   const handleScheduleTask = async (data: {
     contactId: string;
@@ -600,14 +672,23 @@ export default function StaffOnboardingTasks() {
         description: err instanceof Error ? err.message : 'Please try again.',
         variant: 'destructive',
       });
+      throw err; // Re-throw so callers (e.g. ContactIntelligencePanel) can detect failure
     } finally {
       setCompletingTaskId(null);
     }
   };
 
-  // Handle view profile
+  // Handle view profile (customer name click)
   const handleViewProfile = (contactId: string, customerName: string) => {
     setProfileViewState({ contactId, customerName });
+  };
+
+  // Handle task title click (opens panel with task context)
+  const handleClickTask = (task: StaffOnboardingTask) => {
+    const contactId = getContactId(task);
+    if (!contactId) return;
+    const customerName = getCustomerName(task);
+    setProfileViewState({ contactId, customerName, currentTask: task });
   };
 
   // Handle day click in outlook
@@ -972,6 +1053,8 @@ export default function StaffOnboardingTasks() {
               </div>
               {paginatedGroups.map((group) => {
                 const hasOverdue = group.tasks.some(t => t.status === 'overdue');
+                const groupInstanceId = group.tasks[0]?.instance_id;
+                const groupActiveCount = group.tasks.filter(t => t.status !== 'completed').length;
                 return (
                 <div key={group.customerName} className="space-y-3">
                   <h3 className={cn(
@@ -1010,6 +1093,26 @@ export default function StaffOnboardingTasks() {
                         {group.tasks.length} task{group.tasks.length !== 1 ? 's' : ''}
                       </Badge>
                     )}
+                    {/* Sequence Actions */}
+                    {groupInstanceId && groupActiveCount > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-6 w-6 p-0 ml-auto">
+                            <MoreHorizontal className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleCompleteSequence(groupInstanceId, group.customerName, groupActiveCount)}>
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            Complete Sequence
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handlePauseSequence(groupInstanceId, group.customerName)}>
+                            <Pause className="h-4 w-4 mr-2" />
+                            Pause Sequence
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </h3>
                   <div className="space-y-3">
                     {group.tasks.map((task) => (
@@ -1019,6 +1122,7 @@ export default function StaffOnboardingTasks() {
                         onComplete={handleComplete}
                         isCompleting={completingTaskId === task.id}
                         onViewProfile={handleViewProfile}
+                        onClickTask={handleClickTask}
                       />
                     ))}
                   </div>
@@ -1076,16 +1180,18 @@ export default function StaffOnboardingTasks() {
         </div>
       )}
 
-      {/* Contact Profile Sidebar */}
-      <ContactProfileModal
+      {/* Contact Intelligence Panel */}
+      <ContactIntelligencePanel
         contactId={profileViewState?.contactId || null}
         open={!!profileViewState}
         onClose={() => setProfileViewState(null)}
         agencyId={user?.agency_id || null}
-        displayName={user?.display_name || user?.username || undefined}
-        defaultSourceModule="manual"
+        currentTask={profileViewState?.currentTask}
         staffMemberId={user?.id}
         staffSessionToken={sessionToken}
+        displayName={user?.display_name || user?.username || undefined}
+        onCompleteTask={handleComplete}
+        onTaskCompleted={() => { setProfileViewState(null); refetch(); }}
         onActivityLogged={() => refetch()}
       />
 
@@ -1096,6 +1202,46 @@ export default function StaffOnboardingTasks() {
         agencyId={user?.agency_id || null}
         onSchedule={handleScheduleTask}
       />
+
+      {/* Sequence Management Confirmation Dialog */}
+      <AlertDialog open={!!sequenceConfirm} onOpenChange={(open) => !open && setSequenceConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {sequenceConfirm?.action === 'complete' ? 'Complete Sequence' : 'Pause Sequence'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {sequenceConfirm?.action === 'complete' ? (
+                <>
+                  This will complete the sequence for <strong>{sequenceConfirm.customerName}</strong> and
+                  mark all {sequenceConfirm.pendingCount} remaining task(s) as done.
+                  Already-completed tasks will not be affected.
+                </>
+              ) : (
+                <>
+                  This will pause the sequence for <strong>{sequenceConfirm?.customerName}</strong>.
+                  Remaining tasks will be removed from the queue until the sequence is resumed.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={manageSequence.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmSequenceAction();
+              }}
+              disabled={manageSequence.isPending}
+            >
+              {manageSequence.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+              ) : null}
+              {sequenceConfirm?.action === 'complete' ? 'Complete' : 'Pause'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

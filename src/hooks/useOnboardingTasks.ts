@@ -33,6 +33,7 @@ export interface OnboardingTask {
   // Joined fields
   instance?: {
     id: string;
+    status?: string;
     customer_name: string;
     customer_phone: string | null;
     customer_email: string | null;
@@ -158,6 +159,7 @@ export function useOnboardingTasksToday({
           *,
           instance:onboarding_instances!inner(
             id,
+            status,
             customer_name,
             customer_phone,
             customer_email,
@@ -220,8 +222,13 @@ export function useOnboardingTasksToday({
       if (activeResult.error) throw activeResult.error;
       if (completedResult.error) throw completedResult.error;
 
+      // Filter out tasks from paused/completed instances
+      const activeTasks = ((activeResult.data || []) as OnboardingTask[]).filter(
+        t => !t.instance?.status || t.instance.status === 'active'
+      );
+
       return {
-        active: (activeResult.data || []) as OnboardingTask[],
+        active: activeTasks,
         completedToday: (completedResult.data || []) as OnboardingTask[],
       };
     },

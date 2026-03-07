@@ -116,12 +116,13 @@ serve(async (req) => {
 
     // Fetch active tasks (pending, due, overdue) assigned to this staff user
     // Use left join to include adhoc tasks that don't have an instance
-    const { data: activeTasks, error: activeError } = await supabase
+    const { data: rawActiveTasks, error: activeError } = await supabase
       .from('onboarding_tasks')
       .select(`
         *,
         instance:onboarding_instances(
           id,
+          status,
           customer_name,
           customer_phone,
           customer_email,
@@ -142,6 +143,11 @@ serve(async (req) => {
       .in('status', ['pending', 'due', 'overdue'])
       .order('due_date', { ascending: true })
       .order('created_at', { ascending: true });
+
+    // Filter out tasks from paused instances (adhoc tasks without an instance are kept)
+    const activeTasks = (rawActiveTasks || []).filter(
+      (t: any) => !t.instance || t.instance.status === 'active'
+    );
 
     if (activeError) {
       console.error('[get_staff_onboarding_tasks] Error fetching active tasks:', activeError);

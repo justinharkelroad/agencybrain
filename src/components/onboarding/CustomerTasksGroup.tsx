@@ -12,7 +12,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { ChevronDown, ChevronRight, User, AlertCircle, UserCog } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ChevronDown, ChevronRight, User, AlertCircle, UserCog, MoreVertical, CheckCircle2, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { OnboardingTaskCard } from './OnboardingTaskCard';
 import type { OnboardingTask } from '@/hooks/useOnboardingTasks';
@@ -27,6 +33,9 @@ interface CustomerTasksGroupProps {
   onReassign?: (instanceId: string, customerName: string, pendingCount: number) => void;
   canReassign?: boolean;
   onViewProfile?: (contactId: string, customerName: string) => void;
+  onClickTask?: (task: OnboardingTask) => void;
+  onCompleteSequence?: (instanceId: string, customerName: string, pendingCount: number) => void;
+  onPauseSequence?: (instanceId: string, customerName: string) => void;
 }
 
 export function CustomerTasksGroup({
@@ -39,6 +48,9 @@ export function CustomerTasksGroup({
   onReassign,
   canReassign = false,
   onViewProfile,
+  onClickTask,
+  onCompleteSequence,
+  onPauseSequence,
 }: CustomerTasksGroupProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
@@ -173,6 +185,46 @@ export function CustomerTasksGroup({
                   </Tooltip>
                 </TooltipProvider>
               )}
+              {/* Sequence Actions Menu */}
+              {instanceId && activeCount > 0 && (onCompleteSequence || onPauseSequence) && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                      <span className="sr-only">Sequence actions</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {onCompleteSequence && (
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCompleteSequence(instanceId, customerName, activeCount);
+                        }}
+                      >
+                        <CheckCircle2 className="h-4 w-4 mr-2" />
+                        Complete Sequence
+                      </DropdownMenuItem>
+                    )}
+                    {onPauseSequence && (
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPauseSequence(instanceId, customerName);
+                        }}
+                      >
+                        <Pause className="h-4 w-4 mr-2" />
+                        Pause Sequence
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </Button>
         </CollapsibleTrigger>
@@ -188,6 +240,7 @@ export function CustomerTasksGroup({
                 isCompleting={completingTaskId === task.id}
                 showAssignee={showAssignee}
                 showCustomer={false}
+                onClickTask={onClickTask}
               />
             ))}
           </div>

@@ -119,7 +119,7 @@ serve(async (req) => {
     }
 
     const body: AssignSequenceRequest = await req.json();
-    const {
+    let {
       contact_id,
       sale_id,
       household_id,
@@ -223,7 +223,7 @@ serve(async (req) => {
     if (sale_id) {
       const { data: sale, error: saleError } = await supabase
         .from('sales')
-        .select('id, agency_id')
+        .select('id, agency_id, contact_id')
         .eq('id', sale_id)
         .single();
 
@@ -241,13 +241,19 @@ serve(async (req) => {
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+
+      // Resolve contact_id from sale if not explicitly provided
+      if (!contact_id && sale.contact_id) {
+        contact_id = sale.contact_id;
+        console.log('[assign_onboarding_sequence] Resolved contact_id from sale:', contact_id);
+      }
     }
 
     // Verify the household exists and belongs to this agency (if provided)
     if (household_id) {
       const { data: household, error: householdError } = await supabase
         .from('lqs_households')
-        .select('id, agency_id')
+        .select('id, agency_id, contact_id')
         .eq('id', household_id)
         .single();
 
@@ -264,6 +270,12 @@ serve(async (req) => {
           JSON.stringify({ error: 'Household does not belong to your agency' }),
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      }
+
+      // Resolve contact_id from household if not explicitly provided
+      if (!contact_id && household.contact_id) {
+        contact_id = household.contact_id;
+        console.log('[assign_onboarding_sequence] Resolved contact_id from household:', contact_id);
       }
     }
 
