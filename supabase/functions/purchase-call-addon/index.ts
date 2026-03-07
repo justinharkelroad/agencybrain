@@ -49,7 +49,7 @@ serve(async (req) => {
     // Get user's agency and profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('agency_id, display_name')
+      .select('agency_id, display_name, email')
       .eq('id', authResult.userId)
       .single()
 
@@ -60,7 +60,7 @@ serve(async (req) => {
     // Get agency's Stripe customer ID and subscription status
     const { data: agency } = await supabase
       .from('agencies')
-      .select('stripe_customer_id, subscription_status')
+      .select('stripe_customer_id, subscription_status, name')
       .eq('id', profile.agency_id)
       .single()
 
@@ -69,8 +69,26 @@ serve(async (req) => {
       throw new Error('Active subscription required to purchase monthly add-ons')
     }
 
-    if (!agency?.stripe_customer_id) {
-      throw new Error('No Stripe customer found')
+    // Create Stripe customer on-the-fly if one doesn't exist
+    let stripeCustomerId = agency.stripe_customer_id
+    if (!stripeCustomerId) {
+      const customer = await stripe.customers.create({
+        email: profile.email || undefined,
+        name: agency.name || undefined,
+        metadata: {
+          agency_id: profile.agency_id,
+          supabase_user_id: authResult.userId,
+        },
+      })
+      stripeCustomerId = customer.id
+
+      // Persist for future use
+      await supabase
+        .from('agencies')
+        .update({ stripe_customer_id: customer.id })
+        .eq('id', profile.agency_id)
+
+      console.log('Created Stripe customer', customer.id, 'for agency', profile.agency_id)
     }
 
     // Check for existing active addon subscription
@@ -103,7 +121,7 @@ serve(async (req) => {
 
     // Create Stripe checkout session for subscription
     const session = await stripe.checkout.sessions.create({
-      customer: agency.stripe_customer_id,
+      customer: stripeCustomerId,
       payment_method_types: ['card'],
       line_items: [{
         price: addon.stripe_price_id,
