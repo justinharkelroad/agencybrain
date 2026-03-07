@@ -13504,6 +13504,7 @@ export type Database = {
           agency_id: string | null
           created_at: string | null
           cross_sells_uncovered: number | null
+          custom_kpis: Json | null
           daily_score: number | null
           date: string | null
           final_submission_id: string | null
@@ -13600,6 +13601,7 @@ export type Database = {
           agency_id: string | null
           created_at: string | null
           cross_sells_uncovered: number | null
+          custom_kpis: Json | null
           daily_score: number | null
           date: string | null
           final_submission_id: string | null
@@ -13752,6 +13754,10 @@ export type Database = {
           message: string
           success: boolean
         }[]
+      }
+      auto_link_terminations_to_cancel_and_renewal: {
+        Args: { p_agency_id: string; p_policy_numbers: string[] }
+        Returns: Json
       }
       backfill_lqs_sales_matching: {
         Args: { p_agency_id: string }
@@ -14041,59 +14047,37 @@ export type Database = {
           subject: string
         }[]
       }
-      get_contacts_by_stage:
-        | {
-            Args: {
-              p_agency_id: string
-              p_limit?: number
-              p_offset?: number
-              p_search?: string
-              p_stage?: string
-            }
-            Returns: {
-              agency_id: string
-              computed_stage: string
-              created_at: string
-              emails: string[]
-              first_name: string
-              household_key: string
-              id: string
-              last_name: string
-              phones: string[]
-              total_count: number
-              updated_at: string
-              zip_code: string
-            }[]
-          }
-        | {
-            Args: {
-              p_agency_id: string
-              p_limit?: number
-              p_offset?: number
-              p_search?: string
-              p_sort_by?: string
-              p_sort_direction?: string
-              p_staff_session_token?: string
-              p_stage?: string
-            }
-            Returns: {
-              agency_id: string
-              assigned_team_member_name: string
-              created_at: string
-              current_stage: string
-              emails: string[]
-              first_name: string
-              household_key: string
-              id: string
-              last_activity_at: string
-              last_activity_type: string
-              last_name: string
-              phones: string[]
-              total_count: number
-              updated_at: string
-              zip_code: string
-            }[]
-          }
+      get_contacts_by_stage: {
+        Args: {
+          p_agency_id: string
+          p_has_winback_opportunity?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_sort_by?: string
+          p_sort_direction?: string
+          p_staff_session_token?: string
+          p_stage?: string
+        }
+        Returns: {
+          agency_id: string
+          assigned_team_member_name: string
+          created_at: string
+          current_stage: string
+          emails: string[]
+          first_name: string
+          has_winback_opportunity: boolean
+          household_key: string
+          id: string
+          last_activity_at: string
+          last_activity_type: string
+          last_name: string
+          phones: string[]
+          total_count: number
+          updated_at: string
+          zip_code: string
+        }[]
+      }
       get_conversation_participants: {
         Args: { participant_ids: string[] }
         Returns: {
@@ -14261,6 +14245,7 @@ export type Database = {
         Args: { p_agency: string; p_date: string; p_role: string }
         Returns: {
           cross_sells_uncovered: number
+          custom_kpis: Json
           date: string
           mini_reviews: number
           name: string
@@ -14456,6 +14441,18 @@ export type Database = {
           p_subject?: string
         }
         Returns: string
+      }
+      manage_sequence_instance: {
+        Args: {
+          p_action: string
+          p_agency_id: string
+          p_completed_by_staff_id?: string
+          p_completed_by_user_id?: string
+          p_instance_id: string
+          p_notes?: string
+          p_staff_session_token?: string
+        }
+        Returns: Json
       }
       match_sale_to_lqs_household: {
         Args: { p_sale_id: string }
@@ -14700,7 +14697,11 @@ export type Database = {
         | "Inactive"
         | "Six Week Challenge"
       onboarding_action_type: "call" | "text" | "email" | "other"
-      onboarding_instance_status: "active" | "completed" | "cancelled"
+      onboarding_instance_status:
+        | "active"
+        | "completed"
+        | "cancelled"
+        | "paused"
       onboarding_sequence_target_type:
         | "onboarding"
         | "lead_nurturing"
@@ -14884,7 +14885,12 @@ export const Constants = {
         "Six Week Challenge",
       ],
       onboarding_action_type: ["call", "text", "email", "other"],
-      onboarding_instance_status: ["active", "completed", "cancelled"],
+      onboarding_instance_status: [
+        "active",
+        "completed",
+        "cancelled",
+        "paused",
+      ],
       onboarding_sequence_target_type: [
         "onboarding",
         "lead_nurturing",
