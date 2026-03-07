@@ -1510,8 +1510,8 @@ export default function CallScoring() {
         </div>
       </div>
 
-      {/* Upsell banner when credits are running low — admin preview only */}
-      {!isStaffUser && user?.email === 'justin@hfiagencies.com' && usage.calls_used >= effectiveLimit - 3 && effectiveLimit < 999999 && (
+      {/* Upsell banner — admin preview (remove low-credits gate for testing) */}
+      {!isStaffUser && user?.email === 'justin@hfiagencies.com' && effectiveLimit < 999999 && (
         <div className="flex items-center gap-3 p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sm">
           <Zap className="w-4 h-4 text-sky-500 flex-shrink-0" />
           <span>
