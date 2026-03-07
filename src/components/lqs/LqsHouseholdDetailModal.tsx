@@ -531,7 +531,15 @@ export function LqsHouseholdDetailModal({
       priorInsuranceCompanyId: household.prior_insurance_company_id || null,
       teamMemberId: household.team_member_id || null,
       saleDate: format(new Date(), 'yyyy-MM-dd'),
-      quoteDrafts: (household.quotes || []).map((quote) => ({
+      quoteDrafts: Object.values(
+        (household.quotes || []).reduce<Record<string, typeof household.quotes[0]>>((acc, quote) => {
+          const key = quote.product_type;
+          if (!acc[key] || quote.created_at > acc[key].created_at) {
+            acc[key] = quote;
+          }
+          return acc;
+        }, {})
+      ).map((quote) => ({
         productType: quote.product_type,
         premium: (quote.premium_cents || 0) / 100,
         items: quote.items_quoted || 1,
