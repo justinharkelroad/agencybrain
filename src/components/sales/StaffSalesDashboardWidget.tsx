@@ -47,9 +47,7 @@ interface PersonalSaleSummary {
   total_premium: number | null;
 }
 
-interface LeaderboardEntry {
-  items: number;
-}
+import type { LeaderboardEntry } from "@/hooks/useSalesLeaderboard";
 
 const MEASUREMENT_LABELS: Record<MeasurementType, string> = {
   premium: "Premium",

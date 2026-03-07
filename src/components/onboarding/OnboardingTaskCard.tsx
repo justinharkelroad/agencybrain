@@ -38,6 +38,7 @@ interface OnboardingTaskCardProps {
   isCompleting?: boolean;
   showAssignee?: boolean;
   showCustomer?: boolean;
+  onClickTask?: (task: OnboardingTask) => void;
 }
 
 const ACTION_ICONS: Record<ActionType, React.ElementType> = {

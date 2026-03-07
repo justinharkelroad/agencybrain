@@ -44,7 +44,7 @@ import { format, addDays, addWeeks } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { ActionType } from '@/hooks/useOnboardingTasks';
 
-interface FollowUpData {
+export interface FollowUpData {
   dueDate: Date;
   actionType: ActionType;
   title: string;

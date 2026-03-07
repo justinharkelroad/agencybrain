@@ -268,7 +268,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
           brokeredCarrierId: null,
         } satisfies Policy;
       })
-      .filter((policy): policy is Policy => policy !== null);
+      .filter((policy): policy is Policy => policy !== null) as Policy[];
 
     if (hydratedPolicies.length > 0) {
       setPolicies(hydratedPolicies);
