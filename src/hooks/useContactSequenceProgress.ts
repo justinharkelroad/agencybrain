@@ -1,14 +1,17 @@
 // Stub module for contact sequence progress tracking
-// TODO: Implement full sequence progress logic
 
 export interface SequenceTaskInfo {
   id: string;
   title: string;
+  action_type: string;
   actionType: string;
-  dueDate: string | null;
+  due_date: string;
+  dueDate: string;
   status: string;
+  completed_at: string | null;
   completedAt: string | null;
   sortOrder: number;
+  day_number: number;
 }
 
 export interface SequenceInstanceInfo {
@@ -28,9 +31,11 @@ export function mapSequenceInstances(_tasks: any[]): SequenceInstanceInfo[] {
 
 export function useContactSequenceProgress(
   _contactId: string | null,
-  _agencyId: string | null
+  _agencyId: string | null,
+  _prefetchedData?: SequenceInstanceInfo[] | null
 ) {
   return {
+    data: [] as SequenceInstanceInfo[],
     instances: [] as SequenceInstanceInfo[],
     isLoading: false,
   };
