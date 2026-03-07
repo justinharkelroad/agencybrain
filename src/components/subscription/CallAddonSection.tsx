@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 
-// TODO: Remove admin gate once Stripe prices are configured and migration is deployed
+// TODO: Remove admin gate after testing checkout flow end-to-end
 const ADMIN_PREVIEW_EMAILS = ['justin@hfiagencies.com'];
 
 export function CallAddonSection() {
@@ -78,7 +78,7 @@ export function CallAddonSection() {
     }
   };
 
-  // Admin-only preview until launch
+  // Admin-only preview until checkout flow is tested end-to-end
   if (!user?.email || !ADMIN_PREVIEW_EMAILS.includes(user.email)) return null;
 
   // Don't show for non-paid or unlimited users
@@ -161,7 +161,7 @@ export function CallAddonSection() {
               Addon calls reset each billing period.
             </p>
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {addonPlans?.map((plan) => {
                 const isPurchasing = purchaseMutation.isPending;
                 const pricePerCall = plan.price_cents / plan.calls_per_month;

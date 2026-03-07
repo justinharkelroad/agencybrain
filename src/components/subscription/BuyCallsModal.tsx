@@ -76,7 +76,7 @@ export function BuyCallsModal({ open, onOpenChange }: BuyCallsModalProps) {
               <Zap className="w-4 h-4 text-sky-500 flex-shrink-0" />
               <span>
                 <span className="font-medium text-sky-500">Save with monthly plans</span>
-                <span className="text-muted-foreground"> - as low as $2.99/call</span>
+                <span className="text-muted-foreground"> — starting at $69/mo</span>
               </span>
             </a>
           )}
