@@ -78,11 +78,12 @@ export function CallAddonSection() {
     }
   };
 
-  // Admin-only preview until checkout flow is tested end-to-end
-  if (!user?.email || !ADMIN_PREVIEW_EMAILS.includes(user.email)) return null;
+  const isAdminPreview = user?.email && ADMIN_PREVIEW_EMAILS.includes(user.email);
 
-  // Don't show for non-paid or unlimited users
-  if (!subscription?.isPaid || subscription?.is1on1Client) return null;
+  // Admin can always see for testing; others need paid + non-unlimited
+  if (!isAdminPreview) {
+    if (!subscription?.isPaid || subscription?.is1on1Client) return null;
+  }
 
   return (
     <Card>
