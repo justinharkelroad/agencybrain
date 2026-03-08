@@ -18,6 +18,7 @@ import { CallScoringAnalytics } from '@/components/CallScoringAnalytics';
 import { CallCoachingTab } from '@/components/call-scoring/CallCoachingTab';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
+import { useCallBalance } from '@/hooks/useCallBalance';
 import type { Database, Json } from '@/integrations/supabase/types';
 
 interface UsageInfo {
@@ -83,6 +84,7 @@ export default function CallScoring() {
   const { user, isAdmin } = useAuth();
   const { canUploadCallRecordings: ownerCanUpload, loading: permissionsLoading } = useUserPermissions();
   const { canUploadCallRecordings: staffCanUpload, isManager: isStaffManager, loading: staffPermissionsLoading } = useStaffPermissions();
+  const { data: callBalance } = useCallBalance();
   const navigate = useNavigate();
   const [usage, setUsage] = useState<UsageInfo>({ calls_used: 0, calls_limit: 20 });
   const [recentCalls, setRecentCalls] = useState<RecentCall[]>([]);
@@ -1496,17 +1498,29 @@ export default function CallScoring() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {(usage.bonus_remaining || 0) > 0 && (
-            <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-500/50 dark:border-emerald-500/30 text-emerald-500">
-              +{usage.bonus_remaining} bonus
+          {callBalance?.isUnlimited ? (
+            <Badge variant="outline" className="text-sm px-3 py-1 border-purple-500/50 dark:border-purple-500/30 text-purple-500">
+              Unlimited
+            </Badge>
+          ) : callBalance ? (
+            <>
+              {callBalance.bonusRemaining > 0 && (
+                <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-500/50 dark:border-emerald-500/30 text-emerald-500">
+                  +{callBalance.bonusRemaining} bonus
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-sm px-3 py-1">
+                {callBalance.totalRemaining} calls available
+                {usage.period_end && (
+                  <span className="ml-2 text-muted-foreground">• Resets {new Date(usage.period_end).toLocaleDateString()}</span>
+                )}
+              </Badge>
+            </>
+          ) : (
+            <Badge variant="outline" className="text-sm px-3 py-1">
+              {usage.calls_used} / {usage.calls_limit + (usage.bonus_remaining || 0)} calls
             </Badge>
           )}
-          <Badge variant="outline" className="text-sm px-3 py-1">
-            {usage.calls_used} / {usage.calls_limit + (usage.bonus_remaining || 0)} calls
-            {usage.period_end && (
-              <span className="ml-2 text-muted-foreground">• Resets {new Date(usage.period_end).toLocaleDateString()}</span>
-            )}
-          </Badge>
         </div>
       </div>
 
