@@ -9,6 +9,7 @@ export interface CallBalance {
   purchasedRemaining: number;
   bonusRemaining: number;
   bonusExpiresAt: string | null;
+  subscriptionResetDate: string | null;
   totalRemaining: number;
   message: string;
   isUnlimited: boolean;
@@ -82,6 +83,7 @@ export function useCallBalance() {
           purchasedRemaining: 0,
           bonusRemaining: 0,
           bonusExpiresAt: null,
+          subscriptionResetDate: null,
           totalRemaining: 0,
           message: 'No agency found',
           isUnlimited: false,
@@ -112,6 +114,7 @@ export function useCallBalance() {
             purchasedRemaining: 0,
             bonusRemaining: 0,
             bonusExpiresAt: null,
+            subscriptionResetDate: null,
             totalRemaining: 999999,
             message: 'Unlimited call scoring',
             isUnlimited: true,
@@ -130,6 +133,7 @@ export function useCallBalance() {
             purchasedRemaining: 0,
             bonusRemaining: 0,
             bonusExpiresAt: null,
+            subscriptionResetDate: null,
             totalRemaining: 20,
             message: '20 calls remaining (legacy access)',
             isUnlimited: false,
@@ -155,6 +159,7 @@ export function useCallBalance() {
             purchasedRemaining: 0,
             bonusRemaining: 0,
             bonusExpiresAt: null,
+            subscriptionResetDate: null,
             totalRemaining: 20,
             message: 'Default access (error fallback)',
             isUnlimited: false,
@@ -168,6 +173,7 @@ export function useCallBalance() {
           purchasedRemaining: 0,
           bonusRemaining: 0,
           bonusExpiresAt: null,
+          subscriptionResetDate: null,
           totalRemaining: 0,
           message: 'Unable to check call balance',
           isUnlimited: false,
@@ -185,6 +191,15 @@ export function useCallBalance() {
         message: 'No balance found',
       };
 
+      // Compute next reset date from subscription_period_start + 1 month
+      const periodStart = (result as any).subscription_period_start;
+      let resetDate: string | null = null;
+      if (periodStart) {
+        const start = new Date(periodStart + 'T00:00:00');
+        start.setMonth(start.getMonth() + 1);
+        resetDate = start.toISOString();
+      }
+
       return {
         canScore: result.can_score,
         subscriptionRemaining: result.subscription_remaining,
@@ -192,6 +207,7 @@ export function useCallBalance() {
         purchasedRemaining: result.purchased_remaining,
         bonusRemaining: result.bonus_remaining ?? 0,
         bonusExpiresAt: (result as any).bonus_expires_at ?? null,
+        subscriptionResetDate: resetDate,
         totalRemaining: result.total_remaining,
         message: result.message,
         isUnlimited: result.total_remaining >= 999999,

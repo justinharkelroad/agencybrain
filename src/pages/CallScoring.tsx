@@ -1515,9 +1515,13 @@ export default function CallScoring() {
                       <span className="font-semibold">{callBalance.subscriptionRemaining}</span>
                       {subLimit > 0 && <span className="text-muted-foreground">/{subLimit}</span>}
                       <span className="ml-1">monthly</span>
-                      <span className="ml-1 text-muted-foreground">
-                        · Resets {subscription?.periodEnd ? subscription.periodEnd.toLocaleDateString() : 'monthly'}
-                      </span>
+                      {(callBalance.subscriptionResetDate || subscription?.periodEnd) && (
+                        <span className="ml-1 text-muted-foreground">
+                          · Resets {callBalance.subscriptionResetDate
+                            ? new Date(callBalance.subscriptionResetDate).toLocaleDateString()
+                            : subscription?.periodEnd?.toLocaleDateString()}
+                        </span>
+                      )}
                     </Badge>
                   );
                 })()}
