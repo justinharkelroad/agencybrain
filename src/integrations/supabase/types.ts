@@ -7251,6 +7251,431 @@ export type Database = {
           },
         ]
       }
+      mission_control_attachments: {
+        Row: {
+          agency_id: string
+          attachment_type: string
+          board_item_id: string | null
+          commitment_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          owner_user_id: string
+          session_id: string | null
+          upload_id: string
+        }
+        Insert: {
+          agency_id: string
+          attachment_type: string
+          board_item_id?: string | null
+          commitment_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          owner_user_id: string
+          session_id?: string | null
+          upload_id: string
+        }
+        Update: {
+          agency_id?: string
+          attachment_type?: string
+          board_item_id?: string | null
+          commitment_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          owner_user_id?: string
+          session_id?: string | null
+          upload_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_control_attachments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_attachments_board_item_id_fkey"
+            columns: ["board_item_id"]
+            isOneToOne: false
+            referencedRelation: "mission_control_board_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_attachments_commitment_id_fkey"
+            columns: ["commitment_id"]
+            isOneToOne: false
+            referencedRelation: "mission_control_commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_attachments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_attachments_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_attachments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "mission_control_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_attachments_upload_id_fkey"
+            columns: ["upload_id"]
+            isOneToOne: false
+            referencedRelation: "uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_control_board_items: {
+        Row: {
+          agency_id: string
+          column_order: number
+          column_status: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          id: string
+          owner_user_id: string
+          priority: string
+          proof_required: boolean
+          proof_status: string
+          severity: string
+          source_commitment_id: string | null
+          source_session_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          column_order?: number
+          column_status?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          owner_user_id: string
+          priority?: string
+          proof_required?: boolean
+          proof_status?: string
+          severity?: string
+          source_commitment_id?: string | null
+          source_session_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          column_order?: number
+          column_status?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          owner_user_id?: string
+          priority?: string
+          proof_required?: boolean
+          proof_status?: string
+          severity?: string
+          source_commitment_id?: string | null
+          source_session_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_control_board_items_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_board_items_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_board_items_source_commitment_id_fkey"
+            columns: ["source_commitment_id"]
+            isOneToOne: false
+            referencedRelation: "mission_control_commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_board_items_source_session_id_fkey"
+            columns: ["source_session_id"]
+            isOneToOne: false
+            referencedRelation: "mission_control_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_control_commitments: {
+        Row: {
+          agency_id: string
+          carried_forward_from_commitment_id: string | null
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          owner_user_id: string
+          priority: string
+          proof_notes: string | null
+          proof_required: boolean
+          proof_status: string
+          reviewed_in_session_id: string | null
+          session_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          carried_forward_from_commitment_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          owner_user_id: string
+          priority?: string
+          proof_notes?: string | null
+          proof_required?: boolean
+          proof_status?: string
+          reviewed_in_session_id?: string | null
+          session_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          carried_forward_from_commitment_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          owner_user_id?: string
+          priority?: string
+          proof_notes?: string | null
+          proof_required?: boolean
+          proof_status?: string
+          reviewed_in_session_id?: string | null
+          session_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_control_commitments_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_commitments_carried_forward_from_commitment_id_fkey"
+            columns: ["carried_forward_from_commitment_id"]
+            isOneToOne: false
+            referencedRelation: "mission_control_commitments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_commitments_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_commitments_reviewed_in_session_id_fkey"
+            columns: ["reviewed_in_session_id"]
+            isOneToOne: false
+            referencedRelation: "mission_control_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_commitments_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "mission_control_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_control_coach_notes: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string
+          id: string
+          note_body: string
+          owner_user_id: string
+          session_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          note_body: string
+          owner_user_id: string
+          session_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          note_body?: string
+          owner_user_id?: string
+          session_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_control_coach_notes_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_coach_notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_coach_notes_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_coach_notes_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "mission_control_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_control_sessions: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          issues_json: Json
+          key_points_json: Json
+          next_call_date: string | null
+          owner_user_id: string
+          period_id: string | null
+          session_date: string
+          status: string
+          summary_ai: string | null
+          title: string
+          top_commitments_json: Json
+          transcript_text: string | null
+          updated_at: string
+          wins_json: Json
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          issues_json?: Json
+          key_points_json?: Json
+          next_call_date?: string | null
+          owner_user_id: string
+          period_id?: string | null
+          session_date: string
+          status?: string
+          summary_ai?: string | null
+          title: string
+          top_commitments_json?: Json
+          transcript_text?: string | null
+          updated_at?: string
+          wins_json?: Json
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          issues_json?: Json
+          key_points_json?: Json
+          next_call_date?: string | null
+          owner_user_id?: string
+          period_id?: string | null
+          session_date?: string
+          status?: string
+          summary_ai?: string | null
+          title?: string
+          top_commitments_json?: Json
+          transcript_text?: string | null
+          updated_at?: string
+          wins_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_control_sessions_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_sessions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_sessions_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_sessions_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_instances: {
         Row: {
           agency_id: string

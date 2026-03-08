@@ -66,6 +66,7 @@ import { useSidebarAccess } from "@/hooks/useSidebarAccess";
 import { useSalesExperienceAccess } from "@/hooks/useSalesExperienceAccess";
 import { useSalesProcessBuilderAccess } from "@/hooks/useStandaloneSalesProcess";
 import { useCallGapsAccess } from "@/hooks/useCallGapsAccess";
+import { useMissionControlAccess } from "@/hooks/useMissionControlAccess";
 import { SidebarNavItem, SidebarFolder, SidebarSubFolder } from "@/components/sidebar";
 import type { CalcKey } from "@/components/ROIForecastersModal";
 import { hasCoachingInsightsAccess } from "@/lib/coachingInsightsAccess";
@@ -101,6 +102,7 @@ const adminOnlyItems = [
   { title: "Exchange Reports", url: "/admin/exchange-reports", icon: FileBarChart },
   { title: "Exchange Analytics", url: "/admin/exchange-analytics", icon: BarChart3 },
   { title: "1:1 Clients", url: "/admin/one-on-one-clients", icon: Users },
+  { title: "Mission Control Access", url: "/admin/one-on-one-clients?feature=mission_control", icon: LayoutDashboard },
   { title: "Sales Process Builder Access", url: "/admin/one-on-one-clients?feature=sales_process_builder", icon: Sparkles },
   { title: "Call Scoring Q&A Access", url: "/admin/one-on-one-clients?feature=call_scoring_qa", icon: MessageSquare },
 ];
@@ -111,8 +113,10 @@ export function AppSidebar({ onOpenROI }: AppSidebarProps) {
   const { filterNavigation, loading: accessLoading, agencyId } = useSidebarAccess();
   const { hasAccess: hasSalesExperienceAccess } = useSalesExperienceAccess();
   const { data: salesProcessBuilderData, isError: salesProcessBuilderError } = useSalesProcessBuilderAccess();
+  const { data: missionControlAccessData } = useMissionControlAccess();
   // If there's an error (like 403), treat as no access - don't crash the app
   const hasSalesProcessBuilderAccess = (!salesProcessBuilderError && salesProcessBuilderData?.hasAccess) ?? false;
+  const hasMissionControlAccess = missionControlAccessData?.hasAccess ?? false;
   const canAccessCoachingInsights = hasCoachingInsightsAccess(user?.email);
   const { data: callGapsAccessData, isError: callGapsAccessError } = useCallGapsAccess(agencyId);
   const hasCallGapsAccess = (!callGapsAccessError && callGapsAccessData?.hasAccess) ?? false;
@@ -329,6 +333,7 @@ const toggleFolder = useCallback((folderId: string) => {
       hasSalesProcessBuilderAccess,
       hasCoachingInsightsAccess: canAccessCoachingInsights,
       hasCallGapsAccess,
+      hasMissionControlAccess,
     });
     
     if (isCallScoringTier) {
@@ -407,7 +412,7 @@ const toggleFolder = useCallback((folderId: string) => {
     }
     
     return filtered;
-  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, isChallengeTierUser, hasSalesExperienceAccess, hasSalesProcessBuilderAccess, canAccessCoachingInsights, hasCallGapsAccess]);
+  }, [filterNavigation, callScoringEnabled, user?.email, isCallScoringTier, isChallengeTierUser, hasSalesExperienceAccess, hasSalesProcessBuilderAccess, canAccessCoachingInsights, hasCallGapsAccess, hasMissionControlAccess]);
 
 // Auto-expand folder containing active route
 useEffect(() => {

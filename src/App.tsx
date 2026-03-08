@@ -79,6 +79,7 @@ import Landing from "./pages/Landing";
 import LandingPagePreview from "./pages/LandingPage";
 import MarketingLanding from "./pages/MarketingLanding";
 import GrowthCenter from "./pages/GrowthCenter";
+import MissionControl from "./pages/MissionControl";
 import CancelAudit from "./pages/CancelAudit";
 import Renewals from "./pages/Renewals";
 import Sales from "./pages/Sales";
@@ -272,6 +273,14 @@ const App = () => {
               <ProtectedRoute>
                 <SidebarLayout>
                   <Dashboard />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/dashboard/mission-control" element={<Navigate to="/mission-control" replace />} />
+            <Route path="/mission-control" element={
+              <ProtectedRoute requireTrueAgencyOwner>
+                <SidebarLayout>
+                  <MissionControl />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
