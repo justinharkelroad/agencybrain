@@ -1532,9 +1532,12 @@ export default function CallScoring() {
                   </Badge>
                 )}
                 {callBalance.bonusRemaining > 0 && (
-                  <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-500/50 dark:border-emerald-500/30 text-emerald-500" title="Used after addon credits — does not expire">
+                  <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-500/50 dark:border-emerald-500/30 text-emerald-500" title="Used after addon credits">
                     +<span className="font-semibold">{callBalance.bonusRemaining}</span>
                     <span className="ml-1">bonus</span>
+                    {callBalance.bonusExpiresAt && (
+                      <span className="ml-1 text-emerald-400/70">· Exp {new Date(callBalance.bonusExpiresAt).toLocaleDateString()}</span>
+                    )}
                   </Badge>
                 )}
               </>

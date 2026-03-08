@@ -191,7 +191,7 @@ export function useCallBalance() {
         addonRemaining: (result as any).addon_remaining ?? 0,
         purchasedRemaining: result.purchased_remaining,
         bonusRemaining: result.bonus_remaining ?? 0,
-        bonusExpiresAt: null, // Expiration not returned by check_call_scoring_access
+        bonusExpiresAt: (result as any).bonus_expires_at ?? null,
         totalRemaining: result.total_remaining,
         message: result.message,
         isUnlimited: result.total_remaining >= 999999,
