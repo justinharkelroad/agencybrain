@@ -1514,7 +1514,7 @@ export default function CallScoring() {
                     <Badge variant="outline" className="text-sm px-3 py-1" title="Used first — resets each billing period">
                       <span className="font-semibold">{callBalance.subscriptionRemaining}</span>
                       {subLimit > 0 && <span className="text-muted-foreground">/{subLimit}</span>}
-                      {' '}monthly
+                      <span className="ml-1">monthly</span>
                       {subscription?.periodEnd && (
                         <span className="ml-1 text-muted-foreground">• Resets {subscription.periodEnd.toLocaleDateString()}</span>
                       )}
@@ -1522,26 +1522,22 @@ export default function CallScoring() {
                   );
                 })()}
                 {callBalance.addonRemaining > 0 && (
-                  <Badge variant="outline" className="text-sm px-3 py-1 border-sky-500/50 dark:border-sky-500/30 text-sky-500" title="Used 2nd — resets on addon billing date">
+                  <Badge variant="outline" className="text-sm px-3 py-1 border-sky-500/50 dark:border-sky-500/30 text-sky-500" title="Used after monthly credits — resets on addon billing date">
                     +<span className="font-semibold">{callBalance.addonRemaining}</span>
                     {addonSub?.calls_per_month && <span className="text-sky-400/70">/{addonSub.calls_per_month}</span>}
-                    {' '}addon
+                    <span className="ml-1">addon</span>
                     {addonSub?.current_period_end && (
-                      <span className="ml-1 text-sky-400/70">• Resets {new Date(addonSub.current_period_end).toLocaleDateString()}</span>
+                      <span className="ml-1 text-sky-400/70">· Resets {new Date(addonSub.current_period_end).toLocaleDateString()}</span>
                     )}
                   </Badge>
                 )}
                 {callBalance.bonusRemaining > 0 && (
-                  <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-500/50 dark:border-emerald-500/30 text-emerald-500" title="Used 3rd — expires on expiration date">
-                    +<span className="font-semibold">{callBalance.bonusRemaining}</span> bonus
+                  <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-500/50 dark:border-emerald-500/30 text-emerald-500" title="Used after addon credits">
+                    +<span className="font-semibold">{callBalance.bonusRemaining}</span>
+                    <span className="ml-1">bonus</span>
                     {callBalance.bonusExpiresAt && (
-                      <span className="ml-1 text-emerald-400/70">• Exp {new Date(callBalance.bonusExpiresAt).toLocaleDateString()}</span>
+                      <span className="ml-1 text-emerald-400/70">· Exp {new Date(callBalance.bonusExpiresAt).toLocaleDateString()}</span>
                     )}
-                  </Badge>
-                )}
-                {callBalance.purchasedRemaining > 0 && (
-                  <Badge variant="outline" className="text-sm px-3 py-1 border-green-500/50 dark:border-green-500/30 text-green-500" title="Used last — never expire">
-                    +<span className="font-semibold">{callBalance.purchasedRemaining}</span> purchased
                   </Badge>
                 )}
               </>
@@ -1551,9 +1547,9 @@ export default function CallScoring() {
               </Badge>
             )}
           </div>
-          {callBalance && !callBalance.isUnlimited && (callBalance.addonRemaining > 0 || callBalance.bonusRemaining > 0 || callBalance.purchasedRemaining > 0) && (
+          {callBalance && !callBalance.isUnlimited && (callBalance.addonRemaining > 0 || callBalance.bonusRemaining > 0) && (
             <p className="text-[11px] text-muted-foreground">
-              Credits used in order: Monthly → Add-On → Bonus → Purchased
+              Credits used in order: Monthly{callBalance.addonRemaining > 0 ? ' → Add-On' : ''}{callBalance.bonusRemaining > 0 ? ' → Bonus' : ''}
             </p>
           )}
         </div>
