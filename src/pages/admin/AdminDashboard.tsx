@@ -472,6 +472,11 @@ const getSubmissionStatus = (profile: Profile) => {
     <p className="text-muted-foreground">
       Monitor client submissions and manage the coaching platform
     </p>
+    <div className="mt-3">
+      <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+        Admin sync marker: Mission Control check 2026-03-08
+      </Badge>
+    </div>
   </div>
   <Card
     className="w-full sm:w-auto cursor-pointer hover:bg-accent/5 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/40"
