@@ -500,7 +500,7 @@ serve(async (req) => {
           error: `batch is not running (status=${batch.status})`,
         });
       }
-      existingBatch = batch as typeof existingBatch;
+      existingBatch = batch as unknown as typeof existingBatch;
     } else if (!dryRun) {
       if (!startedByUserId && !startedByStaffUserId) {
         return json(400, {
