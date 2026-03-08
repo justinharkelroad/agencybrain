@@ -119,6 +119,8 @@ serve(async (req) => {
       throw new Error('Add-on plan not configured for purchase yet')
     }
 
+    console.log('Creating checkout with price:', addon.stripe_price_id, 'customer:', stripeCustomerId, 'addon:', addon.calls_per_month, 'calls')
+
     // Create Stripe checkout session for subscription
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
