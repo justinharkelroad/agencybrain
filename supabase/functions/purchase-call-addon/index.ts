@@ -130,6 +130,7 @@ serve(async (req) => {
         quantity: 1,
       }],
       mode: 'subscription',
+      allow_promotion_codes: true,
       success_url: success_url || `${Deno.env.get('APP_URL')}/settings/billing?addon=success`,
       cancel_url: cancel_url || `${Deno.env.get('APP_URL')}/settings/billing?addon=canceled`,
       subscription_data: {
