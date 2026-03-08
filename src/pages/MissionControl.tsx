@@ -9,12 +9,14 @@ import {
   FileText,
   Loader2,
   MessageSquare,
+  Paperclip,
   Plus,
   Rocket,
   Target,
   TextSearch,
   TrendingUp,
   Trophy,
+  Upload,
   Users,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -36,10 +38,12 @@ import { useAuth } from '@/lib/auth';
 import { useMissionControlAccess } from '@/hooks/useMissionControlAccess';
 import { useMissionControlClients } from '@/hooks/useMissionControlClients';
 import {
+  type MissionAttachment,
   type MissionBoardItem,
   type MissionCoachNote,
   type MissionCommitment,
   type MissionSession,
+  type MissionUpload,
   useMissionControlWorkspace,
 } from '@/hooks/useMissionControlWorkspace';
 
@@ -100,6 +104,12 @@ const BOARD_STATUS_OPTIONS = [
   { value: 'done', label: 'Done' },
 ] as const;
 
+type AttachmentTargetKind = 'session' | 'commitment' | 'board';
+
+interface LinkedMissionAttachment extends MissionAttachment {
+  upload: MissionUpload | null;
+}
+
 function jsonArrayToLines(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
 
@@ -120,6 +130,33 @@ function linesToJson(value: string) {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function formatFileSize(bytes: number | null) {
+  if (!bytes) return 'Unknown size';
+  if (bytes < 1024) return `${bytes} B`;
+
+  const units = ['KB', 'MB', 'GB'];
+  let size = bytes / 1024;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function formatDateLabel(value: string | null | undefined, options?: Intl.DateTimeFormatOptions) {
+  if (!value) return 'Unknown date';
+
+  return new Date(value).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    ...options,
+  });
 }
 
 function SummaryCard({
@@ -156,6 +193,7 @@ export default function MissionControl() {
   const [selectedClient, setSelectedClient] = useState<string>('');
   const [dialogState, setDialogState] = useState<'session' | 'commitment' | 'board' | null>(null);
   const [coachNoteOpen, setCoachNoteOpen] = useState(false);
+  const [attachmentOpen, setAttachmentOpen] = useState(false);
 
   useEffect(() => {
     if (isAdmin && !selectedClient && clients.length > 0) {
@@ -198,7 +236,52 @@ export default function MissionControl() {
   const keyPoints = jsonArrayToLines(latestSession?.key_points_json);
   const topCommitments = jsonArrayToLines(latestSession?.top_commitments_json);
   const openCommitments = workspace.commitments.filter((item) => item.status !== 'done');
-  const proofLinkedCount = workspace.commitments.filter((item) => item.proof_notes).length;
+  const uploadMap = useMemo(
+    () => new Map(workspace.uploads.map((upload) => [upload.id, upload])),
+    [workspace.uploads]
+  );
+  const linkedAttachments = useMemo<LinkedMissionAttachment[]>(
+    () =>
+      workspace.attachments.map((attachment) => ({
+        ...attachment,
+        upload: uploadMap.get(attachment.upload_id) ?? null,
+      })),
+    [uploadMap, workspace.attachments]
+  );
+  const latestSessionAttachments = linkedAttachments.filter((attachment) => attachment.session_id === latestSession?.id);
+  const proofLinkedCount = linkedAttachments.filter((attachment) => attachment.attachment_type === 'proof').length;
+  const commitmentAttachmentMap = useMemo(() => {
+    const next = new Map<string, LinkedMissionAttachment[]>();
+
+    linkedAttachments.forEach((attachment) => {
+      if (!attachment.commitment_id) return;
+      next.set(attachment.commitment_id, [...(next.get(attachment.commitment_id) ?? []), attachment]);
+    });
+
+    return next;
+  }, [linkedAttachments]);
+
+  const attachmentTargetLabel = (attachment: LinkedMissionAttachment) => {
+    if (attachment.session_id) {
+      return `Session · ${
+        workspace.sessions.find((session) => session.id === attachment.session_id)?.title ?? 'Session record'
+      }`;
+    }
+
+    if (attachment.commitment_id) {
+      return `Commitment · ${
+        workspace.commitments.find((commitment) => commitment.id === attachment.commitment_id)?.title ?? 'Commitment'
+      }`;
+    }
+
+    if (attachment.board_item_id) {
+      return `Board item · ${
+        workspace.boardItems.find((item) => item.id === attachment.board_item_id)?.title ?? 'Board item'
+      }`;
+    }
+
+    return 'Mission record';
+  };
 
   if (!accessLoading && !access?.hasAccess) {
     return <Navigate to="/dashboard" replace />;
@@ -298,7 +381,7 @@ export default function MissionControl() {
           <SummaryCard icon={CalendarDays} label="Last Call" value={latestSession ? latestSession.session_date : 'None'} detail="Latest coaching session preserved in the timeline." />
           <SummaryCard icon={Rocket} label="Mission Board" value={String(workspace.boardItems.length)} detail="Deployments tracked across the board." />
           <SummaryCard icon={Trophy} label="Wins Logged" value={String(wins.length)} detail="Highlights preserved from the latest session." />
-          <SummaryCard icon={CheckCircle2} label="Proof Linked" value={String(proofLinkedCount)} detail="Commitments with evidence notes attached." />
+          <SummaryCard icon={CheckCircle2} label="Proof Linked" value={String(proofLinkedCount)} detail="Uploaded evidence files linked back to commitments." />
         </section>
 
         <section className="grid gap-6 xl:grid-cols-[1.15fr_1.2fr_0.9fr]">
@@ -328,6 +411,19 @@ export default function MissionControl() {
                     <div className="rounded-2xl border border-border/60 bg-background/75 p-4">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Transcript</p>
                       <p className="mt-2 text-sm line-clamp-5">{latestSession.transcript_text || 'No transcript added yet.'}</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {latestSessionAttachments.filter((attachment) => attachment.attachment_type === 'transcript').length > 0 ? (
+                          latestSessionAttachments
+                            .filter((attachment) => attachment.attachment_type === 'transcript')
+                            .map((attachment) => (
+                              <Badge key={attachment.id} variant="outline" className="max-w-full truncate">
+                                {attachment.upload?.original_name ?? 'Linked transcript file'}
+                              </Badge>
+                            ))
+                        ) : (
+                          <span className="text-xs text-muted-foreground">No transcript files linked yet.</span>
+                        )}
+                      </div>
                     </div>
                     <div className="rounded-2xl border border-border/60 bg-background/75 p-4">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Key points</p>
@@ -396,8 +492,11 @@ export default function MissionControl() {
                 <CardDescription>The scoreboard for what the owner said would be done before the next call.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {workspace.commitments.length > 0 ? workspace.commitments.map((commitment) => (
-                  <div key={commitment.id} className="rounded-[22px] border border-border/60 bg-muted/25 p-4">
+                {workspace.commitments.length > 0 ? workspace.commitments.map((commitment) => {
+                  const linkedProofs = commitmentAttachmentMap.get(commitment.id) ?? [];
+
+                  return (
+                    <div key={commitment.id} className="rounded-[22px] border border-border/60 bg-muted/25 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <h3 className="font-medium">{commitment.title}</h3>
@@ -427,10 +526,22 @@ export default function MissionControl() {
                       <div className="rounded-2xl border border-border/60 bg-background/75 p-3 text-sm">
                         <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Proof</p>
                         <p className="mt-2">{commitment.proof_notes || 'No proof linked yet'}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {linkedProofs.length > 0 ? (
+                            linkedProofs.map((attachment) => (
+                              <Badge key={attachment.id} variant="outline" className="max-w-full truncate">
+                                {attachment.upload?.original_name ?? 'Linked file'}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-xs text-muted-foreground">No uploaded proof linked yet.</span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )) : (
+                    </div>
+                  );
+                }) : (
                   <EmptyState
                     icon={Target}
                     title="No commitments in motion"
@@ -566,20 +677,87 @@ export default function MissionControl() {
 
             <Card className="rounded-[28px] border-border/60 bg-background/82">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BriefcaseBusiness className="h-5 w-5 text-primary" />
-                  Proof Locker
-                </CardTitle>
-                <CardDescription>Uploaded proof, screenshots, and links will live here next.</CardDescription>
+                  <CardTitle className="flex items-center gap-2">
+                    <BriefcaseBusiness className="h-5 w-5 text-primary" />
+                    Proof Locker
+                  </CardTitle>
+                <CardDescription>Link transcripts, screenshots, and artifacts back to the exact session or commitment they prove.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-                  No live uploads are wired in this reset build. This panel stays as the dedicated slot for proof and
-                  transcript artifacts.
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Linked artifacts</p>
+                    <p className="mt-2 text-3xl font-semibold">{linkedAttachments.length}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">Attachments already tied to sessions, commitments, or board items.</p>
+                  </div>
+                  <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Uploads available</p>
+                    <p className="mt-2 text-3xl font-semibold">{workspace.uploads.length}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">Owner and coach/admin uploads ready to be linked into the workspace.</p>
+                  </div>
                 </div>
-                <Button variant="outline" asChild className="w-full">
-                  <Link to="/dashboard">Back to dashboard</Link>
-                </Button>
+
+                {linkedAttachments.length > 0 ? (
+                  <div className="space-y-3">
+                    {linkedAttachments.slice(0, 6).map((attachment) => (
+                      <div key={attachment.id} className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{attachment.upload?.original_name ?? 'Linked upload'}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{attachmentTargetLabel(attachment)}</p>
+                          </div>
+                          <Badge variant="outline" className="capitalize">
+                            {attachment.attachment_type}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          <span>{formatFileSize(attachment.upload?.file_size ?? null)}</span>
+                          <span>•</span>
+                          <span>{attachment.upload?.category ?? 'Uncategorized'}</span>
+                          <span>•</span>
+                          <span>{formatDateLabel(attachment.created_at, { hour: 'numeric', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-[24px] border border-dashed border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+                    No artifacts linked yet. Upload files in the Files area, then connect them here to the session,
+                    commitment, or board item they support.
+                  </div>
+                )}
+
+                {workspace.uploads.length > 0 && (
+                  <div className="rounded-[22px] border border-border/60 bg-background/75 p-4">
+                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Recent uploads ready to link</p>
+                    <div className="mt-3 space-y-2">
+                      {workspace.uploads.slice(0, 3).map((upload) => (
+                        <div key={upload.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border/50 px-3 py-2 text-sm">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{upload.original_name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {upload.category} · {formatFileSize(upload.file_size)} · {formatDateLabel(upload.created_at)}
+                            </p>
+                          </div>
+                          <Badge variant="outline">{upload.user_id === user?.id ? 'You' : 'Owner'}</Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Button className="flex-1" onClick={() => setAttachmentOpen(true)} disabled={workspace.uploads.length === 0}>
+                    <Paperclip className="mr-2 h-4 w-4" />
+                    Link existing upload
+                  </Button>
+                  <Button variant="outline" asChild className="flex-1">
+                    <Link to="/uploads">
+                      <Upload className="mr-2 h-4 w-4" />
+                      Open files
+                    </Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -651,6 +829,26 @@ export default function MissionControl() {
             onSubmit={async (payload) => {
               await workspace.createCoachNote.mutateAsync(payload);
               setCoachNoteOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={attachmentOpen} onOpenChange={setAttachmentOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Link upload</DialogTitle>
+            <DialogDescription>Attach an existing uploaded file to the specific session, commitment, or board item it supports.</DialogDescription>
+          </DialogHeader>
+          <AttachmentDialog
+            uploads={workspace.uploads}
+            sessions={workspace.sessions}
+            commitments={workspace.commitments}
+            boardItems={workspace.boardItems}
+            isSaving={workspace.createAttachment.isPending}
+            onSubmit={async (payload) => {
+              await workspace.createAttachment.mutateAsync(payload);
+              setAttachmentOpen(false);
             }}
           />
         </DialogContent>
@@ -1014,6 +1212,175 @@ function CoachNoteDialog({
       >
         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-2 h-4 w-4" />}
         Save coach note
+      </Button>
+    </div>
+  );
+}
+
+function AttachmentDialog({
+  uploads,
+  sessions,
+  commitments,
+  boardItems,
+  onSubmit,
+  isSaving,
+}: {
+  uploads: MissionUpload[];
+  sessions: MissionSession[];
+  commitments: MissionCommitment[];
+  boardItems: MissionBoardItem[];
+  onSubmit: (payload: {
+    upload_id: string;
+    attachment_type: string;
+    session_id?: string | null;
+    commitment_id?: string | null;
+    board_item_id?: string | null;
+  }) => Promise<void>;
+  isSaving: boolean;
+}) {
+  const initialTargetKind: AttachmentTargetKind = sessions.length > 0 ? 'session' : commitments.length > 0 ? 'commitment' : 'board';
+  const hasTargets = sessions.length > 0 || commitments.length > 0 || boardItems.length > 0;
+  const [uploadId, setUploadId] = useState(uploads[0]?.id ?? '');
+  const [attachmentType, setAttachmentType] = useState<'transcript' | 'proof' | 'reference' | 'artifact'>(
+    initialTargetKind === 'session' ? 'transcript' : 'proof'
+  );
+  const [targetKind, setTargetKind] = useState<AttachmentTargetKind>(initialTargetKind);
+  const [targetId, setTargetId] = useState('');
+
+  const targetOptions = useMemo(() => {
+    if (targetKind === 'session') {
+      return sessions.map((session) => ({ value: session.id, label: `${session.title} · ${formatDateLabel(session.session_date)}` }));
+    }
+
+    if (targetKind === 'commitment') {
+      return commitments.map((commitment) => ({ value: commitment.id, label: commitment.title }));
+    }
+
+    return boardItems.map((item) => ({ value: item.id, label: item.title }));
+  }, [boardItems, commitments, sessions, targetKind]);
+
+  useEffect(() => {
+    if (!uploadId && uploads[0]?.id) {
+      setUploadId(uploads[0].id);
+    }
+  }, [uploadId, uploads]);
+
+  useEffect(() => {
+    if (targetKind === 'session' && attachmentType === 'proof') {
+      setAttachmentType('transcript');
+    }
+
+    if (targetKind !== 'session' && attachmentType === 'transcript') {
+      setAttachmentType('proof');
+    }
+  }, [attachmentType, targetKind]);
+
+  useEffect(() => {
+    const nextTargetId = targetOptions[0]?.value ?? '';
+    if (!targetOptions.find((option) => option.value === targetId)) {
+      setTargetId(nextTargetId);
+    }
+  }, [targetId, targetOptions]);
+
+  if (uploads.length === 0 || !hasTargets) {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-dashed border-border/60 bg-muted/25 p-4 text-sm text-muted-foreground">
+          {uploads.length === 0
+            ? 'There are no uploaded files available to link yet.'
+            : 'Create a session, commitment, or board item first so the file has somewhere to attach.'}
+        </div>
+        {uploads.length === 0 && (
+          <Button asChild className="w-full">
+            <Link to="/uploads">
+              <Upload className="mr-2 h-4 w-4" />
+              Open files
+            </Link>
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label>Upload</Label>
+        <Select value={uploadId} onValueChange={setUploadId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Choose uploaded file" />
+          </SelectTrigger>
+          <SelectContent>
+            {uploads.map((upload) => (
+              <SelectItem key={upload.id} value={upload.id}>
+                {upload.original_name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Link to</Label>
+          <Select value={targetKind} onValueChange={(value) => setTargetKind(value as AttachmentTargetKind)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {sessions.length > 0 && <SelectItem value="session">Session</SelectItem>}
+              {commitments.length > 0 && <SelectItem value="commitment">Commitment</SelectItem>}
+              {boardItems.length > 0 && <SelectItem value="board">Board item</SelectItem>}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Attachment type</Label>
+          <Select value={attachmentType} onValueChange={(value) => setAttachmentType(value as typeof attachmentType)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {targetKind === 'session' && <SelectItem value="transcript">Transcript</SelectItem>}
+              <SelectItem value="proof">Proof</SelectItem>
+              <SelectItem value="reference">Reference</SelectItem>
+              <SelectItem value="artifact">Artifact</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Target record</Label>
+        <Select value={targetId} onValueChange={setTargetId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Choose record" />
+          </SelectTrigger>
+          <SelectContent>
+            {targetOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Button
+        className="w-full"
+        onClick={() =>
+          onSubmit({
+            upload_id: uploadId,
+            attachment_type: attachmentType,
+            session_id: targetKind === 'session' ? targetId : null,
+            commitment_id: targetKind === 'commitment' ? targetId : null,
+            board_item_id: targetKind === 'board' ? targetId : null,
+          })
+        }
+        disabled={isSaving || !uploadId || !targetId}
+      >
+        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Paperclip className="mr-2 h-4 w-4" />}
+        Link upload
       </Button>
     </div>
   );

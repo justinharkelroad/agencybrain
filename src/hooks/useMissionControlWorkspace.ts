@@ -8,6 +8,8 @@ export type MissionSession = Tables<'mission_control_sessions'>;
 export type MissionCommitment = Tables<'mission_control_commitments'>;
 export type MissionBoardItem = Tables<'mission_control_board_items'>;
 export type MissionCoachNote = Tables<'mission_control_coach_notes'>;
+export type MissionAttachment = Tables<'mission_control_attachments'>;
+export type MissionUpload = Tables<'uploads'>;
 
 export interface MissionControlWorkspaceClient {
   agencyId: string;
@@ -131,6 +133,40 @@ export function useMissionControlWorkspace({
     },
   });
 
+  const attachmentsQuery = useQuery({
+    queryKey: [...workspaceKey(ownerUserId), 'attachments'],
+    enabled: queryEnabled,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('mission_control_attachments')
+        .select('*')
+        .eq('owner_user_id', ownerUserId!)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as MissionAttachment[];
+    },
+  });
+
+  const uploadsQuery = useQuery({
+    queryKey: [...workspaceKey(ownerUserId), 'uploads', currentUserId ?? 'none'],
+    enabled: queryEnabled,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const userIds = Array.from(new Set([ownerUserId, currentUserId].filter(Boolean))) as string[];
+
+      const { data, error } = await supabase
+        .from('uploads')
+        .select('*')
+        .in('user_id', userIds)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as MissionUpload[];
+    },
+  });
+
   const invalidateWorkspace = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: [...workspaceKey(ownerUserId), 'client'] }),
@@ -138,6 +174,8 @@ export function useMissionControlWorkspace({
       queryClient.invalidateQueries({ queryKey: [...workspaceKey(ownerUserId), 'commitments'] }),
       queryClient.invalidateQueries({ queryKey: [...workspaceKey(ownerUserId), 'board-items'] }),
       queryClient.invalidateQueries({ queryKey: [...workspaceKey(ownerUserId), 'coach-notes'] }),
+      queryClient.invalidateQueries({ queryKey: [...workspaceKey(ownerUserId), 'attachments'] }),
+      queryClient.invalidateQueries({ queryKey: [...workspaceKey(ownerUserId), 'uploads'] }),
     ]);
   };
 
@@ -305,10 +343,42 @@ export function useMissionControlWorkspace({
     },
   });
 
+  const createAttachment = useMutation({
+    mutationFn: async (
+      payload: Omit<TablesInsert<'mission_control_attachments'>, 'agency_id' | 'owner_user_id' | 'created_by'>
+    ) => {
+      if (!clientQuery.data) throw new Error('Client context unavailable');
+
+      const { data, error } = await supabase
+        .from('mission_control_attachments')
+        .insert({
+          ...payload,
+          agency_id: clientQuery.data.agencyId,
+          owner_user_id: clientQuery.data.ownerUserId,
+          created_by: currentUserId ?? clientQuery.data.ownerUserId,
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      return data as MissionAttachment;
+    },
+    onSuccess: async () => {
+      await invalidateWorkspace();
+      toast.success('Attachment linked');
+    },
+    onError: (error) => {
+      console.error('Mission Control attachment save failed', error);
+      toast.error('Could not link the upload');
+    },
+  });
+
   const sessions = sessionsQuery.data ?? [];
   const commitments = commitmentsQuery.data ?? [];
   const boardItems = boardItemsQuery.data ?? [];
   const coachNotes = coachNotesQuery.data ?? [];
+  const attachments = attachmentsQuery.data ?? [];
+  const uploads = uploadsQuery.data ?? [];
 
   return {
     client: clientQuery.data ?? null,
@@ -316,24 +386,31 @@ export function useMissionControlWorkspace({
     commitments,
     boardItems,
     coachNotes,
+    attachments,
+    uploads,
     latestSession: sessions[0] ?? null,
     isLoading:
       clientQuery.isLoading ||
       sessionsQuery.isLoading ||
       commitmentsQuery.isLoading ||
       boardItemsQuery.isLoading ||
-      coachNotesQuery.isLoading,
+      coachNotesQuery.isLoading ||
+      attachmentsQuery.isLoading ||
+      uploadsQuery.isLoading,
     error:
       clientQuery.error ||
       sessionsQuery.error ||
       commitmentsQuery.error ||
       boardItemsQuery.error ||
       coachNotesQuery.error ||
+      attachmentsQuery.error ||
+      uploadsQuery.error ||
       null,
     createSession,
     createCommitment,
     updateCommitment,
     createBoardItem,
     createCoachNote,
+    createAttachment,
   };
 }
