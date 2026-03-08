@@ -18,7 +18,8 @@ import { CallScoringAnalytics } from '@/components/CallScoringAnalytics';
 import { CallCoachingTab } from '@/components/call-scoring/CallCoachingTab';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
-import { useCallBalance } from '@/hooks/useCallBalance';
+import { useCallBalance, useCallAddonSubscription } from '@/hooks/useCallBalance';
+import { useSubscription } from '@/hooks/useSubscription';
 import type { Database, Json } from '@/integrations/supabase/types';
 
 interface UsageInfo {
@@ -85,6 +86,8 @@ export default function CallScoring() {
   const { canUploadCallRecordings: ownerCanUpload, loading: permissionsLoading } = useUserPermissions();
   const { canUploadCallRecordings: staffCanUpload, isManager: isStaffManager, loading: staffPermissionsLoading } = useStaffPermissions();
   const { data: callBalance } = useCallBalance();
+  const { data: addonSub } = useCallAddonSubscription();
+  const { data: subscription } = useSubscription();
   const navigate = useNavigate();
   const [usage, setUsage] = useState<UsageInfo>({ calls_used: 0, calls_limit: 20 });
   const [recentCalls, setRecentCalls] = useState<RecentCall[]>([]);
@@ -1497,24 +1500,37 @@ export default function CallScoring() {
             Upload sales calls for AI-powered coaching analysis
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {callBalance?.isUnlimited ? (
             <Badge variant="outline" className="text-sm px-3 py-1 border-purple-500/50 dark:border-purple-500/30 text-purple-500">
               Unlimited
             </Badge>
           ) : callBalance ? (
             <>
+              <Badge variant="outline" className="text-sm px-3 py-1">
+                {callBalance.subscriptionRemaining} monthly
+                {subscription?.periodEnd && (
+                  <span className="ml-1 text-muted-foreground">• Resets {subscription.periodEnd.toLocaleDateString()}</span>
+                )}
+              </Badge>
+              {callBalance.addonRemaining > 0 && (
+                <Badge variant="outline" className="text-sm px-3 py-1 border-sky-500/50 dark:border-sky-500/30 text-sky-500">
+                  +{callBalance.addonRemaining} addon
+                  {addonSub?.current_period_end && (
+                    <span className="ml-1 text-sky-400/70">• Resets {new Date(addonSub.current_period_end).toLocaleDateString()}</span>
+                  )}
+                </Badge>
+              )}
               {callBalance.bonusRemaining > 0 && (
                 <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-500/50 dark:border-emerald-500/30 text-emerald-500">
                   +{callBalance.bonusRemaining} bonus
                 </Badge>
               )}
-              <Badge variant="outline" className="text-sm px-3 py-1">
-                {callBalance.totalRemaining} calls available
-                {usage.period_end && (
-                  <span className="ml-2 text-muted-foreground">• Resets {new Date(usage.period_end).toLocaleDateString()}</span>
-                )}
-              </Badge>
+              {callBalance.purchasedRemaining > 0 && (
+                <Badge variant="outline" className="text-sm px-3 py-1 border-green-500/50 dark:border-green-500/30 text-green-500">
+                  +{callBalance.purchasedRemaining} purchased
+                </Badge>
+              )}
             </>
           ) : (
             <Badge variant="outline" className="text-sm px-3 py-1">
