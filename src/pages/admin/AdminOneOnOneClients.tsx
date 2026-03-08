@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ComponentType, type SVGProps } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,10 +51,10 @@ interface FeatureAccess {
   agency?: Agency;
 }
 
-type FeatureKey = 'sales_process_builder' | 'call_scoring_qa' | 'call_gaps';
+type FeatureKey = 'mission_control' | 'sales_process_builder' | 'call_scoring_qa' | 'call_gaps';
 
 const isFeatureKey = (value: string | null): value is FeatureKey =>
-  value === 'sales_process_builder' || value === 'call_scoring_qa' || value === 'call_gaps';
+  value === 'sales_process_builder' || value === 'call_scoring_qa' || value === 'call_gaps' || value === 'mission_control';
 
 const FEATURE_META: Record<
   FeatureKey,
@@ -79,9 +79,14 @@ const FEATURE_META: Record<
     description: 'Phone system call gap analysis tool',
     icon: BarChart3,
   },
+  mission_control: {
+    title: 'Mission Control',
+    description: 'Owner-only one-on-one coaching workspace',
+    icon: CheckCircle2,
+  },
 };
 
-const FEATURE_OPTIONS: FeatureKey[] = ['sales_process_builder', 'call_scoring_qa', 'call_gaps'];
+const FEATURE_OPTIONS: FeatureKey[] = ['mission_control', 'sales_process_builder', 'call_scoring_qa', 'call_gaps'];
 
 export default function AdminOneOnOneClients() {
   const { user } = useAuth();
@@ -458,15 +463,22 @@ export default function AdminOneOnOneClients() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => revokeAccessMutation.mutate(access.id)}
-                        disabled={revokeAccessMutation.isPending}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        {selectedFeature === 'mission_control' && (
+                          <Button asChild variant="ghost" size="sm">
+                            <Link to={`/mission-control?agency=${access.agency_id}`}>Open</Link>
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => revokeAccessMutation.mutate(access.id)}
+                          disabled={revokeAccessMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
