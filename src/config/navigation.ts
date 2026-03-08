@@ -64,7 +64,6 @@ export type NavItem = {
   salesProcessBuilderAccess?: boolean;  // Requires agency to have sales_process_builder feature flag
   coachingInsightsAccess?: boolean;     // Requires agency to be in coaching insights beta list
   callGapsAccess?: boolean;  // Requires agency to have call_gaps feature flag
-  missionControlAccess?: boolean;  // Requires agency to have mission_control feature flag and true-owner access
 };
 
 // Sub-folder that can appear inside a NavFolder
@@ -671,15 +670,6 @@ export const navigationConfig: NavEntry[] = [
     isFolder: true,
     access: { staff: false, manager: true, owner: true },
     items: [
-      {
-        id: 'mission-control',
-        title: 'Mission Control',
-        icon: LayoutDashboard,
-        type: 'link',
-        url: '/mission-control',
-        access: { staff: false, manager: false, owner: true },
-        missionControlAccess: true,
-      },
       {
         id: 'sequence-builder',
         title: 'Sequence Builder',

@@ -302,8 +302,9 @@ serve(async (req) => {
         console.error('Dashboard daily agency call totals error:', totalsError);
         // Non-fatal — fall back to per-member sums in the frontend
       } else if (totalsData) {
-        const outboundCalls = Number(totalsData.outbound_calls) || 0;
-        const talkMinutes = Number(totalsData.talk_minutes) || 0;
+        const td = totalsData as Record<string, unknown>;
+        const outboundCalls = Number(td.outbound_calls) || 0;
+        const talkMinutes = Number(td.talk_minutes) || 0;
 
         // Use raw event totals only when we do not already have authoritative
         // daily summary totals from call_metrics_daily.

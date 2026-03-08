@@ -7426,6 +7426,71 @@ export type Database = {
           },
         ]
       }
+      mission_control_coach_notes: {
+        Row: {
+          agency_id: string
+          created_at: string
+          created_by: string
+          id: string
+          note_body: string
+          owner_user_id: string
+          session_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agency_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          note_body: string
+          owner_user_id: string
+          session_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          note_body?: string
+          owner_user_id?: string
+          session_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_control_coach_notes_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_coach_notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_coach_notes_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_coach_notes_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "mission_control_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mission_control_commitments: {
         Row: {
           agency_id: string
@@ -7493,7 +7558,7 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "mission_control_commitments_carried_forward_from_commitment_id_fkey"
+            foreignKeyName: "mission_control_commitments_carried_forward_from_commitmen_fkey"
             columns: ["carried_forward_from_commitment_id"]
             isOneToOne: false
             referencedRelation: "mission_control_commitments"
@@ -7515,71 +7580,6 @@ export type Database = {
           },
           {
             foreignKeyName: "mission_control_commitments_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "mission_control_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      mission_control_coach_notes: {
-        Row: {
-          agency_id: string
-          created_at: string
-          created_by: string
-          id: string
-          note_body: string
-          owner_user_id: string
-          session_id: string | null
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          agency_id: string
-          created_at?: string
-          created_by: string
-          id?: string
-          note_body: string
-          owner_user_id: string
-          session_id?: string | null
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          agency_id?: string
-          created_at?: string
-          created_by?: string
-          id?: string
-          note_body?: string
-          owner_user_id?: string
-          session_id?: string | null
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mission_control_coach_notes_agency_id_fkey"
-            columns: ["agency_id"]
-            isOneToOne: false
-            referencedRelation: "agencies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mission_control_coach_notes_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mission_control_coach_notes_owner_user_id_fkey"
-            columns: ["owner_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "mission_control_coach_notes_session_id_fkey"
             columns: ["session_id"]
             isOneToOne: false
             referencedRelation: "mission_control_sessions"
@@ -14207,6 +14207,15 @@ export type Database = {
         Returns: string
       }
       calculate_data_completeness: { Args: { data: Json }; Returns: number }
+      can_link_mission_control_upload: {
+        Args: {
+          _agency_id: string
+          _owner_user_id: string
+          _upload_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       can_manage_coaching_insight_settings: {
         Args: { p_agency_id: string }
         Returns: boolean
@@ -14225,10 +14234,12 @@ export type Database = {
         Args: { p_agency_id: string }
         Returns: {
           addon_remaining: number
+          bonus_expires_at: string
           bonus_remaining: number
           can_score: boolean
           message: string
           purchased_remaining: number
+          subscription_period_start: string
           subscription_remaining: number
           total_remaining: number
         }[]
@@ -14726,6 +14737,10 @@ export type Database = {
       }
       has_feature_access: {
         Args: { p_agency_id: string; p_feature_key: string }
+        Returns: boolean
+      }
+      has_mission_control_access: {
+        Args: { _agency_id: string; _owner_user_id: string; _user_id: string }
         Returns: boolean
       }
       has_renewal_access: {

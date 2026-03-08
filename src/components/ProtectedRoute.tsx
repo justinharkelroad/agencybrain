@@ -7,7 +7,6 @@ interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
   requireAgencyOwner?: boolean;
-  requireTrueAgencyOwner?: boolean;
   requireManager?: boolean;
 }
 
@@ -15,7 +14,6 @@ export function ProtectedRoute({
   children,
   requireAdmin = false,
   requireAgencyOwner = false,
-  requireTrueAgencyOwner = false,
   requireManager = false
 }: ProtectedRouteProps) {
   const { user, loading, isAdmin, isAgencyOwner, isKeyEmployee, adminLoading, roleLoading, membershipTier } = useAuth();
@@ -26,7 +24,6 @@ export function ProtectedRoute({
     loading ||
     (requireAdmin && adminLoading) ||
     (requireAgencyOwner && roleLoading) ||
-    (requireTrueAgencyOwner && roleLoading) ||
     (requireManager && (roleLoading || permissionsLoading))
   ) {
     return (
@@ -47,15 +44,6 @@ export function ProtectedRoute({
 
   // Agency owner routes: allow if admin OR agency owner OR key employee
   if (requireAgencyOwner && !isAdmin && !isAgencyOwner && !isKeyEmployee) {
-    return <Navigate to="/dashboard" />;
-  }
-
-  // True agency owner routes: allow only admin OR actual agency owner.
-  if (requireTrueAgencyOwner && !isAdmin && !isAgencyOwner) {
-    return <Navigate to="/dashboard" />;
-  }
-
-  if (requireTrueAgencyOwner && isKeyEmployee && !isAdmin) {
     return <Navigate to="/dashboard" />;
   }
 

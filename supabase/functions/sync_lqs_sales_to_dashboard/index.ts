@@ -47,7 +47,11 @@ interface PolicyTypeMeta {
     name: string | null;
     default_points: number | null;
     is_vc_item: boolean | null;
-  } | null;
+  } | {
+    name: string | null;
+    default_points: number | null;
+    is_vc_item: boolean | null;
+  }[] | null;
 }
 
 interface HouseholdMeta {
@@ -500,7 +504,7 @@ serve(async (req) => {
           error: `batch is not running (status=${batch.status})`,
         });
       }
-      existingBatch = batch as typeof existingBatch;
+      existingBatch = batch as unknown as typeof existingBatch;
     } else if (!dryRun) {
       if (!startedByUserId && !startedByStaffUserId) {
         return json(400, {
@@ -536,7 +540,7 @@ serve(async (req) => {
       }
 
       batchId = createdBatch.id;
-      existingBatch = createdBatch as typeof existingBatch;
+      existingBatch = createdBatch as unknown as typeof existingBatch;
     } else {
       existingBatch = {
         id: "dry-run",

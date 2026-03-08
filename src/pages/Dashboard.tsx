@@ -32,7 +32,6 @@ import { Plus } from 'lucide-react';
 import { ProducerPowerUpBanner } from '@/components/dashboard/ProducerPowerUpBanner';
 import { PlannerExperiencePreview } from '@/components/staff/PlannerExperiencePreview';
 import { SectionHelpTip } from '@/components/ui/section-help-tip';
-import { useMissionControlAccess } from '@/hooks/useMissionControlAccess';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -47,7 +46,6 @@ const Dashboard = () => {
     canViewRoleplaySessions,
     loading: permissionsLoading,
   } = useUserPermissions();
-  const { data: missionControlAccess } = useMissionControlAccess();
 
   // ALL useState hooks MUST be declared before any conditional returns (React Rules of Hooks)
   const [agencyName, setAgencyName] = useState<string | null>(null);
@@ -197,13 +195,9 @@ const Dashboard = () => {
             </Button>
             {canSubmitCoachingCall && normalizeTier(membershipTier) === 'one_on_one' && (
               <Button variant="flat" asChild className="w-full sm:w-auto min-w-0">
-                <Link to={missionControlAccess?.hasAccess ? "/mission-control" : "/submit?mode=new"}>
-                  <span className="hidden sm:inline">
-                    {missionControlAccess?.hasAccess ? 'Open Mission Control' : 'Submit New 1:1 Coaching Call Form'}
-                  </span>
-                  <span className="sm:hidden">
-                    {missionControlAccess?.hasAccess ? 'Mission Control' : 'Submit New Form'}
-                  </span>
+                <Link to="/submit?mode=new">
+                  <span className="hidden sm:inline">Submit New 1:1 Coaching Call Form</span>
+                  <span className="sm:hidden">Submit New Form</span>
                 </Link>
               </Button>
             )}
