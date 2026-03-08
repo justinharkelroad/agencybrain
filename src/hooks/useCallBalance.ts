@@ -191,13 +191,19 @@ export function useCallBalance() {
         message: 'No balance found',
       };
 
-      // Compute next reset date from subscription_period_start + 1 month
+      // Compute next reset date by rolling subscription_period_start forward monthly until future
       const periodStart = (result as any).subscription_period_start;
       let resetDate: string | null = null;
       if (periodStart) {
-        const start = new Date(periodStart + 'T00:00:00');
-        start.setMonth(start.getMonth() + 1);
-        resetDate = start.toISOString();
+        const resetDay = new Date(periodStart + 'T00:00:00').getDate();
+        const now = new Date();
+        // Start from current month with the original reset day
+        let next = new Date(now.getFullYear(), now.getMonth(), Math.min(resetDay, 28));
+        // If that date is in the past, move to next month
+        if (next <= now) {
+          next.setMonth(next.getMonth() + 1);
+        }
+        resetDate = next.toISOString();
       }
 
       return {
