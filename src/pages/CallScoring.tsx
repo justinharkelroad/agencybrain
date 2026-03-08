@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -88,6 +89,7 @@ export default function CallScoring() {
   const { data: callBalance } = useCallBalance();
   const { data: addonSub } = useCallAddonSubscription();
   const { data: subscription } = useSubscription();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [usage, setUsage] = useState<UsageInfo>({ calls_used: 0, calls_limit: 20 });
   const [recentCalls, setRecentCalls] = useState<RecentCall[]>([]);
@@ -1012,6 +1014,9 @@ export default function CallScoring() {
       
       toast.success(`"${fileName}" uploaded! Analysis in progress...`);
 
+      // Refresh call balance badges (edge function decrements via use_call_score)
+      queryClient.invalidateQueries({ queryKey: ["call-balance"] });
+
       // Poll for analysis completion
       if (data.call_id) {
         pollForAnalysis(data.call_id, fileName);
@@ -1178,6 +1183,9 @@ export default function CallScoring() {
       }
 
       toast.success(`Split call uploaded! Analysis in progress...`);
+
+      // Refresh call balance badges (edge function decrements via use_call_score)
+      queryClient.invalidateQueries({ queryKey: ["call-balance"] });
 
       // Poll for analysis completion
       if (data.call_id) {

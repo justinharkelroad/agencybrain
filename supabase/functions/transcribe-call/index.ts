@@ -545,6 +545,17 @@ serve(async (req) => {
         console.log("Usage incremented for agency:", agencyId);
       }
 
+      // Also decrement the new call balance system (agency_call_balance)
+      const { error: balanceError } = await supabase.rpc("use_call_score", {
+        p_agency_id: agencyId,
+      });
+
+      if (balanceError) {
+        console.error("Failed to decrement call balance:", balanceError);
+      } else {
+        console.log("Call balance decremented for agency:", agencyId);
+      }
+
     } catch (err: unknown) {
       console.error("Failed to save call record after retries:", err);
       await cleanupStorage(supabase, storagePath);
