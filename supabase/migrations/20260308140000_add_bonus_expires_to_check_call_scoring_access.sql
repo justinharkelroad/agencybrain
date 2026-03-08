@@ -1,7 +1,10 @@
 -- Add bonus_calls_expires_at to check_call_scoring_access return type
 -- So the frontend can display when bonus credits expire
+-- Must DROP first because Postgres cannot change return type via CREATE OR REPLACE
 
-CREATE OR REPLACE FUNCTION public.check_call_scoring_access(p_agency_id uuid)
+DROP FUNCTION IF EXISTS public.check_call_scoring_access(uuid);
+
+CREATE FUNCTION public.check_call_scoring_access(p_agency_id uuid)
 RETURNS TABLE(
   can_score boolean,
   subscription_remaining integer,
