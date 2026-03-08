@@ -319,6 +319,11 @@ export default function BillingSettings() {
               {/* Balance Breakdown */}
               {!callBalance?.isUnlimited && (
                 <div className="space-y-4">
+                  {/* Usage Priority Explanation */}
+                  <div className="text-xs text-muted-foreground border border-border/50 rounded-lg p-3">
+                    Credits are used in this order: <span className="text-foreground font-medium">Monthly Allowance</span> → <span className="text-sky-500 font-medium">Add-On</span> → <span className="text-emerald-500 font-medium">Bonus</span> → <span className="text-green-500 font-medium">Purchased</span>
+                  </div>
+
                   {/* Monthly Allowance */}
                   {subscriptionCallsLimit > 0 && (
                     <div>
@@ -330,47 +335,64 @@ export default function BillingSettings() {
                       </div>
                       <Progress value={subscriptionProgress} className="h-2" />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Resets at the start of each billing period
+                        Resets at the start of each billing period — used first
                       </p>
                     </div>
                   )}
 
                   {/* Addon Credits */}
                   {(callBalance?.addonRemaining || 0) > 0 && (
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-sky-500/10 border border-sky-500/20">
-                      <div className="flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-sky-500" />
-                        <span>Monthly Add-On</span>
+                    <div className="p-3 rounded-lg bg-sky-500/10 border border-sky-500/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Zap className="w-4 h-4 text-sky-500" />
+                          <span>Monthly Add-On</span>
+                        </div>
+                        <span className="font-medium text-sky-500">
+                          +{callBalance?.addonRemaining}
+                        </span>
                       </div>
-                      <span className="font-medium text-sky-500">
-                        +{callBalance?.addonRemaining}
-                      </span>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Resets monthly on your add-on billing date — used after monthly allowance
+                      </p>
                     </div>
                   )}
 
                   {/* Bonus Credits */}
                   {(callBalance?.bonusRemaining || 0) > 0 && (
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/20">
-                      <div className="flex items-center gap-2">
-                        <Gift className="w-4 h-4 text-emerald-500" />
-                        <span>Bonus Credits</span>
+                    <div className="p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Gift className="w-4 h-4 text-emerald-500" />
+                          <span>Bonus Credits</span>
+                        </div>
+                        <span className="font-medium text-emerald-500">
+                          +{callBalance?.bonusRemaining}
+                        </span>
                       </div>
-                      <span className="font-medium text-emerald-500">
-                        +{callBalance?.bonusRemaining}
-                      </span>
+                      {callBalance?.bonusExpiresAt && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Expires {new Date(callBalance.bonusExpiresAt).toLocaleDateString()} — used after add-on credits
+                        </p>
+                      )}
                     </div>
                   )}
 
                   {/* Purchased Credits */}
                   {(callBalance?.purchasedRemaining || 0) > 0 && (
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                      <div className="flex items-center gap-2">
-                        <Package className="w-4 h-4 text-muted-foreground" />
-                        <span>Purchased Credits</span>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Package className="w-4 h-4 text-muted-foreground" />
+                          <span>Purchased Credits</span>
+                        </div>
+                        <span className="font-medium text-green-500">
+                          +{callBalance?.purchasedRemaining}
+                        </span>
                       </div>
-                      <span className="font-medium text-green-500">
-                        +{callBalance?.purchasedRemaining}
-                      </span>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Never expire — used last
+                      </p>
                     </div>
                   )}
 
@@ -419,8 +441,24 @@ export default function BillingSettings() {
               <div>
                 <div className="font-medium">How do call scoring credits work?</div>
                 <p className="text-muted-foreground">
-                  Each credit lets you analyze one sales call with AI. Monthly credits reset at the
-                  start of each billing period. Purchased credits never expire.
+                  Each credit lets you analyze one sales call with AI. Your plan includes 20 monthly credits
+                  that reset each billing period. Need more? Add a monthly add-on for additional credits
+                  that reset on their own billing cycle.
+                </p>
+              </div>
+              <div>
+                <div className="font-medium">In what order are credits used?</div>
+                <p className="text-muted-foreground">
+                  Monthly allowance is used first, then add-on credits, then bonus credits, and finally
+                  purchased credits. This ensures your renewable credits are used before one-time credits.
+                </p>
+              </div>
+              <div>
+                <div className="font-medium">When do credits reset?</div>
+                <p className="text-muted-foreground">
+                  Monthly allowance resets with your subscription billing period. Add-on credits reset
+                  monthly on the date you purchased the add-on. Bonus credits expire on their expiration
+                  date. Purchased credit packs never expire.
                 </p>
               </div>
               <div>
