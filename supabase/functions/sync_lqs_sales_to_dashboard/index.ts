@@ -47,7 +47,11 @@ interface PolicyTypeMeta {
     name: string | null;
     default_points: number | null;
     is_vc_item: boolean | null;
-  } | null;
+  } | {
+    name: string | null;
+    default_points: number | null;
+    is_vc_item: boolean | null;
+  }[] | null;
 }
 
 interface HouseholdMeta {

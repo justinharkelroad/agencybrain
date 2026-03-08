@@ -700,7 +700,7 @@ serve(async (req) => {
           historicalQuery = applyBusinessFilter(historicalQuery);
           const { data: historicalData, error: historicalError } = await historicalQuery;
           if (historicalError) throw historicalError;
-          historicalSales = historicalData || [];
+          historicalSales = (historicalData || []) as unknown as typeof periodSales;
         }
 
         const customerBundleMap = buildCustomerBundleMap(historicalSales);
