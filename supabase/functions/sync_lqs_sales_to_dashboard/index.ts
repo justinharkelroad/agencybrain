@@ -536,7 +536,7 @@ serve(async (req) => {
       }
 
       batchId = createdBatch.id;
-      existingBatch = createdBatch as typeof existingBatch;
+      existingBatch = createdBatch as unknown as typeof existingBatch;
     } else {
       existingBatch = {
         id: "dry-run",
