@@ -1500,42 +1500,61 @@ export default function CallScoring() {
             Upload sales calls for AI-powered coaching analysis
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          {callBalance?.isUnlimited ? (
-            <Badge variant="outline" className="text-sm px-3 py-1 border-purple-500/50 dark:border-purple-500/30 text-purple-500">
-              Unlimited
-            </Badge>
-          ) : callBalance ? (
-            <>
-              <Badge variant="outline" className="text-sm px-3 py-1">
-                {callBalance.subscriptionRemaining} monthly
-                {subscription?.periodEnd && (
-                  <span className="ml-1 text-muted-foreground">• Resets {subscription.periodEnd.toLocaleDateString()}</span>
-                )}
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {callBalance?.isUnlimited ? (
+              <Badge variant="outline" className="text-sm px-3 py-1 border-purple-500/50 dark:border-purple-500/30 text-purple-500">
+                Unlimited
               </Badge>
-              {callBalance.addonRemaining > 0 && (
-                <Badge variant="outline" className="text-sm px-3 py-1 border-sky-500/50 dark:border-sky-500/30 text-sky-500">
-                  +{callBalance.addonRemaining} addon
-                  {addonSub?.current_period_end && (
-                    <span className="ml-1 text-sky-400/70">• Resets {new Date(addonSub.current_period_end).toLocaleDateString()}</span>
-                  )}
-                </Badge>
-              )}
-              {callBalance.bonusRemaining > 0 && (
-                <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-500/50 dark:border-emerald-500/30 text-emerald-500">
-                  +{callBalance.bonusRemaining} bonus
-                </Badge>
-              )}
-              {callBalance.purchasedRemaining > 0 && (
-                <Badge variant="outline" className="text-sm px-3 py-1 border-green-500/50 dark:border-green-500/30 text-green-500">
-                  +{callBalance.purchasedRemaining} purchased
-                </Badge>
-              )}
-            </>
-          ) : (
-            <Badge variant="outline" className="text-sm px-3 py-1">
-              {usage.calls_used} / {usage.calls_limit + (usage.bonus_remaining || 0)} calls
-            </Badge>
+            ) : callBalance ? (
+              <>
+                {(() => {
+                  const subLimit = subscription?.isActive ? 20 : subscription?.isTrialing ? 3 : 0;
+                  return (
+                    <Badge variant="outline" className="text-sm px-3 py-1" title="Used first — resets each billing period">
+                      <span className="font-semibold">{callBalance.subscriptionRemaining}</span>
+                      {subLimit > 0 && <span className="text-muted-foreground">/{subLimit}</span>}
+                      {' '}monthly
+                      {subscription?.periodEnd && (
+                        <span className="ml-1 text-muted-foreground">• Resets {subscription.periodEnd.toLocaleDateString()}</span>
+                      )}
+                    </Badge>
+                  );
+                })()}
+                {callBalance.addonRemaining > 0 && (
+                  <Badge variant="outline" className="text-sm px-3 py-1 border-sky-500/50 dark:border-sky-500/30 text-sky-500" title="Used 2nd — resets on addon billing date">
+                    +<span className="font-semibold">{callBalance.addonRemaining}</span>
+                    {addonSub?.calls_per_month && <span className="text-sky-400/70">/{addonSub.calls_per_month}</span>}
+                    {' '}addon
+                    {addonSub?.current_period_end && (
+                      <span className="ml-1 text-sky-400/70">• Resets {new Date(addonSub.current_period_end).toLocaleDateString()}</span>
+                    )}
+                  </Badge>
+                )}
+                {callBalance.bonusRemaining > 0 && (
+                  <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-500/50 dark:border-emerald-500/30 text-emerald-500" title="Used 3rd — expires on expiration date">
+                    +<span className="font-semibold">{callBalance.bonusRemaining}</span> bonus
+                    {callBalance.bonusExpiresAt && (
+                      <span className="ml-1 text-emerald-400/70">• Exp {new Date(callBalance.bonusExpiresAt).toLocaleDateString()}</span>
+                    )}
+                  </Badge>
+                )}
+                {callBalance.purchasedRemaining > 0 && (
+                  <Badge variant="outline" className="text-sm px-3 py-1 border-green-500/50 dark:border-green-500/30 text-green-500" title="Used last — never expire">
+                    +<span className="font-semibold">{callBalance.purchasedRemaining}</span> purchased
+                  </Badge>
+                )}
+              </>
+            ) : (
+              <Badge variant="outline" className="text-sm px-3 py-1">
+                {usage.calls_used} / {usage.calls_limit + (usage.bonus_remaining || 0)} calls
+              </Badge>
+            )}
+          </div>
+          {callBalance && !callBalance.isUnlimited && (callBalance.addonRemaining > 0 || callBalance.bonusRemaining > 0 || callBalance.purchasedRemaining > 0) && (
+            <p className="text-[11px] text-muted-foreground">
+              Credits used in order: Monthly → Add-On → Bonus → Purchased
+            </p>
           )}
         </div>
       </div>
