@@ -1,4 +1,5 @@
 
+// rebuild trigger 2026-03-08
 import { lazy, Suspense, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
