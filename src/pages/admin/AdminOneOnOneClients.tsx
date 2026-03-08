@@ -466,7 +466,7 @@ export default function AdminOneOnOneClients() {
                       <div className="flex items-center justify-end gap-1">
                         {selectedFeature === 'mission_control' && (
                           <Button asChild variant="ghost" size="sm">
-                            <Link to={`/mission-control?agency=${access.agency_id}`}>Open</Link>
+                            <Link to="/mission-control">Open</Link>
                           </Button>
                         )}
                         <Button
