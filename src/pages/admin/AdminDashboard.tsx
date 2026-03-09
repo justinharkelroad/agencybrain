@@ -145,14 +145,21 @@ const { toast } = useToast();
 
   const fetchAdminData = async () => {
     try {
-      // Fetch all clients (profiles with agencies) - exclude key employees
-      // Key employees should not appear as separate client entries
-      const { data: keyEmployeeIds } = await supabase
+      // Fetch all clients (profiles with agencies) - exclude cross-agency key employees
+      // Key employees who access a DIFFERENT agency should not appear as separate client entries
+      // But key employees of their OWN agency should still show up
+      const { data: keyEmployeeRows } = await supabase
         .from('key_employees')
-        .select('user_id');
-      
-      const keyEmpUserIds = (keyEmployeeIds || []).map(ke => ke.user_id);
-      
+        .select('user_id, agency_id');
+
+      // Build a map of user_id → key_employee agency_ids
+      const keyEmpMap = new Map<string, string[]>();
+      for (const ke of keyEmployeeRows || []) {
+        const list = keyEmpMap.get(ke.user_id) || [];
+        list.push(ke.agency_id);
+        keyEmpMap.set(ke.user_id, list);
+      }
+
       let query = supabase
         .from('profiles')
         .select(`
@@ -164,16 +171,21 @@ const { toast } = useToast();
         `)
         .neq('role', 'admin')
         .order('created_at', { ascending: false });
-      
-      // Filter out key employees from the client list
-      if (keyEmpUserIds.length > 0) {
-        query = query.not('id', 'in', `(${keyEmpUserIds.join(',')})`);
-      }
-      
+
       const { data: profilesData, error: profilesError } = await query;
 
       if (profilesError) throw profilesError;
-      setClients((profilesData || []).map(item => ({
+
+      // Filter out cross-agency key employees (KE of a different agency than their profile)
+      // Keep users who are key employees of their OWN agency — they're real members
+      const filtered = (profilesData || []).filter(profile => {
+        const keAgencies = keyEmpMap.get(profile.id);
+        if (!keAgencies) return true; // Not a key employee at all — keep
+        // Keep if they're a key employee of their own agency
+        return keAgencies.includes(profile.agency_id);
+      });
+
+      setClients(filtered.map(item => ({
         ...item,
         user_id: item.id
       })));
