@@ -127,7 +127,7 @@ export function CallBalanceIndicator({
   }
 
   // Full card view
-  const subscriptionLimit = subscription?.isActive ? 20 : subscription?.isTrialing ? 3 : 0;
+  const subscriptionLimit = balance.subscriptionLimit || (subscription?.isActive ? 20 : subscription?.isTrialing ? 3 : 0);
   const subscriptionUsed = subscriptionLimit - balance.subscriptionRemaining;
   const subscriptionProgress = subscriptionLimit > 0
     ? (subscriptionUsed / subscriptionLimit) * 100

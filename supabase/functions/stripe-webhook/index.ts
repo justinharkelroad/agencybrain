@@ -336,7 +336,6 @@ async function handleSubscriptionRenewal(invoice: Stripe.Invoice) {
     .from('agency_call_balance')
     .update({
       subscription_calls_used: 0,
-      subscription_calls_limit: 20,
       subscription_period_start: periodStart,
       updated_at: new Date().toISOString()
     })

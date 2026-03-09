@@ -178,7 +178,7 @@ export function BuyCallsModal({ open, onOpenChange }: BuyCallsModalProps) {
           {subscription?.isTrialing && (
             <div className="pt-4 border-t text-center">
               <p className="text-sm text-muted-foreground mb-2">
-                Upgrade to get 20 calls/month included
+                Upgrade to get monthly call scoring credits included
               </p>
               <Button
                 variant="outline"
