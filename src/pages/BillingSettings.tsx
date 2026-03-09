@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   CreditCard,
@@ -9,7 +8,6 @@ import {
   Clock,
   AlertTriangle,
   ExternalLink,
-  Loader2,
   Calendar,
   Package,
   Gift,
@@ -19,55 +17,22 @@ import { useAuth } from "@/lib/auth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useCallBalance, useCallAddonSubscription, formatPrice } from "@/hooks/useCallBalance";
 import { CallAddonSection } from "@/components/subscription/CallAddonSection";
-import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { toast } from "sonner";
 
 
 export default function BillingSettings() {
   const { user } = useAuth();
   const { data: subscription, isLoading: subLoading } = useSubscription();
   const { data: callBalance, isLoading: balanceLoading } = useCallBalance();
-  const [portalLoading, setPortalLoading] = useState(false);
-
   const isLoading = subLoading || balanceLoading;
 
-  // Handle opening Stripe Customer Portal
-  const handleManagePayment = async () => {
-    setPortalLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-customer-portal-session`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({
-            return_url: window.location.href,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to open billing portal");
-      }
-
-      const { url } = await response.json();
-      window.location.href = url;
-    } catch (error) {
-      console.error("Portal error:", error);
-      toast.error("Failed to open billing portal");
-      setPortalLoading(false);
-    }
+  // Open Stripe Customer Portal for payment method management
+  const handleManagePayment = () => {
+    window.open('https://billing.stripe.com/p/login/eVa7uC0KQd1TaCkeUU', '_blank');
   };
 
   // Get status badge styling
@@ -232,13 +197,8 @@ export default function BillingSettings() {
                     variant="destructive"
                     size="sm"
                     onClick={handleManagePayment}
-                    disabled={portalLoading}
                   >
-                    {portalLoading ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <CreditCard className="w-4 h-4 mr-2" />
-                    )}
+                    <CreditCard className="w-4 h-4 mr-2" />
                     Update Payment Method
                   </Button>
                 </div>
@@ -258,13 +218,8 @@ export default function BillingSettings() {
                     <Button
                       variant="outline"
                       onClick={handleManagePayment}
-                      disabled={portalLoading}
                     >
-                      {portalLoading ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                      )}
+                      <ExternalLink className="w-4 h-4 mr-2" />
                       Manage
                     </Button>
                   </div>
