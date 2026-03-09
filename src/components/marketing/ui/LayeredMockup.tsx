@@ -175,7 +175,7 @@ interface BrowserMockupProps {
 export function BrowserMockup({
   image,
   alt,
-  url = 'app.agencybrain.io',
+  url = 'myagencybrain.com',
   className,
   delay = 0,
 }: BrowserMockupProps) {

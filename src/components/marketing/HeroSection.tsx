@@ -173,7 +173,7 @@ export function HeroSection() {
                   </div>
                   <div className="flex-1 flex justify-center">
                     <div className="px-4 py-1 rounded-md bg-marketing-bg text-xs text-marketing-text-muted">
-                      app.agencybrain.io
+                      myagencybrain.com
                     </div>
                   </div>
                 </div>

@@ -167,7 +167,7 @@ function FeatureShowcaseSection({ feature, index }: FeatureShowcaseSectionProps)
               </div>
               <div className="flex-1 flex justify-center">
                 <div className="px-4 py-1 rounded-md bg-marketing-bg text-xs text-marketing-text-muted">
-                  app.agencybrain.io/{feature.id}
+                  myagencybrain.com/{feature.id}
                 </div>
               </div>
             </div>

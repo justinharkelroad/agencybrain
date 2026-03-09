@@ -607,7 +607,7 @@ async function sendAssignmentEmails(
 
   // Build batch emails
   const emails: any[] = [];
-  const staffPortalUrl = `https://app.agencybrain.io/staff/training/standard`;
+  const staffPortalUrl = `https://myagencybrain.com/staff/training/standard`;
 
   for (const [, info] of grouped) {
     const itemList = info.itemNames.map(c => `<li style="margin: 4px 0;">${c}</li>`).join('');

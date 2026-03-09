@@ -231,10 +231,10 @@ export default function BillingSettings() {
               <div className="text-sm text-muted-foreground">
                 Need to make changes to your subscription? Contact us at{" "}
                 <a
-                  href="mailto:support@agencybrain.io"
+                  href="mailto:info@standardplaybook.com"
                   className="text-primary hover:underline"
                 >
-                  support@agencybrain.io
+                  info@standardplaybook.com
                 </a>
               </div>
             </CardContent>
@@ -418,8 +418,8 @@ export default function BillingSettings() {
                 <div className="font-medium">Need to update your subscription?</div>
                 <p className="text-muted-foreground">
                   Contact us at{" "}
-                  <a href="mailto:support@agencybrain.io" className="text-primary hover:underline">
-                    support@agencybrain.io
+                  <a href="mailto:info@standardplaybook.com" className="text-primary hover:underline">
+                    info@standardplaybook.com
                   </a>{" "}
                   and we'll help you out.
                 </p>

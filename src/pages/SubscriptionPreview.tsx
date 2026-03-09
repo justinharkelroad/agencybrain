@@ -208,11 +208,11 @@ function PaymentFailedLockoutPreview() {
           <div className="text-center text-sm text-muted-foreground">
             <p>Need help? Contact us at</p>
             <a
-              href="mailto:support@agencybrain.io"
+              href="mailto:info@standardplaybook.com"
               className="inline-flex items-center gap-1 text-primary hover:underline mt-1"
             >
               <Mail className="w-3 h-3" />
-              support@agencybrain.io
+              info@standardplaybook.com
             </a>
           </div>
         </CardContent>
