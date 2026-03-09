@@ -42,7 +42,23 @@ export function useMissionControlClients() {
 
       const agencyMap = new Map((agencies ?? []).map((agency) => [agency.id, agency.name]));
 
-      return ownerProfiles.map((profile) => ({
+      const primaryOwnersByAgency = new Map<string, (typeof ownerProfiles)[number]>();
+
+      ownerProfiles.forEach((profile) => {
+        const agencyId = profile.agency_id as string;
+        const existing = primaryOwnersByAgency.get(agencyId);
+
+        if (!existing) {
+          primaryOwnersByAgency.set(agencyId, profile);
+          return;
+        }
+
+        if (profile.role === 'admin' && existing.role !== 'admin') {
+          primaryOwnersByAgency.set(agencyId, profile);
+        }
+      });
+
+      return [...primaryOwnersByAgency.values()].map((profile) => ({
         agencyId: profile.agency_id as string,
         agencyName: agencyMap.get(profile.agency_id as string) ?? 'Unknown agency',
         ownerUserId: profile.id,

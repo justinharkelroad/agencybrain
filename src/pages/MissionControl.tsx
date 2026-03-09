@@ -205,10 +205,10 @@ export default function MissionControl() {
     }
   }, [clients, isAdmin, selectedClient]);
 
-  const ownerUserId = isAdmin ? (selectedClient || null) : user?.id ?? null;
+  const ownerUserId = isAdmin ? (selectedClient || null) : access?.ownerUserId ?? user?.id ?? null;
   const workspace = useMissionControlWorkspace({
     ownerUserId,
-    enabled: Boolean(!isAdmin || selectedClient),
+    enabled: Boolean(isAdmin ? selectedClient : access?.hasAccess && ownerUserId),
     currentUserId: user?.id ?? null,
     includeCoachNotes: isAdmin,
   });
