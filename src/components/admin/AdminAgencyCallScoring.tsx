@@ -52,6 +52,7 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
     period_end: null
   });
   const [bonus, setBonus] = useState<BonusInfo>({ remaining: 0, expiresAt: null });
+  const [newSystemUsage, setNewSystemUsage] = useState<{ limit: number; used: number } | null>(null);
   const [grantHistory, setGrantHistory] = useState<GrantRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -95,10 +96,10 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
         });
       }
 
-      // Fetch bonus balance
+      // Fetch full balance from new system (this is what users actually see)
       const { data: balanceData } = await supabase
         .from('agency_call_balance')
-        .select('bonus_calls_remaining, bonus_calls_expires_at')
+        .select('bonus_calls_remaining, bonus_calls_expires_at, subscription_calls_limit, subscription_calls_used')
         .eq('agency_id', agencyId)
         .single();
 
@@ -109,6 +110,17 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
           remaining: isExpired ? 0 : (balanceData.bonus_calls_remaining || 0),
           expiresAt: isExpired ? null : balanceData.bonus_calls_expires_at,
         });
+
+        // Track new system balance for display
+        setNewSystemUsage({
+          limit: balanceData.subscription_calls_limit || 0,
+          used: balanceData.subscription_calls_used || 0,
+        });
+
+        // If the new system has a limit set, use it as the source of truth for the settings form
+        if (balanceData.subscription_calls_limit != null && balanceData.subscription_calls_limit > 0) {
+          setSettings(prev => ({ ...prev, calls_limit: balanceData.subscription_calls_limit! }));
+        }
       }
 
       // Fetch grant history
@@ -144,12 +156,27 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
 
       if (error) throw error;
 
-      // Also update the current usage tracking record's limit
+      // Also update the current usage tracking record's limit (old system)
       await supabase
         .from('call_usage_tracking')
         .update({ calls_limit: settings.calls_limit })
         .eq('agency_id', agencyId)
         .gte('period_end', new Date().toISOString());
+
+      // Sync to agency_call_balance (new system) so check_call_scoring_access sees the correct limit
+      const { error: balanceError } = await supabase
+        .from('agency_call_balance')
+        .upsert({
+          agency_id: agencyId,
+          subscription_calls_limit: settings.calls_limit,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'agency_id',
+        });
+
+      if (balanceError) {
+        console.error('Error syncing to agency_call_balance:', balanceError);
+      }
 
       toast.success('Call scoring settings saved');
       await fetchSettings(); // Refresh usage data with new period dates
@@ -285,6 +312,17 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
               )}
             </div>
           </div>
+
+          {/* New system balance (what the user actually sees) */}
+          {newSystemUsage && newSystemUsage.limit !== settings.calls_limit && (
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm">
+              <p className="font-medium text-amber-600 dark:text-amber-400">Out of sync</p>
+              <p className="text-muted-foreground mt-1">
+                User sees <span className="font-semibold">{Math.max(0, newSystemUsage.limit - newSystemUsage.used)} / {newSystemUsage.limit}</span> calls
+                in the new billing system. Hit Save to sync to {settings.calls_limit}.
+              </p>
+            </div>
+          )}
 
           {/* Save Button */}
           <Button onClick={saveSettings} disabled={saving} className="w-full">
