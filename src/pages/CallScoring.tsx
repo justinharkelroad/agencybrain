@@ -1585,8 +1585,8 @@ export default function CallScoring() {
         </div>
       </div>
 
-      {/* Upsell banner — show when running low on credits */}
-      {!isStaffUser && callBalance && callBalance.totalRemaining <= 3 && !callBalance.isUnlimited && (
+      {/* Upsell banner — always show for non-staff, non-unlimited users */}
+      {!isStaffUser && callBalance && !callBalance.isUnlimited && (
         <div className="flex items-center gap-3 p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sm">
           <Zap className="w-4 h-4 text-sky-500 flex-shrink-0" />
           <span>
