@@ -27,6 +27,11 @@ interface MissionWorkspaceArgs {
   clientContext?: Partial<MissionControlWorkspaceClient> | null;
 }
 
+interface SessionReviewUpdate {
+  commitment_id: string;
+  status: TablesUpdate<'mission_control_commitments'>['status'];
+}
+
 const workspaceKey = (ownerUserId: string | null | undefined) => ['mission-control-workspace', ownerUserId];
 
 export function useMissionControlWorkspace({
@@ -202,6 +207,8 @@ export function useMissionControlWorkspace({
       wins_json?: Json;
       issues_json?: Json;
       top_commitments_json?: Json;
+      auto_create_commitments?: boolean;
+      reviewed_commitments?: SessionReviewUpdate[];
     }) => {
       if (!clientQuery.data) throw new Error('Client context unavailable');
 
@@ -227,12 +234,66 @@ export function useMissionControlWorkspace({
         .single();
 
       if (error) throw error;
-      return data as MissionSession;
+      const session = data as MissionSession;
+
+      const topCommitments = Array.isArray(payload.top_commitments_json)
+        ? payload.top_commitments_json
+            .filter((entry): entry is string => typeof entry === 'string')
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+        : [];
+
+      if (payload.auto_create_commitments !== false && topCommitments.length > 0) {
+        const commitmentRows: TablesInsert<'mission_control_commitments'>[] = topCommitments.map((title) => ({
+          agency_id: clientQuery.data.agencyId,
+          owner_user_id: clientQuery.data.ownerUserId,
+          session_id: session.id,
+          title,
+          description: null,
+          status: 'not_started',
+          due_date: payload.next_call_date ?? null,
+          proof_notes: null,
+        }));
+
+        const { error: commitmentsError } = await supabase
+          .from('mission_control_commitments')
+          .insert(commitmentRows);
+
+        if (commitmentsError) throw commitmentsError;
+      }
+
+      const reviewedCommitments = (payload.reviewed_commitments ?? []).filter(
+        (review) => review.commitment_id && review.status
+      );
+
+      if (reviewedCommitments.length > 0) {
+        for (const review of reviewedCommitments) {
+          const { error: reviewError } = await supabase
+            .from('mission_control_commitments')
+            .update({
+              status: review.status,
+              reviewed_in_session_id: session.id,
+            })
+            .eq('id', review.commitment_id)
+            .eq('owner_user_id', clientQuery.data.ownerUserId);
+
+          if (reviewError) throw reviewError;
+        }
+      }
+
+      return {
+        session,
+        commitmentsCreated: payload.auto_create_commitments === false ? 0 : topCommitments.length,
+        commitmentsReviewed: reviewedCommitments.length,
+      };
     },
-    onSuccess: async (session) => {
+    onSuccess: async (result) => {
       await invalidateWorkspace();
       toast.success('Session saved', {
-        description: `${session.title} is now live in Session Memory and the timeline.`,
+        description:
+          result.commitmentsCreated || result.commitmentsReviewed
+            ? `${result.session.title} is live. ${result.commitmentsCreated} new commitments created and ${result.commitmentsReviewed} prior commitments reviewed.`
+            : `${result.session.title} is now live in Session Memory and the timeline.`,
       });
     },
     onError: (error) => {

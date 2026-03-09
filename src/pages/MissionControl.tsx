@@ -114,6 +114,8 @@ interface LinkedMissionAttachment extends MissionAttachment {
   upload: MissionUpload | null;
 }
 
+type SessionReviewStatus = 'done' | 'blocked' | 'carried_forward' | 'in_progress';
+
 function jsonArrayToLines(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
 
@@ -134,6 +136,10 @@ function linesToJson(value: string) {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+function uniqueLines(value: string) {
+  return Array.from(new Set(linesToJson(value)));
 }
 
 function formatFileSize(bytes: number | null) {
@@ -526,6 +532,10 @@ export default function MissionControl() {
               <CardContent className="space-y-4">
                 {workspace.commitments.length > 0 ? workspace.commitments.map((commitment) => {
                   const linkedProofs = commitmentAttachmentMap.get(commitment.id) ?? [];
+                  const sourceSession = workspace.sessions.find((session) => session.id === commitment.session_id);
+                  const reviewedSession = commitment.reviewed_in_session_id
+                    ? workspace.sessions.find((session) => session.id === commitment.reviewed_in_session_id)
+                    : null;
 
                   return (
                     <div key={commitment.id} className="rounded-[22px] border border-border/60 bg-muted/25 p-4">
@@ -533,6 +543,10 @@ export default function MissionControl() {
                       <div>
                         <h3 className="font-medium">{commitment.title}</h3>
                         <p className="mt-1 text-sm text-muted-foreground">{commitment.description || 'No supporting note added.'}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {sourceSession ? <Badge variant="outline">From {sourceSession.title}</Badge> : null}
+                          {reviewedSession ? <Badge variant="outline">Reviewed in {reviewedSession.title}</Badge> : null}
+                        </div>
                       </div>
                       <Select
                         value={commitment.status}
@@ -827,6 +841,8 @@ export default function MissionControl() {
           </DialogHeader>
           {dialogState === 'session' && (
             <SessionDialog
+              openCommitments={openCommitments}
+              sessions={workspace.sessions}
               isSaving={workspace.createSession.isPending}
               onSubmit={async (payload) => {
                 await workspace.createSession.mutateAsync(payload);
@@ -925,9 +941,13 @@ function EmptyState({
 }
 
 function SessionDialog({
+  openCommitments,
+  sessions,
   onSubmit,
   isSaving,
 }: {
+  openCommitments: MissionCommitment[];
+  sessions: MissionSession[];
   onSubmit: (payload: {
     title: string;
     session_date: string;
@@ -938,6 +958,11 @@ function SessionDialog({
     wins_json?: string[];
     issues_json?: string[];
     top_commitments_json?: string[];
+    auto_create_commitments?: boolean;
+    reviewed_commitments?: Array<{
+      commitment_id: string;
+      status: SessionReviewStatus;
+    }>;
   }) => Promise<void>;
   isSaving: boolean;
 }) {
@@ -950,6 +975,8 @@ function SessionDialog({
   const [wins, setWins] = useState('');
   const [issues, setIssues] = useState('');
   const [topThree, setTopThree] = useState('');
+  const [autoCreateCommitments, setAutoCreateCommitments] = useState(true);
+  const [reviewMap, setReviewMap] = useState<Record<string, SessionReviewStatus>>({});
   const canGenerateFromTranscript = transcript.trim().length > 80;
   const draftMutation = useMutation({
     mutationFn: async () => {
@@ -998,6 +1025,29 @@ function SessionDialog({
   const handleGenerateFromTranscript = () => {
     if (!canGenerateFromTranscript) return;
     draftMutation.mutate();
+  };
+
+  const draftedCommitments = uniqueLines(topThree);
+  const reviewedCommitments = openCommitments
+    .map((commitment) => {
+      const status = reviewMap[commitment.id];
+      return status ? { commitment_id: commitment.id, status } : null;
+    })
+    .filter(Boolean) as Array<{ commitment_id: string; status: SessionReviewStatus }>;
+
+  const updateReviewStatus = (commitmentId: string, status: SessionReviewStatus | 'skip') => {
+    setReviewMap((current) => {
+      if (status === 'skip') {
+        const next = { ...current };
+        delete next[commitmentId];
+        return next;
+      }
+
+      return {
+        ...current,
+        [commitmentId]: status,
+      };
+    });
   };
 
   return (
@@ -1083,6 +1133,86 @@ function SessionDialog({
           </div>
         </div>
       </div>
+      <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm font-medium">Top 3 commitment handoff</p>
+            <p className="text-xs text-muted-foreground">
+              Save this session and turn the drafted top 3 into tracked accountability items automatically.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant={autoCreateCommitments ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setAutoCreateCommitments((current) => !current)}
+          >
+            {autoCreateCommitments ? 'Auto-create on' : 'Auto-create off'}
+          </Button>
+        </div>
+        <div className="mt-4 rounded-2xl border border-border/60 bg-background/80 p-3">
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Will create</p>
+          <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+            {draftedCommitments.length > 0 ? draftedCommitments.slice(0, 3).map((item) => (
+              <li key={item} className="flex items-start gap-2">
+                <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary" />
+                <span>{item}</span>
+              </li>
+            )) : (
+              <li>No draft commitments yet.</li>
+            )}
+          </ul>
+          {autoCreateCommitments && nextCallDate ? (
+            <p className="mt-3 text-xs text-muted-foreground">New commitments will be due by {formatDateLabel(nextCallDate)}.</p>
+          ) : null}
+        </div>
+      </div>
+      {openCommitments.length > 0 && (
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-medium">Review last call commitments</p>
+              <p className="text-xs text-muted-foreground">
+                Close the loop on what was promised before this session so the new memory starts clean.
+              </p>
+            </div>
+            <Badge variant="outline">{openCommitments.length} open</Badge>
+          </div>
+          <div className="mt-4 space-y-3">
+            {openCommitments.map((commitment) => {
+              const sourceSession = sessions.find((session) => session.id === commitment.session_id);
+
+              return (
+                <div key={commitment.id} className="rounded-2xl border border-border/60 bg-background/80 p-3">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <p className="font-medium">{commitment.title}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {sourceSession?.title ?? 'Previous session'} {commitment.due_date ? `• due ${formatDateLabel(commitment.due_date)}` : ''}
+                      </p>
+                    </div>
+                    <Select
+                      value={reviewMap[commitment.id] ?? 'skip'}
+                      onValueChange={(value) => updateReviewStatus(commitment.id, value as SessionReviewStatus | 'skip')}
+                    >
+                      <SelectTrigger className="w-full lg:w-[220px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="skip">Leave unchanged</SelectItem>
+                        <SelectItem value="done">Done on this call</SelectItem>
+                        <SelectItem value="blocked">Blocked</SelectItem>
+                        <SelectItem value="carried_forward">Carry forward</SelectItem>
+                        <SelectItem value="in_progress">Still in progress</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="mission-session-key-points">Key points</Label>
@@ -1112,10 +1242,12 @@ function SessionDialog({
             next_call_date: nextCallDate || null,
             summary_ai: summary.trim() || null,
             transcript_text: transcript.trim() || null,
-            key_points_json: linesToJson(keyPoints),
-            wins_json: linesToJson(wins),
-            issues_json: linesToJson(issues),
-            top_commitments_json: linesToJson(topThree),
+            key_points_json: uniqueLines(keyPoints),
+            wins_json: uniqueLines(wins),
+            issues_json: uniqueLines(issues),
+            top_commitments_json: draftedCommitments,
+            auto_create_commitments: autoCreateCommitments,
+            reviewed_commitments: reviewedCommitments,
           })
         }
         disabled={isSaving || !sessionDate || (!title.trim() && !transcript.trim())}
