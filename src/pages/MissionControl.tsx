@@ -479,6 +479,161 @@ export default function MissionControl() {
     );
   }
 
+  const businessPulseSection = (
+    <section className="rounded-[32px] border border-border/60 bg-background/82 p-6 shadow-sm">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="border-foreground/15 bg-background/70 px-3 py-1 text-[11px] uppercase tracking-[0.24em]">
+              Business Pulse
+            </Badge>
+            {latestPulse ? <Badge variant="outline">{labelForPeriod(latestPulse)}</Badge> : null}
+          </div>
+          <h2 className="text-2xl font-semibold tracking-tight">Pre-call pulse</h2>
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Update the business numbers and call-prep boxes before the coaching call. This is the owner’s monthly prep frame.
+          </p>
+        </div>
+        {!isAdmin ? (
+          <Button asChild>
+            <Link to={latestPulse ? `/submit?mode=update&periodId=${latestPulse.id}` : '/submit?mode=new'}>
+              {latestPulse ? 'Update pulse' : 'Submit pulse'}
+            </Link>
+          </Button>
+        ) : (
+          <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+            Owner updates this before the call.
+          </div>
+        )}
+      </div>
+
+      {pulse.isLoading ? (
+        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <div key={index} className="h-24 animate-pulse rounded-2xl bg-muted/40" />
+          ))}
+        </div>
+      ) : latestPulse ? (
+        <div className="mt-6 space-y-6">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {pulseMetrics.map((metric) => {
+              const Icon = metric.icon;
+              return (
+                <div key={metric.label} className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">{metric.label}</p>
+                      <p className="mt-3 text-2xl font-semibold tracking-tight">{metric.value}</p>
+                    </div>
+                    <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
+                      <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="font-semibold">Month-over-month trend</h3>
+                <p className="text-sm text-muted-foreground">
+                  {previousPulse ? `${labelForPeriod(latestPulse)} vs ${labelForPeriod(previousPulse)}` : 'Submit another pulse to unlock comparison trends.'}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {pulseTrends.map((trend) => {
+                const up = typeof trend.delta.abs === 'number' ? trend.delta.abs > 0 : false;
+                const down = typeof trend.delta.abs === 'number' ? trend.delta.abs < 0 : false;
+                const TrendIcon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
+                const colorClass = up ? 'text-emerald-600 dark:text-emerald-300' : down ? 'text-rose-600 dark:text-rose-300' : 'text-muted-foreground';
+                const currentValue = trend.currency ? formatCurrency(trend.current) : formatNumber(trend.current);
+                const deltaValue =
+                  typeof trend.delta.abs === 'number'
+                    ? trend.currency
+                      ? formatCurrency(trend.delta.abs)
+                      : formatNumber(trend.delta.abs)
+                    : 'No previous period';
+
+                return (
+                  <div key={trend.label} className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                    <p className="text-sm text-muted-foreground">{trend.label}</p>
+                    <p className="mt-2 text-2xl font-semibold">{currentValue}</p>
+                    <div className={`mt-3 flex items-center gap-2 text-sm ${colorClass}`}>
+                      <TrendIcon className="h-4 w-4" />
+                      <span>{deltaValue}</span>
+                      {typeof trend.delta.pct === 'number' ? (
+                        <span className="text-muted-foreground">
+                          ({new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(trend.delta.pct)}%)
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+            <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
+              <h3 className="font-semibold">Call-prep boxes</h3>
+              <p className="mt-1 text-sm text-muted-foreground">These are the prep answers submitted before the call.</p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Biggest stress</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.biggestStress || 'No stress note submitted yet.'}</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Gut action</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.gutAction || 'No gut-action note submitted yet.'}</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Biggest business win</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.biggestBusinessWin || 'No business win submitted yet.'}</p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Biggest personal win</p>
+                  <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.biggestPersonalWin || 'No personal win submitted yet.'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
+              <h3 className="font-semibold">Top 3 attack items</h3>
+              <p className="mt-1 text-sm text-muted-foreground">The exact focus items submitted before the call.</p>
+              <div className="mt-4 space-y-3">
+                {attackItems.length > 0 ? attackItems.map((item, index) => (
+                  <div key={`${item}-${index}`} className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Item {index + 1}</p>
+                    <p className="mt-2 text-sm text-muted-foreground">{item}</p>
+                  </div>
+                )) : (
+                  <div className="rounded-2xl border border-dashed border-border/60 bg-background/80 p-4 text-sm text-muted-foreground">
+                    No attack items submitted yet.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-6 rounded-[28px] border border-dashed border-border/60 bg-muted/15 p-6">
+          <h3 className="font-semibold">No business pulse submitted yet</h3>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Fill out the business pulse before the call so the latest metrics and prep boxes show here.
+          </p>
+          {!isAdmin ? (
+            <Button asChild className="mt-4">
+              <Link to="/submit?mode=new">Submit first pulse</Link>
+            </Button>
+          ) : null}
+        </div>
+      )}
+    </section>
+  );
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(194,162,102,0.14),transparent_32%),linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--muted)/0.24)_100%)]">
       <main className="container mx-auto max-w-[1540px] space-y-6 px-4 py-6 md:px-6 md:py-8">
@@ -538,32 +693,62 @@ export default function MissionControl() {
 
             <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
               <div className="max-w-4xl space-y-3">
-                <h1 className="font-serif text-4xl font-semibold tracking-tight md:text-5xl">
-                  Mission Control for one owner, one relationship, one operating room.
+                <h1 className="text-4xl font-black uppercase tracking-[0.2em] md:text-6xl">
+                  Mission Control
                 </h1>
                 <p className="max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
-                  Capture what was said, keep commitments visible, and walk into the next call with a clean memory of
-                  what mattered, what shipped, and what is still stuck.
+                  Before the call: update the business pulse. After the call: capture the session and review commitments.
                 </p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row">
-                <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={() => setDialogState('session')}>
+                {!isAdmin ? (
+                  <Button variant="outline" className="border-foreground/15 bg-background/75" asChild>
+                    <Link to={latestPulse ? `/submit?mode=update&periodId=${latestPulse.id}` : '/submit?mode=new'}>
+                      {latestPulse ? 'Update Pulse' : 'Submit Pulse'}
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button variant="outline" className="border-foreground/15 bg-background/75" disabled>
+                    Owner Updates Pulse
+                  </Button>
+                )}
+                <Button className="bg-foreground text-background hover:bg-foreground/90" onClick={() => setDialogState('session')}>
                   <FileText className="mr-2 h-4 w-4" />
-                  New Session
+                  Capture Session
                 </Button>
                 <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={() => setDialogState('commitment')} disabled={!latestSession}>
                   <Target className="mr-2 h-4 w-4" />
                   Add Commitment
                 </Button>
-                <Button onClick={() => setDialogState('board')}>
+                <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={() => setDialogState('board')}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add Board Item
                 </Button>
               </div>
             </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-[22px] border border-border/60 bg-background/70 p-4">
+                <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Step 1</p>
+                <p className="mt-2 font-medium">Update Business Pulse</p>
+                <p className="mt-1 text-sm text-muted-foreground">Owner fills out the pre-call boxes and numbers before the session.</p>
+              </div>
+              <div className="rounded-[22px] border border-border/60 bg-background/70 p-4">
+                <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Step 2</p>
+                <p className="mt-2 font-medium">Capture Session</p>
+                <p className="mt-1 text-sm text-muted-foreground">Paste the transcript after the call and save the session memory.</p>
+              </div>
+              <div className="rounded-[22px] border border-border/60 bg-background/70 p-4">
+                <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Step 3</p>
+                <p className="mt-2 font-medium">Review Commitments</p>
+                <p className="mt-1 text-sm text-muted-foreground">Use the next session to verify what was done, blocked, or carried forward.</p>
+              </div>
+            </div>
           </div>
         </section>
+
+        {businessPulseSection}
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <SummaryCard icon={ClipboardList} label="Open Commitments" value={String(openCommitments.length)} detail="Commitments still waiting on action or proof." />
@@ -987,158 +1172,6 @@ export default function MissionControl() {
           </div>
         </section>
 
-        <section className="rounded-[32px] border border-border/60 bg-background/82 p-6 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="border-foreground/15 bg-background/70 px-3 py-1 text-[11px] uppercase tracking-[0.24em]">
-                  Business Pulse
-                </Badge>
-                {latestPulse ? <Badge variant="outline">{labelForPeriod(latestPulse)}</Badge> : null}
-              </div>
-              <h2 className="text-2xl font-semibold tracking-tight">Pre-call metrics and month-over-month trend</h2>
-              <p className="max-w-3xl text-sm text-muted-foreground">
-                This keeps the old submit ritual alive inside Mission Control. The owner submits the pulse before the call, and the workspace keeps the latest boxes and recent trend visible.
-              </p>
-            </div>
-            {!isAdmin ? (
-              <Button asChild>
-                <Link to={latestPulse ? `/submit?mode=update&periodId=${latestPulse.id}` : '/submit?mode=new'}>
-                  {latestPulse ? 'Update business pulse' : 'Submit business pulse'}
-                </Link>
-              </Button>
-            ) : (
-              <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-                Owner submits this before the call.
-              </div>
-            )}
-          </div>
-
-          {pulse.isLoading ? (
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {Array.from({ length: 8 }).map((_, index) => (
-                <div key={index} className="h-24 animate-pulse rounded-2xl bg-muted/40" />
-              ))}
-            </div>
-          ) : latestPulse ? (
-            <div className="mt-6 space-y-6">
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                {pulseMetrics.map((metric) => {
-                  const Icon = metric.icon;
-                  return (
-                    <div key={metric.label} className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm text-muted-foreground">{metric.label}</p>
-                          <p className="mt-3 text-2xl font-semibold tracking-tight">{metric.value}</p>
-                        </div>
-                        <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
-                          <Icon className="h-4 w-4 text-primary" />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h3 className="font-semibold">Month-over-month trend</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {previousPulse ? `${labelForPeriod(latestPulse)} vs ${labelForPeriod(previousPulse)}` : 'Submit another pulse to unlock comparison trends.'}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {pulseTrends.map((trend) => {
-                    const up = typeof trend.delta.abs === 'number' ? trend.delta.abs > 0 : false;
-                    const down = typeof trend.delta.abs === 'number' ? trend.delta.abs < 0 : false;
-                    const TrendIcon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
-                    const colorClass = up ? 'text-emerald-600 dark:text-emerald-300' : down ? 'text-rose-600 dark:text-rose-300' : 'text-muted-foreground';
-                    const currentValue = trend.currency ? formatCurrency(trend.current) : formatNumber(trend.current);
-                    const deltaValue =
-                      typeof trend.delta.abs === 'number'
-                        ? trend.currency
-                          ? formatCurrency(trend.delta.abs)
-                          : formatNumber(trend.delta.abs)
-                        : 'No previous period';
-
-                    return (
-                      <div key={trend.label} className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                        <p className="text-sm text-muted-foreground">{trend.label}</p>
-                        <p className="mt-2 text-2xl font-semibold">{currentValue}</p>
-                        <div className={`mt-3 flex items-center gap-2 text-sm ${colorClass}`}>
-                          <TrendIcon className="h-4 w-4" />
-                          <span>{deltaValue}</span>
-                          {typeof trend.delta.pct === 'number' ? (
-                            <span className="text-muted-foreground">
-                              ({new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(trend.delta.pct)}%)
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-                <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
-                  <h3 className="font-semibold">Call-prep qualitative pulse</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">These are the old 1:1 prep prompts, now living beside the session memory.</p>
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Biggest stress</p>
-                      <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.biggestStress || 'No stress note submitted yet.'}</p>
-                    </div>
-                    <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Gut action</p>
-                      <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.gutAction || 'No gut-action note submitted yet.'}</p>
-                    </div>
-                    <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Biggest business win</p>
-                      <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.biggestBusinessWin || 'No business win submitted yet.'}</p>
-                    </div>
-                    <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Biggest personal win</p>
-                      <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.biggestPersonalWin || 'No personal win submitted yet.'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
-                  <h3 className="font-semibold">Top 3 attack items</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">The exact pre-call focus items from the old form, kept visible in the same workspace as the coaching session.</p>
-                  <div className="mt-4 space-y-3">
-                    {attackItems.length > 0 ? attackItems.map((item, index) => (
-                      <div key={`${item}-${index}`} className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Item {index + 1}</p>
-                        <p className="mt-2 text-sm text-muted-foreground">{item}</p>
-                      </div>
-                    )) : (
-                      <div className="rounded-2xl border border-dashed border-border/60 bg-background/80 p-4 text-sm text-muted-foreground">
-                        No attack items submitted yet.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-6 rounded-[28px] border border-dashed border-border/60 bg-muted/15 p-6">
-              <h3 className="font-semibold">No business pulse submitted yet</h3>
-              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-                Mission Control is live, but the old pre-call metrics submission has not been filled out yet for this owner. Once they submit it, the familiar boxes and trend-over-trend view will live here.
-              </p>
-              {!isAdmin ? (
-                <Button asChild className="mt-4">
-                  <Link to="/submit?mode=new">Submit first business pulse</Link>
-                </Button>
-              ) : null}
-            </div>
-          )}
-        </section>
       </main>
 
       {workspace.error && (
