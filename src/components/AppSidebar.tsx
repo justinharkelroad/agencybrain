@@ -108,7 +108,7 @@ const adminOnlyItems = [
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
-  const { signOut, isAdmin, user, membershipTier } = useAuth();
+  const { signOut, isAdmin, isAgencyOwner, user, membershipTier } = useAuth();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const { filterNavigation, loading: accessLoading, agencyId } = useSidebarAccess();
   const { hasAccess: hasSalesExperienceAccess } = useSalesExperienceAccess();
@@ -706,7 +706,7 @@ useEffect(() => {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                {isAdmin && (
+                {(isAdmin || isAgencyOwner) && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
