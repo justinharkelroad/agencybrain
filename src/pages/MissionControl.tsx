@@ -84,25 +84,25 @@ const BOARD_COLUMNS: Array<{
 }> = [
   {
     key: 'backlog',
-    title: 'Backlog',
-    description: 'Ideas and deployments not committed yet.',
+    title: 'Parking Lot',
+    description: 'Ideas worth tracking, but not moving yet.',
     tone: 'border-stone-300/70 bg-stone-100/70 text-stone-900 dark:border-stone-700 dark:bg-stone-950/50 dark:text-stone-100',
   },
   {
     key: 'in_progress',
-    title: 'In Progress',
-    description: 'Active builds moving now.',
+    title: 'In Motion',
+    description: 'Priorities actively moving right now.',
     tone: 'border-amber-300/70 bg-amber-100/75 text-amber-950 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-100',
   },
   {
     key: 'before_next_call',
     title: 'Before Next Call',
-    description: 'Must land before review.',
+    description: 'Needs to happen before the next review.',
     tone: 'border-emerald-300/70 bg-emerald-100/75 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-100',
   },
   {
     key: 'done',
-    title: 'Done',
+    title: 'Completed',
     description: 'Closed loops and shipped wins.',
     tone: 'border-sky-300/70 bg-sky-100/75 text-sky-950 dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-100',
   },
@@ -125,10 +125,10 @@ const COMMITMENT_STATUS_OPTIONS = [
 ] as const;
 
 const BOARD_STATUS_OPTIONS = [
-  { value: 'backlog', label: 'Backlog' },
-  { value: 'in_progress', label: 'In Progress' },
+  { value: 'backlog', label: 'Parking Lot' },
+  { value: 'in_progress', label: 'In Motion' },
   { value: 'before_next_call', label: 'Before Next Call' },
-  { value: 'done', label: 'Done' },
+  { value: 'done', label: 'Completed' },
 ] as const;
 
 type AttachmentTargetKind = 'session' | 'commitment' | 'board';
@@ -198,6 +198,29 @@ function formatCurrency(n: number | undefined | null) {
 function inputNumberValue(value: number | undefined | null) {
   if (!value) return '';
   return String(value);
+}
+
+function parseFormattedNumber(value: string) {
+  const normalized = value.replace(/[^0-9.-]/g, '');
+  if (!normalized) return 0;
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatEditableNumber(value: number | undefined | null, maximumFractionDigits = 0) {
+  if (value === null || value === undefined || value === 0) return '';
+  return new Intl.NumberFormat(undefined, {
+    maximumFractionDigits,
+  }).format(value);
+}
+
+function formatEditableCurrency(value: number | undefined | null) {
+  if (value === null || value === undefined || value === 0) return '';
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: Number.isInteger(value) ? 0 : 2,
+  }).format(value);
 }
 
 function formatFileSize(bytes: number | null) {
@@ -553,8 +576,8 @@ export default function MissionControl() {
     }
 
     if (attachment.board_item_id) {
-      return `Board item · ${
-        workspace.boardItems.find((item) => item.id === attachment.board_item_id)?.title ?? 'Board item'
+      return `Priority · ${
+        workspace.boardItems.find((item) => item.id === attachment.board_item_id)?.title ?? 'Priority'
       }`;
     }
 
@@ -690,83 +713,83 @@ export default function MissionControl() {
                 <PulseMetricInputCard
                   label="Premium Sold"
                   icon={DollarSign}
-                  value={inputNumberValue(pulseDraft.sales.premium)}
-                  placeholder="$"
+                  value={formatEditableCurrency(pulseDraft.sales.premium)}
+                  kind="currency"
                   onChange={(value) =>
                     updatePulseSection('sales', (current) => ({
                       ...current,
-                      premium: Number.parseFloat(value) || 0,
+                      premium: parseFormattedNumber(value),
                     }))
                   }
                 />
                 <PulseMetricInputCard
                   label="Items Sold"
                   icon={Package}
-                  value={inputNumberValue(pulseDraft.sales.items)}
+                  value={formatEditableNumber(pulseDraft.sales.items)}
                   onChange={(value) =>
                     updatePulseSection('sales', (current) => ({
                       ...current,
-                      items: Number.parseInt(value, 10) || 0,
+                      items: Math.trunc(parseFormattedNumber(value)),
                     }))
                   }
                 />
                 <PulseMetricInputCard
                   label="Policies Sold"
                   icon={ClipboardList}
-                  value={inputNumberValue(pulseDraft.sales.policies)}
+                  value={formatEditableNumber(pulseDraft.sales.policies)}
                   onChange={(value) =>
                     updatePulseSection('sales', (current) => ({
                       ...current,
-                      policies: Number.parseInt(value, 10) || 0,
+                      policies: Math.trunc(parseFormattedNumber(value)),
                     }))
                   }
                 />
                 <PulseMetricInputCard
                   label="Policies Quoted"
                   icon={Users}
-                  value={inputNumberValue(pulseDraft.marketing.policiesQuoted)}
+                  value={formatEditableNumber(pulseDraft.marketing.policiesQuoted)}
                   onChange={(value) =>
                     updatePulseSection('marketing', (current) => ({
                       ...current,
-                      policiesQuoted: Number.parseInt(value, 10) || 0,
+                      policiesQuoted: Math.trunc(parseFormattedNumber(value)),
                     }))
                   }
                 />
                 <PulseMetricInputCard
                   label="Marketing Spend"
                   icon={Target}
-                  value={inputNumberValue(pulseDraft.marketing.totalSpend)}
-                  placeholder="$"
+                  value={formatEditableCurrency(pulseDraft.marketing.totalSpend)}
+                  kind="currency"
                   onChange={(value) =>
                     updatePulseSection('marketing', (current) => ({
                       ...current,
-                      totalSpend: Number.parseFloat(value) || 0,
+                      totalSpend: parseFormattedNumber(value),
                     }))
                   }
                 />
                 <PulseMetricInputCard
                   label="Compensation"
                   icon={Trophy}
-                  value={inputNumberValue(pulseDraft.cashFlow.compensation)}
-                  placeholder="$"
+                  value={formatEditableCurrency(pulseDraft.cashFlow.compensation)}
+                  kind="currency"
                   onChange={(value) =>
                     updatePulseSection('cashFlow', (current) => ({
                       ...current,
-                      compensation: Number.parseFloat(value) || 0,
-                      netProfit: (Number.parseFloat(value) || 0) - current.expenses,
+                      compensation: parseFormattedNumber(value),
+                      netProfit: parseFormattedNumber(value) - current.expenses,
                     }))
                   }
                 />
                 <PulseMetricInputCard
                   label="Expenses"
                   icon={BriefcaseBusiness}
-                  value={inputNumberValue(pulseDraft.cashFlow.expenses)}
-                  placeholder="$"
+                  value={formatEditableCurrency(pulseDraft.cashFlow.expenses)}
+                  kind="currency"
                   onChange={(value) =>
                     updatePulseSection('cashFlow', (current) => ({
                       ...current,
-                      expenses: Number.parseFloat(value) || 0,
-                      netProfit: current.compensation - (Number.parseFloat(value) || 0),
+                      expenses: parseFormattedNumber(value),
+                      netProfit: current.compensation - parseFormattedNumber(value),
                     }))
                   }
                 />
@@ -895,45 +918,45 @@ export default function MissionControl() {
                       <PulseMetricInputCard
                         label="Retention %"
                         icon={Shield}
-                        value={inputNumberValue(pulseDraft.retention.currentRetentionPercent)}
+                        value={formatEditableNumber(pulseDraft.retention.currentRetentionPercent, 1)}
                         onChange={(value) =>
                           updatePulseSection('retention', (current) => ({
                             ...current,
-                            currentRetentionPercent: Number.parseFloat(value) || 0,
+                            currentRetentionPercent: parseFormattedNumber(value),
                           }))
                         }
                       />
                       <PulseMetricInputCard
                         label="Policies Terminated"
                         icon={AlertTriangle}
-                        value={inputNumberValue(pulseDraft.retention.numberTerminated)}
+                        value={formatEditableNumber(pulseDraft.retention.numberTerminated)}
                         onChange={(value) =>
                           updatePulseSection('retention', (current) => ({
                             ...current,
-                            numberTerminated: Number.parseInt(value, 10) || 0,
+                            numberTerminated: Math.trunc(parseFormattedNumber(value)),
                           }))
                         }
                       />
                       <PulseMetricInputCard
                         label="ALR Total YTD"
                         icon={DollarSign}
-                        value={inputNumberValue(pulseDraft.operations.currentAlrTotal)}
-                        placeholder="$"
+                        value={formatEditableCurrency(pulseDraft.operations.currentAlrTotal)}
+                        kind="currency"
                         onChange={(value) =>
                           updatePulseSection('operations', (current) => ({
                             ...current,
-                            currentAlrTotal: Number.parseFloat(value) || 0,
+                            currentAlrTotal: parseFormattedNumber(value),
                           }))
                         }
                       />
                       <PulseMetricInputCard
                         label="Bonus Trend"
                         icon={TrendingUp}
-                        value={inputNumberValue(pulseDraft.operations.currentBonusTrend)}
+                        value={formatEditableNumber(pulseDraft.operations.currentBonusTrend)}
                         onChange={(value) =>
                           updatePulseSection('operations', (current) => ({
                             ...current,
-                            currentBonusTrend: Number.parseFloat(value) || 0,
+                            currentBonusTrend: parseFormattedNumber(value),
                           }))
                         }
                       />
@@ -980,24 +1003,24 @@ export default function MissionControl() {
                                   placeholder="Lead source"
                                 />
                                 <Input
-                                  value={inputNumberValue(source.spend)}
+                                  value={formatEditableCurrency(source.spend)}
                                   onChange={(event) =>
                                     updatePulseSection('marketing', (current) => ({
                                       ...current,
                                       leadSources: current.leadSources.map((entry, entryIndex) =>
-                                        entryIndex === index ? { ...entry, spend: Number.parseFloat(event.target.value) || 0 } : entry
+                                        entryIndex === index ? { ...entry, spend: parseFormattedNumber(event.target.value) } : entry
                                       ),
                                     }))
                                   }
                                   placeholder="Spend"
                                 />
                                 <Input
-                                  value={inputNumberValue(source.soldPremium)}
+                                  value={formatEditableCurrency(source.soldPremium)}
                                   onChange={(event) =>
                                     updatePulseSection('marketing', (current) => ({
                                       ...current,
                                       leadSources: current.leadSources.map((entry, entryIndex) =>
-                                        entryIndex === index ? { ...entry, soldPremium: Number.parseFloat(event.target.value) || 0 } : entry
+                                        entryIndex === index ? { ...entry, soldPremium: parseFormattedNumber(event.target.value) } : entry
                                       ),
                                     }))
                                   }
@@ -1005,12 +1028,12 @@ export default function MissionControl() {
                                 />
                                 <div className="flex gap-2">
                                   <Input
-                                    value={inputNumberValue(source.commissionRate)}
+                                    value={formatEditableNumber(source.commissionRate, 1)}
                                     onChange={(event) =>
                                       updatePulseSection('marketing', (current) => ({
                                         ...current,
                                         leadSources: current.leadSources.map((entry, entryIndex) =>
-                                          entryIndex === index ? { ...entry, commissionRate: Number.parseFloat(event.target.value) || 0 } : entry
+                                          entryIndex === index ? { ...entry, commissionRate: parseFormattedNumber(event.target.value) } : entry
                                         ),
                                       }))
                                     }
@@ -1358,7 +1381,7 @@ export default function MissionControl() {
                 </Button>
                 <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={() => setDialogState('board')}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Board Item
+                  Add Priority
                 </Button>
               </div>
             </div>
@@ -1388,7 +1411,7 @@ export default function MissionControl() {
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <SummaryCard icon={ClipboardList} label="Open Commitments" value={String(openCommitments.length)} detail="Commitments still waiting on action or proof." />
           <SummaryCard icon={CalendarDays} label="Last Call" value={latestSession ? latestSession.session_date : 'None'} detail="Latest coaching session preserved in the timeline." />
-          <SummaryCard icon={Rocket} label="Mission Board" value={String(workspace.boardItems.length)} detail="Deployments tracked across the board." />
+          <SummaryCard icon={Rocket} label="Active Priorities" value={String(workspace.boardItems.length)} detail="Bigger initiatives tracked between calls." />
           <SummaryCard icon={Trophy} label="Wins Logged" value={String(wins.length)} detail="Highlights preserved from the latest session." />
           <SummaryCard icon={CheckCircle2} label="Proof Linked" value={String(proofLinkedCount)} detail="Uploaded evidence files linked back to commitments." />
         </section>
@@ -1600,13 +1623,13 @@ export default function MissionControl() {
             <Card className="rounded-[28px] border-border/60 bg-background/82">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between gap-3">
-                  <span>Mission Board</span>
+                  <span>Priority Board</span>
                   <Button size="sm" variant="outline" onClick={() => setDialogState('board')}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Add
+                    Add Priority
                   </Button>
                 </CardTitle>
-                <CardDescription>Broader deployments that need to stay visible between calls.</CardDescription>
+                <CardDescription>Bigger initiatives that need to stay visible between calls, not just one-call commitments.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
@@ -1732,7 +1755,7 @@ export default function MissionControl() {
                   <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
                     <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Linked artifacts</p>
                     <p className="mt-2 text-3xl font-semibold">{linkedAttachments.length}</p>
-                    <p className="mt-2 text-sm text-muted-foreground">Attachments already tied to sessions, commitments, or board items.</p>
+                    <p className="mt-2 text-sm text-muted-foreground">Attachments already tied to sessions, commitments, or priorities.</p>
                   </div>
                   <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
                     <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Uploads available</p>
@@ -1767,7 +1790,7 @@ export default function MissionControl() {
                 ) : (
                   <div className="rounded-[24px] border border-dashed border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
                     No artifacts linked yet. Upload files in the Files area, then connect them here to the session,
-                    commitment, or board item they support.
+                    commitment, or priority they support.
                   </div>
                 )}
 
@@ -1830,12 +1853,12 @@ export default function MissionControl() {
                 ? 'New session'
                 : dialogState === 'commitment'
                   ? 'Add commitment'
-                : 'Add board item'}
+                : 'Add priority'}
             </DialogTitle>
             <DialogDescription>
               {dialogState === 'session'
                 ? 'Paste the transcript, save the session memory, and then link proof or transcript files back to it.'
-                : 'Capture the next piece of relationship memory and keep the workspace moving.'}
+                : 'Track a bigger initiative that stays in motion between calls.'}
             </DialogDescription>
           </DialogHeader>
           {dialogState === 'session' && (
@@ -1893,7 +1916,7 @@ export default function MissionControl() {
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Link upload</DialogTitle>
-            <DialogDescription>Attach an existing uploaded file to the specific session, commitment, or board item it supports.</DialogDescription>
+            <DialogDescription>Attach an existing uploaded file to the specific session, commitment, or priority it supports.</DialogDescription>
           </DialogHeader>
           <AttachmentDialog
             uploads={workspace.uploads}
@@ -1970,12 +1993,14 @@ function PulseMetricInputCard({
   value,
   onChange,
   icon: Icon,
+  kind,
   placeholder,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   icon: ComponentType<{ className?: string }>;
+  kind?: 'currency' | 'number';
   placeholder?: string;
 }) {
   return (
@@ -1993,7 +2018,7 @@ function PulseMetricInputCard({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         inputMode="decimal"
-        placeholder={placeholder ?? '0'}
+        placeholder={placeholder ?? (kind === 'currency' ? '$0' : '0')}
       />
     </div>
   );
@@ -2478,16 +2503,22 @@ function BoardItemDialog({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="mission-board-title">Board item title</Label>
-        <Input id="mission-board-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Delegation tracker" />
+        <Label htmlFor="mission-board-title">Priority title</Label>
+        <Input id="mission-board-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Delegation system" />
       </div>
       <div className="space-y-2">
         <Label htmlFor="mission-board-description">Description</Label>
-        <Textarea id="mission-board-description" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What is being built or deployed?" />
+        <Textarea
+          id="mission-board-description"
+          rows={3}
+          value={description}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder="What larger initiative are we tracking between calls?"
+        />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label>Board column</Label>
+          <Label>Priority lane</Label>
           <Select value={columnStatus} onValueChange={(value) => setColumnStatus(value as BoardColumn)}>
             <SelectTrigger>
               <SelectValue />
@@ -2502,7 +2533,7 @@ function BoardItemDialog({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Source session</Label>
+          <Label>Linked session</Label>
           <Select value={sourceSessionId} onValueChange={setSourceSessionId}>
             <SelectTrigger>
               <SelectValue />
@@ -2531,7 +2562,7 @@ function BoardItemDialog({
         disabled={isSaving || !title.trim()}
       >
         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
-        Save board item
+        Save priority
       </Button>
     </div>
   );
@@ -2665,7 +2696,7 @@ function AttachmentDialog({
         <div className="rounded-2xl border border-dashed border-border/60 bg-muted/25 p-4 text-sm text-muted-foreground">
           {uploads.length === 0
             ? 'There are no uploaded files available to link yet.'
-            : 'Create a session, commitment, or board item first so the file has somewhere to attach.'}
+            : 'Create a session, commitment, or priority first so the file has somewhere to attach.'}
         </div>
         {uploads.length === 0 && (
           <Button asChild className="w-full">
@@ -2707,7 +2738,7 @@ function AttachmentDialog({
             <SelectContent>
               {sessions.length > 0 && <SelectItem value="session">Session</SelectItem>}
               {commitments.length > 0 && <SelectItem value="commitment">Commitment</SelectItem>}
-              {boardItems.length > 0 && <SelectItem value="board">Board item</SelectItem>}
+              {boardItems.length > 0 && <SelectItem value="board">Priority</SelectItem>}
             </SelectContent>
           </Select>
         </div>

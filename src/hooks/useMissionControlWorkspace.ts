@@ -382,11 +382,11 @@ export function useMissionControlWorkspace({
     },
     onSuccess: async () => {
       await invalidateWorkspace();
-      toast.success('Board item saved');
+      toast.success('Priority saved');
     },
     onError: (error) => {
       console.error('Mission Control board item save failed', error);
-      toast.error('Could not save the board item');
+      toast.error('Could not save the priority');
     },
   });
 
