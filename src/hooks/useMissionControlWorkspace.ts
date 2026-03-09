@@ -217,9 +217,11 @@ export function useMissionControlWorkspace({
       if (error) throw error;
       return data as MissionSession;
     },
-    onSuccess: async () => {
+    onSuccess: async (session) => {
       await invalidateWorkspace();
-      toast.success('Session saved');
+      toast.success('Session saved', {
+        description: `${session.title} is now live in Session Memory and the timeline.`,
+      });
     },
     onError: (error) => {
       console.error('Mission Control session save failed', error);

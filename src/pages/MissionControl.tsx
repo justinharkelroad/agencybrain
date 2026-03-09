@@ -12,6 +12,7 @@ import {
   Paperclip,
   Plus,
   Rocket,
+  Sparkles,
   Target,
   TextSearch,
   TrendingUp,
@@ -157,6 +158,91 @@ function formatDateLabel(value: string | null | undefined, options?: Intl.DateTi
     year: 'numeric',
     ...options,
   });
+}
+
+function splitTranscriptLines(transcript: string) {
+  return transcript
+    .split(/\n+/)
+    .map((line) => line.replace(/^\s*(speaker\s*\d+|agent|owner|coach|client)\s*:\s*/i, '').trim())
+    .filter(Boolean);
+}
+
+function splitTranscriptSentences(transcript: string) {
+  return transcript
+    .replace(/\s+/g, ' ')
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 24);
+}
+
+function pickUnique(items: string[], limit: number) {
+  const seen = new Set<string>();
+  const next: string[] = [];
+
+  for (const item of items) {
+    const key = item.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    next.push(item);
+    if (next.length >= limit) break;
+  }
+
+  return next;
+}
+
+function extractTranscriptDraft(transcript: string) {
+  const lines = splitTranscriptLines(transcript);
+  const sentences = splitTranscriptSentences(transcript);
+  const normalized = transcript.toLowerCase();
+
+  const wins = pickUnique(
+    lines.filter((line) => /(win|won|grew|growth|improved|closed|shipped|launched|hired|celebrate|good news|success)/i.test(line)),
+    4
+  );
+  const issues = pickUnique(
+    lines.filter((line) => /(stuck|issue|problem|block|blocked|behind|missed|struggle|hard|friction|concern|bottleneck)/i.test(line)),
+    4
+  );
+  const topCommitments = pickUnique(
+    lines.filter((line) => /(i will|we will|going to|need to|must|by next call|commit|action item|follow up|deploy|finish|complete)/i.test(line)),
+    3
+  );
+  const keyPoints = pickUnique(
+    [
+      ...lines.filter((line) => /(focus|priority|decided|decision|plan|target|goal|delegate|process|system|metric)/i.test(line)),
+      ...sentences.slice(0, 8),
+    ],
+    5
+  );
+
+  const summaryParts = [
+    keyPoints[0],
+    issues[0] ? `Primary friction: ${issues[0]}` : null,
+    topCommitments[0] ? `Next move: ${topCommitments[0]}` : null,
+  ].filter(Boolean);
+
+  const fallbackSummary =
+    summaryParts.join(' ') ||
+    sentences.slice(0, 2).join(' ') ||
+    lines.slice(0, 3).join(' ');
+
+  const suggestedTitle =
+    normalized.includes('strategy')
+      ? 'Strategy session'
+      : normalized.includes('review')
+        ? 'Review session'
+        : normalized.includes('planning')
+          ? 'Planning session'
+          : 'Coaching session';
+
+  return {
+    summary: fallbackSummary.trim(),
+    keyPoints,
+    wins,
+    issues,
+    topCommitments,
+    suggestedTitle,
+  };
 }
 
 function SummaryCard({
@@ -918,12 +1004,42 @@ function SessionDialog({
   const [wins, setWins] = useState('');
   const [issues, setIssues] = useState('');
   const [topThree, setTopThree] = useState('');
+  const transcriptDraft = useMemo(() => extractTranscriptDraft(transcript), [transcript]);
+  const canGenerateFromTranscript = transcript.trim().length > 80;
+
+  const handleGenerateFromTranscript = () => {
+    if (!canGenerateFromTranscript) return;
+
+    if (!title.trim()) {
+      setTitle(`${formatDateLabel(sessionDate)} ${transcriptDraft.suggestedTitle}`);
+    }
+
+    if (!summary.trim()) {
+      setSummary(transcriptDraft.summary);
+    }
+
+    if (!keyPoints.trim()) {
+      setKeyPoints(transcriptDraft.keyPoints.join('\n'));
+    }
+
+    if (!wins.trim() && transcriptDraft.wins.length > 0) {
+      setWins(transcriptDraft.wins.join('\n'));
+    }
+
+    if (!issues.trim() && transcriptDraft.issues.length > 0) {
+      setIssues(transcriptDraft.issues.join('\n'));
+    }
+
+    if (!topThree.trim() && transcriptDraft.topCommitments.length > 0) {
+      setTopThree(transcriptDraft.topCommitments.join('\n'));
+    }
+  };
 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
-        The transcript you paste here is stored with the session. The summary field is manual right now. Auto-summary
-        from transcript has not been wired yet.
+        Paste the transcript first, then use the draft generator to populate a working summary, key points, wins,
+        issues, and top 3. This is a local draft pass so you can test the full flow right now.
       </div>
       <div className="space-y-2">
         <Label htmlFor="mission-session-title">Session title</Label>
@@ -942,7 +1058,7 @@ function SessionDialog({
       <div className="space-y-2">
         <Label htmlFor="mission-session-summary">Summary (manual for now)</Label>
         <p className="text-xs text-muted-foreground">
-          Optional. Leave this blank if you only want to save the transcript first.
+          Optional. Leave this blank and generate a draft from the transcript if you want a faster first pass.
         </p>
         <Textarea
           id="mission-session-summary"
@@ -953,10 +1069,18 @@ function SessionDialog({
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="mission-session-transcript">Transcript</Label>
-        <p className="text-xs text-muted-foreground">
-          Paste the raw transcript or cleaned call notes here. This is the source memory for the session.
-        </p>
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <Label htmlFor="mission-session-transcript">Transcript</Label>
+            <p className="text-xs text-muted-foreground">
+              Paste the raw transcript or cleaned call notes here. This is the source memory for the session.
+            </p>
+          </div>
+          <Button type="button" variant="outline" onClick={handleGenerateFromTranscript} disabled={!canGenerateFromTranscript}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            Generate draft from transcript
+          </Button>
+        </div>
         <Textarea
           id="mission-session-transcript"
           rows={8}
@@ -964,6 +1088,34 @@ function SessionDialog({
           onChange={(event) => setTranscript(event.target.value)}
           placeholder="Paste the transcript or cleaned notes here..."
         />
+      </div>
+      <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">Session draft preview</p>
+            <p className="text-xs text-muted-foreground">This is what will feed the Mission Control workspace after save.</p>
+          </div>
+          <Badge variant="outline">{canGenerateFromTranscript ? 'Transcript ready' : 'Paste transcript first'}</Badge>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Summary</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {summary.trim() || transcriptDraft.summary || 'No summary draft yet.'}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Top 3 preview</p>
+            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+              {(topThree.trim() ? linesToJson(topThree) : transcriptDraft.topCommitments).slice(0, 3).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+              {!((topThree.trim() ? linesToJson(topThree) : transcriptDraft.topCommitments).length) && (
+                <li>No commitments drafted yet.</li>
+              )}
+            </ul>
+          </div>
+        </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
@@ -989,18 +1141,18 @@ function SessionDialog({
         className="w-full"
         onClick={() =>
           onSubmit({
-            title: title.trim(),
+            title: title.trim() || `${formatDateLabel(sessionDate)} ${transcriptDraft.suggestedTitle}`,
             session_date: sessionDate,
             next_call_date: nextCallDate || null,
-            summary_ai: summary.trim() || null,
+            summary_ai: summary.trim() || transcriptDraft.summary || null,
             transcript_text: transcript.trim() || null,
-            key_points_json: linesToJson(keyPoints),
-            wins_json: linesToJson(wins),
-            issues_json: linesToJson(issues),
-            top_commitments_json: linesToJson(topThree),
+            key_points_json: keyPoints.trim() ? linesToJson(keyPoints) : transcriptDraft.keyPoints,
+            wins_json: wins.trim() ? linesToJson(wins) : transcriptDraft.wins,
+            issues_json: issues.trim() ? linesToJson(issues) : transcriptDraft.issues,
+            top_commitments_json: topThree.trim() ? linesToJson(topThree) : transcriptDraft.topCommitments,
           })
         }
-        disabled={isSaving || !title.trim() || !sessionDate}
+        disabled={isSaving || !sessionDate || (!title.trim() && !transcript.trim())}
       >
         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
         Save session
