@@ -1577,9 +1577,9 @@ export default function CallScoring() {
               </Badge>
             )}
           </div>
-          {callBalance && !callBalance.isUnlimited && (callBalance.addonRemaining > 0 || callBalance.purchasedRemaining > 0 || callBalance.bonusRemaining > 0) && (
+          {callBalance && !callBalance.isUnlimited && (callBalance.addonRemaining > 0 || callBalance.bonusRemaining > 0) && (
             <p className="text-[11px] text-muted-foreground">
-              Credits used in order: Monthly{callBalance.addonRemaining > 0 ? ' → Add-On' : ''}{callBalance.bonusRemaining > 0 ? ' → Bonus' : ''}{callBalance.purchasedRemaining > 0 ? ' → Purchased' : ''}
+              Credits used in order: Monthly{callBalance.addonRemaining > 0 ? ' → Add-On' : ''}{callBalance.bonusRemaining > 0 ? ' → Bonus' : ''}
             </p>
           )}
         </div>

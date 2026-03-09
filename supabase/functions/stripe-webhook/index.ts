@@ -847,7 +847,6 @@ async function sendAddonPurchaseEmail(agencyId: string, callsPerMonth: number, p
         <li style="margin-bottom: 6px;">Monthly included credits (20/mo)</li>
         <li style="margin-bottom: 6px;">Add-on credits (${callsPerMonth}/mo)</li>
         <li style="margin-bottom: 6px;">Bonus credits (if any)</li>
-        <li style="margin-bottom: 6px;">Purchased packs (never expire)</li>
       </ol>
     </div>
 
@@ -873,7 +872,6 @@ Credit usage order:
 1. Monthly included credits (20/mo)
 2. Add-on credits (${callsPerMonth}/mo)
 3. Bonus credits (if any)
-4. Purchased packs (never expire)
 
 Go to Call Scoring: ${SITE_URL}/call-scoring
 

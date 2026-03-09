@@ -404,16 +404,14 @@ export default function BillingSettings() {
               <div>
                 <div className="font-medium">In what order are credits used?</div>
                 <p className="text-muted-foreground">
-                  Monthly allowance is used first, then add-on credits, then bonus credits, and finally
-                  purchased credits. This ensures your renewable credits are used before one-time credits.
+                  Monthly allowance is used first, then add-on credits, then bonus credits.
                 </p>
               </div>
               <div>
                 <div className="font-medium">When do credits reset?</div>
                 <p className="text-muted-foreground">
                   Monthly allowance resets with your subscription billing period. Add-on credits reset
-                  monthly on the date you purchased the add-on. Bonus credits expire on their expiration
-                  date. Purchased credit packs never expire.
+                  monthly on the date you purchased the add-on. Bonus credits expire on their expiration date.
                 </p>
               </div>
               <div>
