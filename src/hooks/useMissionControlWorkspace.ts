@@ -448,6 +448,26 @@ export function useMissionControlWorkspace({
     },
   });
 
+  const deleteSession = useMutation({
+    mutationFn: async (sessionId: string) => {
+      const { error } = await supabase
+        .from('mission_control_sessions')
+        .delete()
+        .eq('id', sessionId);
+
+      if (error) throw error;
+      return sessionId;
+    },
+    onSuccess: async () => {
+      await invalidateWorkspace();
+      toast.success('Session deleted');
+    },
+    onError: (error) => {
+      console.error('Mission Control session delete failed', error);
+      toast.error('Could not delete the session');
+    },
+  });
+
   const sessions = sessionsQuery.data ?? [];
   const commitments = commitmentsQuery.data ?? [];
   const boardItems = boardItemsQuery.data ?? [];
@@ -487,5 +507,6 @@ export function useMissionControlWorkspace({
     createBoardItem,
     createCoachNote,
     createAttachment,
+    deleteSession,
   };
 }

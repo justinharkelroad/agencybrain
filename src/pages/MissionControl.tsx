@@ -16,6 +16,7 @@ import {
   Sparkles,
   Target,
   TextSearch,
+  Trash2,
   TrendingUp,
   Trophy,
   Upload,
@@ -24,6 +25,16 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -204,6 +215,7 @@ export default function MissionControl() {
   const [dialogState, setDialogState] = useState<'session' | 'commitment' | 'board' | null>(null);
   const [coachNoteOpen, setCoachNoteOpen] = useState(false);
   const [attachmentOpen, setAttachmentOpen] = useState(false);
+  const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isAdmin && !selectedClient && clients.length > 0) {
@@ -264,6 +276,9 @@ export default function MissionControl() {
   );
 
   const latestSession = workspace.latestSession;
+  const deleteTargetSession = deleteSessionId
+    ? workspace.sessions.find((session) => session.id === deleteSessionId) ?? null
+    : null;
   const wins = jsonArrayToLines(latestSession?.wins_json);
   const issues = jsonArrayToLines(latestSession?.issues_json);
   const keyPoints = jsonArrayToLines(latestSession?.key_points_json);
@@ -440,7 +455,20 @@ export default function MissionControl() {
                       <p className="text-sm font-medium text-muted-foreground">Latest session</p>
                       <h3 className="mt-1 line-clamp-2 text-xl font-semibold">{latestSession.title}</h3>
                     </div>
-                    <Badge variant="outline">{latestSession.session_date}</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{latestSession.session_date}</Badge>
+                      {isAdmin ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="outline"
+                          onClick={() => setDeleteSessionId(latestSession.id)}
+                          aria-label="Delete latest session"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                   <p className="mt-4 line-clamp-6 text-sm leading-6 text-muted-foreground">
                     {latestSession.summary_ai || 'No summary saved yet for this session.'}
@@ -506,7 +534,21 @@ export default function MissionControl() {
                         <p className="line-clamp-2 text-sm font-medium">{session.title}</p>
                         <p className="mt-1 line-clamp-4 text-sm text-muted-foreground">{session.summary_ai || 'No summary saved yet.'}</p>
                       </div>
-                      <Badge variant="outline">{session.session_date}</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{session.session_date}</Badge>
+                        {isAdmin ? (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() => setDeleteSessionId(session.id)}
+                            aria-label={`Delete ${session.title}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                      </div>
                     </div>
                     {index < workspace.sessions.length - 1 && <Separator className="mt-4" />}
                   </div>
@@ -909,6 +951,32 @@ export default function MissionControl() {
           />
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteSessionId} onOpenChange={(open) => !open && setDeleteSessionId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete session</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTargetSession
+                ? `Delete "${deleteTargetSession.title}"? This also removes commitments, linked session attachments, and coach notes tied directly to this session.`
+                : 'Delete this session? This also removes commitments, linked session attachments, and coach notes tied directly to it.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!deleteSessionId) return;
+                await workspace.deleteSession.mutateAsync(deleteSessionId);
+                setDeleteSessionId(null);
+              }}
+            >
+              Delete session
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
