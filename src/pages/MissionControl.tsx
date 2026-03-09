@@ -1302,13 +1302,10 @@ export default function MissionControl() {
         ) : null}
         <section className="relative overflow-hidden rounded-[32px] border border-border/60 bg-[linear-gradient(145deg,rgba(250,247,240,0.96),rgba(242,236,224,0.72))] p-6 shadow-[0_24px_80px_rgba(28,24,17,0.08)] dark:bg-[linear-gradient(145deg,rgba(34,30,24,0.96),rgba(18,18,16,0.94))]">
           <div className="absolute inset-y-0 right-[-12%] w-[35%] rounded-full bg-primary/10 blur-3xl" />
-          <div className="relative space-y-6">
+          <div className="relative space-y-8">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline" className="border-foreground/15 bg-background/70 px-3 py-1 text-[11px] uppercase tracking-[0.24em]">
-                Owner Dossier
-              </Badge>
-              <Badge variant="outline" className="border-foreground/15 bg-background/70 px-3 py-1 text-xs">
-                1:1 Mission Control
+                1:1 Coaching
               </Badge>
               {isAdmin && (
                 <Badge variant="outline" className="border-primary/20 bg-primary/10 px-3 py-1 text-xs">
@@ -1349,17 +1346,15 @@ export default function MissionControl() {
               </div>
             )}
 
-            <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-              <div className="max-w-4xl space-y-3">
-                <h1 className="text-4xl font-black uppercase tracking-[0.2em] md:text-6xl">
-                  Mission Control
-                </h1>
+            <div className="space-y-5">
+              <h1 className="w-full text-[clamp(3.75rem,11vw,8.5rem)] font-black uppercase leading-[0.92] tracking-[0.18em] text-foreground">
+                Mission Control
+              </h1>
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
                 <p className="max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
                   {heroSupportText}
                 </p>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="flex flex-col gap-3 sm:flex-row">
                 {!isAdmin ? (
                   <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={openPulseEditor}>
                     Open 1:1 Meeting Pulse
@@ -1383,6 +1378,7 @@ export default function MissionControl() {
                   <Plus className="mr-2 h-4 w-4" />
                   Add Priority
                 </Button>
+                </div>
               </div>
             </div>
 
