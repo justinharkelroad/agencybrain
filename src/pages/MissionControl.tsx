@@ -62,6 +62,11 @@ import {
   buildMissionPulseDraft,
   useMissionControlBusinessPulse,
 } from '@/hooks/useMissionControlBusinessPulse';
+import {
+  type MissionControlBrainProfile,
+  type MissionControlBrainProfileKey,
+  useMissionControlBrainProfiles,
+} from '@/hooks/useMissionControlBrainProfiles';
 import { useMissionControlClients } from '@/hooks/useMissionControlClients';
 import {
   type MissionAttachment,
@@ -328,6 +333,7 @@ export default function MissionControl() {
   const [pulseAdvancedOpen, setPulseAdvancedOpen] = useState(false);
   const [clientBrainOpen, setClientBrainOpen] = useState(false);
   const [historicalImportOpen, setHistoricalImportOpen] = useState(false);
+  const [brainProfileEditor, setBrainProfileEditor] = useState<MissionControlBrainProfileKey | null>(null);
   const pulseSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -368,6 +374,7 @@ export default function MissionControl() {
   });
   const pulseUserId = isAdmin ? ownerUserId : user?.id ?? ownerUserId;
   const pulse = useMissionControlBusinessPulse(pulseUserId, Boolean(isAdmin ? ownerUserId : user?.id));
+  const brainProfiles = useMissionControlBrainProfiles(user?.id ?? null, isAdmin);
   const latestPulse = pulse.latestPeriod;
   const previousPulse = pulse.previousPeriod;
   const pulseSeed = useMemo(() => buildMissionPulseDraft(pulse.editablePeriod, latestPulse), [latestPulse, pulse.editablePeriod]);
@@ -1734,7 +1741,7 @@ export default function MissionControl() {
                   This comes next. It will answer from session memory, promises, priorities, wins, blockers, and linked evidence instead of acting like a general-purpose bot.
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {['Session memory', 'Promise history', 'Priority context', 'Linked evidence'].map((chip) => (
+                  {['Justin Voice', 'Standard Doctrine', 'Client Brain', 'Session memory', 'Promise history', 'Priority context', 'Linked evidence'].map((chip) => (
                     <Badge key={chip} variant="outline">
                       {chip}
                     </Badge>
@@ -1742,6 +1749,52 @@ export default function MissionControl() {
                 </div>
               </CardContent>
             </Card>
+
+            {isAdmin && (
+              <Card className="rounded-[28px] border-border/60 bg-background/82">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2">
+                      <Bot className="h-5 w-5 text-primary" />
+                      Brain Setup
+                    </span>
+                  </CardTitle>
+                  <CardDescription>Define the global voice and doctrine layers that should shape every answer before client-specific memory is applied.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">1. Justin Voice</p>
+                      <p className="mt-2 text-sm text-muted-foreground">How you sound, how hard you push, what you will not do, and what direct coaching sounds like.</p>
+                    </div>
+                    <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">2. Standard Doctrine</p>
+                      <p className="mt-2 text-sm text-muted-foreground">The frameworks, principles, and operating logic that make the answers feel like Standard.</p>
+                    </div>
+                    <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">3. Client Brain</p>
+                      <p className="mt-2 text-sm text-muted-foreground">The client-specific history, context, and patterns layered on top for personalization.</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 xl:grid-cols-2">
+                    <BrainProfileCard
+                      title="Justin Voice"
+                      body={brainProfiles.voiceProfile?.body ?? ''}
+                      helper="Directness, standards, accountability style, and what representing you should sound like."
+                      buttonLabel={brainProfiles.voiceProfile ? 'Edit voice' : 'Start voice'}
+                      onEdit={() => setBrainProfileEditor('justin_voice')}
+                    />
+                    <BrainProfileCard
+                      title="Standard Doctrine"
+                      body={brainProfiles.doctrineProfile?.body ?? ''}
+                      helper="Frameworks, beliefs, and the Standard operating logic the brain should answer from."
+                      buttonLabel={brainProfiles.doctrineProfile ? 'Edit doctrine' : 'Start doctrine'}
+                      onEdit={() => setBrainProfileEditor('standard_doctrine')}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {isAdmin && (
               <Card className="rounded-[28px] border-border/60 bg-background/82">
@@ -2061,6 +2114,34 @@ export default function MissionControl() {
               setHistoricalImportOpen(false);
             }}
           />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!brainProfileEditor} onOpenChange={(open) => !open && setBrainProfileEditor(null)}>
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{brainProfileEditor === 'justin_voice' ? 'Edit Justin Voice' : 'Edit Standard Doctrine'}</DialogTitle>
+            <DialogDescription>
+              {brainProfileEditor === 'justin_voice'
+                ? 'Define how the coach brain should sound when it represents you: tone, directness, pressure, empathy, and coaching boundaries.'
+                : 'Define the frameworks, principles, and decision logic that should make the brain feel like Standard.'}
+            </DialogDescription>
+          </DialogHeader>
+          {brainProfileEditor ? (
+            <BrainProfileDialog
+              profileKey={brainProfileEditor}
+              existingProfile={
+                brainProfileEditor === 'justin_voice'
+                  ? brainProfiles.voiceProfile
+                  : brainProfiles.doctrineProfile
+              }
+              isSaving={brainProfiles.saveProfile.isPending}
+              onSubmit={async (payload) => {
+                await brainProfiles.saveProfile.mutateAsync(payload);
+                setBrainProfileEditor(null);
+              }}
+            />
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -2795,6 +2876,118 @@ function ClientBrainDialog({
       >
         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
         Save client brain
+      </Button>
+    </div>
+  );
+}
+
+function BrainProfileCard({
+  title,
+  body,
+  helper,
+  buttonLabel,
+  onEdit,
+}: {
+  title: string;
+  body: string;
+  helper: string;
+  buttonLabel: string;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-medium">{title}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{helper}</p>
+        </div>
+        <Button size="sm" variant="outline" onClick={onEdit}>
+          {buttonLabel}
+        </Button>
+      </div>
+      <div className="mt-4 rounded-2xl border border-border/60 bg-background/80 p-4">
+        <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+          {body || 'No profile saved yet.'}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function BrainProfileDialog({
+  profileKey,
+  existingProfile,
+  onSubmit,
+  isSaving,
+}: {
+  profileKey: MissionControlBrainProfileKey;
+  existingProfile: MissionControlBrainProfile | null;
+  onSubmit: (payload: {
+    profile_key: MissionControlBrainProfileKey;
+    title: string;
+    body: string;
+  }) => Promise<void>;
+  isSaving: boolean;
+}) {
+  const defaultTitle = profileKey === 'justin_voice' ? 'Justin Voice' : 'Standard Doctrine';
+  const [body, setBody] = useState(existingProfile?.body ?? '');
+
+  useEffect(() => {
+    setBody(existingProfile?.body ?? '');
+  }, [existingProfile]);
+
+  const placeholder =
+    profileKey === 'justin_voice'
+      ? '- Be direct and practical.\n- Push for clarity, ownership, and deadlines.\n- Do not give soft generic encouragement without accountability.\n- Prefer decisions and execution over theory.\n- Challenge excuses, but stay useful.'
+      : '## Core principles\n## Sales philosophy\n## Leadership standards\n## Accountability rules\n## How Standard diagnoses problems\n## Preferred sequence of recommendations';
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Purpose</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {profileKey === 'justin_voice'
+              ? 'This controls how the coach brain sounds when it represents you.'
+              : 'This controls what the coach brain teaches and how it reasons from Standard.'}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Use</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {profileKey === 'justin_voice'
+              ? 'Tone, pressure, empathy, directness, coaching boundaries, and speaking style.'
+              : 'Frameworks, principles, sequencing, diagnostics, and Standard language.'}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Format</p>
+          <p className="mt-2 text-sm text-muted-foreground">Markdown-style notes work best so the future brain layer can pull clean instructions from them.</p>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor={`brain-profile-${profileKey}`}>{defaultTitle}</Label>
+        <Textarea
+          id={`brain-profile-${profileKey}`}
+          rows={16}
+          value={body}
+          onChange={(event) => setBody(event.target.value)}
+          placeholder={placeholder}
+        />
+      </div>
+      <Button
+        className="w-full"
+        disabled={isSaving || !body.trim()}
+        onClick={() =>
+          onSubmit({
+            profile_key: profileKey,
+            title: defaultTitle,
+            body: body.trim(),
+          })
+        }
+      >
+        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bot className="mr-2 h-4 w-4" />}
+        Save {defaultTitle}
       </Button>
     </div>
   );

@@ -7426,6 +7426,44 @@ export type Database = {
           },
         ]
       }
+      mission_control_brain_profiles: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          profile_key: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by: string
+          id?: string
+          profile_key: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          profile_key?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_control_brain_profiles_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mission_control_coach_notes: {
         Row: {
           agency_id: string
