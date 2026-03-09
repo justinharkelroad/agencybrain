@@ -388,7 +388,7 @@ export default function MissionControl() {
           <SummaryCard icon={CheckCircle2} label="Proof Linked" value={String(proofLinkedCount)} detail="Uploaded evidence files linked back to commitments." />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[1.15fr_1.2fr_0.9fr]">
+        <section className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[minmax(320px,0.92fr)_minmax(380px,1.08fr)_minmax(360px,0.96fr)]">
           <div className="space-y-6">
             <Card className="rounded-[28px] border-border/60 bg-background/82">
               <CardHeader>
@@ -401,14 +401,14 @@ export default function MissionControl() {
               <CardContent className="space-y-4">
                 {latestSession ? (
                 <div className="rounded-[24px] border border-border/60 bg-muted/30 p-5">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Latest session</p>
-                      <h3 className="mt-1 text-xl font-semibold">{latestSession.title}</h3>
+                      <h3 className="mt-1 line-clamp-2 text-xl font-semibold">{latestSession.title}</h3>
                     </div>
                     <Badge variant="outline">{latestSession.session_date}</Badge>
                   </div>
-                  <p className="mt-4 text-sm leading-6 text-muted-foreground">
+                  <p className="mt-4 line-clamp-6 text-sm leading-6 text-muted-foreground">
                     {latestSession.summary_ai || 'No summary saved yet for this session.'}
                   </p>
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -467,10 +467,10 @@ export default function MissionControl() {
               <CardContent className="space-y-4">
                 {workspace.sessions.length > 0 ? workspace.sessions.map((session, index) => (
                   <div key={session.id}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-medium">{session.title}</p>
-                        <p className="mt-1 text-sm text-muted-foreground">{session.summary_ai || 'No summary saved yet.'}</p>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="line-clamp-2 text-sm font-medium">{session.title}</p>
+                        <p className="mt-1 line-clamp-4 text-sm text-muted-foreground">{session.summary_ai || 'No summary saved yet.'}</p>
                       </div>
                       <Badge variant="outline">{session.session_date}</Badge>
                     </div>
@@ -598,7 +598,7 @@ export default function MissionControl() {
             </Card>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 xl:col-span-2 xl:grid xl:grid-cols-2 xl:gap-6 xl:space-y-0 2xl:col-span-1 2xl:block 2xl:space-y-6">
             <Card className="rounded-[28px] border-border/60 bg-background/82">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -679,7 +679,7 @@ export default function MissionControl() {
               </Card>
             )}
 
-            <Card className="rounded-[28px] border-border/60 bg-background/82">
+            <Card className="rounded-[28px] border-border/60 bg-background/82 xl:col-span-2 2xl:col-span-1">
               <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BriefcaseBusiness className="h-5 w-5 text-primary" />
