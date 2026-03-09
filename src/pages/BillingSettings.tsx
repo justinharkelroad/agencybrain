@@ -105,10 +105,10 @@ export default function BillingSettings() {
     );
   }
 
-  const subscriptionCallsUsed = callBalance
-    ? (callBalance.isUnlimited ? 0 : 20 - callBalance.subscriptionRemaining)
-    : 0;
   const subscriptionCallsLimit = subscription?.isActive ? 20 : subscription?.isTrialing ? 3 : 0;
+  const subscriptionCallsUsed = callBalance
+    ? (callBalance.isUnlimited ? 0 : Math.max(0, subscriptionCallsLimit - callBalance.subscriptionRemaining))
+    : 0;
   const subscriptionProgress = subscriptionCallsLimit > 0
     ? (subscriptionCallsUsed / subscriptionCallsLimit) * 100
     : 0;
@@ -276,7 +276,7 @@ export default function BillingSettings() {
                 <div className="space-y-4">
                   {/* Usage Priority Explanation */}
                   <div className="text-xs text-muted-foreground border border-border/50 rounded-lg p-3">
-                    Credits are used in this order: <span className="text-foreground font-medium">Monthly Allowance</span> → <span className="text-sky-500 font-medium">Add-On</span> → <span className="text-emerald-500 font-medium">Bonus</span> → <span className="text-green-500 font-medium">Purchased</span>
+                    Credits are used in this order: <span className="text-foreground font-medium">Monthly Allowance</span> → <span className="text-sky-500 font-medium">Add-On</span> → <span className="text-emerald-500 font-medium">Bonus</span>
                   </div>
 
                   {/* Monthly Allowance */}
