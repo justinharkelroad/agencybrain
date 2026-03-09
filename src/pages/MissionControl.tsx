@@ -1,4 +1,4 @@
-import { type ComponentType, useEffect, useMemo, useState } from 'react';
+import { type ComponentType, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Link, Navigate } from 'react-router-dom';
 import {
@@ -303,6 +303,7 @@ export default function MissionControl() {
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
   const [pulseEditorOpen, setPulseEditorOpen] = useState(false);
   const [pulseAdvancedOpen, setPulseAdvancedOpen] = useState(false);
+  const pulseSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (isAdmin && !selectedClient && clients.length > 0) {
@@ -481,6 +482,17 @@ export default function MissionControl() {
     }));
   };
 
+  const scrollToPulseSection = () => {
+    pulseSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const openPulseEditor = () => {
+    setPulseEditorOpen(true);
+    window.setTimeout(() => {
+      scrollToPulseSection();
+    }, 80);
+  };
+
   const savePulseDraft = async () => {
     try {
       await pulse.savePulse.mutateAsync(pulseDraft);
@@ -574,7 +586,7 @@ export default function MissionControl() {
     : 'Use this workspace between calls to see what is done, blocked, or still in progress.';
 
   const businessPulseSection = (
-    <section className="rounded-[32px] border border-border/60 bg-background/82 p-6 shadow-sm">
+    <section ref={pulseSectionRef} className="rounded-[32px] border border-border/60 bg-background/82 p-6 shadow-sm">
       <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
         <div className="max-w-3xl space-y-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -620,9 +632,15 @@ export default function MissionControl() {
               <>
                 <Button
                   className="bg-foreground text-background hover:bg-foreground/90"
-                  onClick={() => setPulseEditorOpen((current) => !current)}
+                  onClick={() => {
+                    if (pulseEditorOpen) {
+                      setPulseEditorOpen(false);
+                      return;
+                    }
+                    openPulseEditor();
+                  }}
                 >
-                  {pulseEditorOpen ? 'Close pulse editor' : latestPulse ? 'Edit pre-call pulse' : "Start this month's pulse"}
+                  {pulseEditorOpen ? 'Close 1:1 meeting pulse' : 'Open 1:1 meeting pulse'}
                 </Button>
                 <Button
                   variant="outline"
@@ -1320,12 +1338,8 @@ export default function MissionControl() {
 
               <div className="flex flex-col gap-3 sm:flex-row">
                 {!isAdmin ? (
-                  <Button
-                    variant="outline"
-                    className="border-foreground/15 bg-background/75"
-                    onClick={() => setPulseEditorOpen(true)}
-                  >
-                    {latestPulse ? 'Update Pulse' : 'Start Pulse'}
+                  <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={openPulseEditor}>
+                    Open 1:1 Meeting Pulse
                   </Button>
                 ) : (
                   <Button variant="outline" className="border-foreground/15 bg-background/75" disabled>
