@@ -479,6 +479,18 @@ export default function MissionControl() {
     );
   }
 
+  const heroSupportText = isAdmin
+    ? 'Before the call: review the business pulse. After the call: capture the session and review commitments.'
+    : 'Before the call: update your business pulse. After the call: review what was captured and work the commitments between calls.';
+  const stepTwoTitle = isAdmin ? 'Capture Session' : 'Coach Updates Session';
+  const stepTwoBody = isAdmin
+    ? 'Paste the transcript after the call and save the session memory.'
+    : 'After the call, your coach updates the transcript, session memory, and next steps here.';
+  const stepThreeTitle = isAdmin ? 'Review Commitments' : 'Work the Commitments';
+  const stepThreeBody = isAdmin
+    ? 'Use the next session to verify what was done, blocked, or carried forward.'
+    : 'Use this workspace between calls to see what is done, blocked, or still in progress.';
+
   const businessPulseSection = (
     <section className="rounded-[32px] border border-border/60 bg-background/82 p-6 shadow-sm">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -697,7 +709,7 @@ export default function MissionControl() {
                   Mission Control
                 </h1>
                 <p className="max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
-                  Before the call: update the business pulse. After the call: capture the session and review commitments.
+                  {heroSupportText}
                 </p>
               </div>
 
@@ -713,10 +725,12 @@ export default function MissionControl() {
                     Owner Updates Pulse
                   </Button>
                 )}
-                <Button className="bg-foreground text-background hover:bg-foreground/90" onClick={() => setDialogState('session')}>
-                  <FileText className="mr-2 h-4 w-4" />
-                  Capture Session
-                </Button>
+                {isAdmin ? (
+                  <Button className="bg-foreground text-background hover:bg-foreground/90" onClick={() => setDialogState('session')}>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Capture Session
+                  </Button>
+                ) : null}
                 <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={() => setDialogState('commitment')} disabled={!latestSession}>
                   <Target className="mr-2 h-4 w-4" />
                   Add Commitment
@@ -736,13 +750,13 @@ export default function MissionControl() {
               </div>
               <div className="rounded-[22px] border border-border/60 bg-background/70 p-4">
                 <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Step 2</p>
-                <p className="mt-2 font-medium">Capture Session</p>
-                <p className="mt-1 text-sm text-muted-foreground">Paste the transcript after the call and save the session memory.</p>
+                <p className="mt-2 font-medium">{stepTwoTitle}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{stepTwoBody}</p>
               </div>
               <div className="rounded-[22px] border border-border/60 bg-background/70 p-4">
                 <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Step 3</p>
-                <p className="mt-2 font-medium">Review Commitments</p>
-                <p className="mt-1 text-sm text-muted-foreground">Use the next session to verify what was done, blocked, or carried forward.</p>
+                <p className="mt-2 font-medium">{stepThreeTitle}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{stepThreeBody}</p>
               </div>
             </div>
           </div>
