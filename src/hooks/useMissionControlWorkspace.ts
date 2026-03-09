@@ -24,6 +24,7 @@ interface MissionWorkspaceArgs {
   enabled?: boolean;
   currentUserId?: string | null;
   includeCoachNotes?: boolean;
+  clientContext?: Partial<MissionControlWorkspaceClient> | null;
 }
 
 const workspaceKey = (ownerUserId: string | null | undefined) => ['mission-control-workspace', ownerUserId];
@@ -33,6 +34,7 @@ export function useMissionControlWorkspace({
   enabled = true,
   currentUserId = null,
   includeCoachNotes = false,
+  clientContext = null,
 }: MissionWorkspaceArgs) {
   const queryClient = useQueryClient();
   const queryEnabled = Boolean(enabled && ownerUserId);
@@ -42,6 +44,16 @@ export function useMissionControlWorkspace({
     enabled: queryEnabled,
     staleTime: 60_000,
     queryFn: async (): Promise<MissionControlWorkspaceClient> => {
+      if (clientContext?.agencyId && clientContext?.agencyName && clientContext?.ownerName && ownerUserId) {
+        return {
+          agencyId: clientContext.agencyId,
+          agencyName: clientContext.agencyName,
+          ownerUserId,
+          ownerName: clientContext.ownerName,
+          ownerEmail: clientContext.ownerEmail ?? null,
+        };
+      }
+
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('id, agency_id, full_name, email')

@@ -24,6 +24,9 @@ verify_jwt = false
 [functions.submit-support-ticket]
 verify_jwt = false
 
+[functions.support-ticket-attachment]
+verify_jwt = false
+
 [functions.invalidate-roleplay-token]
 verify_jwt = false
 
@@ -563,3 +566,6 @@ verify_jwt = false
 
 [functions.household_focus_targets]
 verify_jwt = false
+
+[functions.generate-mission-control-draft]
+verify_jwt = true

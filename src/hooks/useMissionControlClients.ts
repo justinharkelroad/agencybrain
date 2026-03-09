@@ -21,7 +21,7 @@ export function useMissionControlClients() {
     queryFn: async (): Promise<MissionControlClientOption[]> => {
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, agency_id, full_name, email, membership_tier')
+        .select('id, agency_id, full_name, email, membership_tier, role')
         .not('agency_id', 'is', null)
         .order('full_name', { ascending: true });
 

@@ -206,11 +206,34 @@ export default function MissionControl() {
   }, [clients, isAdmin, selectedClient]);
 
   const ownerUserId = isAdmin ? (selectedClient || null) : access?.ownerUserId ?? user?.id ?? null;
+  const selectedClientRecord = useMemo(
+    () => clients.find((client) => client.ownerUserId === selectedClient) ?? null,
+    [clients, selectedClient]
+  );
   const workspace = useMissionControlWorkspace({
     ownerUserId,
     enabled: Boolean(isAdmin ? selectedClient : access?.hasAccess && ownerUserId),
     currentUserId: user?.id ?? null,
     includeCoachNotes: isAdmin,
+    clientContext: isAdmin
+      ? selectedClientRecord
+        ? {
+            agencyId: selectedClientRecord.agencyId,
+            agencyName: selectedClientRecord.agencyName,
+            ownerUserId: selectedClientRecord.ownerUserId,
+            ownerName: selectedClientRecord.ownerName,
+            ownerEmail: selectedClientRecord.ownerEmail,
+          }
+        : null
+      : access?.agencyId
+        ? {
+            agencyId: access.agencyId,
+            agencyName: access.agencyName ?? 'Agency workspace',
+            ownerUserId: access.ownerUserId ?? ownerUserId ?? '',
+            ownerName: access.targetOwnerName ?? user?.email ?? 'Owner workspace',
+            ownerEmail: user?.email ?? null,
+          }
+        : null,
   });
 
   const activeClientLabel = useMemo(() => {
@@ -302,6 +325,11 @@ export default function MissionControl() {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,rgba(194,162,102,0.14),transparent_32%),linear-gradient(180deg,hsl(var(--background))_0%,hsl(var(--muted)/0.24)_100%)]">
       <main className="container mx-auto max-w-[1540px] space-y-6 px-4 py-6 md:px-6 md:py-8">
+        {workspace.error ? (
+          <div className="rounded-3xl border border-destructive/30 bg-destructive/10 px-5 py-4 text-sm text-destructive">
+            Mission Control could not load this workspace cleanly. {workspace.error.message || 'A database permission or data-linking issue occurred.'}
+          </div>
+        ) : null}
         <section className="relative overflow-hidden rounded-[32px] border border-border/60 bg-[linear-gradient(145deg,rgba(250,247,240,0.96),rgba(242,236,224,0.72))] p-6 shadow-[0_24px_80px_rgba(28,24,17,0.08)] dark:bg-[linear-gradient(145deg,rgba(34,30,24,0.96),rgba(18,18,16,0.94))]">
           <div className="absolute inset-y-0 right-[-12%] w-[35%] rounded-full bg-primary/10 blur-3xl" />
           <div className="relative space-y-6">
