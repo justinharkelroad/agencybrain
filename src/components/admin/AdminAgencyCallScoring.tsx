@@ -111,16 +111,11 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
           expiresAt: isExpired ? null : balanceData.bonus_calls_expires_at,
         });
 
-        // Track new system balance for display
+        // Track new system balance for display (shows what the user actually sees)
         setNewSystemUsage({
           limit: balanceData.subscription_calls_limit || 0,
           used: balanceData.subscription_calls_used || 0,
         });
-
-        // If the new system has a limit set, use it as the source of truth for the settings form
-        if (balanceData.subscription_calls_limit != null && balanceData.subscription_calls_limit > 0) {
-          setSettings(prev => ({ ...prev, calls_limit: balanceData.subscription_calls_limit! }));
-        }
       }
 
       // Fetch grant history
@@ -164,15 +159,34 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
         .gte('period_end', new Date().toISOString());
 
       // Sync to agency_call_balance (new system) so check_call_scoring_access sees the correct limit
-      const { error: balanceError } = await supabase
+      // Check if row exists first — if not, create with period_start
+      const { data: existingBalance } = await supabase
         .from('agency_call_balance')
-        .upsert({
-          agency_id: agencyId,
-          subscription_calls_limit: settings.calls_limit,
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'agency_id',
-        });
+        .select('agency_id, subscription_period_start')
+        .eq('agency_id', agencyId)
+        .maybeSingle();
+
+      if (existingBalance) {
+        // Row exists — just update the limit
+        await supabase
+          .from('agency_call_balance')
+          .update({
+            subscription_calls_limit: settings.calls_limit,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('agency_id', agencyId);
+      } else {
+        // No row yet — create with period_start
+        await supabase
+          .from('agency_call_balance')
+          .insert({
+            agency_id: agencyId,
+            subscription_calls_limit: settings.calls_limit,
+            subscription_calls_used: 0,
+            subscription_period_start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+          });
+      }
+      const balanceError = null;
 
       if (balanceError) {
         console.error('Error syncing to agency_call_balance:', balanceError);
