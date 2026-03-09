@@ -264,8 +264,23 @@ const toggleFolder = useCallback((folderId: string) => {
         return;
       }
 
-      // For non-admins, check if their agency has it enabled
+      // For non-admins, check if their agency has call scoring access
       if (profile?.agency_id) {
+        // Check new subscription system first — any active/trialing subscription gets call scoring
+        const { data: agency } = await supabase
+          .from('agencies')
+          .select('subscription_status')
+          .eq('id', profile.agency_id)
+          .single();
+
+        const hasSubscription = agency?.subscription_status && ['active', 'trialing', '1on1_client'].includes(agency.subscription_status);
+
+        if (hasSubscription) {
+          setCallScoringEnabled(true);
+          return;
+        }
+
+        // Fallback: check legacy agency_call_scoring_settings
         const { data: settings, error: settingsError } = await supabase
           .from('agency_call_scoring_settings')
           .select('enabled')
