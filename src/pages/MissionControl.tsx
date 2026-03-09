@@ -772,7 +772,13 @@ export default function MissionControl() {
       )}
 
       <Dialog open={dialogState !== null} onOpenChange={(open) => !open && setDialogState(null)}>
-        <DialogContent>
+        <DialogContent
+          className={
+            dialogState === 'session'
+              ? 'max-h-[90vh] max-w-4xl overflow-y-auto'
+              : 'max-h-[85vh] max-w-2xl overflow-y-auto'
+          }
+        >
           <DialogHeader>
             <DialogTitle>
               {dialogState === 'session'
@@ -782,7 +788,9 @@ export default function MissionControl() {
                 : 'Add board item'}
             </DialogTitle>
             <DialogDescription>
-              Capture the next piece of relationship memory and keep the workspace moving.
+              {dialogState === 'session'
+                ? 'Paste the transcript, save the session memory, and then link proof or transcript files back to it.'
+                : 'Capture the next piece of relationship memory and keep the workspace moving.'}
             </DialogDescription>
           </DialogHeader>
           {dialogState === 'session' && (
@@ -818,7 +826,7 @@ export default function MissionControl() {
       </Dialog>
 
       <Dialog open={coachNoteOpen} onOpenChange={setCoachNoteOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add coach note</DialogTitle>
             <DialogDescription>Private prep, feedback, or pattern tracking for your own use.</DialogDescription>
@@ -835,7 +843,7 @@ export default function MissionControl() {
       </Dialog>
 
       <Dialog open={attachmentOpen} onOpenChange={setAttachmentOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Link upload</DialogTitle>
             <DialogDescription>Attach an existing uploaded file to the specific session, commitment, or board item it supports.</DialogDescription>
@@ -913,6 +921,10 @@ function SessionDialog({
 
   return (
     <div className="space-y-4">
+      <div className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
+        The transcript you paste here is stored with the session. The summary field is manual right now. Auto-summary
+        from transcript has not been wired yet.
+      </div>
       <div className="space-y-2">
         <Label htmlFor="mission-session-title">Session title</Label>
         <Input id="mission-session-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="March strategy call" />
@@ -928,12 +940,30 @@ function SessionDialog({
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="mission-session-summary">Summary</Label>
-        <Textarea id="mission-session-summary" rows={4} value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="Summarize what actually mattered on the call..." />
+        <Label htmlFor="mission-session-summary">Summary (manual for now)</Label>
+        <p className="text-xs text-muted-foreground">
+          Optional. Leave this blank if you only want to save the transcript first.
+        </p>
+        <Textarea
+          id="mission-session-summary"
+          rows={4}
+          value={summary}
+          onChange={(event) => setSummary(event.target.value)}
+          placeholder="Summarize what actually mattered on the call..."
+        />
       </div>
       <div className="space-y-2">
         <Label htmlFor="mission-session-transcript">Transcript</Label>
-        <Textarea id="mission-session-transcript" rows={5} value={transcript} onChange={(event) => setTranscript(event.target.value)} placeholder="Paste the transcript or cleaned notes here..." />
+        <p className="text-xs text-muted-foreground">
+          Paste the raw transcript or cleaned call notes here. This is the source memory for the session.
+        </p>
+        <Textarea
+          id="mission-session-transcript"
+          rows={8}
+          value={transcript}
+          onChange={(event) => setTranscript(event.target.value)}
+          placeholder="Paste the transcript or cleaned notes here..."
+        />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
