@@ -326,6 +326,8 @@ export default function MissionControl() {
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
   const [pulseEditorOpen, setPulseEditorOpen] = useState(false);
   const [pulseAdvancedOpen, setPulseAdvancedOpen] = useState(false);
+  const [clientBrainOpen, setClientBrainOpen] = useState(false);
+  const [historicalImportOpen, setHistoricalImportOpen] = useState(false);
   const pulseSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -561,6 +563,20 @@ export default function MissionControl() {
 
     return next;
   }, [linkedAttachments]);
+  const clientBrainNote = useMemo(
+    () =>
+      workspace.coachNotes.find(
+        (note) => note.session_id === null && note.title.trim().toLowerCase() === 'client brain'
+      ) ?? null,
+    [workspace.coachNotes]
+  );
+  const privateCoachNotes = useMemo(
+    () =>
+      workspace.coachNotes.filter((note) =>
+        clientBrainNote ? note.id !== clientBrainNote.id : true
+      ),
+    [clientBrainNote, workspace.coachNotes]
+  );
 
   const attachmentTargetLabel = (attachment: LinkedMissionAttachment) => {
     if (attachment.session_id) {
@@ -1732,6 +1748,57 @@ export default function MissionControl() {
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-primary" />
+                      Client Brain
+                    </span>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setHistoricalImportOpen(true)}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Import
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setClientBrainOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        {clientBrainNote ? 'Edit' : 'Start'}
+                      </Button>
+                    </div>
+                  </CardTitle>
+                  <CardDescription>Coach-only long-form context, strategy history, and client-specific notes that should feed future memory.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
+                      <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Best for</p>
+                      <p className="mt-2 text-sm text-muted-foreground">Markdown strategy notes, recurring patterns, key client context, and decisions that should not get lost.</p>
+                    </div>
+                    <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
+                      <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Historical import</p>
+                      <p className="mt-2 text-sm text-muted-foreground">Paste old transcripts or notes and backfill them into the memory system without creating fake open promises.</p>
+                    </div>
+                  </div>
+                  {clientBrainNote ? (
+                    <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">Coach only</Badge>
+                        <Badge variant="outline">Updated {formatDateLabel(clientBrainNote.updated_at, { month: 'short', day: 'numeric', year: 'numeric' })}</Badge>
+                      </div>
+                      <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
+                        {clientBrainNote.note_body}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-[24px] border border-dashed border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+                      No client brain saved yet. Start with a markdown-style strategy note, then import old transcripts or notes to seed the history.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {isAdmin && (
+              <Card className="rounded-[28px] border-border/60 bg-background/82">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2">
                       <MessageSquare className="h-5 w-5 text-primary" />
                       Private Coach Notes
                     </span>
@@ -1743,7 +1810,7 @@ export default function MissionControl() {
                   <CardDescription>Private observations and prep notes that only the coach should see.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {workspace.coachNotes.length > 0 ? workspace.coachNotes.map((note) => (
+                  {privateCoachNotes.length > 0 ? privateCoachNotes.map((note) => (
                     <div key={note.id} className="rounded-2xl border border-border/60 bg-muted/20 p-4">
                       <p className="font-medium">{note.title}</p>
                       <p className="mt-2 text-sm text-muted-foreground">{note.note_body}</p>
@@ -1922,6 +1989,76 @@ export default function MissionControl() {
             onSubmit={async (payload) => {
               await workspace.createCoachNote.mutateAsync(payload);
               setCoachNoteOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={clientBrainOpen} onOpenChange={setClientBrainOpen}>
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{clientBrainNote ? 'Edit client brain' : 'Start client brain'}</DialogTitle>
+            <DialogDescription>
+              Keep one durable markdown-style context note for this client so strategies, recurring patterns, and historical context do not get lost.
+            </DialogDescription>
+          </DialogHeader>
+          <ClientBrainDialog
+            existingNote={clientBrainNote}
+            isSaving={workspace.createCoachNote.isPending || workspace.updateCoachNote.isPending}
+            onSubmit={async (payload) => {
+              if (clientBrainNote) {
+                await workspace.updateCoachNote.mutateAsync({
+                  id: clientBrainNote.id,
+                  updates: {
+                    note_body: payload.note_body,
+                    title: payload.title,
+                  },
+                });
+              } else {
+                await workspace.createCoachNote.mutateAsync(payload);
+              }
+              setClientBrainOpen(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={historicalImportOpen} onOpenChange={setHistoricalImportOpen}>
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import historical memory</DialogTitle>
+            <DialogDescription>
+              Paste old transcripts, strategy notes, or context and decide whether they should become a dated session in memory or be added to the coach-only client brain.
+            </DialogDescription>
+          </DialogHeader>
+          <HistoricalMemoryImportDialog
+            existingBrain={clientBrainNote}
+            isSaving={
+              workspace.createSession.isPending ||
+              workspace.createCoachNote.isPending ||
+              workspace.updateCoachNote.isPending
+            }
+            onImportAsSession={async (payload) => {
+              await workspace.createSession.mutateAsync(payload);
+              setHistoricalImportOpen(false);
+            }}
+            onImportToBrain={async (payload) => {
+              if (clientBrainNote) {
+                await workspace.updateCoachNote.mutateAsync({
+                  id: clientBrainNote.id,
+                  updates: {
+                    note_body: payload.note_body,
+                    title: 'Client Brain',
+                  },
+                });
+              } else {
+                await workspace.createCoachNote.mutateAsync({
+                  title: 'Client Brain',
+                  note_body: payload.note_body,
+                  session_id: null,
+                });
+              }
+              setHistoricalImportOpen(false);
             }}
           />
         </DialogContent>
@@ -2598,6 +2735,303 @@ function BoardItemDialog({
         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
         Save priority
       </Button>
+    </div>
+  );
+}
+
+function ClientBrainDialog({
+  existingNote,
+  onSubmit,
+  isSaving,
+}: {
+  existingNote: MissionCoachNote | null;
+  onSubmit: (payload: { title: string; note_body: string; session_id?: string | null }) => Promise<void>;
+  isSaving: boolean;
+}) {
+  const [noteBody, setNoteBody] = useState(existingNote?.note_body ?? '');
+
+  useEffect(() => {
+    setNoteBody(existingNote?.note_body ?? '');
+  }, [existingNote]);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Best format</p>
+          <p className="mt-2 text-sm text-muted-foreground">Use markdown-style notes for strategy, recurring blockers, team context, and what has already been tried.</p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Keep here</p>
+          <p className="mt-2 text-sm text-muted-foreground">Business model, key people, recurring patterns, red flags, and client-specific language the coach brain should remember.</p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Coach only</p>
+          <p className="mt-2 text-sm text-muted-foreground">This note never appears in the owner view. It is private operating context for coaching.</p>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="mission-client-brain">Client brain</Label>
+        <Textarea
+          id="mission-client-brain"
+          rows={16}
+          value={noteBody}
+          onChange={(event) => setNoteBody(event.target.value)}
+          placeholder={'## Business model\n## Team context\n## Recurring blockers\n## Strategy already recommended\n## What to avoid repeating\n## What success looks like'}
+        />
+      </div>
+
+      <Button
+        className="w-full"
+        disabled={isSaving || !noteBody.trim()}
+        onClick={() =>
+          onSubmit({
+            title: 'Client Brain',
+            note_body: noteBody.trim(),
+            session_id: null,
+          })
+        }
+      >
+        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+        Save client brain
+      </Button>
+    </div>
+  );
+}
+
+function HistoricalMemoryImportDialog({
+  existingBrain,
+  onImportAsSession,
+  onImportToBrain,
+  isSaving,
+}: {
+  existingBrain: MissionCoachNote | null;
+  onImportAsSession: (payload: {
+    title: string;
+    session_date: string;
+    next_call_date?: string | null;
+    summary_ai?: string | null;
+    transcript_text?: string | null;
+    key_points_json?: string[];
+    wins_json?: string[];
+    issues_json?: string[];
+    top_commitments_json?: string[];
+    auto_create_commitments?: boolean;
+  }) => Promise<void>;
+  onImportToBrain: (payload: { note_body: string }) => Promise<void>;
+  isSaving: boolean;
+}) {
+  const [sourceType, setSourceType] = useState<'transcript' | 'strategy_note' | 'client_history' | 'email_thread'>('transcript');
+  const [title, setTitle] = useState('');
+  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
+  const [rawText, setRawText] = useState('');
+  const [summary, setSummary] = useState('');
+  const [keyPoints, setKeyPoints] = useState('');
+  const [wins, setWins] = useState('');
+  const [issues, setIssues] = useState('');
+  const [topThree, setTopThree] = useState('');
+  const [autoCreatePromises, setAutoCreatePromises] = useState(false);
+  const canGenerateDraft = rawText.trim().length > 80;
+
+  const draftMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('generate-mission-control-draft', {
+        body: {
+          transcript: rawText.trim(),
+          session_date: entryDate,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to generate import draft');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      return data as {
+        suggested_title: string;
+        summary: string;
+        key_points: string[];
+        wins: string[];
+        issues: string[];
+        top_commitments: string[];
+      };
+    },
+    onSuccess: (draft) => {
+      setTitle((current) => current || `${formatDateLabel(entryDate)} ${draft.suggested_title}`);
+      setSummary(draft.summary || '');
+      setKeyPoints(draft.key_points.join('\n'));
+      setWins(draft.wins.join('\n'));
+      setIssues(draft.issues.join('\n'));
+      setTopThree(draft.top_commitments.join('\n'));
+      toast.success('Historical draft ready', {
+        description: 'The imported memory was summarized and structured.',
+      });
+    },
+    onError: (error) => {
+      toast.error('Could not draft historical memory', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    },
+  });
+
+  const appendToBrain = async () => {
+    const sourceLabel = sourceType.replace('_', ' ');
+    const header = `## ${title.trim() || 'Imported historical memory'}\n- Date: ${formatDateLabel(entryDate)}\n- Source: ${sourceLabel}\n`;
+    const blocks = [
+      summary.trim() ? `### Summary\n${summary.trim()}` : '',
+      keyPoints.trim() ? `### Key points\n${keyPoints.trim().split('\n').filter(Boolean).map((line) => `- ${line.trim()}`).join('\n')}` : '',
+      rawText.trim() ? `### Raw source\n${rawText.trim()}` : '',
+    ].filter(Boolean);
+    const mergedBody = [existingBrain?.note_body?.trim() ?? '', `${header}\n${blocks.join('\n\n')}`].filter(Boolean).join('\n\n---\n\n');
+    await onImportToBrain({ note_body: mergedBody });
+  };
+
+  const importAsSession = async () => {
+    if (!summary.trim() && canGenerateDraft) {
+      const draft = await draftMutation.mutateAsync();
+      await onImportAsSession({
+        title: title.trim() || `${formatDateLabel(entryDate)} ${draft.suggested_title}`,
+        session_date: entryDate,
+        summary_ai: draft.summary || null,
+        transcript_text: rawText.trim() || null,
+        key_points_json: draft.key_points,
+        wins_json: draft.wins,
+        issues_json: draft.issues,
+        top_commitments_json: draft.top_commitments,
+        auto_create_commitments: autoCreatePromises,
+      });
+      return;
+    }
+
+    await onImportAsSession({
+      title: title.trim() || `${formatDateLabel(entryDate)} Historical Session`,
+      session_date: entryDate,
+      summary_ai: summary.trim() || null,
+      transcript_text: rawText.trim() || null,
+      key_points_json: uniqueLines(keyPoints),
+      wins_json: uniqueLines(wins),
+      issues_json: uniqueLines(issues),
+      top_commitments_json: uniqueLines(topThree),
+      auto_create_commitments: autoCreatePromises,
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Use for</p>
+          <p className="mt-2 text-sm text-muted-foreground">Old transcripts, strategy notes, email threads, and context you want the system to remember.</p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Import as session</p>
+          <p className="mt-2 text-sm text-muted-foreground">Best for past calls that should show up in the timeline and memory history.</p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Append to client brain</p>
+          <p className="mt-2 text-sm text-muted-foreground">Best for strategy context, patterns, and long-form coach-only guidance in markdown format.</p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Default safety</p>
+          <p className="mt-2 text-sm text-muted-foreground">Historical imports do not create active promises unless you explicitly turn that on.</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="space-y-2">
+          <Label>Source type</Label>
+          <Select value={sourceType} onValueChange={(value) => setSourceType(value as typeof sourceType)}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="transcript">Transcript</SelectItem>
+              <SelectItem value="strategy_note">Strategy note</SelectItem>
+              <SelectItem value="client_history">Client history</SelectItem>
+              <SelectItem value="email_thread">Email thread</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2 md:col-span-2">
+          <Label htmlFor="historical-memory-title">Memory title</Label>
+          <Input
+            id="historical-memory-title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            placeholder="Q4 sales turnaround call"
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="space-y-2">
+          <Label htmlFor="historical-memory-date">Original date</Label>
+          <Input id="historical-memory-date" type="date" value={entryDate} onChange={(event) => setEntryDate(event.target.value)} />
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <Label htmlFor="historical-memory-raw">Paste transcript, markdown, or notes</Label>
+              <p className="text-xs text-muted-foreground">Markdown is best for long-form strategy context. Raw text is fine for transcript imports.</p>
+            </div>
+            <Button type="button" variant="outline" onClick={() => draftMutation.mutate()} disabled={!canGenerateDraft || draftMutation.isPending}>
+              {draftMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              {draftMutation.isPending ? 'Drafting...' : 'Generate draft'}
+            </Button>
+          </div>
+          <Textarea
+            id="historical-memory-raw"
+            rows={10}
+            value={rawText}
+            onChange={(event) => setRawText(event.target.value)}
+            placeholder="Paste an old transcript, cleaned notes, or markdown context here..."
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="historical-memory-summary">Summary</Label>
+          <Textarea id="historical-memory-summary" rows={4} value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="Short summary of what this historical memory contains..." />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="historical-memory-top-three">Promise candidates</Label>
+          <Textarea id="historical-memory-top-three" rows={4} value={topThree} onChange={(event) => setTopThree(event.target.value)} placeholder="One promise per line if this import should also seed old promises..." />
+          <Button type="button" variant={autoCreatePromises ? 'default' : 'outline'} size="sm" onClick={() => setAutoCreatePromises((current) => !current)}>
+            {autoCreatePromises ? 'Will create active promises' : 'Keep as memory only'}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <div className="space-y-2">
+          <Label htmlFor="historical-memory-key-points">Key points</Label>
+          <Textarea id="historical-memory-key-points" rows={4} value={keyPoints} onChange={(event) => setKeyPoints(event.target.value)} placeholder="One key point per line" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="historical-memory-wins">Wins</Label>
+          <Textarea id="historical-memory-wins" rows={4} value={wins} onChange={(event) => setWins(event.target.value)} placeholder="One win per line" />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="historical-memory-issues">Issues</Label>
+          <Textarea id="historical-memory-issues" rows={4} value={issues} onChange={(event) => setIssues(event.target.value)} placeholder="One issue per line" />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <Button className="sm:flex-1" disabled={isSaving || !rawText.trim()} onClick={importAsSession}>
+          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarDays className="mr-2 h-4 w-4" />}
+          Import as historical session
+        </Button>
+        <Button variant="outline" className="sm:flex-1" disabled={isSaving || !rawText.trim()} onClick={appendToBrain}>
+          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+          Add to client brain
+        </Button>
+      </div>
     </div>
   );
 }

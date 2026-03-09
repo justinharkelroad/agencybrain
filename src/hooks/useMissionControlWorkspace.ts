@@ -418,6 +418,34 @@ export function useMissionControlWorkspace({
     },
   });
 
+  const updateCoachNote = useMutation({
+    mutationFn: async ({
+      id,
+      updates,
+    }: {
+      id: string;
+      updates: TablesUpdate<'mission_control_coach_notes'>;
+    }) => {
+      const { data, error } = await supabase
+        .from('mission_control_coach_notes')
+        .update(updates)
+        .eq('id', id)
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      return data as MissionCoachNote;
+    },
+    onSuccess: async () => {
+      await invalidateWorkspace();
+      toast.success('Coach note updated');
+    },
+    onError: (error) => {
+      console.error('Mission Control coach note update failed', error);
+      toast.error('Could not update the coach note');
+    },
+  });
+
   const createAttachment = useMutation({
     mutationFn: async (
       payload: Omit<TablesInsert<'mission_control_attachments'>, 'agency_id' | 'owner_user_id' | 'created_by'>
@@ -506,6 +534,7 @@ export function useMissionControlWorkspace({
     updateCommitment,
     createBoardItem,
     createCoachNote,
+    updateCoachNote,
     createAttachment,
     deleteSession,
   };
