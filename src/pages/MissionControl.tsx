@@ -1405,11 +1405,11 @@ export default function MissionControl() {
         {businessPulseSection}
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <SummaryCard icon={ClipboardList} label="Open Commitments" value={String(openCommitments.length)} detail="Commitments still waiting on action or proof." />
-          <SummaryCard icon={CalendarDays} label="Last Call" value={latestSession ? latestSession.session_date : 'None'} detail="Latest coaching session preserved in the timeline." />
+          <SummaryCard icon={ClipboardList} label="Promises Still Open" value={String(openCommitments.length)} detail="Items still waiting on action, proof, or review." />
+          <SummaryCard icon={CalendarDays} label="Last Session" value={latestSession ? latestSession.session_date : 'None'} detail="Most recent coaching session preserved in the timeline." />
           <SummaryCard icon={Rocket} label="Active Priorities" value={String(workspace.boardItems.length)} detail="Bigger initiatives tracked between calls." />
           <SummaryCard icon={Trophy} label="Wins Logged" value={String(wins.length)} detail="Highlights preserved from the latest session." />
-          <SummaryCard icon={CheckCircle2} label="Proof Linked" value={String(proofLinkedCount)} detail="Uploaded evidence files linked back to commitments." />
+          <SummaryCard icon={CheckCircle2} label="Proof Linked" value={String(proofLinkedCount)} detail="Evidence files linked back to commitments." />
         </section>
 
         <section className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[minmax(320px,0.92fr)_minmax(380px,1.08fr)_minmax(360px,0.96fr)]">
@@ -1418,16 +1418,16 @@ export default function MissionControl() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-primary" />
-                  Session Memory
+                  Last Session Memory
                 </CardTitle>
-                <CardDescription>The latest conversation, the transcript memory, and the owner's real commitments.</CardDescription>
+                <CardDescription>What happened on the most recent call, what mattered, and what now feeds accountability.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {latestSession ? (
                 <div className="rounded-[24px] border border-border/60 bg-muted/30 p-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">Latest session</p>
+                      <p className="text-sm font-medium text-muted-foreground">Most recent coaching session</p>
                       <h3 className="mt-1 line-clamp-2 text-xl font-semibold">{latestSession.title}</h3>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1475,7 +1475,7 @@ export default function MissionControl() {
                       </ul>
                     </div>
                     <div className="rounded-2xl border border-border/60 bg-background/75 p-4">
-                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Top 3</p>
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Top 3 promises from the call</p>
                       <ul className="mt-2 space-y-1 text-sm">
                         {(topCommitments.length > 0 ? topCommitments : ['No top commitments logged yet.']).map((point) => (
                           <li key={point}>{point}</li>
@@ -1499,7 +1499,7 @@ export default function MissionControl() {
             <Card className="rounded-[28px] border-border/60 bg-background/82">
               <CardHeader>
                 <CardTitle>Session Timeline</CardTitle>
-                <CardDescription>Past calls stay visible so the relationship memory does not drift month to month.</CardDescription>
+                <CardDescription>Past calls stay visible so you can compare what was said then to what was reviewed later.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {workspace.sessions.length > 0 ? workspace.sessions.map((session, index) => (
@@ -1541,12 +1541,24 @@ export default function MissionControl() {
                   <span>Commitment Tracker</span>
                   <Button size="sm" variant="outline" onClick={() => setDialogState('commitment')}>
                     <Plus className="mr-2 h-4 w-4" />
-                    Add
+                    Add Promise
                   </Button>
                 </CardTitle>
-                <CardDescription>The scoreboard for what the owner said would be done before the next call.</CardDescription>
+                <CardDescription>What the owner said would get done, and what the next call verified actually happened.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Step A</p>
+                    <p className="mt-2 font-medium">Promise gets captured</p>
+                    <p className="mt-1 text-sm text-muted-foreground">This is created from a session or added manually if it needs to be tracked.</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Step B</p>
+                    <p className="mt-2 font-medium">Next call verifies it</p>
+                    <p className="mt-1 text-sm text-muted-foreground">At the next session, you mark it done, blocked, carried forward, or still moving.</p>
+                  </div>
+                </div>
                 {workspace.commitments.length > 0 ? workspace.commitments.map((commitment) => {
                   const linkedProofs = commitmentAttachmentMap.get(commitment.id) ?? [];
                   const sourceSession = workspace.sessions.find((session) => session.id === commitment.session_id);
@@ -1560,10 +1572,6 @@ export default function MissionControl() {
                       <div>
                         <h3 className="font-medium">{commitment.title}</h3>
                         <p className="mt-1 text-sm text-muted-foreground">{commitment.description || 'No supporting note added.'}</p>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {sourceSession ? <Badge variant="outline">From {sourceSession.title}</Badge> : null}
-                          {reviewedSession ? <Badge variant="outline">Reviewed in {reviewedSession.title}</Badge> : null}
-                        </div>
                       </div>
                       <Select
                         value={commitment.status}
@@ -1581,13 +1589,23 @@ export default function MissionControl() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div className="mt-4 grid gap-3 xl:grid-cols-2">
                       <div className="rounded-2xl border border-border/60 bg-background/75 p-3 text-sm">
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Due</p>
-                        <p className="mt-2">{commitment.due_date || 'No due date set'}</p>
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Last call said</p>
+                        <p className="mt-2">{sourceSession ? `${sourceSession.title}${commitment.due_date ? ` • due ${formatDateLabel(commitment.due_date)}` : ''}` : 'No source session linked'}</p>
                       </div>
                       <div className="rounded-2xl border border-border/60 bg-background/75 p-3 text-sm">
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Proof</p>
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">This call verified</p>
+                        <p className="mt-2">{reviewedSession ? `${reviewedSession.title} • ${COMMITMENT_STATUS_OPTIONS.find((option) => option.value === commitment.status)?.label ?? commitment.status}` : 'Not reviewed on a later session yet'}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <div className="rounded-2xl border border-border/60 bg-background/75 p-3 text-sm">
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Current status</p>
+                        <p className="mt-2">{COMMITMENT_STATUS_OPTIONS.find((option) => option.value === commitment.status)?.label ?? commitment.status}</p>
+                      </div>
+                      <div className="rounded-2xl border border-border/60 bg-background/75 p-3 text-sm">
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Proof or notes</p>
                         <p className="mt-2">{commitment.proof_notes || 'No proof linked yet'}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {linkedProofs.length > 0 ? (
@@ -1607,9 +1625,9 @@ export default function MissionControl() {
                 }) : (
                   <EmptyState
                     icon={Target}
-                    title="No commitments in motion"
-                    body="Add the top promises from the call so accountability starts here, not in memory."
-                    actionLabel="Add commitment"
+                    title="No promises in motion"
+                    body="Capture what the owner said would get done so the next call can verify what actually happened."
+                    actionLabel="Add promise"
                     onAction={() => setDialogState('commitment')}
                   />
                 )}
@@ -1625,7 +1643,7 @@ export default function MissionControl() {
                     Add Priority
                   </Button>
                 </CardTitle>
-                <CardDescription>Bigger initiatives that need to stay visible between calls, not just one-call commitments.</CardDescription>
+                <CardDescription>Bigger initiatives that stay visible between calls, separate from the one-call promises above.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
@@ -1846,15 +1864,17 @@ export default function MissionControl() {
           <DialogHeader>
             <DialogTitle>
               {dialogState === 'session'
-                ? 'New session'
+                ? 'Capture coach session'
                 : dialogState === 'commitment'
-                  ? 'Add commitment'
+                  ? 'Add promise'
                 : 'Add priority'}
             </DialogTitle>
             <DialogDescription>
               {dialogState === 'session'
-                ? 'Paste the transcript, save the session memory, and then link proof or transcript files back to it.'
-                : 'Track a bigger initiative that stays in motion between calls.'}
+                ? 'Paste the transcript, draft the session memory, review prior promises, and save the new accountability record.'
+                : dialogState === 'commitment'
+                  ? 'Capture one clear promise that should be reviewed on the next call.'
+                  : 'Track a bigger initiative that stays in motion between calls.'}
             </DialogDescription>
           </DialogHeader>
           {dialogState === 'session' && (
@@ -2170,8 +2190,27 @@ function SessionDialog({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
-        Paste the transcript first, then generate an AI draft for the summary, key points, wins, issues, and top 3.
+      <div className="grid gap-3 md:grid-cols-4">
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 1</p>
+          <p className="mt-2 font-medium">Paste transcript</p>
+          <p className="mt-1 text-sm text-muted-foreground">Drop in the raw call transcript or cleaned notes from the session.</p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 2</p>
+          <p className="mt-2 font-medium">Draft the session</p>
+          <p className="mt-1 text-sm text-muted-foreground">Use AI to draft the summary, wins, issues, and top 3 promises.</p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 3</p>
+          <p className="mt-2 font-medium">Review last call</p>
+          <p className="mt-1 text-sm text-muted-foreground">Mark prior promises done, blocked, carried forward, or still moving.</p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 4</p>
+          <p className="mt-2 font-medium">Save session</p>
+          <p className="mt-1 text-sm text-muted-foreground">This stores the call memory and updates accountability for the next call.</p>
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="mission-session-title">Session title</Label>
@@ -2205,7 +2244,7 @@ function SessionDialog({
           <div>
             <Label htmlFor="mission-session-transcript">Transcript</Label>
             <p className="text-xs text-muted-foreground">
-              Paste the raw transcript or cleaned call notes here. This is the source memory for the session.
+              Paste the raw transcript or cleaned call notes here. This becomes the source memory for the session.
             </p>
           </div>
           <Button type="button" variant="outline" onClick={handleGenerateFromTranscript} disabled={!canGenerateFromTranscript}>
@@ -2224,8 +2263,8 @@ function SessionDialog({
       <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium">Session draft preview</p>
-            <p className="text-xs text-muted-foreground">This is what will feed the Mission Control workspace after save.</p>
+            <p className="text-sm font-medium">What this session will create</p>
+            <p className="text-xs text-muted-foreground">This is the memory and promise handoff that will land in Mission Control after save.</p>
           </div>
           <Badge variant="outline">
             {draftMutation.isPending ? 'Generating draft' : canGenerateFromTranscript ? 'Transcript ready' : 'Paste transcript first'}
@@ -2239,13 +2278,13 @@ function SessionDialog({
             </p>
           </div>
           <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
-            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Top 3 preview</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Top 3 promises</p>
             <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
               {linesToJson(topThree).slice(0, 3).map((item) => (
                 <li key={item}>{item}</li>
               ))}
               {!linesToJson(topThree).length && (
-                <li>No commitments drafted yet.</li>
+                <li>No promises drafted yet.</li>
               )}
             </ul>
           </div>
@@ -2254,9 +2293,9 @@ function SessionDialog({
       <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-sm font-medium">Top 3 commitment handoff</p>
+            <p className="text-sm font-medium">Turn the top 3 into tracked promises</p>
             <p className="text-xs text-muted-foreground">
-              Save this session and turn the drafted top 3 into tracked accountability items automatically.
+              Save this session and turn the drafted top 3 into tracked promises automatically.
             </p>
           </div>
           <Button
@@ -2269,7 +2308,7 @@ function SessionDialog({
           </Button>
         </div>
         <div className="mt-4 rounded-2xl border border-border/60 bg-background/80 p-3">
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Will create</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Will create on save</p>
           <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
             {draftedCommitments.length > 0 ? draftedCommitments.slice(0, 3).map((item) => (
               <li key={item} className="flex items-start gap-2">
@@ -2277,11 +2316,11 @@ function SessionDialog({
                 <span>{item}</span>
               </li>
             )) : (
-              <li>No draft commitments yet.</li>
+              <li>No draft promises yet.</li>
             )}
           </ul>
           {autoCreateCommitments && nextCallDate ? (
-            <p className="mt-3 text-xs text-muted-foreground">New commitments will be due by {formatDateLabel(nextCallDate)}.</p>
+            <p className="mt-3 text-xs text-muted-foreground">New promises will be due by {formatDateLabel(nextCallDate)}.</p>
           ) : null}
         </div>
       </div>
@@ -2289,9 +2328,9 @@ function SessionDialog({
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm font-medium">Review last call commitments</p>
+              <p className="text-sm font-medium">Review what last call promised</p>
               <p className="text-xs text-muted-foreground">
-                Close the loop on what was promised before this session so the new memory starts clean.
+                Close the loop on the prior promises before saving this new session.
               </p>
             </div>
             <Badge variant="outline">{openCommitments.length} open</Badge>
@@ -2318,7 +2357,7 @@ function SessionDialog({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="skip">Leave unchanged</SelectItem>
-                        <SelectItem value="done">Done on this call</SelectItem>
+                        <SelectItem value="done">Verified done</SelectItem>
                         <SelectItem value="blocked">Blocked</SelectItem>
                         <SelectItem value="carried_forward">Carry forward</SelectItem>
                         <SelectItem value="in_progress">Still in progress</SelectItem>
@@ -2337,8 +2376,8 @@ function SessionDialog({
           <Textarea id="mission-session-key-points" rows={4} value={keyPoints} onChange={(event) => setKeyPoints(event.target.value)} placeholder="One point per line" />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="mission-session-top-three">Top 3 commitments</Label>
-          <Textarea id="mission-session-top-three" rows={4} value={topThree} onChange={(event) => setTopThree(event.target.value)} placeholder="One commitment per line" />
+          <Label htmlFor="mission-session-top-three">Top 3 promises</Label>
+          <Textarea id="mission-session-top-three" rows={4} value={topThree} onChange={(event) => setTopThree(event.target.value)} placeholder="One promise per line" />
         </div>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
@@ -2371,7 +2410,7 @@ function SessionDialog({
         disabled={isSaving || !sessionDate || (!title.trim() && !transcript.trim())}
       >
         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-        Save session
+        Save session and update accountability
       </Button>
     </div>
   );
@@ -2409,7 +2448,7 @@ function CommitmentDialog({
   return (
     <div className="space-y-4">
       <div className="space-y-2">
-        <Label>Source session</Label>
+        <Label>Promised on which session?</Label>
         <Select value={sessionId} onValueChange={setSessionId}>
           <SelectTrigger>
             <SelectValue placeholder="Choose session" />
@@ -2424,16 +2463,16 @@ function CommitmentDialog({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="mission-commitment-title">Commitment title</Label>
+        <Label htmlFor="mission-commitment-title">Promise title</Label>
         <Input id="mission-commitment-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Install Monday leadership scorecard" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="mission-commitment-description">Description</Label>
-        <Textarea id="mission-commitment-description" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="What exactly has to happen before the next call?" />
+        <Label htmlFor="mission-commitment-description">What exactly needs to happen?</Label>
+        <Textarea id="mission-commitment-description" rows={3} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe what getting this done actually looks like before the next call." />
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label>Status</Label>
+          <Label>Current status</Label>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger>
               <SelectValue />
@@ -2448,13 +2487,13 @@ function CommitmentDialog({
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="mission-commitment-due-date">Due date</Label>
+          <Label htmlFor="mission-commitment-due-date">When should this be done?</Label>
           <Input id="mission-commitment-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="mission-commitment-proof">Proof notes</Label>
-        <Textarea id="mission-commitment-proof" rows={3} value={proofNotes} onChange={(event) => setProofNotes(event.target.value)} placeholder="Paste proof, link, or what you expect to verify next call..." />
+        <Label htmlFor="mission-commitment-proof">Proof or review notes</Label>
+        <Textarea id="mission-commitment-proof" rows={3} value={proofNotes} onChange={(event) => setProofNotes(event.target.value)} placeholder="Paste proof, a link, or what should be verified on the next call..." />
       </div>
       <Button
         className="w-full"
@@ -2471,7 +2510,7 @@ function CommitmentDialog({
         disabled={isSaving || !sessionId || !title.trim()}
       >
         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Target className="mr-2 h-4 w-4" />}
-        Save commitment
+        Save promise
       </Button>
     </div>
   );
