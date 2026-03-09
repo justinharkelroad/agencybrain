@@ -18,6 +18,7 @@ import {
   Paperclip,
   Plus,
   Rocket,
+  Shield,
   Sparkles,
   Target,
   TextSearch,
@@ -26,6 +27,7 @@ import {
   Trophy,
   Upload,
   Users,
+  AlertTriangle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -55,7 +57,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useMissionControlAccess } from '@/hooks/useMissionControlAccess';
-import { useMissionControlBusinessPulse } from '@/hooks/useMissionControlBusinessPulse';
+import {
+  type MissionPulseFormData,
+  buildMissionPulseDraft,
+  useMissionControlBusinessPulse,
+} from '@/hooks/useMissionControlBusinessPulse';
 import { useMissionControlClients } from '@/hooks/useMissionControlClients';
 import {
   type MissionAttachment,
@@ -189,6 +195,11 @@ function formatCurrency(n: number | undefined | null) {
   }).format(Number(n));
 }
 
+function inputNumberValue(value: number | undefined | null) {
+  if (!value) return '';
+  return String(value);
+}
+
 function formatFileSize(bytes: number | null) {
   if (!bytes) return 'Unknown size';
   if (bytes < 1024) return `${bytes} B`;
@@ -290,6 +301,8 @@ export default function MissionControl() {
   const [coachNoteOpen, setCoachNoteOpen] = useState(false);
   const [attachmentOpen, setAttachmentOpen] = useState(false);
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
+  const [pulseEditorOpen, setPulseEditorOpen] = useState(false);
+  const [pulseAdvancedOpen, setPulseAdvancedOpen] = useState(false);
 
   useEffect(() => {
     if (isAdmin && !selectedClient && clients.length > 0) {
@@ -329,6 +342,22 @@ export default function MissionControl() {
   });
   const pulseUserId = isAdmin ? ownerUserId : user?.id ?? ownerUserId;
   const pulse = useMissionControlBusinessPulse(pulseUserId, Boolean(isAdmin ? ownerUserId : user?.id));
+  const latestPulse = pulse.latestPeriod;
+  const previousPulse = pulse.previousPeriod;
+  const pulseSeed = useMemo(() => buildMissionPulseDraft(pulse.editablePeriod, latestPulse), [latestPulse, pulse.editablePeriod]);
+  const [pulseDraft, setPulseDraft] = useState<MissionPulseFormData>(pulseSeed);
+
+  useEffect(() => {
+    if (!pulseEditorOpen) {
+      setPulseDraft(pulseSeed);
+    }
+  }, [pulseEditorOpen, pulseSeed]);
+
+  useEffect(() => {
+    if (!isAdmin && !pulse.isLoading && !latestPulse) {
+      setPulseEditorOpen(true);
+    }
+  }, [isAdmin, latestPulse, pulse.isLoading]);
 
   const activeClientLabel = useMemo(() => {
     if (workspace.client?.ownerName) {
@@ -352,10 +381,9 @@ export default function MissionControl() {
   );
 
   const latestSession = workspace.latestSession;
-  const latestPulse = pulse.latestPeriod;
-  const previousPulse = pulse.previousPeriod;
   const latestPulseData = getPulseData(latestPulse);
   const previousPulseData = getPulseData(previousPulse);
+  const pulseDisplayData = pulseEditorOpen ? pulseDraft : latestPulseData;
   const latestSales = latestPulseData.sales ?? {};
   const latestMarketing = latestPulseData.marketing ?? {};
   const latestCashFlow = latestPulseData.cashFlow ?? {};
@@ -363,15 +391,19 @@ export default function MissionControl() {
   const previousSales = previousPulseData.sales ?? {};
   const previousMarketing = previousPulseData.marketing ?? {};
   const previousCashFlow = previousPulseData.cashFlow ?? {};
+  const displaySales = pulseDisplayData.sales ?? {};
+  const displayMarketing = pulseDisplayData.marketing ?? {};
+  const displayCashFlow = pulseDisplayData.cashFlow ?? {};
+  const displayQualitative = pulseDisplayData.qualitative ?? {};
   const pulseMetrics = [
-    { label: 'Premium Sold', value: formatCurrency(numberOrUndefined(latestSales.premium)), icon: DollarSign },
-    { label: 'Items Sold', value: formatNumber(numberOrUndefined(latestSales.items)), icon: Package },
-    { label: 'Policies Sold', value: formatNumber(numberOrUndefined(latestSales.policies)), icon: ClipboardList },
-    { label: 'Policies Quoted', value: formatNumber(numberOrUndefined(latestMarketing.policiesQuoted)), icon: Users },
-    { label: 'Marketing Spend', value: formatCurrency(numberOrUndefined(latestMarketing.totalSpend)), icon: Target },
-    { label: 'Agency Compensation', value: formatCurrency(numberOrUndefined(latestCashFlow.compensation)), icon: Trophy },
-    { label: 'Expenses', value: formatCurrency(numberOrUndefined(latestCashFlow.expenses)), icon: BriefcaseBusiness },
-    { label: 'Net Profit', value: formatCurrency(getNetProfit(latestCashFlow)), icon: TrendingUp },
+    { label: 'Premium Sold', value: formatCurrency(numberOrUndefined(displaySales.premium)), icon: DollarSign },
+    { label: 'Items Sold', value: formatNumber(numberOrUndefined(displaySales.items)), icon: Package },
+    { label: 'Policies Sold', value: formatNumber(numberOrUndefined(displaySales.policies)), icon: ClipboardList },
+    { label: 'Policies Quoted', value: formatNumber(numberOrUndefined(displayMarketing.policiesQuoted)), icon: Users },
+    { label: 'Marketing Spend', value: formatCurrency(numberOrUndefined(displayMarketing.totalSpend)), icon: Target },
+    { label: 'Agency Compensation', value: formatCurrency(numberOrUndefined(displayCashFlow.compensation)), icon: Trophy },
+    { label: 'Expenses', value: formatCurrency(numberOrUndefined(displayCashFlow.expenses)), icon: BriefcaseBusiness },
+    { label: 'Net Profit', value: formatCurrency(getNetProfit(displayCashFlow)), icon: TrendingUp },
   ];
   const pulseTrends = [
     {
@@ -412,6 +444,56 @@ export default function MissionControl() {
     },
   ];
   const attackItems = getAttackItems(latestPulse);
+  const draftAttackItems = [
+    pulseDraft.qualitative.attackItems.item1,
+    pulseDraft.qualitative.attackItems.item2,
+    pulseDraft.qualitative.attackItems.item3,
+  ].filter(Boolean);
+  const pulseCompletion = [
+    pulseDraft.sales.premium,
+    pulseDraft.sales.items,
+    pulseDraft.sales.policies,
+    pulseDraft.marketing.policiesQuoted,
+    pulseDraft.marketing.totalSpend,
+    pulseDraft.cashFlow.compensation,
+    pulseDraft.cashFlow.expenses,
+    pulseDraft.qualitative.biggestStress,
+    pulseDraft.qualitative.gutAction,
+    pulseDraft.qualitative.biggestBusinessWin,
+    pulseDraft.qualitative.biggestPersonalWin,
+    pulseDraft.qualitative.attackItems.item1,
+    pulseDraft.qualitative.attackItems.item2,
+    pulseDraft.qualitative.attackItems.item3,
+  ].filter((value) => {
+    if (typeof value === 'number') return value > 0;
+    return Boolean(value);
+  }).length;
+  const pulseCompletionLabel =
+    pulseCompletion >= 12 ? 'Ready for the call' : pulseCompletion >= 7 ? 'Solid draft' : pulseCompletion > 0 ? 'In progress' : 'Not started';
+
+  const updatePulseSection = <K extends keyof MissionPulseFormData,>(
+    section: K,
+    updater: (current: MissionPulseFormData[K]) => MissionPulseFormData[K]
+  ) => {
+    setPulseDraft((current) => ({
+      ...current,
+      [section]: updater(current[section]),
+    }));
+  };
+
+  const savePulseDraft = async () => {
+    try {
+      await pulse.savePulse.mutateAsync(pulseDraft);
+      toast.success('Business pulse saved', {
+        description: `${pulse.targetPeriod.label} prep is now live in Mission Control.`,
+      });
+      setPulseEditorOpen(false);
+    } catch (error) {
+      toast.error('Could not save business pulse', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  };
   const deleteTargetSession = deleteSessionId
     ? workspace.sessions.find((session) => session.id === deleteSessionId) ?? null
     : null;
@@ -493,30 +575,71 @@ export default function MissionControl() {
 
   const businessPulseSection = (
     <section className="rounded-[32px] border border-border/60 bg-background/82 p-6 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="space-y-2">
+      <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+        <div className="max-w-3xl space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="border-foreground/15 bg-background/70 px-3 py-1 text-[11px] uppercase tracking-[0.24em]">
               Business Pulse
             </Badge>
-            {latestPulse ? <Badge variant="outline">{labelForPeriod(latestPulse)}</Badge> : null}
+            <Badge variant="outline">{pulse.targetPeriod.label}</Badge>
+            {pulse.editablePeriod ? <Badge variant="outline">Editing current prep window</Badge> : null}
           </div>
-          <h2 className="text-2xl font-semibold tracking-tight">Pre-call pulse</h2>
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            Update the business numbers and call-prep boxes before the coaching call. This is the owner’s monthly prep frame.
-          </p>
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Prep for the coaching call</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+              The owner ritual lives here now: update the scoreboard, surface what feels heavy, and walk into the call with a clean monthly frame.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Target window</p>
+              <p className="mt-2 text-lg font-semibold">{pulse.targetPeriod.label}</p>
+              <p className="mt-1 text-sm text-muted-foreground">This is the prep period that feeds the next call.</p>
+            </div>
+            <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Prep status</p>
+              <p className="mt-2 text-lg font-semibold">{pulseCompletionLabel}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{pulseCompletion}/14 core fields currently filled in the live draft.</p>
+            </div>
+            <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Trend source</p>
+              <p className="mt-2 text-lg font-semibold">{latestPulse ? labelForPeriod(latestPulse) : 'No saved pulse yet'}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Month-over-month compares against the last saved pulse, not the unsaved draft.</p>
+            </div>
+          </div>
         </div>
-        {!isAdmin ? (
-          <Button asChild>
-            <Link to={latestPulse ? `/submit?mode=update&periodId=${latestPulse.id}` : '/submit?mode=new'}>
-              {latestPulse ? 'Update pulse' : 'Submit pulse'}
-            </Link>
-          </Button>
-        ) : (
-          <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-            Owner updates this before the call.
+
+        <div className="w-full max-w-[420px] rounded-[28px] border border-border/60 bg-[linear-gradient(160deg,rgba(250,247,240,0.8),rgba(233,227,217,0.35))] p-5 dark:bg-[linear-gradient(160deg,rgba(36,32,26,0.92),rgba(17,17,15,0.92))]">
+          <p className="text-[11px] uppercase tracking-[0.26em] text-muted-foreground">Owner ritual</p>
+          <h3 className="mt-3 text-xl font-semibold">Scoreboard first. Then call focus.</h3>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            This replaces the old submit detour. Owners update the pulse here, coaches read it before the call, and the month-over-month board stays intact.
+          </p>
+          <div className="mt-5 flex flex-col gap-3">
+            {!isAdmin ? (
+              <>
+                <Button
+                  className="bg-foreground text-background hover:bg-foreground/90"
+                  onClick={() => setPulseEditorOpen((current) => !current)}
+                >
+                  {pulseEditorOpen ? 'Close pulse editor' : latestPulse ? 'Edit pre-call pulse' : "Start this month's pulse"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="border-foreground/15 bg-background/75"
+                  onClick={savePulseDraft}
+                  disabled={!pulseEditorOpen || pulse.savePulse.isPending}
+                >
+                  {pulse.savePulse.isPending ? 'Saving pulse...' : 'Save business pulse'}
+                </Button>
+              </>
+            ) : (
+              <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3 text-sm text-muted-foreground">
+                Owner updates this block before the call. You review the saved pulse and then capture the session after the call.
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
       {pulse.isLoading ? (
@@ -525,8 +648,500 @@ export default function MissionControl() {
             <div key={index} className="h-24 animate-pulse rounded-2xl bg-muted/40" />
           ))}
         </div>
-      ) : latestPulse ? (
+      ) : (
         <div className="mt-6 space-y-6">
+          {!isAdmin && pulseEditorOpen ? (
+            <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">This month's prep frame</p>
+                  <h3 className="mt-2 text-xl font-semibold">Update the numbers. Clarify the call.</h3>
+                  <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                    Keep the top of the form fast: scoreboard first, then what feels heavy, then the top three things to solve on the call.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3 text-sm">
+                  <p className="font-medium">{pulse.targetPeriod.title}</p>
+                  <p className="mt-1 text-muted-foreground">
+                    {pulse.editablePeriod ? 'Editing the current pulse record.' : 'This will create the current pulse record.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <PulseMetricInputCard
+                  label="Premium Sold"
+                  icon={DollarSign}
+                  value={inputNumberValue(pulseDraft.sales.premium)}
+                  placeholder="$"
+                  onChange={(value) =>
+                    updatePulseSection('sales', (current) => ({
+                      ...current,
+                      premium: Number.parseFloat(value) || 0,
+                    }))
+                  }
+                />
+                <PulseMetricInputCard
+                  label="Items Sold"
+                  icon={Package}
+                  value={inputNumberValue(pulseDraft.sales.items)}
+                  onChange={(value) =>
+                    updatePulseSection('sales', (current) => ({
+                      ...current,
+                      items: Number.parseInt(value, 10) || 0,
+                    }))
+                  }
+                />
+                <PulseMetricInputCard
+                  label="Policies Sold"
+                  icon={ClipboardList}
+                  value={inputNumberValue(pulseDraft.sales.policies)}
+                  onChange={(value) =>
+                    updatePulseSection('sales', (current) => ({
+                      ...current,
+                      policies: Number.parseInt(value, 10) || 0,
+                    }))
+                  }
+                />
+                <PulseMetricInputCard
+                  label="Policies Quoted"
+                  icon={Users}
+                  value={inputNumberValue(pulseDraft.marketing.policiesQuoted)}
+                  onChange={(value) =>
+                    updatePulseSection('marketing', (current) => ({
+                      ...current,
+                      policiesQuoted: Number.parseInt(value, 10) || 0,
+                    }))
+                  }
+                />
+                <PulseMetricInputCard
+                  label="Marketing Spend"
+                  icon={Target}
+                  value={inputNumberValue(pulseDraft.marketing.totalSpend)}
+                  placeholder="$"
+                  onChange={(value) =>
+                    updatePulseSection('marketing', (current) => ({
+                      ...current,
+                      totalSpend: Number.parseFloat(value) || 0,
+                    }))
+                  }
+                />
+                <PulseMetricInputCard
+                  label="Compensation"
+                  icon={Trophy}
+                  value={inputNumberValue(pulseDraft.cashFlow.compensation)}
+                  placeholder="$"
+                  onChange={(value) =>
+                    updatePulseSection('cashFlow', (current) => ({
+                      ...current,
+                      compensation: Number.parseFloat(value) || 0,
+                      netProfit: (Number.parseFloat(value) || 0) - current.expenses,
+                    }))
+                  }
+                />
+                <PulseMetricInputCard
+                  label="Expenses"
+                  icon={BriefcaseBusiness}
+                  value={inputNumberValue(pulseDraft.cashFlow.expenses)}
+                  placeholder="$"
+                  onChange={(value) =>
+                    updatePulseSection('cashFlow', (current) => ({
+                      ...current,
+                      expenses: Number.parseFloat(value) || 0,
+                      netProfit: current.compensation - (Number.parseFloat(value) || 0),
+                    }))
+                  }
+                />
+                <div className="rounded-[24px] border border-emerald-500/25 bg-emerald-500/10 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Net Profit</p>
+                      <p className="mt-3 text-2xl font-semibold tracking-tight">{formatCurrency(pulseDraft.cashFlow.compensation - pulseDraft.cashFlow.expenses)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-emerald-500/25 bg-background/80 p-3">
+                      <TrendingUp className="h-4 w-4 text-emerald-500" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                <div className="rounded-[24px] border border-border/60 bg-background/80 p-5">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    <h4 className="font-semibold">Focus for this call</h4>
+                  </div>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    These are the coaching prompts that should matter most when the call starts.
+                  </p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <PulseReflectionField
+                      label="What feels heaviest right now?"
+                      value={pulseDraft.qualitative.biggestStress}
+                      onChange={(value) =>
+                        updatePulseSection('qualitative', (current) => ({
+                          ...current,
+                          biggestStress: value,
+                        }))
+                      }
+                    />
+                    <PulseReflectionField
+                      label="What do you already know you need to do?"
+                      value={pulseDraft.qualitative.gutAction}
+                      onChange={(value) =>
+                        updatePulseSection('qualitative', (current) => ({
+                          ...current,
+                          gutAction: value,
+                        }))
+                      }
+                    />
+                    <PulseReflectionField
+                      label="Best business win this month"
+                      value={pulseDraft.qualitative.biggestBusinessWin}
+                      onChange={(value) =>
+                        updatePulseSection('qualitative', (current) => ({
+                          ...current,
+                          biggestBusinessWin: value,
+                        }))
+                      }
+                    />
+                    <PulseReflectionField
+                      label="Best personal win this month"
+                      value={pulseDraft.qualitative.biggestPersonalWin}
+                      onChange={(value) =>
+                        updatePulseSection('qualitative', (current) => ({
+                          ...current,
+                          biggestPersonalWin: value,
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-[24px] border border-border/60 bg-background/80 p-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h4 className="font-semibold">Top 3 for this call</h4>
+                      <p className="mt-2 text-sm text-muted-foreground">What are the three things we need to solve or attack together?</p>
+                    </div>
+                    <Badge variant="outline">{draftAttackItems.length}/3</Badge>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {(['item1', 'item2', 'item3'] as const).map((key, index) => (
+                      <div key={key} className="rounded-2xl border border-border/60 bg-muted/20 p-3">
+                        <Label htmlFor={`pulse-attack-${key}`} className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                          Item {index + 1}
+                        </Label>
+                        <Textarea
+                          id={`pulse-attack-${key}`}
+                          rows={3}
+                          className="mt-2 bg-background/80"
+                          value={pulseDraft.qualitative.attackItems[key]}
+                          onChange={(event) =>
+                            updatePulseSection('qualitative', (current) => ({
+                              ...current,
+                              attackItems: {
+                                ...current.attackItems,
+                                [key]: event.target.value,
+                              },
+                            }))
+                          }
+                          placeholder="What needs to get solved on the call?"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-[24px] border border-border/60 bg-background/80 p-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h4 className="font-semibold">Supporting detail</h4>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Keep the heavy detail out of the main ritual, but keep it available for trend tracking and deeper review.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="border-foreground/15 bg-background/75"
+                    onClick={() => setPulseAdvancedOpen((current) => !current)}
+                  >
+                    {pulseAdvancedOpen ? 'Hide advanced detail' : 'Show advanced detail'}
+                  </Button>
+                </div>
+
+                {pulseAdvancedOpen ? (
+                  <div className="mt-5 space-y-5">
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      <PulseMetricInputCard
+                        label="Retention %"
+                        icon={Shield}
+                        value={inputNumberValue(pulseDraft.retention.currentRetentionPercent)}
+                        onChange={(value) =>
+                          updatePulseSection('retention', (current) => ({
+                            ...current,
+                            currentRetentionPercent: Number.parseFloat(value) || 0,
+                          }))
+                        }
+                      />
+                      <PulseMetricInputCard
+                        label="Policies Terminated"
+                        icon={AlertTriangle}
+                        value={inputNumberValue(pulseDraft.retention.numberTerminated)}
+                        onChange={(value) =>
+                          updatePulseSection('retention', (current) => ({
+                            ...current,
+                            numberTerminated: Number.parseInt(value, 10) || 0,
+                          }))
+                        }
+                      />
+                      <PulseMetricInputCard
+                        label="ALR Total YTD"
+                        icon={DollarSign}
+                        value={inputNumberValue(pulseDraft.operations.currentAlrTotal)}
+                        placeholder="$"
+                        onChange={(value) =>
+                          updatePulseSection('operations', (current) => ({
+                            ...current,
+                            currentAlrTotal: Number.parseFloat(value) || 0,
+                          }))
+                        }
+                      />
+                      <PulseMetricInputCard
+                        label="Bonus Trend"
+                        icon={TrendingUp}
+                        value={inputNumberValue(pulseDraft.operations.currentBonusTrend)}
+                        onChange={(value) =>
+                          updatePulseSection('operations', (current) => ({
+                            ...current,
+                            currentBonusTrend: Number.parseFloat(value) || 0,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="grid gap-5 xl:grid-cols-2">
+                      <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="font-medium">Lead source breakdown</p>
+                            <p className="mt-1 text-sm text-muted-foreground">Optional detail for source-level spend and production.</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              updatePulseSection('marketing', (current) => ({
+                                ...current,
+                                leadSources: [
+                                  ...current.leadSources,
+                                  { name: '', spend: 0, soldPremium: 0, commissionRate: 0 },
+                                ],
+                              }))
+                            }
+                          >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add source
+                          </Button>
+                        </div>
+                        <div className="mt-4 space-y-3">
+                          {pulseDraft.marketing.leadSources.length > 0 ? pulseDraft.marketing.leadSources.map((source, index) => (
+                            <div key={`${source.name}-${index}`} className="rounded-2xl border border-border/60 bg-background/80 p-3">
+                              <div className="grid gap-3 md:grid-cols-2">
+                                <Input
+                                  value={source.name}
+                                  onChange={(event) =>
+                                    updatePulseSection('marketing', (current) => ({
+                                      ...current,
+                                      leadSources: current.leadSources.map((entry, entryIndex) =>
+                                        entryIndex === index ? { ...entry, name: event.target.value } : entry
+                                      ),
+                                    }))
+                                  }
+                                  placeholder="Lead source"
+                                />
+                                <Input
+                                  value={inputNumberValue(source.spend)}
+                                  onChange={(event) =>
+                                    updatePulseSection('marketing', (current) => ({
+                                      ...current,
+                                      leadSources: current.leadSources.map((entry, entryIndex) =>
+                                        entryIndex === index ? { ...entry, spend: Number.parseFloat(event.target.value) || 0 } : entry
+                                      ),
+                                    }))
+                                  }
+                                  placeholder="Spend"
+                                />
+                                <Input
+                                  value={inputNumberValue(source.soldPremium)}
+                                  onChange={(event) =>
+                                    updatePulseSection('marketing', (current) => ({
+                                      ...current,
+                                      leadSources: current.leadSources.map((entry, entryIndex) =>
+                                        entryIndex === index ? { ...entry, soldPremium: Number.parseFloat(event.target.value) || 0 } : entry
+                                      ),
+                                    }))
+                                  }
+                                  placeholder="Sold premium"
+                                />
+                                <div className="flex gap-2">
+                                  <Input
+                                    value={inputNumberValue(source.commissionRate)}
+                                    onChange={(event) =>
+                                      updatePulseSection('marketing', (current) => ({
+                                        ...current,
+                                        leadSources: current.leadSources.map((entry, entryIndex) =>
+                                          entryIndex === index ? { ...entry, commissionRate: Number.parseFloat(event.target.value) || 0 } : entry
+                                        ),
+                                      }))
+                                    }
+                                    placeholder="Commission %"
+                                  />
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="outline"
+                                    onClick={() =>
+                                      updatePulseSection('marketing', (current) => ({
+                                        ...current,
+                                        leadSources: current.leadSources.filter((_, entryIndex) => entryIndex !== index),
+                                      }))
+                                    }
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )) : (
+                            <div className="rounded-2xl border border-dashed border-border/60 bg-background/80 p-4 text-sm text-muted-foreground">
+                              No lead source breakdown added yet.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+                        <div className="grid gap-4">
+                          <div>
+                            <Label htmlFor="pulse-aap-projection">AAP Projection</Label>
+                            <Select
+                              value={pulseDraft.operations.currentAapProjection}
+                              onValueChange={(value) =>
+                                updatePulseSection('operations', (current) => ({
+                                  ...current,
+                                  currentAapProjection: value,
+                                }))
+                              }
+                            >
+                              <SelectTrigger id="pulse-aap-projection" className="mt-2 bg-background/80">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {['Emerging', 'On Track', 'Stretch', 'Behind'].map((option) => (
+                                  <SelectItem key={option} value={option}>
+                                    {option}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="font-medium">Team roster</p>
+                                <p className="mt-1 text-sm text-muted-foreground">Persistent team context you want visible month to month.</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  updatePulseSection('operations', (current) => ({
+                                    ...current,
+                                    teamRoster: [...current.teamRoster, { name: '', role: 'Sales' }],
+                                  }))
+                                }
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add member
+                              </Button>
+                            </div>
+                            <div className="mt-3 space-y-3">
+                              {pulseDraft.operations.teamRoster.length > 0 ? pulseDraft.operations.teamRoster.map((member, index) => (
+                                <div key={`${member.name}-${index}`} className="flex gap-2 rounded-2xl border border-border/60 bg-background/80 p-3">
+                                  <Input
+                                    value={member.name}
+                                    onChange={(event) =>
+                                      updatePulseSection('operations', (current) => ({
+                                        ...current,
+                                        teamRoster: current.teamRoster.map((entry, entryIndex) =>
+                                          entryIndex === index ? { ...entry, name: event.target.value } : entry
+                                        ),
+                                      }))
+                                    }
+                                    placeholder="Team member"
+                                  />
+                                  <Input
+                                    value={member.role}
+                                    onChange={(event) =>
+                                      updatePulseSection('operations', (current) => ({
+                                        ...current,
+                                        teamRoster: current.teamRoster.map((entry, entryIndex) =>
+                                          entryIndex === index ? { ...entry, role: event.target.value } : entry
+                                        ),
+                                      }))
+                                    }
+                                    placeholder="Role"
+                                  />
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="outline"
+                                    onClick={() =>
+                                      updatePulseSection('operations', (current) => ({
+                                        ...current,
+                                        teamRoster: current.teamRoster.filter((_, entryIndex) => entryIndex !== index),
+                                      }))
+                                    }
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )) : (
+                                <div className="rounded-2xl border border-dashed border-border/60 bg-background/80 p-4 text-sm text-muted-foreground">
+                                  No team roster added yet.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mt-5 flex flex-col gap-3 border-t border-border/60 pt-5 sm:flex-row">
+                  <Button className="sm:flex-1" onClick={savePulseDraft} disabled={pulse.savePulse.isPending}>
+                    {pulse.savePulse.isPending ? 'Saving business pulse...' : 'Save business pulse'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="sm:flex-1"
+                    onClick={() => {
+                      setPulseDraft(pulseSeed);
+                      setPulseAdvancedOpen(false);
+                    }}
+                    disabled={pulse.savePulse.isPending}
+                  >
+                    Reset draft
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {pulseMetrics.map((metric) => {
               const Icon = metric.icon;
@@ -546,101 +1161,91 @@ export default function MissionControl() {
             })}
           </div>
 
-          <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
-            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 className="font-semibold">Month-over-month trend</h3>
-                <p className="text-sm text-muted-foreground">
-                  {previousPulse ? `${labelForPeriod(latestPulse)} vs ${labelForPeriod(previousPulse)}` : 'Submit another pulse to unlock comparison trends.'}
-                </p>
-              </div>
-            </div>
-            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {pulseTrends.map((trend) => {
-                const up = typeof trend.delta.abs === 'number' ? trend.delta.abs > 0 : false;
-                const down = typeof trend.delta.abs === 'number' ? trend.delta.abs < 0 : false;
-                const TrendIcon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
-                const colorClass = up ? 'text-emerald-600 dark:text-emerald-300' : down ? 'text-rose-600 dark:text-rose-300' : 'text-muted-foreground';
-                const currentValue = trend.currency ? formatCurrency(trend.current) : formatNumber(trend.current);
-                const deltaValue =
-                  typeof trend.delta.abs === 'number'
-                    ? trend.currency
-                      ? formatCurrency(trend.delta.abs)
-                      : formatNumber(trend.delta.abs)
-                    : 'No previous period';
-
-                return (
-                  <div key={trend.label} className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                    <p className="text-sm text-muted-foreground">{trend.label}</p>
-                    <p className="mt-2 text-2xl font-semibold">{currentValue}</p>
-                    <div className={`mt-3 flex items-center gap-2 text-sm ${colorClass}`}>
-                      <TrendIcon className="h-4 w-4" />
-                      <span>{deltaValue}</span>
-                      {typeof trend.delta.pct === 'number' ? (
-                        <span className="text-muted-foreground">
-                          ({new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(trend.delta.pct)}%)
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+          <div className="grid gap-4 xl:grid-cols-[1.06fr_0.94fr]">
             <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
-              <h3 className="font-semibold">Call-prep boxes</h3>
-              <p className="mt-1 text-sm text-muted-foreground">These are the prep answers submitted before the call.</p>
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h3 className="font-semibold">Focus for the call</h3>
+                  <p className="text-sm text-muted-foreground">
+                    The owner's prep answers stay visible here so the conversation starts in the right place.
+                  </p>
+                </div>
+                {!isAdmin ? (
+                  <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={() => setPulseEditorOpen(true)}>
+                    {latestPulse ? 'Tighten prep answers' : 'Start prep answers'}
+                  </Button>
+                ) : null}
+              </div>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Biggest stress</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.biggestStress || 'No stress note submitted yet.'}</p>
-                </div>
-                <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Gut action</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.gutAction || 'No gut-action note submitted yet.'}</p>
-                </div>
-                <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Biggest business win</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.biggestBusinessWin || 'No business win submitted yet.'}</p>
-                </div>
-                <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Biggest personal win</p>
-                  <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.biggestPersonalWin || 'No personal win submitted yet.'}</p>
-                </div>
+                <PulseDisplayCard
+                  eyebrow="What feels heaviest right now?"
+                  body={latestQualitative.biggestStress || 'No stress note submitted yet.'}
+                />
+                <PulseDisplayCard
+                  eyebrow="What do you already know you need to do?"
+                  body={latestQualitative.gutAction || 'No gut-action note submitted yet.'}
+                />
+                <PulseDisplayCard
+                  eyebrow="Best business win this month"
+                  body={latestQualitative.biggestBusinessWin || 'No business win submitted yet.'}
+                />
+                <PulseDisplayCard
+                  eyebrow="Best personal win this month"
+                  body={latestQualitative.biggestPersonalWin || 'No personal win submitted yet.'}
+                />
               </div>
-            </div>
-
-            <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
-              <h3 className="font-semibold">Top 3 attack items</h3>
-              <p className="mt-1 text-sm text-muted-foreground">The exact focus items submitted before the call.</p>
-              <div className="mt-4 space-y-3">
-                {attackItems.length > 0 ? attackItems.map((item, index) => (
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                {(attackItems.length > 0 ? attackItems : ['No attack items submitted yet.']).map((item, index) => (
                   <div key={`${item}-${index}`} className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Item {index + 1}</p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Top {index + 1}</p>
                     <p className="mt-2 text-sm text-muted-foreground">{item}</p>
                   </div>
-                )) : (
-                  <div className="rounded-2xl border border-dashed border-border/60 bg-background/80 p-4 text-sm text-muted-foreground">
-                    No attack items submitted yet.
-                  </div>
-                )}
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h3 className="font-semibold">Month-over-month trend board</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {previousPulse ? `${labelForPeriod(latestPulse!)} vs ${labelForPeriod(previousPulse)}` : 'Submit another pulse to unlock comparison trends.'}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {pulseTrends.map((trend) => {
+                  const up = typeof trend.delta.abs === 'number' ? trend.delta.abs > 0 : false;
+                  const down = typeof trend.delta.abs === 'number' ? trend.delta.abs < 0 : false;
+                  const TrendIcon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
+                  const colorClass = up ? 'text-emerald-600 dark:text-emerald-300' : down ? 'text-rose-600 dark:text-rose-300' : 'text-muted-foreground';
+                  const currentValue = trend.currency ? formatCurrency(trend.current) : formatNumber(trend.current);
+                  const deltaValue =
+                    typeof trend.delta.abs === 'number'
+                      ? trend.currency
+                        ? formatCurrency(trend.delta.abs)
+                        : formatNumber(trend.delta.abs)
+                      : 'No previous period';
+
+                  return (
+                    <div key={trend.label} className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                      <p className="text-sm text-muted-foreground">{trend.label}</p>
+                      <p className="mt-2 text-2xl font-semibold">{currentValue}</p>
+                      <div className={`mt-3 flex items-center gap-2 text-sm ${colorClass}`}>
+                        <TrendIcon className="h-4 w-4" />
+                        <span>{deltaValue}</span>
+                        {typeof trend.delta.pct === 'number' ? (
+                          <span className="text-muted-foreground">
+                            ({new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(trend.delta.pct)}%)
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="mt-6 rounded-[28px] border border-dashed border-border/60 bg-muted/15 p-6">
-          <h3 className="font-semibold">No business pulse submitted yet</h3>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Fill out the business pulse before the call so the latest metrics and prep boxes show here.
-          </p>
-          {!isAdmin ? (
-            <Button asChild className="mt-4">
-              <Link to="/submit?mode=new">Submit first pulse</Link>
-            </Button>
-          ) : null}
         </div>
       )}
     </section>
@@ -715,10 +1320,12 @@ export default function MissionControl() {
 
               <div className="flex flex-col gap-3 sm:flex-row">
                 {!isAdmin ? (
-                  <Button variant="outline" className="border-foreground/15 bg-background/75" asChild>
-                    <Link to={latestPulse ? `/submit?mode=update&periodId=${latestPulse.id}` : '/submit?mode=new'}>
-                      {latestPulse ? 'Update Pulse' : 'Submit Pulse'}
-                    </Link>
+                  <Button
+                    variant="outline"
+                    className="border-foreground/15 bg-background/75"
+                    onClick={() => setPulseEditorOpen(true)}
+                  >
+                    {latestPulse ? 'Update Pulse' : 'Start Pulse'}
                   </Button>
                 ) : (
                   <Button variant="outline" className="border-foreground/15 bg-background/75" disabled>
@@ -780,7 +1387,7 @@ export default function MissionControl() {
                   <FileText className="h-5 w-5 text-primary" />
                   Session Memory
                 </CardTitle>
-                <CardDescription>The latest conversation, the transcript memory, and the owner’s real commitments.</CardDescription>
+                <CardDescription>The latest conversation, the transcript memory, and the owner's real commitments.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {latestSession ? (
@@ -1340,6 +1947,78 @@ function EmptyState({
       <Button className="mt-5" onClick={onAction}>
         {actionLabel}
       </Button>
+    </div>
+  );
+}
+
+function PulseMetricInputCard({
+  label,
+  value,
+  onChange,
+  icon: Icon,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  icon: ComponentType<{ className?: string }>;
+  placeholder?: string;
+}) {
+  return (
+    <div className="rounded-[24px] border border-border/60 bg-background/80 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm text-muted-foreground">{label}</p>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-muted/40 p-3">
+          <Icon className="h-4 w-4 text-primary" />
+        </div>
+      </div>
+      <Input
+        className="mt-4 h-12 border-border/50 bg-background/90 text-lg font-semibold"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        inputMode="decimal"
+        placeholder={placeholder ?? '0'}
+      />
+    </div>
+  );
+}
+
+function PulseReflectionField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-muted/20 p-3">
+      <Label className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</Label>
+      <Textarea
+        rows={4}
+        className="mt-2 bg-background/85"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Type your answer here..."
+      />
+    </div>
+  );
+}
+
+function PulseDisplayCard({
+  eyebrow,
+  body,
+}: {
+  eyebrow: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
+      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{eyebrow}</p>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
     </div>
   );
 }
