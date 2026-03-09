@@ -396,9 +396,9 @@ export default function BillingSettings() {
               <div>
                 <div className="font-medium">How do call scoring credits work?</div>
                 <p className="text-muted-foreground">
-                  Each credit lets you analyze one sales call with AI. Your plan includes 20 monthly credits
+                  Each credit lets you analyze one sales call with AI. Your plan includes monthly credits
                   that reset each billing period. Need more? Add a monthly add-on for additional credits
-                  that reset on their own billing cycle.
+                  at a discounted rate.
                 </p>
               </div>
               <div>

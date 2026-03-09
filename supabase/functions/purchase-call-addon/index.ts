@@ -49,7 +49,7 @@ serve(async (req) => {
     // Get user's agency and profile
     const { data: profile } = await supabase
       .from('profiles')
-      .select('agency_id, full_name, email')
+      .select('agency_id, full_name, email, membership_tier')
       .eq('id', authResult.userId)
       .single()
 
@@ -64,8 +64,10 @@ serve(async (req) => {
       .eq('id', profile.agency_id)
       .single()
 
-    // Must have active subscription to buy addon
-    if (!agency?.subscription_status || !['active', 'trialing'].includes(agency.subscription_status)) {
+    // Must have active subscription or paid legacy tier to buy addon
+    const hasActiveSubscription = agency?.subscription_status && ['active', 'trialing', '1on1_client'].includes(agency.subscription_status)
+    const hasLegacyPaidTier = profile.membership_tier && !['none', 'free'].includes(profile.membership_tier.toLowerCase())
+    if (!hasActiveSubscription && !hasLegacyPaidTier) {
       throw new Error('Active subscription required to purchase monthly add-ons')
     }
 
