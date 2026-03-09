@@ -117,11 +117,11 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 const COMMITMENT_STATUS_OPTIONS = [
-  { value: 'not_started', label: 'Not started' },
-  { value: 'in_progress', label: 'In progress' },
+  { value: 'not_started', label: 'Has not started yet' },
+  { value: 'in_progress', label: 'Still moving' },
   { value: 'blocked', label: 'Blocked' },
-  { value: 'carried_forward', label: 'Carry forward' },
-  { value: 'done', label: 'Done' },
+  { value: 'carried_forward', label: 'Move to next call' },
+  { value: 'done', label: 'Completed' },
 ] as const;
 
 const BOARD_STATUS_OPTIONS = [
@@ -1572,7 +1572,7 @@ export default function MissionControl() {
                   <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
                     <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Step B</p>
                     <p className="mt-2 font-medium">Next call verifies it</p>
-                    <p className="mt-1 text-sm text-muted-foreground">At the next session, you mark it done, blocked, carried forward, or still moving.</p>
+                    <p className="mt-1 text-sm text-muted-foreground">At the next session, you mark it completed, blocked, moved to next call, or still moving.</p>
                   </div>
                 </div>
                 {workspace.commitments.length > 0 ? workspace.commitments.map((commitment) => {
@@ -1617,7 +1617,7 @@ export default function MissionControl() {
                     </div>
                     <div className="mt-3 grid gap-3 md:grid-cols-2">
                       <div className="rounded-2xl border border-border/60 bg-background/75 p-3 text-sm">
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Current status</p>
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Current outcome</p>
                         <p className="mt-2">{COMMITMENT_STATUS_OPTIONS.find((option) => option.value === commitment.status)?.label ?? commitment.status}</p>
                       </div>
                       <div className="rounded-2xl border border-border/60 bg-background/75 p-3 text-sm">
@@ -2340,7 +2340,7 @@ function SessionDialog({
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 3</p>
           <p className="mt-2 font-medium">Review last call</p>
-          <p className="mt-1 text-sm text-muted-foreground">Mark prior promises done, blocked, carried forward, or still moving.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Mark prior promises completed, blocked, moved to next call, or still moving.</p>
         </div>
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 4</p>
@@ -2493,10 +2493,10 @@ function SessionDialog({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="skip">Leave unchanged</SelectItem>
-                        <SelectItem value="done">Verified done</SelectItem>
+                        <SelectItem value="done">Completed</SelectItem>
                         <SelectItem value="blocked">Blocked</SelectItem>
-                        <SelectItem value="carried_forward">Carry forward</SelectItem>
-                        <SelectItem value="in_progress">Still in progress</SelectItem>
+                        <SelectItem value="carried_forward">Move to next call</SelectItem>
+                        <SelectItem value="in_progress">Still moving</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -2608,7 +2608,7 @@ function CommitmentDialog({
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
-          <Label>Current status</Label>
+          <Label>What is the current outcome?</Label>
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger>
               <SelectValue />
