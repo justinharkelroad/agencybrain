@@ -1,4 +1,5 @@
 import { type ComponentType, useEffect, useMemo, useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { Link, Navigate } from 'react-router-dom';
 import {
   Bot,
@@ -35,6 +36,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useMissionControlAccess } from '@/hooks/useMissionControlAccess';
 import { useMissionControlClients } from '@/hooks/useMissionControlClients';
@@ -47,6 +49,7 @@ import {
   type MissionUpload,
   useMissionControlWorkspace,
 } from '@/hooks/useMissionControlWorkspace';
+import { toast } from 'sonner';
 
 type BoardColumn = 'backlog' | 'in_progress' | 'before_next_call' | 'done';
 
@@ -158,91 +161,6 @@ function formatDateLabel(value: string | null | undefined, options?: Intl.DateTi
     year: 'numeric',
     ...options,
   });
-}
-
-function splitTranscriptLines(transcript: string) {
-  return transcript
-    .split(/\n+/)
-    .map((line) => line.replace(/^\s*(speaker\s*\d+|agent|owner|coach|client)\s*:\s*/i, '').trim())
-    .filter(Boolean);
-}
-
-function splitTranscriptSentences(transcript: string) {
-  return transcript
-    .replace(/\s+/g, ' ')
-    .split(/(?<=[.!?])\s+/)
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => sentence.length > 24);
-}
-
-function pickUnique(items: string[], limit: number) {
-  const seen = new Set<string>();
-  const next: string[] = [];
-
-  for (const item of items) {
-    const key = item.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    next.push(item);
-    if (next.length >= limit) break;
-  }
-
-  return next;
-}
-
-function extractTranscriptDraft(transcript: string) {
-  const lines = splitTranscriptLines(transcript);
-  const sentences = splitTranscriptSentences(transcript);
-  const normalized = transcript.toLowerCase();
-
-  const wins = pickUnique(
-    lines.filter((line) => /(win|won|grew|growth|improved|closed|shipped|launched|hired|celebrate|good news|success)/i.test(line)),
-    4
-  );
-  const issues = pickUnique(
-    lines.filter((line) => /(stuck|issue|problem|block|blocked|behind|missed|struggle|hard|friction|concern|bottleneck)/i.test(line)),
-    4
-  );
-  const topCommitments = pickUnique(
-    lines.filter((line) => /(i will|we will|going to|need to|must|by next call|commit|action item|follow up|deploy|finish|complete)/i.test(line)),
-    3
-  );
-  const keyPoints = pickUnique(
-    [
-      ...lines.filter((line) => /(focus|priority|decided|decision|plan|target|goal|delegate|process|system|metric)/i.test(line)),
-      ...sentences.slice(0, 8),
-    ],
-    5
-  );
-
-  const summaryParts = [
-    keyPoints[0],
-    issues[0] ? `Primary friction: ${issues[0]}` : null,
-    topCommitments[0] ? `Next move: ${topCommitments[0]}` : null,
-  ].filter(Boolean);
-
-  const fallbackSummary =
-    summaryParts.join(' ') ||
-    sentences.slice(0, 2).join(' ') ||
-    lines.slice(0, 3).join(' ');
-
-  const suggestedTitle =
-    normalized.includes('strategy')
-      ? 'Strategy session'
-      : normalized.includes('review')
-        ? 'Review session'
-        : normalized.includes('planning')
-          ? 'Planning session'
-          : 'Coaching session';
-
-  return {
-    summary: fallbackSummary.trim(),
-    keyPoints,
-    wins,
-    issues,
-    topCommitments,
-    suggestedTitle,
-  };
 }
 
 function SummaryCard({
@@ -1004,42 +922,60 @@ function SessionDialog({
   const [wins, setWins] = useState('');
   const [issues, setIssues] = useState('');
   const [topThree, setTopThree] = useState('');
-  const transcriptDraft = useMemo(() => extractTranscriptDraft(transcript), [transcript]);
   const canGenerateFromTranscript = transcript.trim().length > 80;
+  const draftMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('generate-mission-control-draft', {
+        body: {
+          transcript: transcript.trim(),
+          session_date: sessionDate,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to generate mission control draft');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      return data as {
+        suggested_title: string;
+        summary: string;
+        key_points: string[];
+        wins: string[];
+        issues: string[];
+        top_commitments: string[];
+      };
+    },
+    onSuccess: (draft) => {
+      setTitle((current) => current || `${formatDateLabel(sessionDate)} ${draft.suggested_title}`);
+      setSummary(draft.summary || '');
+      setKeyPoints(draft.key_points.join('\n'));
+      setWins(draft.wins.join('\n'));
+      setIssues(draft.issues.join('\n'));
+      setTopThree(draft.top_commitments.join('\n'));
+      toast.success('Transcript draft ready', {
+        description: 'The session draft was generated from the transcript.',
+      });
+    },
+    onError: (error) => {
+      toast.error('Could not generate transcript draft', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    },
+  });
 
   const handleGenerateFromTranscript = () => {
     if (!canGenerateFromTranscript) return;
-
-    if (!title.trim()) {
-      setTitle(`${formatDateLabel(sessionDate)} ${transcriptDraft.suggestedTitle}`);
-    }
-
-    if (!summary.trim()) {
-      setSummary(transcriptDraft.summary);
-    }
-
-    if (!keyPoints.trim()) {
-      setKeyPoints(transcriptDraft.keyPoints.join('\n'));
-    }
-
-    if (!wins.trim() && transcriptDraft.wins.length > 0) {
-      setWins(transcriptDraft.wins.join('\n'));
-    }
-
-    if (!issues.trim() && transcriptDraft.issues.length > 0) {
-      setIssues(transcriptDraft.issues.join('\n'));
-    }
-
-    if (!topThree.trim() && transcriptDraft.topCommitments.length > 0) {
-      setTopThree(transcriptDraft.topCommitments.join('\n'));
-    }
+    draftMutation.mutate();
   };
 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-amber-300/60 bg-amber-50/70 p-4 text-sm text-amber-950 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-100">
-        Paste the transcript first, then use the draft generator to populate a working summary, key points, wins,
-        issues, and top 3. This is a local draft pass so you can test the full flow right now.
+        Paste the transcript first, then generate an AI draft for the summary, key points, wins, issues, and top 3.
       </div>
       <div className="space-y-2">
         <Label htmlFor="mission-session-title">Session title</Label>
@@ -1058,7 +994,7 @@ function SessionDialog({
       <div className="space-y-2">
         <Label htmlFor="mission-session-summary">Summary (manual for now)</Label>
         <p className="text-xs text-muted-foreground">
-          Optional. Leave this blank and generate a draft from the transcript if you want a faster first pass.
+          Optional. The AI draft will fill this in, and you can still edit it before save.
         </p>
         <Textarea
           id="mission-session-summary"
@@ -1077,8 +1013,8 @@ function SessionDialog({
             </p>
           </div>
           <Button type="button" variant="outline" onClick={handleGenerateFromTranscript} disabled={!canGenerateFromTranscript}>
-            <Sparkles className="mr-2 h-4 w-4" />
-            Generate draft from transcript
+            {draftMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            {draftMutation.isPending ? 'Generating draft...' : 'Generate AI draft'}
           </Button>
         </div>
         <Textarea
@@ -1095,22 +1031,24 @@ function SessionDialog({
             <p className="text-sm font-medium">Session draft preview</p>
             <p className="text-xs text-muted-foreground">This is what will feed the Mission Control workspace after save.</p>
           </div>
-          <Badge variant="outline">{canGenerateFromTranscript ? 'Transcript ready' : 'Paste transcript first'}</Badge>
+          <Badge variant="outline">
+            {draftMutation.isPending ? 'Generating draft' : canGenerateFromTranscript ? 'Transcript ready' : 'Paste transcript first'}
+          </Badge>
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2">
           <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Summary</p>
             <p className="mt-2 text-sm text-muted-foreground">
-              {summary.trim() || transcriptDraft.summary || 'No summary draft yet.'}
+              {summary.trim() || 'No summary draft yet.'}
             </p>
           </div>
           <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Top 3 preview</p>
             <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
-              {(topThree.trim() ? linesToJson(topThree) : transcriptDraft.topCommitments).slice(0, 3).map((item) => (
+              {linesToJson(topThree).slice(0, 3).map((item) => (
                 <li key={item}>{item}</li>
               ))}
-              {!((topThree.trim() ? linesToJson(topThree) : transcriptDraft.topCommitments).length) && (
+              {!linesToJson(topThree).length && (
                 <li>No commitments drafted yet.</li>
               )}
             </ul>
@@ -1141,15 +1079,15 @@ function SessionDialog({
         className="w-full"
         onClick={() =>
           onSubmit({
-            title: title.trim() || `${formatDateLabel(sessionDate)} ${transcriptDraft.suggestedTitle}`,
+            title: title.trim() || `${formatDateLabel(sessionDate)} Coaching session`,
             session_date: sessionDate,
             next_call_date: nextCallDate || null,
-            summary_ai: summary.trim() || transcriptDraft.summary || null,
+            summary_ai: summary.trim() || null,
             transcript_text: transcript.trim() || null,
-            key_points_json: keyPoints.trim() ? linesToJson(keyPoints) : transcriptDraft.keyPoints,
-            wins_json: wins.trim() ? linesToJson(wins) : transcriptDraft.wins,
-            issues_json: issues.trim() ? linesToJson(issues) : transcriptDraft.issues,
-            top_commitments_json: topThree.trim() ? linesToJson(topThree) : transcriptDraft.topCommitments,
+            key_points_json: linesToJson(keyPoints),
+            wins_json: linesToJson(wins),
+            issues_json: linesToJson(issues),
+            top_commitments_json: linesToJson(topThree),
           })
         }
         disabled={isSaving || !sessionDate || (!title.trim() && !transcript.trim())}
