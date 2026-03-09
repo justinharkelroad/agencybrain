@@ -2,14 +2,19 @@ import { type ComponentType, useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Link, Navigate } from 'react-router-dom';
 import {
+  ArrowDownRight,
+  ArrowUpRight,
   Bot,
   BriefcaseBusiness,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
+  DollarSign,
   FileText,
+  Minus,
   Loader2,
   MessageSquare,
+  Package,
   Paperclip,
   Plus,
   Rocket,
@@ -50,6 +55,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useMissionControlAccess } from '@/hooks/useMissionControlAccess';
+import { useMissionControlBusinessPulse } from '@/hooks/useMissionControlBusinessPulse';
 import { useMissionControlClients } from '@/hooks/useMissionControlClients';
 import {
   type MissionAttachment,
@@ -126,6 +132,18 @@ interface LinkedMissionAttachment extends MissionAttachment {
 }
 
 type SessionReviewStatus = 'done' | 'blocked' | 'carried_forward' | 'in_progress';
+type PulseFormData = {
+  sales?: { premium?: number; items?: number; policies?: number; achievedVC?: boolean };
+  marketing?: { totalSpend?: number; policiesQuoted?: number };
+  cashFlow?: { compensation?: number; expenses?: number; netProfit?: number };
+  qualitative?: {
+    biggestStress?: string;
+    gutAction?: string;
+    biggestPersonalWin?: string;
+    biggestBusinessWin?: string;
+    attackItems?: { item1?: string; item2?: string; item3?: string };
+  };
+};
 
 function jsonArrayToLines(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -153,6 +171,24 @@ function uniqueLines(value: string) {
   return Array.from(new Set(linesToJson(value)));
 }
 
+function numberOrUndefined(value: unknown) {
+  return typeof value === 'number' && !Number.isNaN(value) ? value : undefined;
+}
+
+function formatNumber(n: number | undefined | null) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return '-';
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(Number(n));
+}
+
+function formatCurrency(n: number | undefined | null) {
+  if (n === null || n === undefined || Number.isNaN(Number(n))) return '-';
+  return new Intl.NumberFormat(undefined, {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(Number(n));
+}
+
 function formatFileSize(bytes: number | null) {
   if (!bytes) return 'Unknown size';
   if (bytes < 1024) return `${bytes} B`;
@@ -178,6 +214,44 @@ function formatDateLabel(value: string | null | undefined, options?: Intl.DateTi
     year: 'numeric',
     ...options,
   });
+}
+
+function labelForPeriod(period: { title: string; start_date: string; end_date: string }) {
+  const titleHasDate =
+    /\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/.test(period.title) || /\b\d{4}-\d{2}-\d{2}\b/.test(period.title);
+
+  return titleHasDate
+    ? period.title
+    : `${period.title} • ${formatDateLabel(period.start_date)} – ${formatDateLabel(period.end_date)}`;
+}
+
+function getPulseData(period?: { form_data: unknown } | null): PulseFormData {
+  if (!period?.form_data || typeof period.form_data !== 'object') return {};
+  return period.form_data as PulseFormData;
+}
+
+function getAttackItems(period?: { form_data: unknown } | null) {
+  const qualitative = getPulseData(period).qualitative;
+  const attackItems = qualitative?.attackItems;
+  return [attackItems?.item1, attackItems?.item2, attackItems?.item3].filter(Boolean) as string[];
+}
+
+function getNetProfit(cashFlow?: PulseFormData['cashFlow']) {
+  if (!cashFlow) return undefined;
+  if (typeof cashFlow.netProfit === 'number') return cashFlow.netProfit;
+  if (typeof cashFlow.compensation === 'number' && typeof cashFlow.expenses === 'number') {
+    return cashFlow.compensation - cashFlow.expenses;
+  }
+  return undefined;
+}
+
+function getDelta(curr?: number, prev?: number) {
+  if (typeof curr !== 'number' || typeof prev !== 'number') {
+    return { abs: undefined as number | undefined, pct: undefined as number | undefined };
+  }
+  const abs = curr - prev;
+  const pct = prev === 0 ? undefined : (abs / prev) * 100;
+  return { abs, pct };
 }
 
 function SummaryCard({
@@ -253,6 +327,8 @@ export default function MissionControl() {
           }
         : null,
   });
+  const pulseUserId = isAdmin ? ownerUserId : user?.id ?? ownerUserId;
+  const pulse = useMissionControlBusinessPulse(pulseUserId, Boolean(isAdmin ? ownerUserId : user?.id));
 
   const activeClientLabel = useMemo(() => {
     if (workspace.client?.ownerName) {
@@ -276,6 +352,66 @@ export default function MissionControl() {
   );
 
   const latestSession = workspace.latestSession;
+  const latestPulse = pulse.latestPeriod;
+  const previousPulse = pulse.previousPeriod;
+  const latestPulseData = getPulseData(latestPulse);
+  const previousPulseData = getPulseData(previousPulse);
+  const latestSales = latestPulseData.sales ?? {};
+  const latestMarketing = latestPulseData.marketing ?? {};
+  const latestCashFlow = latestPulseData.cashFlow ?? {};
+  const latestQualitative = latestPulseData.qualitative ?? {};
+  const previousSales = previousPulseData.sales ?? {};
+  const previousMarketing = previousPulseData.marketing ?? {};
+  const previousCashFlow = previousPulseData.cashFlow ?? {};
+  const pulseMetrics = [
+    { label: 'Premium Sold', value: formatCurrency(numberOrUndefined(latestSales.premium)), icon: DollarSign },
+    { label: 'Items Sold', value: formatNumber(numberOrUndefined(latestSales.items)), icon: Package },
+    { label: 'Policies Sold', value: formatNumber(numberOrUndefined(latestSales.policies)), icon: ClipboardList },
+    { label: 'Policies Quoted', value: formatNumber(numberOrUndefined(latestMarketing.policiesQuoted)), icon: Users },
+    { label: 'Marketing Spend', value: formatCurrency(numberOrUndefined(latestMarketing.totalSpend)), icon: Target },
+    { label: 'Agency Compensation', value: formatCurrency(numberOrUndefined(latestCashFlow.compensation)), icon: Trophy },
+    { label: 'Expenses', value: formatCurrency(numberOrUndefined(latestCashFlow.expenses)), icon: BriefcaseBusiness },
+    { label: 'Net Profit', value: formatCurrency(getNetProfit(latestCashFlow)), icon: TrendingUp },
+  ];
+  const pulseTrends = [
+    {
+      label: 'Premium Sold',
+      current: numberOrUndefined(latestSales.premium),
+      delta: getDelta(numberOrUndefined(latestSales.premium), numberOrUndefined(previousSales.premium)),
+      currency: true,
+    },
+    {
+      label: 'Items Sold',
+      current: numberOrUndefined(latestSales.items),
+      delta: getDelta(numberOrUndefined(latestSales.items), numberOrUndefined(previousSales.items)),
+      currency: false,
+    },
+    {
+      label: 'Policies Sold',
+      current: numberOrUndefined(latestSales.policies),
+      delta: getDelta(numberOrUndefined(latestSales.policies), numberOrUndefined(previousSales.policies)),
+      currency: false,
+    },
+    {
+      label: 'Policies Quoted',
+      current: numberOrUndefined(latestMarketing.policiesQuoted),
+      delta: getDelta(numberOrUndefined(latestMarketing.policiesQuoted), numberOrUndefined(previousMarketing.policiesQuoted)),
+      currency: false,
+    },
+    {
+      label: 'Marketing Spend',
+      current: numberOrUndefined(latestMarketing.totalSpend),
+      delta: getDelta(numberOrUndefined(latestMarketing.totalSpend), numberOrUndefined(previousMarketing.totalSpend)),
+      currency: true,
+    },
+    {
+      label: 'Net Profit',
+      current: getNetProfit(latestCashFlow),
+      delta: getDelta(getNetProfit(latestCashFlow), getNetProfit(previousCashFlow)),
+      currency: true,
+    },
+  ];
+  const attackItems = getAttackItems(latestPulse);
   const deleteTargetSession = deleteSessionId
     ? workspace.sessions.find((session) => session.id === deleteSessionId) ?? null
     : null;
@@ -849,6 +985,159 @@ export default function MissionControl() {
               </CardContent>
             </Card>
           </div>
+        </section>
+
+        <section className="rounded-[32px] border border-border/60 bg-background/82 p-6 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className="border-foreground/15 bg-background/70 px-3 py-1 text-[11px] uppercase tracking-[0.24em]">
+                  Business Pulse
+                </Badge>
+                {latestPulse ? <Badge variant="outline">{labelForPeriod(latestPulse)}</Badge> : null}
+              </div>
+              <h2 className="text-2xl font-semibold tracking-tight">Pre-call metrics and month-over-month trend</h2>
+              <p className="max-w-3xl text-sm text-muted-foreground">
+                This keeps the old submit ritual alive inside Mission Control. The owner submits the pulse before the call, and the workspace keeps the latest boxes and recent trend visible.
+              </p>
+            </div>
+            {!isAdmin ? (
+              <Button asChild>
+                <Link to={latestPulse ? `/submit?mode=update&periodId=${latestPulse.id}` : '/submit?mode=new'}>
+                  {latestPulse ? 'Update business pulse' : 'Submit business pulse'}
+                </Link>
+              </Button>
+            ) : (
+              <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                Owner submits this before the call.
+              </div>
+            )}
+          </div>
+
+          {pulse.isLoading ? (
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="h-24 animate-pulse rounded-2xl bg-muted/40" />
+              ))}
+            </div>
+          ) : latestPulse ? (
+            <div className="mt-6 space-y-6">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {pulseMetrics.map((metric) => {
+                  const Icon = metric.icon;
+                  return (
+                    <div key={metric.label} className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm text-muted-foreground">{metric.label}</p>
+                          <p className="mt-3 text-2xl font-semibold tracking-tight">{metric.value}</p>
+                        </div>
+                        <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
+                          <Icon className="h-4 w-4 text-primary" />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="font-semibold">Month-over-month trend</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {previousPulse ? `${labelForPeriod(latestPulse)} vs ${labelForPeriod(previousPulse)}` : 'Submit another pulse to unlock comparison trends.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {pulseTrends.map((trend) => {
+                    const up = typeof trend.delta.abs === 'number' ? trend.delta.abs > 0 : false;
+                    const down = typeof trend.delta.abs === 'number' ? trend.delta.abs < 0 : false;
+                    const TrendIcon = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
+                    const colorClass = up ? 'text-emerald-600 dark:text-emerald-300' : down ? 'text-rose-600 dark:text-rose-300' : 'text-muted-foreground';
+                    const currentValue = trend.currency ? formatCurrency(trend.current) : formatNumber(trend.current);
+                    const deltaValue =
+                      typeof trend.delta.abs === 'number'
+                        ? trend.currency
+                          ? formatCurrency(trend.delta.abs)
+                          : formatNumber(trend.delta.abs)
+                        : 'No previous period';
+
+                    return (
+                      <div key={trend.label} className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                        <p className="text-sm text-muted-foreground">{trend.label}</p>
+                        <p className="mt-2 text-2xl font-semibold">{currentValue}</p>
+                        <div className={`mt-3 flex items-center gap-2 text-sm ${colorClass}`}>
+                          <TrendIcon className="h-4 w-4" />
+                          <span>{deltaValue}</span>
+                          {typeof trend.delta.pct === 'number' ? (
+                            <span className="text-muted-foreground">
+                              ({new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(trend.delta.pct)}%)
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
+                <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
+                  <h3 className="font-semibold">Call-prep qualitative pulse</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">These are the old 1:1 prep prompts, now living beside the session memory.</p>
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Biggest stress</p>
+                      <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.biggestStress || 'No stress note submitted yet.'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Gut action</p>
+                      <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.gutAction || 'No gut-action note submitted yet.'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Biggest business win</p>
+                      <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.biggestBusinessWin || 'No business win submitted yet.'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Biggest personal win</p>
+                      <p className="mt-2 text-sm text-muted-foreground">{latestQualitative.biggestPersonalWin || 'No personal win submitted yet.'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
+                  <h3 className="font-semibold">Top 3 attack items</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">The exact pre-call focus items from the old form, kept visible in the same workspace as the coaching session.</p>
+                  <div className="mt-4 space-y-3">
+                    {attackItems.length > 0 ? attackItems.map((item, index) => (
+                      <div key={`${item}-${index}`} className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Item {index + 1}</p>
+                        <p className="mt-2 text-sm text-muted-foreground">{item}</p>
+                      </div>
+                    )) : (
+                      <div className="rounded-2xl border border-dashed border-border/60 bg-background/80 p-4 text-sm text-muted-foreground">
+                        No attack items submitted yet.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-6 rounded-[28px] border border-dashed border-border/60 bg-muted/15 p-6">
+              <h3 className="font-semibold">No business pulse submitted yet</h3>
+              <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+                Mission Control is live, but the old pre-call metrics submission has not been filled out yet for this owner. Once they submit it, the familiar boxes and trend-over-trend view will live here.
+              </p>
+              {!isAdmin ? (
+                <Button asChild className="mt-4">
+                  <Link to="/submit?mode=new">Submit first business pulse</Link>
+                </Button>
+              ) : null}
+            </div>
+          )}
         </section>
       </main>
 
