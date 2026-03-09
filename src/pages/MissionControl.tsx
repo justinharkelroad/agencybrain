@@ -597,8 +597,8 @@ export default function MissionControl() {
   }
 
   const heroSupportText = isAdmin
-    ? 'Before the call: review the business pulse. After the call: capture the session and review commitments.'
-    : 'Before the call: update your business pulse. After the call: review what was captured and work the commitments between calls.';
+    ? 'Before the call: review the business pulse. After the call: capture the session and review promises.'
+    : 'Before the call: update your business pulse. After the call: review what was captured and work the promises between calls.';
   const stepTwoTitle = isAdmin ? 'Capture Session' : 'Coach Updates Session';
   const stepTwoBody = isAdmin
     ? 'Paste the transcript after the call and save the session memory.'
@@ -1409,7 +1409,7 @@ export default function MissionControl() {
           <SummaryCard icon={CalendarDays} label="Last Session" value={latestSession ? latestSession.session_date : 'None'} detail="Most recent coaching session preserved in the timeline." />
           <SummaryCard icon={Rocket} label="Active Priorities" value={String(workspace.boardItems.length)} detail="Bigger initiatives tracked between calls." />
           <SummaryCard icon={Trophy} label="Wins Logged" value={String(wins.length)} detail="Highlights preserved from the latest session." />
-          <SummaryCard icon={CheckCircle2} label="Proof Linked" value={String(proofLinkedCount)} detail="Evidence files linked back to commitments." />
+          <SummaryCard icon={CheckCircle2} label="Evidence Linked" value={String(proofLinkedCount)} detail="Evidence files linked back to promises." />
         </section>
 
         <section className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[minmax(320px,0.92fr)_minmax(380px,1.08fr)_minmax(360px,0.96fr)]">
@@ -1477,7 +1477,7 @@ export default function MissionControl() {
                     <div className="rounded-2xl border border-border/60 bg-background/75 p-4">
                       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Top 3 promises from the call</p>
                       <ul className="mt-2 space-y-1 text-sm">
-                        {(topCommitments.length > 0 ? topCommitments : ['No top commitments logged yet.']).map((point) => (
+                        {(topCommitments.length > 0 ? topCommitments : ['No top promises logged yet.']).map((point) => (
                           <li key={point}>{point}</li>
                         ))}
                       </ul>
@@ -1605,8 +1605,8 @@ export default function MissionControl() {
                         <p className="mt-2">{COMMITMENT_STATUS_OPTIONS.find((option) => option.value === commitment.status)?.label ?? commitment.status}</p>
                       </div>
                       <div className="rounded-2xl border border-border/60 bg-background/75 p-3 text-sm">
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Proof or notes</p>
-                        <p className="mt-2">{commitment.proof_notes || 'No proof linked yet'}</p>
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Evidence or notes</p>
+                        <p className="mt-2">{commitment.proof_notes || 'No evidence linked yet'}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {linkedProofs.length > 0 ? (
                             linkedProofs.map((attachment) => (
@@ -1615,7 +1615,7 @@ export default function MissionControl() {
                               </Badge>
                             ))
                           ) : (
-                            <span className="text-xs text-muted-foreground">No uploaded proof linked yet.</span>
+                            <span className="text-xs text-muted-foreground">No uploaded evidence linked yet.</span>
                           )}
                         </div>
                       </div>
@@ -1680,9 +1680,9 @@ export default function MissionControl() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-primary" />
-                  Wins + Friction
+                  Wins + Blockers
                 </CardTitle>
-                <CardDescription>The emotional temperature of the account, preserved from the latest call.</CardDescription>
+                <CardDescription>The latest wins and the main things still causing drag in the business.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-5">
                 <div>
@@ -1709,17 +1709,16 @@ export default function MissionControl() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Bot className="h-5 w-5 text-primary" />
-                  AI Mastermind
+                  Coach Brain
                 </CardTitle>
-                <CardDescription>The coaching brain placeholder sits here after the memory layer is stable.</CardDescription>
+                <CardDescription>This will become the on-demand coaching layer once the memory system is fully stable.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="rounded-[24px] border border-dashed border-border/60 bg-muted/20 p-4 text-sm leading-6 text-muted-foreground">
-                  This rebuild keeps the page reliable first. The chat brain will plug into transcripts, commitments,
-                  wins, and proof artifacts after the shell is locked.
+                  This comes next. It will answer from session memory, promises, priorities, wins, blockers, and linked evidence instead of acting like a general-purpose bot.
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {['Session transcript', 'Commitment history', 'Mission board context', 'Proof artifacts'].map((chip) => (
+                  {['Session memory', 'Promise history', 'Priority context', 'Linked evidence'].map((chip) => (
                     <Badge key={chip} variant="outline">
                       {chip}
                     </Badge>
@@ -1734,14 +1733,14 @@ export default function MissionControl() {
                   <CardTitle className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-2">
                       <MessageSquare className="h-5 w-5 text-primary" />
-                      Coach Notes
+                      Private Coach Notes
                     </span>
                     <Button size="sm" variant="outline" onClick={() => setCoachNoteOpen(true)}>
                       <Plus className="mr-2 h-4 w-4" />
                       Add
                     </Button>
                   </CardTitle>
-                  <CardDescription>Private coach-only observations for the next call.</CardDescription>
+                  <CardDescription>Private observations and prep notes that only the coach should see.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {workspace.coachNotes.length > 0 ? workspace.coachNotes.map((note) => (
@@ -1760,21 +1759,21 @@ export default function MissionControl() {
               <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BriefcaseBusiness className="h-5 w-5 text-primary" />
-                    Proof Locker
+                    Linked Evidence
                   </CardTitle>
-                <CardDescription>Link transcripts, screenshots, and artifacts back to the exact session or commitment they prove.</CardDescription>
+                <CardDescription>Link transcripts, screenshots, and supporting files back to the exact session, promise, or priority they support.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
-                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Linked artifacts</p>
+                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Files already linked</p>
                     <p className="mt-2 text-3xl font-semibold">{linkedAttachments.length}</p>
-                    <p className="mt-2 text-sm text-muted-foreground">Attachments already tied to sessions, commitments, or priorities.</p>
+                    <p className="mt-2 text-sm text-muted-foreground">Files already tied to sessions, promises, or priorities.</p>
                   </div>
                   <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
-                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Uploads available</p>
+                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Files ready to link</p>
                     <p className="mt-2 text-3xl font-semibold">{workspace.uploads.length}</p>
-                    <p className="mt-2 text-sm text-muted-foreground">Owner and coach/admin uploads ready to be linked into the workspace.</p>
+                    <p className="mt-2 text-sm text-muted-foreground">Owner and coach uploads ready to be connected to this workspace.</p>
                   </div>
                 </div>
 
@@ -1803,14 +1802,14 @@ export default function MissionControl() {
                   </div>
                 ) : (
                   <div className="rounded-[24px] border border-dashed border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-                    No artifacts linked yet. Upload files in the Files area, then connect them here to the session,
-                    commitment, or priority they support.
+                    No evidence linked yet. Upload files in the Files area, then connect them here to the session,
+                    promise, or priority they support.
                   </div>
                 )}
 
                 {workspace.uploads.length > 0 && (
                   <div className="rounded-[22px] border border-border/60 bg-background/75 p-4">
-                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Recent uploads ready to link</p>
+                    <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Recent files ready to link</p>
                     <div className="mt-3 space-y-2">
                       {workspace.uploads.slice(0, 3).map((upload) => (
                         <div key={upload.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border/50 px-3 py-2 text-sm">
@@ -1932,7 +1931,7 @@ export default function MissionControl() {
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Link upload</DialogTitle>
-            <DialogDescription>Attach an existing uploaded file to the specific session, commitment, or priority it supports.</DialogDescription>
+            <DialogDescription>Attach an existing uploaded file to the specific session, promise, or priority it supports.</DialogDescription>
           </DialogHeader>
           <AttachmentDialog
             uploads={workspace.uploads}
@@ -2731,7 +2730,7 @@ function AttachmentDialog({
         <div className="rounded-2xl border border-dashed border-border/60 bg-muted/25 p-4 text-sm text-muted-foreground">
           {uploads.length === 0
             ? 'There are no uploaded files available to link yet.'
-            : 'Create a session, commitment, or priority first so the file has somewhere to attach.'}
+            : 'Create a session, promise, or priority first so the file has somewhere to attach.'}
         </div>
         {uploads.length === 0 && (
           <Button asChild className="w-full">
@@ -2772,7 +2771,7 @@ function AttachmentDialog({
             </SelectTrigger>
             <SelectContent>
               {sessions.length > 0 && <SelectItem value="session">Session</SelectItem>}
-              {commitments.length > 0 && <SelectItem value="commitment">Commitment</SelectItem>}
+              {commitments.length > 0 && <SelectItem value="commitment">Promise</SelectItem>}
               {boardItems.length > 0 && <SelectItem value="board">Priority</SelectItem>}
             </SelectContent>
           </Select>
@@ -2785,7 +2784,7 @@ function AttachmentDialog({
             </SelectTrigger>
             <SelectContent>
               {targetKind === 'session' && <SelectItem value="transcript">Transcript</SelectItem>}
-              <SelectItem value="proof">Proof</SelectItem>
+              <SelectItem value="proof">Evidence</SelectItem>
               <SelectItem value="reference">Reference</SelectItem>
               <SelectItem value="artifact">Artifact</SelectItem>
             </SelectContent>
