@@ -75,7 +75,18 @@ export function useCallBalance() {
         .eq('id', user!.id)
         .single();
 
-      if (profileError || !profile?.agency_id) {
+      // Fallback to key_employees table if profiles.agency_id is not set
+      let agencyId = profile?.agency_id;
+      if (!agencyId && !profileError) {
+        const { data: keyEmployee } = await supabase
+          .from('key_employees')
+          .select('agency_id')
+          .eq('user_id', user!.id)
+          .maybeSingle();
+        agencyId = keyEmployee?.agency_id ?? null;
+      }
+
+      if (profileError || !agencyId) {
         return {
           canScore: false,
           subscriptionRemaining: 0,
@@ -102,7 +113,7 @@ export function useCallBalance() {
         const { data: agency } = await supabase
           .from('agencies')
           .select('subscription_status')
-          .eq('id', profile.agency_id)
+          .eq('id', agencyId)
           .single();
 
         // If legacy 1-on-1 client with no subscription_status, grant unlimited
@@ -145,7 +156,7 @@ export function useCallBalance() {
       // NEW USERS: Use the subscription-based call balance system
       const { data, error } = await supabase
         .rpc('check_call_scoring_access', {
-          p_agency_id: profile.agency_id,
+          p_agency_id: agencyId,
         });
 
       if (error) {
@@ -187,12 +198,14 @@ export function useCallBalance() {
         addon_remaining: 0,
         purchased_remaining: 0,
         bonus_remaining: 0,
+        bonus_expires_at: '',
+        subscription_period_start: '',
         total_remaining: 0,
         message: 'No balance found',
       };
 
       // Compute next reset date by rolling subscription_period_start forward monthly until future
-      const periodStart = (result as any).subscription_period_start;
+      const periodStart = result.subscription_period_start;
       let resetDate: string | null = null;
       if (periodStart) {
         const resetDay = new Date(periodStart + 'T00:00:00').getDate();
@@ -209,10 +222,10 @@ export function useCallBalance() {
       return {
         canScore: result.can_score,
         subscriptionRemaining: result.subscription_remaining,
-        addonRemaining: (result as any).addon_remaining ?? 0,
+        addonRemaining: result.addon_remaining ?? 0,
         purchasedRemaining: result.purchased_remaining,
         bonusRemaining: result.bonus_remaining ?? 0,
-        bonusExpiresAt: (result as any).bonus_expires_at ?? null,
+        bonusExpiresAt: result.bonus_expires_at ?? null,
         subscriptionResetDate: resetDate,
         totalRemaining: result.total_remaining,
         message: result.message,
@@ -232,20 +245,30 @@ export function useUseCallScore() {
 
   return useMutation({
     mutationFn: async (): Promise<UseCallScoreResult> => {
-      // Get user's agency
+      // Get user's agency (with key_employee fallback)
       const { data: profile } = await supabase
         .from('profiles')
         .select('agency_id')
         .eq('id', user!.id)
         .single();
 
-      if (!profile?.agency_id) {
+      let agencyId = profile?.agency_id;
+      if (!agencyId) {
+        const { data: keyEmployee } = await supabase
+          .from('key_employees')
+          .select('agency_id')
+          .eq('user_id', user!.id)
+          .maybeSingle();
+        agencyId = keyEmployee?.agency_id ?? null;
+      }
+
+      if (!agencyId) {
         throw new Error('No agency found');
       }
 
       const { data, error } = await supabase
         .rpc('use_call_score', {
-          p_agency_id: profile.agency_id,
+          p_agency_id: agencyId,
         });
 
       if (error) throw error;
@@ -372,12 +395,22 @@ export function useCallAddonSubscription() {
         .eq('id', user!.id)
         .single();
 
-      if (!profile?.agency_id) return null;
+      let agencyId = profile?.agency_id;
+      if (!agencyId) {
+        const { data: keyEmployee } = await supabase
+          .from('key_employees')
+          .select('agency_id')
+          .eq('user_id', user!.id)
+          .maybeSingle();
+        agencyId = keyEmployee?.agency_id ?? null;
+      }
+
+      if (!agencyId) return null;
 
       const { data, error } = await supabase
         .from('agency_call_addon_subscriptions')
         .select('*')
-        .eq('agency_id', profile.agency_id)
+        .eq('agency_id', agencyId)
         .in('status', ['active', 'past_due'])
         .maybeSingle();
 

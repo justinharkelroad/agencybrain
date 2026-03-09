@@ -13,7 +13,7 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session, x-staff-session-token',
 }
 
 serve(async (req) => {
@@ -100,7 +100,7 @@ serve(async (req) => {
       .maybeSingle()
 
     if (existingAddon) {
-      throw new Error('You already have an active monthly add-on. Manage it from Stripe billing portal.')
+      throw new Error('You already have an active monthly add-on. Contact support to make changes.')
     }
 
     // Get addon details

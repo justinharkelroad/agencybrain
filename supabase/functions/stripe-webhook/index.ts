@@ -207,19 +207,47 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
     ? new Date(subscription.trial_start * 1000).toISOString().split('T')[0]
     : new Date(subscription.current_period_start * 1000).toISOString().split('T')[0]
 
-  const { error: balanceError } = await supabase
+  // Check if balance row already exists — only reset usage on status transitions, not routine updates
+  const { data: existingBalance } = await supabase
     .from('agency_call_balance')
-    .upsert({
-      agency_id: agencyId,
-      subscription_calls_limit: callLimit,
-      subscription_calls_used: 0,
-      subscription_period_start: periodStart
-    }, {
-      onConflict: 'agency_id'
-    })
+    .select('subscription_calls_limit')
+    .eq('agency_id', agencyId)
+    .maybeSingle()
 
-  if (balanceError) {
-    console.error('Error setting call balance:', balanceError)
+  if (existingBalance) {
+    // Row exists — check if the limit changed (e.g. trial 3 → active 20)
+    const limitChanged = existingBalance.subscription_calls_limit !== callLimit
+    const updatePayload: Record<string, unknown> = {
+      subscription_calls_limit: callLimit,
+      subscription_period_start: periodStart,
+    }
+    // Reset usage only when the tier changes (trial→active, plan change), not on routine updates
+    if (limitChanged) {
+      updatePayload.subscription_calls_used = 0
+    }
+
+    const { error: balanceError } = await supabase
+      .from('agency_call_balance')
+      .update(updatePayload)
+      .eq('agency_id', agencyId)
+
+    if (balanceError) {
+      console.error('Error updating call balance:', balanceError)
+    }
+  } else {
+    // New row — initialize with zero usage
+    const { error: balanceError } = await supabase
+      .from('agency_call_balance')
+      .insert({
+        agency_id: agencyId,
+        subscription_calls_limit: callLimit,
+        subscription_calls_used: 0,
+        subscription_period_start: periodStart,
+      })
+
+    if (balanceError) {
+      console.error('Error creating call balance:', balanceError)
+    }
   }
 
   console.log(`Subscription ${subscription.id} updated: status=${subscription.status}, agency=${agencyId}`)
@@ -430,6 +458,14 @@ async function handleAddonSubscriptionChange(subscription: Stripe.Subscription) 
   // Get price from subscription items
   const priceCents = subscription.items.data[0]?.price?.unit_amount || 0
 
+  // Check if addon was previously active (to decide whether to send welcome email)
+  const { data: existingAddon } = await supabase
+    .from('agency_call_addon_subscriptions')
+    .select('status')
+    .eq('agency_id', agencyId)
+    .maybeSingle()
+  const wasAlreadyActive = existingAddon?.status === 'active'
+
   // Upsert addon subscription record
   const { error: addonError } = await supabase
     .from('agency_call_addon_subscriptions')
@@ -455,8 +491,8 @@ async function handleAddonSubscriptionChange(subscription: Stripe.Subscription) 
     console.error('Error upserting addon subscription:', addonError)
   }
 
-  // If active, set addon balance
-  if (subscription.status === 'active') {
+  // If active for the first time, initialize addon balance (don't reset mid-cycle on routine updates)
+  if (subscription.status === 'active' && !wasAlreadyActive) {
     const periodStart = new Date(subscription.current_period_start * 1000).toISOString().split('T')[0]
 
     const { error: balanceError } = await supabase
@@ -473,6 +509,11 @@ async function handleAddonSubscriptionChange(subscription: Stripe.Subscription) 
     if (balanceError) {
       console.error('Error setting addon balance:', balanceError)
     }
+  }
+
+  // Send confirmation email when addon first becomes active (handles both instant payment and 3D Secure flows)
+  if (subscription.status === 'active' && !wasAlreadyActive) {
+    await sendAddonPurchaseEmail(agencyId, callsPerMonth, priceCents)
   }
 
   console.log(`Addon subscription ${subscription.id} updated: status=${subscription.status}, agency=${agencyId}, calls=${callsPerMonth}`)
@@ -764,6 +805,85 @@ Need more call scoring credits? You can purchase additional packs anytime in the
   await sendEmail(
     profile.email,
     '✅ Your Agency Brain subscription is active!',
+    html,
+    text
+  )
+}
+
+async function sendAddonPurchaseEmail(agencyId: string, callsPerMonth: number, priceCents: number) {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, email, display_name')
+    .eq('agency_id', agencyId)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .single()
+
+  if (!profile?.email) {
+    console.error('No email found for agency owner (addon purchase)')
+    return
+  }
+
+  const { data: agency } = await supabase
+    .from('agencies')
+    .select('name')
+    .eq('id', agencyId)
+    .single()
+
+  const name = profile.full_name || profile.display_name || 'there'
+  const agencyName = agency?.name || 'your agency'
+  const priceFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(priceCents / 100)
+
+  const bodyContent = `
+    ${EmailComponents.paragraph(`Hi ${name}!`)}
+
+    ${EmailComponents.summaryBox(`Your call scoring add-on for <strong>${agencyName}</strong> is now active — <strong>${callsPerMonth} extra calls/month</strong> at ${priceFormatted}/mo.`)}
+
+    ${EmailComponents.paragraph(`Your add-on credits are available now and will be used after your included monthly credits. They reset automatically each billing cycle.`)}
+
+    <div style="background: #f0f9ff; border-radius: 8px; padding: 20px; margin: 20px 0; border-left: 4px solid #0ea5e9;">
+      <h3 style="margin: 0 0 12px 0; color: #0c4a6e;">Credit Usage Order</h3>
+      <ol style="margin: 0; padding-left: 20px; color: #0369a1;">
+        <li style="margin-bottom: 6px;">Monthly included credits (20/mo)</li>
+        <li style="margin-bottom: 6px;">Add-on credits (${callsPerMonth}/mo)</li>
+        <li style="margin-bottom: 6px;">Bonus credits (if any)</li>
+        <li style="margin-bottom: 6px;">Purchased packs (never expire)</li>
+      </ol>
+    </div>
+
+    ${EmailComponents.button('Go to Call Scoring', `${SITE_URL}/call-scoring`)}
+
+    ${EmailComponents.infoText(`Need to make changes? Visit Settings → Billing or contact our team.`)}
+  `
+
+  const html = buildEmailHtml({
+    title: 'Call Scoring Add-On Activated!',
+    subtitle: `+${callsPerMonth} calls/month added to your plan`,
+    bodyContent,
+    footerAgencyName: agencyName,
+  })
+
+  const text = `Hi ${name}!
+
+Your call scoring add-on for ${agencyName} is now active — ${callsPerMonth} extra calls/month at ${priceFormatted}/mo.
+
+Your add-on credits are available now and will be used after your included monthly credits. They reset automatically each billing cycle.
+
+Credit usage order:
+1. Monthly included credits (20/mo)
+2. Add-on credits (${callsPerMonth}/mo)
+3. Bonus credits (if any)
+4. Purchased packs (never expire)
+
+Go to Call Scoring: ${SITE_URL}/call-scoring
+
+Need to make changes? Visit Settings → Billing or contact our team.
+
+— The Agency Brain Team`
+
+  await sendEmail(
+    profile.email,
+    `Call Scoring Add-On Activated — +${callsPerMonth} calls/month`,
     html,
     text
   )

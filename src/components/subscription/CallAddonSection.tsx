@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Phone, Calendar, Zap, ExternalLink } from "lucide-react";
+import { Loader2, Calendar, Zap, MessageSquare, CheckCircle } from "lucide-react";
 import {
   useCallAddonPlans,
   useCallAddonSubscription,
@@ -7,25 +7,33 @@ import {
   formatPrice,
 } from "@/hooks/useCallBalance";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/lib/auth";
-
-// TODO: Remove admin gate after testing checkout flow end-to-end
-const ADMIN_PREVIEW_EMAILS = ['justin@hfiagencies.com', 'agencybraintester@aol.com'];
 
 export function CallAddonSection() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { data: subscription } = useSubscription();
   const { data: addonPlans, isLoading: plansLoading } = useCallAddonPlans();
   const { data: addonSub, isLoading: subLoading } = useCallAddonSubscription();
   const purchaseMutation = usePurchaseCallAddon();
-  const [portalLoading, setPortalLoading] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelSubmitted, setCancelSubmitted] = useState(false);
 
   const isLoading = plansLoading || subLoading;
   const hasActiveAddon = addonSub && addonSub.status === "active";
@@ -44,15 +52,13 @@ export function CallAddonSection() {
     }
   };
 
-  const handleManageAddon = async () => {
-    setPortalLoading(true);
+  const handleCancelRequest = async () => {
+    setCancelSubmitting(true);
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
 
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-customer-portal-session`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-support-ticket`,
         {
           method: "POST",
           headers: {
@@ -60,26 +66,30 @@ export function CallAddonSection() {
             Authorization: `Bearer ${session?.access_token}`,
           },
           body: JSON.stringify({
-            return_url: window.location.href,
+            description: `[Add-On Cancellation Request]\n\nPlan: ${addonSub?.calls_per_month} calls/month (${addonSub ? formatPrice(addonSub.price_cents) : ''})\nSubscription ID: ${addonSub?.stripe_subscription_id || 'N/A'}\nAgency: ${addonSub?.agency_id || 'N/A'}\n\nReason: ${cancelReason || 'No reason provided'}`,
+            submitter_name: user?.user_metadata?.full_name || user?.email || 'Unknown',
+            submitter_email: user?.email || '',
+            submitter_type: isAdmin ? 'admin' : 'owner',
+            page_url: window.location.href,
+            agency_id: addonSub?.agency_id || null,
+            user_id: user?.id || null,
           }),
         }
       );
 
       if (!response.ok) {
-        throw new Error("Failed to open billing portal");
+        throw new Error("Failed to submit cancellation request");
       }
 
-      const { url } = await response.json();
-      window.location.href = url;
+      setCancelSubmitted(true);
+      toast.success("Cancellation request submitted. Our team will be in touch.");
     } catch (error) {
-      console.error("Portal error:", error);
-      toast.error("Failed to open billing portal");
-      setPortalLoading(false);
+      console.error("Cancel request error:", error);
+      toast.error("Failed to submit request. Please try again or email support.");
+    } finally {
+      setCancelSubmitting(false);
     }
   };
-
-  // Admin-only preview until checkout flow is tested end-to-end
-  if (!user?.email || !ADMIN_PREVIEW_EMAILS.includes(user.email)) return null;
 
   // Don't show for non-paid or unlimited users
   if (!subscription?.isPaid || subscription?.is1on1Client) return null;
@@ -139,19 +149,79 @@ export function CallAddonSection() {
               </div>
             )}
 
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleManageAddon}
-              disabled={portalLoading}
-            >
-              {portalLoading ? (
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              ) : (
-                <ExternalLink className="w-4 h-4 mr-2" />
-              )}
-              Manage Add-On
-            </Button>
+            {!addonSub.cancel_at_period_end && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => { setCancelDialogOpen(true); setCancelSubmitted(false); setCancelReason(""); }}
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Contact Us to Cancel
+              </Button>
+            )}
+            <p className="text-xs text-center text-muted-foreground">
+              Need to make changes? Reach out and our team will help.
+            </p>
+
+            {/* Cancellation Request Dialog */}
+            <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Request Add-On Cancellation</DialogTitle>
+                  <DialogDescription>
+                    Submit a cancellation request and our team will process it within 1 business day.
+                  </DialogDescription>
+                </DialogHeader>
+                {cancelSubmitted ? (
+                  <div className="py-6 text-center space-y-3">
+                    <CheckCircle className="w-12 h-12 mx-auto text-green-500" />
+                    <p className="font-medium">Request submitted</p>
+                    <p className="text-sm text-muted-foreground">
+                      Our team will review your request and follow up via email.
+                    </p>
+                    <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>
+                      Close
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4 py-2">
+                    <div className="p-3 rounded-lg bg-muted/50 text-sm">
+                      <div className="font-medium">{addonSub.calls_per_month} Calls/Month — {formatPrice(addonSub.price_cents)}/mo</div>
+                      {addonSub.current_period_end && (
+                        <div className="text-muted-foreground mt-1">
+                          Current period ends {new Date(addonSub.current_period_end).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cancel-reason">Reason for cancellation (optional)</Label>
+                      <Textarea
+                        id="cancel-reason"
+                        placeholder="Let us know why you'd like to cancel..."
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                    <Button
+                      className="w-full"
+                      onClick={handleCancelRequest}
+                      disabled={cancelSubmitting}
+                    >
+                      {cancelSubmitting ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                      )}
+                      Submit Cancellation Request
+                    </Button>
+                    <p className="text-xs text-center text-muted-foreground">
+                      Your add-on remains active until our team processes the request.
+                    </p>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
         ) : (
           // Plan selection view

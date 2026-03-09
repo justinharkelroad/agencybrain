@@ -322,6 +322,42 @@ Deno.serve(async (req) => {
       calls_limit: settingsData?.calls_limit || 20,
     };
 
+    // Fetch new call balance system (service_role bypasses auth check in RPC)
+    const { data: balanceData, error: balanceError } = await supabase
+      .rpc('check_call_scoring_access', { p_agency_id: agencyId });
+
+    let callBalance = null;
+    if (!balanceError && balanceData?.[0]) {
+      const b = balanceData[0];
+      const isUnlimited = b.total_remaining >= 999999;
+
+      // Compute next reset date from subscription_period_start
+      let subscriptionResetDate: string | null = null;
+      if (b.subscription_period_start) {
+        const resetDay = new Date(b.subscription_period_start + 'T00:00:00').getDate();
+        const now = new Date();
+        const next = new Date(now.getFullYear(), now.getMonth(), Math.min(resetDay, 28));
+        if (next <= now) {
+          next.setMonth(next.getMonth() + 1);
+        }
+        subscriptionResetDate = next.toISOString();
+      }
+
+      callBalance = {
+        canScore: b.can_score,
+        subscriptionRemaining: b.subscription_remaining,
+        addonRemaining: b.addon_remaining ?? 0,
+        purchasedRemaining: b.purchased_remaining,
+        bonusRemaining: b.bonus_remaining ?? 0,
+        bonusExpiresAt: b.bonus_expires_at ?? null,
+        subscriptionResetDate,
+        totalRemaining: b.total_remaining,
+        message: b.message,
+        isUnlimited,
+        isLegacyUser: false,
+      };
+    }
+
     // Get analytics calls for managers only
     let analyticsCalls: Array<{
       id: string;
@@ -405,6 +441,7 @@ Deno.serve(async (req) => {
       team_members: teamMembers || [],
       templates: templates || [],
       usage,
+      call_balance: callBalance,
       analytics_calls: analyticsCalls,
       is_manager: isManager,
       has_call_scoring_qa: Boolean(callScoringQaAccess),

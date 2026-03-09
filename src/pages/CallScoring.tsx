@@ -19,7 +19,7 @@ import { CallScoringAnalytics } from '@/components/CallScoringAnalytics';
 import { CallCoachingTab } from '@/components/call-scoring/CallCoachingTab';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
-import { useCallBalance, useCallAddonSubscription } from '@/hooks/useCallBalance';
+import { useCallBalance, useCallAddonSubscription, type CallBalance } from '@/hooks/useCallBalance';
 import { useSubscription } from '@/hooks/useSubscription';
 import type { Database, Json } from '@/integrations/supabase/types';
 
@@ -86,9 +86,12 @@ export default function CallScoring() {
   const { user, isAdmin } = useAuth();
   const { canUploadCallRecordings: ownerCanUpload, loading: permissionsLoading } = useUserPermissions();
   const { canUploadCallRecordings: staffCanUpload, isManager: isStaffManager, loading: staffPermissionsLoading } = useStaffPermissions();
-  const { data: callBalance } = useCallBalance();
+  const { data: callBalanceFromHook } = useCallBalance();
   const { data: addonSub } = useCallAddonSubscription();
   const { data: subscription } = useSubscription();
+  const [staffCallBalance, setStaffCallBalance] = useState<CallBalance | null>(null);
+  // For regular users, useCallBalance hook works. For staff users, we get it from the edge function.
+  const callBalance = callBalanceFromHook ?? staffCallBalance;
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [usage, setUsage] = useState<UsageInfo>({ calls_used: 0, calls_limit: 20 });
@@ -361,6 +364,11 @@ export default function CallScoring() {
         setUsage(data.usage || { calls_used: 0, calls_limit: 20 });
         setTotalCalls(data.total_calls || 0);
         setCallScoringQaEnabled(Boolean(data.has_call_scoring_qa));
+
+        // Store call balance from new system for staff users
+        if (data.call_balance) {
+          setStaffCallBalance(data.call_balance as CallBalance);
+        }
 
         // Set analytics calls for managers (server determines manager status)
         if (data.is_manager) {
@@ -854,8 +862,12 @@ export default function CallScoring() {
   };
 
   const effectiveLimit = usage.calls_limit + (usage.bonus_remaining || 0);
+  // Use new callBalance system when available (regular users), fall back to old system (staff users)
+  const hasCredits = callBalance
+    ? (callBalance.totalRemaining > 0 || callBalance.isUnlimited)
+    : usage.calls_used < effectiveLimit;
   const canUpload = selectedFile && selectedTeamMember && selectedTemplate &&
-    usage.calls_used < effectiveLimit &&
+    hasCredits &&
     (!isSplitCall || secondaryFile);
 
   const handleUpload = async () => {
@@ -1534,13 +1546,19 @@ export default function CallScoring() {
                   );
                 })()}
                 {callBalance.addonRemaining > 0 && (
-                  <Badge variant="outline" className="text-sm px-3 py-1 border-sky-500/50 dark:border-sky-500/30 text-sky-500" title="Used after monthly credits — resets on addon billing date">
+                  <Badge variant="outline" className="text-sm px-3 py-1 border-sky-500/50 dark:border-sky-500/30 text-sky-500" title={addonSub?.cancel_at_period_end ? "Add-on expiring — will not renew" : "Used after monthly credits — resets on addon billing date"}>
                     +<span className="font-semibold">{callBalance.addonRemaining}</span>
                     {addonSub?.calls_per_month && <span className="text-sky-400/70">/{addonSub.calls_per_month}</span>}
                     <span className="ml-1">addon</span>
                     {addonSub?.current_period_end && (
-                      <span className="ml-1 text-sky-400/70">· Resets {new Date(addonSub.current_period_end).toLocaleDateString()}</span>
+                      <span className="ml-1 text-sky-400/70">· {addonSub.cancel_at_period_end ? 'Expires' : 'Resets'} {new Date(addonSub.current_period_end).toLocaleDateString()}</span>
                     )}
+                  </Badge>
+                )}
+                {callBalance.purchasedRemaining > 0 && (
+                  <Badge variant="outline" className="text-sm px-3 py-1 border-amber-500/50 dark:border-amber-500/30 text-amber-500" title="Purchased call packs — never expire">
+                    +<span className="font-semibold">{callBalance.purchasedRemaining}</span>
+                    <span className="ml-1">purchased</span>
                   </Badge>
                 )}
                 {callBalance.bonusRemaining > 0 && (
@@ -1559,16 +1577,16 @@ export default function CallScoring() {
               </Badge>
             )}
           </div>
-          {callBalance && !callBalance.isUnlimited && (callBalance.addonRemaining > 0 || callBalance.bonusRemaining > 0) && (
+          {callBalance && !callBalance.isUnlimited && (callBalance.addonRemaining > 0 || callBalance.purchasedRemaining > 0 || callBalance.bonusRemaining > 0) && (
             <p className="text-[11px] text-muted-foreground">
-              Credits used in order: Monthly{callBalance.addonRemaining > 0 ? ' → Add-On' : ''}{callBalance.bonusRemaining > 0 ? ' → Bonus' : ''}
+              Credits used in order: Monthly{callBalance.addonRemaining > 0 ? ' → Add-On' : ''}{callBalance.bonusRemaining > 0 ? ' → Bonus' : ''}{callBalance.purchasedRemaining > 0 ? ' → Purchased' : ''}
             </p>
           )}
         </div>
       </div>
 
-      {/* Upsell banner — admin preview (remove low-credits gate for testing) */}
-      {!isStaffUser && (user?.email === 'justin@hfiagencies.com' || user?.email === 'agencybraintester@aol.com') && effectiveLimit < 999999 && (
+      {/* Upsell banner — show when running low on credits */}
+      {!isStaffUser && callBalance && callBalance.totalRemaining <= 3 && !callBalance.isUnlimited && (
         <div className="flex items-center gap-3 p-3 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sm">
           <Zap className="w-4 h-4 text-sky-500 flex-shrink-0" />
           <span>
@@ -1800,10 +1818,12 @@ export default function CallScoring() {
             </div>
 
             {/* Usage Warning */}
-            {usage.calls_used >= effectiveLimit && (
+            {(callBalance ? (callBalance.totalRemaining <= 0 && !callBalance.isUnlimited) : usage.calls_used >= effectiveLimit) && (
               <p className="text-sm text-destructive flex items-center gap-1">
                 <AlertCircle className="h-4 w-4" />
-                Monthly limit reached. Upgrade to analyze more calls.
+                {isStaffUser
+                  ? 'No credits remaining. Contact your agency administrator.'
+                  : 'No credits remaining. Add a monthly plan to continue scoring calls.'}
               </p>
             )}
 
