@@ -1529,7 +1529,7 @@ export default function CallScoring() {
             ) : callBalance ? (
               <>
                 {(() => {
-                  const subLimit = subscription?.isActive ? 20 : subscription?.isTrialing ? 3 : 0;
+                  const subLimit = callBalance.subscriptionLimit || 0;
                   return (
                     <Badge variant="outline" className="text-sm px-3 py-1" title="Used first — resets each billing period">
                       <span className="font-semibold">{callBalance.subscriptionRemaining}</span>

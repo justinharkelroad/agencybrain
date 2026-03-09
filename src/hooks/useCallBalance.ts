@@ -5,6 +5,8 @@ import { useAuth } from "@/lib/auth";
 export interface CallBalance {
   canScore: boolean;
   subscriptionRemaining: number;
+  /** Total monthly subscription limit (e.g. 200 for coaching clients, 20 for standard) */
+  subscriptionLimit: number;
   addonRemaining: number;
   purchasedRemaining: number;
   bonusRemaining: number;
@@ -90,6 +92,7 @@ export function useCallBalance() {
         return {
           canScore: false,
           subscriptionRemaining: 0,
+          subscriptionLimit: 0,
           addonRemaining: 0,
           purchasedRemaining: 0,
           bonusRemaining: 0,
@@ -121,6 +124,7 @@ export function useCallBalance() {
           return {
             canScore: true,
             subscriptionRemaining: 999999,
+            subscriptionLimit: 999999,
             addonRemaining: 0,
             purchasedRemaining: 0,
             bonusRemaining: 0,
@@ -139,7 +143,8 @@ export function useCallBalance() {
           // Legacy boardroom/call_scoring users - grant reasonable default
           return {
             canScore: true,
-            subscriptionRemaining: 20, // Default to standard allowance
+            subscriptionRemaining: 20,
+            subscriptionLimit: 20,
             addonRemaining: 0,
             purchasedRemaining: 0,
             bonusRemaining: 0,
@@ -154,10 +159,12 @@ export function useCallBalance() {
       }
 
       // NEW USERS: Use the subscription-based call balance system
-      const { data, error } = await supabase
-        .rpc('check_call_scoring_access', {
-          p_agency_id: agencyId,
-        });
+      // Fetch RPC + actual limit in parallel
+      const [{ data, error }, { data: balanceRow }] = await Promise.all([
+        supabase.rpc('check_call_scoring_access', { p_agency_id: agencyId }),
+        supabase.from('agency_call_balance').select('subscription_calls_limit').eq('agency_id', agencyId).maybeSingle(),
+      ]);
+      const actualLimit = balanceRow?.subscription_calls_limit ?? 0;
 
       if (error) {
         console.error('Error checking call balance:', error);
@@ -166,6 +173,7 @@ export function useCallBalance() {
           return {
             canScore: true,
             subscriptionRemaining: 20,
+            subscriptionLimit: 20,
             addonRemaining: 0,
             purchasedRemaining: 0,
             bonusRemaining: 0,
@@ -180,6 +188,7 @@ export function useCallBalance() {
         return {
           canScore: false,
           subscriptionRemaining: 0,
+          subscriptionLimit: 0,
           addonRemaining: 0,
           purchasedRemaining: 0,
           bonusRemaining: 0,
@@ -222,6 +231,7 @@ export function useCallBalance() {
       return {
         canScore: result.can_score,
         subscriptionRemaining: result.subscription_remaining,
+        subscriptionLimit: actualLimit,
         addonRemaining: result.addon_remaining ?? 0,
         purchasedRemaining: result.purchased_remaining,
         bonusRemaining: result.bonus_remaining ?? 0,

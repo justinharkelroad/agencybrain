@@ -105,7 +105,7 @@ export default function BillingSettings() {
     );
   }
 
-  const subscriptionCallsLimit = subscription?.isActive ? 20 : subscription?.isTrialing ? 3 : 0;
+  const subscriptionCallsLimit = callBalance?.subscriptionLimit || (subscription?.isActive ? 20 : subscription?.isTrialing ? 3 : 0);
   const subscriptionCallsUsed = callBalance
     ? (callBalance.isUnlimited ? 0 : Math.max(0, subscriptionCallsLimit - callBalance.subscriptionRemaining))
     : 0;
