@@ -345,6 +345,9 @@ export function ManualOverridePanel({
             </div>
 
             <div className="rounded-md border overflow-x-auto">
+              <div className="border-b px-4 py-3 text-sm text-muted-foreground">
+                Rows are editable only after the uploaded sub-producer code matches an active Agency Brain team member.
+              </div>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -367,10 +370,24 @@ export function ManualOverridePanel({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {producerData.map((producer) => (
+                  {producerData.map((producer) => {
+                    const isUnmatched = !producer.teamMember;
+                    const rowClassName = isUnmatched
+                      ? "bg-muted/40"
+                      : selectedCodes.has(producer.code)
+                        ? "bg-primary/5"
+                        : "";
+                    const uploadedValueClassName = isUnmatched
+                      ? "text-right text-foreground/80"
+                      : "text-right text-muted-foreground";
+                    const disabledInputClassName = isUnmatched
+                      ? "disabled:opacity-100 disabled:bg-muted/70 disabled:text-foreground/75 disabled:border-border"
+                      : "disabled:opacity-100";
+
+                    return (
                     <TableRow
                       key={producer.code}
-                      className={!producer.teamMember ? "bg-red-50/50" : selectedCodes.has(producer.code) ? "bg-primary/5" : ""}
+                      className={rowClassName}
                     >
                       <TableCell>
                         <Checkbox
@@ -381,17 +398,17 @@ export function ManualOverridePanel({
                         />
                       </TableCell>
                       <TableCell className="font-medium">
-                        {producer.teamMember?.name || <span className="text-muted-foreground italic">Unmatched</span>}
+                        {producer.teamMember?.name || <span className="text-foreground/80 italic">Unmatched</span>}
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="font-mono text-xs">
+                        <Badge variant="outline" className="font-mono text-xs text-foreground/90">
                           {producer.code}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
+                      <TableCell className={uploadedValueClassName}>
                         {producer.statementData.itemsIssued}
                       </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
+                      <TableCell className={uploadedValueClassName}>
                         {formatCurrency(producer.statementData.premiumWritten)}
                       </TableCell>
                       <TableCell>
@@ -400,7 +417,7 @@ export function ManualOverridePanel({
                           placeholder="—"
                           value={producer.override?.writtenItems ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "writtenItems", e.target.value)}
-                          className="h-8 w-20"
+                          className={`h-8 w-20 ${disabledInputClassName}`}
                           disabled={!producer.teamMember || !enabled}
                         />
                       </TableCell>
@@ -410,7 +427,7 @@ export function ManualOverridePanel({
                           placeholder="—"
                           value={producer.override?.writtenPremium ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "writtenPremium", e.target.value)}
-                          className="h-8 w-24"
+                          className={`h-8 w-24 ${disabledInputClassName}`}
                           disabled={!producer.teamMember || !enabled}
                         />
                       </TableCell>
@@ -420,7 +437,7 @@ export function ManualOverridePanel({
                           placeholder="—"
                           value={producer.override?.writtenPolicies ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "writtenPolicies", e.target.value)}
-                          className="h-8 w-24"
+                          className={`h-8 w-24 ${disabledInputClassName}`}
                           disabled={!producer.teamMember || !enabled}
                         />
                       </TableCell>
@@ -430,7 +447,7 @@ export function ManualOverridePanel({
                           placeholder="—"
                           value={producer.override?.writtenHouseholds ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "writtenHouseholds", e.target.value)}
-                          className="h-8 w-24"
+                          className={`h-8 w-24 ${disabledInputClassName}`}
                           disabled={!producer.teamMember || !enabled}
                         />
                       </TableCell>
@@ -440,12 +457,13 @@ export function ManualOverridePanel({
                           placeholder="—"
                           value={producer.override?.writtenPoints ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "writtenPoints", e.target.value)}
-                          className="h-8 w-20"
+                          className={`h-8 w-20 ${disabledInputClassName}`}
                           disabled={!producer.teamMember || !enabled}
                         />
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
