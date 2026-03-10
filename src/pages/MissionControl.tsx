@@ -156,6 +156,22 @@ type PulseFormData = {
   };
 };
 
+interface CoachBrainMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  nextSteps?: string[];
+  references?: string[];
+  followUpQuestion?: string | null;
+}
+
+interface CoachBrainResponse {
+  answer: string;
+  next_steps: string[];
+  references: string[];
+  follow_up_question: string | null;
+}
+
 function jsonArrayToLines(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
 
@@ -334,6 +350,8 @@ export default function MissionControl() {
   const [clientBrainOpen, setClientBrainOpen] = useState(false);
   const [historicalImportOpen, setHistoricalImportOpen] = useState(false);
   const [brainProfileEditor, setBrainProfileEditor] = useState<MissionControlBrainProfileKey | null>(null);
+  const [coachBrainQuestion, setCoachBrainQuestion] = useState('');
+  const [coachBrainMessages, setCoachBrainMessages] = useState<CoachBrainMessage[]>([]);
   const pulseSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -584,6 +602,91 @@ export default function MissionControl() {
       ),
     [clientBrainNote, workspace.coachNotes]
   );
+  const coachBrainMutation = useMutation({
+    mutationFn: async (payload: {
+      question: string;
+      conversation: Array<{ role: 'user' | 'assistant'; content: string }>;
+    }) => {
+      if (!ownerUserId) throw new Error('No workspace selected');
+
+      const { data, error } = await supabase.functions.invoke('mission-control-coach-brain', {
+        body: {
+          owner_user_id: ownerUserId,
+          question: payload.question,
+          conversation: payload.conversation,
+        },
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Coach Brain failed');
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      return data as CoachBrainResponse;
+    },
+    onError: (error) => {
+      toast.error('Coach Brain could not answer', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    },
+  });
+  const coachBrainStarters = useMemo(() => {
+    const sessionPrompt = latestSession?.title
+      ? `Based on ${latestSession.title}, what should this owner focus on before the next call?`
+      : 'What should this owner focus on first right now?';
+
+    const stressPrompt = latestQualitative.biggestStress
+      ? `Coach me through the current blocker: ${latestQualitative.biggestStress}`
+      : 'Where is execution slipping right now based on the current workspace?';
+
+    return [
+      sessionPrompt,
+      stressPrompt,
+      'What would Justin say is the next most important decision for this owner?',
+    ];
+  }, [latestQualitative.biggestStress, latestSession?.title]);
+
+  const askCoachBrain = async (questionOverride?: string) => {
+    const question = (questionOverride ?? coachBrainQuestion).trim();
+    if (!question || coachBrainMutation.isPending) return;
+
+    const userMessage: CoachBrainMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: question,
+    };
+
+    const priorConversation = coachBrainMessages
+      .slice(-6)
+      .map((message) => ({ role: message.role, content: message.content }));
+
+    setCoachBrainMessages((current) => [...current, userMessage]);
+    setCoachBrainQuestion('');
+
+    try {
+      const response = await coachBrainMutation.mutateAsync({
+        question,
+        conversation: [...priorConversation, { role: 'user', content: question }],
+      });
+
+      setCoachBrainMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: response.answer,
+          nextSteps: response.next_steps,
+          references: response.references,
+          followUpQuestion: response.follow_up_question,
+        },
+      ]);
+    } catch {
+      setCoachBrainMessages((current) => current.filter((message) => message.id !== userMessage.id));
+    }
+  };
 
   const attachmentTargetLabel = (attachment: LinkedMissionAttachment) => {
     if (attachment.session_id) {
@@ -1734,18 +1837,93 @@ export default function MissionControl() {
                   <Bot className="h-5 w-5 text-primary" />
                   Coach Brain
                 </CardTitle>
-                <CardDescription>This will become the on-demand coaching layer once the memory system is fully stable.</CardDescription>
+                <CardDescription>Ask questions between calls and get answers grounded in your voice, doctrine, client memory, sessions, promises, priorities, and linked evidence.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="rounded-[24px] border border-dashed border-border/60 bg-muted/20 p-4 text-sm leading-6 text-muted-foreground">
-                  This comes next. It will answer from session memory, promises, priorities, wins, blockers, and linked evidence instead of acting like a general-purpose bot.
-                </div>
                 <div className="flex flex-wrap gap-2">
                   {['Justin Voice', 'Standard Doctrine', 'Client Brain', 'Session memory', 'Promise history', 'Priority context', 'Linked evidence'].map((chip) => (
                     <Badge key={chip} variant="outline">
                       {chip}
                     </Badge>
                   ))}
+                </div>
+                {isAdmin && (!brainProfiles.voiceProfile || !brainProfiles.doctrineProfile) ? (
+                  <div className="rounded-[20px] border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200">
+                    Coach Brain will work without the global voice/doctrine docs, but it will feel much more like you once both are filled in.
+                  </div>
+                ) : null}
+                <div className="space-y-3">
+                  {coachBrainMessages.length > 0 ? (
+                    coachBrainMessages.map((message) => (
+                      <CoachBrainMessageCard key={message.id} message={message} />
+                    ))
+                  ) : (
+                    <div className="rounded-[24px] border border-dashed border-border/60 bg-muted/20 p-4 text-sm leading-6 text-muted-foreground">
+                      Ask as if you were coaching the client live. Coach Brain will answer from the Mission Control memory stack instead of giving generic advice.
+                    </div>
+                  )}
+                  {coachBrainMutation.isPending ? (
+                    <div className="rounded-[20px] border border-border/60 bg-background/80 p-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Coach Brain is thinking through the workspace context...
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="space-y-3 rounded-[24px] border border-border/60 bg-muted/20 p-4">
+                  <div className="flex flex-wrap gap-2">
+                    {coachBrainStarters.map((starter) => (
+                      <Button
+                        key={starter}
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-auto whitespace-normal text-left"
+                        onClick={() => askCoachBrain(starter)}
+                        disabled={coachBrainMutation.isPending || !ownerUserId}
+                      >
+                        {starter}
+                      </Button>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="coach-brain-question">Ask Coach Brain</Label>
+                    <Textarea
+                      id="coach-brain-question"
+                      rows={4}
+                      value={coachBrainQuestion}
+                      onChange={(event) => setCoachBrainQuestion(event.target.value)}
+                      placeholder={
+                        isAdmin
+                          ? 'Ask how Justin would coach this client next, where execution is slipping, or what should be prioritized before the next call.'
+                          : 'Ask for help with your current blocker, what to focus on next, or how to move a promise or priority forward.'
+                      }
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Button
+                      className="sm:flex-1"
+                      onClick={() => askCoachBrain()}
+                      disabled={coachBrainMutation.isPending || !coachBrainQuestion.trim() || !ownerUserId}
+                    >
+                      {coachBrainMutation.isPending ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                      )}
+                      Ask Coach Brain
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="sm:flex-1"
+                      onClick={() => setCoachBrainMessages([])}
+                      disabled={coachBrainMutation.isPending || coachBrainMessages.length === 0}
+                    >
+                      Clear conversation
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -2291,6 +2469,58 @@ function PulseDisplayCard({
     <div className="rounded-2xl border border-border/60 bg-background/80 p-4">
       <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{eyebrow}</p>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">{body}</p>
+    </div>
+  );
+}
+
+function CoachBrainMessageCard({
+  message,
+}: {
+  message: CoachBrainMessage;
+}) {
+  if (message.role === 'user') {
+    return (
+      <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">You asked</p>
+        <p className="mt-2 text-sm leading-6">{message.content}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-[22px] border border-border/60 bg-background/80 p-4">
+      <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Coach Brain</p>
+      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">{message.content}</p>
+
+      {message.nextSteps && message.nextSteps.length > 0 ? (
+        <div className="mt-4 rounded-2xl border border-border/60 bg-muted/20 p-3">
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Next steps</p>
+          <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
+            {message.nextSteps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {message.references && message.references.length > 0 ? (
+        <div className="mt-4 rounded-2xl border border-border/60 bg-muted/20 p-3">
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Grounded in</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {message.references.map((reference) => (
+              <Badge key={reference} variant="outline">
+                {reference}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {message.followUpQuestion ? (
+        <div className="mt-4 rounded-2xl border border-border/60 bg-muted/20 p-3 text-sm text-muted-foreground">
+          <span className="font-medium text-foreground">Follow-up:</span> {message.followUpQuestion}
+        </div>
+      ) : null}
     </div>
   );
 }

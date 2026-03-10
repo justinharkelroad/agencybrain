@@ -387,6 +387,9 @@ verify_jwt = false
 [functions.challenge-assign-staff]
 verify_jwt = false
 
+[functions.get-team-training-analytics]
+verify_jwt = false
+
 [functions.get-staff-challenge]
 verify_jwt = false
 
@@ -568,4 +571,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.generate-mission-control-draft]
+verify_jwt = true
+
+[functions.mission-control-coach-brain]
 verify_jwt = true
