@@ -27,6 +27,9 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
   const is3MonthRule = payout.chargebackRule === 'three_month';
   const isNoChargebacks = payout.chargebackRule === 'none';
   const chargebackDetails = payout.chargebackDetails || [];
+  const tierQualificationSource = payout.calculationSnapshot?.inputs.tierQualificationSource;
+  const usedManualWrittenMetrics = tierQualificationSource === "manual_override";
+  const tierMetric = payout.calculationSnapshot?.inputs.tierMetric || "items";
   
   const creditInsureds = payout.creditInsureds || [];
   const chargebackInsureds = payout.chargebackInsureds || [];
@@ -60,6 +63,41 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
       case 'missing_effective_date': return 'Missing Effective Date';
       default: return classification;
     }
+  };
+
+  const getTierMetricLabel = () => {
+    switch (tierMetric) {
+      case 'premium': return 'premium';
+      case 'policies': return 'policies';
+      case 'households': return 'households';
+      case 'points': return 'points';
+      case 'items':
+      default:
+        return 'items';
+    }
+  };
+
+  const getTierAchievedValue = () => {
+    switch (tierMetric) {
+      case 'premium':
+        return formatCurrency(payout.writtenPremium);
+      case 'policies':
+        return `${payout.writtenPolicies}`;
+      case 'households':
+        return `${payout.writtenHouseholds}`;
+      case 'points':
+        return `${payout.writtenPoints}`;
+      case 'items':
+      default:
+        return `${payout.writtenItems}`;
+    }
+  };
+
+  const getTierThresholdValue = () => {
+    if (!payout.tierMatch) return "";
+    return tierMetric === 'premium'
+      ? formatCurrency(payout.tierMatch.minThreshold)
+      : `${payout.tierMatch.minThreshold}`;
   };
 
   return (
@@ -139,10 +177,10 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
                       <Trophy className="h-5 w-5 text-emerald-500" />
                       <div>
                         <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-                          {payout.tierMatch.minThreshold}+ items ({payout.tierMatch.commissionValue}%)
+                          {getTierThresholdValue()}+ {getTierMetricLabel()} ({payout.tierMatch.commissionValue}%)
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Written: {payout.writtenItems} items
+                          Tiered on: {getTierAchievedValue()} {getTierMetricLabel()}
                         </div>
                       </div>
                     </div>
@@ -151,6 +189,12 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
                     </Badge>
                   </div>
                 </div>
+                {usedManualWrittenMetrics && (
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <Info className="h-3.5 w-3.5 mt-0.5" />
+                    <span>This payout used manual written metrics for tier qualification because the dashboard data was unavailable.</span>
+                  </div>
+                )}
               </div>
             )}
 

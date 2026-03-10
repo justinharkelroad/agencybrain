@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calculator, Save, CheckCircle, DollarSign, AlertTriangle, Users, FileSpreadsheet, RotateCcw } from "lucide-react";
 import { usePayoutCalculator } from "@/hooks/usePayoutCalculator";
@@ -43,7 +44,7 @@ interface PayoutPreviewProps {
   subProducerData?: SubProducerDataWrapper;
   statementMonth?: number;
   statementYear?: number;
-  onStatementReportSelect?: (report: any) => void;
+  onStatementReportSelect?: (report: unknown) => void;
 }
 
 interface PreRunAuditResult {
@@ -84,6 +85,38 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December"
 ];
 
+function getRequiredManualMetricField(tierMetric: string): keyof ManualOverride {
+  switch (tierMetric) {
+    case "premium":
+      return "writtenPremium";
+    case "policies":
+      return "writtenPolicies";
+    case "households":
+      return "writtenHouseholds";
+    case "points":
+      return "writtenPoints";
+    case "items":
+    default:
+      return "writtenItems";
+  }
+}
+
+function getManualMetricLabel(field: keyof ManualOverride): string {
+  switch (field) {
+    case "writtenPremium":
+      return "manual written premium";
+    case "writtenPolicies":
+      return "manual written policies";
+    case "writtenHouseholds":
+      return "manual written households";
+    case "writtenPoints":
+      return "manual written points";
+    case "writtenItems":
+    default:
+      return "manual written items";
+  }
+}
+
 export function PayoutPreview({
   agencyId,
   subProducerData,
@@ -99,6 +132,7 @@ export function PayoutPreview({
   const [hasCalculated, setHasCalculated] = useState(false);
   const [selectedPayout, setSelectedPayout] = useState<PayoutCalculation | null>(null);
   const [manualOverrides, setManualOverrides] = useState<ManualOverride[]>([]);
+  const [useManualWrittenMetrics, setUseManualWrittenMetrics] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [preRunAudit, setPreRunAudit] = useState<PreRunAuditResult | null>(null);
   const [warningAcknowledgeOpen, setWarningAcknowledgeOpen] = useState(false);
@@ -484,6 +518,19 @@ export function PayoutPreview({
         continue;
       }
 
+      if (useManualWrittenMetrics) {
+        if (plan.tier_metric_source !== "written") {
+          auditWarnings.push(`${teamMember.name} is on "${plan.name}", which tiers on issued metrics. Manual written entries will not affect their tier.`);
+        } else {
+          const requiredField = getRequiredManualMetricField(plan.tier_metric || "items");
+          const override = manualOverrides.find((entry) => entry.subProdCode === code);
+          if (!override || override[requiredField] === null || override[requiredField] === undefined) {
+            blockers.push(`${teamMember.name} is missing ${getManualMetricLabel(requiredField)} for fallback written-tiering on plan "${plan.name}".`);
+            continue;
+          }
+        }
+      }
+
       if (plan.chargeback_rule === "full") {
         for (const tx of producer.chargebackTransactions || []) {
           const product = (tx.product || "").trim();
@@ -526,18 +573,24 @@ export function PayoutPreview({
       blockers: Array.from(new Set(blockers)),
       warnings: Array.from(new Set(auditWarnings)),
     };
-  }, [agencyId, assignments, plans, teamMembers]);
+  }, [agencyId, assignments, manualOverrides, plans, teamMembers, useManualWrittenMetrics]);
 
   const performCalculation = useCallback(async (producers: SubProducerMetrics[]) => {
-    if (manualOverrides.some((o) => o.writtenItems !== null || o.writtenPremium !== null)) {
-      toast.info("Calculating with manual overrides applied");
+    if (useManualWrittenMetrics) {
+      toast.info("Calculating with manual written tier metrics");
     }
 
-    const result = await calculatePayouts(producers, selectedMonth, selectedYear, manualOverrides);
+    const result = await calculatePayouts(
+      producers,
+      selectedMonth,
+      selectedYear,
+      manualOverrides,
+      useManualWrittenMetrics
+    );
     setCalculatedPayouts(result.payouts);
     setWarnings(result.warnings);
     setHasCalculated(true);
-  }, [calculatePayouts, manualOverrides, selectedMonth, selectedYear]);
+  }, [calculatePayouts, manualOverrides, selectedMonth, selectedYear, useManualWrittenMetrics]);
 
   const handleCalculate = async (allowWarnings = false) => {
     const producers = getProducersForCalculation();
@@ -603,6 +656,7 @@ export function PayoutPreview({
     setSalesReportResult(null);
     setTransactionDetailMetrics(null);
     setTransactionDetailTransactions(null);
+    setUseManualWrittenMetrics(false);
     setConfirmResetOpen(false);
   };
 
@@ -690,6 +744,27 @@ export function PayoutPreview({
           <AgentTransactionDetailUpload
             onDataParsed={handleTransactionDetailParsed}
           />
+
+          <div className="rounded-lg border p-4 space-y-3">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="manual-written-tiering"
+                checked={useManualWrittenMetrics}
+                onCheckedChange={(checked) => {
+                  clearCalculatedResults();
+                  setUseManualWrittenMetrics(Boolean(checked));
+                }}
+              />
+              <div className="space-y-1">
+                <label htmlFor="manual-written-tiering" className="text-sm font-medium cursor-pointer">
+                  No dashboard data: use manual written metrics for tiering
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  Enable this only when the sales dashboard was not maintained. Manual entries will drive tier qualification for written-based plans, while payout production still comes from New Business Details and chargebacks from Agent Transaction Detail.
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* Chargeback status */}
           {transactionDetailMetrics && transactionDetailMetrics.length > 0 && chargebacksByProducer.size > 0 && (
@@ -812,6 +887,7 @@ export function PayoutPreview({
           subProducerData={producersForOverride}
           teamMembers={teamMembers}
           overrides={manualOverrides}
+          enabled={useManualWrittenMetrics}
           onChange={(nextOverrides) => {
             clearCalculatedResults();
             setManualOverrides(nextOverrides);
@@ -858,6 +934,15 @@ export function PayoutPreview({
                 <li key={idx}>{warning}</li>
               ))}
             </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {hasCalculated && calculatedPayouts.length > 0 && useManualWrittenMetrics && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            This comp run used manual written metrics for tier qualification because dashboard data was unavailable. Issued production and chargebacks still came from the uploaded reports.
           </AlertDescription>
         </Alert>
       )}

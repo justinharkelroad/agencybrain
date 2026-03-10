@@ -329,6 +329,7 @@ async function fetchWrittenMetrics(
       writtenPremium: 0,
       writtenPolicies: 0,
       writtenHouseholds: 0,
+      writtenPoints: 0,
       policyTypeBreakdown: {},
     };
 
@@ -347,12 +348,16 @@ async function fetchWrittenMetrics(
         writtenPremium: 0,
         writtenPolicies: 0,
         writtenHouseholds: 0,
+        writtenPoints: 0,
         householdSaleIds: [],
       };
     }
     current.policyTypeBreakdown![normalizedPolicyType].writtenItems += items;
     current.policyTypeBreakdown![normalizedPolicyType].writtenPremium += premium;
     current.policyTypeBreakdown![normalizedPolicyType].writtenPolicies += 1;
+    current.writtenPoints += items;
+    current.policyTypeBreakdown![normalizedPolicyType].writtenPoints =
+      (current.policyTypeBreakdown![normalizedPolicyType].writtenPoints || 0) + items;
 
     if (!householdSalesByMember.has(teamMemberId)) {
       householdSalesByMember.set(teamMemberId, new Set());
@@ -535,7 +540,8 @@ export function usePayoutCalculator(agencyId: string | null) {
     subProducerData: SubProducerMetrics[] | undefined | null,
     month: number,
     year: number,
-    manualOverrides?: ManualOverride[]
+    manualOverrides?: ManualOverride[],
+    useManualWrittenMetrics: boolean = false
   ): Promise<{ payouts: PayoutCalculation[]; warnings: string[] }> => {
     // TEST LOG - If you see this, the new code IS running
     console.log('🔥🔥🔥 NEW CODE IS RUNNING - FB84E946 🔥🔥🔥', { month, year, teamMembersCount: teamMembers.length });
@@ -592,7 +598,8 @@ export function usePayoutCalculator(agencyId: string | null) {
       selfGenMetricsByMember,
       brokeredMetricsByMember,
       writtenMetricsByMember,
-      brokeredBundlingMetricsByMember
+      brokeredBundlingMetricsByMember,
+      useManualWrittenMetrics
     );
   };
 

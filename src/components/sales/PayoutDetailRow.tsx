@@ -14,6 +14,13 @@ export function PayoutDetailRow({ payout, formatCurrency, onClick }: Props) {
   const hasPromos = payout.achievedPromos && payout.achievedPromos.length > 0;
   const hasSelfGenKicker = payout.selfGenKickerAmount && payout.selfGenKickerAmount > 0;
   const hasBonuses = hasPromos || hasSelfGenKicker;
+  const tierMetric = payout.calculationSnapshot?.inputs.tierMetric || "items";
+
+  const formatTierThreshold = () => {
+    if (!payout.tierMatch) return "-";
+    if (tierMetric === "premium") return formatCurrency(payout.tierMatch.minThreshold);
+    return `${payout.tierMatch.minThreshold}`;
+  };
 
   return (
     <TableRow
@@ -53,9 +60,7 @@ export function PayoutDetailRow({ payout, formatCurrency, onClick }: Props) {
       <TableCell className="text-right">{formatCurrency(payout.issuedPremium)}</TableCell>
       <TableCell className="text-right">{formatCurrency(payout.netPremium)}</TableCell>
       <TableCell className="text-right">
-        {payout.tierMatch 
-          ? formatCurrency(payout.tierMatch.minThreshold) 
-          : "-"}
+        {formatTierThreshold()}
       </TableCell>
       <TableCell className="text-right">
         {payout.tierCommissionValue > 0 

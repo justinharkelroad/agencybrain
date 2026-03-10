@@ -58,6 +58,17 @@ export interface ManualOverride {
   monolinePremium: number | null;
 }
 
+interface TierQualificationContext {
+  source: 'sales_table' | 'statement_fallback' | 'issued_statement' | 'manual_override';
+  manualWrittenMetrics?: {
+    writtenItems: number | null;
+    writtenPremium: number | null;
+    writtenPolicies: number | null;
+    writtenHouseholds: number | null;
+    writtenPoints: number | null;
+  } | null;
+}
+
 /**
  * Parse a date string that could be in various formats
  */
@@ -210,6 +221,7 @@ function getFilteredWrittenMetrics(
     writtenPremium: 0,
     writtenPolicies: 0,
     writtenHouseholds: 0,
+    writtenPoints: 0,
     policyTypeBreakdown: {},
   };
   const householdSaleIds = new Set<string>();
@@ -219,6 +231,7 @@ function getFilteredWrittenMetrics(
     filtered.writtenItems += metrics.writtenItems;
     filtered.writtenPremium += metrics.writtenPremium;
     filtered.writtenPolicies += metrics.writtenPolicies;
+    filtered.writtenPoints = (filtered.writtenPoints || 0) + (metrics.writtenPoints || 0);
     if (metrics.householdSaleIds && metrics.householdSaleIds.length > 0) {
       for (const saleId of metrics.householdSaleIds) {
         householdSaleIds.add(saleId);
@@ -1423,19 +1436,30 @@ export function calculateMemberPayout(
   selfGenMetrics?: SelfGenMetrics, // New: full self-gen metrics from sales table
   brokeredMetrics?: BrokeredMetrics, // Phase 5: brokered business metrics
   writtenMetrics?: WrittenMetrics, // Written metrics from sales table for tier qualification
-  brokeredBundlingMetrics?: BrokeredBundlingMetrics // Brokered sales marked for bundling
+  brokeredBundlingMetrics?: BrokeredBundlingMetrics, // Brokered sales marked for bundling
+  tierQualificationContext?: TierQualificationContext
 ): PayoutCalculation {
   // Get tier metric source from plan (written or issued)
   const tierMetricSource = plan.tier_metric_source || 'written';
   const policyTypeFilter = plan.policy_type_filter || null;
+  const effectiveWrittenMetrics = writtenMetrics || {
+    writtenItems: performance.writtenItems,
+    writtenPremium: performance.writtenPremium,
+    writtenPolicies: performance.writtenPolicies,
+    writtenHouseholds: performance.writtenHouseholds,
+    writtenPoints: performance.writtenPoints,
+  };
 
   // Calculate custom points if point_values is configured and tier_metric is 'points'
   let customPointsCalculated: number | undefined;
   let metricValue: number;
 
   // Determine metric value based on tier_metric_source
+  let resolvedTierQualificationSource: TierQualificationContext['source'];
+
   if (tierMetricSource === 'written' && writtenMetrics) {
     const filteredWrittenMetrics = getFilteredWrittenMetrics(writtenMetrics, policyTypeFilter);
+    resolvedTierQualificationSource = tierQualificationContext?.source || 'sales_table';
     // Use sales table data for tier qualification (manual entries)
     switch (plan.tier_metric) {
       case 'items':
@@ -1449,6 +1473,9 @@ export function calculateMemberPayout(
         break;
       case 'households':
         metricValue = filteredWrittenMetrics.writtenHouseholds;
+        break;
+      case 'points':
+        metricValue = filteredWrittenMetrics.writtenPoints ?? filteredWrittenMetrics.writtenItems;
         break;
       default:
         metricValue = filteredWrittenMetrics.writtenItems;
@@ -1464,6 +1491,9 @@ export function calculateMemberPayout(
   } else {
     // Use Allstate statement data (issued) - fallback or when source = 'issued'
     metricValue = getFilteredMetricFromPerformance(performance, plan.tier_metric, tierMetricSource, policyTypeFilter);
+    resolvedTierQualificationSource = tierQualificationContext?.source || (
+      tierMetricSource === 'written' ? 'statement_fallback' : 'issued_statement'
+    );
     console.log('[calculateMemberPayout] Using STATEMENT data for tier qualification:', {
       teamMemberName: performance.teamMemberName,
       source: tierMetricSource === 'written' ? 'written (no sales data, using statement)' : 'issued (statement)',
@@ -1473,7 +1503,15 @@ export function calculateMemberPayout(
     });
   }
 
-  if (plan.tier_metric === 'points' && plan.point_values && Object.keys(plan.point_values).length > 0) {
+  if (
+    plan.tier_metric === 'points' &&
+    tierQualificationContext?.source === 'manual_override' &&
+    tierQualificationContext.manualWrittenMetrics?.writtenPoints !== null &&
+    tierQualificationContext.manualWrittenMetrics?.writtenPoints !== undefined
+  ) {
+    customPointsCalculated = tierQualificationContext.manualWrittenMetrics.writtenPoints;
+    metricValue = customPointsCalculated;
+  } else if (plan.tier_metric === 'points' && plan.point_values && Object.keys(plan.point_values).length > 0) {
     customPointsCalculated = calculateCustomPoints(performance, plan.point_values, policyTypeFilter);
     metricValue = customPointsCalculated;
   }
@@ -1670,16 +1708,18 @@ export function calculateMemberPayout(
   // Build calculation snapshot for audit trail (Phase 8)
   const calculationSnapshot: CalculationSnapshot = {
     inputs: {
-      writtenItems: performance.writtenItems,
-      writtenPremium: performance.writtenPremium,
+      writtenItems: effectiveWrittenMetrics.writtenItems,
+      writtenPremium: effectiveWrittenMetrics.writtenPremium,
       issuedItems: performance.issuedItems,
       issuedPremium: performance.issuedPremium,
       chargebackCount: performance.chargebackCount,
       chargebackPremium: performance.chargebackPremium,
       tierMetric: plan.tier_metric,
       tierMetricSource,
+      tierQualificationSource: resolvedTierQualificationSource,
       chargebackRule: plan.chargeback_rule,
     },
+    manualWrittenMetrics: tierQualificationContext?.manualWrittenMetrics || null,
     tierMatched: tierMatch ? {
       tierId: tierMatch.tierId,
       threshold: tierMatch.minThreshold,
@@ -1711,6 +1751,8 @@ export function calculateMemberPayout(
 
   console.log(`[calculateMemberPayout] ${performance.teamMemberName}: creditInsureds=${performance.creditInsureds?.length || 0}, chargebackInsureds=${performance.chargebackInsureds?.length || 0}`);
 
+  const effectiveWrittenPoints = customPointsCalculated ?? effectiveWrittenMetrics.writtenPoints ?? performance.writtenPoints;
+
   return {
     teamMemberId: performance.teamMemberId || '',
     teamMemberName: performance.teamMemberName || performance.subProdCode,
@@ -1720,11 +1762,11 @@ export function calculateMemberPayout(
     periodYear,
 
     // Written metrics
-    writtenPremium: performance.writtenPremium,
-    writtenItems: performance.writtenItems,
-    writtenPolicies: performance.writtenPolicies,
-    writtenHouseholds: performance.writtenHouseholds,
-    writtenPoints: performance.writtenPoints,
+    writtenPremium: effectiveWrittenMetrics.writtenPremium,
+    writtenItems: effectiveWrittenMetrics.writtenItems,
+    writtenPolicies: effectiveWrittenMetrics.writtenPolicies,
+    writtenHouseholds: effectiveWrittenMetrics.writtenHouseholds,
+    writtenPoints: effectiveWrittenPoints,
 
     // Issued metrics
     issuedPremium: performance.issuedPremium,
@@ -1817,7 +1859,8 @@ export async function calculateAllPayouts(
   selfGenMetricsByMember?: Map<string, SelfGenMetrics>,
   brokeredMetricsByMember?: Map<string, BrokeredMetrics>,
   writtenMetricsByMember?: Map<string, WrittenMetrics>,
-  brokeredBundlingMetricsByMember?: Map<string, BrokeredBundlingMetrics>
+  brokeredBundlingMetricsByMember?: Map<string, BrokeredBundlingMetrics>,
+  useManualWrittenMetrics: boolean = false
 ): Promise<{ payouts: PayoutCalculation[]; warnings: string[] }> {
   // Guard against missing data
   if (!subProducerData || !Array.isArray(subProducerData)) {
@@ -1938,75 +1981,41 @@ export async function calculateAllPayouts(
         productTermMonths
       );
 
-      // Apply manual overrides if present (for testing compensation calculations)
       const override = overrideByCode.get(code);
-      if (override) {
-        // Total metrics for tier qualification
-        if (override.writtenItems !== null) {
-          performance.writtenItems = override.writtenItems;
-        }
-        if (override.writtenPremium !== null) {
-          performance.writtenPremium = override.writtenPremium;
-        }
-        if (override.writtenPolicies !== null) {
-          performance.writtenPolicies = override.writtenPolicies;
-        }
-        if (override.writtenHouseholds !== null) {
-          performance.writtenHouseholds = override.writtenHouseholds;
-        }
-        if (override.writtenPoints !== null) {
-          performance.writtenPoints = override.writtenPoints;
-        }
-        
-        // Bundle breakdown for commission calculation
-        // If any bundle field is specified, build a synthetic byBundleType array
-        if (override.bundledItems !== null || override.monolineItems !== null ||
-            override.bundledPremium !== null || override.monolinePremium !== null) {
-          
-          // Build synthetic byBundleType array from overrides
-          performance.byBundleType = [];
-          
-          const bundledItems = override.bundledItems ?? 0;
-          const bundledPremium = override.bundledPremium ?? 0;
-          const monolineItems = override.monolineItems ?? 0;
-          const monolinePremium = override.monolinePremium ?? 0;
-          
-          if (bundledItems > 0 || bundledPremium > 0) {
-            performance.byBundleType.push({
-              bundleType: 'standard', // "bundled" maps to standard in most plans
-              premiumWritten: bundledPremium,
-              premiumChargebacks: 0,
-              netPremium: bundledPremium,
-              itemsIssued: bundledItems,
-              creditCount: bundledItems,
-              chargebackCount: 0,
-            });
-          }
-          
-          if (monolineItems > 0 || monolinePremium > 0) {
-            performance.byBundleType.push({
-              bundleType: 'monoline',
-              premiumWritten: monolinePremium,
-              premiumChargebacks: 0,
-              netPremium: monolinePremium,
-              itemsIssued: monolineItems,
-              creditCount: monolineItems,
-              chargebackCount: 0,
-            });
-          }
-          
-          // Update issued metrics to match the bundle sum
-          performance.issuedItems = bundledItems + monolineItems;
-          performance.issuedPremium = bundledPremium + monolinePremium;
-        }
-      }
-
       // Get self-gen data for this team member
       const selfGenItems = selfGenByMember?.get(teamMember.id) || 0;
       const selfGenMetrics = selfGenMetricsByMember?.get(teamMember.id);
       const brokeredMetrics = brokeredMetricsByMember?.get(teamMember.id);
-      const writtenMetrics = writtenMetricsByMember?.get(teamMember.id);
+      let writtenMetrics = writtenMetricsByMember?.get(teamMember.id);
       const brokeredBundlingMetrics = brokeredBundlingMetricsByMember?.get(teamMember.id);
+      let tierQualificationContext: TierQualificationContext | undefined;
+
+      if (useManualWrittenMetrics && override) {
+        const fallbackWrittenMetrics = writtenMetrics || {
+          writtenItems: performance.writtenItems,
+          writtenPremium: performance.writtenPremium,
+          writtenPolicies: performance.writtenPolicies,
+          writtenHouseholds: performance.writtenHouseholds,
+          writtenPoints: performance.writtenPoints,
+        };
+        writtenMetrics = {
+          writtenItems: override.writtenItems ?? fallbackWrittenMetrics.writtenItems,
+          writtenPremium: override.writtenPremium ?? fallbackWrittenMetrics.writtenPremium,
+          writtenPolicies: override.writtenPolicies ?? fallbackWrittenMetrics.writtenPolicies,
+          writtenHouseholds: override.writtenHouseholds ?? fallbackWrittenMetrics.writtenHouseholds,
+          writtenPoints: override.writtenPoints ?? fallbackWrittenMetrics.writtenPoints,
+        };
+        tierQualificationContext = {
+          source: 'manual_override',
+          manualWrittenMetrics: {
+            writtenItems: override.writtenItems,
+            writtenPremium: override.writtenPremium,
+            writtenPolicies: override.writtenPolicies,
+            writtenHouseholds: override.writtenHouseholds,
+            writtenPoints: override.writtenPoints,
+          },
+        };
+      }
 
       const payout = calculateMemberPayout(
         performance,
@@ -2018,7 +2027,8 @@ export async function calculateAllPayouts(
         selfGenMetrics,
         brokeredMetrics,
         writtenMetrics,
-        brokeredBundlingMetrics
+        brokeredBundlingMetrics,
+        tierQualificationContext
       );
       payouts.push(payout);
     }

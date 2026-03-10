@@ -262,8 +262,16 @@ export interface CalculationSnapshot {
     chargebackPremium: number;
     tierMetric: string;
     tierMetricSource: string;
+    tierQualificationSource?: 'sales_table' | 'statement_fallback' | 'issued_statement' | 'manual_override';
     chargebackRule: string;
   };
+  manualWrittenMetrics?: {
+    writtenItems: number | null;
+    writtenPremium: number | null;
+    writtenPolicies: number | null;
+    writtenHouseholds: number | null;
+    writtenPoints: number | null;
+  } | null;
   tierMatched: {
     tierId: string;
     threshold: number;
@@ -307,6 +315,7 @@ export interface WrittenMetrics {
   writtenPremium: number;
   writtenPolicies: number;
   writtenHouseholds: number;
+  writtenPoints?: number;
   policyTypeBreakdown?: Record<
     string,
     {
@@ -314,6 +323,7 @@ export interface WrittenMetrics {
       writtenPremium: number;
       writtenPolicies: number;
       writtenHouseholds: number;
+      writtenPoints?: number;
       householdSaleIds?: string[];
     }
   >;

@@ -306,4 +306,58 @@ describe("comp fixture suite", () => {
       { policyNumber: "REIN-1", classification: "reinstatement", included: false },
     ]);
   });
+
+  it("persists manual written tier metrics without changing issued payout production", () => {
+    const plan = makePlan({
+      name: "Manual Written Fixture Plan",
+      tier_metric: "premium",
+      tier_metric_source: "written",
+    });
+    const metrics = makeMetrics({
+      premiumWritten: 10000,
+      netPremium: 10000,
+      commissionEarned: 1000,
+      netCommission: 1000,
+      itemsIssued: 2,
+      policiesIssued: 2,
+      creditCount: 2,
+    });
+
+    const payout = calculateMemberPayout(
+      convertToPerformance(metrics, "tm-1", "Fixture Producer", plan.chargeback_rule, periodMonth, periodYear, new Map()),
+      plan,
+      periodMonth,
+      periodYear,
+      { bonusAmount: 0, achievedPromos: [] },
+      0,
+      undefined,
+      undefined,
+      {
+        writtenItems: 6,
+        writtenPremium: 25000,
+        writtenPolicies: 4,
+        writtenHouseholds: 3,
+        writtenPoints: 6,
+      },
+      undefined,
+      {
+        source: "manual_override",
+        manualWrittenMetrics: {
+          writtenItems: 6,
+          writtenPremium: 25000,
+          writtenPolicies: 4,
+          writtenHouseholds: 3,
+          writtenPoints: 6,
+        },
+      }
+    );
+
+    expect(payout.tierThresholdMet).toBe(20000);
+    expect(payout.tierCommissionValue).toBe(10);
+    expect(payout.writtenPremium).toBe(25000);
+    expect(payout.writtenItems).toBe(6);
+    expect(payout.issuedPremium).toBe(10000);
+    expect(payout.calculationSnapshot?.inputs.tierQualificationSource).toBe("manual_override");
+    expect(payout.calculationSnapshot?.manualWrittenMetrics?.writtenPremium).toBe(25000);
+  });
 });
