@@ -549,7 +549,7 @@ export function PlannerExperiencePreview({
     const householdsToClose = ceilSafe(effectiveItemsTarget / Math.max(avgItemsPerHousehold, 0.1));
     const policiesToClose = ceilSafe(householdsToClose * Math.max(avgPoliciesPerHousehold, 0.1));
     const quotedHouseholdsNeeded = ceilSafe(householdsToClose / Math.max(closeRate / 100, 0.01));
-    const quotedHouseholdsPerDay = ceilSafe(quotedHouseholdsNeeded / bizTotal);
+    const quotedHouseholdsPerDay = ceilSafe(quotedHouseholdsNeeded / baseMonthBusinessDays);
     const estimatedWrittenPremium = effectiveItemsTarget * avgValuePerItem;
     const paceDelta = actualQuotedHHPerDay - quotedHouseholdsPerDay;
 
@@ -570,7 +570,7 @@ export function PlannerExperiencePreview({
     avgItemsPerHousehold,
     avgPoliciesPerHousehold,
     avgValuePerItem,
-    bizTotal,
+    baseMonthBusinessDays,
     actualQuotedHHPerDay,
   ]);
 
