@@ -88,6 +88,8 @@ export function LqsHouseholdDetailModal({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
   const [editPhones, setEditPhones] = useState<string[]>([]);
   const [editEmail, setEditEmail] = useState('');
   const [editZipCode, setEditZipCode] = useState('');
@@ -247,6 +249,8 @@ export function LqsHouseholdDetailModal({
       const phones = Array.isArray(household.phone)
         ? household.phone
         : household.phone ? [household.phone] : [];
+      setEditFirstName(household.first_name || '');
+      setEditLastName(household.last_name || '');
       setEditPhones(phones.length > 0 ? phones : ['']);
       setEditEmail(household.email || '');
       setEditZipCode(household.zip_code || '');
@@ -302,6 +306,12 @@ export function LqsHouseholdDetailModal({
   const handleSave = async () => {
     if (!household) return;
 
+    // Validate required name fields
+    if (!editFirstName.trim() || !editLastName.trim()) {
+      toast.error('First name and last name are required');
+      return;
+    }
+
     // Validate ZIP if provided
     if (editZipCode && !isValidZip(editZipCode)) {
       toast.error('Invalid ZIP code format. Use 5 digits (12345) or 5+4 (12345-6789)');
@@ -310,15 +320,6 @@ export function LqsHouseholdDetailModal({
 
     setIsSaving(true);
     try {
-      // Delete marked quotes first
-      if (deletedQuoteIds.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('lqs_quotes')
-          .delete()
-          .in('id', deletedQuoteIds);
-        if (deleteError) throw deleteError;
-      }
-
       // Filter out empty phone values
       const cleanedPhones = editPhones.filter(p => p.trim() !== '');
 
@@ -326,32 +327,77 @@ export function LqsHouseholdDetailModal({
       const remainingQuotes = (household.quotes || []).filter(q => !deletedQuoteIds.includes(q.id));
       const shouldRevertToLead = household.status === 'quoted' && remainingQuotes.length === 0;
 
-      const { error } = await supabase
-        .from('lqs_households')
-        .update({
-          phone: cleanedPhones.length > 0 ? cleanedPhones : null,
-          email: editEmail || null,
-          zip_code: editZipCode || null,
-          team_member_id: editTeamMemberId || null,
-          lead_source_id: editLeadSourceId || null,
-          objection_id: editObjectionId || null,
-          prior_insurance_company_id: editPriorInsuranceCompanyId || null,
-          ...(shouldRevertToLead && { status: 'lead', first_quote_date: null }),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', household.id);
+      const updatePayload = {
+        first_name: editFirstName.trim(),
+        last_name: editLastName.trim(),
+        phone: cleanedPhones.length > 0 ? cleanedPhones : null,
+        email: editEmail || null,
+        zip_code: editZipCode || null,
+        team_member_id: editTeamMemberId || null,
+        lead_source_id: editLeadSourceId || null,
+        objection_id: editObjectionId || null,
+        prior_insurance_company_id: editPriorInsuranceCompanyId || null,
+        ...(shouldRevertToLead && { status: 'lead', first_quote_date: null }),
+        updated_at: new Date().toISOString(),
+      };
 
-      if (error) throw error;
+      if (staffSessionToken) {
+        // Staff path — use edge function (staff can't pass RLS on lqs_households)
+        const { data, error } = await supabase.functions.invoke('edit_staff_household', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: {
+            household_id: household.id,
+            deleted_quote_ids: deletedQuoteIds.length > 0 ? deletedQuoteIds : undefined,
+            ...updatePayload,
+          },
+        });
+        if (error) throw new Error(await resolveFunctionErrorMessage(error));
+        if (data?.error) throw new Error(data.error);
+      } else {
+        // Owner/admin/KE path — direct Supabase client
+        // Delete marked quotes first
+        if (deletedQuoteIds.length > 0) {
+          const { error: deleteError } = await supabase
+            .from('lqs_quotes')
+            .delete()
+            .in('id', deletedQuoteIds);
+          if (deleteError) throw deleteError;
+        }
+
+        const { error } = await supabase
+          .from('lqs_households')
+          .update(updatePayload)
+          .eq('id', household.id);
+
+        if (error) throw error;
+
+        // Also update linked agency_contacts name if it changed
+        if (
+          household.contact_id &&
+          (editFirstName.trim() !== household.first_name || editLastName.trim() !== household.last_name)
+        ) {
+          await supabase
+            .from('agency_contacts')
+            .update({
+              first_name: editFirstName.trim(),
+              last_name: editLastName.trim(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', household.contact_id);
+        }
+      }
 
       toast.success('Saved');
       setIsEditing(false);
       setDeletedQuoteIds([]);
       // Invalidate and close modal so fresh data shows on next open
       queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save:', error);
-      toast.error('Failed to save');
+      toast.error(error.message || 'Failed to save');
     } finally {
       setIsSaving(false);
     }
@@ -362,6 +408,8 @@ export function LqsHouseholdDetailModal({
       const phones = Array.isArray(household.phone)
         ? household.phone
         : household.phone ? [household.phone] : [];
+      setEditFirstName(household.first_name || '');
+      setEditLastName(household.last_name || '');
       setEditPhones(phones.length > 0 ? phones : ['']);
       setEditEmail(household.email || '');
       setEditZipCode(household.zip_code || '');
@@ -784,9 +832,26 @@ export function LqsHouseholdDetailModal({
           {/* Customer Info Header */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-semibold">
-                {household.last_name.toUpperCase()}, {household.first_name}
-              </h3>
+              {isEditing ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editFirstName}
+                    onChange={(e) => setEditFirstName(e.target.value)}
+                    placeholder="First name"
+                    className="h-8 w-36"
+                  />
+                  <Input
+                    value={editLastName}
+                    onChange={(e) => setEditLastName(e.target.value)}
+                    placeholder="Last name"
+                    className="h-8 w-36"
+                  />
+                </div>
+              ) : (
+                <h3 className="text-xl font-semibold">
+                  {household.last_name.toUpperCase()}, {household.first_name}
+                </h3>
+              )}
               <div className="flex items-center gap-2">
                 <Badge
                   variant={household.status === 'sold' ? 'default' : 'secondary'}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
-import { Phone, Mail, MapPin, FileText, X, MessageSquare, Loader2, Voicemail, MessageCircle, DollarSign, Handshake, StickyNote, Calendar, CheckCircle2, ArrowRightLeft, Workflow } from 'lucide-react';
+import { Phone, Mail, MapPin, FileText, X, MessageSquare, Loader2, Voicemail, MessageCircle, DollarSign, Handshake, StickyNote, Calendar, CheckCircle2, ArrowRightLeft, Workflow, Pencil, Check } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -117,6 +117,13 @@ export function ContactProfileModal({
     premium: string;
   }>>([]);
   const [wonBackSaving, setWonBackSaving] = useState(false);
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [isSavingContact, setIsSavingContact] = useState(false);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editZipCode, setEditZipCode] = useState('');
   const resolvedCreatedByStaffId = staffSessionToken ? (staffMemberId || null) : null;
 
   // Query client for cache invalidation
@@ -940,6 +947,102 @@ export function ContactProfileModal({
     return parts.length > 0 ? parts.join(', ') : null;
   };
 
+  // Reset contact edit state when profile changes
+  useEffect(() => {
+    if (profile) {
+      setEditFirstName(profile.first_name || '');
+      setEditLastName(profile.last_name || '');
+      setEditPhone(profile.phones?.[0] || '');
+      setEditEmail(profile.emails?.[0] || '');
+      setEditZipCode(profile.zip_code || '');
+      setIsEditingContact(false);
+    }
+  }, [profile]);
+
+  const handleCancelContactEdit = () => {
+    if (profile) {
+      setEditFirstName(profile.first_name || '');
+      setEditLastName(profile.last_name || '');
+      setEditPhone(profile.phones?.[0] || '');
+      setEditEmail(profile.emails?.[0] || '');
+      setEditZipCode(profile.zip_code || '');
+    }
+    setIsEditingContact(false);
+  };
+
+  const handleSaveContact = async () => {
+    if (!profile || !contactId) return;
+
+    if (!editFirstName.trim() || !editLastName.trim()) {
+      toast.error('First name and last name are required');
+      return;
+    }
+
+    setIsSavingContact(true);
+    try {
+      const phones = editPhone.trim() ? [editPhone.trim()] : [];
+      const emails = editEmail.trim() ? [editEmail.trim()] : [];
+
+      if (staffSessionToken) {
+        // Staff path — use edge function
+        const { data, error } = await supabase.functions.invoke('edit_staff_contact', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: {
+            contact_id: contactId,
+            first_name: editFirstName.trim(),
+            last_name: editLastName.trim(),
+            phones,
+            emails,
+            zip_code: editZipCode.trim() || null,
+          },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+      } else {
+        // Owner/admin/KE path — direct update
+        const { error } = await supabase
+          .from('agency_contacts')
+          .update({
+            first_name: editFirstName.trim(),
+            last_name: editLastName.trim(),
+            phones,
+            emails,
+            zip_code: editZipCode.trim() || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', contactId);
+        if (error) throw error;
+
+        // Sync name changes to any linked lqs_households
+        if (
+          editFirstName.trim() !== profile.first_name ||
+          editLastName.trim() !== profile.last_name
+        ) {
+          await supabase
+            .from('lqs_households')
+            .update({
+              first_name: editFirstName.trim(),
+              last_name: editLastName.trim(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('contact_id', contactId);
+        }
+      }
+
+      toast.success('Contact updated');
+      setIsEditingContact(false);
+      queryClient.invalidateQueries({ queryKey: ['contact-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
+    } catch (error: any) {
+      console.error('Failed to update contact:', error);
+      toast.error(error.message || 'Failed to update contact');
+    } finally {
+      setIsSavingContact(false);
+    }
+  };
+
   const sourceConfig = defaultSourceModule ? SOURCE_MODULE_CONFIGS[defaultSourceModule] : null;
 
   return (
@@ -956,58 +1059,129 @@ export function ContactProfileModal({
                 {/* Name and stage badge */}
                 <div className="flex items-start justify-between">
                   <div>
-                    <SheetTitle className="text-xl">
-                      {profile.first_name} {profile.last_name}
-                    </SheetTitle>
+                    {isEditingContact ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={editFirstName}
+                          onChange={(e) => setEditFirstName(e.target.value)}
+                          placeholder="First name"
+                          className="h-8 w-32 text-lg font-semibold"
+                        />
+                        <Input
+                          value={editLastName}
+                          onChange={(e) => setEditLastName(e.target.value)}
+                          placeholder="Last name"
+                          className="h-8 w-32 text-lg font-semibold"
+                        />
+                      </div>
+                    ) : (
+                      <SheetTitle className="text-xl">
+                        {profile.first_name} {profile.last_name}
+                      </SheetTitle>
+                    )}
                     <div className="mt-1">
                       <CustomerJourneyBadge currentStage={displayStage || 'open_lead'} />
                     </div>
                   </div>
-                  {sourceConfig && (
-                    <Badge
-                      variant="outline"
-                      className={cn('text-xs', sourceConfig.color, sourceConfig.bgColor)}
-                    >
-                      Opened from: {sourceConfig.icon} {sourceConfig.label}
-                    </Badge>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {sourceConfig && (
+                      <Badge
+                        variant="outline"
+                        className={cn('text-xs', sourceConfig.color, sourceConfig.bgColor)}
+                      >
+                        Opened from: {sourceConfig.icon} {sourceConfig.label}
+                      </Badge>
+                    )}
+                    {isEditingContact ? (
+                      <>
+                        <Button variant="outline" size="sm" onClick={handleCancelContactEdit} disabled={isSavingContact}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" onClick={handleSaveContact} disabled={isSavingContact}>
+                          {isSavingContact ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </>
+                    ) : (
+                      <Button variant="ghost" size="sm" onClick={() => setIsEditingContact(true)} title="Edit contact info">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Contact info */}
                 <div className="space-y-2 text-sm">
-                  {profile.phones.length > 0 && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Phone className="h-4 w-4" />
-                      <a
-                        href={`tel:${profile.phones[0]}`}
-                        className="hover:text-primary hover:underline"
-                      >
-                        {formatPhone(profile.phones[0])}
-                      </a>
-                      {profile.phones.length > 1 && (
-                        <span className="text-xs">+{profile.phones.length - 1} more</span>
+                  {isEditingContact ? (
+                    <>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Phone className="h-4 w-4 flex-shrink-0" />
+                        <Input
+                          value={editPhone}
+                          onChange={(e) => setEditPhone(e.target.value)}
+                          placeholder="Phone"
+                          className="h-8"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Mail className="h-4 w-4 flex-shrink-0" />
+                        <Input
+                          value={editEmail}
+                          onChange={(e) => setEditEmail(e.target.value)}
+                          placeholder="Email"
+                          className="h-8"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="h-4 w-4 flex-shrink-0" />
+                        <Input
+                          value={editZipCode}
+                          onChange={(e) => setEditZipCode(e.target.value)}
+                          placeholder="ZIP Code"
+                          className="h-8 w-32"
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {profile.phones.length > 0 && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Phone className="h-4 w-4" />
+                          <a
+                            href={`tel:${profile.phones[0]}`}
+                            className="hover:text-primary hover:underline"
+                          >
+                            {formatPhone(profile.phones[0])}
+                          </a>
+                          {profile.phones.length > 1 && (
+                            <span className="text-xs">+{profile.phones.length - 1} more</span>
+                          )}
+                        </div>
                       )}
-                    </div>
-                  )}
-                  {profile.emails.length > 0 && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="h-4 w-4" />
-                      <a
-                        href={`mailto:${profile.emails[0]}`}
-                        className="hover:text-primary hover:underline"
-                      >
-                        {profile.emails[0]}
-                      </a>
-                      {profile.emails.length > 1 && (
-                        <span className="text-xs">+{profile.emails.length - 1} more</span>
+                      {profile.emails.length > 0 && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Mail className="h-4 w-4" />
+                          <a
+                            href={`mailto:${profile.emails[0]}`}
+                            className="hover:text-primary hover:underline"
+                          >
+                            {profile.emails[0]}
+                          </a>
+                          {profile.emails.length > 1 && (
+                            <span className="text-xs">+{profile.emails.length - 1} more</span>
+                          )}
+                        </div>
                       )}
-                    </div>
-                  )}
-                  {formatAddress() && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="h-4 w-4" />
-                      <span>{formatAddress()}</span>
-                    </div>
+                      {formatAddress() && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <MapPin className="h-4 w-4" />
+                          <span>{formatAddress()}</span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 

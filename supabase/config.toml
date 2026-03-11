@@ -309,6 +309,12 @@ verify_jwt = false
 [functions.edit_staff_sale]
 verify_jwt = false
 
+[functions.edit_staff_household]
+verify_jwt = false
+
+[functions.edit_staff_contact]
+verify_jwt = false
+
 [functions.get_staff_sales_analytics]
 verify_jwt = false
 
