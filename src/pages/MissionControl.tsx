@@ -3617,6 +3617,7 @@ function HistoricalMemoryImportDialog({
   const [title, setTitle] = useState('');
   const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
   const [rawText, setRawText] = useState('');
+  const [importedFileName, setImportedFileName] = useState('');
   const [summary, setSummary] = useState('');
   const [keyPoints, setKeyPoints] = useState('');
   const [wins, setWins] = useState('');
@@ -3668,6 +3669,23 @@ function HistoricalMemoryImportDialog({
       });
     },
   });
+
+  const importHistoricalFile = async (file: File | null) => {
+    if (!file) return;
+
+    try {
+      const content = await readMissionControlTextFile(file);
+      setRawText(content);
+      setImportedFileName(file.name);
+      toast.success('Historical memory imported', {
+        description: `${file.name} was loaded into the import workspace.`,
+      });
+    } catch (error) {
+      toast.error('Could not import file', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  };
 
   const appendToBrain = async () => {
     const sourceLabel = sourceType.replace('_', ' ');
@@ -3769,11 +3787,35 @@ function HistoricalMemoryImportDialog({
               <Label htmlFor="historical-memory-raw">Paste transcript, markdown, or notes</Label>
               <p className="text-xs text-muted-foreground">Markdown is best for long-form strategy context. Raw text is fine for transcript imports.</p>
             </div>
-            <Button type="button" variant="outline" onClick={() => draftMutation.mutate()} disabled={!canGenerateDraft || draftMutation.isPending}>
-              {draftMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-              {draftMutation.isPending ? 'Drafting...' : 'Generate draft'}
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button asChild type="button" variant="outline">
+                <label htmlFor="historical-memory-file" className="cursor-pointer">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import file
+                </label>
+              </Button>
+              <Input
+                id="historical-memory-file"
+                type="file"
+                accept=".md,.txt,text/markdown,text/plain"
+                className="hidden"
+                onChange={async (event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  await importHistoricalFile(file);
+                  event.currentTarget.value = '';
+                }}
+              />
+              <Button type="button" variant="outline" onClick={() => draftMutation.mutate()} disabled={!canGenerateDraft || draftMutation.isPending}>
+                {draftMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                {draftMutation.isPending ? 'Drafting...' : 'Generate draft'}
+              </Button>
+            </div>
           </div>
+          {importedFileName ? (
+            <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+              Loaded file: <span className="font-medium text-foreground">{importedFileName}</span>
+            </div>
+          ) : null}
           <Textarea
             id="historical-memory-raw"
             rows={10}
