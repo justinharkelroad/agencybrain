@@ -44,7 +44,9 @@ export function useMissionControlClients() {
 
       if (agenciesError) throw agenciesError;
 
-      const agencyMap = new Map((agencies ?? []).map((agency) => [agency.id, normalizeAgencyName(agency.name)]));
+      const agencyMap = new Map<string, string>(
+        (agencies ?? []).map((agency) => [agency.id, normalizeAgencyName(agency.name)])
+      );
 
       const primaryOwnersByAgency = new Map<string, (typeof ownerProfiles)[number]>();
 
@@ -62,7 +64,7 @@ export function useMissionControlClients() {
         }
       });
 
-      return [...primaryOwnersByAgency.values()].map((profile) => ({
+      return [...primaryOwnersByAgency.values()].map((profile): MissionControlClientOption => ({
         agencyId: profile.agency_id as string,
         agencyName: agencyMap.get(profile.agency_id as string) ?? 'Unknown agency',
         ownerUserId: profile.id,
