@@ -112,27 +112,8 @@ Deno.serve(async (req) => {
         console.error('Error fetching assignments:', assignmentsError);
       }
 
-      // If no assignments exist, return empty with flag
-      if (!assignments || assignments.length === 0) {
-        return new Response(
-          JSON.stringify({
-            modules: [],
-            categories: [],
-            lessons: [],
-            attachments: [],
-            quizzes: [],
-            quiz_questions: [],
-            quiz_options: [],
-            no_assignments: true,
-            staff_user: {
-              id: session.staff_users.id,
-              username: session.staff_users.username,
-              display_name: session.staff_users.display_name
-            }
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      // Even if no assignments, still show all modules for voluntary browsing
+      // (we'll mark which are assigned vs voluntary on the response)
 
       // Resolve multi-level assignments to module IDs
       const categoryAssignments = assignments.filter(a => a.category_id);
@@ -185,32 +166,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      if (accessibleModuleIds.size === 0) {
-        return new Response(
-          JSON.stringify({
-            modules: [],
-            categories: [],
-            lessons: [],
-            attachments: [],
-            quizzes: [],
-            quiz_questions: [],
-            quiz_options: [],
-            no_assignments: true,
-            staff_user: {
-              id: session.staff_users.id,
-              username: session.staff_users.username,
-              display_name: session.staff_users.display_name
-            }
-          }),
-          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Fetch only accessible modules
-      const { data: modules, error: modulesError } = await supabase
+      // Fetch ALL active modules for this agency (voluntary browsing enabled)
+      const { data: allModules, error: modulesError } = await supabase
         .from('training_modules')
         .select('*')
-        .in('id', Array.from(accessibleModuleIds))
+        .eq('agency_id', agency_id)
         .eq('is_active', true)
         .order('sort_order');
 
@@ -222,11 +182,13 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Attach due_date to each module
-      modulesWithDueDates = (modules || []).map(m => ({
+      // Attach due_date and assigned flag to each module
+      modulesWithDueDates = (allModules || []).map(m => ({
         ...m,
-        due_date: moduleDueDates.get(m.id) || null
+        due_date: moduleDueDates.get(m.id) || null,
+        is_assigned: accessibleModuleIds.has(m.id),
       }));
+      noAssignments = !assignments || assignments.length === 0;
     }
 
     // Fetch categories

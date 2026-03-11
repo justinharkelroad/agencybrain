@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 
@@ -8,6 +8,8 @@ interface VideoEmbedProps {
   autoplay?: boolean;
   muted?: boolean;
   controls?: boolean;
+  /** Called periodically with the number of seconds the video has been visible/playing. */
+  onWatchTimeUpdate?: (seconds: number) => void;
 }
 
 type VideoPlatform = "youtube" | "vimeo" | "loom" | "wistia" | "unknown";
@@ -18,9 +20,13 @@ interface VideoData {
   videoId: string;
 }
 
-export function VideoEmbed({ url, className = "", autoplay = false, muted = false, controls = true }: VideoEmbedProps) {
+export function VideoEmbed({ url, className = "", autoplay = false, muted = false, controls = true, onWatchTimeUpdate }: VideoEmbedProps) {
   const [videoData, setVideoData] = useState<VideoData | null>(null);
   const [error, setError] = useState<string>("");
+  const watchSecondsRef = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isVisibleRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!url) {
@@ -42,6 +48,32 @@ export function VideoEmbed({ url, className = "", autoplay = false, muted = fals
     }
   }, [url, autoplay, muted, controls]);
 
+  // Track watch time: counts seconds while the video iframe is visible on screen
+  useEffect(() => {
+    if (!onWatchTimeUpdate || !containerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        isVisibleRef.current = entry.isIntersecting;
+      },
+      { threshold: 0.5 }
+    );
+
+    observer.observe(containerRef.current);
+
+    intervalRef.current = setInterval(() => {
+      if (isVisibleRef.current) {
+        watchSecondsRef.current += 1;
+        onWatchTimeUpdate(watchSecondsRef.current);
+      }
+    }, 1000);
+
+    return () => {
+      observer.disconnect();
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [onWatchTimeUpdate]);
+
   if (error) {
     return (
       <Card className="p-4 bg-destructive/10 border-destructive/20">
@@ -60,7 +92,7 @@ export function VideoEmbed({ url, className = "", autoplay = false, muted = fals
   }
 
   return (
-    <div className={`aspect-video rounded-lg overflow-hidden bg-black ${className}`}>
+    <div ref={containerRef} className={`aspect-video rounded-lg overflow-hidden bg-black ${className}`}>
       <iframe
         src={videoData.embedUrl}
         className="w-full h-full"
@@ -72,6 +104,19 @@ export function VideoEmbed({ url, className = "", autoplay = false, muted = fals
   );
 }
 
+/** Hook to track video watch time for lesson completion. */
+export function useVideoWatchTime() {
+  const secondsRef = useRef(0);
+
+  const handleTimeUpdate = useCallback((seconds: number) => {
+    secondsRef.current = seconds;
+  }, []);
+
+  const getWatchedSeconds = useCallback(() => secondsRef.current, []);
+
+  return { handleTimeUpdate, getWatchedSeconds };
+}
+
 interface EmbedOptions {
   autoplay?: boolean;
   muted?: boolean;
@@ -80,7 +125,7 @@ interface EmbedOptions {
 
 function buildQueryParams(options: EmbedOptions, platform: VideoPlatform): string {
   const params: string[] = [];
-  
+
   if (platform === "vimeo") {
     if (options.autoplay) params.push("autoplay=1");
     if (options.muted) params.push("muted=1");
@@ -93,7 +138,7 @@ function buildQueryParams(options: EmbedOptions, platform: VideoPlatform): strin
     if (options.autoplay) params.push("autoplay=1");
     if (options.muted) params.push("muted=1");
   }
-  
+
   return params.length > 0 ? `?${params.join("&")}` : "";
 }
 
@@ -120,7 +165,6 @@ function parseVideoUrl(url: string, options: EmbedOptions = {}): VideoData {
       const hash = extractVimeoHash(url);
       const queryParams = buildQueryParams(options, "vimeo");
       const hashParam = hash ? `h=${hash}` : "";
-      const separator = hashParam && queryParams ? "&" : hashParam ? "?" : "";
       const fullParams = queryParams
         ? `${queryParams}${hashParam ? `&${hashParam}` : ""}`
         : hashParam ? `?${hashParam}` : "";

@@ -135,7 +135,15 @@ Write your response in sales letter style:
 
 Keep total response under 250 words.
 Be encouraging but direct — if their takeaway could be stronger, coach them on how.
-Never be generic — every sentence should reference something SPECIFIC they said.`;
+Never be generic — every sentence should reference something SPECIFIC they said.
+
+=== MEASURABILITY CHECK ===
+
+If their application plan (reflection 2) includes a commitment, goal, or intended result — check whether it is truly measurable.
+- A measurable commitment has a SPECIFIC metric, timeline, or observable outcome (e.g., "increase my close rate by 10% this month", "use this technique on my next 3 calls", "track my daily outbound calls for 2 weeks").
+- A vague commitment like "I'll do better", "I'll try harder", "I'll keep this in mind", or "I'll use this going forward" is NOT measurable.
+- If their commitment is vague, directly but warmly challenge them: name what's missing (a number, a deadline, or a specific scenario) and suggest how to make it concrete. Example: "You said you'll 'use this more' — but how will you KNOW? Try this: commit to using it on your next 5 prospect calls and tracking which ones convert."
+- Do NOT skip this check. Even if their insight is strong, a vague action plan means nothing changes.`;
 }
 
 
@@ -479,6 +487,135 @@ Deno.serve(async (req) => {
         console.error('Failed to update lesson progress:', progressError);
       } else {
         console.log(`✅ Successfully marked lesson ${quiz.lesson_id} as complete for staff user ${staffUserId}`);
+      }
+    }
+
+    // Send notification emails to configured recipients (agency training)
+    if (passed && quiz.agency_id) {
+      try {
+        const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+        if (RESEND_API_KEY) {
+          // Get configured notification recipients
+          const { data: configuredRecipients } = await supabase
+            .from('training_notification_recipients')
+            .select('email, display_name')
+            .eq('agency_id', quiz.agency_id);
+
+          let recipientEmails: string[] = [];
+
+          if (configuredRecipients && configuredRecipients.length > 0) {
+            recipientEmails = configuredRecipients.map(r => r.email).filter(Boolean);
+          } else {
+            // Fallback: send to agency owner
+            const { data: agencyOwners } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('agency_id', quiz.agency_id);
+
+            if (agencyOwners && agencyOwners.length > 0) {
+              const { data: { user: authUser } } = await supabase.auth.admin.getUserById(agencyOwners[0].id);
+              if (authUser?.email) {
+                recipientEmails = [authUser.email];
+              }
+            }
+          }
+
+          if (recipientEmails.length > 0) {
+            // Get staff display name
+            const { data: staffUser } = await supabase
+              .from('staff_users')
+              .select('display_name')
+              .eq('id', staffUserId)
+              .single();
+
+            const staffName = staffUser?.display_name || 'A team member';
+
+            const emailHtml = `
+              <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                <div style="background: linear-gradient(135deg, #1e283a 0%, #0f172a 100%); padding: 30px; border-radius: 12px 12px 0 0;">
+                  <h1 style="color: white; margin: 0; font-size: 24px;">🎓 Training Completed!</h1>
+                </div>
+
+                <div style="background: #f8fafc; padding: 30px; border: 1px solid #e2e8f0; border-top: none;">
+                  <p style="color: #334155; font-size: 16px; margin-top: 0;">Hi there,</p>
+
+                  <p style="color: #334155; font-size: 16px;">
+                    <strong>${staffName}</strong> just completed a training lesson:
+                  </p>
+
+                  <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                    <p style="color: #64748b; font-size: 14px; margin: 0 0 5px 0;">
+                      ${categoryName} → ${moduleName}
+                    </p>
+                    <h3 style="color: #1e293b; margin: 0; font-size: 18px;">
+                      ${lessonName}
+                    </h3>
+                    <p style="color: #64748b; font-size: 14px; margin: 10px 0 0 0;">
+                      Quiz Score: <strong>${scorePercentage}%</strong>
+                    </p>
+                  </div>
+
+                  ${reflectionAnswers.reflection_1 || reflectionAnswers.reflection_2 ? `
+                    <h4 style="color: #1e293b; font-size: 16px; margin-bottom: 10px;">📝 Their Reflections</h4>
+                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                      ${reflectionAnswers.reflection_1 ? `
+                        <p style="color: #64748b; font-size: 12px; text-transform: uppercase; margin: 0 0 5px 0;">Most Valuable Insight</p>
+                        <p style="color: #334155; font-size: 14px; margin: 0 0 15px 0;">"${reflectionAnswers.reflection_1}"</p>
+                      ` : ''}
+                      ${reflectionAnswers.reflection_2 ? `
+                        <p style="color: #64748b; font-size: 12px; text-transform: uppercase; margin: 0 0 5px 0;">How They'll Apply It</p>
+                        <p style="color: #334155; font-size: 14px; margin: 0;">"${reflectionAnswers.reflection_2}"</p>
+                      ` : ''}
+                    </div>
+                  ` : ''}
+
+                  <p style="color: #64748b; font-size: 14px; margin-top: 30px;">Keep up the great leadership!</p>
+                  <p style="color: #64748b; font-size: 14px;">– Agency Brain</p>
+                </div>
+
+                <div style="background: #f1f5f9; padding: 20px; border-radius: 0 0 12px 12px; text-align: center;">
+                  <p style="color: #94a3b8; font-size: 12px; margin: 0;">Agency Training Notification</p>
+                </div>
+              </div>
+            `;
+
+            const emailPayload = recipientEmails.length === 1
+              ? {
+                  from: 'Agency Brain <info@agencybrain.standardplaybook.com>',
+                  to: recipientEmails[0],
+                  subject: `🎓 ${staffName} completed "${lessonName}"`,
+                  html: emailHtml,
+                }
+              : recipientEmails.map(email => ({
+                  from: 'Agency Brain <info@agencybrain.standardplaybook.com>',
+                  to: email,
+                  subject: `🎓 ${staffName} completed "${lessonName}"`,
+                  html: emailHtml,
+                }));
+
+            const emailEndpoint = recipientEmails.length === 1
+              ? 'https://api.resend.com/emails'
+              : 'https://api.resend.com/emails/batch';
+
+            const emailResponse = await fetch(emailEndpoint, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${RESEND_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(emailPayload),
+            });
+
+            if (emailResponse.ok) {
+              console.log(`Training completion email sent to ${recipientEmails.length} recipients`);
+            } else {
+              console.error('Training email send failed:', await emailResponse.text());
+            }
+          }
+        }
+      } catch (emailErr) {
+        console.error('Error sending training completion email:', emailErr);
+        // Don't fail the quiz submission over email errors
       }
     }
 

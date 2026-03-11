@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
+import { VideoEmbed as VideoEmbedTracked, useVideoWatchTime } from '@/components/training/VideoEmbed';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -88,6 +89,9 @@ export default function StaffSPLesson() {
   const [mcAnswers, setMcAnswers] = useState<Record<string, number>>({});
   const [reflections, setReflections] = useState<string[]>(['', '', '']);
   const [showImageLightbox, setShowImageLightbox] = useState(false);
+
+  // Video watch time tracking
+  const { handleTimeUpdate: handleVideoTimeUpdate, getWatchedSeconds } = useVideoWatchTime();
 
   // Navigation
   const [nextLesson, setNextLesson] = useState<{ slug: string; name: string } | null>(null);
@@ -201,6 +205,7 @@ export default function StaffSPLesson() {
             action: reflections[1],
             result: reflections[2],
           },
+          video_watched_seconds: getWatchedSeconds(),
         },
       });
 
@@ -231,8 +236,6 @@ export default function StaffSPLesson() {
       </div>
     );
   }
-
-  const embedUrl = lesson.video_url ? getEmbedUrl(lesson.video_url) : null;
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -291,16 +294,12 @@ export default function StaffSPLesson() {
       )}
 
       {/* Video */}
-      {embedUrl && (
+      {lesson.video_url && (
         <Card className="mb-6 overflow-hidden">
-          <div className="aspect-video">
-            <iframe
-              src={embedUrl}
-              className="w-full h-full"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-            />
-          </div>
+          <VideoEmbedTracked
+            url={lesson.video_url}
+            onWatchTimeUpdate={handleVideoTimeUpdate}
+          />
         </Card>
       )}
 

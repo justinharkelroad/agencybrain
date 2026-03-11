@@ -158,6 +158,30 @@ GRANT EXECUTE ON FUNCTION ... TO anon;
 
 After any auth/RLS/RPC change, run cross-agency tamper tests (same-agency expect 200, different-agency expect 401/403) before marking complete.
 
+## Call Scoring Credit Limits (MANDATORY — production outages 2026-03-09)
+
+Two call scoring systems (OLD: `agency_call_scoring_settings` + `call_usage_tracking`, NEW: `agency_call_balance`) must stay in sync. Admin UI writes to both on save.
+
+### Rule 1: NEVER hardcode call limits in display code
+
+```typescript
+// WRONG — shows "200/20" for coaching clients:
+const subLimit = subscription?.isActive ? 20 : subscription?.isTrialing ? 3 : 0;
+
+// CORRECT — reads actual limit from agency_call_balance:
+const subLimit = callBalance.subscriptionLimit || 0;
+```
+
+Limits are dynamic: 200 for coaching clients, 50/100 for Call Scoring tiers, 20 for standard Boardroom. Always use `callBalance.subscriptionLimit` from `useCallBalance` hook.
+
+### Rule 2: Stripe webhook renewal MUST NOT overwrite `subscription_calls_limit`
+
+`handleSubscriptionRenewal` resets `subscription_calls_used = 0` only. Never set `subscription_calls_limit` — it destroys admin-configured limits.
+
+### Rule 3: Admin save syncs to both systems
+
+`AdminAgencyCallScoring.tsx` → writes `calls_limit` to `agency_call_scoring_settings` AND `subscription_calls_limit` to `agency_call_balance`. Never break this sync.
+
 ## Cross-Cutting Gotchas
 
 - Call scoring output contract must stay consistent across analyzer, UI, and email.

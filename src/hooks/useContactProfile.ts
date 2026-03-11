@@ -192,6 +192,8 @@ async function fetchStaffContactProfile(
     renewal_records: renewalRecords,
     cancel_audit_records: cancelAuditRecords,
     winback_records: winbackRecords,
+    // Pass through sequence instances from edge function (for ContactIntelligencePanel)
+    sequenceInstances: profile.sequenceInstances || undefined,
   };
 }
 

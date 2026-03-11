@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { TrainingContentTab, TrainingAssignmentsTab, TrainingProgressTab, StaffUsersTab, SPAssignmentsTab } from "./training-tabs";
+import { TrainingContentTab, TrainingAssignmentsTab, TrainingProgressTab, StaffUsersTab, SPAssignmentsTab, TrainingSettingsTab } from "./training-tabs";
 import { BarChart3 } from "lucide-react";
 
 // Session storage key for caching agencyId to survive component remounts
@@ -93,12 +93,13 @@ export default function AdminTraining() {
       </div>
 
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="content">Content</TabsTrigger>
           <TabsTrigger value="assignments">Assignments</TabsTrigger>
           <TabsTrigger value="sp-assignments">SP Assignments</TabsTrigger>
           <TabsTrigger value="progress">Progress</TabsTrigger>
           <TabsTrigger value="staff">Staff Users</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="content">
@@ -119,6 +120,10 @@ export default function AdminTraining() {
 
         <TabsContent value="staff">
           <StaffUsersTab agencyId={agencyId} />
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <TrainingSettingsTab agencyId={agencyId} />
         </TabsContent>
       </Tabs>
     </div>

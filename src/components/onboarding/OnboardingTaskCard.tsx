@@ -26,6 +26,7 @@ import {
   FileText,
   Loader2,
   Zap,
+  PanelRightOpen,
 } from 'lucide-react';
 import { format, isToday, isPast, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -124,6 +125,7 @@ export function OnboardingTaskCard({
   isCompleting = false,
   showAssignee = false,
   showCustomer = true,
+  onClickTask,
 }: OnboardingTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [completing, setCompleting] = useState(false);
@@ -141,15 +143,17 @@ export function OnboardingTaskCard({
       setShowCompleteDialog(true);
     } else {
       // For other tasks, complete immediately
-      handleComplete();
+      handleComplete(task.id);
     }
   };
 
-  const handleComplete = async (notes?: string) => {
+  const handleComplete = async (_taskId: string, notes?: string) => {
     if (completing || isCompleting) return;
     setCompleting(true);
     try {
       await onComplete(task.id, notes);
+    } catch {
+      // Parent already shows error toast
     } finally {
       setCompleting(false);
     }
@@ -318,6 +322,25 @@ export function OnboardingTaskCard({
               </p>
             )}
           </div>
+
+          {/* Open Panel Arrow */}
+          {onClickTask && (task.instance?.contact_id || task.contact_id) && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="shrink-0 self-center p-2 rounded-md text-primary hover:bg-primary/10 transition-colors"
+                    onClick={(e) => { e.stopPropagation(); onClickTask(task); }}
+                  >
+                    <PanelRightOpen className="h-5 w-5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="left">
+                  <p>View contact details</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </CardContent>
 

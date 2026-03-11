@@ -1876,7 +1876,7 @@ export async function calculateAllPayouts(
   const { data: productTypes, error: productTypesError } = await supabase
     .from("product_types")
     .select("name, term_months")
-    .eq("agency_id", agencyId);
+    .or(`agency_id.eq.${agencyId},agency_id.is.null`);
 
   if (productTypesError) {
     warnings.push(`Could not load product term months: ${productTypesError.message}`);

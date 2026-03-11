@@ -3,6 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 import { BRAND, buildEmailHtml, EmailComponents } from "../_shared/email-template.ts";
 
+const SUPPORT_TICKET_BUCKET = "support-ticket-uploads";
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
@@ -69,7 +71,7 @@ serve(async (req) => {
           
           // Upload using service role
           const { error: uploadError } = await supabase.storage
-            .from("uploads")
+            .from(SUPPORT_TICKET_BUCKET)
             .upload(filePath, bytes, { 
               contentType: file.type,
               upsert: false 
@@ -82,7 +84,7 @@ serve(async (req) => {
           
           // Get public URL
           const { data: urlData } = supabase.storage
-            .from("uploads")
+            .from(SUPPORT_TICKET_BUCKET)
             .getPublicUrl(filePath);
           
           attachmentUrls.push(urlData.publicUrl);

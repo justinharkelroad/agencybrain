@@ -383,7 +383,7 @@ export default function StaffChallenge() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-white">The Challenge</h1>
-            <p className="text-sm text-foreground/60 dark:text-slate-400 mt-1">
+            <p className="text-sm text-slate-400 mt-1">
               Day {current_business_day} of {assignment?.product?.total_lessons || 30}
             </p>
           </div>
@@ -392,7 +392,7 @@ export default function StaffChallenge() {
         {/* Progress */}
         <div className="mt-4 space-y-2">
           <div className="flex justify-between text-sm">
-            <span className="text-foreground/60 dark:text-slate-400">Overall Progress</span>
+            <span className="text-slate-400">Overall Progress</span>
             <span className="text-white font-medium">{progress.progress_percent}%</span>
           </div>
           <Progress value={progress.progress_percent} className="h-2 bg-slate-700" />

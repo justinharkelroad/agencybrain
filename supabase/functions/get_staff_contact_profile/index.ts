@@ -93,7 +93,7 @@ serve(async (req) => {
     const householdKey = contact.household_key;
 
     // Fetch linked records in parallel
-    const [activitiesResult, lqsResult, renewalResult, cancelAuditResult, winbackResult] = await Promise.all([
+    const [activitiesResult, lqsResult, renewalResult, cancelAuditResult, winbackResult, sequenceResult] = await Promise.all([
       // Unified activities from contact_activities
       supabase
         .from('contact_activities')
@@ -246,6 +246,21 @@ serve(async (req) => {
             `)
             .eq('contact_id', contactId)
             .eq('agency_id', agencyId),
+
+      // Onboarding sequence instances with tasks
+      supabase
+        .from('onboarding_instances')
+        .select(`
+          id, sequence_id, status, start_date, created_at,
+          sequence:onboarding_sequences(id, name),
+          tasks:onboarding_tasks(
+            id, title, action_type, day_number, due_date, status,
+            completed_at, completion_notes
+          )
+        `)
+        .eq('contact_id', contactId)
+        .eq('agency_id', agencyId)
+        .order('created_at', { ascending: false }),
     ]);
 
     // Build the profile response
@@ -254,6 +269,7 @@ serve(async (req) => {
     const renewalRecords = renewalResult.data || [];
     const cancelAuditRecords = cancelAuditResult.data || [];
     const winbackRecords = winbackResult.data || [];
+    const sequenceInstances = sequenceResult.data || [];
 
     // Fetch winback activities if we have winback records OR if winbackHouseholdId was provided
     const winbackHouseholdIds = winbackHouseholdId
@@ -392,6 +408,7 @@ serve(async (req) => {
       renewalRecords,
       cancelAuditRecords,
       winbackRecords,
+      sequenceInstances,
       lifecycleStage,
       journeyEvents: journeyEvents.slice(0, 50), // Limit to 50 events
     };

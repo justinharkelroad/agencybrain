@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { session_token, lesson_id, status, progress_data } = await req.json();
+    const { session_token, lesson_id, status, progress_data, video_watched_seconds } = await req.json();
 
     if (!session_token || !lesson_id || !status) {
       return new Response(
@@ -51,6 +51,12 @@ Deno.serve(async (req) => {
 
     if (isCompleted) {
       progressRecord.completed_at = new Date().toISOString();
+    }
+
+    // Track video watch seconds if provided
+    if (typeof video_watched_seconds === 'number' && video_watched_seconds > 0) {
+      progressRecord.video_watched_seconds = video_watched_seconds;
+      progressRecord.video_completed = isCompleted;
     }
 
     const { data: progress, error: progressError } = await supabase
