@@ -1466,67 +1466,71 @@ export default function MissionControl() {
             </div>
           ) : null}
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {pulseMetrics.map((metric) => {
-              const Icon = metric.icon;
-              return (
-                <div key={metric.label} className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm text-muted-foreground">{metric.label}</p>
-                      <p className="mt-3 text-2xl font-semibold tracking-tight">{metric.value}</p>
-                    </div>
-                    <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
-                      <Icon className="h-4 w-4 text-primary" />
+          {!pulseEditorOpen || isAdmin ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {pulseMetrics.map((metric) => {
+                const Icon = metric.icon;
+                return (
+                  <div key={metric.label} className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm text-muted-foreground">{metric.label}</p>
+                        <p className="mt-3 text-2xl font-semibold tracking-tight">{metric.value}</p>
+                      </div>
+                      <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
+                        <Icon className="h-4 w-4 text-primary" />
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-[1.06fr_0.94fr]">
-            <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h3 className="font-semibold">Focus for the call</h3>
-                  <p className="text-sm text-muted-foreground">
-                    The owner's prep answers stay visible here so the conversation starts in the right place.
-                  </p>
-                </div>
-                {!isAdmin ? (
-                  <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={() => setPulseEditorOpen(true)}>
-                    {latestPulse ? 'Tighten prep answers' : 'Start prep answers'}
-                  </Button>
-                ) : null}
-              </div>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <PulseDisplayCard
-                  eyebrow="What feels heaviest right now?"
-                  body={latestQualitative.biggestStress || 'No stress note submitted yet.'}
-                />
-                <PulseDisplayCard
-                  eyebrow="What do you already know you need to do?"
-                  body={latestQualitative.gutAction || 'No gut-action note submitted yet.'}
-                />
-                <PulseDisplayCard
-                  eyebrow="Best business win this month"
-                  body={latestQualitative.biggestBusinessWin || 'No business win submitted yet.'}
-                />
-                <PulseDisplayCard
-                  eyebrow="Best personal win this month"
-                  body={latestQualitative.biggestPersonalWin || 'No personal win submitted yet.'}
-                />
-              </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                {(attackItems.length > 0 ? attackItems : ['No attack items submitted yet.']).map((item, index) => (
-                  <div key={`${item}-${index}`} className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Top {index + 1}</p>
-                    <p className="mt-2 text-sm text-muted-foreground">{item}</p>
-                  </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
+          ) : null}
+
+          <div className={`grid gap-4 ${!pulseEditorOpen || isAdmin ? 'xl:grid-cols-[1.06fr_0.94fr]' : ''}`}>
+            {!pulseEditorOpen || isAdmin ? (
+              <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h3 className="font-semibold">Saved call focus</h3>
+                    <p className="text-sm text-muted-foreground">
+                      These are the most recently saved prep answers for the upcoming call.
+                    </p>
+                  </div>
+                  {!isAdmin ? (
+                    <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={() => setPulseEditorOpen(true)}>
+                      {latestPulse ? 'Update prep answers' : 'Start prep answers'}
+                    </Button>
+                  ) : null}
+                </div>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <PulseDisplayCard
+                    eyebrow="What feels heaviest right now?"
+                    body={latestQualitative.biggestStress || 'No stress note submitted yet.'}
+                  />
+                  <PulseDisplayCard
+                    eyebrow="What do you already know you need to do?"
+                    body={latestQualitative.gutAction || 'No gut-action note submitted yet.'}
+                  />
+                  <PulseDisplayCard
+                    eyebrow="Best business win this month"
+                    body={latestQualitative.biggestBusinessWin || 'No business win submitted yet.'}
+                  />
+                  <PulseDisplayCard
+                    eyebrow="Best personal win this month"
+                    body={latestQualitative.biggestPersonalWin || 'No personal win submitted yet.'}
+                  />
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                  {(attackItems.length > 0 ? attackItems : ['No attack items submitted yet.']).map((item, index) => (
+                    <div key={`${item}-${index}`} className="rounded-2xl border border-border/60 bg-background/80 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Top {index + 1}</p>
+                      <p className="mt-2 text-sm text-muted-foreground">{item}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="rounded-[28px] border border-border/60 bg-muted/15 p-5">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
