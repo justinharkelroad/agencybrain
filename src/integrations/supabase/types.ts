@@ -7464,6 +7464,67 @@ export type Database = {
           },
         ]
       }
+      mission_control_brain_messages: {
+        Row: {
+          agency_id: string
+          author_user_id: string | null
+          content: string
+          created_at: string
+          follow_up_question: string | null
+          id: string
+          next_steps_json: Json
+          owner_user_id: string
+          references_json: Json
+          role: string
+        }
+        Insert: {
+          agency_id: string
+          author_user_id?: string | null
+          content: string
+          created_at?: string
+          follow_up_question?: string | null
+          id?: string
+          next_steps_json?: Json
+          owner_user_id: string
+          references_json?: Json
+          role: string
+        }
+        Update: {
+          agency_id?: string
+          author_user_id?: string | null
+          content?: string
+          created_at?: string
+          follow_up_question?: string | null
+          id?: string
+          next_steps_json?: Json
+          owner_user_id?: string
+          references_json?: Json
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_control_brain_messages_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_brain_messages_author_user_id_fkey"
+            columns: ["author_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mission_control_brain_messages_owner_user_id_fkey"
+            columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mission_control_coach_notes: {
         Row: {
           agency_id: string

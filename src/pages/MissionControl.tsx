@@ -70,6 +70,7 @@ import {
 import { useMissionControlClients } from '@/hooks/useMissionControlClients';
 import {
   type MissionAttachment,
+  type MissionBrainMessage,
   type MissionBoardItem,
   type MissionCoachNote,
   type MissionCommitment,
@@ -170,6 +171,17 @@ interface CoachBrainResponse {
   next_steps: string[];
   references: string[];
   follow_up_question: string | null;
+}
+
+function mapBrainMessage(message: MissionBrainMessage): CoachBrainMessage {
+  return {
+    id: message.id,
+    role: message.role as 'user' | 'assistant',
+    content: message.content,
+    nextSteps: jsonArrayToLines(message.next_steps_json),
+    references: jsonArrayToLines(message.references_json),
+    followUpQuestion: message.follow_up_question,
+  };
 }
 
 function jsonArrayToLines(value: unknown): string[] {
@@ -351,7 +363,7 @@ export default function MissionControl() {
   const [historicalImportOpen, setHistoricalImportOpen] = useState(false);
   const [brainProfileEditor, setBrainProfileEditor] = useState<MissionControlBrainProfileKey | null>(null);
   const [coachBrainQuestion, setCoachBrainQuestion] = useState('');
-  const [coachBrainMessages, setCoachBrainMessages] = useState<CoachBrainMessage[]>([]);
+  const [coachBrainPendingMessages, setCoachBrainPendingMessages] = useState<CoachBrainMessage[]>([]);
   const pulseSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -602,6 +614,14 @@ export default function MissionControl() {
       ),
     [clientBrainNote, workspace.coachNotes]
   );
+  const persistedCoachBrainMessages = useMemo(
+    () => workspace.brainMessages.map((message) => mapBrainMessage(message)),
+    [workspace.brainMessages]
+  );
+  const displayedCoachBrainMessages = useMemo(
+    () => [...persistedCoachBrainMessages, ...coachBrainPendingMessages],
+    [coachBrainPendingMessages, persistedCoachBrainMessages]
+  );
   const coachBrainMutation = useMutation({
     mutationFn: async (payload: {
       question: string;
@@ -659,11 +679,11 @@ export default function MissionControl() {
       content: question,
     };
 
-    const priorConversation = coachBrainMessages
+    const priorConversation = persistedCoachBrainMessages
       .slice(-6)
       .map((message) => ({ role: message.role, content: message.content }));
 
-    setCoachBrainMessages((current) => [...current, userMessage]);
+    setCoachBrainPendingMessages([userMessage]);
     setCoachBrainQuestion('');
 
     try {
@@ -672,19 +692,37 @@ export default function MissionControl() {
         conversation: [...priorConversation, { role: 'user', content: question }],
       });
 
-      setCoachBrainMessages((current) => [
-        ...current,
+      const assistantMessage: CoachBrainMessage = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: response.answer,
+        nextSteps: response.next_steps,
+        references: response.references,
+        followUpQuestion: response.follow_up_question,
+      };
+
+      setCoachBrainPendingMessages([userMessage, assistantMessage]);
+
+      await workspace.createBrainMessages.mutateAsync([
         {
-          id: `assistant-${Date.now()}`,
+          role: 'user',
+          content: question,
+          next_steps_json: [],
+          references_json: [],
+          follow_up_question: null,
+        },
+        {
           role: 'assistant',
           content: response.answer,
-          nextSteps: response.next_steps,
-          references: response.references,
-          followUpQuestion: response.follow_up_question,
+          next_steps_json: response.next_steps,
+          references_json: response.references,
+          follow_up_question: response.follow_up_question,
         },
       ]);
+
+      setCoachBrainPendingMessages([]);
     } catch {
-      setCoachBrainMessages((current) => current.filter((message) => message.id !== userMessage.id));
+      setCoachBrainPendingMessages([]);
     }
   };
 
@@ -1853,8 +1891,8 @@ export default function MissionControl() {
                   </div>
                 ) : null}
                 <div className="space-y-3">
-                  {coachBrainMessages.length > 0 ? (
-                    coachBrainMessages.map((message) => (
+                  {displayedCoachBrainMessages.length > 0 ? (
+                    displayedCoachBrainMessages.map((message) => (
                       <CoachBrainMessageCard key={message.id} message={message} />
                     ))
                   ) : (
@@ -1918,10 +1956,10 @@ export default function MissionControl() {
                       type="button"
                       variant="outline"
                       className="sm:flex-1"
-                      onClick={() => setCoachBrainMessages([])}
-                      disabled={coachBrainMutation.isPending || coachBrainMessages.length === 0}
+                      onClick={() => setCoachBrainPendingMessages([])}
+                      disabled={coachBrainMutation.isPending || displayedCoachBrainMessages.length === 0}
                     >
-                      Clear conversation
+                      Start fresh question
                     </Button>
                   </div>
                 </div>

@@ -9,6 +9,7 @@ export type MissionCommitment = Tables<'mission_control_commitments'>;
 export type MissionBoardItem = Tables<'mission_control_board_items'>;
 export type MissionCoachNote = Tables<'mission_control_coach_notes'>;
 export type MissionAttachment = Tables<'mission_control_attachments'>;
+export type MissionBrainMessage = Tables<'mission_control_brain_messages'>;
 export type MissionUpload = Tables<'uploads'>;
 
 export interface MissionControlWorkspaceClient {
@@ -150,6 +151,22 @@ export function useMissionControlWorkspace({
     },
   });
 
+  const brainMessagesQuery = useQuery({
+    queryKey: [...workspaceKey(ownerUserId), 'brain-messages'],
+    enabled: queryEnabled,
+    staleTime: 10_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('mission_control_brain_messages')
+        .select('*')
+        .eq('owner_user_id', ownerUserId!)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      return data as MissionBrainMessage[];
+    },
+  });
+
   const attachmentsQuery = useQuery({
     queryKey: [...workspaceKey(ownerUserId), 'attachments'],
     enabled: queryEnabled,
@@ -191,6 +208,7 @@ export function useMissionControlWorkspace({
       queryClient.invalidateQueries({ queryKey: [...workspaceKey(ownerUserId), 'commitments'] }),
       queryClient.invalidateQueries({ queryKey: [...workspaceKey(ownerUserId), 'board-items'] }),
       queryClient.invalidateQueries({ queryKey: [...workspaceKey(ownerUserId), 'coach-notes'] }),
+      queryClient.invalidateQueries({ queryKey: [...workspaceKey(ownerUserId), 'brain-messages'] }),
       queryClient.invalidateQueries({ queryKey: [...workspaceKey(ownerUserId), 'attachments'] }),
       queryClient.invalidateQueries({ queryKey: [...workspaceKey(ownerUserId), 'uploads'] }),
     ]);
@@ -476,6 +494,36 @@ export function useMissionControlWorkspace({
     },
   });
 
+  const createBrainMessages = useMutation({
+    mutationFn: async (
+      payload: Array<Omit<TablesInsert<'mission_control_brain_messages'>, 'agency_id' | 'owner_user_id' | 'author_user_id'>>
+    ) => {
+      if (!clientQuery.data) throw new Error('Client context unavailable');
+
+      const rows: TablesInsert<'mission_control_brain_messages'>[] = payload.map((entry) => ({
+        ...entry,
+        agency_id: clientQuery.data.agencyId,
+        owner_user_id: clientQuery.data.ownerUserId,
+        author_user_id: entry.role === 'user' ? (currentUserId ?? clientQuery.data.ownerUserId) : null,
+      }));
+
+      const { data, error } = await supabase
+        .from('mission_control_brain_messages')
+        .insert(rows)
+        .select('*');
+
+      if (error) throw error;
+      return data as MissionBrainMessage[];
+    },
+    onSuccess: async () => {
+      await invalidateWorkspace();
+    },
+    onError: (error) => {
+      console.error('Mission Control brain message save failed', error);
+      toast.error('Could not save Coach Brain history');
+    },
+  });
+
   const deleteSession = useMutation({
     mutationFn: async (sessionId: string) => {
       const { error } = await supabase
@@ -500,6 +548,7 @@ export function useMissionControlWorkspace({
   const commitments = commitmentsQuery.data ?? [];
   const boardItems = boardItemsQuery.data ?? [];
   const coachNotes = coachNotesQuery.data ?? [];
+  const brainMessages = brainMessagesQuery.data ?? [];
   const attachments = attachmentsQuery.data ?? [];
   const uploads = uploadsQuery.data ?? [];
 
@@ -509,6 +558,7 @@ export function useMissionControlWorkspace({
     commitments,
     boardItems,
     coachNotes,
+    brainMessages,
     attachments,
     uploads,
     latestSession: sessions[0] ?? null,
@@ -518,6 +568,7 @@ export function useMissionControlWorkspace({
       commitmentsQuery.isLoading ||
       boardItemsQuery.isLoading ||
       coachNotesQuery.isLoading ||
+      brainMessagesQuery.isLoading ||
       attachmentsQuery.isLoading ||
       uploadsQuery.isLoading,
     error:
@@ -526,6 +577,7 @@ export function useMissionControlWorkspace({
       commitmentsQuery.error ||
       boardItemsQuery.error ||
       coachNotesQuery.error ||
+      brainMessagesQuery.error ||
       attachmentsQuery.error ||
       uploadsQuery.error ||
       null,
@@ -535,6 +587,7 @@ export function useMissionControlWorkspace({
     createBoardItem,
     createCoachNote,
     updateCoachNote,
+    createBrainMessages,
     createAttachment,
     deleteSession,
   };
