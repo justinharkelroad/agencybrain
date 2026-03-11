@@ -1,4 +1,4 @@
-import { HelpCircle } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { HelpModal } from './HelpModal';
@@ -59,7 +59,7 @@ export function HelpButton({ videoKey, size = 'sm', className, label = 'Help' }:
         onClick={() => setOpen(true)}
         title={`Help: ${content.title}`}
       >
-        <HelpCircle className={iconSize} />
+        <Play className={iconSize} />
         <span className="text-xs font-medium">{label}</span>
       </Button>
 
