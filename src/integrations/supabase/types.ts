@@ -7426,44 +7426,6 @@ export type Database = {
           },
         ]
       }
-      mission_control_brain_profiles: {
-        Row: {
-          body: string
-          created_at: string
-          created_by: string
-          id: string
-          profile_key: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          body: string
-          created_at?: string
-          created_by: string
-          id?: string
-          profile_key: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          body?: string
-          created_at?: string
-          created_by?: string
-          id?: string
-          profile_key?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mission_control_brain_profiles_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       mission_control_brain_messages: {
         Row: {
           agency_id: string
@@ -7519,6 +7481,44 @@ export type Database = {
           {
             foreignKeyName: "mission_control_brain_messages_owner_user_id_fkey"
             columns: ["owner_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mission_control_brain_profiles: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          profile_key: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by: string
+          id?: string
+          profile_key: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          profile_key?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mission_control_brain_profiles_created_by_fkey"
+            columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -11372,6 +11372,7 @@ export type Database = {
           started_at: string | null
           updated_at: string | null
           video_watched: boolean | null
+          video_watched_seconds: number | null
         }
         Insert: {
           ai_summary?: string | null
@@ -11394,6 +11395,7 @@ export type Database = {
           started_at?: string | null
           updated_at?: string | null
           video_watched?: boolean | null
+          video_watched_seconds?: number | null
         }
         Update: {
           ai_summary?: string | null
@@ -11416,6 +11418,7 @@ export type Database = {
           started_at?: string | null
           updated_at?: string | null
           video_watched?: boolean | null
+          video_watched_seconds?: number | null
         }
         Relationships: [
           {
@@ -11749,6 +11752,8 @@ export type Database = {
           module_name: string | null
           staff_user_id: string
           updated_at: string
+          video_completed: boolean | null
+          video_watched_seconds: number | null
         }
         Insert: {
           completed?: boolean
@@ -11760,6 +11765,8 @@ export type Database = {
           module_name?: string | null
           staff_user_id: string
           updated_at?: string
+          video_completed?: boolean | null
+          video_watched_seconds?: number | null
         }
         Update: {
           completed?: boolean
@@ -11771,6 +11778,8 @@ export type Database = {
           module_name?: string | null
           staff_user_id?: string
           updated_at?: string
+          video_completed?: boolean | null
+          video_watched_seconds?: number | null
         }
         Relationships: [
           {
@@ -12919,6 +12928,8 @@ export type Database = {
           lesson_id: string
           staff_user_id: string
           started_at: string | null
+          video_completed: boolean | null
+          video_watched_seconds: number | null
         }
         Insert: {
           agency_id: string
@@ -12928,6 +12939,8 @@ export type Database = {
           lesson_id: string
           staff_user_id: string
           started_at?: string | null
+          video_completed?: boolean | null
+          video_watched_seconds?: number | null
         }
         Update: {
           agency_id?: string
@@ -12937,6 +12950,8 @@ export type Database = {
           lesson_id?: string
           staff_user_id?: string
           started_at?: string | null
+          video_completed?: boolean | null
+          video_watched_seconds?: number | null
         }
         Relationships: [
           {

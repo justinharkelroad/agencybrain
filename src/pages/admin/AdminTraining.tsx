@@ -2,8 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { TrainingContentTab, TrainingAssignmentsTab, TrainingProgressTab, StaffUsersTab, SPAssignmentsTab } from "./training-tabs";
+import { BarChart3 } from "lucide-react";
 
 // Session storage key for caching agencyId to survive component remounts
 const AGENCY_ID_CACHE_KEY = 'training_page_agency_id';
@@ -79,9 +81,15 @@ export default function AdminTraining() {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Training System</h1>
-        <p className="text-muted-foreground">Manage training content, assignments, and staff progress</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold">Training System</h1>
+          <p className="text-muted-foreground">Manage training content, assignments, and staff progress</p>
+        </div>
+        <Button variant="outline" onClick={() => navigate('/training/analytics')}>
+          <BarChart3 className="h-4 w-4 mr-2" />
+          Team Analytics
+        </Button>
       </div>
 
       <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
