@@ -173,6 +173,8 @@ interface CoachBrainResponse {
   follow_up_question: string | null;
 }
 
+type WorkflowMode = 'prepare' | 'review' | 'execute';
+
 function mapBrainMessage(message: MissionBrainMessage): CoachBrainMessage {
   return {
     id: message.id,
@@ -392,6 +394,8 @@ export default function MissionControl() {
   const [brainProfileEditor, setBrainProfileEditor] = useState<MissionControlBrainProfileKey | null>(null);
   const [coachBrainQuestion, setCoachBrainQuestion] = useState('');
   const [coachBrainPendingMessages, setCoachBrainPendingMessages] = useState<CoachBrainMessage[]>([]);
+  const [activeMode, setActiveMode] = useState<WorkflowMode>('prepare');
+  const [coachConsoleOpen, setCoachConsoleOpen] = useState(false);
   const pulseSectionRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -449,6 +453,10 @@ export default function MissionControl() {
       setPulseEditorOpen(true);
     }
   }, [isAdmin, latestPulse, pulse.isLoading]);
+
+  useEffect(() => {
+    setActiveMode(isAdmin ? 'review' : 'prepare');
+  }, [isAdmin, selectedClient]);
 
   const activeClientLabel = useMemo(() => {
     if (workspace.client?.ownerName) {
@@ -799,6 +807,27 @@ export default function MissionControl() {
   const stepThreeBody = isAdmin
     ? 'Use the next session to verify what was done, blocked, or carried forward.'
     : 'Use this workspace between calls to see what is done, blocked, or still in progress.';
+  const workflowModes: Array<{
+    key: WorkflowMode;
+    title: string;
+    description: string;
+  }> = [
+    {
+      key: 'prepare',
+      title: 'Prepare',
+      description: 'Pulse, trends, and pre-call focus.',
+    },
+    {
+      key: 'review',
+      title: 'Review',
+      description: 'Session memory and promise review.',
+    },
+    {
+      key: 'execute',
+      title: 'Execute',
+      description: 'Promises, priorities, evidence, and Coach Brain.',
+    },
+  ];
 
   const businessPulseSection = (
     <section ref={pulseSectionRef} className="rounded-[32px] border border-border/60 bg-background/82 p-6 shadow-sm">
@@ -1548,7 +1577,14 @@ export default function MissionControl() {
                 </p>
                 <div className="flex flex-col gap-3 sm:flex-row">
                 {!isAdmin ? (
-                  <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={openPulseEditor}>
+                  <Button
+                    variant="outline"
+                    className="border-foreground/15 bg-background/75"
+                    onClick={() => {
+                      setActiveMode('prepare');
+                      openPulseEditor();
+                    }}
+                  >
                     Open 1:1 Meeting Pulse
                   </Button>
                 ) : (
@@ -1557,16 +1593,37 @@ export default function MissionControl() {
                   </Button>
                 )}
                 {isAdmin ? (
-                  <Button className="bg-foreground text-background hover:bg-foreground/90" onClick={() => setDialogState('session')}>
+                  <Button
+                    className="bg-foreground text-background hover:bg-foreground/90"
+                    onClick={() => {
+                      setActiveMode('review');
+                      setDialogState('session');
+                    }}
+                  >
                     <FileText className="mr-2 h-4 w-4" />
                     Capture Session
                   </Button>
                 ) : null}
-                <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={() => setDialogState('commitment')} disabled={!latestSession}>
+                <Button
+                  variant="outline"
+                  className="border-foreground/15 bg-background/75"
+                  onClick={() => {
+                    setActiveMode('execute');
+                    setDialogState('commitment');
+                  }}
+                  disabled={!latestSession}
+                >
                   <Target className="mr-2 h-4 w-4" />
                   Add Commitment
                 </Button>
-                <Button variant="outline" className="border-foreground/15 bg-background/75" onClick={() => setDialogState('board')}>
+                <Button
+                  variant="outline"
+                  className="border-foreground/15 bg-background/75"
+                  onClick={() => {
+                    setActiveMode('execute');
+                    setDialogState('board');
+                  }}
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Priority
                 </Button>
@@ -1591,21 +1648,69 @@ export default function MissionControl() {
                 <p className="mt-1 text-sm text-muted-foreground">{stepThreeBody}</p>
               </div>
             </div>
+
+            <div className="rounded-[24px] border border-border/60 bg-background/55 p-4">
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Workspace mode</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Move through the relationship one phase at a time instead of scanning the full operating system at once.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {workflowModes.map((mode) => (
+                      <button
+                        key={mode.key}
+                        type="button"
+                        onClick={() => setActiveMode(mode.key)}
+                        className={`rounded-2xl border px-4 py-3 text-left transition ${
+                          activeMode === mode.key
+                            ? 'border-foreground/20 bg-foreground text-background'
+                            : 'border-border/60 bg-background/70 text-foreground hover:bg-background'
+                        }`}
+                      >
+                        <p className={`text-sm font-semibold ${activeMode === mode.key ? 'text-background' : 'text-foreground'}`}>
+                          {mode.title}
+                        </p>
+                        <p className={`mt-1 text-xs leading-5 ${activeMode === mode.key ? 'text-background/80' : 'text-muted-foreground'}`}>
+                          {mode.description}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                  {isAdmin ? (
+                    <Button
+                      variant="outline"
+                      className="border-foreground/15 bg-background/75"
+                      onClick={() => setCoachConsoleOpen(true)}
+                    >
+                      <Bot className="mr-2 h-4 w-4" />
+                      Coach Console
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        {businessPulseSection}
+        {activeMode === 'prepare' ? businessPulseSection : null}
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <SummaryCard icon={ClipboardList} label="Promises Still Open" value={String(openCommitments.length)} detail="Items still waiting on action, proof, or review." />
-          <SummaryCard icon={CalendarDays} label="Last Session" value={latestSession ? latestSession.session_date : 'None'} detail="Most recent coaching session preserved in the timeline." />
-          <SummaryCard icon={Rocket} label="Active Priorities" value={String(workspace.boardItems.length)} detail="Bigger initiatives tracked between calls." />
-          <SummaryCard icon={Trophy} label="Wins Logged" value={String(wins.length)} detail="Highlights preserved from the latest session." />
-          <SummaryCard icon={CheckCircle2} label="Evidence Linked" value={String(proofLinkedCount)} detail="Evidence files linked back to promises." />
-        </section>
+        {activeMode === 'execute' ? (
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <SummaryCard icon={ClipboardList} label="Promises Still Open" value={String(openCommitments.length)} detail="Items still waiting on action, proof, or review." />
+            <SummaryCard icon={CalendarDays} label="Last Session" value={latestSession ? latestSession.session_date : 'None'} detail="Most recent coaching session preserved in the timeline." />
+            <SummaryCard icon={Rocket} label="Active Priorities" value={String(workspace.boardItems.length)} detail="Bigger initiatives tracked between calls." />
+            <SummaryCard icon={Trophy} label="Wins Logged" value={String(wins.length)} detail="Highlights preserved from the latest session." />
+            <SummaryCard icon={CheckCircle2} label="Evidence Linked" value={String(proofLinkedCount)} detail="Evidence files linked back to promises." />
+          </section>
+        ) : null}
 
+        {activeMode !== 'prepare' ? (
         <section className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[minmax(320px,0.92fr)_minmax(380px,1.08fr)_minmax(360px,0.96fr)]">
-          <div className="space-y-6">
+          <div className={`space-y-6 ${activeMode === 'execute' ? 'hidden 2xl:hidden' : ''}`}>
+            {activeMode === 'review' ? (
             <Card className="rounded-[28px] border-border/60 bg-background/82">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1687,7 +1792,9 @@ export default function MissionControl() {
                 )}
               </CardContent>
             </Card>
+            ) : null}
 
+            {activeMode === 'review' ? (
             <Card className="rounded-[28px] border-border/60 bg-background/82">
               <CardHeader>
                 <CardTitle>Session Timeline</CardTitle>
@@ -1724,6 +1831,7 @@ export default function MissionControl() {
                 )}
               </CardContent>
             </Card>
+            ) : null}
           </div>
 
           <div className="space-y-6">
@@ -1826,6 +1934,7 @@ export default function MissionControl() {
               </CardContent>
             </Card>
 
+            {activeMode === 'execute' ? (
             <Card className="rounded-[28px] border-border/60 bg-background/82">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between gap-3">
@@ -1865,9 +1974,10 @@ export default function MissionControl() {
                 </div>
               </CardContent>
             </Card>
+            ) : null}
           </div>
 
-          <div className="space-y-6 xl:col-span-2 xl:grid xl:grid-cols-2 xl:gap-6 xl:space-y-0 2xl:col-span-1 2xl:block 2xl:space-y-6">
+          <div className={`space-y-6 xl:col-span-2 xl:grid xl:grid-cols-2 xl:gap-6 xl:space-y-0 2xl:col-span-1 2xl:block 2xl:space-y-6 ${activeMode === 'review' ? 'xl:grid-cols-1' : ''}`}>
             <Card className="rounded-[28px] border-border/60 bg-background/82">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1897,6 +2007,7 @@ export default function MissionControl() {
               </CardContent>
             </Card>
 
+            {activeMode === 'execute' ? (
             <Card className="rounded-[28px] border-border/60 bg-background/82">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -1993,133 +2104,9 @@ export default function MissionControl() {
                 </div>
               </CardContent>
             </Card>
+            ) : null}
 
-            {isAdmin && (
-              <Card className="rounded-[28px] border-border/60 bg-background/82">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <Bot className="h-5 w-5 text-primary" />
-                      Brain Setup
-                    </span>
-                  </CardTitle>
-                  <CardDescription>Define the global voice and doctrine layers that should shape every answer before client-specific memory is applied.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">1. Justin Voice</p>
-                      <p className="mt-2 text-sm text-muted-foreground">How you sound, how hard you push, what you will not do, and what direct coaching sounds like.</p>
-                    </div>
-                    <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">2. Standard Doctrine</p>
-                      <p className="mt-2 text-sm text-muted-foreground">The frameworks, principles, and operating logic that make the answers feel like Standard.</p>
-                    </div>
-                    <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">3. Client Brain</p>
-                      <p className="mt-2 text-sm text-muted-foreground">The client-specific history, context, and patterns layered on top for personalization.</p>
-                    </div>
-                  </div>
-                  <div className="grid gap-4 xl:grid-cols-2">
-                    <BrainProfileCard
-                      title="Justin Voice"
-                      body={brainProfiles.voiceProfile?.body ?? ''}
-                      helper="Directness, standards, accountability style, and what representing you should sound like."
-                      buttonLabel={brainProfiles.voiceProfile ? 'Edit voice' : 'Start voice'}
-                      onEdit={() => setBrainProfileEditor('justin_voice')}
-                    />
-                    <BrainProfileCard
-                      title="Standard Doctrine"
-                      body={brainProfiles.doctrineProfile?.body ?? ''}
-                      helper="Frameworks, beliefs, and the Standard operating logic the brain should answer from."
-                      buttonLabel={brainProfiles.doctrineProfile ? 'Edit doctrine' : 'Start doctrine'}
-                      onEdit={() => setBrainProfileEditor('standard_doctrine')}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {isAdmin && (
-              <Card className="rounded-[28px] border-border/60 bg-background/82">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <FileText className="h-5 w-5 text-primary" />
-                      Client Brain
-                    </span>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setHistoricalImportOpen(true)}>
-                        <Upload className="mr-2 h-4 w-4" />
-                        Import
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setClientBrainOpen(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        {clientBrainNote ? 'Edit' : 'Start'}
-                      </Button>
-                    </div>
-                  </CardTitle>
-                  <CardDescription>Coach-only long-form context, strategy history, and client-specific notes that should feed future memory.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
-                      <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Best for</p>
-                      <p className="mt-2 text-sm text-muted-foreground">Markdown strategy notes, recurring patterns, key client context, and decisions that should not get lost.</p>
-                    </div>
-                    <div className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
-                      <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Historical import</p>
-                      <p className="mt-2 text-sm text-muted-foreground">Paste old transcripts or notes and backfill them into the memory system without creating fake open promises.</p>
-                    </div>
-                  </div>
-                  {clientBrainNote ? (
-                    <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">Coach only</Badge>
-                        <Badge variant="outline">Updated {formatDateLabel(clientBrainNote.updated_at, { month: 'short', day: 'numeric', year: 'numeric' })}</Badge>
-                        <Badge variant="outline">Preview only</Badge>
-                      </div>
-                      <p className="mt-4 text-sm leading-6 text-muted-foreground">
-                        {summarizePreviewText(clientBrainNote.note_body, 520)}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="rounded-[24px] border border-dashed border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
-                      No client brain saved yet. Start with a markdown-style strategy note, then import old transcripts or notes to seed the history.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {isAdmin && (
-              <Card className="rounded-[28px] border-border/60 bg-background/82">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-2">
-                      <MessageSquare className="h-5 w-5 text-primary" />
-                      Private Coach Notes
-                    </span>
-                    <Button size="sm" variant="outline" onClick={() => setCoachNoteOpen(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Add
-                    </Button>
-                  </CardTitle>
-                  <CardDescription>Private observations and prep notes that only the coach should see.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {privateCoachNotes.length > 0 ? privateCoachNotes.map((note) => (
-                    <div key={note.id} className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                      <p className="font-medium">{note.title}</p>
-                      <p className="mt-2 text-sm text-muted-foreground">{note.note_body}</p>
-                    </div>
-                  )) : (
-                    <p className="text-sm text-muted-foreground">No coach-only notes yet.</p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
+            {activeMode === 'execute' ? (
             <Card className="rounded-[28px] border-border/60 bg-background/82 xl:col-span-2 2xl:col-span-1">
               <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -2205,10 +2192,134 @@ export default function MissionControl() {
                 </div>
               </CardContent>
             </Card>
+            ) : null}
           </div>
         </section>
+        ) : null}
 
       </main>
+
+      <Dialog open={coachConsoleOpen} onOpenChange={setCoachConsoleOpen}>
+        <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Coach Console</DialogTitle>
+            <DialogDescription>
+              Private operator tools for shaping the brain, seeding historical memory, and keeping coaching context off the owner-facing surface.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            <section className="rounded-[28px] border border-border/60 bg-background/82 p-5">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Brain Setup</p>
+                  <h3 className="mt-2 text-xl font-semibold">Global coaching layers</h3>
+                  <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+                    These two documents shape how Coach Brain sounds and what it teaches before client-specific memory gets layered on top.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+                  Voice + doctrine are shared across every client workspace.
+                </div>
+              </div>
+              <div className="mt-5 grid gap-4 xl:grid-cols-2">
+                <BrainProfileCard
+                  title="Justin Voice"
+                  body={brainProfiles.voiceProfile?.body ?? ''}
+                  helper="Tone, pressure, empathy, directness, and coaching boundaries."
+                  buttonLabel={brainProfiles.voiceProfile ? 'Edit' : 'Start'}
+                  onEdit={() => setBrainProfileEditor('justin_voice')}
+                />
+                <BrainProfileCard
+                  title="Standard Doctrine"
+                  body={brainProfiles.doctrineProfile?.body ?? ''}
+                  helper="Frameworks, principles, sequencing, and Standard operating doctrine."
+                  buttonLabel={brainProfiles.doctrineProfile ? 'Edit' : 'Start'}
+                  onEdit={() => setBrainProfileEditor('standard_doctrine')}
+                />
+              </div>
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
+              <Card className="rounded-[28px] border-border/60 bg-background/82">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between gap-3">
+                    <span>Client Brain</span>
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setHistoricalImportOpen(true)}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Import historical memory
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => setClientBrainOpen(true)}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        {clientBrainNote ? 'Edit Client Brain' : 'Start Client Brain'}
+                      </Button>
+                    </div>
+                  </CardTitle>
+                  <CardDescription>
+                    Durable client-specific memory: business model, recurring blockers, team context, red flags, language, and what has already been tried.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+                    {clientBrainNote ? (
+                      <>
+                        <div className="mb-3 flex items-center gap-2">
+                          <Badge variant="outline">Preview only</Badge>
+                          <Badge variant="outline">Coach only</Badge>
+                        </div>
+                        <p className="text-sm leading-6 text-muted-foreground">
+                          {summarizePreviewText(clientBrainNote.note_body, 520)}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        No client brain saved yet. Start with the business model, team context, recurring issues, and the strategies already recommended so Coach Brain is not starting cold.
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-[28px] border-border/60 bg-background/82">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between gap-3">
+                    <span>Private Coach Notes</span>
+                    <Button size="sm" variant="outline" onClick={() => setCoachNoteOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add note
+                    </Button>
+                  </CardTitle>
+                  <CardDescription>
+                    Private prep, observations, and follow-up notes that should never appear in the owner’s workspace.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {privateCoachNotes.length > 0 ? privateCoachNotes.slice(0, 6).map((note) => (
+                    <div key={note.id} className="rounded-[22px] border border-border/60 bg-muted/20 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-medium">{note.title || 'Coach note'}</p>
+                        <Badge variant="outline">
+                          {note.session_id
+                            ? workspace.sessions.find((session) => session.id === note.session_id)?.title ?? 'Linked session'
+                            : 'Standalone note'}
+                        </Badge>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                        {summarizePreviewText(note.note_body, 220)}
+                      </p>
+                    </div>
+                  )) : (
+                    <div className="rounded-[24px] border border-dashed border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+                      No private coach notes yet.
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </section>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {workspace.error && (
         <div className="fixed bottom-6 right-6 max-w-md rounded-2xl border border-amber-300/60 bg-amber-50/95 p-4 text-sm text-amber-900 shadow-xl dark:border-amber-700 dark:bg-amber-950/95 dark:text-amber-100">
