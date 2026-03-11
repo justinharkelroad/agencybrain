@@ -138,6 +138,11 @@ const BOARD_STATUS_OPTIONS = [
 ] as const;
 
 type AttachmentTargetKind = 'session' | 'commitment' | 'board';
+type AttachmentDialogDefaults = {
+  targetKind: AttachmentTargetKind;
+  targetId: string;
+  attachmentType: 'transcript' | 'proof' | 'reference' | 'artifact';
+} | null;
 
 interface LinkedMissionAttachment extends MissionAttachment {
   upload: MissionUpload | null;
@@ -388,6 +393,7 @@ export default function MissionControl() {
   const [dialogState, setDialogState] = useState<'session' | 'commitment' | 'board' | null>(null);
   const [coachNoteOpen, setCoachNoteOpen] = useState(false);
   const [attachmentOpen, setAttachmentOpen] = useState(false);
+  const [attachmentDefaults, setAttachmentDefaults] = useState<AttachmentDialogDefaults>(null);
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
   const [pulseEditorOpen, setPulseEditorOpen] = useState(false);
   const [pulseAdvancedOpen, setPulseAdvancedOpen] = useState(false);
@@ -627,7 +633,6 @@ export default function MissionControl() {
     [uploadMap, workspace.attachments]
   );
   const latestSessionAttachments = linkedAttachments.filter((attachment) => attachment.session_id === latestSession?.id);
-  const proofLinkedCount = linkedAttachments.filter((attachment) => attachment.attachment_type === 'proof').length;
   const commitmentAttachmentMap = useMemo(() => {
     const next = new Map<string, LinkedMissionAttachment[]>();
 
@@ -638,6 +643,22 @@ export default function MissionControl() {
 
     return next;
   }, [linkedAttachments]);
+  const verifiedEvidenceCount = useMemo(
+    () =>
+      workspace.commitments.filter((commitment) => {
+        const linkedProofs = commitmentAttachmentMap.get(commitment.id) ?? [];
+        return commitment.status === 'done' && linkedProofs.length > 0;
+      }).length,
+    [commitmentAttachmentMap, workspace.commitments]
+  );
+  const needsEvidenceCount = useMemo(
+    () =>
+      workspace.commitments.filter((commitment) => {
+        const linkedProofs = commitmentAttachmentMap.get(commitment.id) ?? [];
+        return commitment.status === 'done' && linkedProofs.length === 0;
+      }).length,
+    [commitmentAttachmentMap, workspace.commitments]
+  );
   const clientBrainNote = useMemo(
     () =>
       workspace.coachNotes.find(
@@ -784,6 +805,15 @@ export default function MissionControl() {
     }
 
     return 'Mission record';
+  };
+
+  const openAttachmentDialogForPromise = (commitmentId: string) => {
+    setAttachmentDefaults({
+      targetKind: 'commitment',
+      targetId: commitmentId,
+      attachmentType: 'proof',
+    });
+    setAttachmentOpen(true);
   };
 
   if (!accessLoading && !access?.hasAccess) {
@@ -1739,8 +1769,8 @@ export default function MissionControl() {
             <SummaryCard icon={ClipboardList} label="Promises Still Open" value={String(openCommitments.length)} detail="Items still waiting on action, proof, or review." toneClass={executeSummaryTone} />
             <SummaryCard icon={CalendarDays} label="Last Session" value={latestSession ? latestSession.session_date : 'None'} detail="Most recent coaching session preserved in the timeline." toneClass={executeSummaryTone} />
             <SummaryCard icon={Rocket} label="Active Priorities" value={String(workspace.boardItems.length)} detail="Bigger initiatives tracked between calls." toneClass={executeSummaryTone} />
-            <SummaryCard icon={Trophy} label="Wins Logged" value={String(wins.length)} detail="Highlights preserved from the latest session." toneClass={executeSummaryTone} />
-            <SummaryCard icon={CheckCircle2} label="Evidence Linked" value={String(proofLinkedCount)} detail="Evidence files linked back to promises." toneClass={executeSummaryTone} />
+            <SummaryCard icon={CheckCircle2} label="Verified With Evidence" value={String(verifiedEvidenceCount)} detail="Completed promises that have supporting evidence linked." toneClass={executeSummaryTone} />
+            <SummaryCard icon={Paperclip} label="Needs Evidence" value={String(needsEvidenceCount)} detail="Completed promises that still need screenshots, proof, or artifacts." toneClass={executeSummaryTone} />
           </section>
         ) : null}
 
@@ -1903,6 +1933,20 @@ export default function MissionControl() {
                   const reviewedSession = commitment.reviewed_in_session_id
                     ? workspace.sessions.find((session) => session.id === commitment.reviewed_in_session_id)
                     : null;
+                  const evidenceLabel =
+                    linkedProofs.length > 0
+                      ? commitment.status === 'done'
+                        ? 'Verified with evidence'
+                        : 'Evidence linked'
+                      : commitment.status === 'done'
+                        ? 'Completed, needs evidence'
+                        : 'No evidence linked yet';
+                  const evidenceTone =
+                    linkedProofs.length > 0
+                      ? 'border-emerald-400/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                      : commitment.status === 'done'
+                        ? 'border-amber-400/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                        : 'border-stone-300/70 bg-stone-500/10 text-stone-700 dark:text-stone-300';
 
                   return (
                     <div key={commitment.id} className="rounded-[22px] border border-border/60 bg-muted/25 p-4">
@@ -1943,8 +1987,13 @@ export default function MissionControl() {
                         <p className="mt-2">{COMMITMENT_STATUS_OPTIONS.find((option) => option.value === commitment.status)?.label ?? commitment.status}</p>
                       </div>
                       <div className="rounded-2xl border border-border/60 bg-background/75 p-3 text-sm">
-                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Evidence or notes</p>
-                        <p className="mt-2">{commitment.proof_notes || 'No evidence linked yet'}</p>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Evidence or notes</p>
+                          <Badge variant="outline" className={evidenceTone}>
+                            {evidenceLabel}
+                          </Badge>
+                        </div>
+                        <p className="mt-2">{commitment.proof_notes || 'Add a note or link evidence when this promise is completed.'}</p>
                         <div className="mt-3 flex flex-wrap gap-2">
                           {linkedProofs.length > 0 ? (
                             linkedProofs.map((attachment) => (
@@ -1955,6 +2004,26 @@ export default function MissionControl() {
                           ) : (
                             <span className="text-xs text-muted-foreground">No uploaded evidence linked yet.</span>
                           )}
+                        </div>
+                        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openAttachmentDialogForPromise(commitment.id)}
+                            disabled={workspace.uploads.length === 0}
+                          >
+                            <Paperclip className="mr-2 h-4 w-4" />
+                            {linkedProofs.length > 0 ? 'Link more evidence' : 'Link evidence'}
+                          </Button>
+                          {workspace.uploads.length === 0 ? (
+                            <Button type="button" size="sm" variant="outline" asChild>
+                              <Link to="/uploads">
+                                <Upload className="mr-2 h-4 w-4" />
+                                Open files
+                              </Link>
+                            </Button>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -2540,7 +2609,13 @@ export default function MissionControl() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={attachmentOpen} onOpenChange={setAttachmentOpen}>
+      <Dialog
+        open={attachmentOpen}
+        onOpenChange={(open) => {
+          setAttachmentOpen(open);
+          if (!open) setAttachmentDefaults(null);
+        }}
+      >
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Link upload</DialogTitle>
@@ -2551,9 +2626,11 @@ export default function MissionControl() {
             sessions={workspace.sessions}
             commitments={workspace.commitments}
             boardItems={workspace.boardItems}
+            defaults={attachmentDefaults}
             isSaving={workspace.createAttachment.isPending}
             onSubmit={async (payload) => {
               await workspace.createAttachment.mutateAsync(payload);
+              setAttachmentDefaults(null);
               setAttachmentOpen(false);
             }}
           />
@@ -3931,6 +4008,7 @@ function AttachmentDialog({
   sessions,
   commitments,
   boardItems,
+  defaults,
   onSubmit,
   isSaving,
 }: {
@@ -3938,6 +4016,7 @@ function AttachmentDialog({
   sessions: MissionSession[];
   commitments: MissionCommitment[];
   boardItems: MissionBoardItem[];
+  defaults?: AttachmentDialogDefaults;
   onSubmit: (payload: {
     upload_id: string;
     attachment_type: string;
@@ -3951,10 +4030,10 @@ function AttachmentDialog({
   const hasTargets = sessions.length > 0 || commitments.length > 0 || boardItems.length > 0;
   const [uploadId, setUploadId] = useState(uploads[0]?.id ?? '');
   const [attachmentType, setAttachmentType] = useState<'transcript' | 'proof' | 'reference' | 'artifact'>(
-    initialTargetKind === 'session' ? 'transcript' : 'proof'
+    defaults?.attachmentType ?? (initialTargetKind === 'session' ? 'transcript' : 'proof')
   );
-  const [targetKind, setTargetKind] = useState<AttachmentTargetKind>(initialTargetKind);
-  const [targetId, setTargetId] = useState('');
+  const [targetKind, setTargetKind] = useState<AttachmentTargetKind>(defaults?.targetKind ?? initialTargetKind);
+  const [targetId, setTargetId] = useState(defaults?.targetId ?? '');
 
   const targetOptions = useMemo(() => {
     if (targetKind === 'session') {
@@ -3973,6 +4052,13 @@ function AttachmentDialog({
       setUploadId(uploads[0].id);
     }
   }, [uploadId, uploads]);
+
+  useEffect(() => {
+    if (!defaults) return;
+    setTargetKind(defaults.targetKind);
+    setAttachmentType(defaults.attachmentType);
+    setTargetId(defaults.targetId);
+  }, [defaults]);
 
   useEffect(() => {
     if (targetKind === 'session' && attachmentType === 'proof') {
