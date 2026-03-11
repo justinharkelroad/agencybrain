@@ -1567,19 +1567,25 @@ export default function MissionControl() {
               </div>
             )}
 
-            <div className="space-y-5">
-              <h1 className="w-full text-[clamp(3.75rem,11vw,8.5rem)] font-black uppercase leading-[0.92] tracking-[0.18em] text-foreground">
-                Mission Control
-              </h1>
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-                <p className="max-w-3xl text-sm leading-6 text-muted-foreground md:text-base">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <p className="font-serif text-[clamp(3rem,7vw,5.8rem)] italic leading-[0.9] tracking-[-0.04em] text-foreground/95">
+                  Agency
+                </p>
+                <h1 className="w-full text-[clamp(4.1rem,12vw,9rem)] font-black uppercase leading-[0.88] tracking-[0.16em] text-foreground">
+                  Mission
+                  <span className="block">Control</span>
+                </h1>
+              </div>
+              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                <p className="max-w-3xl text-base leading-7 text-muted-foreground md:text-[1.1rem]">
                   {heroSupportText}
                 </p>
-                <div className="flex flex-col gap-3 sm:flex-row">
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
                 {!isAdmin ? (
                   <Button
                     variant="outline"
-                    className="border-foreground/15 bg-background/75"
+                    className="min-w-[240px] border-foreground/15 bg-background/75"
                     onClick={() => {
                       setActiveMode('prepare');
                       openPulseEditor();
@@ -1588,13 +1594,13 @@ export default function MissionControl() {
                     Open 1:1 Meeting Pulse
                   </Button>
                 ) : (
-                  <Button variant="outline" className="border-foreground/15 bg-background/75" disabled>
+                  <Button variant="outline" className="min-w-[240px] border-foreground/15 bg-background/75" disabled>
                     Owner Updates Pulse
                   </Button>
                 )}
                 {isAdmin ? (
                   <Button
-                    className="bg-foreground text-background hover:bg-foreground/90"
+                    className="min-w-[220px] bg-foreground text-background hover:bg-foreground/90"
                     onClick={() => {
                       setActiveMode('review');
                       setDialogState('session');
@@ -1606,7 +1612,7 @@ export default function MissionControl() {
                 ) : null}
                 <Button
                   variant="outline"
-                  className="border-foreground/15 bg-background/75"
+                  className="min-w-[220px] border-foreground/15 bg-background/75"
                   onClick={() => {
                     setActiveMode('execute');
                     setDialogState('commitment');
@@ -1618,7 +1624,7 @@ export default function MissionControl() {
                 </Button>
                 <Button
                   variant="outline"
-                  className="border-foreground/15 bg-background/75"
+                  className="min-w-[220px] border-foreground/15 bg-background/75"
                   onClick={() => {
                     setActiveMode('execute');
                     setDialogState('board');
