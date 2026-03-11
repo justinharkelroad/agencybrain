@@ -2557,7 +2557,6 @@ export default function MissionControl() {
             }
             onImportAsSession={async (payload) => {
               await workspace.createSession.mutateAsync(payload);
-              setHistoricalImportOpen(false);
             }}
             onImportToBrain={async (payload) => {
               if (clientBrainNote) {
@@ -2575,7 +2574,6 @@ export default function MissionControl() {
                   session_id: null,
                 });
               }
-              setHistoricalImportOpen(false);
             }}
           />
         </DialogContent>
@@ -3690,72 +3688,222 @@ function HistoricalMemoryImportDialog({
   onImportToBrain: (payload: { note_body: string }) => Promise<void>;
   isSaving: boolean;
 }) {
-  const [sourceType, setSourceType] = useState<'transcript' | 'strategy_note' | 'client_history' | 'email_thread'>('transcript');
-  const [title, setTitle] = useState('');
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().slice(0, 10));
-  const [rawText, setRawText] = useState('');
-  const [importedFileName, setImportedFileName] = useState('');
-  const [summary, setSummary] = useState('');
-  const [keyPoints, setKeyPoints] = useState('');
-  const [wins, setWins] = useState('');
-  const [issues, setIssues] = useState('');
-  const [topThree, setTopThree] = useState('');
-  const [autoCreatePromises, setAutoCreatePromises] = useState(false);
-  const canGenerateDraft = rawText.trim().length > 80;
+  type SourceType = 'transcript' | 'strategy_note' | 'client_history' | 'email_thread';
+  type HistoricalImportDraft = {
+    id: string;
+    sourceType: SourceType;
+    title: string;
+    entryDate: string;
+    rawText: string;
+    importedFileName: string;
+    summary: string;
+    keyPoints: string;
+    wins: string;
+    issues: string;
+    topThree: string;
+    autoCreatePromises: boolean;
+  };
 
-  const draftMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke('generate-mission-control-draft', {
-        body: {
-          transcript: rawText.trim(),
-          session_date: entryDate,
-        },
+  const createDraft = (overrides?: Partial<HistoricalImportDraft>): HistoricalImportDraft => ({
+    id: crypto.randomUUID(),
+    sourceType: 'transcript',
+    title: '',
+    entryDate: new Date().toISOString().slice(0, 10),
+    rawText: '',
+    importedFileName: '',
+    summary: '',
+    keyPoints: '',
+    wins: '',
+    issues: '',
+    topThree: '',
+    autoCreatePromises: false,
+    ...overrides,
+  });
+
+  const isBlankDraft = (draft: HistoricalImportDraft) =>
+    !draft.title.trim() &&
+    !draft.rawText.trim() &&
+    !draft.summary.trim() &&
+    !draft.keyPoints.trim() &&
+    !draft.wins.trim() &&
+    !draft.issues.trim() &&
+    !draft.topThree.trim() &&
+    !draft.importedFileName;
+
+  const [drafts, setDrafts] = useState<HistoricalImportDraft[]>(() => [createDraft()]);
+  const [selectedDraftId, setSelectedDraftId] = useState<string>('');
+  const [draftingId, setDraftingId] = useState<string | null>(null);
+  const [isBulkRunning, setIsBulkRunning] = useState(false);
+
+  const selectedDraft = useMemo(
+    () => drafts.find((draft) => draft.id === selectedDraftId) ?? drafts[0] ?? null,
+    [drafts, selectedDraftId]
+  );
+
+  useEffect(() => {
+    if (!selectedDraftId && drafts[0]?.id) {
+      setSelectedDraftId(drafts[0].id);
+    }
+  }, [drafts, selectedDraftId]);
+
+  const effectiveSaving = isSaving || isBulkRunning || !!draftingId;
+
+  const updateDraft = (draftId: string, patch: Partial<HistoricalImportDraft>) => {
+    setDrafts((current) =>
+      current.map((draft) =>
+        draft.id === draftId
+          ? {
+              ...draft,
+              ...patch,
+            }
+          : draft
+      )
+    );
+  };
+
+  const addBlankDraft = () => {
+    const next = createDraft({
+      sourceType: selectedDraft?.sourceType ?? 'transcript',
+      entryDate: selectedDraft?.entryDate ?? new Date().toISOString().slice(0, 10),
+    });
+    setDrafts((current) => [...current, next]);
+    setSelectedDraftId(next.id);
+  };
+
+  const removeDraft = (draftId: string) => {
+    setDrafts((current) => {
+      const next = current.filter((draft) => draft.id !== draftId);
+      if (next.length === 0) {
+        const fallback = createDraft();
+        setSelectedDraftId(fallback.id);
+        return [fallback];
+      }
+
+      if (draftId === selectedDraftId) {
+        setSelectedDraftId(next[0].id);
+      }
+
+      return next;
+    });
+  };
+
+  const buildBrainSection = (draft: HistoricalImportDraft) => {
+    const sourceLabel = draft.sourceType.replace('_', ' ');
+    const header = `## ${draft.title.trim() || 'Imported historical memory'}\n- Date: ${formatDateLabel(draft.entryDate)}\n- Source: ${sourceLabel}\n`;
+    const blocks = [
+      draft.summary.trim() ? `### Summary\n${draft.summary.trim()}` : '',
+      draft.keyPoints.trim()
+        ? `### Key points\n${draft.keyPoints
+            .trim()
+            .split('\n')
+            .filter(Boolean)
+            .map((line) => `- ${line.trim()}`)
+            .join('\n')}`
+        : '',
+      draft.rawText.trim() ? `### Raw source\n${draft.rawText.trim()}` : '',
+    ].filter(Boolean);
+    return `${header}\n${blocks.join('\n\n')}`;
+  };
+
+  const generateDraftForEntry = async (draft: HistoricalImportDraft) => {
+    const { data, error } = await supabase.functions.invoke('generate-mission-control-draft', {
+      body: {
+        transcript: draft.rawText.trim(),
+        session_date: draft.entryDate,
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Failed to generate import draft');
+    }
+
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
+    return data as {
+      suggested_title: string;
+      summary: string;
+      key_points: string[];
+      wins: string[];
+      issues: string[];
+      top_commitments: string[];
+    };
+  };
+
+  const ensureStructuredDraft = async (draft: HistoricalImportDraft) => {
+    if (draft.summary.trim() || draft.rawText.trim().length <= 80) {
+      return draft;
+    }
+
+    const generated = await generateDraftForEntry(draft);
+    const nextDraft: HistoricalImportDraft = {
+      ...draft,
+      title: draft.title.trim() || `${formatDateLabel(draft.entryDate)} ${generated.suggested_title}`,
+      summary: generated.summary || '',
+      keyPoints: generated.key_points.join('\n'),
+      wins: generated.wins.join('\n'),
+      issues: generated.issues.join('\n'),
+      topThree: generated.top_commitments.join('\n'),
+    };
+    updateDraft(draft.id, nextDraft);
+    return nextDraft;
+  };
+
+  const handleGenerateDraft = async () => {
+    if (!selectedDraft || selectedDraft.rawText.trim().length <= 80) return;
+    try {
+      setDraftingId(selectedDraft.id);
+      const generated = await generateDraftForEntry(selectedDraft);
+      updateDraft(selectedDraft.id, {
+        title: selectedDraft.title.trim() || `${formatDateLabel(selectedDraft.entryDate)} ${generated.suggested_title}`,
+        summary: generated.summary || '',
+        keyPoints: generated.key_points.join('\n'),
+        wins: generated.wins.join('\n'),
+        issues: generated.issues.join('\n'),
+        topThree: generated.top_commitments.join('\n'),
       });
-
-      if (error) {
-        throw new Error(error.message || 'Failed to generate import draft');
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
-
-      return data as {
-        suggested_title: string;
-        summary: string;
-        key_points: string[];
-        wins: string[];
-        issues: string[];
-        top_commitments: string[];
-      };
-    },
-    onSuccess: (draft) => {
-      setTitle((current) => current || `${formatDateLabel(entryDate)} ${draft.suggested_title}`);
-      setSummary(draft.summary || '');
-      setKeyPoints(draft.key_points.join('\n'));
-      setWins(draft.wins.join('\n'));
-      setIssues(draft.issues.join('\n'));
-      setTopThree(draft.top_commitments.join('\n'));
       toast.success('Historical draft ready', {
         description: 'The imported memory was summarized and structured.',
       });
-    },
-    onError: (error) => {
+    } catch (error) {
       toast.error('Could not draft historical memory', {
         description: error instanceof Error ? error.message : 'Unknown error',
       });
-    },
-  });
+    } finally {
+      setDraftingId(null);
+    }
+  };
 
-  const importHistoricalFile = async (file: File | null) => {
-    if (!file) return;
+  const importHistoricalFiles = async (fileList: FileList | null) => {
+    if (!fileList?.length) return;
 
     try {
-      const content = await readMissionControlTextFile(file);
-      setRawText(content);
-      setImportedFileName(file.name);
+      const loadedDrafts = await Promise.all(
+        Array.from(fileList).map(async (file) => {
+          const content = await readMissionControlTextFile(file);
+          return createDraft({
+            title: file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim(),
+            rawText: content,
+            importedFileName: file.name,
+            sourceType: selectedDraft?.sourceType ?? 'transcript',
+            entryDate: selectedDraft?.entryDate ?? new Date().toISOString().slice(0, 10),
+          });
+        })
+      );
+
+      setDrafts((current) => {
+        if (current.length === 1 && isBlankDraft(current[0])) {
+          return loadedDrafts;
+        }
+        return [...current, ...loadedDrafts];
+      });
+      setSelectedDraftId(loadedDrafts[0].id);
       toast.success('Historical memory imported', {
-        description: `${file.name} was loaded into the import workspace.`,
+        description:
+          loadedDrafts.length === 1
+            ? `${loadedDrafts[0].importedFileName} was loaded into the import queue.`
+            : `${loadedDrafts.length} files were added to the import queue.`,
       });
     } catch (error) {
       toast.error('Could not import file', {
@@ -3764,111 +3912,140 @@ function HistoricalMemoryImportDialog({
     }
   };
 
-  const appendToBrain = async () => {
-    const sourceLabel = sourceType.replace('_', ' ');
-    const header = `## ${title.trim() || 'Imported historical memory'}\n- Date: ${formatDateLabel(entryDate)}\n- Source: ${sourceLabel}\n`;
-    const blocks = [
-      summary.trim() ? `### Summary\n${summary.trim()}` : '',
-      keyPoints.trim() ? `### Key points\n${keyPoints.trim().split('\n').filter(Boolean).map((line) => `- ${line.trim()}`).join('\n')}` : '',
-      rawText.trim() ? `### Raw source\n${rawText.trim()}` : '',
-    ].filter(Boolean);
-    const mergedBody = [existingBrain?.note_body?.trim() ?? '', `${header}\n${blocks.join('\n\n')}`].filter(Boolean).join('\n\n---\n\n');
-    await onImportToBrain({ note_body: mergedBody });
-  };
-
-  const importAsSession = async () => {
-    if (!summary.trim() && canGenerateDraft) {
-      const draft = await draftMutation.mutateAsync();
-      await onImportAsSession({
-        title: title.trim() || `${formatDateLabel(entryDate)} ${draft.suggested_title}`,
-        session_date: entryDate,
-        summary_ai: draft.summary || null,
-        transcript_text: rawText.trim() || null,
-        key_points_json: draft.key_points,
-        wins_json: draft.wins,
-        issues_json: draft.issues,
-        top_commitments_json: draft.top_commitments,
-        auto_create_commitments: autoCreatePromises,
-      });
-      return;
-    }
-
+  const importSingleAsSession = async () => {
+    if (!selectedDraft || !selectedDraft.rawText.trim()) return;
+    const prepared = await ensureStructuredDraft(selectedDraft);
     await onImportAsSession({
-      title: title.trim() || `${formatDateLabel(entryDate)} Historical Session`,
-      session_date: entryDate,
-      summary_ai: summary.trim() || null,
-      transcript_text: rawText.trim() || null,
-      key_points_json: uniqueLines(keyPoints),
-      wins_json: uniqueLines(wins),
-      issues_json: uniqueLines(issues),
-      top_commitments_json: uniqueLines(topThree),
-      auto_create_commitments: autoCreatePromises,
+      title: prepared.title.trim() || `${formatDateLabel(prepared.entryDate)} Historical Session`,
+      session_date: prepared.entryDate,
+      summary_ai: prepared.summary.trim() || null,
+      transcript_text: prepared.rawText.trim() || null,
+      key_points_json: uniqueLines(prepared.keyPoints),
+      wins_json: uniqueLines(prepared.wins),
+      issues_json: uniqueLines(prepared.issues),
+      top_commitments_json: uniqueLines(prepared.topThree),
+      auto_create_commitments: prepared.autoCreatePromises,
     });
+    toast.success('Historical session imported', {
+      description: `${prepared.title.trim() || 'Historical session'} now lives in the timeline.`,
+    });
+    removeDraft(prepared.id);
   };
+
+  const importAllAsSessions = async () => {
+    const importable = drafts.filter((draft) => draft.rawText.trim());
+    if (importable.length === 0) return;
+
+    try {
+      setIsBulkRunning(true);
+      for (const draft of importable) {
+        const prepared = await ensureStructuredDraft(draft);
+        await onImportAsSession({
+          title: prepared.title.trim() || `${formatDateLabel(prepared.entryDate)} Historical Session`,
+          session_date: prepared.entryDate,
+          summary_ai: prepared.summary.trim() || null,
+          transcript_text: prepared.rawText.trim() || null,
+          key_points_json: uniqueLines(prepared.keyPoints),
+          wins_json: uniqueLines(prepared.wins),
+          issues_json: uniqueLines(prepared.issues),
+          top_commitments_json: uniqueLines(prepared.topThree),
+          auto_create_commitments: prepared.autoCreatePromises,
+        });
+      }
+      toast.success('Historical sessions imported', {
+        description: `${importable.length} memory ${importable.length === 1 ? 'entry was' : 'entries were'} added to the timeline.`,
+      });
+      const fallback = createDraft({
+        sourceType: selectedDraft?.sourceType ?? 'transcript',
+        entryDate: selectedDraft?.entryDate ?? new Date().toISOString().slice(0, 10),
+      });
+      setDrafts([fallback]);
+      setSelectedDraftId(fallback.id);
+    } finally {
+      setIsBulkRunning(false);
+    }
+  };
+
+  const appendSingleToBrain = async () => {
+    if (!selectedDraft || !selectedDraft.rawText.trim()) return;
+    const mergedBody = [existingBrain?.note_body?.trim() ?? '', buildBrainSection(selectedDraft)]
+      .filter(Boolean)
+      .join('\n\n---\n\n');
+    await onImportToBrain({ note_body: mergedBody });
+    toast.success('Added to client brain', {
+      description: `${selectedDraft.title.trim() || 'Historical memory'} was added to the coach-only brain.`,
+    });
+    removeDraft(selectedDraft.id);
+  };
+
+  const appendAllToBrain = async () => {
+    const importable = drafts.filter((draft) => draft.rawText.trim());
+    if (importable.length === 0) return;
+
+    try {
+      setIsBulkRunning(true);
+      const mergedBody = [
+        existingBrain?.note_body?.trim() ?? '',
+        ...importable.map((draft) => buildBrainSection(draft)),
+      ]
+        .filter(Boolean)
+        .join('\n\n---\n\n');
+      await onImportToBrain({ note_body: mergedBody });
+      toast.success('Client brain updated', {
+        description: `${importable.length} historical ${importable.length === 1 ? 'entry was' : 'entries were'} merged into the client brain.`,
+      });
+      const fallback = createDraft({
+        sourceType: selectedDraft?.sourceType ?? 'transcript',
+        entryDate: selectedDraft?.entryDate ?? new Date().toISOString().slice(0, 10),
+      });
+      setDrafts([fallback]);
+      setSelectedDraftId(fallback.id);
+    } finally {
+      setIsBulkRunning(false);
+    }
+  };
+
+  const importableCount = drafts.filter((draft) => draft.rawText.trim()).length;
+  const canGenerateDraft = (selectedDraft?.rawText.trim().length ?? 0) > 80;
 
   return (
     <div className="space-y-4">
       <div className="grid gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Use for</p>
-          <p className="mt-2 text-sm text-muted-foreground">Old transcripts, strategy notes, email threads, and context you want the system to remember.</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Backfill use</p>
+          <p className="mt-2 text-sm text-muted-foreground">Load old transcripts, strategy notes, and email threads without rebuilding every past call one by one.</p>
         </div>
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Import as session</p>
-          <p className="mt-2 text-sm text-muted-foreground">Best for past calls that should show up in the timeline and memory history.</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Queue first</p>
+          <p className="mt-2 text-sm text-muted-foreground">Import multiple files, review each memory block, then send them into the timeline or client brain in one pass.</p>
         </div>
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Append to client brain</p>
-          <p className="mt-2 text-sm text-muted-foreground">Best for strategy context, patterns, and long-form coach-only guidance in markdown format.</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Historical sessions</p>
+          <p className="mt-2 text-sm text-muted-foreground">Use for past calls that should appear in the session timeline and memory layer.</p>
         </div>
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Default safety</p>
-          <p className="mt-2 text-sm text-muted-foreground">Historical imports do not create active promises unless you explicitly turn that on.</p>
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Client brain</p>
+          <p className="mt-2 text-sm text-muted-foreground">Use for durable context, strategy notes, and patterns that should live in coach-only memory.</p>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="space-y-2">
-          <Label>Source type</Label>
-          <Select value={sourceType} onValueChange={(value) => setSourceType(value as typeof sourceType)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="transcript">Transcript</SelectItem>
-              <SelectItem value="strategy_note">Strategy note</SelectItem>
-              <SelectItem value="client_history">Client history</SelectItem>
-              <SelectItem value="email_thread">Email thread</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2 md:col-span-2">
-          <Label htmlFor="historical-memory-title">Memory title</Label>
-          <Input
-            id="historical-memory-title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Q4 sales turnaround call"
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
-        <div className="space-y-2">
-          <Label htmlFor="historical-memory-date">Original date</Label>
-          <Input id="historical-memory-date" type="date" value={entryDate} onChange={(event) => setEntryDate(event.target.value)} />
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <Label htmlFor="historical-memory-raw">Paste transcript, markdown, or notes</Label>
-              <p className="text-xs text-muted-foreground">Markdown is best for long-form strategy context. Raw text is fine for transcript imports.</p>
+      <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <Card className="border-border/60 bg-muted/10">
+          <CardHeader className="space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle className="text-lg">Import queue</CardTitle>
+                <CardDescription>{importableCount} file-backed {importableCount === 1 ? 'entry' : 'entries'} ready to backfill.</CardDescription>
+              </div>
+              <Badge variant="outline" className="rounded-full px-3 py-1 text-[10px] uppercase tracking-[0.24em]">
+                {drafts.length} total
+              </Badge>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button asChild type="button" variant="outline">
+            <div className="grid gap-2">
+              <Button asChild type="button" variant="outline" className="w-full">
                 <label htmlFor="historical-memory-file" className="cursor-pointer">
                   <Upload className="mr-2 h-4 w-4" />
-                  Import file
+                  Import files
                 </label>
               </Button>
               <Input
@@ -3876,71 +4053,238 @@ function HistoricalMemoryImportDialog({
                 type="file"
                 accept=".md,.txt,text/markdown,text/plain"
                 className="hidden"
+                multiple
                 onChange={async (event) => {
-                  const file = event.target.files?.[0] ?? null;
-                  await importHistoricalFile(file);
+                  await importHistoricalFiles(event.target.files);
                   event.currentTarget.value = '';
                 }}
               />
-              <Button type="button" variant="outline" onClick={() => draftMutation.mutate()} disabled={!canGenerateDraft || draftMutation.isPending}>
-                {draftMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                {draftMutation.isPending ? 'Drafting...' : 'Generate draft'}
+              <Button type="button" variant="ghost" className="w-full justify-start" onClick={addBlankDraft}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add blank memory
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+              {drafts.map((draft, index) => {
+                const isSelected = draft.id === selectedDraft?.id;
+                const preview = summarizePreviewText(draft.summary || draft.rawText, 88);
+                return (
+                  <button
+                    key={draft.id}
+                    type="button"
+                    onClick={() => setSelectedDraftId(draft.id)}
+                    className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
+                      isSelected
+                        ? 'border-foreground/20 bg-background shadow-sm'
+                        : 'border-border/50 bg-background/40 hover:border-border hover:bg-background/70'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">Entry {index + 1}</p>
+                        <p className="mt-1 truncate font-medium text-foreground">
+                          {draft.title.trim() || draft.importedFileName || 'Untitled historical memory'}
+                        </p>
+                      </div>
+                      {drafts.length > 1 ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 shrink-0"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeDraft(draft.id);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {draft.sourceType.replace('_', ' ')} • {formatDateLabel(draft.entryDate)}
+                    </p>
+                    <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">
+                      {preview || 'No text loaded yet.'}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <Button className="w-full" disabled={effectiveSaving || importableCount === 0} onClick={importAllAsSessions}>
+                {effectiveSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarDays className="mr-2 h-4 w-4" />}
+                Import all as sessions
+              </Button>
+              <Button variant="outline" className="w-full" disabled={effectiveSaving || importableCount === 0} onClick={appendAllToBrain}>
+                {effectiveSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                Add all to client brain
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {selectedDraft ? (
+          <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Source type</Label>
+                <Select
+                  value={selectedDraft.sourceType}
+                  onValueChange={(value) => updateDraft(selectedDraft.id, { sourceType: value as SourceType })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="transcript">Transcript</SelectItem>
+                    <SelectItem value="strategy_note">Strategy note</SelectItem>
+                    <SelectItem value="client_history">Client history</SelectItem>
+                    <SelectItem value="email_thread">Email thread</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="historical-memory-title">Memory title</Label>
+                <Input
+                  id="historical-memory-title"
+                  value={selectedDraft.title}
+                  onChange={(event) => updateDraft(selectedDraft.id, { title: event.target.value })}
+                  placeholder="Q4 sales turnaround call"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-[220px_minmax(0,1fr)]">
+              <div className="space-y-2">
+                <Label htmlFor="historical-memory-date">Original date</Label>
+                <Input
+                  id="historical-memory-date"
+                  type="date"
+                  value={selectedDraft.entryDate}
+                  onChange={(event) => updateDraft(selectedDraft.id, { entryDate: event.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <Label htmlFor="historical-memory-raw">Transcript, markdown, or notes</Label>
+                    <p className="text-xs text-muted-foreground">Review and shape this entry before pushing it into session memory or the client brain.</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleGenerateDraft}
+                    disabled={!canGenerateDraft || effectiveSaving}
+                  >
+                    {draftingId === selectedDraft.id ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-2 h-4 w-4" />
+                    )}
+                    {draftingId === selectedDraft.id ? 'Drafting...' : 'Generate draft'}
+                  </Button>
+                </div>
+                {selectedDraft.importedFileName ? (
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                    Loaded file: <span className="font-medium text-foreground">{selectedDraft.importedFileName}</span>
+                  </div>
+                ) : null}
+                <Textarea
+                  id="historical-memory-raw"
+                  rows={10}
+                  value={selectedDraft.rawText}
+                  onChange={(event) => updateDraft(selectedDraft.id, { rawText: event.target.value })}
+                  placeholder="Paste an old transcript, cleaned notes, or markdown context here..."
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="historical-memory-summary">Summary</Label>
+                <Textarea
+                  id="historical-memory-summary"
+                  rows={4}
+                  value={selectedDraft.summary}
+                  onChange={(event) => updateDraft(selectedDraft.id, { summary: event.target.value })}
+                  placeholder="Short summary of what this historical memory contains..."
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="historical-memory-top-three">Promise candidates</Label>
+                <Textarea
+                  id="historical-memory-top-three"
+                  rows={4}
+                  value={selectedDraft.topThree}
+                  onChange={(event) => updateDraft(selectedDraft.id, { topThree: event.target.value })}
+                  placeholder="One promise per line if this import should also seed old promises..."
+                />
+                <Button
+                  type="button"
+                  variant={selectedDraft.autoCreatePromises ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() =>
+                    updateDraft(selectedDraft.id, {
+                      autoCreatePromises: !selectedDraft.autoCreatePromises,
+                    })
+                  }
+                >
+                  {selectedDraft.autoCreatePromises ? 'Will create active promises' : 'Keep as memory only'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="historical-memory-key-points">Key points</Label>
+                <Textarea
+                  id="historical-memory-key-points"
+                  rows={4}
+                  value={selectedDraft.keyPoints}
+                  onChange={(event) => updateDraft(selectedDraft.id, { keyPoints: event.target.value })}
+                  placeholder="One key point per line"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="historical-memory-wins">Wins</Label>
+                <Textarea
+                  id="historical-memory-wins"
+                  rows={4}
+                  value={selectedDraft.wins}
+                  onChange={(event) => updateDraft(selectedDraft.id, { wins: event.target.value })}
+                  placeholder="One win per line"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="historical-memory-issues">Issues</Label>
+                <Textarea
+                  id="historical-memory-issues"
+                  rows={4}
+                  value={selectedDraft.issues}
+                  onChange={(event) => updateDraft(selectedDraft.id, { issues: event.target.value })}
+                  placeholder="One issue per line"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button className="sm:flex-1" disabled={effectiveSaving || !selectedDraft.rawText.trim()} onClick={importSingleAsSession}>
+                {effectiveSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarDays className="mr-2 h-4 w-4" />}
+                Import selected as session
+              </Button>
+              <Button variant="outline" className="sm:flex-1" disabled={effectiveSaving || !selectedDraft.rawText.trim()} onClick={appendSingleToBrain}>
+                {effectiveSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                Add selected to client brain
               </Button>
             </div>
           </div>
-          {importedFileName ? (
-            <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
-              Loaded file: <span className="font-medium text-foreground">{importedFileName}</span>
-            </div>
-          ) : null}
-          <Textarea
-            id="historical-memory-raw"
-            rows={10}
-            value={rawText}
-            onChange={(event) => setRawText(event.target.value)}
-            placeholder="Paste an old transcript, cleaned notes, or markdown context here..."
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="historical-memory-summary">Summary</Label>
-          <Textarea id="historical-memory-summary" rows={4} value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="Short summary of what this historical memory contains..." />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="historical-memory-top-three">Promise candidates</Label>
-          <Textarea id="historical-memory-top-three" rows={4} value={topThree} onChange={(event) => setTopThree(event.target.value)} placeholder="One promise per line if this import should also seed old promises..." />
-          <Button type="button" variant={autoCreatePromises ? 'default' : 'outline'} size="sm" onClick={() => setAutoCreatePromises((current) => !current)}>
-            {autoCreatePromises ? 'Will create active promises' : 'Keep as memory only'}
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-3">
-        <div className="space-y-2">
-          <Label htmlFor="historical-memory-key-points">Key points</Label>
-          <Textarea id="historical-memory-key-points" rows={4} value={keyPoints} onChange={(event) => setKeyPoints(event.target.value)} placeholder="One key point per line" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="historical-memory-wins">Wins</Label>
-          <Textarea id="historical-memory-wins" rows={4} value={wins} onChange={(event) => setWins(event.target.value)} placeholder="One win per line" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="historical-memory-issues">Issues</Label>
-          <Textarea id="historical-memory-issues" rows={4} value={issues} onChange={(event) => setIssues(event.target.value)} placeholder="One issue per line" />
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <Button className="sm:flex-1" disabled={isSaving || !rawText.trim()} onClick={importAsSession}>
-          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarDays className="mr-2 h-4 w-4" />}
-          Import as historical session
-        </Button>
-        <Button variant="outline" className="sm:flex-1" disabled={isSaving || !rawText.trim()} onClick={appendToBrain}>
-          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-          Add to client brain
-        </Button>
+        ) : null}
       </div>
     </div>
   );
