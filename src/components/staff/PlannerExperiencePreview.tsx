@@ -760,6 +760,7 @@ export function PlannerExperiencePreview({
                       : `${selectedMemberName} Household Focus`
                     : "Household Focus"}
                 </CardTitle>
+                <HelpButton videoKey="Household Focus Tool" />
                 {isManager && (
                   <Badge variant="outline">
                     {viewingTeam ? "Team Default" : hasMemberOverride ? "Custom Member Target" : "Using Member Default"}
