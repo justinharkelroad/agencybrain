@@ -356,14 +356,16 @@ function SummaryCard({
   label,
   value,
   detail,
+  toneClass,
 }: {
   icon: ComponentType<{ className?: string }>;
   label: string;
   value: string;
   detail: string;
+  toneClass?: string;
 }) {
   return (
-    <Card className="rounded-[24px] border-border/60 bg-background/80 shadow-sm">
+    <Card className={`rounded-[24px] border-border/60 bg-background/80 shadow-sm ${toneClass ?? ''}`}>
       <CardContent className="flex items-start justify-between gap-4 p-5">
         <div>
           <p className="text-sm font-medium text-muted-foreground">{label}</p>
@@ -797,8 +799,8 @@ export default function MissionControl() {
   }
 
   const heroSupportText = isAdmin
-    ? 'Before the call: review the business pulse. After the call: capture the session and review promises.'
-    : 'Before the call: update your business pulse. After the call: review what was captured and work the promises between calls.';
+    ? 'Review the owner pulse before the call. Capture the session after the call. Use this workspace to keep promises and priorities moving.'
+    : 'Update your business pulse before the call. After the call, review what was captured and keep your promises moving between sessions.';
   const stepTwoTitle = isAdmin ? 'Capture Session' : 'Coach Updates Session';
   const stepTwoBody = isAdmin
     ? 'Paste the transcript after the call and save the session memory.'
@@ -811,23 +813,47 @@ export default function MissionControl() {
     key: WorkflowMode;
     title: string;
     description: string;
+    panelClass: string;
+    activeClass: string;
+    summaryTitle: string;
+    summaryBody: string;
   }> = [
     {
       key: 'prepare',
       title: 'Prepare',
       description: 'Pulse, trends, and pre-call focus.',
+      panelClass: 'border-emerald-400/25 bg-emerald-500/10',
+      activeClass: 'border-emerald-400/30 bg-emerald-500 text-emerald-950',
+      summaryTitle: 'Prep window is live',
+      summaryBody: 'Scoreboard, focus answers, and trend context stay up front so the owner knows exactly how to prepare for the next call.',
     },
     {
       key: 'review',
       title: 'Review',
       description: 'Session memory and promise review.',
+      panelClass: 'border-amber-400/25 bg-amber-500/10',
+      activeClass: 'border-amber-400/30 bg-amber-400 text-amber-950',
+      summaryTitle: 'Call memory comes first',
+      summaryBody: 'This phase is for looking back at what happened, what was promised, and what the next session needs to verify.',
     },
     {
       key: 'execute',
       title: 'Execute',
       description: 'Promises, priorities, evidence, and Coach Brain.',
+      panelClass: 'border-sky-400/25 bg-sky-500/10',
+      activeClass: 'border-sky-400/30 bg-sky-400 text-sky-950',
+      summaryTitle: 'Between-call execution',
+      summaryBody: 'This phase keeps the work moving: open promises, bigger priorities, linked evidence, and the coaching brain between meetings.',
     },
   ];
+  const activeWorkflowMode = workflowModes.find((mode) => mode.key === activeMode) ?? workflowModes[0];
+  const modeSectionClass =
+    activeMode === 'review'
+      ? 'rounded-[32px] border border-amber-400/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.08),rgba(0,0,0,0))] p-4 md:p-5'
+      : activeMode === 'execute'
+        ? 'rounded-[32px] border border-sky-400/20 bg-[linear-gradient(180deg,rgba(56,189,248,0.08),rgba(0,0,0,0))] p-4 md:p-5'
+        : '';
+  const executeSummaryTone = 'border-sky-400/20 bg-sky-500/10';
 
   const businessPulseSection = (
     <section ref={pulseSectionRef} className="rounded-[32px] border border-border/60 bg-background/82 p-6 shadow-sm">
@@ -1526,7 +1552,7 @@ export default function MissionControl() {
           <div className="relative space-y-8">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline" className="border-foreground/15 bg-background/70 px-3 py-1 text-[11px] uppercase tracking-[0.24em]">
-                1:1 Coaching
+                Agency Mission Control
               </Badge>
               {isAdmin && (
                 <Badge variant="outline" className="border-primary/20 bg-primary/10 px-3 py-1 text-xs">
@@ -1641,7 +1667,7 @@ export default function MissionControl() {
               <div className="rounded-[22px] border border-border/60 bg-background/70 p-4">
                 <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Step 1</p>
                 <p className="mt-2 font-medium">Update Business Pulse</p>
-                <p className="mt-1 text-sm text-muted-foreground">Owner fills out the pre-call boxes and numbers before the session.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Get the scoreboard and call focus current before the meeting starts.</p>
               </div>
               <div className="rounded-[22px] border border-border/60 bg-background/70 p-4">
                 <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Step 2</p>
@@ -1658,9 +1684,9 @@ export default function MissionControl() {
             <div className="rounded-[24px] border border-border/60 bg-background/55 p-4">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Workspace mode</p>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Current phase</p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    Move through the relationship one phase at a time instead of scanning the full operating system at once.
+                    One workspace, three distinct moments in the relationship.
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row">
@@ -1672,14 +1698,14 @@ export default function MissionControl() {
                         onClick={() => setActiveMode(mode.key)}
                         className={`rounded-2xl border px-4 py-3 text-left transition ${
                           activeMode === mode.key
-                            ? 'border-foreground/20 bg-foreground text-background'
+                            ? mode.activeClass
                             : 'border-border/60 bg-background/70 text-foreground hover:bg-background'
                         }`}
                       >
-                        <p className={`text-sm font-semibold ${activeMode === mode.key ? 'text-background' : 'text-foreground'}`}>
+                        <p className={`text-sm font-semibold ${activeMode === mode.key ? 'text-current' : 'text-foreground'}`}>
                           {mode.title}
                         </p>
-                        <p className={`mt-1 text-xs leading-5 ${activeMode === mode.key ? 'text-background/80' : 'text-muted-foreground'}`}>
+                        <p className={`mt-1 text-xs leading-5 ${activeMode === mode.key ? 'text-current/80' : 'text-muted-foreground'}`}>
                           {mode.description}
                         </p>
                       </button>
@@ -1697,6 +1723,11 @@ export default function MissionControl() {
                   ) : null}
                 </div>
               </div>
+              <div className={`mt-4 rounded-[22px] border px-4 py-4 ${activeWorkflowMode.panelClass}`}>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Now viewing</p>
+                <p className="mt-2 text-lg font-semibold">{activeWorkflowMode.summaryTitle}</p>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">{activeWorkflowMode.summaryBody}</p>
+              </div>
             </div>
           </div>
         </section>
@@ -1705,19 +1736,20 @@ export default function MissionControl() {
 
         {activeMode === 'execute' ? (
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <SummaryCard icon={ClipboardList} label="Promises Still Open" value={String(openCommitments.length)} detail="Items still waiting on action, proof, or review." />
-            <SummaryCard icon={CalendarDays} label="Last Session" value={latestSession ? latestSession.session_date : 'None'} detail="Most recent coaching session preserved in the timeline." />
-            <SummaryCard icon={Rocket} label="Active Priorities" value={String(workspace.boardItems.length)} detail="Bigger initiatives tracked between calls." />
-            <SummaryCard icon={Trophy} label="Wins Logged" value={String(wins.length)} detail="Highlights preserved from the latest session." />
-            <SummaryCard icon={CheckCircle2} label="Evidence Linked" value={String(proofLinkedCount)} detail="Evidence files linked back to promises." />
+            <SummaryCard icon={ClipboardList} label="Promises Still Open" value={String(openCommitments.length)} detail="Items still waiting on action, proof, or review." toneClass={executeSummaryTone} />
+            <SummaryCard icon={CalendarDays} label="Last Session" value={latestSession ? latestSession.session_date : 'None'} detail="Most recent coaching session preserved in the timeline." toneClass={executeSummaryTone} />
+            <SummaryCard icon={Rocket} label="Active Priorities" value={String(workspace.boardItems.length)} detail="Bigger initiatives tracked between calls." toneClass={executeSummaryTone} />
+            <SummaryCard icon={Trophy} label="Wins Logged" value={String(wins.length)} detail="Highlights preserved from the latest session." toneClass={executeSummaryTone} />
+            <SummaryCard icon={CheckCircle2} label="Evidence Linked" value={String(proofLinkedCount)} detail="Evidence files linked back to promises." toneClass={executeSummaryTone} />
           </section>
         ) : null}
 
         {activeMode !== 'prepare' ? (
-        <section className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[minmax(320px,0.92fr)_minmax(380px,1.08fr)_minmax(360px,0.96fr)]">
+        <section className={modeSectionClass}>
+        <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[minmax(320px,0.92fr)_minmax(380px,1.08fr)_minmax(360px,0.96fr)]">
           <div className={`space-y-6 ${activeMode === 'execute' ? 'hidden 2xl:hidden' : ''}`}>
             {activeMode === 'review' ? (
-            <Card className="rounded-[28px] border-border/60 bg-background/82">
+            <Card className="rounded-[28px] border-amber-400/20 bg-background/88">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-primary" />
@@ -1801,7 +1833,7 @@ export default function MissionControl() {
             ) : null}
 
             {activeMode === 'review' ? (
-            <Card className="rounded-[28px] border-border/60 bg-background/82">
+            <Card className="rounded-[28px] border-amber-400/20 bg-background/88">
               <CardHeader>
                 <CardTitle>Session Timeline</CardTitle>
                 <CardDescription>Past calls stay visible so you can compare what was said then to what was reviewed later.</CardDescription>
@@ -1841,7 +1873,7 @@ export default function MissionControl() {
           </div>
 
           <div className="space-y-6">
-            <Card className="rounded-[28px] border-border/60 bg-background/82">
+            <Card className={`rounded-[28px] ${activeMode === 'review' ? 'border-amber-400/20 bg-background/88' : 'border-sky-400/20 bg-background/88'}`}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between gap-3">
                   <span>Commitment Tracker</span>
@@ -1941,7 +1973,7 @@ export default function MissionControl() {
             </Card>
 
             {activeMode === 'execute' ? (
-            <Card className="rounded-[28px] border-border/60 bg-background/82">
+            <Card className="rounded-[28px] border-sky-400/20 bg-background/88">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between gap-3">
                   <span>Priority Board</span>
@@ -1984,7 +2016,7 @@ export default function MissionControl() {
           </div>
 
           <div className={`space-y-6 xl:col-span-2 xl:grid xl:grid-cols-2 xl:gap-6 xl:space-y-0 2xl:col-span-1 2xl:block 2xl:space-y-6 ${activeMode === 'review' ? 'xl:grid-cols-1' : ''}`}>
-            <Card className="rounded-[28px] border-border/60 bg-background/82">
+            <Card className={`rounded-[28px] ${activeMode === 'review' ? 'border-amber-400/20 bg-background/88' : 'border-sky-400/20 bg-background/88'}`}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-primary" />
@@ -2014,7 +2046,7 @@ export default function MissionControl() {
             </Card>
 
             {activeMode === 'execute' ? (
-            <Card className="rounded-[28px] border-border/60 bg-background/82">
+            <Card className="rounded-[28px] border-sky-400/20 bg-background/88">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Bot className="h-5 w-5 text-primary" />
@@ -2113,7 +2145,7 @@ export default function MissionControl() {
             ) : null}
 
             {activeMode === 'execute' ? (
-            <Card className="rounded-[28px] border-border/60 bg-background/82 xl:col-span-2 2xl:col-span-1">
+            <Card className="rounded-[28px] border-sky-400/20 bg-background/88 xl:col-span-2 2xl:col-span-1">
               <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BriefcaseBusiness className="h-5 w-5 text-primary" />
@@ -2200,6 +2232,7 @@ export default function MissionControl() {
             </Card>
             ) : null}
           </div>
+        </div>
         </section>
         ) : null}
 
