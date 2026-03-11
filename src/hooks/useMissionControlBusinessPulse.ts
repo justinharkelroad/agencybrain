@@ -97,10 +97,10 @@ const EMPTY_FORM: MissionPulseFormData = {
   },
 };
 
-function previousMonthRange() {
+function currentMonthRange() {
   const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-  const end = new Date(today.getFullYear(), today.getMonth(), 0);
+  const start = new Date(today.getFullYear(), today.getMonth(), 1);
+  const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
   return {
     startDate: start.toISOString().split('T')[0],
@@ -268,7 +268,7 @@ export function buildMissionPulseDraft(
 
 export function useMissionControlBusinessPulse(userId: string | null, enabled = true) {
   const queryClient = useQueryClient();
-  const targetPeriod = useMemo(() => previousMonthRange(), []);
+  const targetPeriod = useMemo(() => currentMonthRange(), []);
 
   const query = useQuery({
     queryKey: ['mission-control-business-pulse', userId],
