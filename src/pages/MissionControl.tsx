@@ -829,16 +829,8 @@ export default function MissionControl() {
   }
 
   const heroSupportText = isAdmin
-    ? 'Review the owner pulse before the call. Capture the session after the call. Use this workspace to keep promises and priorities moving.'
-    : 'Update your business pulse before the call. After the call, review what was captured and keep your promises moving between sessions.';
-  const stepTwoTitle = isAdmin ? 'Capture Session' : 'Coach Updates Session';
-  const stepTwoBody = isAdmin
-    ? 'Paste the transcript after the call and save the session memory.'
-    : 'After the call, your coach updates the transcript, session memory, and next steps here.';
-  const stepThreeTitle = isAdmin ? 'Review Commitments' : 'Work the Commitments';
-  const stepThreeBody = isAdmin
-    ? 'Use the next session to verify what was done, blocked, or carried forward.'
-    : 'Use this workspace between calls to see what is done, blocked, or still in progress.';
+    ? 'Review the pulse. Capture the call. Keep promises and priorities moving.'
+    : 'Update your pulse before the call, then use this workspace to stay on track between sessions.';
   const workflowModes: Array<{
     key: WorkflowMode;
     title: string;
@@ -883,6 +875,14 @@ export default function MissionControl() {
       : activeMode === 'execute'
         ? 'rounded-[32px] border border-sky-400/20 bg-[linear-gradient(180deg,rgba(56,189,248,0.08),rgba(0,0,0,0))] p-4 md:p-5'
         : '';
+  const workflowGridClass =
+    activeMode === 'review'
+      ? isAdmin
+        ? 'grid gap-6 xl:grid-cols-2 2xl:grid-cols-[minmax(320px,0.92fr)_minmax(380px,1.08fr)_minmax(360px,0.96fr)]'
+        : 'grid gap-6 xl:grid-cols-[minmax(0,1.08fr)_minmax(360px,0.92fr)]'
+      : isAdmin
+        ? 'grid gap-6 xl:grid-cols-2 2xl:grid-cols-[minmax(320px,0.92fr)_minmax(380px,1.08fr)_minmax(360px,0.96fr)]'
+        : 'grid gap-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)]';
   const executeSummaryTone = 'border-sky-400/20 bg-sky-500/10';
 
   const businessPulseSection = (
@@ -1693,30 +1693,14 @@ export default function MissionControl() {
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-[22px] border border-border/60 bg-background/70 p-4">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Step 1</p>
-                <p className="mt-2 font-medium">Update Business Pulse</p>
-                <p className="mt-1 text-sm text-muted-foreground">Get the scoreboard and call focus current before the meeting starts.</p>
-              </div>
-              <div className="rounded-[22px] border border-border/60 bg-background/70 p-4">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Step 2</p>
-                <p className="mt-2 font-medium">{stepTwoTitle}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{stepTwoBody}</p>
-              </div>
-              <div className="rounded-[22px] border border-border/60 bg-background/70 p-4">
-                <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Step 3</p>
-                <p className="mt-2 font-medium">{stepThreeTitle}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{stepThreeBody}</p>
-              </div>
-            </div>
-
             <div className="rounded-[24px] border border-border/60 bg-background/55 p-4">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Current phase</p>
                   <p className="mt-2 text-sm text-muted-foreground">
-                    One workspace, three distinct moments in the relationship.
+                    {isAdmin
+                      ? 'Operator view for the current stage of the coaching cycle.'
+                      : 'Only the information that matters for this stage of the relationship.'}
                   </p>
                 </div>
                 <div className="flex flex-col gap-3 sm:flex-row">
@@ -1769,14 +1753,18 @@ export default function MissionControl() {
             <SummaryCard icon={ClipboardList} label="Promises Still Open" value={String(openCommitments.length)} detail="Items still waiting on action, proof, or review." toneClass={executeSummaryTone} />
             <SummaryCard icon={CalendarDays} label="Last Session" value={latestSession ? latestSession.session_date : 'None'} detail="Most recent coaching session preserved in the timeline." toneClass={executeSummaryTone} />
             <SummaryCard icon={Rocket} label="Active Priorities" value={String(workspace.boardItems.length)} detail="Bigger initiatives tracked between calls." toneClass={executeSummaryTone} />
-            <SummaryCard icon={CheckCircle2} label="Verified With Evidence" value={String(verifiedEvidenceCount)} detail="Completed promises that have supporting evidence linked." toneClass={executeSummaryTone} />
-            <SummaryCard icon={Paperclip} label="Needs Evidence" value={String(needsEvidenceCount)} detail="Completed promises that still need screenshots, proof, or artifacts." toneClass={executeSummaryTone} />
+            {isAdmin ? (
+              <SummaryCard icon={CheckCircle2} label="Verified With Evidence" value={String(verifiedEvidenceCount)} detail="Completed promises that have supporting evidence linked." toneClass={executeSummaryTone} />
+            ) : null}
+            {isAdmin ? (
+              <SummaryCard icon={Paperclip} label="Needs Evidence" value={String(needsEvidenceCount)} detail="Completed promises that still need screenshots, proof, or artifacts." toneClass={executeSummaryTone} />
+            ) : null}
           </section>
         ) : null}
 
         {activeMode !== 'prepare' ? (
         <section className={modeSectionClass}>
-        <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-[minmax(320px,0.92fr)_minmax(380px,1.08fr)_minmax(360px,0.96fr)]">
+        <div className={workflowGridClass}>
           <div className={`space-y-6 ${activeMode === 'execute' ? 'hidden 2xl:hidden' : ''}`}>
             {activeMode === 'review' ? (
             <Card className="rounded-[28px] border-amber-400/20 bg-background/88">
@@ -1862,7 +1850,7 @@ export default function MissionControl() {
             </Card>
             ) : null}
 
-            {activeMode === 'review' ? (
+            {activeMode === 'review' && isAdmin ? (
             <Card className="rounded-[28px] border-amber-400/20 bg-background/88">
               <CardHeader>
                 <CardTitle>Session Timeline</CardTitle>
@@ -1915,18 +1903,24 @@ export default function MissionControl() {
                 <CardDescription>What the owner said would get done, and what the next call verified actually happened.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Step A</p>
-                    <p className="mt-2 font-medium">Promise gets captured</p>
-                    <p className="mt-1 text-sm text-muted-foreground">This is created from a session or added manually if it needs to be tracked.</p>
+                {isAdmin ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Step A</p>
+                      <p className="mt-2 font-medium">Promise gets captured</p>
+                      <p className="mt-1 text-sm text-muted-foreground">This is created from a session or added manually if it needs to be tracked.</p>
+                    </div>
+                    <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Step B</p>
+                      <p className="mt-2 font-medium">Next call verifies it</p>
+                      <p className="mt-1 text-sm text-muted-foreground">At the next session, you mark it completed, blocked, moved to next call, or still moving.</p>
+                    </div>
                   </div>
-                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Step B</p>
-                    <p className="mt-2 font-medium">Next call verifies it</p>
-                    <p className="mt-1 text-sm text-muted-foreground">At the next session, you mark it completed, blocked, moved to next call, or still moving.</p>
+                ) : (
+                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+                    Open promises stay here until a later session marks them completed, blocked, or moved to the next call.
                   </div>
-                </div>
+                )}
                 {workspace.commitments.length > 0 ? workspace.commitments.map((commitment) => {
                   const linkedProofs = commitmentAttachmentMap.get(commitment.id) ?? [];
                   const sourceSession = workspace.sessions.find((session) => session.id === commitment.session_id);
@@ -2084,7 +2078,9 @@ export default function MissionControl() {
             ) : null}
           </div>
 
+          {isAdmin || activeMode === 'execute' ? (
           <div className={`space-y-6 xl:col-span-2 xl:grid xl:grid-cols-2 xl:gap-6 xl:space-y-0 2xl:col-span-1 2xl:block 2xl:space-y-6 ${activeMode === 'review' ? 'xl:grid-cols-1' : ''}`}>
+            {isAdmin ? (
             <Card className={`rounded-[28px] ${activeMode === 'review' ? 'border-amber-400/20 bg-background/88' : 'border-sky-400/20 bg-background/88'}`}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -2113,6 +2109,7 @@ export default function MissionControl() {
                 </div>
               </CardContent>
             </Card>
+            ) : null}
 
             {activeMode === 'execute' ? (
             <Card className="rounded-[28px] border-sky-400/20 bg-background/88">
@@ -2121,16 +2118,18 @@ export default function MissionControl() {
                   <Bot className="h-5 w-5 text-primary" />
                   Coach Brain
                 </CardTitle>
-                <CardDescription>Ask questions between calls and get answers grounded in your voice, doctrine, client memory, sessions, promises, priorities, and linked evidence.</CardDescription>
+                <CardDescription>{isAdmin ? 'Ask questions between calls and get answers grounded in your voice, doctrine, client memory, sessions, promises, priorities, and linked evidence.' : 'Ask for help on the next decision, blocker, promise, or priority using the context already inside this workspace.'}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {['Justin Voice', 'Standard Doctrine', 'Client Brain', 'Session memory', 'Promise history', 'Priority context', 'Linked evidence'].map((chip) => (
-                    <Badge key={chip} variant="outline">
-                      {chip}
-                    </Badge>
-                  ))}
-                </div>
+                {isAdmin ? (
+                  <div className="flex flex-wrap gap-2">
+                    {['Justin Voice', 'Standard Doctrine', 'Client Brain', 'Session memory', 'Promise history', 'Priority context', 'Linked evidence'].map((chip) => (
+                      <Badge key={chip} variant="outline">
+                        {chip}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : null}
                 {isAdmin && (!brainProfiles.voiceProfile || !brainProfiles.doctrineProfile) ? (
                   <div className="rounded-[20px] border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200">
                     Coach Brain will work without the global voice/doctrine docs, but it will feel much more like you once both are filled in.
@@ -2213,7 +2212,7 @@ export default function MissionControl() {
             </Card>
             ) : null}
 
-            {activeMode === 'execute' ? (
+            {activeMode === 'execute' && isAdmin ? (
             <Card className="rounded-[28px] border-sky-400/20 bg-background/88 xl:col-span-2 2xl:col-span-1">
               <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -2301,6 +2300,7 @@ export default function MissionControl() {
             </Card>
             ) : null}
           </div>
+          ) : null}
         </div>
         </section>
         ) : null}
