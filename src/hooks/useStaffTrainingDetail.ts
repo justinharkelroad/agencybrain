@@ -1,3 +1,4 @@
+// Training detail hook — fetches lesson-level data for staff analytics dialog
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { useAuth } from '@/lib/auth';
