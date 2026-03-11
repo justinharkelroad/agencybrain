@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -39,9 +42,32 @@ import {
   BarChart3,
   ClipboardCheck,
   XCircle,
+  CalendarIcon,
 } from 'lucide-react';
-import { useTeamTrainingAnalytics, StaffTrainingMember } from '@/hooks/useTeamTrainingAnalytics';
+import { format, startOfWeek, endOfWeek, startOfMonth, subWeeks, subDays, startOfDay } from 'date-fns';
+import { DateRange } from 'react-day-picker';
+import { useTeamTrainingAnalytics, StaffTrainingMember, type TrainingDateRange } from '@/hooks/useTeamTrainingAnalytics';
 import { useStaffTrainingDetail, type QuizQuestionDetail } from '@/hooks/useStaffTrainingDetail';
+
+type DatePreset = 'all' | 'this_week' | 'last_week' | 'this_month' | 'last_30_days' | 'custom';
+
+function getDateRangeFromPreset(preset: DatePreset): TrainingDateRange {
+  const today = startOfDay(new Date());
+  switch (preset) {
+    case 'this_week':
+      return { from: startOfWeek(today, { weekStartsOn: 1 }), to: today };
+    case 'last_week': {
+      const lastWeekStart = startOfWeek(subWeeks(today, 1), { weekStartsOn: 1 });
+      return { from: lastWeekStart, to: endOfWeek(lastWeekStart, { weekStartsOn: 1 }) };
+    }
+    case 'this_month':
+      return { from: startOfMonth(today), to: today };
+    case 'last_30_days':
+      return { from: subDays(today, 30), to: today };
+    default:
+      return null;
+  }
+}
 
 function formatMinutes(minutes: number): string {
   if (minutes < 60) return `${minutes}m`;
@@ -90,7 +116,14 @@ function getTotalCompleted(member: StaffTrainingMember): number {
 type SortOption = 'most-completed' | 'name-asc' | 'name-desc' | 'last-active' | 'most-time';
 
 export default function TrainingAnalytics() {
-  const { data, isLoading, error } = useTeamTrainingAnalytics();
+  const [datePreset, setDatePreset] = useState<DatePreset>('all');
+  const [customRange, setCustomRange] = useState<DateRange | undefined>(undefined);
+
+  const dateRange: TrainingDateRange = datePreset === 'custom'
+    ? (customRange?.from && customRange?.to ? { from: customRange.from, to: customRange.to } : null)
+    : getDateRangeFromPreset(datePreset);
+
+  const { data, isLoading, error } = useTeamTrainingAnalytics(dateRange);
   const [selectedMember, setSelectedMember] = useState<StaffTrainingMember | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('most-completed');
@@ -166,6 +199,52 @@ export default function TrainingAnalytics() {
         </p>
       </div>
 
+      {/* Date Filter */}
+      <div className="flex flex-wrap items-center gap-2">
+        {([
+          ['all', 'All Time'],
+          ['this_week', 'This Week'],
+          ['last_week', 'Last Week'],
+          ['this_month', 'This Month'],
+          ['last_30_days', 'Last 30 Days'],
+        ] as const).map(([value, label]) => (
+          <Button
+            key={value}
+            variant={datePreset === value ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => { setDatePreset(value); setCustomRange(undefined); }}
+          >
+            {label}
+          </Button>
+        ))}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={datePreset === 'custom' ? 'default' : 'outline'}
+              size="sm"
+              className="gap-1.5"
+            >
+              <CalendarIcon className="h-3.5 w-3.5" />
+              {datePreset === 'custom' && customRange?.from
+                ? `${format(customRange.from, 'MMM d')}${customRange.to ? ` – ${format(customRange.to, 'MMM d')}` : ''}`
+                : 'Custom'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="range"
+              selected={customRange}
+              onSelect={(range) => {
+                setCustomRange(range);
+                setDatePreset('custom');
+              }}
+              numberOfMonths={2}
+              disabled={{ after: new Date() }}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
       {/* Summary Cards */}
       {totals && (
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
@@ -182,7 +261,7 @@ export default function TrainingAnalytics() {
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-1">
                 <Activity className="h-3.5 w-3.5" />
-                Active This Week
+                {dateRange ? 'Active in Period' : 'Active This Week'}
               </CardDescription>
               <CardTitle className="text-3xl">{totals.activeThisWeek}</CardTitle>
             </CardHeader>
