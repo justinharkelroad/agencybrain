@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import type { ParsedSaleRow, SalesUploadContext, SalesUploadResult, MatchCandidate, PendingSaleReview, UploadedHouseholdInfo } from '@/types/lqs';
 import { generateHouseholdKey, normalizeProductType } from '@/lib/lqs-sales-parser';
+import { hasCrossHouseholdPolicyDuplicate, isSamePolicyProduct } from '@/lib/lqs-sales-dedupe';
+import { getStaffSessionToken } from '@/lib/cancel-audit-api';
 
 interface TeamMember {
   id: string;
@@ -12,6 +14,7 @@ interface TeamMember {
 
 interface ExistingLqsSale {
   id: string;
+  household_id?: string;
   sale_date: string;
   product_type: string;
   premium_cents: number;
@@ -286,11 +289,100 @@ export function useSalesBackgroundUpload() {
       description: "You can navigate away. We'll notify you when complete.",
     });
 
-    // Fire and forget - process in background
+    const staffToken = getStaffSessionToken();
+
+    if (staffToken) {
+      processStaffUpload(records, context, staffToken, queryClient, onComplete);
+      return;
+    }
+
     processInBackground(records, context, queryClient, onComplete);
   };
 
   return { startBackgroundUpload };
+}
+
+function invalidateSalesQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ['lqs-households'] });
+  queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+  queryClient.invalidateQueries({ queryKey: ['lqs-stats'] });
+  queryClient.invalidateQueries({ queryKey: ['contacts'] });
+  queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] });
+}
+
+function buildFailedSalesUploadResult(errorMessage: string): SalesUploadResult {
+  return {
+    success: false,
+    recordsProcessed: 0,
+    salesCreated: 0,
+    householdsMatched: 0,
+    householdsCreated: 0,
+    quotesLinked: 0,
+    teamMembersMatched: 0,
+    unmatchedProducers: [],
+    householdsNeedingAttention: 0,
+    endorsementsSkipped: 0,
+    errors: [errorMessage],
+    autoMatched: 0,
+    needsReview: 0,
+    pendingReviews: [],
+    uploadedHouseholds: [],
+  };
+}
+
+async function processStaffUpload(
+  records: ParsedSaleRow[],
+  context: SalesUploadContext,
+  staffToken: string,
+  queryClient: ReturnType<typeof useQueryClient>,
+  onComplete?: (result: SalesUploadResult) => void
+) {
+  try {
+    const { data, error } = await supabase.functions.invoke('upload_staff_lqs_sales', {
+      headers: { 'x-staff-session': staffToken },
+      body: {
+        records,
+        context,
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Staff sales upload failed');
+    }
+
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+
+    const result = data as SalesUploadResult;
+    invalidateSalesQueries(queryClient);
+
+    if (result.success) {
+      const reviewNote = result.needsReview > 0 ? ` (${result.needsReview} need review)` : '';
+      toast({
+        title: 'Sales Upload Complete!',
+        description: `${result.salesCreated} rows imported${reviewNote}.`,
+      });
+    } else {
+      const issueCount = result.errors.filter((message) => !isDuplicateSkipMessage(message)).length;
+      toast({
+        title: 'Upload completed with issues',
+        description: `${result.salesCreated} rows imported. ${issueCount} rows could not be imported and need re-upload.`,
+        variant: 'destructive',
+      });
+    }
+
+    onComplete?.(result);
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'An error occurred during processing';
+    toast({
+      title: 'Sales Upload Failed',
+      description: errorMessage,
+      variant: 'destructive',
+    });
+
+    onComplete?.(buildFailedSalesUploadResult(errorMessage));
+  }
 }
 
 async function processInBackground(
@@ -678,6 +770,7 @@ async function processInBackground(
           let salesCreatedInGroup = 0;
           let quotesLinkedInGroup = 0;
           let existingSalesForHousehold: ExistingLqsSale[] = [];
+          let existingSalesForAgencyByPolicy: ExistingLqsSale[] = [];
 
           if (!householdId) {
             for (const record of groupRecords) {
@@ -686,7 +779,7 @@ async function processInBackground(
           } else {
           const { data: existingSalesData, error: existingSalesError } = await supabase
             .from('lqs_sales')
-            .select('id, sale_date, product_type, premium_cents, policy_number')
+            .select('id, household_id, sale_date, product_type, premium_cents, policy_number')
             .eq('agency_id', context.agencyId)
             .eq('household_id', householdId);
 
@@ -697,6 +790,31 @@ async function processInBackground(
             );
           } else {
             existingSalesForHousehold = (existingSalesData || []) as ExistingLqsSale[];
+          }
+
+          const groupPolicyNumbers = Array.from(
+            new Set(
+              groupRecords
+                .map((record) => record.policyNumber?.trim())
+                .filter((value): value is string => !!value)
+            )
+          );
+
+          if (groupPolicyNumbers.length > 0) {
+            const { data: agencyPolicySalesData, error: agencyPolicySalesError } = await supabase
+              .from('lqs_sales')
+              .select('id, household_id, sale_date, product_type, premium_cents, policy_number')
+              .eq('agency_id', context.agencyId)
+              .in('policy_number', groupPolicyNumbers);
+
+            if (agencyPolicySalesError) {
+              addError(
+                primaryRecord,
+                `could not check agency-wide policy duplicates because LQS lookup failed: ${agencyPolicySalesError.message}`
+              );
+            } else {
+              existingSalesForAgencyByPolicy = (agencyPolicySalesData || []) as ExistingLqsSale[];
+            }
           }
 
           for (const record of groupRecords) {
@@ -736,13 +854,23 @@ async function processInBackground(
             const normalizedProduct = normalizeProductType(record.productType).toLowerCase();
             const normalizedPolicyNumber = (record.policyNumber || '').trim().toLowerCase();
             const hardDuplicate = existingSalesForHousehold.find((existing) =>
-              !!normalizedPolicyNumber &&
-              (existing.policy_number || '').trim().toLowerCase() === normalizedPolicyNumber &&
-              normalizeProductType(existing.product_type).toLowerCase() === normalizedProduct
+              isSamePolicyProduct(existing, record.policyNumber, record.productType)
             );
 
             if (hardDuplicate) {
               addError(record, 'was skipped as a duplicate (same policy number + product).');
+              continue;
+            }
+
+            const crossHouseholdDuplicate = hasCrossHouseholdPolicyDuplicate(
+              existingSalesForAgencyByPolicy,
+              householdId,
+              record.policyNumber,
+              record.productType
+            );
+
+            if (crossHouseholdDuplicate) {
+              addError(record, 'was skipped as a duplicate because this policy number + product already exists in LQS under another customer record.');
               continue;
             }
 
@@ -931,12 +1059,7 @@ async function processInBackground(
       }
     }
 
-    // Invalidate queries
-    queryClient.invalidateQueries({ queryKey: ['lqs-households'] });
-    queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
-    queryClient.invalidateQueries({ queryKey: ['lqs-stats'] });
-    queryClient.invalidateQueries({ queryKey: ['contacts'] });
-    queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] });
+    invalidateSalesQueries(queryClient);
 
     // Build final result
     const result: SalesUploadResult = {
@@ -998,25 +1121,7 @@ async function processInBackground(
       variant: 'destructive',
     });
     
-    if (onComplete) {
-      onComplete({
-        success: false,
-        recordsProcessed: 0,
-        salesCreated: 0,
-        householdsMatched: 0,
-        householdsCreated: 0,
-        quotesLinked: 0,
-        teamMembersMatched: 0,
-        unmatchedProducers: [],
-        householdsNeedingAttention: 0,
-        endorsementsSkipped: 0,
-        errors: [errorMessage],
-        autoMatched: 0,
-        needsReview: 0,
-        pendingReviews: [],
-        uploadedHouseholds: [],
-      });
-    }
+    onComplete?.(buildFailedSalesUploadResult(errorMessage));
   }
 }
 
