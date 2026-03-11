@@ -11,6 +11,10 @@ export interface MissionControlClientOption {
   ownerEmail: string | null;
 }
 
+function normalizeAgencyName(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value : 'Unknown agency';
+}
+
 export function useMissionControlClients() {
   const { isAdmin } = useAuth();
 
@@ -40,7 +44,7 @@ export function useMissionControlClients() {
 
       if (agenciesError) throw agenciesError;
 
-      const agencyMap = new Map((agencies ?? []).map((agency) => [agency.id, agency.name]));
+      const agencyMap = new Map((agencies ?? []).map((agency) => [agency.id, normalizeAgencyName(agency.name)]));
 
       const primaryOwnersByAgency = new Map<string, (typeof ownerProfiles)[number]>();
 

@@ -135,7 +135,7 @@ function normalizeLeadSources(value: unknown): MissionPulseLeadSource[] {
         commissionRate: normalizeNumber(source.commissionRate),
       };
     })
-    .filter((entry): entry is MissionPulseLeadSource => Boolean(entry));
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 }
 
 function normalizeTeamRoster(value: unknown): MissionPulseTeamMember[] {

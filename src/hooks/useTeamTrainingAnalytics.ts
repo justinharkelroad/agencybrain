@@ -65,6 +65,16 @@ export interface TeamTrainingAnalytics {
   totals: TrainingAnalyticsTotals;
 }
 
+type StandardPlaybookLessonRow = {
+  id: string;
+  estimated_minutes: number | null;
+};
+
+type AgencyTrainingLessonRow = {
+  id: string;
+  estimated_duration_minutes: number | null;
+};
+
 /** Compute elapsed minutes between started_at and completed_at timestamps. */
 function elapsedMinutes(startedAt: string | null, completedAt: string | null): number {
   if (!startedAt || !completedAt) return 0;
@@ -171,10 +181,10 @@ export function useTeamTrainingAnalytics() {
       ]);
 
       const spProgress = spProgressRes.data || [];
-      const spLessons = spLessonsRes.data || [];
+      const spLessons = (spLessonsRes.data || []) as StandardPlaybookLessonRow[];
       const agencyProgress = agencyProgressRes.data || [];
       const agencyAssignments = agencyAssignmentsRes.data || [];
-      const agencyLessons = agencyLessonsRes.data || [];
+      const agencyLessons = (agencyLessonsRes.data || []) as AgencyTrainingLessonRow[];
       const challengeAssignments = challengeAssignmentsRes.data || [];
       const challengeProgress = challengeProgressRes.data || [];
       const salesExpAssignments = salesExpAssignmentsRes.data || [];

@@ -66,6 +66,13 @@ interface HouseholdMeta {
   prior_insurance_company_id: string | null;
 }
 
+function unwrapProductTypeMeta(
+  productType: PolicyTypeMeta["product_type"],
+): { name: string | null; default_points: number | null; is_vc_item: boolean | null } | null {
+  if (!productType) return null;
+  return Array.isArray(productType) ? productType[0] ?? null : productType;
+}
+
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -728,8 +735,9 @@ serve(async (req) => {
       for (const row of groupRows) {
         const normalized = normalizeProductName(row.product_type);
         const policyType = policyByNormalizedName.get(normalized);
-        const defaultPoints = policyType?.product_type?.default_points || 0;
-        const isVc = !!policyType?.product_type?.is_vc_item;
+        const resolvedProductType = unwrapProductTypeMeta(policyType?.product_type ?? null);
+        const defaultPoints = resolvedProductType?.default_points || 0;
+        const isVc = !!resolvedProductType?.is_vc_item;
         const itemCount = row.items_sold || 0;
         const premium = toDollars(row.premium_cents);
 
@@ -744,7 +752,7 @@ serve(async (req) => {
           total_premium: premium,
           total_points: defaultPoints * itemCount,
           is_vc_qualifying: isVc,
-          canonical_name: policyType?.product_type?.name || policyType?.name ||
+          canonical_name: resolvedProductType?.name || policyType?.name ||
             row.product_type,
         });
       }

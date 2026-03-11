@@ -116,9 +116,10 @@ Deno.serve(async (req) => {
       // (we'll mark which are assigned vs voluntary on the response)
 
       // Resolve multi-level assignments to module IDs
-      const categoryAssignments = assignments.filter(a => a.category_id);
-      const moduleAssignments = assignments.filter(a => a.module_id);
-      const lessonAssignments = assignments.filter(a => a.lesson_id);
+      const resolvedAssignments = assignments ?? [];
+      const categoryAssignments = resolvedAssignments.filter(a => a.category_id);
+      const moduleAssignments = resolvedAssignments.filter(a => a.module_id);
+      const lessonAssignments = resolvedAssignments.filter(a => a.lesson_id);
 
       const accessibleModuleIds = new Set<string>();
       const moduleDueDates = new Map<string, string | null>();

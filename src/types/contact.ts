@@ -189,6 +189,7 @@ export interface ContactProfile extends Contact {
   renewal_records: LinkedRenewalRecord[];
   cancel_audit_records: LinkedCancelAuditRecord[];
   winback_records: LinkedWinbackRecord[];
+  sequenceInstances?: unknown[];
 }
 
 // Journey event for timeline visualization

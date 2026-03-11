@@ -64,8 +64,12 @@ serve(async (req) => {
       .eq('id', profile.agency_id)
       .single()
 
+    if (!agency) {
+      throw new Error('Agency not found for this account')
+    }
+
     // Must have active subscription or paid legacy tier to buy addon
-    const hasActiveSubscription = agency?.subscription_status && ['active', 'trialing', '1on1_client'].includes(agency.subscription_status)
+    const hasActiveSubscription = agency.subscription_status && ['active', 'trialing', '1on1_client'].includes(agency.subscription_status)
     const hasLegacyPaidTier = profile.membership_tier && !['none', 'free'].includes(profile.membership_tier.toLowerCase())
     if (!hasActiveSubscription && !hasLegacyPaidTier) {
       throw new Error('Active subscription required to purchase monthly add-ons')
