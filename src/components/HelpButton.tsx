@@ -59,7 +59,7 @@ export function HelpButton({ videoKey, size = 'sm', className, label = 'Help' }:
         onClick={() => setOpen(true)}
         title={`Help: ${content.title}`}
       >
-        <HelpCircle className={iconSize} />
+        <Play className={iconSize} />
         <span className="text-xs font-medium">{label}</span>
       </Button>
 
