@@ -903,7 +903,7 @@ export default function MissionControl() {
             {pulse.editablePeriod ? <Badge variant="outline">Editing current prep window</Badge> : null}
           </div>
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Prep for the coaching call</h2>
+            <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">Prepare for the next coaching call</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
               The owner ritual lives here now: update the scoreboard, surface what feels heavy, and walk into the call with a clean monthly frame.
             </p>
@@ -928,8 +928,8 @@ export default function MissionControl() {
         </div>
 
         <div className="w-full max-w-[420px] rounded-[28px] border border-emerald-400/20 bg-[linear-gradient(160deg,rgba(236,253,245,0.88),rgba(209,250,229,0.35))] p-5 dark:bg-[linear-gradient(160deg,rgba(14,36,29,0.96),rgba(8,18,15,0.96))]">
-          <p className="text-[11px] uppercase tracking-[0.26em] text-muted-foreground">Owner ritual</p>
-          <h3 className="mt-3 text-xl font-semibold">Scoreboard first. Then call focus.</h3>
+          <p className="text-[11px] uppercase tracking-[0.26em] text-muted-foreground">Owner prep</p>
+          <h3 className="mt-3 text-xl font-semibold">Update the numbers. Clarify the call.</h3>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
             This replaces the old submit detour. Owners update the pulse here, coaches read it before the call, and the month-over-month board stays intact.
           </p>
@@ -1631,10 +1631,10 @@ export default function MissionControl() {
 
             <div className="space-y-6">
               <div className="space-y-2">
-                <p className="font-serif text-[clamp(3rem,7vw,5.8rem)] italic leading-[0.9] tracking-[-0.04em] text-foreground/95">
+                <p className="text-[clamp(1.1rem,2.3vw,1.7rem)] font-semibold uppercase leading-none tracking-[0.28em] text-foreground/70">
                   Agency
                 </p>
-                <h1 className="w-full text-[clamp(4.1rem,12vw,9rem)] font-black uppercase leading-[0.88] tracking-[0.16em] text-foreground">
+                <h1 className="w-full text-[clamp(4.1rem,12vw,9rem)] font-black uppercase leading-[0.88] tracking-[0.13em] text-foreground">
                   Mission
                   <span className="block">Control</span>
                 </h1>
@@ -1702,7 +1702,7 @@ export default function MissionControl() {
             <div className="rounded-[24px] border border-border/60 bg-background/55 p-4">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Workflow lens</p>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Active phase</p>
                   <p className="mt-2 text-sm text-muted-foreground">
                     {isAdmin
                       ? 'Operator view for the current stage of the coaching cycle.'
@@ -1748,7 +1748,7 @@ export default function MissionControl() {
                   <Badge variant="outline" className={phasePillClass}>
                     {activeWorkflowMode.title}
                   </Badge>
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">This phase centers on</p>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Phase focus</p>
                 </div>
                 <p className="mt-2 text-lg font-semibold">{activeWorkflowMode.summaryTitle}</p>
                 <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">{activeWorkflowMode.summaryBody}</p>
@@ -2129,7 +2129,7 @@ export default function MissionControl() {
                   <Bot className="h-5 w-5 text-primary" />
                   Coach Brain
                 </CardTitle>
-                <CardDescription>{isAdmin ? 'Ask questions between calls and get answers grounded in your voice, doctrine, client memory, sessions, promises, priorities, and linked evidence.' : 'Ask for help on the next decision, blocker, promise, or priority using the context already inside this workspace.'}</CardDescription>
+                <CardDescription>{isAdmin ? 'Ask questions between calls and get answers grounded in your voice, doctrine, client memory, sessions, promises, priorities, and linked evidence.' : 'Ask for help with the next decision, blocker, promise, or priority using the context already inside this workspace.'}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {isAdmin ? (
@@ -2153,7 +2153,7 @@ export default function MissionControl() {
                     ))
                   ) : (
                     <div className="rounded-[24px] border border-dashed border-border/60 bg-muted/20 p-4 text-sm leading-6 text-muted-foreground">
-                      Ask as if you were coaching the client live. Coach Brain will answer from the Mission Control memory stack instead of giving generic advice.
+                      Ask a direct coaching question. Coach Brain answers from this client’s memory instead of giving generic advice.
                     </div>
                   )}
                   {coachBrainMutation.isPending ? (
