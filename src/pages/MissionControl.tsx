@@ -2773,6 +2773,7 @@ function SessionDialog({
   const [nextCallDate, setNextCallDate] = useState('');
   const [summary, setSummary] = useState('');
   const [transcript, setTranscript] = useState('');
+  const [importedTranscriptFileName, setImportedTranscriptFileName] = useState('');
   const [keyPoints, setKeyPoints] = useState('');
   const [wins, setWins] = useState('');
   const [issues, setIssues] = useState('');
@@ -2829,6 +2830,23 @@ function SessionDialog({
     draftMutation.mutate();
   };
 
+  const importTranscriptFile = async (file: File | null) => {
+    if (!file) return;
+
+    try {
+      const content = await readMissionControlTextFile(file);
+      setTranscript(content);
+      setImportedTranscriptFileName(file.name);
+      toast.success('Transcript imported', {
+        description: `${file.name} was loaded into the session transcript field.`,
+      });
+    } catch (error) {
+      toast.error('Could not import transcript file', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  };
+
   const draftedCommitments = uniqueLines(topThree);
   const reviewedCommitments = openCommitments
     .map((commitment) => {
@@ -2857,8 +2875,8 @@ function SessionDialog({
       <div className="grid gap-3 md:grid-cols-4">
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 1</p>
-          <p className="mt-2 font-medium">Paste transcript</p>
-          <p className="mt-1 text-sm text-muted-foreground">Drop in the raw call transcript or cleaned notes from the session.</p>
+          <p className="mt-2 font-medium">Load transcript</p>
+          <p className="mt-1 text-sm text-muted-foreground">Paste the transcript or import a `.txt` / `.md` file from the session.</p>
         </div>
         <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
           <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">Step 2</p>
@@ -2908,14 +2926,38 @@ function SessionDialog({
           <div>
             <Label htmlFor="mission-session-transcript">Transcript</Label>
             <p className="text-xs text-muted-foreground">
-              Paste the raw transcript or cleaned call notes here. This becomes the source memory for the session.
+              Paste the raw transcript or import a transcript file here. This becomes the source memory for the session.
             </p>
           </div>
-          <Button type="button" variant="outline" onClick={handleGenerateFromTranscript} disabled={!canGenerateFromTranscript}>
-            {draftMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            {draftMutation.isPending ? 'Generating draft...' : 'Generate AI draft'}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button asChild type="button" variant="outline">
+              <label htmlFor="mission-session-transcript-file" className="cursor-pointer">
+                <Upload className="mr-2 h-4 w-4" />
+                Import transcript file
+              </label>
+            </Button>
+            <Input
+              id="mission-session-transcript-file"
+              type="file"
+              accept=".md,.txt,text/markdown,text/plain"
+              className="hidden"
+              onChange={async (event) => {
+                const file = event.target.files?.[0] ?? null;
+                await importTranscriptFile(file);
+                event.currentTarget.value = '';
+              }}
+            />
+            <Button type="button" variant="outline" onClick={handleGenerateFromTranscript} disabled={!canGenerateFromTranscript}>
+              {draftMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              {draftMutation.isPending ? 'Generating draft...' : 'Generate AI draft'}
+            </Button>
+          </div>
         </div>
+        {importedTranscriptFileName ? (
+          <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            Loaded transcript file: <span className="font-medium text-foreground">{importedTranscriptFileName}</span>
+          </div>
+        ) : null}
         <Textarea
           id="mission-session-transcript"
           rows={8}
