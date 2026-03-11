@@ -55,6 +55,14 @@ export interface OnboardingTask {
     full_name: string | null;
     email: string | null;
   } | null;
+  // Direct contact join (for adhoc tasks without an instance)
+  contact?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    phones: string[];
+    emails: string[];
+  } | null;
 }
 
 export interface TaskFilters {
@@ -80,7 +88,7 @@ export function useOnboardingTasks({ agencyId, filters = {}, enabled = true }: U
         .from('onboarding_tasks')
         .select(`
           *,
-          instance:onboarding_instances!inner(
+          instance:onboarding_instances(
             id,
             customer_name,
             customer_phone,
@@ -90,7 +98,8 @@ export function useOnboardingTasks({ agencyId, filters = {}, enabled = true }: U
             sequence:onboarding_sequences(id, name)
           ),
           assignee:staff_users!assigned_to_staff_user_id(id, display_name, username),
-          assigneeProfile:profiles!assigned_to_user_id(id, full_name, email)
+          assigneeProfile:profiles!assigned_to_user_id(id, full_name, email),
+          contact:agency_contacts!contact_id(id, first_name, last_name, phones, emails)
         `)
         .eq('agency_id', agencyId)
         .order('due_date', { ascending: true })
@@ -157,7 +166,7 @@ export function useOnboardingTasksToday({
         .from('onboarding_tasks')
         .select(`
           *,
-          instance:onboarding_instances!inner(
+          instance:onboarding_instances(
             id,
             status,
             customer_name,
@@ -168,7 +177,8 @@ export function useOnboardingTasksToday({
             sequence:onboarding_sequences(id, name)
           ),
           assignee:staff_users!assigned_to_staff_user_id(id, display_name, username),
-          assigneeProfile:profiles!assigned_to_user_id(id, full_name, email)
+          assigneeProfile:profiles!assigned_to_user_id(id, full_name, email),
+          contact:agency_contacts!contact_id(id, first_name, last_name, phones, emails)
         `)
         .eq('agency_id', agencyId)
         .in('status', ['pending', 'due', 'overdue'])
@@ -188,7 +198,7 @@ export function useOnboardingTasksToday({
         .from('onboarding_tasks')
         .select(`
           *,
-          instance:onboarding_instances!inner(
+          instance:onboarding_instances(
             id,
             customer_name,
             customer_phone,
@@ -198,7 +208,8 @@ export function useOnboardingTasksToday({
             sequence:onboarding_sequences(id, name)
           ),
           assignee:staff_users!assigned_to_staff_user_id(id, display_name, username),
-          assigneeProfile:profiles!assigned_to_user_id(id, full_name, email)
+          assigneeProfile:profiles!assigned_to_user_id(id, full_name, email),
+          contact:agency_contacts!contact_id(id, first_name, last_name, phones, emails)
         `)
         .eq('agency_id', agencyId)
         .eq('status', 'completed')
@@ -222,9 +233,9 @@ export function useOnboardingTasksToday({
       if (activeResult.error) throw activeResult.error;
       if (completedResult.error) throw completedResult.error;
 
-      // Filter out tasks from paused/completed instances
+      // Filter out tasks from paused/completed instances (adhoc tasks have no instance — always include)
       const activeTasks = ((activeResult.data || []) as OnboardingTask[]).filter(
-        t => !t.instance?.status || t.instance.status === 'active'
+        t => !t.instance || !t.instance.status || t.instance.status === 'active'
       );
 
       return {

@@ -406,9 +406,11 @@ export default function OnboardingTasksPage() {
 
   // Handle task title click (opens panel with task context)
   const handleClickTask = (task: OnboardingTask) => {
-    const contactId = task.instance?.contact_id || (task as any).contact_id;
+    const contactId = task.instance?.contact_id || task.contact_id;
     if (!contactId) return;
-    const customerName = task.instance?.customer_name || 'Unknown';
+    const customerName = task.instance?.customer_name
+      || (task.contact ? `${task.contact.first_name || ''} ${task.contact.last_name || ''}`.trim() : null)
+      || 'Unknown';
     setProfileViewState({ contactId, customerName, currentTask: task });
   };
 

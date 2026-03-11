@@ -65,7 +65,7 @@ export function CustomerTasksGroup({
 
   // Get the instance ID and contact ID from the first task (all tasks in group share the same instance)
   const instanceId = tasks[0]?.instance_id;
-  const contactId = tasks[0]?.instance?.contact_id;
+  const contactId = tasks[0]?.instance?.contact_id || tasks[0]?.contact_id;
 
   return (
     <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
@@ -255,7 +255,8 @@ export function groupTasksByCustomer(tasks: OnboardingTask[]): Map<string, Onboa
   const groups = new Map<string, OnboardingTask[]>();
 
   for (const task of tasks) {
-    const customerName = task.instance?.customer_name || 'Unknown Customer';
+    const customerName = task.instance?.customer_name
+      || (task.contact ? `${task.contact.first_name || ''} ${task.contact.last_name || ''}`.trim() || 'Unknown Customer' : 'Unknown Customer');
     const existing = groups.get(customerName) || [];
     existing.push(task);
     groups.set(customerName, existing);
