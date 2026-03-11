@@ -27,6 +27,7 @@ import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { toast } from "sonner";
 import { buildHouseholdFocusSaveRequest, type SaveTargetPayload } from "@/components/staff/plannerSaveScope";
 import { HouseholdFocusDrilldownSheet, type DrilldownHousehold } from "@/components/staff/HouseholdFocusDrilldownSheet";
+import { HelpButton } from "@/components/HelpButton";
 
 type GoalMode = "commission" | "items";
 type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "custom";
