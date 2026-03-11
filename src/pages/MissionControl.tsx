@@ -283,6 +283,27 @@ function formatDateLabel(value: string | null | undefined, options?: Intl.DateTi
   });
 }
 
+async function readMissionControlTextFile(file: File) {
+  const supportedExtensions = ['.md', '.txt'];
+  const lowerName = file.name.toLowerCase();
+  const isSupported = supportedExtensions.some((extension) => lowerName.endsWith(extension));
+
+  if (!isSupported) {
+    throw new Error('Use a .md or .txt file.');
+  }
+
+  if (file.size > 2_000_000) {
+    throw new Error('Keep imported files under 2 MB.');
+  }
+
+  const content = await file.text();
+  if (!content.trim()) {
+    throw new Error('The selected file is empty.');
+  }
+
+  return content;
+}
+
 function labelForPeriod(period: { title: string; start_date: string; end_date: string }) {
   const titleHasDate =
     /\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b/.test(period.title) || /\b\d{4}-\d{2}-\d{2}\b/.test(period.title);
@@ -3098,10 +3119,29 @@ function ClientBrainDialog({
   isSaving: boolean;
 }) {
   const [noteBody, setNoteBody] = useState(existingNote?.note_body ?? '');
+  const [importedFileName, setImportedFileName] = useState('');
 
   useEffect(() => {
     setNoteBody(existingNote?.note_body ?? '');
+    setImportedFileName('');
   }, [existingNote]);
+
+  const importFile = async (file: File | null) => {
+    if (!file) return;
+
+    try {
+      const content = await readMissionControlTextFile(file);
+      setNoteBody(content);
+      setImportedFileName(file.name);
+      toast.success('Client Brain imported', {
+        description: `${file.name} is now loaded into the editor.`,
+      });
+    } catch (error) {
+      toast.error('Could not import file', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -3121,7 +3161,38 @@ function ClientBrainDialog({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="mission-client-brain">Client brain</Label>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <Label htmlFor="mission-client-brain">Client brain</Label>
+            <p className="text-xs text-muted-foreground">
+              Paste notes directly or import a `.md` / `.txt` file and edit from there.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button asChild type="button" variant="outline" size="sm">
+              <label htmlFor="mission-client-brain-file" className="cursor-pointer">
+                <Upload className="mr-2 h-4 w-4" />
+                Import markdown
+              </label>
+            </Button>
+            <Input
+              id="mission-client-brain-file"
+              type="file"
+              accept=".md,.txt,text/markdown,text/plain"
+              className="hidden"
+              onChange={async (event) => {
+                const file = event.target.files?.[0] ?? null;
+                await importFile(file);
+                event.currentTarget.value = '';
+              }}
+            />
+          </div>
+        </div>
+        {importedFileName ? (
+          <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            Loaded from file: <span className="font-medium text-foreground">{importedFileName}</span>
+          </div>
+        ) : null}
         <Textarea
           id="mission-client-brain"
           rows={16}
@@ -3199,15 +3270,34 @@ function BrainProfileDialog({
 }) {
   const defaultTitle = profileKey === 'justin_voice' ? 'Justin Voice' : 'Standard Doctrine';
   const [body, setBody] = useState(existingProfile?.body ?? '');
+  const [importedFileName, setImportedFileName] = useState('');
 
   useEffect(() => {
     setBody(existingProfile?.body ?? '');
+    setImportedFileName('');
   }, [existingProfile]);
 
   const placeholder =
     profileKey === 'justin_voice'
       ? '- Be direct and practical.\n- Push for clarity, ownership, and deadlines.\n- Do not give soft generic encouragement without accountability.\n- Prefer decisions and execution over theory.\n- Challenge excuses, but stay useful.'
       : '## Core principles\n## Sales philosophy\n## Leadership standards\n## Accountability rules\n## How Standard diagnoses problems\n## Preferred sequence of recommendations';
+
+  const importFile = async (file: File | null) => {
+    if (!file) return;
+
+    try {
+      const content = await readMissionControlTextFile(file);
+      setBody(content);
+      setImportedFileName(file.name);
+      toast.success(`${defaultTitle} imported`, {
+        description: `${file.name} is now loaded into the editor.`,
+      });
+    } catch (error) {
+      toast.error('Could not import file', {
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -3234,7 +3324,38 @@ function BrainProfileDialog({
         </div>
       </div>
       <div className="space-y-2">
-        <Label htmlFor={`brain-profile-${profileKey}`}>{defaultTitle}</Label>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <Label htmlFor={`brain-profile-${profileKey}`}>{defaultTitle}</Label>
+            <p className="text-xs text-muted-foreground">
+              Paste notes directly or import a `.md` / `.txt` file into this editor.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button asChild type="button" variant="outline" size="sm">
+              <label htmlFor={`brain-profile-file-${profileKey}`} className="cursor-pointer">
+                <Upload className="mr-2 h-4 w-4" />
+                Import markdown
+              </label>
+            </Button>
+            <Input
+              id={`brain-profile-file-${profileKey}`}
+              type="file"
+              accept=".md,.txt,text/markdown,text/plain"
+              className="hidden"
+              onChange={async (event) => {
+                const file = event.target.files?.[0] ?? null;
+                await importFile(file);
+                event.currentTarget.value = '';
+              }}
+            />
+          </div>
+        </div>
+        {importedFileName ? (
+          <div className="rounded-2xl border border-border/60 bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+            Loaded from file: <span className="font-medium text-foreground">{importedFileName}</span>
+          </div>
+        ) : null}
         <Textarea
           id={`brain-profile-${profileKey}`}
           rows={16}
