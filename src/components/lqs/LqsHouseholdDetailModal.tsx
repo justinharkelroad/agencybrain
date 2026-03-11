@@ -216,17 +216,23 @@ export function LqsHouseholdDetailModal({
       };
 
       if (action === 'use_new' && household.conflicting_lead_source_id) {
-        // Switch to the conflicting source
         updates.lead_source_id = household.conflicting_lead_source_id;
       }
-      // 'keep_current' and 'dismiss' just clear the conflict flag
 
-      const { error } = await supabase
-        .from('lqs_households')
-        .update(updates)
-        .eq('id', household.id);
-
-      if (error) throw error;
+      if (staffSessionToken) {
+        const { data, error } = await supabase.functions.invoke('edit_staff_household', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: { household_id: household.id, ...updates },
+        });
+        if (error) throw new Error(await resolveFunctionErrorMessage(error));
+        if (data?.error) throw new Error(data.error);
+      } else {
+        const { error } = await supabase
+          .from('lqs_households')
+          .update(updates)
+          .eq('id', household.id);
+        if (error) throw error;
+      }
 
       toast.success(
         action === 'use_new'
@@ -236,6 +242,7 @@ export function LqsHouseholdDetailModal({
 
       queryClient.invalidateQueries({ queryKey: ['lqs-households'] });
       queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
     } catch (err: any) {
       toast.error('Failed to resolve conflict: ' + err.message);
     } finally {
@@ -704,20 +711,28 @@ export function LqsHouseholdDetailModal({
 
     setIsDeleting(true);
     try {
-      // Delete household (cascade will delete quotes and sales)
-      const { error } = await supabase
-        .from('lqs_households')
-        .delete()
-        .eq('id', household.id);
-
-      if (error) throw error;
+      if (staffSessionToken) {
+        const { data, error } = await supabase.functions.invoke('edit_staff_household', {
+          headers: { 'x-staff-session': staffSessionToken },
+          body: { household_id: household.id, delete_household: true },
+        });
+        if (error) throw new Error(await resolveFunctionErrorMessage(error));
+        if (data?.error) throw new Error(data.error);
+      } else {
+        const { error } = await supabase
+          .from('lqs_households')
+          .delete()
+          .eq('id', household.id);
+        if (error) throw error;
+      }
 
       toast.success('Household deleted');
       queryClient.invalidateQueries({ queryKey: ['lqs-data'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-lqs-data'] });
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete household:', error);
-      toast.error('Failed to delete household');
+      toast.error(error.message || 'Failed to delete household');
     } finally {
       setIsDeleting(false);
       setShowDeleteConfirm(false);

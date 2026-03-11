@@ -53,7 +53,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { household_id, deleted_quote_ids, ...updateFields } = body;
+    const { household_id, deleted_quote_ids, delete_household, ...updateFields } = body;
 
     if (!household_id) {
       return new Response(
@@ -83,6 +83,22 @@ serve(async (req) => {
       );
     }
 
+    // Full household deletion (cascade deletes quotes and sales)
+    if (delete_household === true) {
+      const { error: deleteError } = await supabase
+        .from("lqs_households")
+        .delete()
+        .eq("id", household_id);
+      if (deleteError) {
+        console.error("[edit_staff_household] Failed to delete household:", deleteError);
+        throw deleteError;
+      }
+      return new Response(
+        JSON.stringify({ success: true, deleted: true }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Delete marked quotes first
     if (deleted_quote_ids && deleted_quote_ids.length > 0) {
       const { error: deleteError } = await supabase
@@ -105,7 +121,7 @@ serve(async (req) => {
       "first_name", "last_name", "phone", "email", "zip_code",
       "team_member_id", "lead_source_id", "objection_id",
       "prior_insurance_company_id", "status", "first_quote_date",
-      "household_key",
+      "needs_attention", "attention_reason", "conflicting_lead_source_id",
     ];
 
     for (const field of allowedFields) {
