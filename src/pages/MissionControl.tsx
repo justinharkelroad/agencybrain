@@ -869,6 +869,12 @@ export default function MissionControl() {
     },
   ];
   const activeWorkflowMode = workflowModes.find((mode) => mode.key === activeMode) ?? workflowModes[0];
+  const phasePillClass =
+    activeMode === 'prepare'
+      ? 'border-emerald-400/30 bg-emerald-500/12 text-emerald-700 dark:text-emerald-200'
+      : activeMode === 'review'
+        ? 'border-amber-400/30 bg-amber-500/12 text-amber-700 dark:text-amber-200'
+        : 'border-sky-400/30 bg-sky-500/12 text-sky-700 dark:text-sky-200';
   const modeSectionClass =
     activeMode === 'review'
       ? 'rounded-[32px] border border-amber-400/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.08),rgba(0,0,0,0))] p-4 md:p-5'
@@ -903,17 +909,17 @@ export default function MissionControl() {
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+            <div className="rounded-[24px] border border-emerald-400/20 bg-emerald-500/8 p-4">
               <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Target window</p>
               <p className="mt-2 text-lg font-semibold">{pulse.targetPeriod.label}</p>
               <p className="mt-1 text-sm text-muted-foreground">This is the prep period that feeds the next call.</p>
             </div>
-            <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+            <div className="rounded-[24px] border border-emerald-400/20 bg-emerald-500/8 p-4">
               <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Prep status</p>
               <p className="mt-2 text-lg font-semibold">{pulseCompletionLabel}</p>
               <p className="mt-1 text-sm text-muted-foreground">{pulseCompletion}/14 core fields currently filled in the live draft.</p>
             </div>
-            <div className="rounded-[24px] border border-border/60 bg-muted/20 p-4">
+            <div className="rounded-[24px] border border-emerald-400/20 bg-emerald-500/8 p-4">
               <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Trend source</p>
               <p className="mt-2 text-lg font-semibold">{latestPulse ? labelForPeriod(latestPulse) : 'No saved pulse yet'}</p>
               <p className="mt-1 text-sm text-muted-foreground">Month-over-month compares against the last saved pulse, not the unsaved draft.</p>
@@ -921,7 +927,7 @@ export default function MissionControl() {
           </div>
         </div>
 
-        <div className="w-full max-w-[420px] rounded-[28px] border border-border/60 bg-[linear-gradient(160deg,rgba(250,247,240,0.8),rgba(233,227,217,0.35))] p-5 dark:bg-[linear-gradient(160deg,rgba(36,32,26,0.92),rgba(17,17,15,0.92))]">
+        <div className="w-full max-w-[420px] rounded-[28px] border border-emerald-400/20 bg-[linear-gradient(160deg,rgba(236,253,245,0.88),rgba(209,250,229,0.35))] p-5 dark:bg-[linear-gradient(160deg,rgba(14,36,29,0.96),rgba(8,18,15,0.96))]">
           <p className="text-[11px] uppercase tracking-[0.26em] text-muted-foreground">Owner ritual</p>
           <h3 className="mt-3 text-xl font-semibold">Scoreboard first. Then call focus.</h3>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
@@ -952,7 +958,7 @@ export default function MissionControl() {
                 </Button>
               </>
             ) : (
-              <div className="rounded-2xl border border-border/60 bg-background/70 px-4 py-3 text-sm text-muted-foreground">
+              <div className="rounded-2xl border border-emerald-400/20 bg-background/70 px-4 py-3 text-sm text-muted-foreground">
                 Owner updates this block before the call. You review the saved pulse and then capture the session after the call.
               </div>
             )}
@@ -978,7 +984,7 @@ export default function MissionControl() {
                     Keep the top of the form fast: scoreboard first, then what feels heavy, then the top three things to solve on the call.
                   </p>
                 </div>
-                <div className="rounded-2xl border border-border/60 bg-background/80 px-4 py-3 text-sm">
+                <div className="rounded-2xl border border-emerald-400/20 bg-background/80 px-4 py-3 text-sm">
                   <p className="font-medium">{pulse.targetPeriod.title}</p>
                   <p className="mt-1 text-muted-foreground">
                     {pulse.editablePeriod ? 'Editing the current pulse record.' : 'This will create the current pulse record.'}
@@ -1084,9 +1090,9 @@ export default function MissionControl() {
               </div>
 
               <div className="mt-5 grid gap-4 xl:grid-cols-[1.05fr_0.95fr]">
-                <div className="rounded-[24px] border border-border/60 bg-background/80 p-5">
+                <div className="rounded-[24px] border border-emerald-400/20 bg-background/82 p-5">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
+                    <Sparkles className="h-4 w-4 text-emerald-500" />
                     <h4 className="font-semibold">Focus for this call</h4>
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">
@@ -1136,7 +1142,7 @@ export default function MissionControl() {
                   </div>
                 </div>
 
-                <div className="rounded-[24px] border border-border/60 bg-background/80 p-5">
+                <div className="rounded-[24px] border border-emerald-400/20 bg-background/82 p-5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h4 className="font-semibold">Top 3 for this call</h4>
@@ -1172,7 +1178,7 @@ export default function MissionControl() {
                 </div>
               </div>
 
-              <div className="mt-5 rounded-[24px] border border-border/60 bg-background/80 p-5">
+              <div className="mt-5 rounded-[24px] border border-emerald-400/16 bg-background/80 p-5">
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div>
                     <h4 className="font-semibold">Supporting detail</h4>
@@ -1696,7 +1702,7 @@ export default function MissionControl() {
             <div className="rounded-[24px] border border-border/60 bg-background/55 p-4">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Current phase</p>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Workflow lens</p>
                   <p className="mt-2 text-sm text-muted-foreground">
                     {isAdmin
                       ? 'Operator view for the current stage of the coaching cycle.'
@@ -1738,7 +1744,12 @@ export default function MissionControl() {
                 </div>
               </div>
               <div className={`mt-4 rounded-[22px] border px-4 py-4 ${activeWorkflowMode.panelClass}`}>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Now viewing</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className={phasePillClass}>
+                    {activeWorkflowMode.title}
+                  </Badge>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">This phase centers on</p>
+                </div>
                 <p className="mt-2 text-lg font-semibold">{activeWorkflowMode.summaryTitle}</p>
                 <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">{activeWorkflowMode.summaryBody}</p>
               </div>
@@ -1767,7 +1778,7 @@ export default function MissionControl() {
         <div className={workflowGridClass}>
           <div className={`space-y-6 ${activeMode === 'execute' ? 'hidden 2xl:hidden' : ''}`}>
             {activeMode === 'review' ? (
-            <Card className="rounded-[28px] border-amber-400/20 bg-background/88">
+            <Card className="rounded-[28px] border-amber-400/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.06),rgba(0,0,0,0))]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5 text-primary" />
@@ -1851,7 +1862,7 @@ export default function MissionControl() {
             ) : null}
 
             {activeMode === 'review' && isAdmin ? (
-            <Card className="rounded-[28px] border-amber-400/20 bg-background/88">
+            <Card className="rounded-[28px] border-amber-400/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.06),rgba(0,0,0,0))]">
               <CardHeader>
                 <CardTitle>Session Timeline</CardTitle>
                 <CardDescription>Past calls stay visible so you can compare what was said then to what was reviewed later.</CardDescription>
@@ -1891,7 +1902,7 @@ export default function MissionControl() {
           </div>
 
           <div className="space-y-6">
-            <Card className={`rounded-[28px] ${activeMode === 'review' ? 'border-amber-400/20 bg-background/88' : 'border-sky-400/20 bg-background/88'}`}>
+            <Card className={`rounded-[28px] ${activeMode === 'review' ? 'border-amber-400/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.06),rgba(0,0,0,0))]' : 'border-sky-400/20 bg-[linear-gradient(180deg,rgba(56,189,248,0.06),rgba(0,0,0,0))]'}`}>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between gap-3">
                   <span>Commitment Tracker</span>
@@ -2081,7 +2092,7 @@ export default function MissionControl() {
           {isAdmin || activeMode === 'execute' ? (
           <div className={`space-y-6 xl:col-span-2 xl:grid xl:grid-cols-2 xl:gap-6 xl:space-y-0 2xl:col-span-1 2xl:block 2xl:space-y-6 ${activeMode === 'review' ? 'xl:grid-cols-1' : ''}`}>
             {isAdmin ? (
-            <Card className={`rounded-[28px] ${activeMode === 'review' ? 'border-amber-400/20 bg-background/88' : 'border-sky-400/20 bg-background/88'}`}>
+            <Card className={`rounded-[28px] ${activeMode === 'review' ? 'border-amber-400/20 bg-[linear-gradient(180deg,rgba(245,158,11,0.06),rgba(0,0,0,0))]' : 'border-sky-400/20 bg-[linear-gradient(180deg,rgba(56,189,248,0.06),rgba(0,0,0,0))]'}`}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-5 w-5 text-primary" />
@@ -2112,7 +2123,7 @@ export default function MissionControl() {
             ) : null}
 
             {activeMode === 'execute' ? (
-            <Card className="rounded-[28px] border-sky-400/20 bg-background/88">
+            <Card className="rounded-[28px] border-sky-400/20 bg-[linear-gradient(180deg,rgba(56,189,248,0.06),rgba(0,0,0,0))]">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Bot className="h-5 w-5 text-primary" />
@@ -2213,7 +2224,7 @@ export default function MissionControl() {
             ) : null}
 
             {activeMode === 'execute' && isAdmin ? (
-            <Card className="rounded-[28px] border-sky-400/20 bg-background/88 xl:col-span-2 2xl:col-span-1">
+            <Card className="rounded-[28px] border-sky-400/20 bg-[linear-gradient(180deg,rgba(56,189,248,0.06),rgba(0,0,0,0))] xl:col-span-2 2xl:col-span-1">
               <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BriefcaseBusiness className="h-5 w-5 text-primary" />
