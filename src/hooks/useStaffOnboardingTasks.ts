@@ -48,8 +48,8 @@ export interface StaffOnboardingTask {
     id: string;
     first_name: string | null;
     last_name: string | null;
-    phone: string | null;
-    email: string | null;
+    phones: string[];
+    emails: string[];
   };
 }
 

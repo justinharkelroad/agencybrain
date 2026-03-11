@@ -184,14 +184,14 @@ function getContactId(task: StaffOnboardingTask): string | null {
  * Get customer phone from task - handles both instance-based and adhoc tasks
  */
 function getCustomerPhone(task: StaffOnboardingTask): string | null {
-  return task.instance?.customer_phone || task.contact?.phone || null;
+  return task.instance?.customer_phone || task.contact?.phones?.[0] || null;
 }
 
 /**
  * Get customer email from task - handles both instance-based and adhoc tasks
  */
 function getCustomerEmail(task: StaffOnboardingTask): string | null {
-  return task.instance?.customer_email || task.contact?.email || null;
+  return task.instance?.customer_email || task.contact?.emails?.[0] || null;
 }
 
 function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile, onClickTask }: StaffTaskCardProps) {
@@ -610,17 +610,27 @@ export default function StaffOnboardingTasks() {
     title: string;
     description?: string;
   }) => {
-    await scheduleTask.mutateAsync({
-      contactId: data.contactId,
-      dueDate: data.dueDate,
-      actionType: data.actionType,
-      title: data.title,
-      description: data.description,
-    });
-    toast({
-      title: 'Task scheduled',
-      description: `${data.title} for ${data.contactName} on ${data.dueDate}.`,
-    });
+    try {
+      await scheduleTask.mutateAsync({
+        contactId: data.contactId,
+        dueDate: data.dueDate,
+        actionType: data.actionType,
+        title: data.title,
+        description: data.description,
+      });
+      toast({
+        title: 'Task scheduled',
+        description: `${data.title} for ${data.contactName} on ${data.dueDate}.`,
+      });
+    } catch (err) {
+      console.error('[handleScheduleTask] Failed to schedule task:', err);
+      toast({
+        title: 'Failed to schedule task',
+        description: err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+        variant: 'destructive',
+      });
+      throw err;
+    }
   };
 
   const handleComplete = async (taskId: string, notes?: string, followUp?: FollowUpData) => {
@@ -725,7 +735,9 @@ export default function StaffOnboardingTasks() {
     }
 
     if (selectedSequence !== 'all') {
-      filtered = filtered.filter(task => task.instance?.sequence?.id === selectedSequence);
+      filtered = filtered.filter(task =>
+        task.is_adhoc === true || task.instance?.sequence?.id === selectedSequence
+      );
     }
 
     return filtered;

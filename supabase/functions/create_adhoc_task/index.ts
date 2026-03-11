@@ -39,14 +39,21 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Try to authenticate via staff session OR JWT
+    // Authenticate via staff session OR JWT.
+    // CRITICAL: When x-staff-session header is present, this is a staff portal
+    // request. If the staff session is invalid, return 401 immediately — NEVER
+    // fall back to JWT. supabase.functions.invoke auto-sends Authorization:
+    // Bearer <jwt> (could be a real user JWT if the agency owner also logged in
+    // on the same browser). Falling back to JWT would silently create the task
+    // under the owner's profile instead of the staff user, making it invisible
+    // in the staff queue. (Production bug 2026-03-11)
     const sessionToken = req.headers.get('x-staff-session');
     const authHeader = req.headers.get('authorization');
 
     let authResult: AuthResult | null = null;
 
-    // Try staff session first
     if (sessionToken) {
+      // Staff portal request — authenticate via staff session ONLY
       const nowISO = new Date().toISOString();
       const { data: session, error: sessionError } = await supabase
         .from('staff_sessions')
@@ -56,32 +63,42 @@ serve(async (req) => {
         .gt('expires_at', nowISO)
         .maybeSingle();
 
-      if (!sessionError && session) {
-        // Get staff user details
-        const { data: staffUser, error: staffError } = await supabase
-          .from('staff_users')
-          .select('id, agency_id, display_name')
-          .eq('id', session.staff_user_id)
-          .single();
-
-        if (!staffError && staffUser && staffUser.agency_id) {
-          authResult = {
-            agencyId: staffUser.agency_id,
-            staffUserId: staffUser.id,
-            userId: null,
-          };
-        }
+      if (sessionError || !session) {
+        console.error('[create_adhoc_task] Staff session invalid or expired:', sessionError?.message || 'no matching session');
+        return new Response(JSON.stringify({ error: 'Staff session expired. Please log in again.' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
       }
-    }
 
-    // Try JWT auth if staff session didn't work
-    if (!authResult && authHeader) {
+      // Get staff user details
+      const { data: staffUser, error: staffError } = await supabase
+        .from('staff_users')
+        .select('id, agency_id, display_name')
+        .eq('id', session.staff_user_id)
+        .single();
+
+      if (staffError || !staffUser || !staffUser.agency_id) {
+        console.error('[create_adhoc_task] Staff user lookup failed:', staffError?.message || 'no agency');
+        return new Response(JSON.stringify({ error: 'Staff user not found' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      authResult = {
+        agencyId: staffUser.agency_id,
+        staffUserId: staffUser.id,
+        userId: null,
+      };
+    } else if (authHeader) {
+      // Agency portal request — authenticate via JWT
       const token = authHeader.replace('Bearer ', '');
       const supabaseAuth = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
         global: { headers: { Authorization: `Bearer ${token}` } },
       });
 
-      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
 
       if (!authError && user) {
         // Get user's profile for agency_id

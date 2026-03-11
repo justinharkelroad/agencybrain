@@ -289,14 +289,20 @@ export default function OnboardingTasksPage() {
     title: string;
     description?: string;
   }) => {
-    await scheduleTask.mutateAsync({
-      contactId: data.contactId,
-      dueDate: data.dueDate,
-      actionType: data.actionType,
-      title: data.title,
-      description: data.description,
-    });
-    toast.success(`Task scheduled: ${data.title} for ${data.contactName}`);
+    try {
+      await scheduleTask.mutateAsync({
+        contactId: data.contactId,
+        dueDate: data.dueDate,
+        actionType: data.actionType,
+        title: data.title,
+        description: data.description,
+      });
+      toast.success(`Task scheduled: ${data.title} for ${data.contactName}`);
+    } catch (err) {
+      console.error('[handleScheduleTask] Failed to schedule task:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to schedule task. Please try again.');
+      throw err;
+    }
   };
 
   // Extract unique sequences from tasks for filter dropdown
@@ -326,7 +332,9 @@ export default function OnboardingTasksPage() {
 
     // Filter by sequence if selected
     if (selectedSequence !== 'all') {
-      filtered = filtered.filter(task => task.instance?.sequence?.id === selectedSequence);
+      filtered = filtered.filter(task =>
+        task.is_adhoc === true || task.instance?.sequence?.id === selectedSequence
+      );
     }
 
     return filtered;

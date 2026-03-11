@@ -102,10 +102,13 @@ export function ScheduleTaskDialog({
     }
   };
 
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
   const handleSubmit = async () => {
     if (!canSubmit || isSubmitting || !selectedContact || !dueDate) return;
 
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
       const contactName = `${selectedContact.first_name || ''} ${selectedContact.last_name || ''}`.trim() || 'Unknown';
       await onSchedule({
@@ -120,6 +123,9 @@ export function ScheduleTaskDialog({
       // Reset form
       resetForm();
       onOpenChange(false);
+    } catch (err) {
+      console.error('[ScheduleTaskDialog] Failed to schedule:', err);
+      setSubmitError(err instanceof Error ? err.message : 'Failed to schedule task. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -308,6 +314,12 @@ export function ScheduleTaskDialog({
             />
           </div>
         </div>
+
+        {submitError && (
+          <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3">
+            <p className="text-sm text-destructive">{submitError}</p>
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={handleCancel} disabled={isSubmitting}>
