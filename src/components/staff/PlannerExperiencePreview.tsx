@@ -27,6 +27,7 @@ import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { toast } from "sonner";
 import { buildHouseholdFocusSaveRequest, type SaveTargetPayload } from "@/components/staff/plannerSaveScope";
 import { HouseholdFocusDrilldownSheet, type DrilldownHousehold } from "@/components/staff/HouseholdFocusDrilldownSheet";
+import { HelpButton } from "@/components/HelpButton";
 
 type GoalMode = "commission" | "items";
 type PeriodKey = "this_week" | "last_week" | "this_month" | "last_month" | "custom";
@@ -759,6 +760,7 @@ export function PlannerExperiencePreview({
                       : `${selectedMemberName} Household Focus`
                     : "Household Focus"}
                 </CardTitle>
+                <HelpButton videoKey="Household Focus Tool" />
                 {isManager && (
                   <Badge variant="outline">
                     {viewingTeam ? "Team Default" : hasMemberOverride ? "Custom Member Target" : "Using Member Default"}
