@@ -65,7 +65,7 @@ serve(async (req) => {
     // Verify household belongs to staff user's agency
     const { data: household, error: householdError } = await supabase
       .from("lqs_households")
-      .select("id, agency_id, contact_id, first_name, last_name")
+      .select("id, agency_id, contact_id, first_name, last_name, zip_code, household_key")
       .eq("id", household_id)
       .single();
 
@@ -105,12 +105,29 @@ serve(async (req) => {
       "first_name", "last_name", "phone", "email", "zip_code",
       "team_member_id", "lead_source_id", "objection_id",
       "prior_insurance_company_id", "status", "first_quote_date",
+      "household_key",
     ];
 
     for (const field of allowedFields) {
       if (field in updateFields) {
         householdUpdate[field] = updateFields[field];
       }
+    }
+
+    // Regenerate household_key if name or zip changed (must match SQL generate_household_key)
+    const newFirst = (updateFields.first_name as string) ?? household.first_name;
+    const newLast = (updateFields.last_name as string) ?? household.last_name;
+    const newZip = (updateFields.zip_code as string | null) ?? household.zip_code;
+    const nameOrZipChanged =
+      newFirst !== household.first_name ||
+      newLast !== household.last_name ||
+      (newZip || "") !== (household.zip_code || "");
+
+    if (nameOrZipChanged) {
+      const normLast = (newLast || "UNKNOWN").toUpperCase().replace(/[^A-Z]/g, "");
+      const normFirst = (newFirst || "UNKNOWN").toUpperCase().replace(/[^A-Z]/g, "");
+      const normZip = newZip ? newZip.substring(0, 5) : "00000";
+      householdUpdate.household_key = `${normLast}_${normFirst}_${normZip}`;
     }
 
     const { error: updateError } = await supabase
@@ -123,20 +140,18 @@ serve(async (req) => {
       throw updateError;
     }
 
-    // Sync name changes to linked agency_contacts record
-    const nameChanged =
-      updateFields.first_name && updateFields.last_name &&
-      (updateFields.first_name !== household.first_name ||
-       updateFields.last_name !== household.last_name);
+    // Sync changes to linked agency_contacts record
+    if (household.contact_id && nameOrZipChanged) {
+      const contactUpdate: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+      if ("first_name" in updateFields) contactUpdate.first_name = updateFields.first_name;
+      if ("last_name" in updateFields) contactUpdate.last_name = updateFields.last_name;
+      if (householdUpdate.household_key) contactUpdate.household_key = householdUpdate.household_key;
 
-    if (household.contact_id && nameChanged) {
       await supabase
         .from("agency_contacts")
-        .update({
-          first_name: updateFields.first_name,
-          last_name: updateFields.last_name,
-          updated_at: new Date().toISOString(),
-        })
+        .update(contactUpdate)
         .eq("id", household.contact_id);
     }
 

@@ -35,6 +35,7 @@ import * as winbackApi from '@/lib/winbackApi';
 import type { WonBackSalePolicy } from '@/lib/winbackApi';
 import { supabase } from '@/integrations/supabase/client';
 import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
+import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
 import { sendRenewalToWinback } from '@/lib/sendToWinback';
 import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';
 import { BreakupLetterModal } from '@/components/sales/BreakupLetterModal';
@@ -980,8 +981,15 @@ export function ContactProfileModal({
 
     setIsSavingContact(true);
     try {
-      const phones = editPhone.trim() ? [editPhone.trim()] : [];
-      const emails = editEmail.trim() ? [editEmail.trim()] : [];
+      // Preserve additional phones/emails beyond the first entry the user edits
+      const originalPhones = profile.phones || [];
+      const originalEmails = profile.emails || [];
+      const phones = editPhone.trim()
+        ? [editPhone.trim(), ...originalPhones.slice(1)]
+        : originalPhones.slice(1);  // Remove primary if cleared, keep the rest
+      const emails = editEmail.trim()
+        ? [editEmail.trim(), ...originalEmails.slice(1)]
+        : originalEmails.slice(1);
 
       if (staffSessionToken) {
         // Staff path — use edge function
@@ -996,9 +1004,18 @@ export function ContactProfileModal({
             zip_code: editZipCode.trim() || null,
           },
         });
-        if (error) throw error;
+        if (error) throw new Error(await resolveFunctionErrorMessage(error));
         if (data?.error) throw new Error(data.error);
       } else {
+        // Regenerate household_key if name or zip changed
+        const nameOrZipChanged =
+          editFirstName.trim() !== profile.first_name ||
+          editLastName.trim() !== profile.last_name ||
+          (editZipCode.trim() || '') !== (profile.zip_code || '');
+        const newHouseholdKey = nameOrZipChanged
+          ? generateHouseholdKey(editFirstName.trim(), editLastName.trim(), editZipCode.trim() || null)
+          : undefined;
+
         // Owner/admin/KE path — direct update
         const { error } = await supabase
           .from('agency_contacts')
@@ -1008,21 +1025,20 @@ export function ContactProfileModal({
             phones,
             emails,
             zip_code: editZipCode.trim() || null,
+            ...(newHouseholdKey && { household_key: newHouseholdKey }),
             updated_at: new Date().toISOString(),
           })
           .eq('id', contactId);
         if (error) throw error;
 
-        // Sync name changes to any linked lqs_households
-        if (
-          editFirstName.trim() !== profile.first_name ||
-          editLastName.trim() !== profile.last_name
-        ) {
+        // Sync name/key changes to any linked lqs_households
+        if (nameOrZipChanged) {
           await supabase
             .from('lqs_households')
             .update({
               first_name: editFirstName.trim(),
               last_name: editLastName.trim(),
+              ...(newHouseholdKey && { household_key: newHouseholdKey }),
               updated_at: new Date().toISOString(),
             })
             .eq('contact_id', contactId);

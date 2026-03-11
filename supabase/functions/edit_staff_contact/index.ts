@@ -65,7 +65,7 @@ serve(async (req) => {
     // Verify contact belongs to staff user's agency
     const { data: contact, error: contactError } = await supabase
       .from("agency_contacts")
-      .select("id, agency_id")
+      .select("id, agency_id, first_name, last_name, zip_code")
       .eq("id", contact_id)
       .single();
 
@@ -83,6 +83,23 @@ serve(async (req) => {
       );
     }
 
+    // Regenerate household_key if name or zip changed (must match SQL generate_household_key)
+    const newFirst = first_name ?? contact.first_name;
+    const newLast = last_name ?? contact.last_name;
+    const newZip = zip_code !== undefined ? zip_code : contact.zip_code;
+    const nameOrZipChanged =
+      newFirst !== contact.first_name ||
+      newLast !== contact.last_name ||
+      (newZip || "") !== (contact.zip_code || "");
+
+    let newHouseholdKey: string | undefined;
+    if (nameOrZipChanged) {
+      const normLast = (newLast || "UNKNOWN").toUpperCase().replace(/[^A-Z]/g, "");
+      const normFirst = (newFirst || "UNKNOWN").toUpperCase().replace(/[^A-Z]/g, "");
+      const normZip = newZip ? newZip.substring(0, 5) : "00000";
+      newHouseholdKey = `${normLast}_${normFirst}_${normZip}`;
+    }
+
     // Build update payload
     const updatePayload: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
@@ -93,6 +110,7 @@ serve(async (req) => {
     if (phones !== undefined) updatePayload.phones = phones;
     if (emails !== undefined) updatePayload.emails = emails;
     if (zip_code !== undefined) updatePayload.zip_code = zip_code;
+    if (newHouseholdKey) updatePayload.household_key = newHouseholdKey;
 
     const { error: updateError } = await supabase
       .from("agency_contacts")
@@ -104,25 +122,19 @@ serve(async (req) => {
       throw updateError;
     }
 
-    // Also sync name to any linked lqs_households
-    if (first_name || last_name) {
-      const { data: linkedHouseholds } = await supabase
+    // Sync name/key changes to any linked lqs_households
+    if (nameOrZipChanged) {
+      const householdUpdate: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
+      if (first_name !== undefined) householdUpdate.first_name = first_name;
+      if (last_name !== undefined) householdUpdate.last_name = last_name;
+      if (newHouseholdKey) householdUpdate.household_key = newHouseholdKey;
+
+      await supabase
         .from("lqs_households")
-        .select("id")
+        .update(householdUpdate)
         .eq("contact_id", contact_id);
-
-      if (linkedHouseholds && linkedHouseholds.length > 0) {
-        const householdUpdate: Record<string, unknown> = {
-          updated_at: new Date().toISOString(),
-        };
-        if (first_name !== undefined) householdUpdate.first_name = first_name;
-        if (last_name !== undefined) householdUpdate.last_name = last_name;
-
-        await supabase
-          .from("lqs_households")
-          .update(householdUpdate)
-          .eq("contact_id", contact_id);
-      }
     }
 
     return new Response(

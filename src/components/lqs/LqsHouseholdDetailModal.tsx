@@ -38,6 +38,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { HouseholdWithRelations } from '@/hooks/useLqsData';
 import { filterCountableQuotes } from '@/lib/lqs-constants';
+import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 import { formatPhoneNumber } from '@/lib/utils';
 import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
 import { useLqsObjections } from '@/hooks/useLqsObjections';
@@ -327,6 +328,15 @@ export function LqsHouseholdDetailModal({
       const remainingQuotes = (household.quotes || []).filter(q => !deletedQuoteIds.includes(q.id));
       const shouldRevertToLead = household.status === 'quoted' && remainingQuotes.length === 0;
 
+      // Regenerate household_key if name or zip changed
+      const nameOrZipChanged =
+        editFirstName.trim() !== household.first_name ||
+        editLastName.trim() !== household.last_name ||
+        (editZipCode || '') !== (household.zip_code || '');
+      const newHouseholdKey = nameOrZipChanged
+        ? generateHouseholdKey(editFirstName.trim(), editLastName.trim(), editZipCode || null)
+        : undefined;
+
       const updatePayload = {
         first_name: editFirstName.trim(),
         last_name: editLastName.trim(),
@@ -338,6 +348,7 @@ export function LqsHouseholdDetailModal({
         objection_id: editObjectionId || null,
         prior_insurance_company_id: editPriorInsuranceCompanyId || null,
         ...(shouldRevertToLead && { status: 'lead', first_quote_date: null }),
+        ...(newHouseholdKey && { household_key: newHouseholdKey }),
         updated_at: new Date().toISOString(),
       };
 
@@ -371,16 +382,14 @@ export function LqsHouseholdDetailModal({
 
         if (error) throw error;
 
-        // Also update linked agency_contacts name if it changed
-        if (
-          household.contact_id &&
-          (editFirstName.trim() !== household.first_name || editLastName.trim() !== household.last_name)
-        ) {
+        // Also update linked agency_contacts if name or key changed
+        if (household.contact_id && nameOrZipChanged) {
           await supabase
             .from('agency_contacts')
             .update({
               first_name: editFirstName.trim(),
               last_name: editLastName.trim(),
+              ...(newHouseholdKey && { household_key: newHouseholdKey }),
               updated_at: new Date().toISOString(),
             })
             .eq('id', household.contact_id);
