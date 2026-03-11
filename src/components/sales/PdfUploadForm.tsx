@@ -49,6 +49,7 @@ import {
   Car,
   Home,
   AlertTriangle,
+  Phone,
 } from "lucide-react";
 import { cn, todayLocal, toLocalDate, formatPhoneNumber } from "@/lib/utils";
 import { generateHouseholdKey } from "@/lib/lqs-quote-parser";
@@ -289,6 +290,7 @@ export function PdfUploadForm({
   const [producerId, setProducerId] = useState('');
   const [leadSourceId, setLeadSourceId] = useState('');
   const [hasExistingPolicies, setHasExistingPolicies] = useState(false);
+  const [isOneCallClose, setIsOneCallClose] = useState(false);
   const [existingPolicyTypes, setExistingPolicyTypes] = useState<string[]>([]);
   const [saleDate, setSaleDate] = useState<Date>(todayLocal());
 
@@ -571,6 +573,7 @@ export function PdfUploadForm({
         vc_points: vcPoints,
         is_bundle: bundleInfo.isBundle,
         bundle_type: bundleInfo.bundleType,
+        is_one_call_close: isOneCallClose,
         existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
         policies: policiesPayload
       };
@@ -610,6 +613,7 @@ export function PdfUploadForm({
             vc_points: vcPoints,
             is_bundle: bundleInfo.isBundle,
             bundle_type: bundleInfo.bundleType,
+            is_one_call_close: isOneCallClose,
             existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
             source: 'pdf_upload',
             source_details: {
@@ -845,6 +849,7 @@ export function PdfUploadForm({
     setShowPolicyTypeReviewDialog(false);
     setEditingPolicy(null);
     setEditModalOpen(false);
+    setIsOneCallClose(false);
   };
 
   const removePolicy = (policyId: string) => {
@@ -1405,6 +1410,31 @@ export function PdfUploadForm({
                 <p className="text-muted-foreground">Total Items</p>
                 <p className="text-2xl font-bold">{totalItems}</p>
               </div>
+            </div>
+            {/* One-Call Close Toggle */}
+            <div className={cn(
+              "p-4 rounded-lg border transition-colors mt-4",
+              isOneCallClose
+                ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/20"
+                : "border-muted bg-muted/30"
+            )}>
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="pdfIsOneCallClose"
+                  checked={isOneCallClose}
+                  onCheckedChange={(checked) => setIsOneCallClose(checked === true)}
+                />
+                <Label
+                  htmlFor="pdfIsOneCallClose"
+                  className="flex items-center gap-2 cursor-pointer font-medium"
+                >
+                  <Phone className="h-4 w-4 text-green-600" />
+                  One-Call Close
+                </Label>
+              </div>
+              <p className="mt-2 pl-7 text-sm text-muted-foreground">
+                This sale closed on the first call with no follow-up required.
+              </p>
             </div>
           </CardContent>
         </Card>
