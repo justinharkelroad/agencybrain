@@ -1752,6 +1752,9 @@ export default function MissionControl() {
                   <Badge variant="outline" className={phasePillClass}>
                     {activeWorkflowMode.title}
                   </Badge>
+                  <Badge variant="outline" className="border-foreground/15 bg-background/70">
+                    {pulse.targetPeriod.label}
+                  </Badge>
                   <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Phase focus</p>
                 </div>
                 <p className="mt-2 text-lg font-semibold">{activeWorkflowMode.summaryTitle}</p>
