@@ -283,6 +283,13 @@ function formatDateLabel(value: string | null | undefined, options?: Intl.DateTi
   });
 }
 
+function summarizePreviewText(value: string, limit = 420) {
+  const normalized = value.replace(/\s+/g, ' ').trim();
+  if (!normalized) return '';
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, limit).trim()}...`;
+}
+
 async function readMissionControlTextFile(file: File) {
   const supportedExtensions = ['.md', '.txt'];
   const lowerName = file.name.toLowerCase();
@@ -2070,9 +2077,10 @@ export default function MissionControl() {
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline">Coach only</Badge>
                         <Badge variant="outline">Updated {formatDateLabel(clientBrainNote.updated_at, { month: 'short', day: 'numeric', year: 'numeric' })}</Badge>
+                        <Badge variant="outline">Preview only</Badge>
                       </div>
-                      <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-                        {clientBrainNote.note_body}
+                      <p className="mt-4 text-sm leading-6 text-muted-foreground">
+                        {summarizePreviewText(clientBrainNote.note_body, 520)}
                       </p>
                     </div>
                   ) : (
@@ -3245,9 +3253,18 @@ function BrainProfileCard({
         </Button>
       </div>
       <div className="mt-4 rounded-2xl border border-border/60 bg-background/80 p-4">
-        <p className="whitespace-pre-wrap text-sm leading-6 text-muted-foreground">
-          {body || 'No profile saved yet.'}
-        </p>
+        {body ? (
+          <>
+            <div className="mb-3 flex items-center gap-2">
+              <Badge variant="outline">Preview only</Badge>
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {summarizePreviewText(body, 360)}
+            </p>
+          </>
+        ) : (
+          <p className="text-sm leading-6 text-muted-foreground">No profile saved yet.</p>
+        )}
       </div>
     </div>
   );
