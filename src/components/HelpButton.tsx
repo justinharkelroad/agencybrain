@@ -1,4 +1,4 @@
-import { HelpCircle } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
 import { HelpModal } from './HelpModal';
