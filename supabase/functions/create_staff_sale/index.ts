@@ -56,6 +56,79 @@ interface CreateSaleRequest {
   is_one_call_close?: boolean;
 }
 
+interface ExistingPolicyLink {
+  sale_id: string;
+  policy_number: string | null;
+  sales: {
+    id: string;
+    source: string | null;
+    customer_name: string | null;
+    sale_date: string;
+  } | {
+    id: string;
+    source: string | null;
+    customer_name: string | null;
+    sale_date: string;
+  }[] | null;
+}
+
+function normalizeProductType(productType: string): string {
+  if (!productType || !productType.trim()) return 'Unknown';
+
+  const upper = productType.toUpperCase().trim();
+  const mapping: Record<string, string> = {
+    AUTO: 'Standard Auto',
+    'STANDARD AUTO': 'Standard Auto',
+    'PERSONAL AUTO': 'Standard Auto',
+    SA: 'Standard Auto',
+    HOME: 'Homeowners',
+    HOMEOWNERS: 'Homeowners',
+    HOMEOWNER: 'Homeowners',
+    HO: 'Homeowners',
+    RENTER: 'Renters',
+    RENTERS: 'Renters',
+    LANDLORD: 'Landlords',
+    LANDLORDS: 'Landlords',
+    LL: 'Landlords',
+    UMBRELLA: 'Personal Umbrella',
+    'PERSONAL UMBRELLA': 'Personal Umbrella',
+    PUP: 'Personal Umbrella',
+    'MOTOR CLUB': 'Motor Club',
+    MOTORCLUB: 'Motor Club',
+    MC: 'Motor Club',
+    CONDO: 'Condo',
+    CONDOMINIUM: 'Condo',
+    MOBILEHOME: 'Mobilehome',
+    'MOBILE HOME': 'Mobilehome',
+    MH: 'Mobilehome',
+    'AUTO - SPECIAL': 'Auto - Special',
+    'AUTO-SPECIAL': 'Auto - Special',
+    'SPECIAL AUTO': 'Auto - Special',
+    'NON-STANDARD AUTO': 'Auto - Special',
+  };
+
+  if (mapping[upper]) return mapping[upper];
+
+  const lineCodeMatch = upper.match(/^(\d{3})\s*-\s*/);
+  if (lineCodeMatch) {
+    const lineCodeMap: Record<string, string> = {
+      '010': 'Standard Auto',
+      '020': 'Motorcycle',
+      '021': 'Motorcycle',
+      '070': 'Homeowners',
+      '072': 'Landlords',
+      '073': 'Renters',
+      '074': 'Condo',
+      '078': 'Condo',
+      '080': 'Boatowners',
+      '090': 'Personal Umbrella',
+    };
+    if (lineCodeMap[lineCodeMatch[1]]) return lineCodeMap[lineCodeMatch[1]];
+  }
+
+  return productType.trim();
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -154,6 +227,35 @@ serve(async (req) => {
       );
     }
 
+    const policyNumbers = body.policies
+      .map((policy) => policy.policy_number?.trim())
+      .filter((value): value is string => !!value);
+    if (policyNumbers.length > 0) {
+      const { data: existingPolicyLinks, error: existingPolicyLinksError } = await supabase
+        .from('sale_policies')
+        .select('sale_id, policy_number, sales!inner(id, source, customer_name, sale_date, agency_id)')
+        .in('policy_number', policyNumbers)
+        .eq('sales.agency_id', staffUser.agency_id);
+
+      if (existingPolicyLinksError) {
+        throw existingPolicyLinksError;
+      }
+
+      const duplicate = (existingPolicyLinks as ExistingPolicyLink[] | null)?.[0];
+      const existingSale = duplicate?.sales && Array.isArray(duplicate.sales)
+        ? duplicate.sales[0]
+        : duplicate?.sales;
+
+      if (duplicate?.sale_id && existingSale) {
+        return new Response(
+          JSON.stringify({
+            error: `Policy ${duplicate.policy_number} already exists on sale ${duplicate.sale_id} (${existingSale.source || 'unknown source'} for ${existingSale.customer_name || 'Unknown customer'} on ${existingSale.sale_date}).`,
+          }),
+          { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // Parse customer name into first/last
     const nameParts = body.customer_name.trim().split(/\s+/);
     const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : nameParts[0];
@@ -194,6 +296,7 @@ serve(async (req) => {
 
     // Create LQS pipeline records (household → quote → sale)
     let lqsHouseholdId: string | null = null;
+    let lqsPipelineErrorMessage: string | null = null;
     try {
       // Generate household key locally (format: LASTNAME_FIRSTNAME_ZIP)
       // This is more reliable than the RPC call and matches the DB function format
@@ -327,6 +430,7 @@ serve(async (req) => {
       if (lqsHouseholdId) {
         let lqsErrors = 0;
         for (const policy of body.policies) {
+          const normalizedPolicyType = normalizeProductType(policy.policy_type_name);
           const premiumCents = Math.round((policy.items.reduce((sum, i) => sum + i.premium, 0)) * 100);
           const itemsCount = policy.items.reduce((sum, i) => sum + i.item_count, 0);
 
@@ -335,7 +439,7 @@ serve(async (req) => {
             .select('id')
             .eq('household_id', lqsHouseholdId)
             .eq('agency_id', staffUser.agency_id)
-            .eq('product_type', policy.policy_type_name)
+            .eq('product_type', normalizedPolicyType)
             .eq('premium_cents', premiumCents)
             .eq('items_quoted', itemsCount);
 
@@ -361,7 +465,7 @@ serve(async (req) => {
               agency_id: staffUser.agency_id,
               team_member_id: staffUser.team_member_id,
               quote_date: body.sale_date,
-              product_type: policy.policy_type_name,
+              product_type: normalizedPolicyType,
               items_quoted: itemsCount,
               premium_cents: premiumCents,
               issued_policy_number: policy.policy_number || null,
@@ -385,7 +489,13 @@ serve(async (req) => {
       }
     } catch (lqsErr) {
       console.warn('[create_staff_sale] LQS pipeline creation failed:', lqsErr);
-      // Continue - LQS tracking is non-critical
+      lqsPipelineErrorMessage = lqsErr instanceof Error
+        ? lqsErr.message
+        : 'Failed to prepare LQS household';
+    }
+
+    if (!lqsHouseholdId) {
+      throw new Error(lqsPipelineErrorMessage || 'Failed to prepare LQS household');
     }
 
     // Insert the main sale record
@@ -433,38 +543,49 @@ serve(async (req) => {
 
     // Create lqs_sales records BEFORE sale_policies so the trigger guard
     // (which checks source_reference_id) detects them and skips.
-    if (lqsHouseholdId) {
-      try {
-        for (const policy of body.policies) {
-          const premiumCents = Math.round((policy.items.reduce((sum: number, i: LineItem) => sum + i.premium, 0)) * 100);
-          const itemsCount = policy.items.reduce((sum: number, i: LineItem) => sum + i.item_count, 0);
+    let lqsSalesLinked = 0;
+    try {
+      for (const policy of body.policies) {
+        const normalizedPolicyType = normalizeProductType(policy.policy_type_name);
+        const premiumCents = Math.round((policy.items.reduce((sum: number, i: LineItem) => sum + i.premium, 0)) * 100);
+        const itemsCount = policy.items.reduce((sum: number, i: LineItem) => sum + i.item_count, 0);
 
-          const { error: lqsSaleErr } = await supabase
-            .from('lqs_sales')
-            .insert({
-              household_id: lqsHouseholdId,
-              agency_id: staffUser.agency_id,
-              team_member_id: staffUser.team_member_id,
-              sale_date: body.sale_date,
-              product_type: policy.policy_type_name,
-              items_sold: itemsCount,
-              policies_sold: 1,
-              premium_cents: premiumCents,
-              policy_number: policy.policy_number || null,
-              source: 'sales_dashboard',
-              source_reference_id: sale.id,
-              is_one_call_close: body.is_one_call_close ?? false,
-            });
+        const { error: lqsSaleErr } = await supabase
+          .from('lqs_sales')
+          .insert({
+            household_id: lqsHouseholdId,
+            agency_id: staffUser.agency_id,
+            team_member_id: staffUser.team_member_id,
+            sale_date: body.sale_date,
+            product_type: normalizedPolicyType,
+            items_sold: itemsCount,
+            policies_sold: 1,
+            premium_cents: premiumCents,
+            policy_number: policy.policy_number || null,
+            source: 'sales_dashboard',
+            source_reference_id: sale.id,
+            is_one_call_close: body.is_one_call_close ?? false,
+          });
 
-          if (lqsSaleErr) {
-            console.error('[create_staff_sale] Failed to create LQS sale:', lqsSaleErr);
-          }
+        if (lqsSaleErr) {
+          console.error('[create_staff_sale] Failed to create LQS sale:', lqsSaleErr);
+          throw lqsSaleErr;
         }
-        console.log('[create_staff_sale] LQS sales created with source_reference_id:', sale.id);
-      } catch (lqsSalesErr) {
-        console.warn('[create_staff_sale] LQS sales creation failed:', lqsSalesErr);
-        // Continue - LQS tracking is non-critical
+
+        lqsSalesLinked += 1;
       }
+      console.log('[create_staff_sale] LQS sales created with source_reference_id:', sale.id);
+    } catch (lqsSalesErr) {
+      console.warn('[create_staff_sale] LQS sales creation failed:', lqsSalesErr);
+      await supabase.from('lqs_sales').delete().eq('source_reference_id', sale.id);
+      await supabase.from('sales').delete().eq('id', sale.id);
+      throw new Error('Failed to link sale to LQS');
+    }
+
+    if (lqsSalesLinked !== body.policies.length) {
+      await supabase.from('lqs_sales').delete().eq('source_reference_id', sale.id);
+      await supabase.from('sales').delete().eq('id', sale.id);
+      throw new Error('Failed to link every policy to LQS');
     }
 
     // Insert policies and items

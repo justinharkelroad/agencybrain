@@ -61,6 +61,25 @@ type TeamMember = {
   name: string;
 };
 
+type ExistingPolicyLink = {
+  sale_id: string;
+  policy_number: string | null;
+  sales:
+    | {
+        id: string;
+        source: string | null;
+        customer_name: string | null;
+        sale_date: string;
+      }
+    | Array<{
+        id: string;
+        source: string | null;
+        customer_name: string | null;
+        sale_date: string;
+      }>
+    | null;
+};
+
 type LineItem = {
   id: string;
   product_type_id: string;
@@ -721,6 +740,32 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
         { items: 0, premium: 0, points: 0 }
       );
 
+      const policyNumbers = policies
+        .map((policy) => policy.policy_number?.trim())
+        .filter((value): value is string => !!value);
+      if (policyNumbers.length > 0 && profile?.agency_id) {
+        const { data: existingPolicyLinks, error: existingPolicyLinksError } = await supabase
+          .from("sale_policies")
+          .select("sale_id, policy_number, sales!inner(id, source, customer_name, sale_date, agency_id)")
+          .in("policy_number", policyNumbers)
+          .eq("sales.agency_id", profile.agency_id);
+
+        if (existingPolicyLinksError) throw existingPolicyLinksError;
+
+        const duplicate = (existingPolicyLinks as ExistingPolicyLink[] | null)?.find(
+          (row) => row.sale_id !== editSale?.id,
+        );
+        const existingSale = duplicate?.sales && Array.isArray(duplicate.sales)
+          ? duplicate.sales[0]
+          : duplicate?.sales;
+
+        if (duplicate?.sale_id && existingSale) {
+          throw new Error(
+            `Policy ${duplicate.policy_number} already exists on sale ${duplicate.sale_id} (${existingSale.source || "unknown source"} for ${existingSale.customer_name || "Unknown customer"} on ${existingSale.sale_date}).`,
+          );
+        }
+      }
+
       // If editing, delete existing policies and items first
       if (isEditMode && editSale) {
         const { error: deleteItemsError } = await supabase
@@ -884,28 +929,46 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
 
       // Guarantee dashboard -> LQS linkage even when auto-match triggers find no household.
       // This keeps manual dashboard sales visible in LQS consistently.
-      let lqsLinkErrorMessage: string | null = null;
       if (profile?.agency_id) {
+        let createdLqsHouseholdId: string | null = null;
         try {
           const { data: existingLqsRows, error: existingLqsError } = await supabase
             .from("lqs_sales")
-            .select("id")
+            .select("id, household_id")
             .eq("source_reference_id", saleId)
             .limit(1);
           if (existingLqsError) throw existingLqsError;
 
           const hasExistingLqsRows = !!existingLqsRows && existingLqsRows.length > 0;
-          const shouldRelinkExisting = isEditMode && hasExistingLqsRows;
+          const existingHouseholdId = hasExistingLqsRows ? existingLqsRows[0].household_id : null;
 
-          if (shouldRelinkExisting) {
-            const { error: deleteExistingLinkError } = await supabase
+          if (isEditMode && existingHouseholdId) {
+            const { error: updateLinkedSalesError } = await supabase
               .from("lqs_sales")
-              .delete()
+              .update({
+                team_member_id: finalTeamMemberId,
+                sale_date: format(saleDate, "yyyy-MM-dd"),
+              })
               .eq("source_reference_id", saleId);
-            if (deleteExistingLinkError) throw deleteExistingLinkError;
-          }
+            if (updateLinkedSalesError) throw updateLinkedSalesError;
 
-          if (!hasExistingLqsRows || shouldRelinkExisting) {
+            const householdPatch: Record<string, unknown> = {
+              team_member_id: finalTeamMemberId,
+              lead_source_id: leadSourceId || null,
+              prior_insurance_company_id: priorInsuranceCompanyId || null,
+              zip_code: customerZip.trim() || null,
+            };
+            if (resolvedContactId) householdPatch.contact_id = resolvedContactId;
+            if (customerPhone.trim()) householdPatch.phone = [customerPhone.trim()];
+            if (customerEmail.trim()) householdPatch.email = customerEmail.trim();
+
+            const { error: updateLinkedHouseholdError } = await supabase
+              .from("lqs_households")
+              .update(householdPatch)
+              .eq("id", existingHouseholdId)
+              .eq("agency_id", profile.agency_id);
+            if (updateLinkedHouseholdError) throw updateLinkedHouseholdError;
+          } else if (!hasExistingLqsRows) {
             let householdId: string | null = !isEditMode ? prefillSale?.householdId ?? null : null;
 
             if (!householdId) {
@@ -957,6 +1020,7 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
 
                 if (createHouseholdError) throw createHouseholdError;
                 householdId = createdHousehold.id;
+                createdLqsHouseholdId = createdHousehold.id;
               }
             }
 
@@ -970,9 +1034,18 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
           }
         } catch (lqsLinkError) {
           console.error("[AddSaleForm] Failed to sync manual sale to LQS:", lqsLinkError);
-          lqsLinkErrorMessage = lqsLinkError instanceof Error
-            ? lqsLinkError.message
-            : "Unknown LQS sync error";
+          if (!isEditMode) {
+            await supabase.from("sale_items").delete().eq("sale_id", saleId);
+            await supabase.from("sale_policies").delete().eq("sale_id", saleId);
+            await supabase.from("sales").delete().eq("id", saleId);
+            await supabase.from("lqs_sales").delete().eq("source_reference_id", saleId);
+            if (createdLqsHouseholdId) {
+              await supabase.from("lqs_households").delete().eq("id", createdLqsHouseholdId);
+            }
+            throw new Error("Failed to sync sale to LQS. Sale was not saved.");
+          }
+
+          throw new Error("Failed to sync updated sale to LQS. Existing sale kept, but changes need review.");
         }
       }
 
@@ -988,9 +1061,9 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
         });
       }
 
-      return { saleId, lqsLinkErrorMessage };
+      return { saleId };
     },
-    onSuccess: async ({ saleId, lqsLinkErrorMessage }) => {
+    onSuccess: async ({ saleId }) => {
       // Fetch saved sale to confirm lead_source was persisted (proof)
       const { data: savedSale } = await supabase
         .from("sales")
@@ -1005,10 +1078,6 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
         toast.success(`Sale updated! Lead Source: ${savedLeadSourceName}`);
       } else {
         toast.success(isEditMode ? "Sale updated successfully!" : "Sale created successfully!");
-      }
-
-      if (lqsLinkErrorMessage) {
-        toast.warning("Sale saved, but LQS sync needs review");
       }
 
       queryClient.invalidateQueries({ queryKey: ["sales"] });

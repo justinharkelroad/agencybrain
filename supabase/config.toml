@@ -478,6 +478,9 @@ verify_jwt = true
 [functions.sync_lqs_sales_to_dashboard]
 verify_jwt = false
 
+[functions.audit-lqs-sales-integrity]
+verify_jwt = false
+
 [functions.rematch_lqs_subproducers]
 verify_jwt = false
 

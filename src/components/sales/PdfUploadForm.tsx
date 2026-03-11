@@ -101,6 +101,25 @@ interface ProductTypeLinkedRecord {
   is_vc_item: boolean | null;
 }
 
+interface ExistingPolicyLink {
+  sale_id: string;
+  policy_number: string | null;
+  sales:
+    | {
+        id: string;
+        source: string | null;
+        customer_name: string | null;
+        sale_date: string;
+      }
+    | Array<{
+        id: string;
+        source: string | null;
+        customer_name: string | null;
+        sale_date: string;
+      }>
+    | null;
+}
+
 interface PolicyTypeQueryRow {
   id: string;
   name: string;
@@ -549,6 +568,30 @@ export function PdfUploadForm({
         };
       });
 
+      const policyNumbers = stagedPolicies
+        .map((policy) => policy.policyNumber?.trim())
+        .filter((value): value is string => !!value);
+      if (policyNumbers.length > 0) {
+        const { data: existingPolicyLinks, error: existingPolicyLinksError } = await supabase
+          .from("sale_policies")
+          .select("sale_id, policy_number, sales!inner(id, source, customer_name, sale_date, agency_id)")
+          .in("policy_number", policyNumbers)
+          .eq("sales.agency_id", effectiveAgencyId);
+
+        if (existingPolicyLinksError) throw existingPolicyLinksError;
+
+        const duplicate = (existingPolicyLinks as ExistingPolicyLink[] | null)?.[0];
+        const existingSale = duplicate?.sales && Array.isArray(duplicate.sales)
+          ? duplicate.sales[0]
+          : duplicate?.sales;
+
+        if (duplicate?.sale_id && existingSale) {
+          throw new Error(
+            `Policy ${duplicate.policy_number} already exists on sale ${duplicate.sale_id} (${existingSale.source || "unknown source"} for ${existingSale.customer_name || "Unknown customer"} on ${existingSale.sale_date}).`,
+          );
+        }
+      }
+
       const salePayload = {
         lead_source_id: leadSourceId,
         customer_name: customerName.trim(),
@@ -699,7 +742,7 @@ export function PdfUploadForm({
         }
 
         // Guarantee dashboard -> LQS linkage for admin PDF uploads as well.
-        let lqsLinkErrorMessage: string | null = null;
+        let createdLqsHouseholdId: string | null = null;
         try {
           const { data: existingLqsRows, error: existingLqsError } = await supabase
             .from("lqs_sales")
@@ -757,6 +800,7 @@ export function PdfUploadForm({
 
                 if (createHouseholdError) throw createHouseholdError;
                 householdId = createdHousehold.id;
+                createdLqsHouseholdId = createdHousehold.id;
               }
             }
 
@@ -770,9 +814,14 @@ export function PdfUploadForm({
           }
         } catch (lqsLinkError) {
           console.error("[PdfUploadForm] Failed to sync PDF sale to LQS:", lqsLinkError);
-          lqsLinkErrorMessage = lqsLinkError instanceof Error
-            ? lqsLinkError.message
-            : "Unknown LQS sync error";
+          await supabase.from("sale_items").delete().eq("sale_id", sale.id);
+          await supabase.from("sale_policies").delete().eq("sale_id", sale.id);
+          await supabase.from("sales").delete().eq("id", sale.id);
+          await supabase.from("lqs_sales").delete().eq("source_reference_id", sale.id);
+          if (createdLqsHouseholdId) {
+            await supabase.from("lqs_households").delete().eq("id", createdLqsHouseholdId);
+          }
+          throw new Error("Failed to sync sale to LQS. Sale was not saved.");
         }
 
         // Trigger sale notification email (fire and forget)
@@ -787,14 +836,11 @@ export function PdfUploadForm({
           });
         }
 
-        return { sale_id: sale.id, lqsLinkErrorMessage };
+        return { sale_id: sale.id };
       }
     },
     onSuccess: (result) => {
       toast.success('Sale created successfully!');
-      if (result?.lqsLinkErrorMessage) {
-        toast.warning('Sale saved, but LQS sync needs review');
-      }
       queryClient.invalidateQueries({ queryKey: ['sales'] });
       queryClient.invalidateQueries({ queryKey: ['staff-sales'] });
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
