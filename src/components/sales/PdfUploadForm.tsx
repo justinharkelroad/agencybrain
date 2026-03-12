@@ -58,6 +58,7 @@ import { classifyBundle, type ExistingProductFlag } from "@/lib/bundle-classifie
 import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-products";
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
 import { isCrossSaleLeadSource } from "@/lib/lead-source-utils";
+import { invokeSupabaseFunctionWithSessionRefresh } from "@/lib/invokeSupabaseFunctionWithSessionRefresh";
 
 interface ExtractedSaleData {
   customerName: string;
@@ -611,7 +612,7 @@ export function PdfUploadForm({
           policyNumbers: stagedPolicies.map((policy) => policy.policyNumber),
         });
 
-        const { data, error } = await supabase.functions.invoke('upsert_admin_sale', {
+        const { data, error } = await invokeSupabaseFunctionWithSessionRefresh('upsert_admin_sale', {
           body: salePayload,
         });
 

@@ -39,6 +39,7 @@ import { getSupabaseFunctionErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
 import type { LqsSalePrefill } from "@/lib/lqs-sale-prefill";
 import { isCrossSaleLeadSource } from "@/lib/lead-source-utils";
+import { invokeSupabaseFunctionWithSessionRefresh } from "@/lib/invokeSupabaseFunctionWithSessionRefresh";
 import {
   Dialog,
   DialogContent,
@@ -788,7 +789,7 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
         policyNumbers: policies.map((policy) => policy.policy_number),
       });
 
-      const { data, error } = await supabase.functions.invoke("upsert_admin_sale", {
+      const { data, error } = await invokeSupabaseFunctionWithSessionRefresh<{ sale_id: string }>("upsert_admin_sale", {
         body: salePayload,
       });
 
