@@ -7,11 +7,13 @@ ALTER TABLE public.lqs_households
 
 ALTER TABLE public.lqs_households
   ADD CONSTRAINT lqs_households_household_key_canonical_format
-  CHECK (household_key ~ '^[A-Z]+_[A-Z]+_[A-Z0-9]{5}$');
+  CHECK (household_key ~ '^[A-Z]+_[A-Z]+_[A-Z0-9]{5}$')
+  NOT VALID;
 
 ALTER TABLE public.agency_contacts
   DROP CONSTRAINT IF EXISTS agency_contacts_household_key_canonical_format;
 
 ALTER TABLE public.agency_contacts
   ADD CONSTRAINT agency_contacts_household_key_canonical_format
-  CHECK (household_key ~ '^[A-Z]+_[A-Z]+_[A-Z0-9]{5}$');
+  CHECK (household_key ~ '^[A-Z]+_[A-Z]+_[A-Z0-9]{5}$')
+  NOT VALID;
