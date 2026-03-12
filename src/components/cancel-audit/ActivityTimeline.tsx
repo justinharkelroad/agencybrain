@@ -31,6 +31,7 @@ const ACTIVITY_ICONS: Record<ActivityType, React.ComponentType<{ className?: str
   payment_made: DollarSign,
   payment_promised: Handshake,
   note: StickyNote,
+  task_scheduled: ClipboardList,
 };
 
 function formatActivityTime(dateStr: string): string {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { Phone, Mail, Calendar, FileText, DollarSign, MessageSquare, Voicemail, CheckCircle, X, ExternalLink, Send, Loader2, Copy, type LucideIcon } from 'lucide-react';
+import { Phone, Mail, Calendar, FileText, DollarSign, MessageSquare, Voicemail, CheckCircle, X, ExternalLink, Send, Loader2, Copy, ClipboardList, type LucideIcon } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +35,7 @@ const activityStyles: Record<string, { icon: LucideIcon; color: string; label: s
   phone_call: { icon: Phone, color: 'text-blue-600 dark:text-blue-400 border-blue-500/50 dark:border-blue-500/30 bg-blue-500/15', label: 'Attempted Call' },
   appointment: { icon: Calendar, color: 'text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30 bg-orange-500/15', label: 'Appointment' },
   note: { icon: FileText, color: 'text-gray-600 dark:text-gray-400 border-gray-500/50 dark:border-gray-500/30 bg-gray-500/15', label: 'Note' },
+  task_scheduled: { icon: ClipboardList, color: 'text-amber-600 dark:text-amber-400 border-amber-500/50 dark:border-amber-500/30 bg-amber-500/15', label: 'Task Scheduled' },
 };
 
 export function RenewalDetailDrawer({ record, open, onClose, context, teamMembers, staffSessionToken }: Props) {
@@ -160,6 +161,8 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
       actionType: data.actionType,
       title: data.title,
       description: data.description,
+      sourceModule: 'renewal',
+      moduleRecordId: record.id,
     });
     toast.success(`Task scheduled for ${data.contactName}`);
   };

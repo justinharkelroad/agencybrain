@@ -10,6 +10,8 @@ export interface ScheduleAdhocTaskParams {
   title: string;
   description?: string;
   parentTaskId?: string;
+  sourceModule?: string; // e.g. 'cancel_audit', 'renewal', 'winback'
+  moduleRecordId?: string; // module-specific record ID for activity logging
 }
 
 interface ScheduleAdhocTaskResponse {
@@ -63,6 +65,8 @@ export function useScheduleAdhocTask(options: UseScheduleAdhocTaskOptions = {}) 
           title: params.title,
           description: params.description || null,
           parent_task_id: params.parentTaskId || null,
+          source_module: params.sourceModule || null,
+          module_record_id: params.moduleRecordId || null,
         },
       });
 
@@ -78,13 +82,26 @@ export function useScheduleAdhocTask(options: UseScheduleAdhocTaskOptions = {}) 
 
       return data as ScheduleAdhocTaskResponse;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       // Invalidate task queries to refresh the UI
       queryClient.invalidateQueries({ queryKey: ['staff-onboarding-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['staff-overdue-task-count'] });
       queryClient.invalidateQueries({ queryKey: ['onboarding-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['onboarding-tasks-today'] });
       queryClient.invalidateQueries({ queryKey: ['contact-sequence-progress'] });
+      // Invalidate contact activity caches so timeline shows the new activity
+      queryClient.invalidateQueries({ queryKey: ['contact-profile', variables.contactId] });
+      queryClient.invalidateQueries({ queryKey: ['contact-journey', variables.contactId] });
+      // Invalidate module-specific activity caches so the module's own activity view refreshes
+      if (variables.sourceModule === 'cancel_audit') {
+        queryClient.invalidateQueries({ queryKey: ['cancel-audit-activities'] });
+        queryClient.invalidateQueries({ queryKey: ['cancel-audit-activity-summary'] });
+      } else if (variables.sourceModule === 'renewal') {
+        queryClient.invalidateQueries({ queryKey: ['renewal-activities'] });
+        queryClient.invalidateQueries({ queryKey: ['renewal-activity-summary'] });
+        queryClient.invalidateQueries({ queryKey: ['renewal-records'] });
+      }
+      // Winback uses local state — caller handles refresh
     },
   });
 }

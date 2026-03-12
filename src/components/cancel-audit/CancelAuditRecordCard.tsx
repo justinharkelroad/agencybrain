@@ -125,6 +125,8 @@ export function CancelAuditRecordCard({
       actionType: data.actionType,
       title: data.title,
       description: data.description,
+      sourceModule: 'cancel_audit',
+      moduleRecordId: record.id,
     });
     toast.success(`Task scheduled for ${data.contactName}`);
   };

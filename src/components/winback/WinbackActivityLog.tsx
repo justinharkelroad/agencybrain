@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
+import {
   Phone, PhoneOff, Mail, FileText, MessageSquare, StickyNote,
-  ArrowRight, Clock, Send
+  ArrowRight, Clock, Send, ClipboardList
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -33,6 +33,7 @@ const activityConfig: Record<string, { icon: typeof Phone; label: string; color:
   quoted: { icon: FileText, label: 'Quoted', color: 'text-yellow-600 dark:text-yellow-400', buttonColor: 'bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-600 dark:text-yellow-400 border-yellow-500/50 dark:border-yellow-500/30' },
   note: { icon: StickyNote, label: 'Note', color: 'text-gray-600 dark:text-gray-400', buttonColor: 'bg-gray-500/15 hover:bg-gray-500/25 text-gray-600 dark:text-gray-400 border-gray-500/50 dark:border-gray-500/30' },
   status_change: { icon: ArrowRight, label: 'Status Changed', color: 'text-orange-600 dark:text-orange-400', buttonColor: 'bg-orange-500/15 hover:bg-orange-500/25 text-orange-600 dark:text-orange-400 border-orange-500/50 dark:border-orange-500/30' },
+  task_scheduled: { icon: ClipboardList, label: 'Task Scheduled', color: 'text-amber-600 dark:text-amber-400', buttonColor: 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border-amber-500/50 dark:border-amber-500/30' },
 };
 
 export function WinbackActivityLog({ activities, loading, onLogActivity }: WinbackActivityLogProps) {

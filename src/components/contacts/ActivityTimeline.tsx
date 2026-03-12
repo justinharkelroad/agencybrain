@@ -1,5 +1,5 @@
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
-import { Phone, Mail, FileText, Calendar, CheckCircle, XCircle, AlertCircle, MessageSquare } from 'lucide-react';
+import { Phone, Mail, FileText, Calendar, CheckCircle, XCircle, AlertCircle, MessageSquare, ClipboardList } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ContactActivity, SourceModule, ContactActivityType } from '@/types/contact';
@@ -194,6 +194,8 @@ function getActivityIcon(type: string) {
       return XCircle;
     case 'status_change':
       return AlertCircle;
+    case 'task_scheduled':
+      return ClipboardList;
     default:
       return FileText;
   }
@@ -216,6 +218,8 @@ function getActivityDotColor(type: string): string {
       return 'bg-green-500';
     case 'policy_cancelled':
       return 'bg-red-500';
+    case 'task_scheduled':
+      return 'bg-amber-500';
     default:
       return 'bg-gray-400';
   }
@@ -250,6 +254,8 @@ function formatActivityTitle(activity: ContactActivity): string {
       return 'Status Changed';
     case 'call_scored':
       return 'Call Scored';
+    case 'task_scheduled':
+      return activity.subject || 'Task Scheduled';
     default:
       return (type as string).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   }

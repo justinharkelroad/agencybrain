@@ -19,12 +19,15 @@ interface CreateAdhocTaskRequest {
   title: string;
   description?: string | null;
   parent_task_id?: string | null;
+  source_module?: string | null; // e.g. 'cancel_audit', 'renewal', 'winback'
+  module_record_id?: string | null; // e.g. cancel_audit_records.id, renewal_records.id, winback_households.id
 }
 
 interface AuthResult {
   agencyId: string;
   staffUserId: string | null;
   userId: string | null;
+  displayName: string | null;
 }
 
 serve(async (req) => {
@@ -90,6 +93,7 @@ serve(async (req) => {
         agencyId: staffUser.agency_id,
         staffUserId: staffUser.id,
         userId: null,
+        displayName: staffUser.display_name || null,
       };
     } else if (authHeader) {
       // Agency portal request — authenticate via JWT
@@ -101,10 +105,10 @@ serve(async (req) => {
       const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
 
       if (!authError && user) {
-        // Get user's profile for agency_id
+        // Get user's profile for agency_id and display name
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .select('agency_id')
+          .select('agency_id, full_name')
           .eq('id', user.id)
           .single();
 
@@ -113,6 +117,7 @@ serve(async (req) => {
             agencyId: profile.agency_id,
             staffUserId: null,
             userId: user.id,
+            displayName: profile.full_name || null,
           };
         }
       }
@@ -126,11 +131,11 @@ serve(async (req) => {
       });
     }
 
-    const { agencyId, staffUserId, userId } = authResult;
+    const { agencyId, staffUserId, userId, displayName } = authResult;
 
     // Parse request body
     const body: CreateAdhocTaskRequest = await req.json();
-    const { contact_id, due_date, action_type, title, description, parent_task_id } = body;
+    const { contact_id, due_date, action_type, title, description, parent_task_id, source_module, module_record_id } = body;
 
     // Validate required fields
     if (!contact_id) {
@@ -263,6 +268,112 @@ serve(async (req) => {
 
     const assigneeInfo = staffUserId ? `staff ${staffUserId}` : `user ${userId}`;
     console.log(`[create_adhoc_task] Created adhoc task ${newTask.id} for contact ${contact_id} by ${assigneeInfo}`);
+
+    // Log activity to contact timeline (non-blocking — task creation is the primary action)
+    try {
+      const activityModule = source_module || 'manual';
+      const noteParts: string[] = [];
+      if (description?.trim()) noteParts.push(description.trim());
+      noteParts.push(`Due: ${due_date} | Type: ${action_type}`);
+
+      const { error: activityError } = await supabase.rpc('insert_contact_activity', {
+        p_agency_id: agencyId,
+        p_contact_id: contact_id,
+        p_source_module: activityModule,
+        p_activity_type: 'task_scheduled',
+        p_source_record_id: newTask.id,
+        p_subject: title.trim(),
+        p_notes: noteParts.join('\n'),
+        p_created_by_user_id: userId || null,
+        p_created_by_staff_id: staffUserId || null,
+        p_created_by_display_name: displayName || null,
+      });
+
+      if (activityError) {
+        console.error('[create_adhoc_task] Failed to log activity (non-fatal):', activityError.message);
+      }
+    } catch (activityErr) {
+      console.error('[create_adhoc_task] Activity logging exception (non-fatal):', activityErr);
+    }
+
+    // Also insert into module-specific activity table so it shows in the module's own activity view
+    if (source_module && module_record_id) {
+      try {
+        const taskNote = `Scheduled: ${title.trim()}${description ? ' — ' + description.trim() : ''}\nDue: ${due_date}`;
+
+        if (source_module === 'cancel_audit') {
+          // Look up household_key from the record
+          const { data: caRecord } = await supabase
+            .from('cancel_audit_records')
+            .select('household_key')
+            .eq('id', module_record_id)
+            .eq('agency_id', agencyId)
+            .single();
+
+          if (caRecord) {
+            await supabase.from('cancel_audit_activities').insert({
+              agency_id: agencyId,
+              record_id: module_record_id,
+              household_key: caRecord.household_key,
+              activity_type: 'task_scheduled',
+              notes: taskNote,
+              user_id: userId || null,
+              // staff_member_id references team_members, not staff_users — leave null for staff
+              staff_member_id: null,
+              user_display_name: displayName || 'Unknown',
+            });
+          }
+        } else if (source_module === 'renewal') {
+          const { data: renewalRecord } = await supabase
+            .from('renewal_records')
+            .select('id')
+            .eq('id', module_record_id)
+            .eq('agency_id', agencyId)
+            .maybeSingle();
+
+          if (renewalRecord) {
+            await supabase.from('renewal_activities').insert({
+              renewal_record_id: module_record_id,
+              agency_id: agencyId,
+              activity_type: 'task_scheduled',
+              subject: title.trim(),
+              comments: `${description ? description.trim() + '\n' : ''}Due: ${due_date} | Type: ${action_type}`,
+              created_by: userId || null,
+              created_by_staff_id: staffUserId || null,
+              created_by_display_name: displayName || null,
+            });
+            // Update last_activity_at on the renewal record
+            await supabase.from('renewal_records').update({
+              last_activity_at: new Date().toISOString(),
+              last_activity_by: userId || null,
+              last_activity_by_display_name: displayName || null,
+              updated_at: new Date().toISOString(),
+            }).eq('id', module_record_id).eq('agency_id', agencyId);
+          }
+        } else if (source_module === 'winback') {
+          const { data: household } = await supabase
+            .from('winback_households')
+            .select('id')
+            .eq('id', module_record_id)
+            .eq('agency_id', agencyId)
+            .maybeSingle();
+
+          if (household) {
+            await supabase.from('winback_activities').insert({
+              household_id: module_record_id,
+              agency_id: agencyId,
+              activity_type: 'task_scheduled',
+              notes: taskNote,
+              created_by_user_id: userId || null,
+              // created_by_team_member_id references team_members, not staff_users — leave null
+              created_by_name: displayName || null,
+            });
+          }
+        }
+      } catch (moduleErr) {
+        console.error(`[create_adhoc_task] Module activity insert failed (${source_module}, non-fatal):`, moduleErr);
+      }
+    }
 
     return new Response(JSON.stringify({
       success: true,

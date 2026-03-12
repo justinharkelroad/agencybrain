@@ -2,7 +2,7 @@ export type ReportType = 'cancellation' | 'pending_cancel';
 
 export type RecordStatus = 'new' | 'in_progress' | 'resolved' | 'lost';
 
-export type ActivityType = 
+export type ActivityType =
   | 'attempted_call'
   | 'voicemail_left'
   | 'text_sent'
@@ -10,7 +10,8 @@ export type ActivityType =
   | 'spoke_with_client'
   | 'payment_made'
   | 'payment_promised'
-  | 'note';
+  | 'note'
+  | 'task_scheduled';
 
 export interface CancelAuditRecord {
   id: string;
@@ -86,7 +87,8 @@ export const ACTIVITY_LABELS: Record<ActivityType, string> = {
   spoke_with_client: 'Spoke With Client',
   payment_made: 'Payment Made',
   payment_promised: 'Payment Promised',
-  note: 'Note Added'
+  note: 'Note Added',
+  task_scheduled: 'Task Scheduled'
 };
 
 export const ACTIVITY_COLORS: Record<ActivityType, string> = {
@@ -97,5 +99,6 @@ export const ACTIVITY_COLORS: Record<ActivityType, string> = {
   spoke_with_client: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20',
   payment_made: 'bg-green-500/10 text-green-500 border-green-500/20',
   payment_promised: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
-  note: 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+  note: 'bg-gray-500/10 text-gray-400 border-gray-500/20',
+  task_scheduled: 'bg-amber-500/10 text-amber-500 border-amber-500/20'
 };

@@ -617,8 +617,17 @@ export function WinbackHouseholdModal({
       actionType: data.actionType,
       title: data.title,
       description: data.description,
+      sourceModule: 'winback',
+      moduleRecordId: household.id,
     });
     toast.success(`Task scheduled for ${data.contactName}`);
+    // Refresh activities in winback modal (uses local state, not React Query)
+    try {
+      const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
+      setActivities(refreshedActivities as Activity[]);
+    } catch (refreshErr) {
+      console.warn('Failed to refresh activities after task scheduling:', refreshErr);
+    }
   };
 
   return (
