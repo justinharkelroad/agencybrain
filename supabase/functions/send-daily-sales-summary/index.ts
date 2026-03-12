@@ -139,7 +139,7 @@ serve(async (req) => {
 
     console.log('[send-daily-sales-summary] Found', agencies?.length || 0, 'agencies with daily summary enabled');
 
-    const results: { agency: string; status: string; recipients?: number }[] = [];
+    const results: { agency: string; status: string; recipients?: number; error?: string }[] = [];
 
     for (const agency of agencies || []) {
       try {

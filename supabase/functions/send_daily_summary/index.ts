@@ -225,9 +225,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    const now = new Date();
-    if (!shouldSendDailySummary(now)) {
-      const dayName = getDayName(now);
+    const nowUtc = new Date();
+    if (!shouldSendDailySummary(nowUtc)) {
+      const dayName = getDayName(nowUtc);
       logStructured('daily_summary_skipped', {
         reason: 'non_business_day_report',
         today: dayName,
@@ -245,7 +245,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const yesterday = new Date(now);
+    const yesterday = new Date(nowUtc);
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
 

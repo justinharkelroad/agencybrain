@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
+import { generateHouseholdKey } from '../_shared/householdKey.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -138,6 +139,48 @@ interface StaffUserRow {
   display_name: string | null;
   is_active: boolean;
 }
+
+interface StaffSessionRow {
+  staff_user_id: string;
+  expires_at: string;
+  is_valid: boolean;
+}
+
+interface HouseholdIdLookupRow {
+  id: string;
+}
+
+interface MatchingQuoteHouseholdRow {
+  household_id: string;
+}
+
+interface MatchingQuoteRow {
+  id: string;
+}
+
+interface CandidateHouseholdBaseRow {
+  id: string;
+  first_name: string;
+  last_name: string;
+  zip_code: string | null;
+  lead_source_id: string | null;
+  team_member_id: string | null;
+}
+
+interface CandidateQuoteRow {
+  id: string;
+  household_id: string;
+  product_type: string;
+  premium_cents: number;
+  quote_date: string;
+}
+
+interface LeadSourceRow {
+  id: string;
+  name: string;
+}
+
+type AdminClient = any;
 
 const BATCH_SIZE = 50;
 const GROUP_CONCURRENCY_LIMIT = 5;
@@ -423,7 +466,7 @@ function isDuplicateSkipMessage(message: string): boolean {
     lower.includes('already exists in lqs and was skipped');
 }
 
-async function verifyStaffRequest(admin: ReturnType<typeof createClient>, sessionToken: string): Promise<StaffUserRow | null> {
+async function verifyStaffRequest(admin: AdminClient, sessionToken: string): Promise<StaffUserRow | null> {
   const nowIso = new Date().toISOString();
   const { data: session, error: sessionError } = await admin
     .from('staff_sessions')
@@ -438,22 +481,26 @@ async function verifyStaffRequest(admin: ReturnType<typeof createClient>, sessio
     return null;
   }
 
+  const typedSession = session as StaffSessionRow;
+
   const { data: staffUser, error: staffError } = await admin
     .from('staff_users')
     .select('id, agency_id, team_member_id, display_name, is_active')
-    .eq('id', session.staff_user_id)
+    .eq('id', typedSession.staff_user_id)
     .maybeSingle();
 
-  if (staffError || !staffUser || !staffUser.is_active) {
+  const typedStaffUser = staffUser as StaffUserRow | null;
+
+  if (staffError || !typedStaffUser || !typedStaffUser.is_active) {
     console.error('[upload_staff_lqs_sales] Staff user lookup failed:', staffError);
     return null;
   }
 
-  return staffUser;
+  return typedStaffUser;
 }
 
 async function processSalesUpload(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   records: ParsedSaleRow[],
   context: SalesUploadContext,
 ): Promise<SalesUploadResult> {
@@ -480,7 +527,7 @@ async function processSalesUpload(
     throw new Error(`Failed to fetch team members: ${tmError.message}`);
   }
 
-  const teamMembersList: TeamMember[] = teamMembers || [];
+  const teamMembersList = (teamMembers || []) as TeamMember[];
   const codeToMember = new Map<string, TeamMember>();
   for (const teamMember of teamMembersList) {
     if (teamMember.sub_producer_code) {
@@ -490,7 +537,11 @@ async function processSalesUpload(
 
   const householdRecordsMap = new Map<string, ParsedSaleRow[]>();
   for (const record of records) {
-    const householdKey = record.householdKey || `${record.lastName}_${record.firstName}_${record.zipCode || '00000'}`;
+    const householdKey = record.householdKey || generateHouseholdKey(
+      record.firstName,
+      record.lastName,
+      record.zipCode,
+    );
     const existing = householdRecordsMap.get(householdKey) || [];
     existing.push(record);
     householdRecordsMap.set(householdKey, existing);
@@ -554,8 +605,11 @@ async function processSalesUpload(
               addError(primaryRecord, `could not check for a policy number match because LQS quote lookup failed: ${policyMatchError.message}`);
             }
 
-            if (matchingQuote?.household_id) {
-              householdId = matchingQuote.household_id;
+            const matchedQuote = matchingQuote as MatchingQuoteHouseholdRow | null;
+
+            if (matchedQuote?.household_id) {
+              const matchedHouseholdId = matchedQuote.household_id;
+              householdId = matchedHouseholdId;
               householdFound = true;
               policyMatchFound = true;
               wasAutoMatched = true;
@@ -563,7 +617,7 @@ async function processSalesUpload(
               const { data: householdLookup, error: hhLookupError } = await admin
                 .from('lqs_households')
                 .select('lead_source_id')
-                .eq('id', householdId)
+                .eq('id', matchedHouseholdId)
                 .single();
 
               if (hhLookupError) {
@@ -586,31 +640,85 @@ async function processSalesUpload(
               addError(primaryRecord, `could not check existing customers because household lookup failed: ${householdLookupError.message}`);
             }
 
-            if (existingHousehold) {
-              householdId = existingHousehold.id;
+            const typedExistingHousehold = existingHousehold as { id: string; status: string; lead_source_id: string | null } | null;
+
+            if (typedExistingHousehold) {
+              householdId = typedExistingHousehold.id;
               householdFound = true;
-              needsAttentionFlag = !existingHousehold.lead_source_id;
+              needsAttentionFlag = !typedExistingHousehold.lead_source_id;
               wasAutoMatched = true;
             } else {
-              const { data: candidateHouseholds, error: candidateError } = await admin
+              const { data: candidateHouseholdsData, error: candidateError } = await admin
                 .from('lqs_households')
-                .select(`
-                  id, first_name, last_name, zip_code, lead_source_id, team_member_id,
-                  quotes:lqs_quotes(id, product_type, premium_cents, quote_date),
-                  lead_source:lead_sources!lqs_households_lead_source_id_fkey(name)
-                `)
+                .select('id, first_name, last_name, zip_code, lead_source_id, team_member_id')
                 .eq('agency_id', context.agencyId)
                 .ilike('last_name', primaryRecord.lastName);
 
               if (candidateError) {
                 addError(primaryRecord, `could not search matching names in LQS because candidate lookup failed: ${candidateError.message}`);
               } else {
-                const nameMatchedCandidates = (candidateHouseholds || []).filter((household) => {
+                const candidateHouseholds = (candidateHouseholdsData || []) as CandidateHouseholdBaseRow[];
+                const candidateHouseholdIds = candidateHouseholds.map((household) => household.id);
+                const quotesByHousehold = new Map<string, HouseholdWithQuotes['quotes']>();
+
+                if (candidateHouseholdIds.length > 0) {
+                  const { data: candidateQuotesData, error: candidateQuotesError } = await admin
+                    .from('lqs_quotes')
+                    .select('id, household_id, product_type, premium_cents, quote_date')
+                    .in('household_id', candidateHouseholdIds);
+
+                  if (candidateQuotesError) {
+                    addError(primaryRecord, `could not load candidate quotes because quote lookup failed: ${candidateQuotesError.message}`);
+                  } else {
+                    for (const quote of (candidateQuotesData || []) as CandidateQuoteRow[]) {
+                      const existingQuotes = quotesByHousehold.get(quote.household_id) || [];
+                      existingQuotes.push({
+                        id: quote.id,
+                        product_type: quote.product_type,
+                        premium_cents: quote.premium_cents,
+                        quote_date: quote.quote_date,
+                      });
+                      quotesByHousehold.set(quote.household_id, existingQuotes);
+                    }
+                  }
+                }
+
+                const leadSourceIds = Array.from(new Set(
+                  candidateHouseholds
+                    .map((household) => household.lead_source_id)
+                    .filter((value): value is string => typeof value === 'string' && value.length > 0),
+                ));
+                const leadSourceMap = new Map<string, string>();
+
+                if (leadSourceIds.length > 0) {
+                  const { data: leadSourceRows, error: leadSourceError } = await admin
+                    .from('lead_sources')
+                    .select('id, name')
+                    .in('id', leadSourceIds);
+
+                  if (leadSourceError) {
+                    addError(primaryRecord, `could not load candidate lead sources because lead source lookup failed: ${leadSourceError.message}`);
+                  } else {
+                    for (const leadSource of (leadSourceRows || []) as LeadSourceRow[]) {
+                      leadSourceMap.set(leadSource.id, leadSource.name);
+                    }
+                  }
+                }
+
+                const hydratedCandidates: HouseholdWithQuotes[] = candidateHouseholds.map((household) => ({
+                  ...household,
+                  quotes: quotesByHousehold.get(household.id) || [],
+                  lead_source: household.lead_source_id
+                    ? { name: leadSourceMap.get(household.lead_source_id) || 'Unknown lead source' }
+                    : null,
+                }));
+
+                const nameMatchedCandidates = hydratedCandidates.filter((household) => {
                   const normSaleFirst = primaryRecord.firstName.toUpperCase().replace(/[^A-Z]/g, '');
                   const normHouseholdFirst = (household.first_name || '').toUpperCase().replace(/[^A-Z]/g, '');
                   if (normSaleFirst.length === 0 || normHouseholdFirst.length === 0) return false;
                   return normSaleFirst === normHouseholdFirst;
-                }) as HouseholdWithQuotes[];
+                });
 
                 const scoredCandidates = nameMatchedCandidates
                   .map((household) => scoreCandidate(primaryRecord, household, teamMemberId))
@@ -651,8 +759,9 @@ async function processSalesUpload(
                         .eq('household_key', householdKey)
                         .maybeSingle();
 
-                      if (retryHousehold) {
-                        householdId = retryHousehold.id;
+                      const typedRetryHousehold = retryHousehold as HouseholdIdLookupRow | null;
+                      if (typedRetryHousehold) {
+                        householdId = typedRetryHousehold.id;
                         householdFound = true;
                         wasCreated = true;
                         needsAttentionFlag = true;
@@ -660,7 +769,7 @@ async function processSalesUpload(
                         addError(primaryRecord, `could not create this customer in LQS. Try again: ${createError.message}`);
                       }
                     } else {
-                      householdId = newHousehold.id;
+                      householdId = (newHousehold as HouseholdIdLookupRow).id;
                       householdFound = true;
                       wasCreated = true;
                       needsAttentionFlag = true;
@@ -690,8 +799,9 @@ async function processSalesUpload(
                       .eq('household_key', householdKey)
                       .maybeSingle();
 
-                    if (retryHousehold) {
-                      householdId = retryHousehold.id;
+                    const typedRetryHousehold = retryHousehold as HouseholdIdLookupRow | null;
+                    if (typedRetryHousehold) {
+                      householdId = typedRetryHousehold.id;
                       householdFound = true;
                       wasCreated = true;
                       needsAttentionFlag = true;
@@ -699,7 +809,7 @@ async function processSalesUpload(
                       addError(primaryRecord, `could not create this customer in LQS. Try again: ${createError.message}`);
                     }
                   } else {
-                    householdId = newHousehold.id;
+                    householdId = (newHousehold as HouseholdIdLookupRow).id;
                     householdFound = true;
                     wasCreated = true;
                     needsAttentionFlag = true;
@@ -721,11 +831,12 @@ async function processSalesUpload(
                 p_email: null,
               });
 
-              if (contactId) {
-                groupContactId = contactId;
+              const resolvedContactId = typeof contactId === 'string' ? contactId : null;
+              if (resolvedContactId) {
+                groupContactId = resolvedContactId;
                 await admin
                   .from('lqs_households')
-                  .update({ contact_id: contactId })
+                  .update({ contact_id: resolvedContactId })
                   .eq('id', householdId)
                   .is('contact_id', null);
               }
@@ -793,7 +904,7 @@ async function processSalesUpload(
               if (matchingQuoteError) {
                 addError(record, `could not verify matching quote details because LQS lookup failed: ${matchingQuoteError.message}`);
               } else if (matchingQuote) {
-                linkedQuoteId = matchingQuote.id;
+                linkedQuoteId = (matchingQuote as MatchingQuoteRow).id;
               }
 
               let saleTeamMemberId = teamMemberId;

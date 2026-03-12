@@ -98,6 +98,23 @@ interface PostgrestLikeError {
   message?: string;
 }
 
+interface HouseholdMatchRow {
+  household_id: string | null;
+}
+
+interface PhoneCandidateRow {
+  id: string;
+  phone: string[] | null;
+  team_member_id: string | null;
+  zip_code: string | null;
+}
+
+interface HouseholdIdRow {
+  id: string;
+}
+
+type AdminClient = any;
+
 interface IssueSummary {
   sale_id: string;
   agency_id: string;
@@ -285,7 +302,7 @@ function isExactDuplicateSale(
 }
 
 async function findMatchedCandidateLqsSales(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   sale: SaleRow,
   householdId: string,
   policies: SalePolicyDetailRow[],
@@ -322,7 +339,7 @@ async function findMatchedCandidateLqsSales(
 }
 
 async function loadTeamMembers(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   body: AuditRequest,
 ): Promise<TeamMemberRow[]> {
   let query = admin.from("team_members").select("id, agency_id, name");
@@ -341,7 +358,7 @@ async function loadTeamMembers(
 }
 
 async function loadSales(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   body: AuditRequest,
   teamMembers: TeamMemberRow[],
 ): Promise<SaleRow[]> {
@@ -392,7 +409,7 @@ async function loadSales(
 }
 
 async function loadSalePolicies(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   saleIds: string[],
 ): Promise<Map<string, number>> {
   const result = new Map<string, number>();
@@ -415,7 +432,7 @@ async function loadSalePolicies(
 }
 
 async function loadLinkedLqsSales(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   saleIds: string[],
 ): Promise<LqsSaleRow[]> {
   if (saleIds.length === 0) return [];
@@ -437,7 +454,7 @@ async function loadLinkedLqsSales(
 }
 
 async function loadHouseholds(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   householdIds: string[],
 ): Promise<Map<string, HouseholdRow>> {
   const result = new Map<string, HouseholdRow>();
@@ -605,7 +622,7 @@ function buildIssueSummary(
 }
 
 async function findOrCreateHouseholdForSale(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   sale: SaleRow,
 ): Promise<{ householdId: string; action: string }> {
   const { data: matches, error: matchError } = await admin.rpc(
@@ -614,7 +631,10 @@ async function findOrCreateHouseholdForSale(
   );
   if (matchError) throw matchError;
 
-  const matchedHouseholdId = matches?.[0]?.household_id as string | undefined;
+  const matchedHouseholds = Array.isArray(matches)
+    ? matches as HouseholdMatchRow[]
+    : [];
+  const matchedHouseholdId = matchedHouseholds[0]?.household_id ?? undefined;
   if (matchedHouseholdId) {
     return { householdId: matchedHouseholdId, action: "matched_existing_household" };
   }
@@ -629,7 +649,7 @@ async function findOrCreateHouseholdForSale(
 
     if (phoneError) throw phoneError;
 
-    const exactPhoneMatch = (phoneCandidates || []).find((candidate) => {
+    const exactPhoneMatch = ((phoneCandidates || []) as PhoneCandidateRow[]).find((candidate) => {
       const householdPhones = Array.isArray(candidate.phone) ? candidate.phone : [];
       return householdPhones.some((phone) => normalizePhone(phone) === normalizedPhone);
     });
@@ -648,8 +668,9 @@ async function findOrCreateHouseholdForSale(
     .maybeSingle();
 
   if (keyError) throw keyError;
-  if (keyMatch?.id) {
-    return { householdId: keyMatch.id, action: "matched_household_key" };
+  const typedKeyMatch = keyMatch as HouseholdIdRow | null;
+  if (typedKeyMatch?.id) {
+    return { householdId: typedKeyMatch.id, action: "matched_household_key" };
   }
 
   const { firstName, lastName } = parseCustomerName(sale.customer_name);
@@ -675,11 +696,12 @@ async function findOrCreateHouseholdForSale(
 
   if (createError) throw createError;
 
-  return { householdId: createdHousehold.id, action: "created_household" };
+  const typedCreatedHousehold = createdHousehold as HouseholdIdRow;
+  return { householdId: typedCreatedHousehold.id, action: "created_household" };
 }
 
 async function repairSaleIntegrity(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   sale: SaleRow,
   issue: IssueSummary,
 ): Promise<Record<string, unknown>> {
@@ -846,7 +868,9 @@ async function repairSaleIntegrity(
               .maybeSingle();
             if (conflictSaleError) throw conflictSaleError;
 
-            if (!conflictSale) {
+            const typedConflictSale = conflictSale as SaleRow | null;
+
+            if (!typedConflictSale) {
               const { error: relinkDanglingError } = await admin
                 .from("lqs_sales")
                 .update({
@@ -861,32 +885,32 @@ async function repairSaleIntegrity(
               const { data: conflictPolicies, error: conflictPoliciesError } = await admin
                 .from("sale_policies")
                 .select("id, sale_id, policy_type_name, policy_number, total_items, total_premium")
-                .eq("sale_id", conflictSale.id);
+                .eq("sale_id", typedConflictSale.id);
               if (conflictPoliciesError) throw conflictPoliciesError;
 
               const existingPolicies = (conflictPolicies || []) as SalePolicyDetailRow[];
               if (
-                conflictSale.source === "lqs_import" &&
+                typedConflictSale.source === "lqs_import" &&
                 isExactDuplicateSale(
                   sale,
                   policies,
-                  conflictSale as SaleRow,
+                  typedConflictSale,
                   existingPolicies,
                 )
               ) {
-                const canonicalSaleId = conflictSale.id;
+                const canonicalSaleId = typedConflictSale.id;
 
                 const saleUpdate: Record<string, unknown> = {};
-                if (!conflictSale.customer_email && sale.customer_email) {
+                if (!typedConflictSale.customer_email && sale.customer_email) {
                   saleUpdate.customer_email = sale.customer_email;
                 }
-                if (!conflictSale.customer_phone && sale.customer_phone) {
+                if (!typedConflictSale.customer_phone && sale.customer_phone) {
                   saleUpdate.customer_phone = sale.customer_phone;
                 }
-                if (!conflictSale.contact_id && sale.contact_id) {
+                if (!typedConflictSale.contact_id && sale.contact_id) {
                   saleUpdate.contact_id = sale.contact_id;
                 }
-                if (!conflictSale.lead_source_id && sale.lead_source_id) {
+                if (!typedConflictSale.lead_source_id && sale.lead_source_id) {
                   saleUpdate.lead_source_id = sale.lead_source_id;
                 }
                 if (Object.keys(saleUpdate).length > 0) {
@@ -995,7 +1019,7 @@ async function repairSaleIntegrity(
 }
 
 async function inspectSales(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   sales: SaleRow[],
 ): Promise<Array<Record<string, unknown>>> {
   const results: Array<Record<string, unknown>> = [];
@@ -1024,7 +1048,8 @@ async function inspectSales(
 
     const householdKey = generateHouseholdKey(sale.customer_name, sale.customer_zip);
     const candidateHouseholdIds = unique([
-      ...((matchCandidates || []).map((row: { household_id?: string | null }) => row.household_id || "")),
+      ...((Array.isArray(matchCandidates) ? matchCandidates : []) as HouseholdMatchRow[])
+        .map((row) => row.household_id || ""),
     ].filter(Boolean));
 
     const { data: keyHouseholds, error: keyHouseholdsError } = await admin
@@ -1034,7 +1059,7 @@ async function inspectSales(
       .eq("household_key", householdKey);
     if (keyHouseholdsError) throw keyHouseholdsError;
 
-    keyHouseholds?.forEach((row) => candidateHouseholdIds.push(row.id));
+    (keyHouseholds as HouseholdRow[] | null)?.forEach((row) => candidateHouseholdIds.push(row.id));
 
     let candidateLqsSales: Array<Record<string, unknown>> = [];
     if (candidateHouseholdIds.length > 0) {
@@ -1052,13 +1077,13 @@ async function inspectSales(
 
     results.push({
       sale,
-      sale_policies: (salePolicies || []).map((policy) => ({
+      sale_policies: ((salePolicies || []) as SalePolicyDetailRow[]).map((policy) => ({
         ...policy,
         normalized_product_type: normalizeProductType(policy.policy_type_name),
         premium_cents: Math.round((((policy.total_premium as number | null) || 0) * 100)),
       })),
       linked_lqs_sales: linkedRows || [],
-      match_candidates: matchCandidates || [],
+      match_candidates: Array.isArray(matchCandidates) ? matchCandidates : [],
       key_households: keyHouseholds || [],
       candidate_lqs_sales: candidateLqsSales.map((row) => ({
         ...row,

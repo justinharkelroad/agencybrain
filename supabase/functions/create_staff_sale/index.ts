@@ -1,5 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  generateHouseholdKey,
+  normalizeHouseholdNamePart,
+  normalizeHouseholdZip,
+} from "../_shared/householdKey.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -59,17 +64,20 @@ interface CreateSaleRequest {
 interface ExistingPolicyLink {
   sale_id: string;
   policy_number: string | null;
-  sales: {
-    id: string;
-    source: string | null;
-    customer_name: string | null;
-    sale_date: string;
-  } | {
-    id: string;
-    source: string | null;
-    customer_name: string | null;
-    sale_date: string;
-  }[] | null;
+  sales: ExistingSaleSummary | ExistingSaleSummary[] | null;
+}
+
+interface ExistingSaleSummary {
+  id: string;
+  source: string | null;
+  customer_name: string | null;
+  sale_date: string;
+}
+
+function getExistingSaleSummary(link: ExistingPolicyLink | null | undefined): ExistingSaleSummary | null {
+  const sales = link?.sales;
+  if (!sales) return null;
+  return Array.isArray(sales) ? sales[0] ?? null : sales;
 }
 
 function normalizeProductType(productType: string): string {
@@ -242,9 +250,7 @@ serve(async (req) => {
       }
 
       const duplicate = (existingPolicyLinks as ExistingPolicyLink[] | null)?.[0];
-      const existingSale = duplicate?.sales && Array.isArray(duplicate.sales)
-        ? duplicate.sales[0]
-        : duplicate?.sales;
+      const existingSale = getExistingSaleSummary(duplicate);
 
       if (duplicate?.sale_id && existingSale) {
         return new Response(
@@ -300,10 +306,10 @@ serve(async (req) => {
     try {
       // Generate household key locally (format: LASTNAME_FIRSTNAME_ZIP)
       // This is more reliable than the RPC call and matches the DB function format
-      const cleanLastName = lastName.toUpperCase().replace(/[^A-Z]/g, '') || 'UNKNOWN';
-      const cleanFirstName = firstName.toUpperCase().replace(/[^A-Z]/g, '') || 'UNKNOWN';
-      const cleanZip = (body.customer_zip || '00000').substring(0, 5);
-      const householdKey = `${cleanLastName}_${cleanFirstName}_${cleanZip}`;
+      const cleanFirstName = normalizeHouseholdNamePart(firstName);
+      const cleanLastName = normalizeHouseholdNamePart(lastName);
+      const cleanZip = normalizeHouseholdZip(body.customer_zip);
+      const householdKey = generateHouseholdKey(firstName, lastName, body.customer_zip);
       console.log('[create_staff_sale] Generated household key:', householdKey);
 
       // Use explicitly supplied household first for quote -> sale conversion.

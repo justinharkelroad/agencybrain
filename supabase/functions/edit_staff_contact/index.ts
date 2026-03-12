@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { generateHouseholdKey } from "../_shared/householdKey.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -94,10 +95,7 @@ serve(async (req) => {
 
     let newHouseholdKey: string | undefined;
     if (nameOrZipChanged) {
-      const normLast = (newLast || "UNKNOWN").toUpperCase().replace(/[^A-Z]/g, "");
-      const normFirst = (newFirst || "UNKNOWN").toUpperCase().replace(/[^A-Z]/g, "");
-      const normZip = newZip ? newZip.substring(0, 5) : "00000";
-      newHouseholdKey = `${normLast}_${normFirst}_${normZip}`;
+      newHouseholdKey = generateHouseholdKey(newFirst, newLast, newZip);
     }
 
     // Build update payload
@@ -143,8 +141,9 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("[edit_staff_contact] Error:", error);
+    const message = error instanceof Error ? error.message : "Internal server error";
     return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
+      JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
