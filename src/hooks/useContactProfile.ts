@@ -501,7 +501,12 @@ export function useContactProfile(
       ]);
 
       // Merge activities from all sources
-      const unifiedActivities: ContactActivity[] = (activitiesResult.data || []) as ContactActivity[];
+      // Filter out module-specific activities from unified table since we fetch them directly
+      // from their source tables (with richer data like old_status/new_status).
+      // Without this filter, activities mirrored to contact_activities appear twice.
+      const directModules = new Set(['winback', 'cancel_audit', 'renewal']);
+      const unifiedActivities: ContactActivity[] = ((activitiesResult.data || []) as ContactActivity[])
+        .filter(a => !directModules.has(a.source_module));
 
       // Convert and add winback activities
       const winbackActivities: ContactActivity[] = (winbackActivitiesResult.data || []).map((wa: any) => ({

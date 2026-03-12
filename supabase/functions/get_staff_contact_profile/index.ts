@@ -302,7 +302,11 @@ serve(async (req) => {
         new_status: wa.new_status,
       }));
 
-      allActivities = [...activities, ...mappedWinbackActivities]
+      // Filter out winback activities from unified table since we fetch them directly
+      // from winback_activities (with richer data like old_status/new_status).
+      // Without this filter, mirrored activities appear twice.
+      const filteredActivities = activities.filter((a: any) => a.source_module !== 'winback');
+      allActivities = [...filteredActivities, ...mappedWinbackActivities]
         .sort((a, b) => new Date(b.activity_date || b.created_at).getTime() - new Date(a.activity_date || a.created_at).getTime());
     }
 
