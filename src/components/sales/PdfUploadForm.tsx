@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useDropzone } from "react-dropzone";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,6 +57,7 @@ import { cn, todayLocal, toLocalDate, formatPhoneNumber } from "@/lib/utils";
 import { classifyBundle, type ExistingProductFlag } from "@/lib/bundle-classifier";
 import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-products";
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
+import { isCrossSaleLeadSource } from "@/lib/lead-source-utils";
 
 interface ExtractedSaleData {
   customerName: string;
@@ -259,6 +260,12 @@ export function PdfUploadForm({
 
   // Fetch lead sources for admin mode
   const { leadSources: adminLeadSources } = useLeadSources();
+  const activeLeadSources = isStaffMode ? staffLeadSources : adminLeadSources;
+  const selectedLeadSourceName = activeLeadSources.find((source) => source.id === leadSourceId)?.name || "";
+  const requiresExistingProductsForCrossSale = useMemo(
+    () => isCrossSaleLeadSource(selectedLeadSourceName) && existingPolicyTypes.length === 0,
+    [existingPolicyTypes.length, selectedLeadSourceName],
+  );
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
@@ -479,6 +486,9 @@ export function PdfUploadForm({
       if (!customerPhone.trim()) throw new Error('Phone number is required');
       if (!customerZip.trim()) throw new Error('Zip code is required');
       if (!leadSourceId) throw new Error('Lead source is required');
+      if (requiresExistingProductsForCrossSale) {
+        throw new Error("Cross Sale requires at least one existing household product to be selected");
+      }
 
       // Validate each policy has required fields
       for (const policy of stagedPolicies) {
@@ -842,6 +852,11 @@ export function PdfUploadForm({
   const hasPolicyTypeUncertainty = policiesNeedingTypeReview.length > 0;
 
   const handleCreateSaleClick = () => {
+    if (requiresExistingProductsForCrossSale) {
+      setHasExistingPolicies(true);
+      toast.error("Cross Sale requires at least one existing household product to be selected");
+      return;
+    }
     if (hasPolicyTypeUncertainty) {
       setShowPolicyTypeReviewDialog(true);
       return;
@@ -1006,6 +1021,11 @@ export function PdfUploadForm({
               onHasExistingPoliciesChange={setHasExistingPolicies}
               onSelectedProductsChange={setExistingPolicyTypes}
             />
+            {requiresExistingProductsForCrossSale && (
+              <p className="text-sm text-destructive">
+                Cross Sale selected. Choose the customer&apos;s existing household products before saving.
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="leadSource">
@@ -1474,7 +1494,7 @@ export function PdfUploadForm({
             <Button
               onClick={() => {
                 setShowPolicyTypeReviewDialog(false);
-                createSale.mutate();
+                handleCreateSaleClick();
               }}
               disabled={createSale.isPending}
             >

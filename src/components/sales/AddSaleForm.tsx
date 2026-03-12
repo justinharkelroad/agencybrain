@@ -38,6 +38,7 @@ import { assertNoDuplicateSalePolicies } from "@/lib/salesDuplicatePolicies";
 import { getSupabaseFunctionErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
 import type { LqsSalePrefill } from "@/lib/lqs-sale-prefill";
+import { isCrossSaleLeadSource } from "@/lib/lead-source-utils";
 import {
   Dialog,
   DialogContent,
@@ -420,6 +421,9 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
 
   // Fetch lead sources
   const { leadSources, loading: leadSourcesLoading } = useLeadSources();
+  const selectedLeadSourceName = leadSources.find((source) => source.id === leadSourceId)?.name || "";
+  const requiresExistingProductsForCrossSale =
+    isCrossSaleLeadSource(selectedLeadSourceName) && existingPolicyTypes.length === 0;
 
   // Fetch brokered carriers
   const { activeCarriers: brokeredCarriers } = useBrokeredCarriers(profile?.agency_id || null);
@@ -682,6 +686,9 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
         throw new Error("Please enter a valid email address");
       }
       if (!leadSourceId) throw new Error("Lead source is required");
+      if (requiresExistingProductsForCrossSale) {
+        throw new Error("Cross Sale requires at least one existing household product to be selected");
+      }
       if (policies.length === 0) throw new Error("At least one policy is required");
 
       // Validate each policy has an effective date and at least one item
@@ -882,6 +889,11 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (requiresExistingProductsForCrossSale) {
+      setHasExistingPolicies(true);
+      toast.error("Cross Sale requires at least one existing household product to be selected");
+      return;
+    }
     saveSale.mutate();
   };
 
@@ -1017,6 +1029,11 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
                 previewBundleType={bundleInfo.bundleType}
                 previewPolicyLabel={policies.map((p) => p.policy_type_name).filter(Boolean).join(", ") || "this policy"}
               />
+              {requiresExistingProductsForCrossSale && (
+                <p className="mt-2 text-sm text-destructive">
+                  Cross Sale selected. Choose the customer&apos;s existing household products before saving.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

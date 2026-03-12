@@ -35,6 +35,7 @@ import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-produ
 import { getSupabaseFunctionErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
 import type { LqsSalePrefill } from "@/lib/lqs-sale-prefill";
+import { isCrossSaleLeadSource } from "@/lib/lead-source-utils";
 import {
   Dialog,
   DialogContent,
@@ -173,6 +174,9 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       carrierName: string;
     }>;
   } | null>(null);
+  const selectedLeadSourceName = leadSources.find((source) => source.id === leadSourceId)?.name || "";
+  const requiresExistingProductsForCrossSale =
+    isCrossSaleLeadSource(selectedLeadSourceName) && existingPolicyTypes.length === 0;
 
   // Fetch brokered carriers
   const { activeCarriers: brokeredCarriers } = useBrokeredCarriers(agencyId || null);
@@ -518,6 +522,9 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       if (!customerPhone.trim()) throw new Error("Phone number is required");
       if (!customerZip.trim()) throw new Error("Zip code is required");
       if (!leadSourceId) throw new Error("Lead source is required");
+      if (requiresExistingProductsForCrossSale) {
+        throw new Error("Cross Sale requires at least one existing household product to be selected");
+      }
       if (policies.length === 0) throw new Error("At least one policy is required");
       if (!staffSessionToken) throw new Error("Staff session required");
 
@@ -687,6 +694,11 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (requiresExistingProductsForCrossSale) {
+      setHasExistingPolicies(true);
+      toast.error("Cross Sale requires at least one existing household product to be selected");
+      return;
+    }
     saveSale.mutate();
   };
 
@@ -820,6 +832,11 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
                 previewBundleType={bundleInfo.bundleType}
                 previewPolicyLabel={policies.map((p) => p.policy_type_name).filter(Boolean).join(", ") || "this policy"}
               />
+              {requiresExistingProductsForCrossSale && (
+                <p className="mt-2 text-sm text-destructive">
+                  Cross Sale selected. Choose the customer&apos;s existing household products before saving.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
