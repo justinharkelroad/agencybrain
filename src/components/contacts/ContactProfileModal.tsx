@@ -189,7 +189,7 @@ export function ContactProfileModal({
         id: crypto.randomUUID(),
         policyTypeName: "Policy",
         policyNumber: "",
-        effectiveDate: new Date().toISOString().slice(0, 10),
+        effectiveDate: format(new Date(), 'yyyy-MM-dd'),
         carrierName: "Prior Carrier",
       },
     ];

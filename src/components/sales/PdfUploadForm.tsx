@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
 import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
+import { getSupabaseFunctionErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { 
   Upload, 
   FileText, 
@@ -52,7 +53,6 @@ import {
   Phone,
 } from "lucide-react";
 import { cn, todayLocal, toLocalDate, formatPhoneNumber } from "@/lib/utils";
-import { generateHouseholdKey } from "@/lib/lqs-quote-parser";
 import { classifyBundle, type ExistingProductFlag } from "@/lib/bundle-classifier";
 import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-products";
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
@@ -99,25 +99,6 @@ interface ProductTypeLinkedRecord {
   category: string | null;
   default_points: number | null;
   is_vc_item: boolean | null;
-}
-
-interface ExistingPolicyLink {
-  sale_id: string;
-  policy_number: string | null;
-  sales:
-    | {
-        id: string;
-        source: string | null;
-        customer_name: string | null;
-        sale_date: string;
-      }
-    | Array<{
-        id: string;
-        source: string | null;
-        customer_name: string | null;
-        sale_date: string;
-      }>
-    | null;
 }
 
 interface PolicyTypeQueryRow {
@@ -412,7 +393,7 @@ export function PdfUploadForm({
       productTypeId: matched?.id || '',
       productTypeName: matched?.name || data.productType,
       policyNumber: data.policyNumber || '',
-      effectiveDate: data.effectiveDate ? new Date(data.effectiveDate) : undefined,
+      effectiveDate: data.effectiveDate ? new Date(data.effectiveDate + 'T12:00:00') : undefined,
       premium: data.premium || 0,
       itemCount: supportsMultipleItems ? (data.itemCount || 1) : 1,
       vehicles: data.vehicles,
@@ -568,31 +549,8 @@ export function PdfUploadForm({
         };
       });
 
-      const policyNumbers = stagedPolicies
-        .map((policy) => policy.policyNumber?.trim())
-        .filter((value): value is string => !!value);
-      if (policyNumbers.length > 0) {
-        const { data: existingPolicyLinks, error: existingPolicyLinksError } = await supabase
-          .from("sale_policies")
-          .select("sale_id, policy_number, sales!inner(id, source, customer_name, sale_date, agency_id)")
-          .in("policy_number", policyNumbers)
-          .eq("sales.agency_id", effectiveAgencyId);
-
-        if (existingPolicyLinksError) throw existingPolicyLinksError;
-
-        const duplicate = (existingPolicyLinks as ExistingPolicyLink[] | null)?.[0];
-        const existingSale = duplicate?.sales && Array.isArray(duplicate.sales)
-          ? duplicate.sales[0]
-          : duplicate?.sales;
-
-        if (duplicate?.sale_id && existingSale) {
-          throw new Error(
-            `Policy ${duplicate.policy_number} already exists on sale ${duplicate.sale_id} (${existingSale.source || "unknown source"} for ${existingSale.customer_name || "Unknown customer"} on ${existingSale.sale_date}).`,
-          );
-        }
-      }
-
       const salePayload = {
+        team_member_id: producerId || undefined,
         lead_source_id: leadSourceId,
         customer_name: customerName.trim(),
         customer_email: customerEmail.trim(),
@@ -633,210 +591,16 @@ export function PdfUploadForm({
         
         return data;
       } else {
-        // Direct insert for admin
-        const { data: sale, error: saleError } = await supabase
-          .from('sales')
-          .insert({
-            agency_id: effectiveAgencyId,
-            team_member_id: producerId || null,
-            lead_source_id: leadSourceId,
-            customer_name: customerName.trim(),
-            customer_email: customerEmail.trim(),
-            customer_phone: customerPhone.trim(),
-            customer_zip: customerZip.trim(),
-            sale_date: format(saleDate, 'yyyy-MM-dd'),
-            effective_date: format(firstEffectiveDate, 'yyyy-MM-dd'),
-            total_policies: stagedPolicies.length,
-            total_items: totalItems,
-            total_premium: totalPremium,
-            total_points: totalPoints,
-            is_vc_qualifying: isVcQualifying,
-            vc_items: vcItems,
-            vc_premium: vcPremium,
-            vc_points: vcPoints,
-            is_bundle: bundleInfo.isBundle,
-            bundle_type: bundleInfo.bundleType,
-            is_one_call_close: isOneCallClose,
-            existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
-            source: 'pdf_upload',
-            source_details: {
-              filenames: stagedPolicies.map(p => p.filename),
-              extracted_at: new Date().toISOString(),
-              policy_count: stagedPolicies.length,
-            },
-            created_by: user?.id,
-          })
-          .select('id')
-          .single();
+        const { data, error } = await supabase.functions.invoke('upsert_admin_sale', {
+          body: salePayload,
+        });
 
-        if (saleError) throw saleError;
-
-        // Create policies and items for each staged policy
-        for (const policy of stagedPolicies) {
-          const pt = productTypes.find(t => t.id === policy.productTypeId)!;
-          const points = (pt.default_points || 0) * policy.itemCount;
-          const isVc = pt.is_vc_item || false;
-
-          const { data: createdPolicy, error: policyError } = await supabase
-            .from('sale_policies')
-            .insert({
-              sale_id: sale.id,
-              product_type_id: policy.productTypeId,
-              policy_type_name: pt.name,
-              policy_number: policy.policyNumber || null,
-              effective_date: format(policy.effectiveDate!, 'yyyy-MM-dd'),
-              total_items: policy.itemCount,
-              total_premium: policy.premium,
-              total_points: points,
-              is_vc_qualifying: isVc,
-            })
-            .select('id')
-            .single();
-
-          if (policyError) throw policyError;
-
-          const { error: itemError } = await supabase
-            .from('sale_items')
-            .insert({
-              sale_id: sale.id,
-              sale_policy_id: createdPolicy.id,
-              product_type_id: policy.productTypeId,
-              product_type_name: pt.name,
-              item_count: policy.itemCount,
-              premium: policy.premium,
-              points: points,
-              is_vc_qualifying: isVc,
-            });
-
-          if (itemError) throw itemError;
+        if (error) {
+          throw new Error(await getSupabaseFunctionErrorMessage(error));
         }
+        if (data?.error) throw new Error(data.error);
 
-        // Create or find unified contact so this customer appears in Contacts
-        let resolvedContactId: string | null = null;
-        if (customerName.trim()) {
-          try {
-            const nameParts = customerName.trim().split(/\s+/);
-            const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
-            const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : '';
-
-            const { data: contactId } = await supabase.rpc('find_or_create_contact', {
-              p_agency_id: effectiveAgencyId,
-              p_first_name: firstName || null,
-              p_last_name: lastName,
-              p_zip_code: customerZip.trim() || null,
-              p_phone: customerPhone.trim() || null,
-              p_email: customerEmail.trim() || null,
-            });
-
-            if (contactId) {
-              resolvedContactId = contactId;
-              await supabase
-                .from('sales')
-                .update({ contact_id: contactId })
-                .eq('id', sale.id)
-                .is('contact_id', null);
-            }
-          } catch (contactErr) {
-            console.warn('[PdfUploadForm] Failed to create contact:', contactErr);
-          }
-        }
-
-        // Guarantee dashboard -> LQS linkage for admin PDF uploads as well.
-        let createdLqsHouseholdId: string | null = null;
-        try {
-          const { data: existingLqsRows, error: existingLqsError } = await supabase
-            .from("lqs_sales")
-            .select("id")
-            .eq("source_reference_id", sale.id)
-            .limit(1);
-          if (existingLqsError) throw existingLqsError;
-
-          if (!existingLqsRows || existingLqsRows.length === 0) {
-            let householdId: string | null = null;
-
-            const { data: matches, error: matchError } = await supabase.rpc(
-              "match_sale_to_lqs_household",
-              { p_sale_id: sale.id },
-            );
-            if (matchError) throw matchError;
-            householdId = matches?.[0]?.household_id ?? null;
-
-            if (!householdId) {
-              const nameParts = customerName.trim().split(/\s+/);
-              const lastName = (nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0]) || "UNKNOWN";
-              const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
-              const householdKey = generateHouseholdKey(firstName, lastName, customerZip.trim() || null);
-              const saleDateStr = format(saleDate, "yyyy-MM-dd");
-
-              const { data: existingHousehold } = await supabase
-                .from("lqs_households")
-                .select("id")
-                .eq("agency_id", effectiveAgencyId)
-                .eq("household_key", householdKey)
-                .maybeSingle();
-
-              if (existingHousehold?.id) {
-                householdId = existingHousehold.id;
-              } else {
-                const { data: createdHousehold, error: createHouseholdError } = await supabase
-                  .from("lqs_households")
-                  .insert({
-                    agency_id: effectiveAgencyId,
-                    household_key: householdKey,
-                    first_name: firstName || "UNKNOWN",
-                    last_name: lastName,
-                    zip_code: customerZip.trim() || null,
-                    phone: customerPhone.trim() ? [customerPhone.trim()] : null,
-                    email: customerEmail.trim() || null,
-                    lead_source_id: leadSourceId || null,
-                    lead_received_date: saleDateStr,
-                    status: "lead",
-                    team_member_id: producerId || null,
-                    contact_id: resolvedContactId,
-                    needs_attention: false,
-                  })
-                  .select("id")
-                  .single();
-
-                if (createHouseholdError) throw createHouseholdError;
-                householdId = createdHousehold.id;
-                createdLqsHouseholdId = createdHousehold.id;
-              }
-            }
-
-            if (householdId) {
-              const { error: linkError } = await supabase.rpc("link_sale_to_lqs_household", {
-                p_household_id: householdId,
-                p_sale_id: sale.id,
-              });
-              if (linkError) throw linkError;
-            }
-          }
-        } catch (lqsLinkError) {
-          console.error("[PdfUploadForm] Failed to sync PDF sale to LQS:", lqsLinkError);
-          await supabase.from("sale_items").delete().eq("sale_id", sale.id);
-          await supabase.from("sale_policies").delete().eq("sale_id", sale.id);
-          await supabase.from("sales").delete().eq("id", sale.id);
-          await supabase.from("lqs_sales").delete().eq("source_reference_id", sale.id);
-          if (createdLqsHouseholdId) {
-            await supabase.from("lqs_households").delete().eq("id", createdLqsHouseholdId);
-          }
-          throw new Error("Failed to sync sale to LQS. Sale was not saved.");
-        }
-
-        // Trigger sale notification email (fire and forget)
-        if (profile?.agency_id) {
-          supabase.functions.invoke('send-sale-notification', {
-            body: {
-              sale_id: sale.id,
-              agency_id: profile.agency_id
-            }
-          }).catch(err => {
-            console.error('[PdfUploadForm] Failed to trigger sale notification:', err);
-          });
-        }
-
-        return { sale_id: sale.id };
+        return data;
       }
     },
     onSuccess: (result) => {

@@ -1,5 +1,6 @@
 import { type ComponentType, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { Link, Navigate } from 'react-router-dom';
 import {
   ArrowDownRight,
@@ -2862,7 +2863,7 @@ function SessionDialog({
   isSaving: boolean;
 }) {
   const [title, setTitle] = useState('');
-  const [sessionDate, setSessionDate] = useState(new Date().toISOString().slice(0, 10));
+  const [sessionDate, setSessionDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [nextCallDate, setNextCallDate] = useState('');
   const [summary, setSummary] = useState('');
   const [transcript, setTranscript] = useState('');
@@ -3726,7 +3727,7 @@ function HistoricalMemoryImportDialog({
     id: crypto.randomUUID(),
     sourceType: 'transcript',
     title: '',
-    entryDate: new Date().toISOString().slice(0, 10),
+    entryDate: format(new Date(), 'yyyy-MM-dd'),
     rawText: '',
     importedFileName: '',
     summary: '',
@@ -3782,7 +3783,7 @@ function HistoricalMemoryImportDialog({
   const addBlankDraft = () => {
     const next = createDraft({
       sourceType: selectedDraft?.sourceType ?? 'transcript',
-      entryDate: selectedDraft?.entryDate ?? new Date().toISOString().slice(0, 10),
+      entryDate: selectedDraft?.entryDate ?? format(new Date(), 'yyyy-MM-dd'),
     });
     setDrafts((current) => [...current, next]);
     setSelectedDraftId(next.id);
@@ -3905,7 +3906,7 @@ function HistoricalMemoryImportDialog({
             rawText: content,
             importedFileName: file.name,
             sourceType: selectedDraft?.sourceType ?? 'transcript',
-            entryDate: selectedDraft?.entryDate ?? new Date().toISOString().slice(0, 10),
+            entryDate: selectedDraft?.entryDate ?? format(new Date(), 'yyyy-MM-dd'),
           });
         })
       );
@@ -3975,7 +3976,7 @@ function HistoricalMemoryImportDialog({
       });
       const fallback = createDraft({
         sourceType: selectedDraft?.sourceType ?? 'transcript',
-        entryDate: selectedDraft?.entryDate ?? new Date().toISOString().slice(0, 10),
+        entryDate: selectedDraft?.entryDate ?? format(new Date(), 'yyyy-MM-dd'),
       });
       setDrafts([fallback]);
       setSelectedDraftId(fallback.id);
@@ -4014,7 +4015,7 @@ function HistoricalMemoryImportDialog({
       });
       const fallback = createDraft({
         sourceType: selectedDraft?.sourceType ?? 'transcript',
-        entryDate: selectedDraft?.entryDate ?? new Date().toISOString().slice(0, 10),
+        entryDate: selectedDraft?.entryDate ?? format(new Date(), 'yyyy-MM-dd'),
       });
       setDrafts([fallback]);
       setSelectedDraftId(fallback.id);

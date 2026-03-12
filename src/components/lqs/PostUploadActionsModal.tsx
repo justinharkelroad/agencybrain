@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -142,7 +143,7 @@ export function PostUploadActionsModal({
     id: `upload-${currentIndex}-${idx}`,
     policyTypeName: p.productType,
     policyNumber: p.policyNumber || '',
-    effectiveDate: new Date().toISOString().slice(0, 10),
+    effectiveDate: format(new Date(), 'yyyy-MM-dd'),
     carrierName: '',
   })) ?? [];
 
