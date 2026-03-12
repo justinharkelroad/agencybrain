@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -41,6 +41,14 @@ import type { Contact } from '@/types/contact';
 
 type ActionType = 'call' | 'text' | 'email' | 'other';
 
+export interface ScheduleTaskDialogContact {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phones: string[];
+  emails: string[];
+}
+
 const ACTION_LABELS: Record<ActionType, string> = {
   call: 'Call',
   text: 'Text',
@@ -59,6 +67,11 @@ interface ScheduleTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   agencyId: string | null;
+  initialContact?: ScheduleTaskDialogContact | null;
+  lockContact?: boolean;
+  defaultActionType?: ActionType;
+  defaultTitle?: string;
+  defaultDescription?: string;
   onSchedule: (data: {
     contactId: string;
     contactName: string;
@@ -73,36 +86,66 @@ export function ScheduleTaskDialog({
   open,
   onOpenChange,
   agencyId,
+  initialContact = null,
+  lockContact = false,
+  defaultActionType = 'call',
+  defaultTitle = '',
+  defaultDescription = '',
   onSchedule,
 }: ScheduleTaskDialogProps) {
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [selectedContact, setSelectedContact] = useState<ScheduleTaskDialogContact | null>(initialContact);
   const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
-  const [actionType, setActionType] = useState<ActionType>('call');
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [actionType, setActionType] = useState<ActionType>(defaultActionType);
+  const [title, setTitle] = useState(defaultTitle);
+  const [description, setDescription] = useState(defaultDescription);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const canSubmit = selectedContact && dueDate && title.trim().length > 0;
+
+  const buildDefaultTitle = (type: ActionType) => defaultTitle || `${ACTION_LABELS[type]} follow-up`;
+
+  const toDialogContact = (contact: Contact): ScheduleTaskDialogContact => ({
+    id: contact.id,
+    firstName: contact.first_name || '',
+    lastName: contact.last_name || '',
+    phones: contact.phones || [],
+    emails: contact.emails || [],
+  });
+
+  const resetForm = useCallback(() => {
+    setSelectedContact(initialContact);
+    setDueDate(undefined);
+    setActionType(defaultActionType);
+    setTitle(defaultTitle);
+    setDescription(defaultDescription);
+    setCalendarOpen(false);
+    setSubmitError(null);
+  }, [initialContact, defaultActionType, defaultTitle, defaultDescription]);
+
+  useEffect(() => {
+    if (open) {
+      resetForm();
+    }
+  }, [open, resetForm]);
 
   const handleQuickDate = (days: number) => {
     const date = addDays(new Date(), days);
     setDueDate(date);
     // Auto-generate title if empty
     if (!title) {
-      setTitle(`${ACTION_LABELS[actionType]} follow-up`);
+      setTitle(buildDefaultTitle(actionType));
     }
   };
 
   const handleContactSelect = (contact: Contact) => {
-    setSelectedContact(contact);
+    setSelectedContact(toDialogContact(contact));
     // Auto-generate title if empty
     if (!title) {
-      setTitle(`${ACTION_LABELS[actionType]} follow-up`);
+      setTitle(buildDefaultTitle(actionType));
     }
   };
-
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (!canSubmit || isSubmitting || !selectedContact || !dueDate) return;
@@ -110,7 +153,7 @@ export function ScheduleTaskDialog({
     setIsSubmitting(true);
     setSubmitError(null);
     try {
-      const contactName = `${selectedContact.first_name || ''} ${selectedContact.last_name || ''}`.trim() || 'Unknown';
+      const contactName = `${selectedContact.firstName || ''} ${selectedContact.lastName || ''}`.trim() || 'Unknown';
       await onSchedule({
         contactId: selectedContact.id,
         contactName,
@@ -131,21 +174,20 @@ export function ScheduleTaskDialog({
     }
   };
 
-  const resetForm = () => {
-    setSelectedContact(null);
-    setDueDate(undefined);
-    setActionType('call');
-    setTitle('');
-    setDescription('');
-  };
-
   const handleCancel = () => {
     resetForm();
     onOpenChange(false);
   };
 
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      resetForm();
+    }
+    onOpenChange(nextOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Schedule a Task</DialogTitle>
@@ -165,7 +207,7 @@ export function ScheduleTaskDialog({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-sm">
-                    {selectedContact.first_name} {selectedContact.last_name}
+                    {selectedContact.firstName} {selectedContact.lastName}
                   </div>
                   {selectedContact.phones[0] && (
                     <div className="text-xs text-muted-foreground">
@@ -173,14 +215,16 @@ export function ScheduleTaskDialog({
                     </div>
                   )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => setSelectedContact(null)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                {!lockContact && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setSelectedContact(null)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             ) : (
               <ContactSearchInput
@@ -235,7 +279,7 @@ export function ScheduleTaskDialog({
                       setDueDate(date);
                       setCalendarOpen(false);
                       if (date && !title) {
-                        setTitle(`${ACTION_LABELS[actionType]} follow-up`);
+                        setTitle(buildDefaultTitle(actionType));
                       }
                     }}
                     disabled={(date) =>
@@ -255,8 +299,12 @@ export function ScheduleTaskDialog({
               value={actionType}
               onValueChange={(value: ActionType) => {
                 setActionType(value);
-                if (title.endsWith('follow-up') || title === '') {
-                  setTitle(`${ACTION_LABELS[value]} follow-up`);
+                if (
+                  title === '' ||
+                  title === buildDefaultTitle(actionType) ||
+                  title.endsWith('follow-up')
+                ) {
+                  setTitle(buildDefaultTitle(value));
                 }
               }}
             >

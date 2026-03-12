@@ -889,6 +889,7 @@ export default function WinbackHQ() {
         teamMembers={teamMembers}
         currentUserTeamMemberId={currentUserTeamMemberId}
         agencyId={agencyId}
+        staffSessionToken={location.pathname.startsWith('/staff') ? staffSessionToken || null : null}
         onUpdate={handleModalUpdate}
       />
 

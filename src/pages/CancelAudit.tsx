@@ -1115,6 +1115,7 @@ const CancelAuditPage = () => {
                         agencyId={agencyId!}
                         userId={userId || undefined}
                         staffMemberId={staffMemberId || undefined}
+                        staffSessionToken={location.pathname.startsWith('/staff') ? staffSessionToken || null : null}
                         userDisplayName={displayName}
                         teamMembers={teamMembers}
                         onViewProfile={record.contact_id ? () => handleViewProfile(record.contact_id!, { id: record.id, household_key: record.household_key }) : undefined}

@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import { isStaffModeEnabled } from "@/lib/sessionMode";
 
 const SUPABASE_URL = "https://wjqyccbytctqwceuhzhk.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndqcXljY2J5dGN0cXdjZXVoemhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjQwODEsImV4cCI6MjA2OTg0MDA4MX0.GN9SjnDf3jwFTzsO_83ZYe4iqbkRQJutGZJtapq6-Tw";
@@ -23,7 +24,9 @@ export type AuthPreference = 'staff' | 'supabase' | 'auto';
  *   - 'auto': Use staff token only if no Supabase session (default, legacy behavior)
  */
 export async function getAuthContext(prefer: AuthPreference = 'auto'): Promise<StaffRequestContext> {
-  const staffToken = localStorage.getItem("staff_session_token");
+  const staffToken = isStaffModeEnabled()
+    ? localStorage.getItem("staff_session_token")
+    : null;
   const { data: { session: supabaseSession } } = await supabase.auth.getSession();
   
   // Staff preference: ALWAYS use staff token if it exists
@@ -101,7 +104,7 @@ export async function fetchWithAuth(
   options: {
     method?: "GET" | "POST" | "PUT" | "DELETE";
     prefer?: AuthPreference;
-    body?: Record<string, any>;
+    body?: Record<string, unknown>;
     queryParams?: Record<string, string>;
   } = {}
 ): Promise<Response> {
@@ -135,13 +138,16 @@ export async function fetchWithAuth(
  * Check if user has a valid staff session token.
  */
 export function hasStaffToken(): boolean {
-  return !!localStorage.getItem("staff_session_token");
+  return isStaffModeEnabled();
 }
 
 /**
  * Get the staff session token if it exists.
  */
 export function getStaffToken(): string | null {
+  if (!isStaffModeEnabled()) {
+    return null;
+  }
   return localStorage.getItem("staff_session_token");
 }
 
@@ -151,7 +157,7 @@ export function getStaffToken(): string | null {
  * Rate limited to once every 30 minutes.
  */
 export async function maybeRefreshSession(): Promise<void> {
-  const staffToken = localStorage.getItem("staff_session_token");
+  const staffToken = getStaffToken();
   if (!staffToken) return;
 
   // Check cooldown

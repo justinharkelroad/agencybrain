@@ -14,8 +14,10 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { sendRenewalToWinback } from '@/lib/sendToWinback';
 import type { RenewalRecord, WorkflowStatus, RenewalUploadContext } from '@/types/renewal';
+import { ScheduleTaskDialog, type ScheduleTaskDialogContact } from '@/components/onboarding/ScheduleTaskDialog';
+import { useScheduleAdhocTask } from '@/hooks/useScheduleAdhocTask';
 
-interface Props { record: RenewalRecord | null; open: boolean; onClose: () => void; context: RenewalUploadContext; teamMembers: Array<{ id: string; name: string }>; }
+interface Props { record: RenewalRecord | null; open: boolean; onClose: () => void; context: RenewalUploadContext | null; teamMembers: Array<{ id: string; name: string }>; staffSessionToken?: string | null; }
 
 const STATUS_COLORS: Record<WorkflowStatus, string> = {
   uncontacted: 'bg-slate-600 text-slate-100',
@@ -35,8 +37,9 @@ const activityStyles: Record<string, { icon: LucideIcon; color: string; label: s
   note: { icon: FileText, color: 'text-gray-600 dark:text-gray-400 border-gray-500/50 dark:border-gray-500/30 bg-gray-500/15', label: 'Note' },
 };
 
-export function RenewalDetailDrawer({ record, open, onClose, context, teamMembers }: Props) {
+export function RenewalDetailDrawer({ record, open, onClose, context, teamMembers, staffSessionToken }: Props) {
   const [showActivityModal, setShowActivityModal] = useState(false);
+  const [showScheduleTaskDialog, setShowScheduleTaskDialog] = useState(false);
   const [noteText, setNoteText] = useState('');
   const [sendingToWinback, setSendingToWinback] = useState(false);
   // Local state for optimistic UI updates
@@ -45,6 +48,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
   const { data: activities = [] } = useRenewalActivities(record?.id || null);
   const updateRecord = useUpdateRenewalRecord();
   const createActivity = useCreateRenewalActivity();
+  const scheduleTask = useScheduleAdhocTask({ staffSessionToken });
   const queryClient = useQueryClient();
 
   // Sync local state when record changes (e.g., drawer reopened with different record)
@@ -52,6 +56,16 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
     setLocalAssignment(record?.assigned_team_member_id || null);
     setLocalStatus(record?.current_status || 'uncontacted');
   }, [record?.id, record?.assigned_team_member_id, record?.current_status]);
+
+  useEffect(() => {
+    if (!open) {
+      setShowScheduleTaskDialog(false);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    setShowScheduleTaskDialog(false);
+  }, [record?.id]);
 
   // Listen for sidebar navigation to force close drawer
   useEffect(() => {
@@ -64,7 +78,7 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
     return () => window.removeEventListener('sidebar-navigation', handleNavigation);
   }, [open, onClose]);
 
-  if (!record) return null;
+  if (!record || !context) return null;
 
   const handleStatusChange = (s: WorkflowStatus) => { 
     setLocalStatus(s); // Optimistic UI update
@@ -120,6 +134,34 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
     } finally {
       setSendingToWinback(false);
     }
+  };
+
+  const taskContact: ScheduleTaskDialogContact | null = record.contact_id
+    ? {
+        id: record.contact_id,
+        firstName: record.first_name || '',
+        lastName: record.last_name || '',
+        phones: [record.phone, record.phone_alt].filter(Boolean) as string[],
+        emails: [record.email].filter(Boolean) as string[],
+      }
+    : null;
+
+  const handleScheduleTask = async (data: {
+    contactId: string;
+    contactName: string;
+    dueDate: string;
+    actionType: 'call' | 'text' | 'email' | 'other';
+    title: string;
+    description?: string;
+  }) => {
+    await scheduleTask.mutateAsync({
+      contactId: data.contactId,
+      dueDate: data.dueDate,
+      actionType: data.actionType,
+      title: data.title,
+      description: data.description,
+    });
+    toast.success(`Task scheduled for ${data.contactName}`);
   };
 
   return (
@@ -238,6 +280,15 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
               <div className="flex flex-wrap gap-2">
                 <Button onClick={() => setShowActivityModal(true)} size="sm" className="bg-blue-600 hover:bg-blue-700 min-h-[44px] px-4">
                   <Calendar className="h-4 w-4 mr-2" />Log Activity
+                </Button>
+                <Button
+                  onClick={() => setShowScheduleTaskDialog(true)}
+                  size="sm"
+                  variant="outline"
+                  className="min-h-[44px] px-4"
+                  disabled={scheduleTask.isPending}
+                >
+                  <Calendar className="h-4 w-4 mr-2" />Schedule Task
                 </Button>
                 <Select value={localStatus} onValueChange={handleStatusChange}>
                   <SelectTrigger className="w-[140px] bg-muted dark:bg-[#0d1117] border-border dark:border-gray-700">
@@ -389,6 +440,15 @@ export function RenewalDetailDrawer({ record, open, onClose, context, teamMember
           </div>
         </SheetContent>
       </Sheet>
+      <ScheduleTaskDialog
+        open={showScheduleTaskDialog}
+        onOpenChange={setShowScheduleTaskDialog}
+        agencyId={context.agencyId}
+        initialContact={taskContact}
+        lockContact={!!taskContact}
+        defaultTitle="Renewal follow-up"
+        onSchedule={handleScheduleTask}
+      />
       <ScheduleActivityModal open={showActivityModal} onClose={() => setShowActivityModal(false)} record={record} context={context} teamMembers={teamMembers} />
     </>
   );

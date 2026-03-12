@@ -31,6 +31,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
 import { MoveToQuotedDialog, type QuotedProduct } from '@/components/lqs/MoveToQuotedDialog';
 import { useQueryClient } from '@tanstack/react-query';
+import { ScheduleTaskDialog, type ScheduleTaskDialogContact } from '@/components/onboarding/ScheduleTaskDialog';
+import { useScheduleAdhocTask } from '@/hooks/useScheduleAdhocTask';
 
 interface Policy {
   id: string;
@@ -77,6 +79,7 @@ interface WinbackHouseholdModalProps {
   teamMembers: TeamMember[];
   currentUserTeamMemberId: string | null;
   agencyId: string | null;
+  staffSessionToken?: string | null;
   onUpdate: () => void;
   contactDaysBefore?: number;
 }
@@ -107,6 +110,7 @@ export function WinbackHouseholdModal({
   teamMembers,
   currentUserTeamMemberId,
   agencyId,
+  staffSessionToken,
   onUpdate,
   contactDaysBefore = 45,
 }: WinbackHouseholdModalProps) {
@@ -120,6 +124,8 @@ export function WinbackHouseholdModal({
   const [pendingQuotedNotes, setPendingQuotedNotes] = useState('');
   const [assignedTo, setAssignedTo] = useState<string>('unassigned');
   const [localStatus, setLocalStatus] = useState<Household['status']>('untouched');
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const scheduleTask = useScheduleAdhocTask({ staffSessionToken });
 
   // Won Back sale dialog state
   const [wonBackDialogOpen, setWonBackDialogOpen] = useState(false);
@@ -127,7 +133,13 @@ export function WinbackHouseholdModal({
   const [wonBackSaving, setWonBackSaving] = useState(false);
 
   useEffect(() => {
-    if (open && household) {
+    if (!open) {
+      setScheduleDialogOpen(false);
+      return;
+    }
+
+    if (household) {
+      setScheduleDialogOpen(false);
       setAssignedTo(household.assigned_to || 'unassigned');
       setLocalStatus(household.status);
       fetchHouseholdDetails(household.id);
@@ -581,6 +593,33 @@ export function WinbackHouseholdModal({
   const today = startOfDay(new Date());
   const fullName = `${household.first_name || ''} ${household.last_name || ''}`.trim();
   const zipCode = household.zip_code?.substring(0, 5);
+  const taskContact: ScheduleTaskDialogContact | null = household.contact_id
+    ? {
+        id: household.contact_id,
+        firstName: household.first_name || '',
+        lastName: household.last_name || '',
+        phones: [household.phone].filter(Boolean) as string[],
+        emails: [household.email].filter(Boolean) as string[],
+      }
+    : null;
+
+  const handleScheduleTask = async (data: {
+    contactId: string;
+    contactName: string;
+    dueDate: string;
+    actionType: 'call' | 'text' | 'email' | 'other';
+    title: string;
+    description?: string;
+  }) => {
+    await scheduleTask.mutateAsync({
+      contactId: data.contactId,
+      dueDate: data.dueDate,
+      actionType: data.actionType,
+      title: data.title,
+      description: data.description,
+    });
+    toast.success(`Task scheduled for ${data.contactName}`);
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -791,6 +830,15 @@ export function WinbackHouseholdModal({
                   Restore
                 </Button>
               )}
+
+              <Button
+                variant="outline"
+                onClick={() => setScheduleDialogOpen(true)}
+                disabled={scheduleTask.isPending || !agencyId}
+              >
+                <Calendar className="h-4 w-4 mr-2" />
+                Schedule Task
+              </Button>
             </div>
             
             {localStatus !== 'won_back' && (
@@ -820,6 +868,18 @@ export function WinbackHouseholdModal({
           </div>
         </div>
       </DialogContent>
+
+      {agencyId && (
+        <ScheduleTaskDialog
+          open={scheduleDialogOpen}
+          onOpenChange={setScheduleDialogOpen}
+          agencyId={agencyId}
+          initialContact={taskContact}
+          lockContact={!!taskContact}
+          defaultTitle="Winback follow-up"
+          onSchedule={handleScheduleTask}
+        />
+      )}
 
       {agencyId && (
         <MoveToQuotedDialog

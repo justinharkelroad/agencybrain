@@ -1317,7 +1317,7 @@ export default function Renewals() {
         />
       </Card>
       <RenewalUploadModal open={showUploadModal} onClose={() => setShowUploadModal(false)} context={context} />
-      <RenewalDetailDrawer record={selectedRecord} open={!!selectedRecord} onClose={() => setSelectedRecord(null)} context={context} teamMembers={teamMembers} />
+      <RenewalDetailDrawer record={selectedRecord} open={!!selectedRecord} onClose={() => setSelectedRecord(null)} context={context} teamMembers={teamMembers} staffSessionToken={location.pathname.startsWith('/staff') ? staffSessionToken || null : null} />
       
       {/* Quick Activity Modal */}
       {quickActivityRecord && quickActivityType && (

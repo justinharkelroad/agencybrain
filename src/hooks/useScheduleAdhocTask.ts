@@ -83,6 +83,8 @@ export function useScheduleAdhocTask(options: UseScheduleAdhocTaskOptions = {}) 
       queryClient.invalidateQueries({ queryKey: ['staff-onboarding-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['staff-overdue-task-count'] });
       queryClient.invalidateQueries({ queryKey: ['onboarding-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['onboarding-tasks-today'] });
+      queryClient.invalidateQueries({ queryKey: ['contact-sequence-progress'] });
     },
   });
 }

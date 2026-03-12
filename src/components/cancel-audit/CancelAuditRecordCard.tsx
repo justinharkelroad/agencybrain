@@ -1,7 +1,8 @@
 import { ChevronDown, Phone, Mail, User, FileText, Calendar, DollarSign, MessageSquare, Users, UserCircle, Copy, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { RecordWithActivityCount } from '@/hooks/useCancelAuditRecords';
@@ -22,6 +23,9 @@ import {
   formatPhone
 } from '@/lib/cancel-audit-utils';
 import { formatDistanceToNow } from 'date-fns';
+import { ScheduleTaskDialog, type ScheduleTaskDialogContact } from '@/components/onboarding/ScheduleTaskDialog';
+import { useScheduleAdhocTask } from '@/hooks/useScheduleAdhocTask';
+import { toast } from 'sonner';
 
 const STATUS_STYLES: Record<RecordStatus, string> = {
   new: 'bg-gray-500/15 text-gray-600 dark:text-gray-400 border-gray-500/50 dark:border-gray-500/30',
@@ -44,6 +48,7 @@ interface CancelAuditRecordCardProps {
   agencyId: string;
   userId?: string;
   staffMemberId?: string;
+  staffSessionToken?: string | null;
   userDisplayName: string;
   teamMembers: Array<{ id: string; name: string }>;
   onViewProfile?: () => void;
@@ -56,11 +61,24 @@ export function CancelAuditRecordCard({
   agencyId,
   userId,
   staffMemberId,
+  staffSessionToken,
   userDisplayName,
   teamMembers,
   onViewProfile,
 }: CancelAuditRecordCardProps) {
   const [copiedPolicy, setCopiedPolicy] = useState(false);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+  const scheduleTask = useScheduleAdhocTask({ staffSessionToken });
+
+  useEffect(() => {
+    if (!isExpanded) {
+      setScheduleDialogOpen(false);
+    }
+  }, [isExpanded]);
+
+  useEffect(() => {
+    setScheduleDialogOpen(false);
+  }, [record.id]);
 
   const handleCopyPolicy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -83,6 +101,33 @@ export function CancelAuditRecordCard({
   );
 
   const isInactive = !record.is_active;
+  const taskContact: ScheduleTaskDialogContact | null = record.contact_id
+    ? {
+        id: record.contact_id,
+        firstName: record.insured_first_name || '',
+        lastName: record.insured_last_name || '',
+        phones: [record.insured_phone, record.insured_phone_alt].filter(Boolean) as string[],
+        emails: [record.insured_email].filter(Boolean) as string[],
+      }
+    : null;
+
+  const handleScheduleTask = async (data: {
+    contactId: string;
+    contactName: string;
+    dueDate: string;
+    actionType: 'call' | 'text' | 'email' | 'other';
+    title: string;
+    description?: string;
+  }) => {
+    await scheduleTask.mutateAsync({
+      contactId: data.contactId,
+      dueDate: data.dueDate,
+      actionType: data.actionType,
+      title: data.title,
+      description: data.description,
+    });
+    toast.success(`Task scheduled for ${data.contactName}`);
+  };
 
   return (
     <Card
@@ -390,6 +435,17 @@ export function CancelAuditRecordCard({
               <StatusDropdown recordId={record.id} currentStatus={record.status} record={record} />
             </div>
 
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setScheduleDialogOpen(true)}
+              disabled={scheduleTask.isPending}
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Schedule Task
+            </Button>
+
             <div className="flex items-center gap-3">
               <span className="text-sm text-muted-foreground flex items-center gap-1">
                 <UserCircle className="h-4 w-4" />
@@ -462,6 +518,16 @@ export function CancelAuditRecordCard({
               currentRecordId={record.id}
             />
           </div>
+
+          <ScheduleTaskDialog
+            open={scheduleDialogOpen}
+            onOpenChange={setScheduleDialogOpen}
+            agencyId={agencyId}
+            initialContact={taskContact}
+            lockContact={!!taskContact}
+            defaultTitle="Cancel audit follow-up"
+            onSchedule={handleScheduleTask}
+          />
         </div>
       )}
     </Card>

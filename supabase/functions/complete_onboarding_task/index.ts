@@ -118,24 +118,29 @@ serve(async (req) => {
       );
     }
 
-    // Check if all tasks in the instance are now completed
-    const { data: remainingTasks, error: remainingError } = await supabase
-      .from('onboarding_tasks')
-      .select('id')
-      .eq('instance_id', task.instance_id)
-      .neq('status', 'completed');
+    let instanceCompleted = false;
 
-    if (!remainingError && remainingTasks && remainingTasks.length === 0) {
-      // All tasks completed - update instance status
-      await supabase
-        .from('onboarding_instances')
-        .update({
-          status: 'completed',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', task.instance_id);
+    // Adhoc tasks have no instance; skip instance rollup logic.
+    if (task.instance_id) {
+      const { data: remainingTasks, error: remainingError } = await supabase
+        .from('onboarding_tasks')
+        .select('id')
+        .eq('instance_id', task.instance_id)
+        .neq('status', 'completed');
 
-      console.log(`[complete_onboarding_task] Instance ${task.instance_id} completed - all tasks done`);
+      if (!remainingError && remainingTasks && remainingTasks.length === 0) {
+        // All tasks completed - update instance status
+        await supabase
+          .from('onboarding_instances')
+          .update({
+            status: 'completed',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', task.instance_id);
+
+        instanceCompleted = true;
+        console.log(`[complete_onboarding_task] Instance ${task.instance_id} completed - all tasks done`);
+      }
     }
 
     console.log(`[complete_onboarding_task] Task ${task_id} completed by user ${user.id}`);
@@ -144,7 +149,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         task_id: task_id,
-        instance_completed: remainingTasks?.length === 0,
+        instance_completed: instanceCompleted,
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
