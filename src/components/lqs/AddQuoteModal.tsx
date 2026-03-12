@@ -19,16 +19,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Plus, Trash2, Building } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Plus, Trash2, Building, Building2 } from 'lucide-react';
 import { formatPhoneNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LqsLeadSource } from '@/hooks/useLqsData';
 import { LqsObjection } from '@/hooks/useLqsObjections';
 import { usePriorInsuranceCompanies } from '@/hooks/usePriorInsuranceCompanies';
+import { useBrokeredCarriers } from '@/hooks/useBrokeredCarriers';
+import { useBrokeredCarrierPolicyTypes } from '@/hooks/useBrokeredCarrierPolicyTypes';
 import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';
 import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
+import { generateHouseholdKey } from '@/lib/household-key';
 import { format } from 'date-fns';
+
 interface AddQuoteModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,6 +46,7 @@ interface AddQuoteModalProps {
   onSuccess: () => void;
   staffSessionToken?: string | null;
   staffPriorInsuranceCompanies?: { id: string; name: string }[];
+  staffBrokeredCarriers?: { id: string; name: string }[];
 }
 
 interface NewHouseholdData {
@@ -70,6 +77,8 @@ interface ProductEntry {
   productType: string;
   premium: string;
   items: string;
+  isBrokered: boolean;
+  brokeredCarrierId: string;
 }
 
 export function AddQuoteModal({
@@ -83,11 +92,21 @@ export function AddQuoteModal({
   onSuccess,
   staffSessionToken,
   staffPriorInsuranceCompanies,
+  staffBrokeredCarriers,
 }: AddQuoteModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   // In staff context, RLS blocks direct queries — use prop data from parent instead
   const { activeCompanies: hookCompanies } = usePriorInsuranceCompanies(staffSessionToken ? null : agencyId);
   const priorInsuranceCompanies = staffSessionToken ? (staffPriorInsuranceCompanies ?? []) : hookCompanies;
+
+  // Brokered carriers — public SELECT RLS allows hooks to query in any context,
+  // but use props in staff context for consistency with prior insurance pattern
+  const { activeCarriers: hookCarriers } = useBrokeredCarriers(staffSessionToken ? null : agencyId);
+  const brokeredCarriers = staffSessionToken ? (staffBrokeredCarriers ?? []) : hookCarriers;
+
+  // Policy types can query directly (public SELECT RLS)
+  const { getActiveTypesForCarrier } = useBrokeredCarrierPolicyTypes(agencyId);
+  const [customBrokeredInput, setCustomBrokeredInput] = useState<Record<number, boolean>>({});
 
   // Fetch active policy types from agency settings
   const { data: dbPolicyTypeNames } = useQuery<string[]>({
@@ -115,7 +134,7 @@ export function AddQuoteModal({
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [zipCode, setZipCode] = useState('');
-  const [products, setProducts] = useState<ProductEntry[]>([{ productType: '', premium: '', items: '1' }]);
+  const [products, setProducts] = useState<ProductEntry[]>([{ productType: '', premium: '', items: '1', isBrokered: false, brokeredCarrierId: '' }]);
   const [quoteDate, setQuoteDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [teamMemberId, setTeamMemberId] = useState(currentTeamMemberId || '');
   const [leadSourceId, setLeadSourceId] = useState('');
@@ -133,7 +152,7 @@ export function AddQuoteModal({
     setFirstName('');
     setLastName('');
     setZipCode('');
-    setProducts([{ productType: '', premium: '', items: '1' }]);
+    setProducts([{ productType: '', premium: '', items: '1', isBrokered: false, brokeredCarrierId: '' }]);
     setQuoteDate(format(new Date(), 'yyyy-MM-dd'));
     setTeamMemberId(currentTeamMemberId || '');
     setLeadSourceId('');
@@ -142,10 +161,11 @@ export function AddQuoteModal({
     setPhone('');
     setEmail('');
     setNotes('');
+    setCustomBrokeredInput({});
   };
 
   const addProduct = () => {
-    setProducts([...products, { productType: '', premium: '', items: '1' }]);
+    setProducts([...products, { productType: '', premium: '', items: '1', isBrokered: false, brokeredCarrierId: '' }]);
   };
 
   const removeProduct = (index: number) => {
@@ -154,9 +174,9 @@ export function AddQuoteModal({
     }
   };
 
-  const updateProduct = (index: number, field: keyof ProductEntry, value: string) => {
+  const updateProduct = (index: number, field: keyof ProductEntry, value: string | boolean) => {
     const updated = [...products];
-    updated[index][field] = value;
+    (updated[index] as any)[field] = value;
     setProducts(updated);
   };
 
@@ -174,11 +194,20 @@ export function AddQuoteModal({
       toast.error('Valid 5-digit ZIP code is required');
       return;
     }
-    
+
     // Validate all products
     for (let i = 0; i < products.length; i++) {
       const p = products[i];
-      if (!p.productType) {
+      if (p.isBrokered) {
+        if (!p.brokeredCarrierId) {
+          toast.error(`Brokered carrier is required for product ${i + 1}`);
+          return;
+        }
+        if (!p.productType) {
+          toast.error(`Policy type is required for product ${i + 1}`);
+          return;
+        }
+      } else if (!p.productType) {
         toast.error(`Product type is required for product ${i + 1}`);
         return;
       }
@@ -187,7 +216,7 @@ export function AddQuoteModal({
         return;
       }
     }
-    
+
     if (!quoteDate) {
       toast.error('Quote date is required');
       return;
@@ -219,7 +248,10 @@ export function AddQuoteModal({
             prior_insurance_company_id: priorInsuranceCompanyId || undefined,
             quote_date: quoteDate,
             notes: notes || undefined,
-            products: products,
+            products: products.map(p => ({
+              ...p,
+              brokered_carrier_id: p.isBrokered ? p.brokeredCarrierId : null,
+            })),
           },
         });
 
@@ -255,7 +287,7 @@ export function AddQuoteModal({
 
       // AUTHENTICATED USER PATH: Direct Supabase insert
       // Generate household key
-      const householdKey = `${lastName.trim().toUpperCase()}_${firstName.trim().toUpperCase()}_${zipCode.trim()}`;
+      const householdKey = generateHouseholdKey(firstName, lastName, zipCode);
 
       // Find or create household
       const { data: existingHousehold } = await supabase
@@ -335,6 +367,7 @@ export function AddQuoteModal({
         team_member_id: teamMemberId || null,
         items_quoted: parseInt(p.items, 10) || 1,
         source: 'manual' as const,
+        brokered_carrier_id: p.isBrokered ? p.brokeredCarrierId : null,
       }));
 
       const { error: quoteError } = await supabase
@@ -388,6 +421,9 @@ export function AddQuoteModal({
     acc[bucketName].push(source);
     return acc;
   }, {} as Record<string, LqsLeadSource[]>);
+
+  // Whether any brokered carriers are available
+  const hasBrokeredCarriers = brokeredCarriers.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -445,73 +481,230 @@ export function AddQuoteModal({
             <Label>
               Products <span className="text-destructive">*</span>
             </Label>
-            
-            {/* Column Headers */}
-            <div className="flex gap-2 items-center text-xs text-muted-foreground">
-              <div className="flex-1">Product Type</div>
-              <div className="w-28 text-center">Premium</div>
-              <div className="w-16 text-center"># Items</div>
-              {products.length > 1 && <div className="w-10" />}
-            </div>
-            
+
             {products.map((product, index) => (
-              <div key={index} className="flex gap-2 items-start">
-                <div className="flex-1">
-                  <Select 
-                    value={product.productType} 
-                    onValueChange={(value) => updateProduct(index, 'productType', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select product..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-background z-50">
-                      {productOptions.map((p) => (
-                        <SelectItem key={p} value={p}>
-                          {p}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="w-28">
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={product.premium}
-                      onChange={(e) => updateProduct(index, 'premium', e.target.value)}
-                      placeholder="0.00"
-                      className="pl-7"
-                    />
+              <div key={index} className="border rounded-lg p-3 space-y-3">
+                {/* Brokered toggle - only show when carriers are available */}
+                {hasBrokeredCarriers && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        id={`brokered-${index}`}
+                        checked={product.isBrokered}
+                        onCheckedChange={(checked) => {
+                          const updated = [...products];
+                          updated[index] = {
+                            ...updated[index],
+                            isBrokered: checked,
+                            productType: '',
+                            brokeredCarrierId: '',
+                          };
+                          setProducts(updated);
+                          setCustomBrokeredInput((prev) => ({ ...prev, [index]: false }));
+                        }}
+                      />
+                      <Label htmlFor={`brokered-${index}`} className="text-xs text-muted-foreground cursor-pointer">
+                        Brokered
+                      </Label>
+                    </div>
+                    {product.isBrokered && (
+                      <Badge variant="outline" className="border-amber-500 text-amber-700 dark:text-amber-400 text-xs">
+                        <Building2 className="h-3 w-3 mr-1" />
+                        Brokered
+                      </Badge>
+                    )}
+                    {products.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeProduct(index)}
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
-                </div>
-                <div className="w-16">
-                  <Input
-                    type="number"
-                    min="1"
-                    max="99"
-                    value={product.items}
-                    onChange={(e) => updateProduct(index, 'items', e.target.value)}
-                    placeholder="#"
-                    className="text-center"
-                  />
-                </div>
-                {products.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeProduct(index)}
-                    className="h-10 w-10 text-muted-foreground hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                )}
+
+                {product.isBrokered ? (
+                  /* Brokered product: carrier + policy type dropdowns */
+                  <div className="space-y-3">
+                    {/* Carrier selector */}
+                    <div className="space-y-1">
+                      <Label className="text-xs">Brokered Carrier <span className="text-destructive">*</span></Label>
+                      <Select
+                        value={product.brokeredCarrierId}
+                        onValueChange={(value) => {
+                          const updated = [...products];
+                          updated[index] = { ...updated[index], brokeredCarrierId: value, productType: '' };
+                          setProducts(updated);
+                          setCustomBrokeredInput((prev) => ({ ...prev, [index]: false }));
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select carrier..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          {brokeredCarriers.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Brokered policy type */}
+                    {product.brokeredCarrierId && (() => {
+                      const carrierTypes = getActiveTypesForCarrier(product.brokeredCarrierId);
+                      const isCustom = customBrokeredInput[index] || false;
+
+                      if (carrierTypes.length > 0) {
+                        return (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Policy Type <span className="text-destructive">*</span></Label>
+                            <Select
+                              value={isCustom ? "__custom__" : (carrierTypes.some(ct => ct.name === product.productType) ? product.productType : (product.productType ? "__custom__" : ""))}
+                              onValueChange={(value) => {
+                                if (value === "__custom__") {
+                                  setCustomBrokeredInput((prev) => ({ ...prev, [index]: true }));
+                                  if (!product.productType || carrierTypes.some(ct => ct.name === product.productType)) {
+                                    updateProduct(index, 'productType', '');
+                                  }
+                                } else {
+                                  setCustomBrokeredInput((prev) => ({ ...prev, [index]: false }));
+                                  updateProduct(index, 'productType', value);
+                                }
+                              }}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select policy type..." />
+                              </SelectTrigger>
+                              <SelectContent className="bg-background z-50">
+                                {carrierTypes.map((ct) => (
+                                  <SelectItem key={ct.id} value={ct.name}>
+                                    {ct.name}
+                                  </SelectItem>
+                                ))}
+                                <SelectItem value="__custom__">Other (Custom)...</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {(isCustom || (product.productType && !carrierTypes.some(ct => ct.name === product.productType))) && (
+                              <Input
+                                value={product.productType}
+                                onChange={(e) => updateProduct(index, 'productType', e.target.value)}
+                                placeholder="Enter custom policy type..."
+                                className="mt-1"
+                              />
+                            )}
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="space-y-1">
+                          <Label className="text-xs">Policy Type <span className="text-destructive">*</span></Label>
+                          <Input
+                            value={product.productType}
+                            onChange={(e) => updateProduct(index, 'productType', e.target.value)}
+                            placeholder="e.g., Wind Only, Flood, etc."
+                          />
+                        </div>
+                      );
+                    })()}
+
+                    {/* Premium + Items row for brokered */}
+                    <div className="flex gap-2">
+                      <div className="flex-1 space-y-1">
+                        <Label className="text-xs">Premium <span className="text-destructive">*</span></Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={product.premium}
+                            onChange={(e) => updateProduct(index, 'premium', e.target.value)}
+                            placeholder="0.00"
+                            className="pl-7"
+                          />
+                        </div>
+                      </div>
+                      <div className="w-20 space-y-1">
+                        <Label className="text-xs"># Items</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="99"
+                          value={product.items}
+                          onChange={(e) => updateProduct(index, 'items', e.target.value)}
+                          placeholder="#"
+                          className="text-center"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Standard product row */
+                  <div className="flex gap-2 items-start">
+                    <div className="flex-1">
+                      <Select
+                        value={product.productType}
+                        onValueChange={(value) => updateProduct(index, 'productType', value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select product..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          {productOptions.map((p) => (
+                            <SelectItem key={p} value={p}>
+                              {p}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="w-28">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={product.premium}
+                          onChange={(e) => updateProduct(index, 'premium', e.target.value)}
+                          placeholder="0.00"
+                          className="pl-7"
+                        />
+                      </div>
+                    </div>
+                    <div className="w-16">
+                      <Input
+                        type="number"
+                        min="1"
+                        max="99"
+                        value={product.items}
+                        onChange={(e) => updateProduct(index, 'items', e.target.value)}
+                        placeholder="#"
+                        className="text-center"
+                      />
+                    </div>
+                    {!hasBrokeredCarriers && products.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeProduct(index)}
+                        className="h-10 w-10 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             ))}
-            
+
             <Button
               type="button"
               variant="outline"

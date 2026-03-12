@@ -17,6 +17,7 @@ import { StaffCore4MonthlyMissions } from './StaffCore4MonthlyMissions';
 import { StaffSalesSummary } from './StaffSalesSummary';
 import { hasSalesAccess } from '@/lib/salesBetaAccess';
 import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
+import { useBrokeredCarriers } from '@/hooks/useBrokeredCarriers';
 import { LqsObjection } from '@/hooks/useLqsObjections';
 import { ChallengeDashboardWidget } from '@/components/challenge/ChallengeDashboardWidget';
 import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
@@ -127,6 +128,9 @@ export function StaffDashboard() {
   const [objections, setObjections] = useState<LqsObjection[]>([]);
   const [dashboardCallMetricsEnabled, setDashboardCallMetricsEnabled] = useState(false);
   const [agencySlug, setAgencySlug] = useState<string | null>(null);
+
+  // Brokered carriers — public SELECT RLS allows direct query in staff context
+  const { activeCarriers: brokeredCarriers } = useBrokeredCarriers(user?.agency_id || null);
 
   const effectiveRole = getEffectiveRoleFromTeamMember(user?.role);
   const isManager = effectiveRole === 'manager' || effectiveRole === 'owner' || effectiveRole === 'admin';
@@ -496,6 +500,7 @@ export function StaffDashboard() {
           }}
           staffSessionToken={sessionToken}
           staffPriorInsuranceCompanies={priorInsuranceCompanies.filter(c => c.is_active)}
+          staffBrokeredCarriers={brokeredCarriers.map(c => ({ id: c.id, name: c.name }))}
         />
       )}
     </div>

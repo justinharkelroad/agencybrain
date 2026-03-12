@@ -1164,6 +1164,54 @@ export type Database = {
         }
         Relationships: []
       }
+      brokered_carrier_policy_types: {
+        Row: {
+          id: string
+          brokered_carrier_id: string
+          agency_id: string
+          name: string
+          is_active: boolean
+          order_index: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          brokered_carrier_id: string
+          agency_id: string
+          name: string
+          is_active?: boolean
+          order_index?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          brokered_carrier_id?: string
+          agency_id?: string
+          name?: string
+          is_active?: boolean
+          order_index?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brokered_carrier_policy_types_brokered_carrier_id_fkey"
+            columns: ["brokered_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "brokered_carriers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brokered_carrier_policy_types_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brokered_carriers: {
         Row: {
           agency_id: string
@@ -6498,6 +6546,7 @@ export type Database = {
       lqs_quotes: {
         Row: {
           agency_id: string
+          brokered_carrier_id: string | null
           created_at: string
           household_id: string
           id: string
@@ -6512,6 +6561,7 @@ export type Database = {
         }
         Insert: {
           agency_id: string
+          brokered_carrier_id?: string | null
           created_at?: string
           household_id: string
           id?: string
@@ -6526,6 +6576,7 @@ export type Database = {
         }
         Update: {
           agency_id?: string
+          brokered_carrier_id?: string | null
           created_at?: string
           household_id?: string
           id?: string
@@ -6544,6 +6595,13 @@ export type Database = {
             columns: ["agency_id"]
             isOneToOne: false
             referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lqs_quotes_brokered_carrier_id_fkey"
+            columns: ["brokered_carrier_id"]
+            isOneToOne: false
+            referencedRelation: "brokered_carriers"
             referencedColumns: ["id"]
           },
           {

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { generateHouseholdKey } from "../_shared/householdKey.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,6 +12,7 @@ interface ProductEntry {
   premium: string;
   items: string;
   issued_policy_number?: string;
+  brokered_carrier_id?: string | null;
 }
 
 interface AddQuoteRequest {
@@ -124,7 +126,7 @@ serve(async (req) => {
     }
 
     // Step 5: Generate household key (same format as AddQuoteModal)
-    const householdKey = `${body.last_name.trim().toUpperCase()}_${body.first_name.trim().toUpperCase()}_${body.zip_code.trim()}`;
+    const householdKey = generateHouseholdKey(body.first_name, body.last_name, body.zip_code);
 
     // Step 6: Find or create household
     const { data: existingHousehold } = await supabase
@@ -210,6 +212,7 @@ serve(async (req) => {
       team_member_id: staffUser.team_member_id,
       items_quoted: parseInt(p.items, 10) || 1,
       issued_policy_number: p.issued_policy_number || null,
+      brokered_carrier_id: p.brokered_carrier_id || null,
       source: 'manual' as const,
     }));
 

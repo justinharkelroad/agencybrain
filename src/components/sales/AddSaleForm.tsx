@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useLeadSources } from "@/hooks/useLeadSources";
 import { useBrokeredCarriers } from "@/hooks/useBrokeredCarriers";
+import { useBrokeredCarrierPolicyTypes } from "@/hooks/useBrokeredCarrierPolicyTypes";
 import { usePriorInsuranceCompanies } from "@/hooks/usePriorInsuranceCompanies";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -428,6 +429,8 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
 
   // Fetch brokered carriers
   const { activeCarriers: brokeredCarriers } = useBrokeredCarriers(profile?.agency_id || null);
+  const { getActiveTypesForCarrier } = useBrokeredCarrierPolicyTypes(profile?.agency_id || null);
+  const [customBrokeredInput, setCustomBrokeredInput] = useState<Record<string, boolean>>({});
 
   // Fetch prior insurance companies
   const { activeCompanies: priorInsuranceCompanies } = usePriorInsuranceCompanies(profile?.agency_id || null);
@@ -1227,9 +1230,10 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
                                       onValueChange={(value) => {
                                         setPolicies(policies.map((p) =>
                                           p.id === policy.id
-                                            ? { ...p, brokeredCarrierId: value || null }
+                                            ? { ...p, brokeredCarrierId: value || null, policy_type_name: "", lineItems: [] }
                                             : p
                                         ));
+                                        setCustomBrokeredInput((prev) => ({ ...prev, [policy.id]: false }));
                                       }}
                                     >
                                       <SelectTrigger className={cn(
@@ -1269,37 +1273,83 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
                                 <Label>
                                   Policy Type <span className="text-destructive">*</span>
                                 </Label>
-                                {policy.isBrokered ? (
-                                  <Input
-                                    value={policy.policy_type_name}
-                                    onChange={(e) => {
-                                      const newName = e.target.value;
-                                      // Update policies with both policy_type_name and auto-create line item
-                                      setPolicies(policies.map((pol) => {
-                                        if (pol.id !== policy.id) return pol;
-                                        const lineItem = pol.lineItems.length > 0
-                                          ? { ...pol.lineItems[0], product_type_name: newName }
-                                          : {
-                                              id: crypto.randomUUID(),
-                                              product_type_id: "",
-                                              product_type_name: newName,
-                                              item_count: 1,
-                                              premium: 0,
-                                              points: 0,
-                                              is_vc_qualifying: false,
-                                            };
-                                        return {
-                                          ...pol,
-                                          policy_type_name: newName,
-                                          product_type_id: "brokered",
-                                          is_vc_qualifying: false,
-                                          lineItems: [lineItem],
-                                        };
-                                      }));
-                                    }}
-                                    placeholder="e.g., Wind Only, Flood, etc."
-                                  />
-                                ) : (
+                                {policy.isBrokered ? (() => {
+                                  const carrierTypes = policy.brokeredCarrierId
+                                    ? getActiveTypesForCarrier(policy.brokeredCarrierId)
+                                    : [];
+                                  const isCustom = customBrokeredInput[policy.id] || false;
+                                  const handleBrokeredPolicyTypeChange = (name: string) => {
+                                    setPolicies(policies.map((pol) => {
+                                      if (pol.id !== policy.id) return pol;
+                                      const lineItem = pol.lineItems.length > 0
+                                        ? { ...pol.lineItems[0], product_type_name: name }
+                                        : {
+                                            id: crypto.randomUUID(),
+                                            product_type_id: "",
+                                            product_type_name: name,
+                                            item_count: 1,
+                                            premium: 0,
+                                            points: 0,
+                                            is_vc_qualifying: false,
+                                          };
+                                      return {
+                                        ...pol,
+                                        policy_type_name: name,
+                                        product_type_id: "brokered",
+                                        is_vc_qualifying: false,
+                                        lineItems: [lineItem],
+                                      };
+                                    }));
+                                  };
+
+                                  if (carrierTypes.length > 0) {
+                                    return (
+                                      <div className="space-y-2">
+                                        <Select
+                                          value={isCustom ? "__custom__" : (carrierTypes.some(ct => ct.name === policy.policy_type_name) ? policy.policy_type_name : (policy.policy_type_name ? "__custom__" : ""))}
+                                          onValueChange={(value) => {
+                                            if (value === "__custom__") {
+                                              setCustomBrokeredInput((prev) => ({ ...prev, [policy.id]: true }));
+                                              // Don't clear the name if it was already custom text
+                                              if (!policy.policy_type_name || carrierTypes.some(ct => ct.name === policy.policy_type_name)) {
+                                                handleBrokeredPolicyTypeChange("");
+                                              }
+                                            } else {
+                                              setCustomBrokeredInput((prev) => ({ ...prev, [policy.id]: false }));
+                                              handleBrokeredPolicyTypeChange(value);
+                                            }
+                                          }}
+                                        >
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select policy type..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {carrierTypes.map((ct) => (
+                                              <SelectItem key={ct.id} value={ct.name}>
+                                                {ct.name}
+                                              </SelectItem>
+                                            ))}
+                                            <SelectItem value="__custom__">Other (Custom)...</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        {(isCustom || (policy.policy_type_name && !carrierTypes.some(ct => ct.name === policy.policy_type_name))) && (
+                                          <Input
+                                            value={policy.policy_type_name}
+                                            onChange={(e) => handleBrokeredPolicyTypeChange(e.target.value)}
+                                            placeholder="Enter custom policy type..."
+                                          />
+                                        )}
+                                      </div>
+                                    );
+                                  }
+                                  return (
+                                    <Input
+                                      value={policy.policy_type_name}
+                                      onChange={(e) => handleBrokeredPolicyTypeChange(e.target.value)}
+                                      placeholder="e.g., Wind Only, Flood, etc."
+                                    />
+                                  );
+                                })() : (
                                   <Select
                                     value={policy.product_type_id}
                                     onValueChange={(value) =>
