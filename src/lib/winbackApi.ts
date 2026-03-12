@@ -193,6 +193,17 @@ export async function saveSettings(agencyId: string, contactDaysBefore: number):
     }, { onConflict: 'agency_id' });
 
   if (error) throw error;
+
+  // Recalculate winback dates on all existing policies
+  const { error: recalcError } = await supabase
+    .rpc('recalculate_winback_dates', {
+      p_agency_id: agencyId,
+      p_contact_days_before: contactDaysBefore,
+    });
+
+  if (recalcError) {
+    console.error('Failed to recalculate winback dates:', recalcError);
+  }
 }
 
 // ============ Team Members ============

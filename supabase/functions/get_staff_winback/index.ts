@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { generateHouseholdKey } from "../_shared/householdKey.ts";
 import { verifyRequest, isVerifyError } from "../_shared/verifyRequest.ts";
 
 const corsHeaders = {
@@ -189,7 +190,19 @@ Deno.serve(async (req) => {
           }, { onConflict: "agency_id" });
 
         if (error) throw error;
-        result = { success: true };
+
+        // Recalculate winback dates on all existing policies
+        const { data: recalcCount, error: recalcError } = await supabase
+          .rpc("recalculate_winback_dates", {
+            p_agency_id: agencyId,
+            p_contact_days_before: contact_days_before,
+          });
+
+        if (recalcError) {
+          console.error("Failed to recalculate winback dates:", recalcError);
+        }
+
+        result = { success: true, recalculated: recalcCount || 0 };
         break;
       }
 
@@ -207,15 +220,17 @@ Deno.serve(async (req) => {
       }
 
       case "get_stats": {
-        const today = new Date();
-        const dayOfWeek = today.getDay();
+        // Use agency timezone for week boundaries — Deno runs in UTC
+        const localToday = localDateStr(agencyTz); // "2026-03-12" in agency tz
+        const todayDate = new Date(localToday + "T00:00:00Z");
+        const dayOfWeek = todayDate.getUTCDay();
         const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() + mondayOffset);
-        weekStart.setHours(0, 0, 0, 0);
+        const weekStart = new Date(todayDate);
+        weekStart.setUTCDate(todayDate.getUTCDate() + mondayOffset);
+        const weekStartStr = weekStart.toISOString().split("T")[0];
         const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-        weekEnd.setHours(23, 59, 59, 999);
+        weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+        const weekEndStr = weekEnd.toISOString().split("T")[0];
 
         const [totalRes, untouchedRes, inProgressRes, wonBackRes, dismissedRes, teedUpRes] =
           await Promise.all([
@@ -256,8 +271,8 @@ Deno.serve(async (req) => {
               .eq("agency_id", agencyId)
               .neq("status", "dismissed")
               .neq("status", "moved_to_quoted")
-              .gte("earliest_winback_date", weekStart.toISOString().split("T")[0])
-              .lte("earliest_winback_date", weekEnd.toISOString().split("T")[0]),
+              .gte("earliest_winback_date", weekStartStr)
+              .lte("earliest_winback_date", weekEndStr),
           ]);
 
         result = {
@@ -1384,10 +1399,7 @@ Deno.serve(async (req) => {
 
         // Step 2: Create/update LQS record
         // Use canonical household_key format: LASTNAME_FIRSTNAME_ZIP (uppercase, underscores)
-        const normalizedLast = (lastName || "UNKNOWN").toUpperCase().trim().replace(/[^A-Z]/g, "");
-        const normalizedFirst = (firstName || "UNKNOWN").toUpperCase().trim().replace(/[^A-Z]/g, "");
-        const normalizedZip = zipCode ? zipCode.substring(0, 5) : "NOZIP";
-        const householdKey = `${normalizedLast}_${normalizedFirst}_${normalizedZip}`;
+        const householdKey = generateHouseholdKey(firstName, lastName, zipCode);
         const today = localDateStr(agencyTz);
 
         const { error: lqsError } = await supabase
@@ -1918,10 +1930,11 @@ Deno.serve(async (req) => {
         // Step 5b: Create/update LQS household record so won-back appears in dashboard quoted HH
         // Must happen BEFORE step 6 so the sync_winback_status_to_lqs trigger can promote to 'sold'
         try {
-          const normalizedLast = (wbHousehold.last_name || "UNKNOWN").toUpperCase().trim().replace(/[^A-Z]/g, "");
-          const normalizedFirst = (wbHousehold.first_name || "UNKNOWN").toUpperCase().trim().replace(/[^A-Z]/g, "");
-          const normalizedZip = wbHousehold.zip_code ? wbHousehold.zip_code.substring(0, 5) : "NOZIP";
-          const wbHouseholdKey = `${normalizedLast}_${normalizedFirst}_${normalizedZip}`;
+          const wbHouseholdKey = generateHouseholdKey(
+            wbHousehold.first_name,
+            wbHousehold.last_name,
+            wbHousehold.zip_code,
+          );
 
           let wbLqsHouseholdId: string | null = null;
 

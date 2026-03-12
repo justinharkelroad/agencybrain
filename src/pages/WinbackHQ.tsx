@@ -22,7 +22,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { DateRange } from 'react-day-picker';
-import { formatDistanceToNow, format, parseISO } from 'date-fns';
+import { formatDistanceToNow, format, parseISO, startOfDay, startOfWeek, endOfWeek } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   WinbackUploadModal,
@@ -524,6 +524,20 @@ export default function WinbackHQ() {
     setCurrentPage(1);
   };
 
+  const handleTeedUpClick = () => {
+    const today = startOfDay(new Date());
+    setActiveTab('active');
+    setSearch('');
+    setStatusFilter('all');
+    setTerminationAgeFilter('all');
+    setQuickDateFilter('this_week');
+    setDateRange({
+      from: startOfWeek(today, { weekStartsOn: 1 }),
+      to: endOfWeek(today, { weekStartsOn: 1 }),
+    });
+    setCurrentPage(1);
+  };
+
   const handleRowClick = (household: Household) => {
     setSelectedHousehold(household);
     setDetailModalOpen(true);
@@ -722,7 +736,10 @@ export default function WinbackHQ() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card
+              className="cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={handleTeedUpClick}
+            >
               <CardHeader className="pb-2">
                 <CardDescription>Teed Up This Week</CardDescription>
                 <CardTitle className="text-3xl">{stats.teedUpThisWeek}</CardTitle>
@@ -794,7 +811,13 @@ export default function WinbackHQ() {
               <WinbackSettings
                 agencyId={agencyId}
                 contactDaysBefore={contactDaysBefore}
-                onSettingsChange={(days) => setContactDaysBefore(days)}
+                onSettingsChange={(days) => {
+                  setContactDaysBefore(days);
+                  if (agencyId) {
+                    loadStats(agencyId);
+                    loadHouseholds(agencyId, teamMembers);
+                  }
+                }}
               />
               <WinbackUploadHistory agencyId={agencyId} onDeleteComplete={handleUploadComplete} />
             </div>

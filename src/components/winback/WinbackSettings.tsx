@@ -30,7 +30,7 @@ export function WinbackSettings({ agencyId, contactDaysBefore, onSettingsChange 
     setSaving(true);
     try {
       await winbackApi.saveSettings(agencyId, days);
-      toast.success('Settings saved');
+      toast.success('Settings saved — winback dates recalculated');
       onSettingsChange(days);
     } catch (err) {
       console.error('Failed to save settings:', err);
@@ -67,7 +67,7 @@ export function WinbackSettings({ agencyId, contactDaysBefore, onSettingsChange 
           </div>
           <Button onClick={handleSave} disabled={saving || days === contactDaysBefore}>
             <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Recalculating...' : 'Save'}
           </Button>
         </div>
 
