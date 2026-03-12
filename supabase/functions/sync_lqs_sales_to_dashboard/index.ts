@@ -66,6 +66,18 @@ interface HouseholdMeta {
   prior_insurance_company_id: string | null;
 }
 
+interface ExistingSalePolicyLink {
+  sale_id: string;
+  policy_number: string | null;
+  sales: {
+    id: string;
+    agency_id: string;
+  } | {
+    id: string;
+    agency_id: string;
+  }[] | null;
+}
+
 function unwrapProductTypeMeta(
   productType: PolicyTypeMeta["product_type"],
 ): { name: string | null; default_points: number | null; is_vc_item: boolean | null } | null {
@@ -757,6 +769,14 @@ serve(async (req) => {
         });
       }
 
+      const groupPolicyNumbers = Array.from(
+        new Set(
+          policyInserts
+            .map((policy) => policy.policy_number?.trim())
+            .filter((value): value is string => !!value)
+        )
+      );
+
       const saleTotals = policyInserts.reduce(
         (acc, policy) => {
           acc.total_policies += 1;
@@ -799,6 +819,38 @@ serve(async (req) => {
 
       let saleId: string | null = null;
       try {
+        if (groupPolicyNumbers.length > 0) {
+          const { data: existingPolicyLinks, error: existingPolicyLinksError } = await admin
+            .from("sale_policies")
+            .select("sale_id, policy_number, sales!inner(id, agency_id)")
+            .in("policy_number", groupPolicyNumbers)
+            .eq("sales.agency_id", agencyId);
+
+          if (existingPolicyLinksError) throw existingPolicyLinksError;
+
+          const existingSaleId = (existingPolicyLinks as ExistingSalePolicyLink[] | null)
+            ?.find((row) => row.sale_id)?.sale_id ?? null;
+
+          if (existingSaleId) {
+            const groupRowIds = groupRows.map((row) => row.id);
+            const { error: linkExistingError } = await admin
+              .from("lqs_sales")
+              .update({
+                source_reference_id: existingSaleId,
+                sync_batch_id: batchId,
+                sync_status: "synced",
+                sync_error: "Linked to existing sales row by policy number",
+                synced_at: nowIso,
+              })
+              .in("id", groupRowIds);
+
+            if (linkExistingError) throw linkExistingError;
+
+            linkedRows += groupRows.length;
+            continue;
+          }
+        }
+
         const { data: saleRow, error: saleError } = await admin
           .from("sales")
           .insert({

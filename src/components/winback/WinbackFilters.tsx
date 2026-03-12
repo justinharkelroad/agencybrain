@@ -11,17 +11,21 @@ import { cn } from '@/lib/utils';
 
 export type WinbackStatus = 'all' | 'untouched' | 'in_progress' | 'won_back';
 export type QuickDateFilter = 'all' | 'overdue' | 'this_week' | 'next_2_weeks' | 'next_month';
+export type TerminationAgeFilter = 'all' | '0_30' | '31_60' | '61_120' | '121_plus';
 
 interface WinbackFiltersProps {
   search: string;
   onSearchChange: (value: string) => void;
   statusFilter: WinbackStatus;
   onStatusChange: (value: WinbackStatus) => void;
+  terminationAgeFilter: TerminationAgeFilter;
+  onTerminationAgeChange: (value: TerminationAgeFilter) => void;
   quickDateFilter: QuickDateFilter;
   onQuickDateChange: (value: QuickDateFilter) => void;
   dateRange: DateRange | undefined;
   onDateRangeChange: (range: DateRange | undefined) => void;
   onClearFilters: () => void;
+  showStatusFilter?: boolean;
 }
 
 const quickDateOptions: { value: QuickDateFilter; label: string }[] = [
@@ -39,16 +43,27 @@ const statusOptions: { value: WinbackStatus; label: string }[] = [
   { value: 'won_back', label: 'Won Back' },
 ];
 
+const terminationAgeOptions: { value: TerminationAgeFilter; label: string }[] = [
+  { value: 'all', label: 'All Terminations' },
+  { value: '0_30', label: '0-30 Days' },
+  { value: '31_60', label: '31-60 Days' },
+  { value: '61_120', label: '61-120 Days' },
+  { value: '121_plus', label: '121+ Days' },
+];
+
 export function WinbackFilters({
   search,
   onSearchChange,
   statusFilter,
   onStatusChange,
+  terminationAgeFilter,
+  onTerminationAgeChange,
   quickDateFilter,
   onQuickDateChange,
   dateRange,
   onDateRangeChange,
   onClearFilters,
+  showStatusFilter = true,
 }: WinbackFiltersProps) {
   const [calendarOpen, setCalendarOpen] = useState(false);
 
@@ -87,7 +102,12 @@ export function WinbackFilters({
     }
   };
 
-  const hasActiveFilters = search || statusFilter !== 'all' || quickDateFilter !== 'all' || dateRange;
+  const hasActiveFilters =
+    search ||
+    (showStatusFilter && statusFilter !== 'all') ||
+    terminationAgeFilter !== 'all' ||
+    quickDateFilter !== 'all' ||
+    dateRange;
 
   return (
     <div className="space-y-4">
@@ -119,12 +139,27 @@ export function WinbackFilters({
         </div>
 
         {/* Status Filter */}
-        <Select value={statusFilter} onValueChange={(v) => onStatusChange(v as WinbackStatus)}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Status" />
+        {showStatusFilter && (
+          <Select value={statusFilter} onValueChange={(v) => onStatusChange(v as WinbackStatus)}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        <Select value={terminationAgeFilter} onValueChange={(v) => onTerminationAgeChange(v as TerminationAgeFilter)}>
+          <SelectTrigger className="w-[190px]">
+            <SelectValue placeholder="Termination age" />
           </SelectTrigger>
           <SelectContent>
-            {statusOptions.map((option) => (
+            {terminationAgeOptions.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
               </SelectItem>

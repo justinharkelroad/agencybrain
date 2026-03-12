@@ -13692,6 +13692,7 @@ export type Database = {
           id: string
           last_name: string
           last_upload_id: string | null
+          latest_non_rewrite_termination_date: string | null
           notes: string | null
           phone: string | null
           policy_count: number | null
@@ -13715,6 +13716,7 @@ export type Database = {
           id?: string
           last_name: string
           last_upload_id?: string | null
+          latest_non_rewrite_termination_date?: string | null
           notes?: string | null
           phone?: string | null
           policy_count?: number | null
@@ -13738,6 +13740,7 @@ export type Database = {
           id?: string
           last_name?: string
           last_upload_id?: string | null
+          latest_non_rewrite_termination_date?: string | null
           notes?: string | null
           phone?: string | null
           policy_count?: number | null

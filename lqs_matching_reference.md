@@ -1,5 +1,20 @@
 # LQS Matching Capabilities - Complete Reference
 
+## Incident Note
+
+### 2026-03-11 Broussard Agency duplicate cleanup
+Confirmed production issue in Broussard Agency (`agency_id = c7985912-6f5b-42ba-b25e-9f29dda2269c`):
+
+- New Business Details sales rows without ZIP created `00000` households alongside existing real-ZIP households for the same normalized first/last name.
+- Some policies were then duplicated in `lqs_sales` across the `00000` household and the real-ZIP household.
+- Safe merges were completed for confirmed `1 nozip + 1 real ZIP` cases after reviewing quotes and sales.
+- Ambiguous `1 nozip + multiple real ZIPs` cases were left for manual review until quote/sale evidence established the correct target.
+
+Guardrail from this incident:
+
+- Sales duplicate protection must be agency-wide by `policy number + normalized product`, not limited to the currently matched household.
+- `00000` households should be treated as placeholders that may require reconciliation to a real-ZIP household.
+
 ## All Available Matching Fields
 
 | Field | Leads | Quotes | Sales | Reliability | Use? |
@@ -33,6 +48,9 @@ Fallback: None (create new household if no match)
 Confidence: 100%
 Method: Issued Policy # = Policy No
 Fallback: Name + Scoring (see below)
+Duplicate Guardrail: Before inserting a sale, also check agency-wide for an existing
+policy number + normalized product combination. If it already exists under another
+household, do NOT create a second sale row.
 ```
 
 ### Level 3: Quote → Sale Fallback (NAME + SCORING)
@@ -102,6 +120,12 @@ Lead source: "Direct/Unknown"
 5. **Middle name variations**: "ROBERT K WILSON" vs "ROBERT WILSON" - extract first word as first name, last word as last name. Middle initials ignored.
 
 6. **Hyphenated names**: "PIERCE-TAYLOR" should stay as-is in last name field.
+
+7. **Sales report missing ZIP**: New Business Details may not include ZIP. In that case, `00000` households are temporary placeholders only. If the same exact name later has a single real-ZIP household, merge the `00000` household into the real-ZIP household after reviewing quotes/sales.
+
+8. **Multiple real-ZIP households for same exact name**: If one `00000` household exists and there are multiple real-ZIP households for the same exact normalized first/last name, do not auto-merge. Queue for manual review.
+
+9. **Manual sale entry + report upload**: The same policy can be entered manually and later arrive in the report upload. Duplicate protection must be agency-wide by policy number + normalized product, not only within the matched household.
 
 ---
 

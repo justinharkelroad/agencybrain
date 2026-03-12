@@ -314,6 +314,7 @@ serve(async (req) => {
                   .from('winback_households')
                   .update({
                     earliest_winback_date: winbackDate.toISOString().split('T')[0],
+                    latest_non_rewrite_termination_date: renewalForWinback.renewal_effective_date,
                     policy_count: 1,
                     total_premium_potential_cents: premiumNewCents || 0,
                   })

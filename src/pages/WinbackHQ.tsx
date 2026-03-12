@@ -40,7 +40,7 @@ import {
 } from '@/components/winback';
 import { ContactProfileModal } from '@/components/contacts';
 import type { WinbackUploadCompletionData } from '@/hooks/useWinbackBackgroundUpload';
-import type { WinbackStatus, QuickDateFilter } from '@/components/winback/WinbackFilters';
+import type { WinbackStatus, QuickDateFilter, TerminationAgeFilter } from '@/components/winback/WinbackFilters';
 import type { Household, SortColumn, SortDirection } from '@/components/winback/WinbackHouseholdTable';
 import * as winbackApi from '@/lib/winbackApi';
 import { useWinbackAIQuery } from '@/hooks/useWinbackAIQuery';
@@ -162,6 +162,7 @@ export default function WinbackHQ() {
   // Filters
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<WinbackStatus>('all');
+  const [terminationAgeFilter, setTerminationAgeFilter] = useState<TerminationAgeFilter>('all');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [quickDateFilter, setQuickDateFilter] = useState<QuickDateFilter>('all');
 
@@ -232,6 +233,7 @@ export default function WinbackHQ() {
     setStatusFilter((f.statusFilter as WinbackStatus) || 'all');
     setSearch(f.search || '');
     setQuickDateFilter((f.quickDateFilter as QuickDateFilter) || 'all');
+    setTerminationAgeFilter('all');
 
     // Date range
     if (f.dateRangeStart || f.dateRangeEnd) {
@@ -345,6 +347,7 @@ export default function WinbackHQ() {
         activeTab,
         search,
         statusFilter,
+        terminationAgeFilter,
         dateRange,
         sortColumn,
         sortDirection,
@@ -412,7 +415,14 @@ export default function WinbackHQ() {
     if (agencyId && teamMembers.length > 0) {
       loadHouseholds(agencyId, teamMembers);
     }
-  }, [agencyId, activeTab, search, statusFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize]);
+  }, [agencyId, activeTab, search, statusFilter, terminationAgeFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize]);
+
+  useEffect(() => {
+    if (activeTab === 'dismissed' && statusFilter !== 'all') {
+      setStatusFilter('all');
+      setCurrentPage(1);
+    }
+  }, [activeTab, statusFilter]);
 
   // Unified initial data fetch (uses winbackApi for both staff and non-staff)
   const fetchInitialData = async (agency: string, staffTeamMemberId: string | null) => {
@@ -508,6 +518,7 @@ export default function WinbackHQ() {
   const handleClearFilters = () => {
     setSearch('');
     setStatusFilter('all');
+    setTerminationAgeFilter('all');
     setDateRange(undefined);
     setQuickDateFilter('all');
     setCurrentPage(1);
@@ -808,6 +819,11 @@ export default function WinbackHQ() {
                   setStatusFilter(v);
                   setCurrentPage(1);
                 }}
+                terminationAgeFilter={terminationAgeFilter}
+                onTerminationAgeChange={(v) => {
+                  setTerminationAgeFilter(v);
+                  setCurrentPage(1);
+                }}
                 quickDateFilter={quickDateFilter}
                 onQuickDateChange={(v) => {
                   setQuickDateFilter(v);
@@ -843,6 +859,36 @@ export default function WinbackHQ() {
             </TabsContent>
 
             <TabsContent value="dismissed" className="space-y-4 mt-4">
+              <WinbackFilters
+                search={search}
+                onSearchChange={(v) => {
+                  setSearch(v);
+                  setCurrentPage(1);
+                }}
+                statusFilter={statusFilter}
+                onStatusChange={(v) => {
+                  setStatusFilter(v);
+                  setCurrentPage(1);
+                }}
+                terminationAgeFilter={terminationAgeFilter}
+                onTerminationAgeChange={(v) => {
+                  setTerminationAgeFilter(v);
+                  setCurrentPage(1);
+                }}
+                quickDateFilter={quickDateFilter}
+                onQuickDateChange={(v) => {
+                  setQuickDateFilter(v);
+                  setCurrentPage(1);
+                }}
+                dateRange={dateRange}
+                onDateRangeChange={(v) => {
+                  setDateRange(v);
+                  setCurrentPage(1);
+                }}
+                onClearFilters={handleClearFilters}
+                showStatusFilter={false}
+              />
+
               <WinbackHouseholdTable
                 households={displayHouseholds}
                 loading={false}

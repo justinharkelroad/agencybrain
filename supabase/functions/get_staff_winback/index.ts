@@ -11,6 +11,41 @@ function localDateStr(timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(new Date());
 }
 
+function dateOnlyString(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
+function startOfLocalDay(date: Date): Date {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function subtractDays(date: Date, days: number): Date {
+  const copy = new Date(date);
+  copy.setDate(copy.getDate() - days);
+  return copy;
+}
+
+function getTerminationAgeDateRange(filter: string | undefined, timezone: string) {
+  if (!filter || filter === "all") return null;
+
+  const today = startOfLocalDay(new Date(`${localDateStr(timezone)}T00:00:00`));
+
+  switch (filter) {
+    case "0_30":
+      return { from: subtractDays(today, 30), to: today };
+    case "31_60":
+      return { from: subtractDays(today, 60), to: subtractDays(today, 31) };
+    case "61_120":
+      return { from: subtractDays(today, 120), to: subtractDays(today, 61) };
+    case "121_plus":
+      return { to: subtractDays(today, 121) };
+    default:
+      return null;
+  }
+}
+
 function normalizeProductName(value: string | null | undefined): string {
   return (value || "").toLowerCase().trim();
 }
@@ -207,12 +242,14 @@ Deno.serve(async (req) => {
               .from("winback_households")
               .select("id", { count: "exact", head: true })
               .eq("agency_id", agencyId)
-              .eq("status", "won_back"),
+              .eq("status", "won_back")
+              .not("earliest_winback_date", "is", null),
             supabase
               .from("winback_households")
               .select("id", { count: "exact", head: true })
               .eq("agency_id", agencyId)
-              .eq("status", "dismissed"),
+              .eq("status", "dismissed")
+              .not("earliest_winback_date", "is", null),
             supabase
               .from("winback_households")
               .select("id", { count: "exact", head: true })
@@ -235,7 +272,7 @@ Deno.serve(async (req) => {
       }
 
       case "list_households": {
-        const { activeTab, search, statusFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize } = params;
+        const { activeTab, search, statusFilter, terminationAgeFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize } = params;
         
         let query = supabase
           .from("winback_households")
@@ -243,12 +280,13 @@ Deno.serve(async (req) => {
           .eq("agency_id", agencyId)
           .in("winback_activities.activity_type", ["called", "left_vm", "texted", "emailed"]);
 
+        query = query.not("earliest_winback_date", "is", null);
+
         // Tab filter
         if (activeTab === "dismissed") {
           query = query.eq("status", "dismissed");
         } else {
           query = query.neq("status", "dismissed").neq("status", "moved_to_quoted");
-          query = query.not("earliest_winback_date", "is", null);
         }
 
         // Status filter
@@ -262,6 +300,14 @@ Deno.serve(async (req) => {
         }
         if (dateRange?.to) {
           query = query.lte("earliest_winback_date", dateRange.to);
+        }
+
+        const terminationAgeRange = getTerminationAgeDateRange(terminationAgeFilter, agencyTz);
+        if (terminationAgeRange?.from) {
+          query = query.gte("latest_non_rewrite_termination_date", dateOnlyString(terminationAgeRange.from));
+        }
+        if (terminationAgeRange?.to) {
+          query = query.lte("latest_non_rewrite_termination_date", dateOnlyString(terminationAgeRange.to));
         }
 
         // Search filter
@@ -571,15 +617,25 @@ Deno.serve(async (req) => {
           // Fallback: manually update earliest_winback_date
           const { data: updatedPolicies } = await supabase
             .from("winback_policies")
-            .select("calculated_winback_date")
+            .select("calculated_winback_date, termination_effective_date, is_cancel_rewrite")
             .eq("household_id", householdId)
             .order("calculated_winback_date", { ascending: true })
-            .limit(1);
+            .limit(200);
 
           if (updatedPolicies && updatedPolicies.length > 0) {
+            const actionablePolicies = updatedPolicies.filter((policy) => !policy.is_cancel_rewrite);
+            const latestTerminationDate = actionablePolicies
+              .map((policy) => policy.termination_effective_date)
+              .filter(Boolean)
+              .sort()
+              .at(-1) || null;
+
             await supabase
               .from("winback_households")
-              .update({ earliest_winback_date: updatedPolicies[0].calculated_winback_date })
+              .update({
+                earliest_winback_date: actionablePolicies[0]?.calculated_winback_date || null,
+                latest_non_rewrite_termination_date: latestTerminationDate,
+              })
               .eq("id", householdId);
           }
         }

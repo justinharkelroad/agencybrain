@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { hasStaffToken, fetchWithAuth } from './staffRequest';
-import { startOfWeek, endOfWeek, format } from 'date-fns';
+import { startOfDay, startOfWeek, endOfWeek, format, subDays } from 'date-fns';
 import { generateHouseholdKey } from './lqs-quote-parser';
 import { classifyBundle } from './bundle-classifier';
 import type { DateRange } from 'react-day-picker';
@@ -32,6 +32,7 @@ export interface WinbackHousehold {
   assigned_name?: string | null;
   notes: string | null;
   earliest_winback_date: string | null;
+  latest_non_rewrite_termination_date: string | null;
   contact_id: string | null;
   policy_count: number;
   total_premium_potential_cents: number;
@@ -74,11 +75,31 @@ interface ListHouseholdsParams {
   activeTab: 'active' | 'dismissed';
   search: string;
   statusFilter: string;
+  terminationAgeFilter: 'all' | '0_30' | '31_60' | '61_120' | '121_plus';
   dateRange?: DateRange;
   sortColumn: string;
   sortDirection: 'asc' | 'desc';
   currentPage: number;
   pageSize: number;
+}
+
+function getTerminationAgeDateRange(filter: ListHouseholdsParams['terminationAgeFilter']) {
+  if (filter === 'all') return null;
+
+  const today = startOfDay(new Date());
+
+  switch (filter) {
+    case '0_30':
+      return { from: subDays(today, 30), to: today };
+    case '31_60':
+      return { from: subDays(today, 60), to: subDays(today, 31) };
+    case '61_120':
+      return { from: subDays(today, 120), to: subDays(today, 61) };
+    case '121_plus':
+      return { to: subDays(today, 121) };
+    default:
+      return null;
+  }
 }
 
 interface UploadStats {
@@ -229,12 +250,14 @@ export async function getStats(agencyId: string): Promise<WinbackStats> {
         .from('winback_households')
         .select('id', { count: 'exact', head: true })
         .eq('agency_id', agencyId)
-        .eq('status', 'won_back'),
+        .eq('status', 'won_back')
+        .not('earliest_winback_date', 'is', null),
       supabase
         .from('winback_households')
         .select('id', { count: 'exact', head: true })
         .eq('agency_id', agencyId)
-        .eq('status', 'dismissed'),
+        .eq('status', 'dismissed')
+        .not('earliest_winback_date', 'is', null),
       supabase
         .from('winback_households')
         .select('id', { count: 'exact', head: true })
@@ -263,6 +286,7 @@ export async function listHouseholds(params: ListHouseholdsParams): Promise<{ ho
       activeTab: params.activeTab,
       search: params.search,
       statusFilter: params.statusFilter,
+      terminationAgeFilter: params.terminationAgeFilter,
       dateRange: params.dateRange ? {
         from: params.dateRange.from ? format(params.dateRange.from, 'yyyy-MM-dd') : undefined,
         to: params.dateRange.to ? format(params.dateRange.to, 'yyyy-MM-dd') : undefined,
@@ -280,12 +304,13 @@ export async function listHouseholds(params: ListHouseholdsParams): Promise<{ ho
     .eq('agency_id', params.agencyId)
     .in('winback_activities.activity_type', ['called', 'left_vm', 'texted', 'emailed']);
 
+  query = query.not('earliest_winback_date', 'is', null);
+
   // Tab filter
   if (params.activeTab === 'dismissed') {
     query = query.eq('status', 'dismissed');
   } else {
     query = query.neq('status', 'dismissed').neq('status', 'moved_to_quoted');
-    query = query.not('earliest_winback_date', 'is', null);
   }
 
   // Status filter
@@ -300,6 +325,14 @@ export async function listHouseholds(params: ListHouseholdsParams): Promise<{ ho
   }
   if (params.dateRange?.to) {
     query = query.lte('earliest_winback_date', format(params.dateRange.to, 'yyyy-MM-dd'));
+  }
+
+  const terminationAgeRange = getTerminationAgeDateRange(params.terminationAgeFilter);
+  if (terminationAgeRange?.from) {
+    query = query.gte('latest_non_rewrite_termination_date', format(terminationAgeRange.from, 'yyyy-MM-dd'));
+  }
+  if (terminationAgeRange?.to) {
+    query = query.lte('latest_non_rewrite_termination_date', format(terminationAgeRange.to, 'yyyy-MM-dd'));
   }
 
   // Search filter
@@ -676,15 +709,25 @@ export async function pushToNextCycle(
   if (rpcError) {
     const { data: updatedPolicies } = await supabase
       .from('winback_policies')
-      .select('calculated_winback_date')
+      .select('calculated_winback_date, termination_effective_date, is_cancel_rewrite')
       .eq('household_id', householdId)
       .order('calculated_winback_date', { ascending: true })
-      .limit(1);
+      .limit(200);
 
     if (updatedPolicies && updatedPolicies.length > 0) {
+      const actionablePolicies = updatedPolicies.filter((policy) => !policy.is_cancel_rewrite);
+      const latestTerminationDate = actionablePolicies
+        .map((policy) => policy.termination_effective_date)
+        .filter(Boolean)
+        .sort()
+        .at(-1) || null;
+
       await supabase
         .from('winback_households')
-        .update({ earliest_winback_date: updatedPolicies[0].calculated_winback_date })
+        .update({
+          earliest_winback_date: actionablePolicies[0]?.calculated_winback_date || null,
+          latest_non_rewrite_termination_date: latestTerminationDate,
+        })
         .eq('id', householdId);
     }
   }

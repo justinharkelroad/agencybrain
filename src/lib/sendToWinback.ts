@@ -72,7 +72,7 @@ function calculateWinbackDate(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  let competitorRenewal = new Date(terminationDate);
+  const competitorRenewal = new Date(terminationDate);
   competitorRenewal.setMonth(competitorRenewal.getMonth() + policyTermMonths);
 
   let winbackDate = new Date(competitorRenewal);
@@ -198,9 +198,32 @@ export async function sendRenewalToWinback(
     }
 
     // Recalculate aggregates
-    await supabase.rpc('recalculate_winback_household_aggregates', {
+    const { error: recalcError } = await supabase.rpc('recalculate_winback_household_aggregates', {
       p_household_id: householdId,
     });
+
+    if (recalcError) {
+      console.error('[sendRenewalToWinback] Failed to recalc aggregates:', recalcError);
+      const fallbackUpdate: {
+        earliest_winback_date: string;
+        latest_non_rewrite_termination_date: string;
+        policy_count?: number;
+        total_premium_potential_cents?: number;
+      } = {
+        earliest_winback_date: winbackDate.toISOString().split('T')[0],
+        latest_non_rewrite_termination_date: renewal.renewal_effective_date,
+      };
+
+      if (!existingHousehold) {
+        fallbackUpdate.policy_count = 1;
+        fallbackUpdate.total_premium_potential_cents = premiumNewCents || 0;
+      }
+
+      await supabase
+        .from('winback_households')
+        .update(fallbackUpdate)
+        .eq('id', householdId);
+    }
 
     // Update renewal record
     await supabase
@@ -334,9 +357,32 @@ export async function sendCancelAuditToWinback(
     }
 
     // Recalculate aggregates
-    await supabase.rpc('recalculate_winback_household_aggregates', {
+    const { error: recalcError } = await supabase.rpc('recalculate_winback_household_aggregates', {
       p_household_id: householdId,
     });
+
+    if (recalcError) {
+      console.error('[sendCancelAuditToWinback] Failed to recalc aggregates:', recalcError);
+      const fallbackUpdate: {
+        earliest_winback_date: string;
+        latest_non_rewrite_termination_date: string;
+        policy_count?: number;
+        total_premium_potential_cents?: number;
+      } = {
+        earliest_winback_date: winbackDate.toISOString().split('T')[0],
+        latest_non_rewrite_termination_date: terminationDateStr,
+      };
+
+      if (!existingHousehold) {
+        fallbackUpdate.policy_count = 1;
+        fallbackUpdate.total_premium_potential_cents = premiumNewCents || 0;
+      }
+
+      await supabase
+        .from('winback_households')
+        .update(fallbackUpdate)
+        .eq('id', householdId);
+    }
 
     // Update cancel audit record with winback link
     await supabase
