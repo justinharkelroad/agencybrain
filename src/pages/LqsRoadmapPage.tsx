@@ -46,7 +46,7 @@ import { AddQuoteModal } from '@/components/lqs/AddQuoteModal';
 import { LqsGroupedSection } from '@/components/lqs/LqsGroupedSection';
 import { ContactProfileModal } from '@/components/contacts/ContactProfileModal';
 import { findOrCreateContact } from '@/hooks/useContacts';
-import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
+import { generateHouseholdKey } from '@/lib/household-key';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, parseISO } from 'date-fns';
 import type { QuoteUploadResult, SalesUploadResult, PendingSaleReview, LeadStatus } from '@/types/lqs';

@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     }
 
     // Get lqs_households with full details for this team member on the work date
-    const { data: quotedHouseholds } = await supabase
+    const { data: quotedHouseholds, error: quotedHouseholdsError } = await supabase
       .from('lqs_households')
       .select(`
         id, first_name, last_name, lead_source_id, notes, objection_id, zip_code,
@@ -84,6 +84,10 @@ Deno.serve(async (req) => {
       .eq('first_quote_date', workDate)
       .in('status', ['quoted', 'sold'])
       .order('created_at');
+
+    if (quotedHouseholdsError) {
+      console.error('staff_get_dashboard_metrics: lqs_households lookup failed:', quotedHouseholdsError);
+    }
 
     const quotedCount = quotedHouseholds?.length || 0;
 
@@ -111,8 +115,10 @@ Deno.serve(async (req) => {
       .eq('date', workDate)
       .single();
 
-    // Use max of lqs_households count and metrics_daily
-    const dashboardQuotedCount = Math.max(quotedCount || 0, metricsDaily?.quoted_count || 0);
+    // LQS households are the authoritative quoted source when available.
+    const dashboardQuotedCount = quotedHouseholdsError
+      ? (metricsDaily?.quoted_count || 0)
+      : quotedCount;
     const dashboardSoldCount = metricsDaily?.sold_items || 0;
 
     // Get targets from targets table (staff can't query this directly due to RLS)

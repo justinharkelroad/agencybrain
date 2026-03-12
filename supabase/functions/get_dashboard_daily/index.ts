@@ -244,8 +244,7 @@ serve(async (req) => {
     }
 
     // ── LQS households: count quoted/sold with first_quote_date = workDate ──
-    // Same MAX strategy used by get-household-focus-actuals so the top circle
-    // KPIs stay in sync with Team Household Focus.
+    // These counts are authoritative for Sales / All dashboard views.
     const { data: lqsHouseholds, error: lqsError } = await supabase
       .from('lqs_households')
       .select('id, team_member_id')
@@ -255,6 +254,8 @@ serve(async (req) => {
 
     const lqsByTeamMember = new Map<string, number>();
     let lqsQuotedTotal = 0;
+    let lqsUnassignedCount = 0;
+    const shouldUseLqsQuotedCounts = role === 'Sales' || role === 'All';
     if (lqsError) {
       console.error('Dashboard daily lqs_households query error:', lqsError);
       // Non-fatal — fall back to metrics_daily only
@@ -266,6 +267,37 @@ serve(async (req) => {
             h.team_member_id,
             (lqsByTeamMember.get(h.team_member_id) || 0) + 1
           );
+        } else {
+          lqsUnassignedCount += 1;
+        }
+      }
+    }
+
+    const existingRowTeamIds = new Set(
+      ((data || []) as Array<{ team_member_id: string | null }>)
+        .map((row) => row.team_member_id)
+        .filter((teamMemberId): teamMemberId is string => Boolean(teamMemberId))
+    );
+
+    const missingQuotedTeamIds = shouldUseLqsQuotedCounts
+      ? Array.from(lqsByTeamMember.keys()).filter(
+          (teamMemberId) => !existingRowTeamIds.has(teamMemberId)
+        )
+      : [];
+
+    let missingQuotedMembers = new Map<string, { name: string | null }>();
+    if (!lqsError && shouldUseLqsQuotedCounts && missingQuotedTeamIds.length > 0) {
+      const { data: teamMembers, error: teamMembersError } = await supabase
+        .from('team_members')
+        .select('id, name')
+        .eq('agency_id', agencyId)
+        .in('id', missingQuotedTeamIds);
+
+      if (teamMembersError) {
+        console.error('Dashboard daily missing member lookup error:', teamMembersError);
+      } else {
+        for (const member of teamMembers || []) {
+          missingQuotedMembers.set(member.id, { name: member.name || null });
         }
       }
     }
@@ -342,10 +374,11 @@ serve(async (req) => {
         work_date: row.date,
         outbound_calls: outboundCalls,
         talk_minutes: talkMinutes,
-        quoted_count: Math.max(
-          row.quoted_households || row.quoted_count || 0,
-          lqsByTeamMember.get(row.team_member_id) || 0
-        ),
+        quoted_count: !shouldUseLqsQuotedCounts || lqsError
+          ? (row.quoted_households || row.quoted_count || 0)
+          : (row.team_member_id
+              ? (lqsByTeamMember.get(row.team_member_id) || 0)
+              : lqsUnassignedCount),
         sold_items: row.items_sold || row.sold_items || 0,
         sold_policies: row.sold_policies || 0,
         sold_premium_cents: row.sold_premium_cents || 0,
@@ -360,10 +393,58 @@ serve(async (req) => {
       };
     });
 
+    const hasExistingUnassignedRow = rows.some((row) => row.team_member_id === null);
+
+    if (!lqsError && shouldUseLqsQuotedCounts) {
+      for (const teamMemberId of missingQuotedTeamIds) {
+        rows.push({
+          team_member_id: teamMemberId,
+          rep_name: missingQuotedMembers.get(teamMemberId)?.name || 'Unknown',
+          work_date: workDate,
+          outbound_calls: 0,
+          talk_minutes: 0,
+          quoted_count: lqsByTeamMember.get(teamMemberId) || 0,
+          sold_items: 0,
+          sold_policies: 0,
+          sold_premium_cents: 0,
+          cross_sells_uncovered: 0,
+          mini_reviews: 0,
+          custom_kpis: null,
+          pass: false,
+          hits: 0,
+          daily_score: 0,
+          is_late: false,
+          status: 'final',
+        });
+      }
+
+      if (lqsUnassignedCount > 0 && !hasExistingUnassignedRow) {
+        rows.push({
+          team_member_id: null,
+          rep_name: 'Unassigned',
+          work_date: workDate,
+          outbound_calls: 0,
+          talk_minutes: 0,
+          quoted_count: lqsUnassignedCount,
+          sold_items: 0,
+          sold_policies: 0,
+          sold_premium_cents: 0,
+          cross_sells_uncovered: 0,
+          mini_reviews: 0,
+          custom_kpis: null,
+          pass: false,
+          hits: 0,
+          daily_score: 0,
+          is_late: false,
+          status: 'final',
+        });
+      }
+    }
+
     console.log(`Dashboard daily [${authResult.mode}]: Found ${rows.length} rows for agency ${agencySlug || agencyId} on ${workDate} with role ${role}`);
 
     return new Response(
-      JSON.stringify({ rows, agencyCallTotals, lqsQuotedTotal }),
+      JSON.stringify({ rows, agencyCallTotals, lqsQuotedTotal, lqsUnassignedCount }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

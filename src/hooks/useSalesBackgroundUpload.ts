@@ -1,6 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import {
+  invalidateLqsSalesSyncQueries,
+  runLqsSalesDashboardSync,
+} from '@/hooks/useLqsSalesDashboardSync';
 import type { ParsedSaleRow, SalesUploadContext, SalesUploadResult, MatchCandidate, PendingSaleReview, UploadedHouseholdInfo } from '@/types/lqs';
 import { generateHouseholdKey, normalizeProductType } from '@/lib/lqs-sales-parser';
 import { hasCrossHouseholdPolicyDuplicate, isSamePolicyProduct } from '@/lib/lqs-sales-dedupe';
@@ -308,6 +312,47 @@ function invalidateSalesQueries(queryClient: ReturnType<typeof useQueryClient>) 
   queryClient.invalidateQueries({ queryKey: ['lqs-stats'] });
   queryClient.invalidateQueries({ queryKey: ['contacts'] });
   queryClient.invalidateQueries({ queryKey: ['dashboard-daily'] });
+  queryClient.invalidateQueries({ queryKey: ['sales'] });
+}
+
+function getUploadSaleDateRange(records: ParsedSaleRow[]): { dateStart: string; dateEnd: string } | null {
+  const saleDates = records
+    .map((record) => record.saleDate)
+    .filter((saleDate): saleDate is string => Boolean(saleDate));
+
+  if (saleDates.length === 0) {
+    return null;
+  }
+
+  const sortedDates = [...saleDates].sort();
+  return {
+    dateStart: sortedDates[0],
+    dateEnd: sortedDates[sortedDates.length - 1],
+  };
+}
+
+async function syncUploadedSalesToDashboard(
+  records: ParsedSaleRow[],
+  context: SalesUploadContext,
+  queryClient: ReturnType<typeof useQueryClient>,
+  sessionToken?: string | null
+): Promise<void> {
+  const dateRange = getUploadSaleDateRange(records);
+  if (!dateRange) {
+    return;
+  }
+
+  await runLqsSalesDashboardSync({
+    agencyId: context.agencyId,
+    dateStart: dateRange.dateStart,
+    dateEnd: dateRange.dateEnd,
+    includeUnassigned: true,
+    batchSize: 200,
+    sessionToken,
+  });
+
+  await invalidateLqsSalesSyncQueries(queryClient);
+  await queryClient.invalidateQueries({ queryKey: ['sales'] });
 }
 
 function buildFailedSalesUploadResult(errorMessage: string): SalesUploadResult {
@@ -355,6 +400,19 @@ async function processStaffUpload(
     }
 
     const result = data as SalesUploadResult;
+
+    if (result.salesCreated > 0) {
+      try {
+        await syncUploadedSalesToDashboard(records, context, queryClient, staffToken);
+      } catch (syncError: unknown) {
+        const message = syncError instanceof Error
+          ? syncError.message
+          : 'Imported into LQS, but failed to sync to the Sales Dashboard.';
+        result.success = false;
+        result.errors = [...result.errors, `Sales dashboard sync failed: ${message}`];
+      }
+    }
+
     invalidateSalesQueries(queryClient);
 
     if (result.success) {
@@ -367,7 +425,7 @@ async function processStaffUpload(
       const issueCount = result.errors.filter((message) => !isDuplicateSkipMessage(message)).length;
       toast({
         title: 'Upload completed with issues',
-        description: `${result.salesCreated} rows imported. ${issueCount} rows could not be imported and need re-upload.`,
+        description: `${result.salesCreated} rows imported. ${issueCount} issues need attention.`,
         variant: 'destructive',
       });
     }
@@ -1059,8 +1117,6 @@ async function processInBackground(
       }
     }
 
-    invalidateSalesQueries(queryClient);
-
     // Build final result
     const result: SalesUploadResult = {
       success: errorCount === 0,
@@ -1079,6 +1135,20 @@ async function processInBackground(
       pendingReviews,
       uploadedHouseholds,
     };
+
+    if (result.salesCreated > 0) {
+      try {
+        await syncUploadedSalesToDashboard(records, context, queryClient);
+      } catch (syncError: unknown) {
+        const message = syncError instanceof Error
+          ? syncError.message
+          : 'Imported into LQS, but failed to sync to the Sales Dashboard.';
+        result.success = false;
+        result.errors.push(`Sales dashboard sync failed: ${message}`);
+      }
+    }
+
+    invalidateSalesQueries(queryClient);
 
     console.log(`[Sales Upload] Complete:`, {
       salesCreated,
@@ -1101,9 +1171,10 @@ async function processInBackground(
         description: `${salesCreated} rows imported${reviewNote}.`,
       });
     } else {
+      const issueCount = result.errors.filter((message) => !isDuplicateSkipMessage(message)).length;
       toast({
         title: 'Upload completed with issues',
-        description: `${salesCreated} rows imported. ${errorCount} rows could not be imported and need re-upload.`,
+        description: `${salesCreated} rows imported. ${issueCount} issues need attention.`,
         variant: 'destructive',
       });
     }

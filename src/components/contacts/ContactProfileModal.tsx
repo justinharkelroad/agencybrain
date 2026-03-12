@@ -34,7 +34,7 @@ import { toast } from 'sonner';
 import * as winbackApi from '@/lib/winbackApi';
 import type { WonBackSalePolicy } from '@/lib/winbackApi';
 import { supabase } from '@/integrations/supabase/client';
-import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
+import { generateHouseholdKey } from '@/lib/household-key';
 import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
 import { sendRenewalToWinback } from '@/lib/sendToWinback';
 import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';

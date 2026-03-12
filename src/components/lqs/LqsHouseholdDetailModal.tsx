@@ -38,7 +38,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { HouseholdWithRelations } from '@/hooks/useLqsData';
 import { filterCountableQuotes } from '@/lib/lqs-constants';
-import { generateHouseholdKey } from '@/lib/lqs-quote-parser';
+import { generateHouseholdKey } from '@/lib/household-key';
 import { formatPhoneNumber } from '@/lib/utils';
 import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
 import { useLqsObjections } from '@/hooks/useLqsObjections';

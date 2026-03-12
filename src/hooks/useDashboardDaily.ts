@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { fetchWithAuth, hasStaffToken } from "@/lib/staffRequest";
 
 interface DailyMetric {
-  team_member_id: string;
+  team_member_id: string | null;
   rep_name: string;
   work_date: string;
   outbound_calls: number;
@@ -112,10 +112,10 @@ export function useDashboardDaily(
         },
         {
           title: "Quoted",
-          value: Math.max(
-            filteredRows.reduce((sum: number, row: DailyMetric) => sum + (row.quoted_count || 0), 0),
-            lqsQuotedTotal || 0
-          ),
+          value: (role === "Sales" || role === "All")
+            ? (lqsQuotedTotal
+                ?? filteredRows.reduce((sum: number, row: DailyMetric) => sum + (row.quoted_count || 0), 0))
+            : filteredRows.reduce((sum: number, row: DailyMetric) => sum + (row.quoted_count || 0), 0),
           icon: "📋"
         },
         {

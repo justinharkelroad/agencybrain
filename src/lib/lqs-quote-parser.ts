@@ -1,16 +1,7 @@
 import * as XLSX from 'xlsx';
 import type { ParsedQuoteRow, QuoteParseResult } from '@/types/lqs';
-
-/**
- * Generate household key: LASTNAME_FIRSTNAME_ZIPCODE (first 5 chars)
- * When ZIP is missing, uses "00000" to match SQL generate_household_key function
- */
-export function generateHouseholdKey(firstName: string, lastName: string, zipCode: string | null): string {
-  const normalizedLast = (lastName || 'UNKNOWN').toUpperCase().trim().replace(/[^A-Z]/g, '');
-  const normalizedFirst = (firstName || 'UNKNOWN').toUpperCase().trim().replace(/[^A-Z]/g, '');
-  const normalizedZip = zipCode ? zipCode.substring(0, 5) : '00000';
-  return `${normalizedLast}_${normalizedFirst}_${normalizedZip}`;
-}
+import { generateHouseholdKey } from '@/lib/household-key';
+export { generateHouseholdKey } from '@/lib/household-key';
 
 /**
  * Extract sub-producer code and name from values like:

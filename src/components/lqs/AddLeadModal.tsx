@@ -25,6 +25,7 @@ import { formatPhoneNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LqsLeadSource } from '@/hooks/useLqsData';
+import { generateHouseholdKey } from '@/lib/household-key';
 import { format } from 'date-fns';
 
 interface AddLeadModalProps {
@@ -151,7 +152,7 @@ export function AddLeadModal({
 
     try {
       // Generate household key
-      const householdKey = `${lastName.trim().toUpperCase()}_${firstName.trim().toUpperCase()}_${zipCode.trim()}`;
+      const householdKey = generateHouseholdKey(firstName, lastName, zipCode);
 
       // Clean phone array (remove empty values)
       const cleanedPhones = phones.filter(p => p.trim() !== '');
