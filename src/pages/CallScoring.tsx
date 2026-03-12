@@ -72,14 +72,6 @@ type CallScoringError = { message?: string } | null;
 
 const ALLOWED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.ogg'];
 const ALLOWED_TYPES = ['audio/mpeg', 'audio/wav', 'audio/x-m4a', 'audio/ogg', 'audio/mp4'];
-// Map MIME types to safe Whisper-compatible extensions for files with wrong/missing extensions
-const MIME_TO_EXTENSION: Record<string, string> = {
-  'audio/mpeg': '.mp3',
-  'audio/wav': '.wav',
-  'audio/x-m4a': '.m4a',
-  'audio/mp4': '.m4a',
-  'audio/ogg': '.ogg',
-};
 const MAX_SIZE_MB = 75; // Allow up to 75MB (will be converted if > 25MB)
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
 const WHISPER_MAX_SIZE_MB = 25; // Files over this will be converted
@@ -735,8 +727,7 @@ export default function CallScoring() {
     }
   }, [currentPage, hasAccess, user, isStaffUser, agencyId, userRole, userTeamMemberId, fetchUsageAndCalls]);
 
-  const handleFileSelect = async (rawFile: File | null) => {
-    let file = rawFile;
+  const handleFileSelect = async (file: File | null) => {
     setFileError(null);
     
     if (!file) {
@@ -745,9 +736,7 @@ export default function CallScoring() {
     }
 
     const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-    const hasValidExtension = ALLOWED_EXTENSIONS.includes(extension);
-    const hasValidMime = ALLOWED_TYPES.includes(file.type);
-    if (!hasValidExtension && !hasValidMime) {
+    if (!ALLOWED_EXTENSIONS.includes(extension) && !ALLOWED_TYPES.includes(file.type)) {
       setFileError(`Invalid file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
       setSelectedFile(null);
       return;
@@ -757,15 +746,6 @@ export default function CallScoring() {
       setFileError(`File too large. Maximum size: ${MAX_SIZE_MB}MB`);
       setSelectedFile(null);
       return;
-    }
-
-    // If MIME is valid but extension is wrong, rename the file so Whisper accepts it
-    if (!hasValidExtension && hasValidMime) {
-      const correctExt = MIME_TO_EXTENSION[file.type];
-      if (correctExt) {
-        const correctedName = file.name.replace(/\.[^.]+$/, correctExt);
-        file = new File([file], correctedName, { type: file.type });
-      }
     }
 
     // For large files (> 25MB), check duration before accepting
@@ -809,8 +789,7 @@ export default function CallScoring() {
   };
 
   // Secondary file handlers for split calls
-  const handleSecondaryFileSelect = async (rawFile: File | null) => {
-    let file = rawFile;
+  const handleSecondaryFileSelect = async (file: File | null) => {
     setSecondaryFileError(null);
 
     if (!file) {
@@ -819,9 +798,7 @@ export default function CallScoring() {
     }
 
     const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-    const hasValidExtension = ALLOWED_EXTENSIONS.includes(extension);
-    const hasValidMime = ALLOWED_TYPES.includes(file.type);
-    if (!hasValidExtension && !hasValidMime) {
+    if (!ALLOWED_EXTENSIONS.includes(extension) && !ALLOWED_TYPES.includes(file.type)) {
       setSecondaryFileError(`Invalid file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
       setSecondaryFile(null);
       return;
@@ -831,15 +808,6 @@ export default function CallScoring() {
       setSecondaryFileError(`File too large. Maximum size: ${MAX_SIZE_MB}MB`);
       setSecondaryFile(null);
       return;
-    }
-
-    // If MIME is valid but extension is wrong, rename the file so Whisper accepts it
-    if (!hasValidExtension && hasValidMime) {
-      const correctExt = MIME_TO_EXTENSION[file.type];
-      if (correctExt) {
-        const correctedName = file.name.replace(/\.[^.]+$/, correctExt);
-        file = new File([file], correctedName, { type: file.type });
-      }
     }
 
     // For large files (> 25MB), check duration before accepting
