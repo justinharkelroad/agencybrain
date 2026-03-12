@@ -95,9 +95,10 @@ serve(async (req) => {
 
     console.log('Lesson found:', lesson.name);
 
-    // Generate AI summary of reflections
+    // Generate AI summary of reflections (skip if no reflections provided)
+    const hasReflections = reflections && (reflections.takeaway?.trim() || reflections.action?.trim() || reflections.result?.trim());
     let aiSummary = null;
-    if (openaiApiKey && reflections) {
+    if (openaiApiKey && hasReflections) {
       try {
         console.log('Generating AI summary...');
         const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -146,12 +147,12 @@ Expected Result: ${reflections.result}`,
         video_watched_seconds: typeof video_watched_seconds === 'number' ? video_watched_seconds : 0,
         content_viewed: true,
         quiz_completed: true,
-        quiz_score,
+        quiz_score: quiz_score ?? 100,
         quiz_passed: true,
-        quiz_answers_json: quiz_answers,
-        reflection_takeaway: reflections.takeaway,
-        reflection_action: reflections.action,
-        reflection_result: reflections.result,
+        quiz_answers_json: quiz_answers || {},
+        reflection_takeaway: reflections?.takeaway || null,
+        reflection_action: reflections?.action || null,
+        reflection_result: reflections?.result || null,
         ai_summary: aiSummary,
         completed_at: new Date().toISOString(),
         completion_email_sent: false,
@@ -167,8 +168,9 @@ Expected Result: ${reflections.result}`,
     console.log('Progress saved successfully');
 
     // Send notification emails to configured recipients (or fallback to agency owner)
+    // Skip email for no-quiz completions (empty reflections)
     const agencyId = staffUser.agency_id;
-    if (agencyId && resendApiKey) {
+    if (agencyId && resendApiKey && hasReflections) {
       try {
         // Build recipient list from training_notification_recipients table
         const { data: configuredRecipients } = await supabase

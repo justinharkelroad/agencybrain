@@ -161,6 +161,38 @@ export default function StaffSPLesson() {
     return url;
   };
 
+  const handleMarkComplete = async () => {
+    setSubmitting(true);
+    try {
+      const sessionToken = localStorage.getItem('staff_session_token');
+      const { error } = await supabase.functions.invoke('sp_staff_lesson_complete', {
+        body: {
+          session_token: sessionToken,
+          staff_user_id: user!.id,
+          lesson_id: lesson!.id,
+          quiz_score: 100,
+          quiz_answers: {},
+          reflections: {
+            takeaway: '',
+            action: '',
+            result: '',
+          },
+          video_watched_seconds: getWatchedSeconds(),
+        },
+      });
+
+      if (error) throw error;
+
+      setCompleted(true);
+      toast({ title: 'Lesson completed!' });
+    } catch (err) {
+      console.error('Error marking lesson complete:', err);
+      toast({ title: 'Error saving progress', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmitQuiz = async () => {
     if (reflections.some(r => !r.trim())) {
       toast({
@@ -437,6 +469,30 @@ export default function StaffSPLesson() {
             </Card>
           )}
         </>
+      )}
+
+      {/* Mark Complete (no quiz) */}
+      {!lesson.has_quiz && !completed && (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h3 className="text-lg font-medium mb-2">Ready to complete this lesson?</h3>
+            <p className="text-muted-foreground mb-4">
+              Mark this lesson as done when you've finished reviewing the content.
+            </p>
+            <Button
+              onClick={handleMarkComplete}
+              disabled={submitting}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              {submitting ? 'Saving...' : 'Mark as Complete'}
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* Completed State */}

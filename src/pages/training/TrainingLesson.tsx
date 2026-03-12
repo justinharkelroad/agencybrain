@@ -194,6 +194,36 @@ export default function TrainingLesson() {
     return url;
   };
 
+  const handleMarkComplete = async () => {
+    setSubmitting(true);
+    try {
+      const { error: progressError } = await supabase
+        .from('sp_progress')
+        .upsert({
+          user_id: user!.id,
+          lesson_id: lesson!.id,
+          video_watched: true,
+          content_viewed: true,
+          quiz_completed: true,
+          quiz_score: 100,
+          quiz_passed: true,
+          completed_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id,lesson_id',
+        });
+
+      if (progressError) throw progressError;
+
+      setCompleted(true);
+      toast({ title: 'Lesson completed!' });
+    } catch (err) {
+      console.error('Error marking lesson complete:', err);
+      toast({ title: 'Error saving progress', variant: 'destructive' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmitQuiz = async () => {
     // Validate reflections
     if (reflections.some(r => !r.trim())) {
@@ -501,6 +531,30 @@ export default function TrainingLesson() {
             </Card>
           )}
         </>
+      )}
+
+      {/* Mark Complete (no quiz) */}
+      {!lesson.has_quiz && !completed && (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h3 className="text-lg font-medium mb-2">Ready to complete this lesson?</h3>
+            <p className="text-muted-foreground mb-4">
+              Mark this lesson as done when you've finished reviewing the content.
+            </p>
+            <Button
+              onClick={handleMarkComplete}
+              disabled={submitting}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {submitting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+              )}
+              {submitting ? 'Saving...' : 'Mark as Complete'}
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       {/* Completed State */}
