@@ -11,6 +11,7 @@ import { Loader2, Download, Image as ImageIcon } from "lucide-react";
 import { toPng } from "html-to-image";
 import jsPDF from "jspdf";
 import { format } from "date-fns";
+import { CalculationSnapshot, ChargebackDetail } from "@/lib/payout-calculator/types";
 
 interface ProducerStatementExportProps {
   payout: CompPayout;
@@ -34,6 +35,69 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December"
 ];
 
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function parseChargebackDetails(value: unknown): ChargebackDetail[] {
+  return Array.isArray(value) ? (value as ChargebackDetail[]) : [];
+}
+
+function parseCalculationSnapshot(value: unknown): CalculationSnapshot | null {
+  if (!value || Array.isArray(value) || typeof value !== "object") return null;
+  return value as CalculationSnapshot;
+}
+
+function getTierMetricLabel(tierMetric: string | undefined): string {
+  switch (tierMetric) {
+    case "premium":
+      return "written premium";
+    case "policies":
+      return "written policies";
+    case "households":
+      return "written households";
+    case "points":
+      return "written points";
+    case "items":
+    default:
+      return "written items";
+  }
+}
+
+function getTierMetricValue(payout: CompPayout, tierMetric: string | undefined): string {
+  switch (tierMetric) {
+    case "premium":
+      return formatCurrency(payout.written_premium || 0);
+    case "policies":
+      return String(payout.written_policies || 0);
+    case "households":
+      return String(payout.written_households || 0);
+    case "points":
+      return String(payout.written_points || 0);
+    case "items":
+    default:
+      return String(payout.written_items || 0);
+  }
+}
+
+function getTierSourceLabel(snapshot: CalculationSnapshot | null): string {
+  if (snapshot?.inputs.tierQualificationSource === "manual_override") {
+    return "manual written entry";
+  }
+  if (snapshot?.inputs.tierQualificationSource === "sales_table") {
+    return "sales dashboard";
+  }
+  if (snapshot?.inputs.tierMetricSource === "issued") {
+    return "issued statement";
+  }
+  return "statement fallback";
+}
+
 export function ProducerStatementExport({ 
   payout, 
   agencyId, 
@@ -42,6 +106,31 @@ export function ProducerStatementExport({
 }: ProducerStatementExportProps) {
   const statementRef = useRef<HTMLDivElement>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const chargebackDetails = parseChargebackDetails(payout.chargeback_details_json);
+  const calculationSnapshot = parseCalculationSnapshot(payout.calculation_snapshot_json);
+  const hasChargebackAudit = chargebackDetails.length > 0;
+  const appliedChargebacks = chargebackDetails.filter((detail) => detail.included);
+  const excludedChargebacks = chargebackDetails.filter((detail) => !detail.included);
+  const appliedChargebackPremium = hasChargebackAudit
+    ? appliedChargebacks.reduce((sum, detail) => sum + detail.premium, 0)
+    : Math.abs(payout.chargeback_premium || 0);
+  const excludedChargebackPremium = hasChargebackAudit
+    ? excludedChargebacks.reduce((sum, detail) => sum + detail.premium, 0)
+    : 0;
+  const netPremiumPaidOn = hasChargebackAudit
+    ? (payout.issued_premium || 0) - appliedChargebackPremium
+    : (payout.net_premium ?? ((payout.issued_premium || 0) - appliedChargebackPremium));
+  const appliedChargebackCount = hasChargebackAudit
+    ? appliedChargebacks.length
+    : (payout.chargeback_count || 0);
+  const tierMetric = calculationSnapshot?.inputs.tierMetric;
+  const tierMetricLabel = getTierMetricLabel(tierMetric);
+  const tierMetricValue = getTierMetricValue(payout, tierMetric);
+  const tierThresholdDisplay = payout.tier_commission_value != null
+    ? tierMetric === "premium"
+      ? formatCurrency(payout.tier_threshold_met || 0)
+      : `${payout.tier_threshold_met || 0} ${tierMetricLabel.replace("written ", "")}`
+    : "—";
 
   // Fetch agency details
   const { data: agency, isLoading: agencyLoading } = useQuery<Agency | null>({
@@ -275,17 +364,27 @@ export function ProducerStatementExport({
                 <div className="grid grid-cols-2 gap-4 mt-4">
                   <Card className="bg-red-50">
                     <CardContent className="p-4">
-                      <h5 className="text-sm font-medium text-red-700 mb-2">Chargebacks</h5>
+                      <h5 className="text-sm font-medium text-red-700 mb-2">Chargebacks Applied</h5>
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
                           <span>Premium:</span>
                           <span className="font-medium text-red-700">
-                            -${(payout.chargeback_premium || 0).toLocaleString()}
+                            -{formatCurrency(appliedChargebackPremium)}
                           </span>
                         </div>
                         <div className="flex justify-between">
                           <span>Count:</span>
-                          <span className="font-medium text-red-700">{payout.chargeback_count || 0}</span>
+                          <span className="font-medium text-red-700">{appliedChargebackCount}</span>
+                        </div>
+                        {hasChargebackAudit && excludedChargebacks.length > 0 && (
+                          <div className="flex justify-between text-amber-700">
+                            <span>Excluded:</span>
+                            <span className="font-medium">-{formatCurrency(excludedChargebackPremium)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between text-gray-600">
+                          <span>Raw found:</span>
+                          <span className="font-medium">-{formatCurrency(payout.chargeback_premium || 0)}</span>
                         </div>
                       </div>
                     </CardContent>
@@ -293,12 +392,12 @@ export function ProducerStatementExport({
 
                   <Card className="bg-green-50">
                     <CardContent className="p-4">
-                      <h5 className="text-sm font-medium text-green-700 mb-2">Net Production</h5>
+                      <h5 className="text-sm font-medium text-green-700 mb-2">Net Premium Paid On</h5>
                       <div className="space-y-1 text-sm">
                         <div className="flex justify-between">
                           <span>Premium:</span>
                           <span className="font-medium text-green-700">
-                            ${(payout.net_premium || 0).toLocaleString()}
+                            {formatCurrency(netPremiumPaidOn)}
                           </span>
                         </div>
                         <div className="flex justify-between">
@@ -306,9 +405,14 @@ export function ProducerStatementExport({
                           <span className="font-medium text-green-700">{payout.net_items || 0}</span>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                  </CardContent>
+                </Card>
+              </div>
+              {!hasChargebackAudit && (payout.chargeback_premium || 0) > 0 && (
+                <p className="mt-3 text-xs text-gray-500">
+                  Detailed chargeback inclusion data was not saved for this historical payout, so this statement falls back to the stored summary totals.
+                </p>
+              )}
               </div>
 
               <Separator className="my-4" />
@@ -320,12 +424,12 @@ export function ProducerStatementExport({
                   <CardContent className="p-4">
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span>Tier Threshold Met:</span>
-                        <span className="font-medium">
-                          {payout.tier_threshold_met != null 
-                            ? `$${payout.tier_threshold_met.toLocaleString()}` 
-                            : "—"}
-                        </span>
+                        <span>Tier Qualification Input:</span>
+                        <span className="font-medium">{tierMetricValue} ({tierMetricLabel})</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Tier Achieved:</span>
+                        <span className="font-medium">{tierThresholdDisplay}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Commission Rate:</span>
@@ -335,25 +439,29 @@ export function ProducerStatementExport({
                             : "—"}
                         </span>
                       </div>
+                      <div className="flex justify-between">
+                        <span>Tier Source:</span>
+                        <span className="font-medium">{getTierSourceLabel(calculationSnapshot)}</span>
+                      </div>
                       <Separator className="my-2" />
                       <div className="flex justify-between">
                         <span>Base Commission:</span>
-                        <span className="font-medium">${(payout.base_commission || 0).toLocaleString()}</span>
+                        <span className="font-medium">{formatCurrency(payout.base_commission || 0)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Bonus Amount:</span>
-                        <span className="font-medium">${(payout.bonus_amount || 0).toLocaleString()}</span>
+                        <span className="font-medium">{formatCurrency(payout.bonus_amount || 0)}</span>
                       </div>
                       {payout.rollover_premium != null && payout.rollover_premium !== 0 && (
                         <div className="flex justify-between">
                           <span>Rollover Premium:</span>
-                          <span className="font-medium">${payout.rollover_premium.toLocaleString()}</span>
+                          <span className="font-medium">{formatCurrency(payout.rollover_premium)}</span>
                         </div>
                       )}
                       <Separator className="my-2" />
                       <div className="flex justify-between text-lg font-bold">
                         <span>Total Payout:</span>
-                        <span className="text-green-700">${(payout.total_payout || 0).toLocaleString()}</span>
+                        <span className="text-green-700">{formatCurrency(payout.total_payout || 0)}</span>
                       </div>
                     </div>
                   </CardContent>
