@@ -524,18 +524,28 @@ export default function WinbackHQ() {
     setCurrentPage(1);
   };
 
-  const handleTeedUpClick = () => {
-    const today = startOfDay(new Date());
-    setActiveTab('active');
+  const handleStatCardClick = (card: 'total' | 'teed_up' | 'untouched' | 'in_progress' | 'won_back') => {
+    // Clear all filters first
     setSearch('');
-    setStatusFilter('all');
     setTerminationAgeFilter('all');
-    setQuickDateFilter('this_week');
-    setDateRange({
-      from: startOfWeek(today, { weekStartsOn: 1 }),
-      to: endOfWeek(today, { weekStartsOn: 1 }),
-    });
     setCurrentPage(1);
+
+    if (card === 'teed_up') {
+      const today = startOfDay(new Date());
+      setActiveTab('active');
+      setStatusFilter('all');
+      setQuickDateFilter('this_week');
+      setDateRange({
+        from: startOfWeek(today, { weekStartsOn: 1 }),
+        to: endOfWeek(today, { weekStartsOn: 1 }),
+      });
+    } else {
+      // All other cards: clear date filters, set status
+      setQuickDateFilter('all');
+      setDateRange(undefined);
+      setActiveTab('active');
+      setStatusFilter(card === 'total' ? 'all' : card as WinbackStatus);
+    }
   };
 
   const handleRowClick = (household: Household) => {
@@ -723,7 +733,10 @@ export default function WinbackHQ() {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <Card>
+            <Card
+              className="cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => handleStatCardClick('total')}
+            >
               <CardHeader className="pb-2">
                 <CardDescription>Total Households</CardDescription>
                 <CardTitle className="text-3xl">{stats.totalHouseholds}</CardTitle>
@@ -738,7 +751,7 @@ export default function WinbackHQ() {
 
             <Card
               className="cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={handleTeedUpClick}
+              onClick={() => handleStatCardClick('teed_up')}
             >
               <CardHeader className="pb-2">
                 <CardDescription>Teed Up This Week</CardDescription>
@@ -752,7 +765,10 @@ export default function WinbackHQ() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card
+              className="cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => handleStatCardClick('untouched')}
+            >
               <CardHeader className="pb-2">
                 <CardDescription>Untouched</CardDescription>
                 <CardTitle className="text-3xl">{stats.untouched}</CardTitle>
@@ -765,7 +781,10 @@ export default function WinbackHQ() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card
+              className="cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => handleStatCardClick('in_progress')}
+            >
               <CardHeader className="pb-2">
                 <CardDescription>In Progress</CardDescription>
                 <CardTitle className="text-3xl">{stats.inProgress}</CardTitle>
@@ -778,7 +797,10 @@ export default function WinbackHQ() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card
+              className="cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => handleStatCardClick('won_back')}
+            >
               <CardHeader className="pb-2">
                 <CardDescription>Won Back</CardDescription>
                 <CardTitle className="text-3xl">{stats.wonBack}</CardTitle>
