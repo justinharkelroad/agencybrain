@@ -42,6 +42,9 @@ verify_jwt = false
 [functions.get_dashboard]
 verify_jwt = true
 
+[functions.upsert_admin_sale]
+verify_jwt = true
+
 [functions.get_member_month_snapshot]
 verify_jwt = false
 

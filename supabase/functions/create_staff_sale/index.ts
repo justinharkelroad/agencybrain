@@ -249,7 +249,7 @@ serve(async (req) => {
       if (duplicate?.sale_id && existingSale) {
         return new Response(
           JSON.stringify({
-            error: `Policy ${duplicate.policy_number} already exists on sale ${duplicate.sale_id} (${existingSale.source || 'unknown source'} for ${existingSale.customer_name || 'Unknown customer'} on ${existingSale.sale_date}).`,
+            error: `Policy ${duplicate.policy_number} already exists for ${existingSale.customer_name || 'another customer'} on ${existingSale.sale_date || 'an unknown date'}. Open Sales Log to edit the existing sale instead.`,
           }),
           { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );

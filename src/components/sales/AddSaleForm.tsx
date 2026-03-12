@@ -32,9 +32,10 @@ import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
 import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
-import { generateHouseholdKey } from "@/lib/lqs-quote-parser";
 import { classifyBundle, type ExistingProductFlag } from "@/lib/bundle-classifier";
 import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-products";
+import { assertNoDuplicateSalePolicies } from "@/lib/salesDuplicatePolicies";
+import { getSupabaseFunctionErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
 import type { LqsSalePrefill } from "@/lib/lqs-sale-prefill";
 import {
@@ -59,25 +60,6 @@ type ProductType = {
 type TeamMember = {
   id: string;
   name: string;
-};
-
-type ExistingPolicyLink = {
-  sale_id: string;
-  policy_number: string | null;
-  sales:
-    | {
-        id: string;
-        source: string | null;
-        customer_name: string | null;
-        sale_date: string;
-      }
-    | Array<{
-        id: string;
-        source: string | null;
-        customer_name: string | null;
-        sale_date: string;
-      }>
-    | null;
 };
 
 type LineItem = {
@@ -740,81 +722,24 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
         { items: 0, premium: 0, points: 0 }
       );
 
-      const policyNumbers = policies
-        .map((policy) => policy.policy_number?.trim())
-        .filter((value): value is string => !!value);
-      if (policyNumbers.length > 0 && profile?.agency_id) {
-        const { data: existingPolicyLinks, error: existingPolicyLinksError } = await supabase
-          .from("sale_policies")
-          .select("sale_id, policy_number, sales!inner(id, source, customer_name, sale_date, agency_id)")
-          .in("policy_number", policyNumbers)
-          .eq("sales.agency_id", profile.agency_id);
-
-        if (existingPolicyLinksError) throw existingPolicyLinksError;
-
-        const duplicate = (existingPolicyLinks as ExistingPolicyLink[] | null)?.find(
-          (row) => row.sale_id !== editSale?.id,
-        );
-        const existingSale = duplicate?.sales && Array.isArray(duplicate.sales)
-          ? duplicate.sales[0]
-          : duplicate?.sales;
-
-        if (duplicate?.sale_id && existingSale) {
-          throw new Error(
-            `Policy ${duplicate.policy_number} already exists on sale ${duplicate.sale_id} (${existingSale.source || "unknown source"} for ${existingSale.customer_name || "Unknown customer"} on ${existingSale.sale_date}).`,
-          );
-        }
-      }
-
-      // If editing, delete existing policies and items first
-      if (isEditMode && editSale) {
-        const { error: deleteItemsError } = await supabase
-          .from("sale_items")
-          .delete()
-          .in(
-            "sale_policy_id",
-            editSale.sale_policies.map((p) => p.id)
-          );
-        if (deleteItemsError) throw deleteItemsError;
-
-        const { error: deletePoliciesError } = await supabase
-          .from("sale_policies")
-          .delete()
-          .eq("sale_id", editSale.id);
-        if (deletePoliciesError) throw deletePoliciesError;
-      }
-
-      // Auto-assign to Owner if no producer selected
-      let finalTeamMemberId = producerId || null;
-      if (!finalTeamMemberId && profile?.agency_id) {
-        const { data: ownerMember } = await supabase
-          .from("team_members")
-          .select("id")
-          .eq("agency_id", profile.agency_id)
-          .eq("role", "Owner")
-          .maybeSingle();
-        if (ownerMember) {
-          finalTeamMemberId = ownerMember.id;
-        }
-      }
-
       // For backward compatibility, set sales.brokered_carrier_id to first brokered policy's carrier
-      const firstBrokeredPolicy = policies.find(p => p.isBrokered && p.brokeredCarrierId);
-      const saleLevelBrokeredCarrierId = firstBrokeredPolicy?.brokeredCarrierId || null;
+      const firstBrokeredPolicy = policies.find((policy) => policy.isBrokered && policy.brokeredCarrierId);
+      const saleLevelBrokeredCarrierId = firstBrokeredPolicy?.brokeredCarrierId || undefined;
 
-      // Create or update the sale
-      const saleData = {
-        agency_id: profile.agency_id,
-        team_member_id: finalTeamMemberId,
-        lead_source_id: leadSourceId || null,
-        prior_insurance_company_id: priorInsuranceCompanyId || null,
+      const salePayload = {
+        sale_id: isEditMode && editSale ? editSale.id : undefined,
+        household_id: !isEditMode ? prefillSale?.householdId || undefined : undefined,
+        team_member_id: producerId || undefined,
+        lead_source_id: leadSourceId,
+        prior_insurance_company_id: priorInsuranceCompanyId || undefined,
         brokered_carrier_id: saleLevelBrokeredCarrierId,
         customer_name: customerName.trim(),
-        customer_email: customerEmail.trim() || null,
-        customer_phone: customerPhone.trim() || null,
-        customer_zip: customerZip.trim() || null,
+        customer_email: customerEmail.trim() || undefined,
+        customer_phone: customerPhone.trim() || undefined,
+        customer_zip: customerZip.trim() || undefined,
         sale_date: format(saleDate, "yyyy-MM-dd"),
         effective_date: format(policies[0].effective_date!, "yyyy-MM-dd"),
+        source: "manual",
         total_policies: policies.length,
         total_items: totals.items,
         total_premium: totals.premium,
@@ -828,242 +753,52 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
         existing_customer_products: hasExistingPolicies ? existingPolicyTypes : [],
         brokered_counts_toward_bundling: hasBrokeredPolicy && brokeredCountsTowardBundling,
         is_one_call_close: isOneCallClose,
-        source: "manual",
-        created_by: user?.id,
-      };
+        policies: policies.map((policy) => {
+          const productTypeId = policy.product_type_id === "brokered" ? null : (policy.product_type_id || null);
 
-      let saleId: string;
-
-      if (isEditMode && editSale) {
-        const { error: updateError } = await supabase
-          .from("sales")
-          .update(saleData)
-          .eq("id", editSale.id);
-        if (updateError) throw updateError;
-        saleId = editSale.id;
-      } else {
-        const { data: sale, error: saleError } = await supabase
-          .from("sales")
-          .insert(saleData)
-          .select("id")
-          .single();
-        if (saleError) throw saleError;
-        saleId = sale.id;
-      }
-
-      // Create policies and items
-      for (const policy of policies) {
-        const policyTotals = calculatePolicyTotals(policy);
-
-        // For brokered policies, product_type_id is "brokered" - convert to null for DB
-        const productTypeId = policy.product_type_id === "brokered" ? null : (policy.product_type_id || null);
-
-        const { data: createdPolicy, error: policyError } = await supabase
-          .from("sale_policies")
-          .insert({
-            sale_id: saleId,
+          return {
             product_type_id: productTypeId,
             policy_type_name: policy.policy_type_name,
-            policy_number: policy.policy_number || null,
+            policy_number: policy.policy_number || undefined,
             effective_date: format(policy.effective_date!, "yyyy-MM-dd"),
-            total_items: policyTotals.items,
-            total_premium: policyTotals.premium,
-            total_points: policyTotals.points,
             is_vc_qualifying: policy.is_vc_qualifying,
             brokered_carrier_id: policy.isBrokered ? policy.brokeredCarrierId : null,
-          })
-          .select("id")
-          .single();
+            items: policy.lineItems.map((item) => ({
+              product_type_id: item.product_type_id && item.product_type_id !== "brokered" ? item.product_type_id : null,
+              product_type_name: item.product_type_name,
+              item_count: item.item_count,
+              premium: typeof item.premium === "number" ? item.premium : parseFloat(item.premium) || 0,
+              points: item.points,
+              is_vc_qualifying: item.is_vc_qualifying,
+            })),
+          };
+        }),
+      };
 
-        if (policyError) throw policyError;
+      await assertNoDuplicateSalePolicies({
+        agencyId: profile.agency_id,
+        currentSaleId: isEditMode && editSale ? editSale.id : undefined,
+        policyNumbers: policies.map((policy) => policy.policy_number),
+      });
 
-        // Create line items for this policy
-        const saleItems = policy.lineItems.map((item) => ({
-          sale_id: saleId,
-          sale_policy_id: createdPolicy.id,
-          product_type_id: item.product_type_id && item.product_type_id !== "brokered" ? item.product_type_id : null,
-          product_type_name: item.product_type_name,
-          item_count: item.item_count,
-          premium:
-            typeof item.premium === "number" ? item.premium : parseFloat(item.premium) || 0,
-          points: item.points,
-          is_vc_qualifying: item.is_vc_qualifying,
-        }));
+      const { data, error } = await supabase.functions.invoke("upsert_admin_sale", {
+        body: salePayload,
+      });
 
-        const { error: itemsError } = await supabase
-          .from("sale_items")
-          .insert(saleItems);
-
-        if (itemsError) throw itemsError;
+      if (error) {
+        throw new Error(await getSupabaseFunctionErrorMessage(error));
       }
+      if (data?.error) throw new Error(data.error);
 
-      // Create or find unified contact so this customer appears in Contacts
-      let resolvedContactId: string | null = null;
-      if (profile?.agency_id && customerName.trim()) {
-        try {
-          const nameParts = customerName.trim().split(/\s+/);
-          const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0];
-          const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ') : '';
-
-          const { data: contactId } = await supabase.rpc('find_or_create_contact', {
-            p_agency_id: profile.agency_id,
-            p_first_name: firstName || null,
-            p_last_name: lastName,
-            p_zip_code: customerZip.trim() || null,
-            p_phone: customerPhone.trim() || null,
-            p_email: customerEmail.trim() || null,
-          });
-
-          if (contactId) {
-            resolvedContactId = contactId;
-            await supabase
-              .from('sales')
-              .update({ contact_id: contactId })
-              .eq('id', saleId)
-              .is('contact_id', null);
-          }
-        } catch (contactErr) {
-          console.warn('[AddSaleForm] Failed to create contact:', contactErr);
-        }
-      }
-
-      // Guarantee dashboard -> LQS linkage even when auto-match triggers find no household.
-      // This keeps manual dashboard sales visible in LQS consistently.
-      if (profile?.agency_id) {
-        let createdLqsHouseholdId: string | null = null;
-        try {
-          const { data: existingLqsRows, error: existingLqsError } = await supabase
-            .from("lqs_sales")
-            .select("id, household_id")
-            .eq("source_reference_id", saleId)
-            .limit(1);
-          if (existingLqsError) throw existingLqsError;
-
-          const hasExistingLqsRows = !!existingLqsRows && existingLqsRows.length > 0;
-          const existingHouseholdId = hasExistingLqsRows ? existingLqsRows[0].household_id : null;
-
-          if (isEditMode && existingHouseholdId) {
-            const { error: updateLinkedSalesError } = await supabase
-              .from("lqs_sales")
-              .update({
-                team_member_id: finalTeamMemberId,
-                sale_date: format(saleDate, "yyyy-MM-dd"),
-              })
-              .eq("source_reference_id", saleId);
-            if (updateLinkedSalesError) throw updateLinkedSalesError;
-
-            const householdPatch: Record<string, unknown> = {
-              team_member_id: finalTeamMemberId,
-              lead_source_id: leadSourceId || null,
-              prior_insurance_company_id: priorInsuranceCompanyId || null,
-              zip_code: customerZip.trim() || null,
-            };
-            if (resolvedContactId) householdPatch.contact_id = resolvedContactId;
-            if (customerPhone.trim()) householdPatch.phone = [customerPhone.trim()];
-            if (customerEmail.trim()) householdPatch.email = customerEmail.trim();
-
-            const { error: updateLinkedHouseholdError } = await supabase
-              .from("lqs_households")
-              .update(householdPatch)
-              .eq("id", existingHouseholdId)
-              .eq("agency_id", profile.agency_id);
-            if (updateLinkedHouseholdError) throw updateLinkedHouseholdError;
-          } else if (!hasExistingLqsRows) {
-            let householdId: string | null = !isEditMode ? prefillSale?.householdId ?? null : null;
-
-            if (!householdId) {
-              const { data: matches, error: matchError } = await supabase.rpc(
-                "match_sale_to_lqs_household",
-                { p_sale_id: saleId },
-              );
-              if (matchError) throw matchError;
-              householdId = matches?.[0]?.household_id ?? null;
-            }
-
-            if (!householdId) {
-              const nameParts = customerName.trim().split(/\s+/);
-              const lastName = (nameParts.length > 1 ? nameParts[nameParts.length - 1] : nameParts[0]) || "UNKNOWN";
-              const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : "";
-              const householdKey = generateHouseholdKey(firstName, lastName, customerZip.trim() || null);
-              const saleDateStr = format(saleDate, "yyyy-MM-dd");
-
-              const { data: existingHousehold } = await supabase
-                .from("lqs_households")
-                .select("id")
-                .eq("agency_id", profile.agency_id)
-                .eq("household_key", householdKey)
-                .maybeSingle();
-
-              if (existingHousehold?.id) {
-                householdId = existingHousehold.id;
-              } else {
-                const { data: createdHousehold, error: createHouseholdError } = await supabase
-                  .from("lqs_households")
-                  .insert({
-                    agency_id: profile.agency_id,
-                    household_key: householdKey,
-                    first_name: firstName || "UNKNOWN",
-                    last_name: lastName,
-                    zip_code: customerZip.trim() || null,
-                    phone: customerPhone.trim() ? [customerPhone.trim()] : null,
-                    email: customerEmail.trim() || null,
-                    lead_source_id: leadSourceId || null,
-                    prior_insurance_company_id: priorInsuranceCompanyId || null,
-                    lead_received_date: saleDateStr,
-                    status: "lead",
-                    team_member_id: finalTeamMemberId,
-                    contact_id: resolvedContactId,
-                    needs_attention: false,
-                  })
-                  .select("id")
-                  .single();
-
-                if (createHouseholdError) throw createHouseholdError;
-                householdId = createdHousehold.id;
-                createdLqsHouseholdId = createdHousehold.id;
-              }
-            }
-
-            if (householdId) {
-              const { error: linkError } = await supabase.rpc("link_sale_to_lqs_household", {
-                p_household_id: householdId,
-                p_sale_id: saleId,
-              });
-              if (linkError) throw linkError;
-            }
-          }
-        } catch (lqsLinkError) {
-          console.error("[AddSaleForm] Failed to sync manual sale to LQS:", lqsLinkError);
-          if (!isEditMode) {
-            await supabase.from("sale_items").delete().eq("sale_id", saleId);
-            await supabase.from("sale_policies").delete().eq("sale_id", saleId);
-            await supabase.from("sales").delete().eq("id", saleId);
-            await supabase.from("lqs_sales").delete().eq("source_reference_id", saleId);
-            if (createdLqsHouseholdId) {
-              await supabase.from("lqs_households").delete().eq("id", createdLqsHouseholdId);
-            }
-            throw new Error("Failed to sync sale to LQS. Sale was not saved.");
-          }
-
-          throw new Error("Failed to sync updated sale to LQS. Existing sale kept, but changes need review.");
-        }
-      }
-
-      // Trigger sale notification email for new sales (fire and forget)
-      if (!isEditMode && profile?.agency_id) {
-        supabase.functions.invoke('send-sale-notification', {
-          body: {
-            sale_id: saleId,
-            agency_id: profile.agency_id
-          }
-        }).catch(err => {
-          console.error('[AddSaleForm] Failed to trigger sale notification:', err);
-        });
-      }
-
-      return { saleId };
+      return data as { sale_id: string };
     },
-    onSuccess: async ({ saleId }) => {
+    onSuccess: async (result) => {
+      const saleId = result?.sale_id;
+      if (!saleId) {
+        toast.error("Sale saved but no sale ID was returned");
+        return;
+      }
+
       // Fetch saved sale to confirm lead_source was persisted (proof)
       const { data: savedSale } = await supabase
         .from("sales")
@@ -2025,12 +1760,7 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
           </Button>
           <Button
             type="submit"
-            disabled={
-              saveSale.isPending ||
-              !customerName.trim() ||
-              !saleDate ||
-              policies.length === 0
-            }
+            disabled={saveSale.isPending}
           >
             {saveSale.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isEditMode ? "Update Sale" : "Create Sale"}

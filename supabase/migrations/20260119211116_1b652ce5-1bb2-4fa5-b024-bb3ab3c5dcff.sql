@@ -44,14 +44,8 @@ BEGIN
       ac.updated_at,
       CASE
         WHEN EXISTS (
-          SELECT 1 FROM sales s WHERE s.contact_id = ac.id AND s.status = 'issued'
-        ) THEN 'customer'
-        WHEN EXISTS (
-          SELECT 1 FROM sales s WHERE s.contact_id = ac.id AND s.status IN ('pending', 'submitted')
-        ) THEN 'sold'
-        WHEN EXISTS (
           SELECT 1 FROM sales s WHERE s.contact_id = ac.id
-        ) THEN 'quoted'
+        ) THEN 'customer'
         WHEN EXISTS (
           SELECT 1 FROM winback_households wh WHERE wh.contact_id = ac.id
         ) THEN 'winback'

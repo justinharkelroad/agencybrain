@@ -32,6 +32,7 @@ import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
 import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
 import { classifyBundle, type ExistingProductFlag } from "@/lib/bundle-classifier";
 import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-products";
+import { getSupabaseFunctionErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
 import type { LqsSalePrefill } from "@/lib/lqs-sale-prefill";
 import {
@@ -614,7 +615,9 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         body: salePayload,
       });
 
-      if (error) throw error;
+      if (error) {
+        throw new Error(await getSupabaseFunctionErrorMessage(error));
+      }
       if (data?.error) throw new Error(data.error);
 
       return data;

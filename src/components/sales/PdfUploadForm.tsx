@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
 import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
+import { assertNoDuplicateSalePolicies } from "@/lib/salesDuplicatePolicies";
 import { getSupabaseFunctionErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { 
   Upload, 
@@ -591,6 +592,15 @@ export function PdfUploadForm({
         
         return data;
       } else {
+        if (!effectiveAgencyId) {
+          throw new Error("No agency found");
+        }
+
+        await assertNoDuplicateSalePolicies({
+          agencyId: effectiveAgencyId,
+          policyNumbers: stagedPolicies.map((policy) => policy.policyNumber),
+        });
+
         const { data, error } = await supabase.functions.invoke('upsert_admin_sale', {
           body: salePayload,
         });

@@ -11,6 +11,8 @@ AS $$
 DECLARE
   v_agency_id uuid;
   v_existing_sale_id uuid;
+  v_existing_customer_name text;
+  v_existing_sale_date date;
 BEGIN
   IF NEW.policy_number IS NULL OR btrim(NEW.policy_number) = '' THEN
     RETURN NEW;
@@ -25,8 +27,8 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  SELECT sp.sale_id
-    INTO v_existing_sale_id
+  SELECT sp.sale_id, s.customer_name, s.sale_date
+    INTO v_existing_sale_id, v_existing_customer_name, v_existing_sale_date
   FROM sale_policies sp
   JOIN sales s ON s.id = sp.sale_id
   WHERE sp.policy_number = NEW.policy_number
@@ -36,10 +38,10 @@ BEGIN
 
   IF v_existing_sale_id IS NOT NULL THEN
     RAISE EXCEPTION
-      'Policy number % already exists on sale % for agency %',
+      'Policy number % already exists for % on %.',
       NEW.policy_number,
-      v_existing_sale_id,
-      v_agency_id
+      COALESCE(v_existing_customer_name, 'another customer'),
+      COALESCE(to_char(v_existing_sale_date, 'Mon DD, YYYY'), 'an unknown date')
       USING ERRCODE = '23505';
   END IF;
 
