@@ -222,6 +222,7 @@ const dateStr = format(someLocalDate, 'yyyy-MM-dd');
 - Email functions MUST use `Intl.DateTimeFormat` for timezone, NOT hardcoded UTC offsets
 - Must use Resend batch API (`/emails/batch`), NOT single endpoint with `to: [array]`
 - Cron spanning midnight UTC must NOT filter by day-of-week in cron — filter inside function using local timezone
+- Cron email functions must use a 2-hour window (e.g. `localHour === 19 || localHour === 20`), NOT exact hour match — GitHub Actions skips cron runs unpredictably. Use `email_send_log` table dedup to prevent double-sends.
 - `onSuccess` callbacks that write metrics data MUST invalidate `['dashboard-daily']` query cache
 
 ## Brand Colors

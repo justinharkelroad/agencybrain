@@ -216,15 +216,33 @@ serve(async (req) => {
 
         console.log(`[send-morning-digest] Agency ${agency.name}: timezone=${timezone}, localHour=${localHour}`);
 
-        // Only send at 7 AM local time - unless force test mode
-        if (!forceTest && localHour !== 7) {
-          console.log(`[send-morning-digest] Skipping ${agency.name} - not 7 AM local time`);
-          results.push({ agency: agency.name, status: 'skipped - not 7AM' });
+        // Accept 7 AM or 8 AM local time to handle GitHub Actions cron delays.
+        // Dedup via email_send_log prevents double-sends if both hours fire.
+        if (!forceTest && localHour !== 7 && localHour !== 8) {
+          console.log(`[send-morning-digest] Skipping ${agency.name} - not 7-8 AM local time (hour=${localHour})`);
+          results.push({ agency: agency.name, status: `skipped - not 7-8AM (hour=${localHour})` });
           continue;
         }
 
         // Calculate date ranges
         const todayStr = nowUtc.toLocaleDateString('en-CA', { timeZone: timezone }); // YYYY-MM-DD
+
+        // Dedup: check if we already sent this agency's morning digest for today
+        if (!forceTest) {
+          const { data: existingLog } = await supabase
+            .from('email_send_log')
+            .select('id')
+            .eq('agency_id', agency.id)
+            .eq('email_type', 'morning_digest')
+            .eq('send_date', todayStr)
+            .maybeSingle();
+
+          if (existingLog) {
+            console.log(`[send-morning-digest] Skipping ${agency.name} - already sent for ${todayStr}`);
+            results.push({ agency: agency.name, status: `skipped - already sent for ${todayStr}` });
+            continue;
+          }
+        }
         const today = new Date(todayStr);
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
@@ -333,6 +351,17 @@ serve(async (req) => {
         }
 
         console.log(`[send-morning-digest] Sent to ${recipients.length} recipients for ${agency.name}`);
+
+        // Log successful send to prevent double-sends from delayed cron runs
+        if (!forceTest) {
+          await supabase.from('email_send_log').upsert({
+            agency_id: agency.id,
+            email_type: 'morning_digest',
+            send_date: todayStr,
+            recipient_count: recipients.length,
+          }, { onConflict: 'agency_id,email_type,send_date' });
+        }
+
         results.push({ agency: agency.name, status: 'sent', recipients: recipients.length });
 
       } catch (agencyError) {

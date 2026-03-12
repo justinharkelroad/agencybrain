@@ -283,15 +283,40 @@ Deno.serve(async (req) => {
       const timezone = agency.timezone || 'America/New_York';
       const localHour = getLocalHour(timezone);
 
-      if (!forceSend && localHour !== 10) {
+      // Accept 10 AM or 11 AM local time to handle GitHub Actions cron delays.
+      // Dedup via email_send_log prevents double-sends if both hours fire.
+      if (!forceSend && localHour !== 10 && localHour !== 11) {
         logStructured('skipping_agency_for_hour', {
           agencyId: agency.id,
           agencyName: agency.name,
           timezone,
           localHour,
-          requiredHour: 10,
+          requiredHour: '10-11',
         });
         continue;
+      }
+
+      // Get today's date in agency timezone for dedup
+      const todayLocalStr = nowUtc.toLocaleDateString('en-CA', { timeZone: timezone });
+
+      // Dedup: check if we already sent this agency's daily summary for yesterday
+      if (!forceSend) {
+        const { data: existingLog } = await supabase
+          .from('email_send_log')
+          .select('id')
+          .eq('agency_id', agency.id)
+          .eq('email_type', 'daily_summary')
+          .eq('send_date', yesterdayStr)
+          .maybeSingle();
+
+        if (existingLog) {
+          logStructured('skipping_agency_already_sent', {
+            agencyId: agency.id,
+            agencyName: agency.name,
+            sendDate: yesterdayStr,
+          });
+          continue;
+        }
       }
 
       let snapshotId: string | null = null;
@@ -760,6 +785,17 @@ Deno.serve(async (req) => {
           } else {
             const emailIds = emailResult?.data?.map((e: { id: string }) => e.id) || [];
             logStructured('email_sent', { formId: form.id, emailIds, recipients: uniqueRecipients.length });
+
+            // Log successful send to prevent double-sends from delayed cron runs
+            if (!forceSend) {
+              await supabase.from('email_send_log').upsert({
+                agency_id: agency.id,
+                email_type: 'daily_summary',
+                send_date: yesterdayStr,
+                recipient_count: uniqueRecipients.length,
+              }, { onConflict: 'agency_id,email_type,send_date' });
+            }
+
             results.push({
               agency: agency.name,
               form: form.name,

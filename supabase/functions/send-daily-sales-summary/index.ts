@@ -77,12 +77,16 @@ serve(async (req) => {
     let forceTest = false;
     let testAgencyId: string | null = null;
     let testEmail: string | null = null;
+    let backfillDate: string | null = null;
+    let backfillAgencyIds: string[] | null = null;
     try {
       const body = await req.json();
       forceTest = body?.forceTest === true;
       testAgencyId = body?.agencyId || null;
       testEmail = body?.testEmail || null;
-      
+      backfillDate = body?.backfillDate || null;  // YYYY-MM-DD, bypasses hour/weekend checks
+      backfillAgencyIds = body?.backfillAgencyIds || null;  // array of agency IDs to backfill
+
       // CRITICAL: forceTest mode REQUIRES a testEmail to prevent accidental sends
       if (forceTest && !testEmail) {
         console.error('[send-daily-sales-summary] FORCE TEST MODE requires testEmail parameter');
@@ -91,9 +95,12 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
+
       if (forceTest) {
         console.log(`[send-daily-sales-summary] FORCE TEST MODE: sending ONLY to ${testEmail}`, testAgencyId ? `for agency ${testAgencyId}` : '');
+      }
+      if (backfillDate) {
+        console.log(`[send-daily-sales-summary] BACKFILL MODE: date=${backfillDate}, agencies=${JSON.stringify(backfillAgencyIds)}`);
       }
     } catch {
       // No body or invalid JSON, continue normally
@@ -115,7 +122,9 @@ serve(async (req) => {
       .from('agencies')
       .select('id, name, sales_daily_summary_enabled, timezone');
     
-    if (forceTest && testAgencyId) {
+    if (backfillAgencyIds && backfillAgencyIds.length > 0) {
+      agencyQuery = agencyQuery.in('id', backfillAgencyIds);
+    } else if (forceTest && testAgencyId) {
       agencyQuery = agencyQuery.eq('id', testAgencyId);
     } else {
       agencyQuery = agencyQuery.eq('sales_daily_summary_enabled', true);
@@ -141,19 +150,38 @@ serve(async (req) => {
 
         console.log(`[send-daily-sales-summary] Agency ${agency.name}: timezone=${timezone}, localHour=${localHour}`);
 
-        // Only send at 7 PM local time (19:00) - unless force test mode
-        if (!forceTest && localHour !== 19) {
-          console.log(`[send-daily-sales-summary] Skipping ${agency.name} - not 7 PM local time`);
-          results.push({ agency: agency.name, status: 'skipped - not 7PM' });
+        // Accept 7 PM or 8 PM local time (19 or 20) to handle GitHub Actions cron delays.
+        // Dedup via email_send_log prevents double-sends if both hours fire.
+        // Backfill mode bypasses hour check entirely.
+        if (!forceTest && !backfillDate && localHour !== 19 && localHour !== 20) {
+          console.log(`[send-daily-sales-summary] Skipping ${agency.name} - not 7-8 PM local time (hour=${localHour})`);
+          results.push({ agency: agency.name, status: `skipped - not 7-8PM (hour=${localHour})` });
           continue;
         }
 
-        // Get today's date in agency timezone
-        const todayStr = nowUtc.toLocaleDateString('en-CA', { timeZone: timezone }); // YYYY-MM-DD
+        // Get today's date in agency timezone (or use backfill date)
+        const todayStr = backfillDate || nowUtc.toLocaleDateString('en-CA', { timeZone: timezone }); // YYYY-MM-DD
+
+        // Dedup: check if we already sent this agency's sales summary for this date
+        if (!forceTest) {
+          const { data: existingLog } = await supabase
+            .from('email_send_log')
+            .select('id')
+            .eq('agency_id', agency.id)
+            .eq('email_type', 'daily_sales_summary')
+            .eq('send_date', todayStr)
+            .maybeSingle();
+
+          if (existingLog) {
+            console.log(`[send-daily-sales-summary] Skipping ${agency.name} - already sent for ${todayStr}`);
+            results.push({ agency: agency.name, status: `skipped - already sent for ${todayStr}` });
+            continue;
+          }
+        }
 
         // Skip weekends (local time) - only send Mon-Fri
         // This is checked here (not globally) because the local day depends on agency timezone
-        if (!forceTest) {
+        if (!forceTest && !backfillDate) {
           const localDay = new Date(todayStr + 'T12:00:00').getDay(); // 0=Sun, 6=Sat
           if (localDay === 0 || localDay === 6) {
             console.log(`[send-daily-sales-summary] Skipping ${agency.name} - weekend (local day ${localDay})`);
@@ -501,12 +529,17 @@ serve(async (req) => {
         const subject = `📊 Daily Sales Summary - ${todayFormatted} | ${agency.name}`;
 
         // Send emails
-        const emailBatch = recipients.map(email => ({
+        // Resend batch API: each item needs to: as string or array
+        // Filter out any empty/invalid emails as safety net
+        const validRecipients = recipients.filter(e => e && e.includes('@') && e.includes('.'));
+        const emailBatch = validRecipients.map(email => ({
           from: BRAND.fromEmail,
-          to: email,
+          to: [email.trim()],
           subject,
           html: emailHtml,
         }));
+
+        console.log(`[send-daily-sales-summary] Email batch for ${agency.name}:`, JSON.stringify(emailBatch.map(e => ({ from: e.from, to: e.to, subject: e.subject, htmlLen: e.html?.length }))));
 
         const response = await fetch('https://api.resend.com/emails/batch', {
           method: 'POST',
@@ -520,11 +553,22 @@ serve(async (req) => {
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`[send-daily-sales-summary] Resend error for ${agency.name}:`, errorText);
-          results.push({ agency: agency.name, status: 'error - email send' });
+          results.push({ agency: agency.name, status: 'error - email send', error: errorText });
           continue;
         }
 
         console.log(`[send-daily-sales-summary] Sent to ${recipients.length} recipients for ${agency.name}`);
+
+        // Log successful send to prevent double-sends from delayed cron runs
+        if (!forceTest) {
+          await supabase.from('email_send_log').upsert({
+            agency_id: agency.id,
+            email_type: 'daily_sales_summary',
+            send_date: todayStr,
+            recipient_count: recipients.length,
+          }, { onConflict: 'agency_id,email_type,send_date' });
+        }
+
         results.push({ agency: agency.name, status: 'sent', recipients: recipients.length });
 
       } catch (agencyError) {

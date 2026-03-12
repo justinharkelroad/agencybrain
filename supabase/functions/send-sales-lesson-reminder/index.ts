@@ -179,10 +179,10 @@ Deno.serve(async (req) => {
 
         console.log(`[send-sales-lesson-reminder] Assignment ${assignment.id}: tz=${timezone}, localHour=${localHour}, localDow=${localDow}, localDate=${localDateStr}`);
 
-        // Gate: only send at 7 AM local
-        if (!forceTest && !forceSend && localHour !== 7) {
-          console.log(`[send-sales-lesson-reminder] Skipping ${assignment.id} — not 7 AM local`);
-          results.push({ agency_id: assignment.agency_id, status: 'skipped - not 7AM' });
+        // Gate: only send at 7-8 AM local (widened for GitHub Actions cron delays)
+        if (!forceTest && !forceSend && localHour !== 7 && localHour !== 8) {
+          console.log(`[send-sales-lesson-reminder] Skipping ${assignment.id} — not 7-8 AM local (hour=${localHour})`);
+          results.push({ agency_id: assignment.agency_id, status: `skipped - not 7-8AM (hour=${localHour})` });
           continue;
         }
 

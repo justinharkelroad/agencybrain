@@ -25,3 +25,6 @@ dist-ssr
 
 # Claude Code worktrees
 .claude/worktrees/
+
+# Obsidian vault (personal knowledge base)
+vault/
