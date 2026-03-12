@@ -383,6 +383,20 @@ serve(async (req) => {
     let audioBuffer = originalBuffer;
     let audioFilename = originalFilename || storagePath.split('/').pop() || 'audio.wav';
     let audioMimeType = mimeType || 'audio/wav';
+
+    // Normalize filename extension to match MIME type — Whisper rejects unknown extensions
+    // (e.g. a file named "call.mo3" that is actually audio/mpeg gets renamed to "call.mp3")
+    const WHISPER_MIME_TO_EXT: Record<string, string> = {
+      'audio/mpeg': '.mp3', 'audio/wav': '.wav', 'audio/x-m4a': '.m4a',
+      'audio/mp4': '.m4a', 'audio/ogg': '.ogg',
+    };
+    const WHISPER_VALID_EXTS = ['.flac', '.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.ogg', '.wav', '.webm'];
+    const currentExt = '.' + audioFilename.split('.').pop()?.toLowerCase();
+    if (!WHISPER_VALID_EXTS.includes(currentExt) && WHISPER_MIME_TO_EXT[audioMimeType]) {
+      const correctExt = WHISPER_MIME_TO_EXT[audioMimeType];
+      console.log(`Normalizing filename extension: ${currentExt} → ${correctExt} (MIME: ${audioMimeType})`);
+      audioFilename = audioFilename.replace(/\.[^.]+$/, correctExt);
+    }
     let convertedFileSizeBytes = originalFileSizeBytes;
   let conversionRequired = false;
   let conversionAttempts = 0;

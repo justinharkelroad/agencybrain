@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -28,6 +28,7 @@ interface PolicyType {
   is_active: boolean;
   allow_multiple_items: boolean;
   order_index: number;
+  product_type_id?: string | null;
   product_type: ProductType | null;
 }
 
@@ -42,14 +43,17 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
-  const fetchPolicyTypes = async () => {
+  const getErrorMessage = (error: unknown) =>
+    error instanceof Error ? error.message : "Unexpected error";
+
+  const fetchPolicyTypes = useCallback(async () => {
     if (!agencyId) return;
 
     try {
       const { data, error } = await supabase
         .from('policy_types')
         .select(`
-          id, name, is_active, allow_multiple_items, order_index,
+          id, name, is_active, allow_multiple_items, order_index, product_type_id,
           product_type:product_types(id, name, category, default_points, is_vc_item)
         `)
         .eq('agency_id', agencyId)
@@ -57,13 +61,13 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
 
       if (error) throw error;
       setPolicyTypes(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching policy types:', error);
       toast.error('Failed to load policy types');
     }
-  };
+  }, [agencyId]);
 
-  const fetchGlobalProductTypes = async () => {
+  const fetchGlobalProductTypes = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("product_types")
@@ -74,10 +78,10 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
 
       if (error) throw error;
       setGlobalProductTypes(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching global product types:', error);
     }
-  };
+  }, []);
 
   // Fetch policy types and global product types on mount
   useEffect(() => {
@@ -93,7 +97,7 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
     };
 
     loadData();
-  }, [agencyId]);
+  }, [agencyId, fetchGlobalProductTypes, fetchPolicyTypes]);
 
   const addPolicyType = async () => {
     if (!newTypeName.trim() || !agencyId) return;
@@ -104,12 +108,18 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
         ? Math.max(...policyTypes.map(s => s.order_index))
         : 0;
 
+      const normalizedName = newTypeName.trim().toLowerCase();
+      const matchedProductType = globalProductTypes.find(
+        (productType) => productType.name.trim().toLowerCase() === normalizedName
+      );
+
       const { error } = await supabase
         .from('policy_types')
         .insert({
           agency_id: agencyId,
           name: newTypeName.trim(),
-          is_active: true,
+          is_active: !!matchedProductType,
+          product_type_id: matchedProductType?.id || null,
           order_index: maxOrder + 1
         });
 
@@ -117,10 +127,14 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
 
       await fetchPolicyTypes();
       setNewTypeName("");
-      toast.success("Policy type added");
-    } catch (error: any) {
+      if (matchedProductType) {
+        toast.success(`Policy type added and linked to ${matchedProductType.name}`);
+      } else {
+        toast.warning("Policy type added as inactive. Link it to a compensation type before activating it.");
+      }
+    } catch (error: unknown) {
       console.error('Error adding policy type:', error);
-      toast.error('Failed to add policy type');
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -138,7 +152,7 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
 
       setPolicyTypes(policyTypes.filter(type => type.id !== id));
       toast.success("Policy type removed");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error removing policy type:', error);
       toast.error('Failed to remove policy type');
     } finally {
@@ -147,6 +161,14 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
   };
 
   const updatePolicyType = async (id: string, updates: Partial<PolicyType>) => {
+    const currentType = policyTypes.find(type => type.id === id);
+    if (!currentType) return;
+
+    if (updates.is_active === true && !currentType.product_type && !updates.product_type_id) {
+      toast.error('Link this policy type to a compensation type before activating it');
+      return;
+    }
+
     setLoading(true);
     try {
       const { error } = await supabase
@@ -158,13 +180,19 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
 
       setPolicyTypes(
         policyTypes.map(type =>
-          type.id === id ? { ...type, ...updates } : type
+          type.id === id ? {
+            ...type,
+            ...updates,
+            product_type: updates.product_type_id === undefined
+              ? type.product_type
+              : (type.product_type?.id === updates.product_type_id ? type.product_type : null),
+          } : type
         )
       );
       toast.success("Policy type updated");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating policy type:', error);
-      toast.error('Failed to update policy type');
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -199,7 +227,7 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
 
         if (error) throw error;
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating policy type order:', error);
       toast.error('Failed to update order');
       // Refetch on error
@@ -210,20 +238,35 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
   };
 
   const handleLinkProductType = async (policyTypeId: string, productTypeId: string | null) => {
+    const currentType = policyTypes.find(type => type.id === policyTypeId);
+    if (!currentType) return;
+
     setLoading(true);
     try {
+      const updates = productTypeId
+        ? { product_type_id: productTypeId }
+        : currentType.is_active
+          ? { product_type_id: null, is_active: false }
+          : { product_type_id: null };
+
       const { error } = await supabase
         .from('policy_types')
-        .update({ product_type_id: productTypeId })
+        .update(updates)
         .eq('id', policyTypeId);
 
       if (error) throw error;
 
       await fetchPolicyTypes();
-      toast.success(productTypeId ? 'Linked to compensation type' : 'Unlinked from compensation type');
-    } catch (error: any) {
+      if (productTypeId) {
+        toast.success('Linked to compensation type');
+      } else if (currentType.is_active) {
+        toast.warning('Unlinked from compensation type and deactivated to protect analytics');
+      } else {
+        toast.success('Unlinked from compensation type');
+      }
+    } catch (error: unknown) {
       console.error('Error updating product type link:', error);
-      toast.error('Failed to update link');
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -262,7 +305,7 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
       <div className="flex gap-3 p-3 rounded-lg bg-blue-500/15 border border-blue-500/20 text-sm">
         <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
         <p className="text-muted-foreground">
-          <span className="text-blue-600 dark:text-blue-400 font-medium">Link policy types</span> to enable accurate points, VC tracking, and bundle detection for compensation. Unlinked types show 0 points.
+          <span className="text-blue-600 dark:text-blue-400 font-medium">Link policy types</span> to enable accurate points, VC tracking, and bundle detection. Active policy types must be linked; custom unlinked types stay inactive until mapped.
         </p>
       </div>
 

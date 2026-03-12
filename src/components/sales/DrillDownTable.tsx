@@ -82,10 +82,12 @@ interface BundleSaleRow {
   sale_date: string;
   customer_name: string | null;
   customer_zip: string | null;
+  existing_customer_products?: string[] | null;
   lead_source_id: string | null;
   team_member_id: string | null;
   sale_policies?: Array<{
     id?: string;
+    product_type_id?: string | null;
     policy_type_name?: string | null;
     policy_type?: string | null;
     total_premium?: number | null;
@@ -170,8 +172,8 @@ export function DrillDownTable({
         let bundleQuery = supabase
           .from("sales")
           .select(`
-            id, sale_date, customer_name, customer_zip, lead_source_id, team_member_id,
-            sale_policies(id, policy_type_name, total_premium, total_items, total_points)
+            id, sale_date, customer_name, customer_zip, existing_customer_products, lead_source_id, team_member_id,
+            sale_policies(id, product_type_id, policy_type_name, total_premium, total_items, total_points)
           `)
           .eq("agency_id", agencyId)
           .gte("sale_date", startDate)
@@ -197,19 +199,45 @@ export function DrillDownTable({
         let historicalSales: Array<{
           customer_name?: string | null;
           customer_zip?: string | null;
-          sale_policies?: Array<{ policy_type_name?: string | null }> | null;
+          existing_customer_products?: string[] | null;
+          sale_policies?: Array<{ product_type_id?: string | null; policy_type_name?: string | null }> | null;
         }> = [];
         if (customerNames.length > 0) {
           const { data, error: historicalError } = await supabase
             .from("sales")
-            .select("customer_name, customer_zip, sale_policies(policy_type_name)")
+            .select("customer_name, customer_zip, existing_customer_products, sale_policies(product_type_id, policy_type_name)")
             .eq("agency_id", agencyId)
             .in("customer_name", customerNames);
           if (historicalError) throw historicalError;
           historicalSales = data || [];
         }
 
-        const bundleMap = buildCustomerBundleMap(historicalSales);
+        const policyTypeIds = Array.from(
+          new Set(
+            [...typedBundleSales, ...historicalSales]
+              .flatMap((sale) => sale.sale_policies || [])
+              .map((policy) => policy.product_type_id)
+              .filter((id): id is string => !!id),
+          ),
+        );
+
+        const canonicalNameByPolicyTypeId = new Map<string, string>();
+        if (policyTypeIds.length > 0) {
+          const { data: policyTypes, error: policyTypeError } = await supabase
+            .from("policy_types")
+            .select("id, product_type:product_types(name)")
+            .in("id", policyTypeIds);
+          if (policyTypeError) throw policyTypeError;
+
+          for (const policyType of policyTypes || []) {
+            const canonicalName = (policyType.product_type as { name?: string | null } | null)?.name;
+            if (canonicalName) {
+              canonicalNameByPolicyTypeId.set(policyType.id, canonicalName);
+            }
+          }
+        }
+
+        const bundleMap = buildCustomerBundleMap(historicalSales, canonicalNameByPolicyTypeId);
 
         const filteredByBundle = typedBundleSales.filter((sale) => {
           const key = buildCustomerKey(sale.customer_name, sale.customer_zip);

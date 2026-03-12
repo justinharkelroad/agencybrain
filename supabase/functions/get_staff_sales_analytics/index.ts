@@ -18,6 +18,7 @@ function isExcludedProduct(productType: string | null | undefined): boolean {
 
 interface SalePolicy {
   id: string;
+  product_type_id?: string | null;
   policy_type_name: string | null;
   total_premium: number | null;
   total_items: number | null;
@@ -25,6 +26,17 @@ interface SalePolicy {
 }
 
 type BundleType = "Preferred" | "Standard" | "Monoline";
+type ExistingProductFlag =
+  | "auto"
+  | "home"
+  | "condo"
+  | "renters"
+  | "landlords"
+  | "umbrella"
+  | "boat"
+  | "motorcycle"
+  | "specialty_auto"
+  | "non_standard_auto";
 
 function normalizeProductName(name: string | null | undefined): string {
   return (name || "").toLowerCase().trim();
@@ -103,8 +115,95 @@ function classifyBundleType(productNames: Iterable<string | null | undefined>): 
   return "Monoline";
 }
 
-function buildCustomerBundleMap(sales: Array<{ customer_name?: string | null; customer_zip?: string | null; sale_policies?: Array<{ policy_type_name?: string | null; policy_type?: string | null }> | null }>): Map<string, BundleType> {
+const EXISTING_PRODUCT_VALUE_MAP: Record<string, ExistingProductFlag | undefined> = {
+  auto: "auto",
+  "standard auto": "auto",
+  home: "home",
+  homeowners: "home",
+  property: "home",
+  "home/property": "home",
+  condo: "condo",
+  renters: "renters",
+  landlords: "landlords",
+  landlord: "landlords",
+  umbrella: "umbrella",
+  "personal umbrella": "umbrella",
+  motorcycle: "motorcycle",
+  boat: "boat",
+  boatowners: "boat",
+  specialty_auto: "specialty_auto",
+  "specialty auto": "specialty_auto",
+  non_standard_auto: "non_standard_auto",
+  "non-standard auto": "non_standard_auto",
+};
+
+function normalizeExistingCustomerProducts(
+  values: Array<string | null | undefined>,
+): ExistingProductFlag[] {
+  const normalized = new Set<ExistingProductFlag>();
+  for (const value of values || []) {
+    const mapped = EXISTING_PRODUCT_VALUE_MAP[(value || "").toLowerCase().trim()];
+    if (mapped) normalized.add(mapped);
+  }
+  return Array.from(normalized);
+}
+
+function mapExistingFlagToCanonical(flag: ExistingProductFlag): string {
+  switch (flag) {
+    case "auto":
+      return "standard_auto";
+    case "home":
+      return "homeowners";
+    case "condo":
+      return "condo";
+    case "renters":
+    case "landlords":
+      return "property_other";
+    case "umbrella":
+    case "boat":
+    case "motorcycle":
+    case "specialty_auto":
+    case "non_standard_auto":
+      return "other_recognized";
+  }
+}
+
+function resolvePolicyProductName(
+  policy: {
+    product_type_id?: string | null;
+    policy_type_name?: string | null;
+    policy_type?: string | null;
+    linked_product_type_name?: string | null;
+    canonical_name?: string | null;
+  },
+  canonicalNameByPolicyTypeId?: Map<string, string>,
+): string {
+  if (policy.linked_product_type_name) return policy.linked_product_type_name;
+  if (policy.canonical_name) return policy.canonical_name;
+  if (policy.product_type_id) {
+    const mapped = canonicalNameByPolicyTypeId?.get(policy.product_type_id);
+    if (mapped) return mapped;
+  }
+  return policy.policy_type_name || policy.policy_type || "";
+}
+
+function buildCustomerBundleMap(
+  sales: Array<{
+    customer_name?: string | null;
+    customer_zip?: string | null;
+    existing_customer_products?: Array<string | null | undefined> | null;
+    sale_policies?: Array<{
+      product_type_id?: string | null;
+      policy_type_name?: string | null;
+      policy_type?: string | null;
+      linked_product_type_name?: string | null;
+      canonical_name?: string | null;
+    }> | null;
+  }>,
+  canonicalNameByPolicyTypeId?: Map<string, string>,
+): Map<string, BundleType> {
   const byCustomer = new Map<string, Set<string>>();
+  const existingByCustomer = new Map<string, Set<string>>();
 
   for (const sale of sales) {
     const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
@@ -112,15 +211,25 @@ function buildCustomerBundleMap(sales: Array<{ customer_name?: string | null; cu
     if (!byCustomer.has(customerKey)) byCustomer.set(customerKey, new Set());
     const products = byCustomer.get(customerKey)!;
     for (const policy of sale.sale_policies || []) {
-      const name = normalizeProductName(policy.policy_type_name || policy.policy_type);
+      const name = normalizeProductName(resolvePolicyProductName(policy, canonicalNameByPolicyTypeId));
       if (!name || isExcludedProduct(name)) continue;
       products.add(name);
+    }
+
+    if (!existingByCustomer.has(customerKey)) existingByCustomer.set(customerKey, new Set());
+    const existingProducts = existingByCustomer.get(customerKey)!;
+    for (const existing of normalizeExistingCustomerProducts(sale.existing_customer_products || [])) {
+      existingProducts.add(mapExistingFlagToCanonical(existing));
     }
   }
 
   const result = new Map<string, BundleType>();
   for (const [customerKey, products] of byCustomer.entries()) {
-    result.set(customerKey, classifyBundleType(products));
+    const mergedProducts = new Set(products);
+    for (const existing of existingByCustomer.get(customerKey) || []) {
+      mergedProducts.add(existing);
+    }
+    result.set(customerKey, classifyBundleType(mergedProducts));
   }
   return result;
 }
@@ -256,7 +365,7 @@ serve(async (req) => {
         if (filter_type === 'bundle_type') {
           let bundleQuery = supabaseAdmin
             .from("sales")
-            .select("id, sale_date, customer_name, customer_zip, team_member_id, lead_source_id, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+            .select("id, sale_date, customer_name, customer_zip, existing_customer_products, team_member_id, lead_source_id, brokered_carrier_id, sale_policies(id, product_type_id, policy_type_name, total_premium, total_items, total_points)")
             .eq("agency_id", agencyId)
             .gte("sale_date", start_date)
             .lte("sale_date", end_date)
@@ -278,7 +387,7 @@ serve(async (req) => {
           if (customerNames.length > 0) {
             let historicalQuery = supabaseAdmin
               .from("sales")
-              .select("customer_name, customer_zip, sale_policies(policy_type_name), brokered_carrier_id")
+              .select("customer_name, customer_zip, existing_customer_products, sale_policies(product_type_id, policy_type_name), brokered_carrier_id")
               .eq("agency_id", agencyId)
               .in("customer_name", customerNames);
             historicalQuery = applyBusinessFilter(historicalQuery);
@@ -287,7 +396,32 @@ serve(async (req) => {
             historicalSales = historicalData || [];
           }
 
-          const bundleMap = buildCustomerBundleMap(historicalSales);
+          const policyTypeIds = Array.from(
+            new Set(
+              [...(bundleSales || []), ...historicalSales]
+                .flatMap((sale: any) => sale.sale_policies || [])
+                .map((policy: any) => policy.product_type_id)
+                .filter((id: string | null | undefined): id is string => !!id),
+            ),
+          );
+
+          const canonicalNameByPolicyTypeId = new Map<string, string>();
+          if (policyTypeIds.length > 0) {
+            const { data: policyTypes, error: policyTypeError } = await supabaseAdmin
+              .from("policy_types")
+              .select("id, product_type:product_types(name)")
+              .in("id", policyTypeIds);
+            if (policyTypeError) throw policyTypeError;
+
+            for (const policyType of policyTypes || []) {
+              const canonicalName = (policyType.product_type as { name?: string | null } | null)?.name;
+              if (canonicalName) {
+                canonicalNameByPolicyTypeId.set(policyType.id, canonicalName);
+              }
+            }
+          }
+
+          const bundleMap = buildCustomerBundleMap(historicalSales, canonicalNameByPolicyTypeId);
 
           const filteredSales = (bundleSales || []).filter((sale: any) => {
             const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
@@ -672,7 +806,7 @@ serve(async (req) => {
         // Fetch with sale_policies for Motor Club filtering
         let byBundleQuery = supabaseAdmin
           .from("sales")
-          .select("bundle_type, customer_name, customer_zip, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+          .select("customer_name, customer_zip, existing_customer_products, brokered_carrier_id, sale_policies(id, product_type_id, policy_type_name, total_premium, total_items, total_points)")
           .eq("agency_id", agencyId)
           .gte("sale_date", start_date)
           .lte("sale_date", end_date);
@@ -694,7 +828,7 @@ serve(async (req) => {
         if (customerNames.length > 0) {
           let historicalQuery = supabaseAdmin
             .from("sales")
-            .select("customer_name, customer_zip, sale_policies(policy_type_name), brokered_carrier_id")
+            .select("customer_name, customer_zip, existing_customer_products, sale_policies(product_type_id, policy_type_name), brokered_carrier_id")
             .eq("agency_id", agencyId)
             .in("customer_name", customerNames);
           historicalQuery = applyBusinessFilter(historicalQuery);
@@ -703,7 +837,32 @@ serve(async (req) => {
           historicalSales = (historicalData || []) as unknown as typeof periodSales;
         }
 
-        const customerBundleMap = buildCustomerBundleMap(historicalSales);
+        const policyTypeIds = Array.from(
+          new Set(
+            [...periodSales, ...historicalSales]
+              .flatMap((sale: any) => sale.sale_policies || [])
+              .map((policy: any) => policy.product_type_id)
+              .filter((id: string | null | undefined): id is string => !!id),
+          ),
+        );
+
+        const canonicalNameByPolicyTypeId = new Map<string, string>();
+        if (policyTypeIds.length > 0) {
+          const { data: policyTypes, error: policyTypeError } = await supabaseAdmin
+            .from("policy_types")
+            .select("id, product_type:product_types(name)")
+            .in("id", policyTypeIds);
+          if (policyTypeError) throw policyTypeError;
+
+          for (const policyType of policyTypes || []) {
+            const canonicalName = (policyType.product_type as { name?: string | null } | null)?.name;
+            if (canonicalName) {
+              canonicalNameByPolicyTypeId.set(policyType.id, canonicalName);
+            }
+          }
+        }
+
+        const customerBundleMap = buildCustomerBundleMap(historicalSales, canonicalNameByPolicyTypeId);
 
         // Aggregate everything by customer's best bundle type so items/premium/households stay consistent
         const grouped: Record<string, { bundle_type: string; items: number; premium: number; households: Set<string> }> = {};

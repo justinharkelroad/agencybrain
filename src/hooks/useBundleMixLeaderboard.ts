@@ -65,6 +65,17 @@ export function useBundleMixLeaderboard({
   });
 }
 
+interface BundleMixSale {
+  team_member_id?: string | null;
+  customer_name?: string | null;
+  customer_zip?: string | null;
+  existing_customer_products?: string[] | null;
+  sale_policies?: Array<{
+    product_type_id?: string | null;
+    policy_type_name?: string | null;
+  }> | null;
+}
+
 async function fetchBundleMixData(
   agencyId: string,
   startDate: string,
@@ -83,7 +94,7 @@ async function fetchBundleMixData(
   // Fetch sales in range (we'll classify each customer by all-time product mix)
   let salesQuery = supabase
     .from("sales")
-    .select("team_member_id, customer_name, customer_zip, sale_policies(policy_type_name)")
+    .select("team_member_id, customer_name, customer_zip, existing_customer_products, sale_policies(product_type_id, policy_type_name)")
     .eq("agency_id", agencyId)
     .gte("sale_date", startDate)
     .lte("sale_date", endDate);
@@ -97,20 +108,21 @@ async function fetchBundleMixData(
   const { data: sales, error: salesError } = await salesQuery;
 
   if (salesError) throw salesError;
+  const typedSales = (sales || []) as BundleMixSale[];
 
   const customerNames = Array.from(
     new Set(
-      (sales || [])
+      typedSales
         .map((sale) => sale.customer_name?.trim())
         .filter((name): name is string => !!name)
     )
   );
 
-  let historicalSales = sales || [];
+  let historicalSales = typedSales;
   if (customerNames.length > 0) {
     let historicalQuery = supabase
       .from("sales")
-      .select("customer_name, customer_zip, sale_policies(policy_type_name)")
+      .select("customer_name, customer_zip, existing_customer_products, sale_policies(product_type_id, policy_type_name)")
       .eq("agency_id", agencyId)
       .in("customer_name", customerNames);
 
@@ -122,14 +134,36 @@ async function fetchBundleMixData(
 
     const { data, error: historicalError } = await historicalQuery;
     if (historicalError) throw historicalError;
-    historicalSales = data || [];
+    historicalSales = (data || []) as BundleMixSale[];
   }
 
-  const customerBundleMap = buildCustomerBundleMap(historicalSales as Array<{
-    customer_name?: string | null;
-    customer_zip?: string | null;
-    sale_policies?: Array<{ policy_type_name?: string | null }> | null;
-  }>);
+  const policyTypeIds = Array.from(
+    new Set(
+      [...typedSales, ...historicalSales]
+        .flatMap((sale) => sale.sale_policies || [])
+        .map((policy) => policy.product_type_id)
+        .filter((id): id is string => !!id),
+    ),
+  );
+
+  const canonicalNameByPolicyTypeId = new Map<string, string>();
+  if (policyTypeIds.length > 0) {
+    const { data: policyTypes, error: policyTypeError } = await supabase
+      .from("policy_types")
+      .select("id, product_type:product_types(name)")
+      .in("id", policyTypeIds);
+
+    if (policyTypeError) throw policyTypeError;
+
+    for (const policyType of policyTypes || []) {
+      const canonicalName = (policyType.product_type as { name?: string | null } | null)?.name;
+      if (canonicalName) {
+        canonicalNameByPolicyTypeId.set(policyType.id, canonicalName);
+      }
+    }
+  }
+
+  const customerBundleMap = buildCustomerBundleMap(historicalSales, canonicalNameByPolicyTypeId);
 
   // First pass: determine best bundle type per customer per team member
   // Priority: Preferred > Standard > Monoline (null)
@@ -143,7 +177,7 @@ async function fetchBundleMixData(
     tmNames[tm.id] = tm.name;
   }
 
-  for (const sale of sales || []) {
+  for (const sale of typedSales) {
     const tmId = sale.team_member_id;
     if (!tmId || !bestBundlePerCustomer[tmId]) continue;
 

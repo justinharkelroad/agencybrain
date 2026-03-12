@@ -47,10 +47,18 @@ interface BundleRow {
 
 interface SalePolicy {
   id: string;
+  product_type_id?: string | null;
   policy_type_name: string | null;
   total_premium: number | null;
   total_items: number | null;
   total_points: number | null;
+}
+
+interface BundleSaleRow {
+  customer_name: string | null;
+  customer_zip: string | null;
+  existing_customer_products?: string[] | null;
+  sale_policies?: SalePolicy[] | null;
 }
 
 const PAGE_SIZE = 10;
@@ -79,7 +87,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
       // Admin path - direct query with sale_policies for Motor Club filtering
       let query = supabase
         .from("sales")
-        .select("bundle_type, customer_name, customer_zip, brokered_carrier_id, sale_policies(id, policy_type_name, total_premium, total_items, total_points)")
+        .select("customer_name, customer_zip, existing_customer_products, brokered_carrier_id, sale_policies(id, product_type_id, policy_type_name, total_premium, total_items, total_points)")
         .eq("agency_id", agencyId)
         .gte("sale_date", startDate)
         .lte("sale_date", endDate);
@@ -95,7 +103,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
 
       if (error) throw error;
 
-      const periodSales = sales || [];
+      const periodSales = (sales || []) as BundleSaleRow[];
       const periodCustomerNames = Array.from(
         new Set(
           periodSales
@@ -108,7 +116,7 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
       if (periodCustomerNames.length > 0) {
         let allTimeQuery = supabase
           .from("sales")
-          .select("customer_name, customer_zip, sale_policies(policy_type_name)")
+          .select("customer_name, customer_zip, existing_customer_products, sale_policies(product_type_id, policy_type_name)")
           .eq("agency_id", agencyId)
           .in("customer_name", periodCustomerNames);
 
@@ -120,14 +128,44 @@ export function SalesByBundleChart({ agencyId, startDate, endDate, staffSessionT
 
         const { data: historicalSales, error: historicalError } = await allTimeQuery;
         if (historicalError) throw historicalError;
-        allTimeSalesForCustomers = historicalSales || [];
+        allTimeSalesForCustomers = (historicalSales || []) as BundleSaleRow[];
       }
 
-      const customerBundleMap = buildCustomerBundleMap(allTimeSalesForCustomers as Array<{
-        customer_name?: string | null;
-        customer_zip?: string | null;
-        sale_policies?: Array<{ policy_type_name?: string | null }> | null;
-      }>);
+      const policyTypeIds = Array.from(
+        new Set(
+          [...periodSales, ...(allTimeSalesForCustomers as BundleSaleRow[])]
+            .flatMap((sale) => sale.sale_policies || [])
+            .map((policy) => policy.product_type_id)
+            .filter((id): id is string => !!id),
+        ),
+      );
+
+      const canonicalNameByPolicyTypeId = new Map<string, string>();
+      if (policyTypeIds.length > 0) {
+        const { data: policyTypes, error: policyTypeError } = await supabase
+          .from("policy_types")
+          .select("id, product_type:product_types(name)")
+          .in("id", policyTypeIds);
+
+        if (policyTypeError) throw policyTypeError;
+
+        for (const policyType of policyTypes || []) {
+          const canonicalName = (policyType.product_type as { name?: string | null } | null)?.name;
+          if (canonicalName) {
+            canonicalNameByPolicyTypeId.set(policyType.id, canonicalName);
+          }
+        }
+      }
+
+      const customerBundleMap = buildCustomerBundleMap(
+        allTimeSalesForCustomers as Array<{
+          customer_name?: string | null;
+          customer_zip?: string | null;
+          existing_customer_products?: string[] | null;
+          sale_policies?: Array<{ product_type_id?: string | null; policy_type_name?: string | null }> | null;
+        }>,
+        canonicalNameByPolicyTypeId,
+      );
 
       const grouped = periodSales.reduce((acc, sale) => {
         const customerKey = buildCustomerKey(sale.customer_name, sale.customer_zip);
