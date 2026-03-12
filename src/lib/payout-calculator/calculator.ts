@@ -1322,9 +1322,11 @@ export async function calculatePromoBonus(
   // Get the start and end of the payout period
   const periodStart = new Date(periodYear, periodMonth - 1, 1);
   const periodEnd = new Date(periodYear, periodMonth, 0); // Last day of month
+  const today = new Date();
   
   const periodStartStr = format(periodStart, 'yyyy-MM-dd');
   const periodEndStr = format(periodEnd, 'yyyy-MM-dd');
+  const todayStr = format(today, 'yyyy-MM-dd');
   
   try {
     // Get promo goals assigned to this team member
@@ -1343,7 +1345,8 @@ export async function calculatePromoBonus(
       return { bonusAmount: 0, achievedPromos: [] };
     }
     
-    // Fetch promo goals that overlap with this period
+    // Fetch promo goals that ended in this payout period and are already over.
+    // This pays promos one time, on the comp statement for the month they end.
     const { data: goals, error: goalsError } = await supabase
       .from("sales_goals")
       .select(`
@@ -1362,8 +1365,9 @@ export async function calculatePromoBonus(
       .in("id", goalIds)
       .eq("goal_type", "promo")
       .eq("is_active", true)
-      .lte("start_date", periodEndStr)  // Promo starts before/during period end
-      .gte("end_date", periodStartStr); // Promo ends after/during period start
+      .gte("end_date", periodStartStr)
+      .lte("end_date", periodEndStr)
+      .lte("end_date", todayStr);
     
     if (goalsError) {
       console.error("Error fetching promo goals:", goalsError);
