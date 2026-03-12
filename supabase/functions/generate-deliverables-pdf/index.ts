@@ -280,92 +280,143 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Get authorization header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Create Supabase client with user's auth token
-    const supabaseUser = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-
-    // Get the authenticated user
-    const jwt = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser(jwt);
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired session' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get user's profile
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, agency_id, role')
-      .eq('id', user.id)
-      .single();
+    // --- Dual-mode auth: staff session OR JWT ---
+    let agencyId: string | null = null;
+    let isAdmin = false;
+    let hasAccess = false;
 
-    if (profileError || !profile) {
-      return new Response(
-        JSON.stringify({ error: 'Profile not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    const staffSessionToken = req.headers.get('x-staff-session');
+    const authHeader = req.headers.get('Authorization');
 
-    const isAdmin = profile.role === 'admin';
+    if (staffSessionToken) {
+      // Staff delegate auth
+      const { data: staffSession, error: staffSessionError } = await supabase
+        .from('staff_sessions')
+        .select(`
+          staff_user_id,
+          expires_at,
+          staff_users (
+            id,
+            team_member_id
+          )
+        `)
+        .eq('session_token', staffSessionToken)
+        .eq('is_valid', true)
+        .gt('expires_at', new Date().toISOString())
+        .single();
 
-    // Check if user is agency owner (has agency_id) or key employee
-    let isOwnerOrManager = !!profile.agency_id;
-
-    if (!isOwnerOrManager) {
-      // Check key_employees table
-      const { data: keyEmployee } = await supabase
-        .from('key_employees')
-        .select('agency_id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (keyEmployee?.agency_id) {
-        isOwnerOrManager = true;
-        profile.agency_id = keyEmployee.agency_id;
+      if (staffSessionError || !staffSession) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid or expired staff session' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
-    }
 
-    // Delegate fallback: match user email to delegate team member
-    if (!isOwnerOrManager && !isAdmin && user.email) {
-      const { data: myTeamMembers } = await supabase
-        .from('team_members')
-        .select('id')
-        .ilike('email', user.email);
+      const staffUser = staffSession.staff_users as unknown as { id: string; team_member_id: string | null };
+      const tmId = staffUser?.team_member_id;
 
-      if (myTeamMembers && myTeamMembers.length > 0) {
-        const tmIds = myTeamMembers.map((tm: { id: string }) => tm.id);
+      if (tmId) {
         const { data: delegateAssignment } = await supabase
           .from('sales_experience_assignments')
           .select('id, agency_id')
-          .in('delegate_team_member_id', tmIds)
+          .eq('delegate_team_member_id', tmId)
           .in('status', ['active', 'pending', 'completed'])
           .limit(1)
           .maybeSingle();
+
         if (delegateAssignment) {
-          isOwnerOrManager = true;
-          profile.agency_id = delegateAssignment.agency_id;
+          agencyId = delegateAssignment.agency_id;
+          hasAccess = true;
         }
       }
-    }
 
-    if (!isAdmin && !isOwnerOrManager) {
+      if (!hasAccess) {
+        return new Response(
+          JSON.stringify({ error: 'Access denied' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } else if (authHeader) {
+      // JWT auth
+      const supabaseUser = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
+        global: { headers: { Authorization: authHeader } },
+      });
+
+      const jwt = authHeader.replace('Bearer ', '');
+      const { data: { user }, error: authError } = await supabaseUser.auth.getUser(jwt);
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid or expired session' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, agency_id, role')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profile) {
+        return new Response(
+          JSON.stringify({ error: 'Profile not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      isAdmin = profile.role === 'admin';
+      let isOwnerOrManager = !!profile.agency_id;
+
+      if (!isOwnerOrManager) {
+        const { data: keyEmployee } = await supabase
+          .from('key_employees')
+          .select('agency_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (keyEmployee?.agency_id) {
+          isOwnerOrManager = true;
+          profile.agency_id = keyEmployee.agency_id;
+        }
+      }
+
+      if (!isOwnerOrManager && !isAdmin && user.email) {
+        const { data: myTeamMembers } = await supabase
+          .from('team_members')
+          .select('id')
+          .ilike('email', user.email);
+
+        if (myTeamMembers && myTeamMembers.length > 0) {
+          const tmIds = myTeamMembers.map((tm: { id: string }) => tm.id);
+          const { data: delegateAssignment } = await supabase
+            .from('sales_experience_assignments')
+            .select('id, agency_id')
+            .in('delegate_team_member_id', tmIds)
+            .in('status', ['active', 'pending', 'completed'])
+            .limit(1)
+            .maybeSingle();
+          if (delegateAssignment) {
+            isOwnerOrManager = true;
+            profile.agency_id = delegateAssignment.agency_id;
+          }
+        }
+      }
+
+      if (!isAdmin && !isOwnerOrManager) {
+        return new Response(
+          JSON.stringify({ error: 'Access denied' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      agencyId = profile.agency_id;
+      hasAccess = true;
+    } else {
       return new Response(
-        JSON.stringify({ error: 'Access denied' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Missing authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -377,7 +428,7 @@ Deno.serve(async (req) => {
       const { data: assignment } = await supabase
         .from('sales_experience_assignments')
         .select('id')
-        .eq('agency_id', profile.agency_id)
+        .eq('agency_id', agencyId)
         .in('status', ['active', 'pending', 'completed'])
         .order('created_at', { ascending: false })
         .limit(1)
@@ -411,7 +462,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!isAdmin && assignment.agency_id !== profile.agency_id) {
+    if (!isAdmin && assignment.agency_id !== agencyId) {
       return new Response(
         JSON.stringify({ error: 'Access denied' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

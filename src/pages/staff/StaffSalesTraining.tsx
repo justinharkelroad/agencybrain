@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { dayLabels } from '@/components/sales-experience';
-import { DelegateTeamProgress, DelegateMessages, DelegateDeliverables } from '@/components/sales-experience/StaffDelegateTabs';
+import { DelegateOverview, DelegateTeamProgress, DelegateMessages, DelegateDeliverables } from '@/components/sales-experience/StaffDelegateTabs';
 
 interface QuizQuestion {
   id: string;
@@ -289,53 +289,81 @@ export default function StaffSalesTraining() {
       </div>
 
       {isDelegate && delegateAssignmentId ? (
-        <Tabs defaultValue="training" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="training" className="gap-1.5">
-              <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline">My Training</span>
-              <span className="sm:hidden">Training</span>
-            </TabsTrigger>
-            <TabsTrigger value="team" className="gap-1.5">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Team Progress</span>
-              <span className="sm:hidden">Team</span>
-            </TabsTrigger>
-            <TabsTrigger value="messages" className="gap-1.5">
-              <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">Messages</span>
-              <span className="sm:hidden">Msgs</span>
-            </TabsTrigger>
-            <TabsTrigger value="deliverables" className="gap-1.5">
-              <FileText className="h-4 w-4" />
-              <span className="hidden sm:inline">Deliverables</span>
-              <span className="sm:hidden">Docs</span>
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="training">
-            {trainingContent}
-          </TabsContent>
-
-          <TabsContent value="team">
-            <DelegateTeamProgress
-              assignmentId={delegateAssignmentId}
-              sessionToken={sessionToken!}
-            />
-          </TabsContent>
-
-          <TabsContent value="messages">
-            <DelegateMessages sessionToken={sessionToken!} />
-          </TabsContent>
-
-          <TabsContent value="deliverables">
-            <DelegateDeliverables sessionToken={sessionToken!} />
-          </TabsContent>
-        </Tabs>
+        <DelegateManagerView
+          assignmentId={delegateAssignmentId}
+          sessionToken={sessionToken!}
+          trainingContent={trainingContent}
+        />
       ) : (
         trainingContent
       )}
     </div>
+  );
+}
+
+// Manager delegate view with full owner-quality experience
+function DelegateManagerView({
+  assignmentId,
+  sessionToken,
+  trainingContent,
+}: {
+  assignmentId: string;
+  sessionToken: string;
+  trainingContent: React.ReactNode;
+}) {
+  const [activeTab, setActiveTab] = useState('overview');
+
+  return (
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <TabsList className="grid w-full grid-cols-4">
+        <TabsTrigger value="overview" className="gap-1.5">
+          <BookOpen className="h-4 w-4" />
+          <span className="hidden sm:inline">My Training</span>
+          <span className="sm:hidden">Training</span>
+        </TabsTrigger>
+        <TabsTrigger value="team" className="gap-1.5">
+          <Users className="h-4 w-4" />
+          <span className="hidden sm:inline">Team Progress</span>
+          <span className="sm:hidden">Team</span>
+        </TabsTrigger>
+        <TabsTrigger value="messages" className="gap-1.5">
+          <MessageSquare className="h-4 w-4" />
+          <span className="hidden sm:inline">Messages</span>
+          <span className="sm:hidden">Msgs</span>
+        </TabsTrigger>
+        <TabsTrigger value="deliverables" className="gap-1.5">
+          <FileText className="h-4 w-4" />
+          <span className="hidden sm:inline">Deliverables</span>
+          <span className="sm:hidden">Docs</span>
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="overview">
+        <DelegateOverview
+          assignmentId={assignmentId}
+          sessionToken={sessionToken}
+          onTabChange={setActiveTab}
+        />
+      </TabsContent>
+
+      <TabsContent value="team">
+        <DelegateTeamProgress
+          assignmentId={assignmentId}
+          sessionToken={sessionToken}
+        />
+      </TabsContent>
+
+      <TabsContent value="messages">
+        <DelegateMessages
+          sessionToken={sessionToken}
+          assignmentId={assignmentId}
+        />
+      </TabsContent>
+
+      <TabsContent value="deliverables">
+        <DelegateDeliverables sessionToken={sessionToken} />
+      </TabsContent>
+    </Tabs>
   );
 }
 

@@ -39,6 +39,7 @@ Deno.serve(async (req) => {
 
     // --- Auth resolution ---
     let userId: string | null = null;
+    let staffSenderId: string | null = null;
     let agencyId: string | null = null;
     let isAdmin = false;
     let isStaffDelegate = false;
@@ -85,6 +86,7 @@ Deno.serve(async (req) => {
         if (delegateAssignment) {
           agencyId = delegateAssignment.agency_id;
           isStaffDelegate = true;
+          staffSenderId = staffUser.id;
         }
       }
 
@@ -185,14 +187,6 @@ Deno.serve(async (req) => {
 
     switch (body.action) {
       case 'send': {
-        // Staff delegates cannot send messages (no profiles entry for sender_user_id)
-        if (isStaffDelegate) {
-          return new Response(
-            JSON.stringify({ error: 'Staff delegates cannot send messages yet' }),
-            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
         const { assignment_id, content } = body as SendMessageBody;
 
         if (!assignment_id || !content?.trim()) {
@@ -225,15 +219,16 @@ Deno.serve(async (req) => {
         }
 
         // Determine sender type
-        const senderType = isAdmin ? 'coach' : 'owner';
+        const senderType = isAdmin ? 'coach' : isStaffDelegate ? 'manager' : 'owner';
 
-        // Insert message
+        // Insert message (sender_user_id is nullable for staff delegates)
         const { data: message, error: insertError } = await supabase
           .from('sales_experience_messages')
           .insert({
             assignment_id,
             sender_type: senderType,
-            sender_user_id: userId,
+            sender_user_id: userId || null,
+            staff_sender_id: staffSenderId || null,
             content: content.trim(),
           })
           .select()
