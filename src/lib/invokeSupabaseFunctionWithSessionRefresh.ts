@@ -1,6 +1,6 @@
 import type { FunctionsFetchError, FunctionsHttpError, FunctionsRelayError } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { getSupabaseFunctionErrorMessage } from "@/lib/supabaseFunctionErrors";
+import { extractSupabaseFunctionErrorMessage } from "@/lib/supabaseFunctionErrors";
 
 type FunctionInvokeError = FunctionsHttpError | FunctionsRelayError | FunctionsFetchError | Error | null;
 
@@ -16,7 +16,7 @@ export async function invokeSupabaseFunctionWithSessionRefresh<TResponse>(
   const firstAttempt = await supabase.functions.invoke<TResponse>(functionName, options);
   if (!firstAttempt.error) return firstAttempt;
 
-  const firstMessage = await getSupabaseFunctionErrorMessage(firstAttempt.error);
+  const firstMessage = await extractSupabaseFunctionErrorMessage(firstAttempt.error);
   if (!isExpiredJwtMessage(firstMessage)) return firstAttempt;
 
   const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
