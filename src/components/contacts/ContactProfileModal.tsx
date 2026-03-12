@@ -177,7 +177,7 @@ export function ContactProfileModal({
         id: sale.id,
         policyTypeName: sale.product_type || "Policy",
         policyNumber: sale.policy_number || "",
-        effectiveDate: (sale.sale_date || new Date().toISOString()).slice(0, 10),
+        effectiveDate: sale.sale_date?.slice(0, 10) || format(new Date(), 'yyyy-MM-dd'),
         carrierName: "Prior Carrier",
       }))
     );

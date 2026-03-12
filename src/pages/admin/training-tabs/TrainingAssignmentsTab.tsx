@@ -151,7 +151,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
         agencyId,
         selectedStaffIds,
         selectedToTrainingItems(selectedItems),
-        bulkDueDate?.toISOString().split('T')[0],
+        bulkDueDate ? format(bulkDueDate, 'yyyy-MM-dd') : undefined,
         user?.id
       );
     },
@@ -311,7 +311,7 @@ export function TrainingAssignmentsTab({ agencyId }: TrainingAssignmentsTabProps
     if (!editingAssignment) return;
     updateAssignmentMutation.mutate({
       id: editingAssignment.id,
-      due_date: editDueDate?.toISOString().split('T')[0] || null,
+      due_date: editDueDate ? format(editDueDate, 'yyyy-MM-dd') : null,
     });
   };
 

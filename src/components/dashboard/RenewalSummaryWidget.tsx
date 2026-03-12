@@ -1,3 +1,4 @@
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,8 +21,8 @@ export function RenewalSummaryWidget({ agencyId }: RenewalSummaryWidgetProps) {
   nextWeek.setDate(nextWeek.getDate() + 7);
   
   const { data: stats, isLoading } = useRenewalStats(agencyId, {
-    start: today.toISOString().slice(0, 10),
-    end: nextWeek.toISOString().slice(0, 10),
+    start: format(today, 'yyyy-MM-dd'),
+    end: format(nextWeek, 'yyyy-MM-dd'),
   });
 
   if (!agencyId) return null;

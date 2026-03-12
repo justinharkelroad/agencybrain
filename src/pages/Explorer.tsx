@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { format } from "date-fns";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
 import { fetchExplorerData, ExplorerQuery } from "@/lib/explorer";
@@ -58,8 +59,8 @@ export default function Explorer({ staffAgencyId }: ExplorerProps) {
     const now = new Date();
     const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     return {
-      start: firstOfMonth.toISOString().slice(0, 10),
-      end: now.toISOString().slice(0, 10)
+      start: format(firstOfMonth, 'yyyy-MM-dd'),
+      end: format(now, 'yyyy-MM-dd')
     };
   };
 

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { HouseholdWithRelations, LqsMetrics, LqsLeadSource } from './useLqsData';
 import { LqsObjection } from './useLqsObjections';
@@ -29,8 +30,8 @@ export function useStaffLqsData({ sessionToken, dateRange, statusFilter, searchT
           'x-staff-session': sessionToken!,
         },
         body: {
-          date_start: dateRange?.start?.toISOString().split('T')[0],
-          date_end: dateRange?.end?.toISOString().split('T')[0],
+          date_start: dateRange?.start ? format(dateRange.start, 'yyyy-MM-dd') : undefined,
+          date_end: dateRange?.end ? format(dateRange.end, 'yyyy-MM-dd') : undefined,
           status_filter: statusFilter,
           search_term: searchTerm,
         },

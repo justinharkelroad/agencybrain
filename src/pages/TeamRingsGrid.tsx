@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { format, subDays } from "date-fns";
 import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabaseClient";
 import { useAuth } from "@/lib/auth";
@@ -45,7 +46,7 @@ export default function TeamRingsGrid() {
   const [targets, setTargets] = useState<Record<string, Record<string, number>>>({});
   const [selectedRole, setSelectedRole] = useState<"Sales" | "Service">("Sales");
   const [selectedDate, setSelectedDate] = useState<string>(
-    new Date(Date.now() - 86400000).toISOString().slice(0, 10) // yesterday
+    format(subDays(new Date(), 1), 'yyyy-MM-dd') // yesterday
   );
   const [snapshotOpen, setSnapshotOpen] = useState(false);
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);

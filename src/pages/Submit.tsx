@@ -644,8 +644,8 @@ export default function Submit() {
           .insert({
             user_id: user?.id,
             title: `Period ${endDateForPeriod.toLocaleDateString()}`,
-            start_date: startDateForPeriod.toISOString().split('T')[0],
-            end_date: endDateForPeriod.toISOString().split('T')[0],
+            start_date: format(startDateForPeriod, 'yyyy-MM-dd'),
+            end_date: format(endDateForPeriod, 'yyyy-MM-dd'),
             status: 'draft',
             form_data: null
           })

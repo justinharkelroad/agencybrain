@@ -1,3 +1,5 @@
+import { format } from "date-fns";
+
 /**
  * Hook to fetch chargeback data from cancel_audit_records for compensation calculations
  *
@@ -52,8 +54,8 @@ export function useChargebackData(
       const periodStart = new Date(periodYear, periodMonth - 1, 1);
       const periodEnd = new Date(periodYear, periodMonth, 0); // Last day of month
 
-      const startStr = periodStart.toISOString().split('T')[0];
-      const endStr = periodEnd.toISOString().split('T')[0];
+      const startStr = format(periodStart, 'yyyy-MM-dd');
+      const endStr = format(periodEnd, 'yyyy-MM-dd');
 
       console.log(`[useChargebackData] Fetching chargebacks for ${startStr} to ${endStr}`);
 

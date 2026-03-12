@@ -182,6 +182,29 @@ Limits are dynamic: 200 for coaching clients, 50/100 for Call Scoring tiers, 20 
 
 `AdminAgencyCallScoring.tsx` → writes `calls_limit` to `agency_call_scoring_settings` AND `subscription_calls_limit` to `agency_call_balance`. Never break this sync.
 
+## Date/Timezone Rule (MANDATORY — recurring production bug)
+
+**NEVER** use `.toISOString().split('T')[0]` or `.toISOString().slice(0, 10)` to extract a date string from a Date object created in local time. This converts to UTC first, which shifts dates backward by one day in all US timezones (after ~7 PM ET / ~4 PM PT).
+
+```typescript
+// WRONG — returns yesterday's date after 7 PM ET:
+const dateStr = new Date().toISOString().split('T')[0];
+const dateStr = new Date(year, month, 1).toISOString().slice(0, 10);
+const dateStr = someLocalDate.toISOString().split('T')[0];
+
+// CORRECT — uses browser local timezone:
+import { format } from 'date-fns';
+const dateStr = format(new Date(), 'yyyy-MM-dd');
+const dateStr = format(new Date(year, month, 1), 'yyyy-MM-dd');
+const dateStr = format(someLocalDate, 'yyyy-MM-dd');
+```
+
+**Exception 1**: `.toISOString()` is fine for full timestamps (`updated_at`, `created_at`, etc.) where you need the complete ISO string — the bug only applies when extracting the date portion.
+
+**Exception 2**: `.toISOString().split('T')[0]` is correct for Date objects at **UTC midnight** from DB date strings (`new Date('2026-03-15')`) or xlsx parsing. Using `format()` on these would shift backward. See `useWinbackBackgroundUpload.ts` and `sendToWinback.ts` for examples. When in doubt about the origin, use `format()` — it's safer for the common case.
+
+**Edge functions (Deno)**: Use `new Intl.DateTimeFormat("en-CA", { timeZone: agencyTz }).format(new Date())` since date-fns isn't available.
+
 ## Cross-Cutting Gotchas
 
 - Call scoring output contract must stay consistent across analyzer, UI, and email.

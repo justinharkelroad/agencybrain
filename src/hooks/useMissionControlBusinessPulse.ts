@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { format } from 'date-fns';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
@@ -103,8 +104,8 @@ function currentMonthRange() {
   const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
   return {
-    startDate: start.toISOString().split('T')[0],
-    endDate: end.toISOString().split('T')[0],
+    startDate: format(start, 'yyyy-MM-dd'),
+    endDate: format(end, 'yyyy-MM-dd'),
     title: `${start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Pulse`,
     label: start.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
   };

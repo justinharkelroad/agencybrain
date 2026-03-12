@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -183,7 +184,7 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
             agency_id: agencyId,
             subscription_calls_limit: settings.calls_limit,
             subscription_calls_used: 0,
-            subscription_period_start: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0],
+            subscription_period_start: format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'),
           });
       }
       const balanceError = null;

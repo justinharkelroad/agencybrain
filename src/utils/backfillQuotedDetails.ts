@@ -1,6 +1,7 @@
 // Phase 3: Safe Backfill Utility for Quoted Details with Mappings
 // Run after form templates have field_mappings configured
 
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
 interface BackfillResult {
@@ -65,7 +66,7 @@ export async function backfillQuotedDetailsWithMappings(): Promise<BackfillResul
         )
       `)
       .eq('final', true)
-      .gte('submission_date', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+      .gte('submission_date', format(new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd'))
       .order('submission_date', { ascending: false });
 
     if (submissionsError) {

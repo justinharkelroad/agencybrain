@@ -52,7 +52,7 @@ export function useDashboardDaily(
   selectedDate: Date
 ) {
   return useQuery({
-    queryKey: ["dashboard-daily", agencySlug, role, selectedDate.toISOString().slice(0, 10)],
+    queryKey: ["dashboard-daily", agencySlug, role, format(selectedDate, 'yyyy-MM-dd')],
     queryFn: async (): Promise<DashboardDailyResult> => {
       console.log("useDashboardDaily: Fetching data", { agencySlug, role, selectedDate });
       

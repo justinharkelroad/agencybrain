@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { LqsHousehold, LqsQuote } from '@/types/lqs';
 import { filterCountableQuotes, filterCountableSales } from '@/lib/lqs-constants';
@@ -187,8 +188,8 @@ export function useLqsData({ agencyId, dateRange, statusFilter, searchTerm }: Us
       // Filter by date range if provided - check lead_received_date, quote_date, or sold_date
       let filteredHouseholds = householdsExcludingCanceledLeads;
       if (dateRange?.start && dateRange?.end) {
-        const startDate = dateRange.start.toISOString().split('T')[0];
-        const endDate = dateRange.end.toISOString().split('T')[0];
+        const startDate = format(dateRange.start, 'yyyy-MM-dd');
+        const endDate = format(dateRange.end, 'yyyy-MM-dd');
         filteredHouseholds = households.filter(h => {
           // Check lead_received_date
           if (h.lead_received_date && h.lead_received_date >= startDate && h.lead_received_date <= endDate) {

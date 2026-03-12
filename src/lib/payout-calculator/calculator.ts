@@ -1,5 +1,6 @@
 // Core payout calculation logic
 
+import { format } from "date-fns";
 import { CompPlan, CompPlanTier, BundleConfigs, BundleTypeConfig, ProductRates, PointValues, BundlingMultipliers, CommissionModifiers } from "@/hooks/useCompPlans";
 import { SubProducerMetrics, SubProducerTransaction, BundleTypeBreakdown, ProductBreakdown } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import {
@@ -1311,8 +1312,8 @@ export async function calculatePromoBonus(
   const periodStart = new Date(periodYear, periodMonth - 1, 1);
   const periodEnd = new Date(periodYear, periodMonth, 0); // Last day of month
   
-  const periodStartStr = periodStart.toISOString().split('T')[0];
-  const periodEndStr = periodEnd.toISOString().split('T')[0];
+  const periodStartStr = format(periodStart, 'yyyy-MM-dd');
+  const periodEndStr = format(periodEnd, 'yyyy-MM-dd');
   
   try {
     // Get promo goals assigned to this team member

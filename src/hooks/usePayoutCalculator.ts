@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useCompPlans } from "./useCompPlans";
 import { calculateAllPayouts, convertToPerformance, calculateMemberPayout, BrokeredMetrics } from "@/lib/payout-calculator/calculator";
@@ -133,8 +134,8 @@ async function fetchBrokeredMetrics(
 ): Promise<Map<string, BrokeredMetrics>> {
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0);
-  const startStr = startDate.toISOString().split('T')[0];
-  const endStr = endDate.toISOString().split('T')[0];
+  const startStr = format(startDate, 'yyyy-MM-dd');
+  const endStr = format(endDate, 'yyyy-MM-dd');
 
   const { data: sales, error } = await supabase
     .from("sales")
@@ -204,8 +205,8 @@ async function fetchBrokeredBundlingMetrics(
 ): Promise<Map<string, BrokeredBundlingMetrics>> {
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0);
-  const startStr = startDate.toISOString().split('T')[0];
-  const endStr = endDate.toISOString().split('T')[0];
+  const startStr = format(startDate, 'yyyy-MM-dd');
+  const endStr = format(endDate, 'yyyy-MM-dd');
 
   const { data: sales, error } = await supabase
     .from("sales")
@@ -273,8 +274,8 @@ async function fetchWrittenMetrics(
 
   const startDate = new Date(year, month - 1, 1);
   const endDate = new Date(year, month, 0);
-  const startStr = startDate.toISOString().split('T')[0];
-  const endStr = endDate.toISOString().split('T')[0];
+  const startStr = format(startDate, 'yyyy-MM-dd');
+  const endStr = format(endDate, 'yyyy-MM-dd');
 
   console.log('[fetchWrittenMetrics] Fetching from sales table:', {
     agencyId,

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { supabase } from "@/lib/supabaseClient";
 
 interface VersionedMetric {
@@ -55,14 +56,14 @@ export function useVersionedDashboardData(
   options: DashboardOptions = {}
 ) {
   return useQuery({
-    queryKey: ["versioned-dashboard", agencySlug, role, startDate.toISOString(), endDate.toISOString(), options],
+    queryKey: ["versioned-dashboard", agencySlug, role, format(startDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd'), options],
     queryFn: async (): Promise<VersionedDashboardResult> => {
       // Get dashboard data with versioned KPI information using date range
       const { data, error } = await supabase.rpc('get_versioned_dashboard_data', {
         p_agency_slug: agencySlug,
         p_role: role,
-        p_start: startDate.toISOString().slice(0, 10), // YYYY-MM-DD format
-        p_end: endDate.toISOString().slice(0, 10)
+        p_start: format(startDate, 'yyyy-MM-dd'),
+        p_end: format(endDate, 'yyyy-MM-dd')
       });
 
       if (error) throw new Error(error.message);
@@ -118,14 +119,14 @@ export function useDashboardDataWithFallback(
   
   // Fallback query using the existing hook structure with date range
   const fallbackQuery = useQuery({
-    queryKey: ["dashboard-fallback", agencySlug, role, startDate.toISOString(), endDate.toISOString()],
+    queryKey: ["dashboard-fallback", agencySlug, role, format(startDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd')],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke('get_dashboard', {
         body: {
           agencySlug,
           role,
-          start: startDate.toISOString().slice(0, 10),
-          end: endDate.toISOString().slice(0, 10),
+          start: format(startDate, 'yyyy-MM-dd'),
+          end: format(endDate, 'yyyy-MM-dd'),
         }
       });
 

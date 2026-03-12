@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -183,7 +184,7 @@ export default function ScorecardForms() {
       const FLAG = 'phase4_final_test_done';
       if (sessionStorage.getItem(FLAG)) return;
 
-      const today = new Date().toISOString().slice(0, 10);
+      const today = format(new Date(), 'yyyy-MM-dd');
 
       const payload = {
         agencySlug: 'hfi-inc',

@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { getStaffSessionToken } from '@/lib/cancel-audit-api';
 import { sendRenewalToWinback } from '@/lib/sendToWinback';
@@ -498,8 +499,8 @@ export function useRenewalChartData(agencyId: string | null) {
   const sixDaysAgo = new Date(today);
   sixDaysAgo.setDate(sixDaysAgo.getDate() - 6);
   
-  const startDate = sixDaysAgo.toISOString().slice(0, 10);
-  const endDate = today.toISOString().slice(0, 10);
+  const startDate = format(sixDaysAgo, 'yyyy-MM-dd');
+  const endDate = format(today, 'yyyy-MM-dd');
   
   return useQuery({
     queryKey: ['renewal-chart-data', agencyId, startDate, endDate, !!staffSessionToken],

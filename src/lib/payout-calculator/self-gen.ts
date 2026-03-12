@@ -1,6 +1,7 @@
 // Self-Gen Calculation Functions
 // Calculates self-generated lead metrics from sales data
 
+import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface SelfGenMetrics {
@@ -37,8 +38,8 @@ export async function calculateSelfGenMetrics(
     `)
     .eq('agency_id', agencyId)
     .eq('team_member_id', teamMemberId)
-    .gte('sale_date', periodStartDate.toISOString().split('T')[0])
-    .lte('sale_date', periodEndDate.toISOString().split('T')[0]);
+    .gte('sale_date', format(periodStartDate, 'yyyy-MM-dd'))
+    .lte('sale_date', format(periodEndDate, 'yyyy-MM-dd'));
 
   if (error) {
     console.error('[calculateSelfGenMetrics] Error:', error);
@@ -57,8 +58,8 @@ export async function calculateSelfGenMetrics(
     .eq('agency_id', agencyId)
     .eq('team_member_id', teamMemberId)
     .is('lead_source_id', null)
-    .gte('sale_date', periodStartDate.toISOString().split('T')[0])
-    .lte('sale_date', periodEndDate.toISOString().split('T')[0]);
+    .gte('sale_date', format(periodStartDate, 'yyyy-MM-dd'))
+    .lte('sale_date', format(periodEndDate, 'yyyy-MM-dd'));
 
   if (noSourceError) {
     console.error('[calculateSelfGenMetrics] Error fetching sales without source:', noSourceError);
@@ -151,8 +152,8 @@ export async function calculateSelfGenMetricsBatch(
     `)
     .eq('agency_id', agencyId)
     .in('team_member_id', teamMemberIds)
-    .gte('sale_date', periodStartDate.toISOString().split('T')[0])
-    .lte('sale_date', periodEndDate.toISOString().split('T')[0]);
+    .gte('sale_date', format(periodStartDate, 'yyyy-MM-dd'))
+    .lte('sale_date', format(periodEndDate, 'yyyy-MM-dd'));
 
   if (error) {
     console.error('[calculateSelfGenMetricsBatch] Error:', error);
