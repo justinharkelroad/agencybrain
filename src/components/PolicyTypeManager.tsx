@@ -164,11 +164,6 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
     const currentType = policyTypes.find(type => type.id === id);
     if (!currentType) return;
 
-    if (updates.is_active === true && !currentType.product_type && !updates.product_type_id) {
-      toast.error('Link this policy type to a compensation type before activating it');
-      return;
-    }
-
     setLoading(true);
     try {
       const { error } = await supabase
@@ -245,9 +240,7 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
     try {
       const updates = productTypeId
         ? { product_type_id: productTypeId }
-        : currentType.is_active
-          ? { product_type_id: null, is_active: false }
-          : { product_type_id: null };
+        : { product_type_id: null };
 
       const { error } = await supabase
         .from('policy_types')
@@ -259,10 +252,8 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
       await fetchPolicyTypes();
       if (productTypeId) {
         toast.success('Linked to compensation type');
-      } else if (currentType.is_active) {
-        toast.warning('Unlinked from compensation type and deactivated to protect analytics');
       } else {
-        toast.success('Unlinked from compensation type');
+        toast.warning('Unlinked from compensation type. Points, VC, and bundle naming will fall back to the policy type name.');
       }
     } catch (error: unknown) {
       console.error('Error updating product type link:', error);
@@ -305,7 +296,7 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
       <div className="flex gap-3 p-3 rounded-lg bg-blue-500/15 border border-blue-500/20 text-sm">
         <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
         <p className="text-muted-foreground">
-          <span className="text-blue-600 dark:text-blue-400 font-medium">Link policy types</span> to enable accurate points, VC tracking, and bundle detection. Active policy types must be linked; custom unlinked types stay inactive until mapped.
+          <span className="text-blue-600 dark:text-blue-400 font-medium">Link policy types</span> when you want canonical points, VC tracking, and cleaner bundle classification. Unlinked policy types can still be active, but they fall back to their own name instead of a mapped product type.
         </p>
       </div>
 
