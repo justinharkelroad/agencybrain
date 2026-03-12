@@ -52,6 +52,11 @@ export interface ManualOverride {
   writtenPolicies: number | null;
   writtenHouseholds: number | null;
   writtenPoints: number | null;
+  // Brokered metrics (for brokered commission and tier contribution)
+  brokeredItems: number | null;
+  brokeredPremium: number | null;
+  brokeredPolicies: number | null;
+  brokeredHouseholds: number | null;
   // Bundle breakdown (for commission calculation)
   bundledItems: number | null;
   bundledPremium: number | null;
@@ -67,6 +72,12 @@ interface TierQualificationContext {
     writtenPolicies: number | null;
     writtenHouseholds: number | null;
     writtenPoints: number | null;
+  } | null;
+  manualBrokeredMetrics?: {
+    items: number | null;
+    premium: number | null;
+    policies: number | null;
+    households: number | null;
   } | null;
 }
 
@@ -1721,6 +1732,7 @@ export function calculateMemberPayout(
       chargebackRule: plan.chargeback_rule,
     },
     manualWrittenMetrics: tierQualificationContext?.manualWrittenMetrics || null,
+    manualBrokeredMetrics: tierQualificationContext?.manualBrokeredMetrics || null,
     tierMatched: tierMatch ? {
       tierId: tierMatch.tierId,
       threshold: tierMatch.minThreshold,
@@ -1986,7 +1998,7 @@ export async function calculateAllPayouts(
       // Get self-gen data for this team member
       const selfGenItems = selfGenByMember?.get(teamMember.id) || 0;
       const selfGenMetrics = selfGenMetricsByMember?.get(teamMember.id);
-      const brokeredMetrics = brokeredMetricsByMember?.get(teamMember.id);
+      let brokeredMetrics = brokeredMetricsByMember?.get(teamMember.id);
       let writtenMetrics = writtenMetricsByMember?.get(teamMember.id);
       const brokeredBundlingMetrics = brokeredBundlingMetricsByMember?.get(teamMember.id);
       let tierQualificationContext: TierQualificationContext | undefined;
@@ -2015,6 +2027,26 @@ export async function calculateAllPayouts(
             writtenHouseholds: override.writtenHouseholds,
             writtenPoints: override.writtenPoints,
           },
+          manualBrokeredMetrics: {
+            items: override.brokeredItems,
+            premium: override.brokeredPremium,
+            policies: override.brokeredPolicies,
+            households: override.brokeredHouseholds,
+          },
+        };
+
+        const fallbackBrokeredMetrics = brokeredMetrics || {
+          items: 0,
+          premium: 0,
+          policies: 0,
+          households: 0,
+        };
+
+        brokeredMetrics = {
+          items: override.brokeredItems ?? fallbackBrokeredMetrics.items,
+          premium: override.brokeredPremium ?? fallbackBrokeredMetrics.premium,
+          policies: override.brokeredPolicies ?? fallbackBrokeredMetrics.policies,
+          households: override.brokeredHouseholds ?? fallbackBrokeredMetrics.households,
         };
       }
 

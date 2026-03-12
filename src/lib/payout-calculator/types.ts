@@ -272,6 +272,12 @@ export interface CalculationSnapshot {
     writtenHouseholds: number | null;
     writtenPoints: number | null;
   } | null;
+  manualBrokeredMetrics?: {
+    items: number | null;
+    premium: number | null;
+    policies: number | null;
+    households: number | null;
+  } | null;
   tierMatched: {
     tierId: string;
     threshold: number;

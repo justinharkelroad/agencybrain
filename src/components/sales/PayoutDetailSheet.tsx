@@ -192,7 +192,7 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
                 {usedManualWrittenMetrics && (
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
                     <Info className="h-3.5 w-3.5 mt-0.5" />
-                    <span>This payout used manual written metrics for tier qualification because the dashboard data was unavailable.</span>
+                    <span>This payout used manual fallback metrics because the dashboard data was unavailable.</span>
                   </div>
                 )}
               </div>

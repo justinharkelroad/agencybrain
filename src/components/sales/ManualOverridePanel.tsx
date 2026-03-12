@@ -31,6 +31,10 @@ export interface ManualOverride {
   writtenPolicies: number | null;
   writtenHouseholds: number | null;
   writtenPoints: number | null;
+  brokeredItems: number | null;
+  brokeredPremium: number | null;
+  brokeredPolicies: number | null;
+  brokeredHouseholds: number | null;
   bundledItems: number | null;
   bundledPremium: number | null;
   monolineItems: number | null;
@@ -56,7 +60,11 @@ type BulkField =
   | "writtenPremium"
   | "writtenPolicies"
   | "writtenHouseholds"
-  | "writtenPoints";
+  | "writtenPoints"
+  | "brokeredItems"
+  | "brokeredPremium"
+  | "brokeredPolicies"
+  | "brokeredHouseholds";
 
 export function ManualOverridePanel({
   subProducerData,
@@ -74,6 +82,10 @@ export function ManualOverridePanel({
     writtenPolicies: "",
     writtenHouseholds: "",
     writtenPoints: "",
+    brokeredItems: "",
+    brokeredPremium: "",
+    brokeredPolicies: "",
+    brokeredHouseholds: "",
   });
 
   useEffect(() => {
@@ -112,6 +124,10 @@ export function ManualOverridePanel({
         writtenPolicies: null,
         writtenHouseholds: null,
         writtenPoints: null,
+        brokeredItems: null,
+        brokeredPremium: null,
+        brokeredPolicies: null,
+        brokeredHouseholds: null,
         bundledItems: null,
         bundledPremium: null,
         monolineItems: null,
@@ -152,7 +168,11 @@ export function ManualOverridePanel({
       override.writtenPremium !== null ||
       override.writtenPolicies !== null ||
       override.writtenHouseholds !== null ||
-      override.writtenPoints !== null
+      override.writtenPoints !== null ||
+      override.brokeredItems !== null ||
+      override.brokeredPremium !== null ||
+      override.brokeredPolicies !== null ||
+      override.brokeredHouseholds !== null
   );
 
   const handleOverrideChange = (
@@ -190,7 +210,7 @@ export function ManualOverridePanel({
     if (selectedCodes.size === 0) {
       toast({
         title: "No rows selected",
-        description: "Select one or more team members to apply manual written metrics.",
+        description: "Select one or more team members to apply manual fallback metrics.",
         variant: "destructive",
       });
       return;
@@ -206,6 +226,10 @@ export function ManualOverridePanel({
         writtenPolicies: bulkValues.writtenPolicies === "" ? null : Number(bulkValues.writtenPolicies),
         writtenHouseholds: bulkValues.writtenHouseholds === "" ? null : Number(bulkValues.writtenHouseholds),
         writtenPoints: bulkValues.writtenPoints === "" ? null : Number(bulkValues.writtenPoints),
+        brokeredItems: bulkValues.brokeredItems === "" ? null : Number(bulkValues.brokeredItems),
+        brokeredPremium: bulkValues.brokeredPremium === "" ? null : Number(bulkValues.brokeredPremium),
+        brokeredPolicies: bulkValues.brokeredPolicies === "" ? null : Number(bulkValues.brokeredPolicies),
+        brokeredHouseholds: bulkValues.brokeredHouseholds === "" ? null : Number(bulkValues.brokeredHouseholds),
       };
     });
 
@@ -221,6 +245,10 @@ export function ManualOverridePanel({
       writtenPolicies: null,
       writtenHouseholds: null,
       writtenPoints: null,
+      brokeredItems: null,
+      brokeredPremium: null,
+      brokeredPolicies: null,
+      brokeredHouseholds: null,
     })));
     setSelectedCodes(new Set());
     setBulkValues({
@@ -229,6 +257,10 @@ export function ManualOverridePanel({
       writtenPolicies: "",
       writtenHouseholds: "",
       writtenPoints: "",
+      brokeredItems: "",
+      brokeredPremium: "",
+      brokeredPolicies: "",
+      brokeredHouseholds: "",
     });
   };
 
@@ -253,9 +285,9 @@ export function ManualOverridePanel({
                 {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                 <Edit3 className="h-5 w-5" />
                 <div>
-                  <CardTitle className="text-base">Manual Written Tier Metrics</CardTitle>
+                  <CardTitle className="text-base">Manual Fallback Metrics</CardTitle>
                   <CardDescription>
-                    Enter fallback written numbers only when the dashboard was not used for the month.
+                    Enter fallback written and brokered numbers only when the dashboard was not used for the month.
                   </CardDescription>
                 </div>
               </div>
@@ -331,6 +363,44 @@ export function ManualOverridePanel({
                   />
                 </div>
               </div>
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Brokered Items</Label>
+                  <Input
+                    type="number"
+                    value={bulkValues.brokeredItems}
+                    onChange={(e) => setBulkValues((current) => ({ ...current, brokeredItems: e.target.value }))}
+                    className="w-24"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Brokered Premium</Label>
+                  <Input
+                    type="number"
+                    value={bulkValues.brokeredPremium}
+                    onChange={(e) => setBulkValues((current) => ({ ...current, brokeredPremium: e.target.value }))}
+                    className="w-32"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Brokered Policies</Label>
+                  <Input
+                    type="number"
+                    value={bulkValues.brokeredPolicies}
+                    onChange={(e) => setBulkValues((current) => ({ ...current, brokeredPolicies: e.target.value }))}
+                    className="w-28"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Brokered Households</Label>
+                  <Input
+                    type="number"
+                    value={bulkValues.brokeredHouseholds}
+                    onChange={(e) => setBulkValues((current) => ({ ...current, brokeredHouseholds: e.target.value }))}
+                    className="w-32"
+                  />
+                </div>
+              </div>
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" onClick={handleApplyBulk} disabled={selectedCodes.size === 0 || !enabled}>
                   Apply to Selected{selectedCodes.size > 0 ? ` (${selectedCodes.size})` : ""}
@@ -340,7 +410,7 @@ export function ManualOverridePanel({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                These values affect tier qualification only. Issued production and chargebacks still come from the uploaded reports.
+                These values replace missing dashboard inputs only. Issued production and chargebacks still come from the uploaded reports, while brokered inputs can be entered here when a plan counts or pays brokered business.
               </p>
             </div>
 
@@ -367,6 +437,10 @@ export function ManualOverridePanel({
                     <TableHead>Manual Policies</TableHead>
                     <TableHead>Manual Households</TableHead>
                     <TableHead>Manual Points</TableHead>
+                    <TableHead>Brokered Items</TableHead>
+                    <TableHead>Brokered Premium</TableHead>
+                    <TableHead>Brokered Policies</TableHead>
+                    <TableHead>Brokered Households</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -458,6 +532,46 @@ export function ManualOverridePanel({
                           value={producer.override?.writtenPoints ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "writtenPoints", e.target.value)}
                           className={`h-8 w-20 ${disabledInputClassName}`}
+                          disabled={!producer.teamMember || !enabled}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          placeholder="—"
+                          value={producer.override?.brokeredItems ?? ""}
+                          onChange={(e) => handleOverrideChange(producer.code, "brokeredItems", e.target.value)}
+                          className={`h-8 w-20 ${disabledInputClassName}`}
+                          disabled={!producer.teamMember || !enabled}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          placeholder="—"
+                          value={producer.override?.brokeredPremium ?? ""}
+                          onChange={(e) => handleOverrideChange(producer.code, "brokeredPremium", e.target.value)}
+                          className={`h-8 w-24 ${disabledInputClassName}`}
+                          disabled={!producer.teamMember || !enabled}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          placeholder="—"
+                          value={producer.override?.brokeredPolicies ?? ""}
+                          onChange={(e) => handleOverrideChange(producer.code, "brokeredPolicies", e.target.value)}
+                          className={`h-8 w-24 ${disabledInputClassName}`}
+                          disabled={!producer.teamMember || !enabled}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          placeholder="—"
+                          value={producer.override?.brokeredHouseholds ?? ""}
+                          onChange={(e) => handleOverrideChange(producer.code, "brokeredHouseholds", e.target.value)}
+                          className={`h-8 w-24 ${disabledInputClassName}`}
                           disabled={!producer.teamMember || !enabled}
                         />
                       </TableCell>

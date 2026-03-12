@@ -124,7 +124,7 @@ export function CommissionStatementExport({
   const tierMetricValue = getTierMetricValue(payout, tierMetric);
   const tierThresholdDisplay = getTierThresholdDisplay(payout.tierThresholdMet, tierMetric, tierMetricLabel);
   const tierSourceLabel = payout.calculationSnapshot?.inputs.tierQualificationSource === "manual_override"
-    ? "manual written entry"
+    ? "manual fallback entry"
     : payout.calculationSnapshot?.inputs.tierQualificationSource === "sales_table"
       ? "sales dashboard"
       : payout.calculationSnapshot?.inputs.tierMetricSource === "issued"
@@ -267,10 +267,6 @@ export function CommissionStatementExport({
                     <td className="text-right font-mono">-{formatCurrency(excludedChargebackTotal)}</td>
                   </tr>
                 )}
-                <tr>
-                  <td className="py-1">Raw Chargebacks Found:</td>
-                  <td className="text-right font-mono">-{formatCurrency(payout.chargebackPremium)}</td>
-                </tr>
                 <tr>
                   <td colSpan={2} className="border-b border-black"></td>
                 </tr>

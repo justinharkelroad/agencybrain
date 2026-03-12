@@ -21,6 +21,11 @@ export interface ManualOverride {
   writtenPolicies: number | null;
   writtenHouseholds: number | null;
   writtenPoints: number | null;
+  // Brokered metrics (for brokered commission and tier contribution)
+  brokeredItems: number | null;
+  brokeredPremium: number | null;
+  brokeredPolicies: number | null;
+  brokeredHouseholds: number | null;
   // Bundle breakdown (for commission calculation)
   bundledItems: number | null;
   bundledPremium: number | null;

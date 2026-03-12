@@ -520,13 +520,30 @@ export function PayoutPreview({
 
       if (useManualWrittenMetrics) {
         if (plan.tier_metric_source !== "written") {
-          auditWarnings.push(`${teamMember.name} is on "${plan.name}", which tiers on issued metrics. Manual written entries will not affect their tier.`);
+          auditWarnings.push(`${teamMember.name} is on "${plan.name}", which tiers on issued metrics. Manual fallback entries will not affect their tier.`);
         } else {
           const requiredField = getRequiredManualMetricField(plan.tier_metric || "items");
           const override = manualOverrides.find((entry) => entry.subProdCode === code);
           if (!override || override[requiredField] === null || override[requiredField] === undefined) {
             blockers.push(`${teamMember.name} is missing ${getManualMetricLabel(requiredField)} for fallback written-tiering on plan "${plan.name}".`);
             continue;
+          }
+
+          const usesBrokeredRules =
+            plan.brokered_counts_toward_tier ||
+            plan.include_brokered_in_bundling ||
+            (plan.brokered_flat_rate || 0) > 0 ||
+            (plan.brokered_tiers?.length || 0) > 0;
+
+          const hasManualBrokeredValue = Boolean(
+            override.brokeredItems !== null ||
+            override.brokeredPremium !== null ||
+            override.brokeredPolicies !== null ||
+            override.brokeredHouseholds !== null
+          );
+
+          if (usesBrokeredRules && !hasManualBrokeredValue) {
+            auditWarnings.push(`${teamMember.name} is on "${plan.name}", which uses brokered business rules. Enter manual brokered metrics if this producer had brokered production during the month.`);
           }
         }
       }
@@ -577,7 +594,7 @@ export function PayoutPreview({
 
   const performCalculation = useCallback(async (producers: SubProducerMetrics[]) => {
     if (useManualWrittenMetrics) {
-      toast.info("Calculating with manual written tier metrics");
+      toast.info("Calculating with manual fallback metrics");
     }
 
     const result = await calculatePayouts(
@@ -757,10 +774,10 @@ export function PayoutPreview({
               />
               <div className="space-y-1">
                 <label htmlFor="manual-written-tiering" className="text-sm font-medium cursor-pointer">
-                  No dashboard data: use manual written metrics for tiering
+                  No dashboard data: use manual fallback metrics
                 </label>
                 <p className="text-sm text-muted-foreground">
-                  Enable this only when the sales dashboard was not maintained. Manual entries will drive tier qualification for written-based plans, while payout production still comes from New Business Details and chargebacks from Agent Transaction Detail.
+                  Enable this only when the sales dashboard was not maintained. Manual written entries will drive tier qualification for written-based plans, and manual brokered entries can replace missing dashboard brokered production. Payout production still comes from New Business Details and chargebacks from Agent Transaction Detail.
                 </p>
               </div>
             </div>
@@ -942,7 +959,7 @@ export function PayoutPreview({
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            This comp run used manual written metrics for tier qualification because dashboard data was unavailable. Issued production and chargebacks still came from the uploaded reports.
+            This comp run used manual fallback metrics because dashboard data was unavailable. Written tier inputs and brokered business could be entered manually, while issued production and chargebacks still came from the uploaded reports.
           </AlertDescription>
         </Alert>
       )}

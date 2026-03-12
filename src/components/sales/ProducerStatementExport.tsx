@@ -87,7 +87,7 @@ function getTierMetricValue(payout: CompPayout, tierMetric: string | undefined):
 
 function getTierSourceLabel(snapshot: CalculationSnapshot | null): string {
   if (snapshot?.inputs.tierQualificationSource === "manual_override") {
-    return "manual written entry";
+    return "manual fallback entry";
   }
   if (snapshot?.inputs.tierQualificationSource === "sales_table") {
     return "sales dashboard";
@@ -382,10 +382,6 @@ export function ProducerStatementExport({
                             <span className="font-medium">-{formatCurrency(excludedChargebackPremium)}</span>
                           </div>
                         )}
-                        <div className="flex justify-between text-gray-600">
-                          <span>Raw found:</span>
-                          <span className="font-medium">-{formatCurrency(payout.chargeback_premium || 0)}</span>
-                        </div>
                       </div>
                     </CardContent>
                   </Card>
