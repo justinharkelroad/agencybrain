@@ -20,13 +20,8 @@ export default function ForgotPassword() {
     setIsLoading(true);
 
     try {
-      // Always use production URL to avoid localhost redirect issues
-      const redirectUrl = window.location.hostname === 'localhost'
-        ? 'https://myagencybrain.com/reset-password'
-        : `${window.location.origin}/reset-password`;
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirectUrl,
+      const { data, error } = await supabase.functions.invoke('request_password_reset', {
+        body: { email }
       });
 
       if (error) throw error;

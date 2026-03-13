@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, CheckCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 export default function ResetPassword() {
@@ -17,19 +17,45 @@ export default function ResetPassword() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [isValidSession, setIsValidSession] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
 
   useEffect(() => {
-    // Check if we have a valid recovery session from Supabase
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    // Listen for Supabase to process the recovery token from the URL.
+    // When the user clicks the email link, Supabase exchanges the token
+    // and fires PASSWORD_RECOVERY or SIGNED_IN. A one-shot getSession()
+    // races against that exchange and usually loses.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+        setIsValidSession(true);
+        setIsCheckingSession(false);
+        setError("");
+      }
+    });
+
+    // Also check if a session already exists (e.g. page refresh after token was processed)
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setIsValidSession(true);
-      } else {
-        setError("Invalid or expired reset link. Please request a new password reset.");
+        setIsCheckingSession(false);
+        setError("");
       }
-    };
+    });
 
-    checkSession();
+    // If neither fires within 5 seconds, the link is likely invalid
+    const timeout = setTimeout(() => {
+      setIsCheckingSession(false);
+      setIsValidSession((current) => {
+        if (!current) {
+          setError("Invalid or expired reset link. Please request a new password reset.");
+        }
+        return current;
+      });
+    }, 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,13 +124,15 @@ export default function ResetPassword() {
                 </Alert>
               )}
 
-              {!isValidSession && (
+              {isCheckingSession && !isValidSession && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Verifying reset link...</span>
+                </div>
+              )}
+
+              {!isCheckingSession && !isValidSession && (
                 <div className="space-y-4">
-                  <Alert variant="destructive">
-                    <AlertDescription>
-                      Invalid or expired reset link. Please request a new password reset.
-                    </AlertDescription>
-                  </Alert>
                   <Link to="/forgot-password">
                     <Button variant="outline" className="w-full">
                       Request New Reset Link
