@@ -61,7 +61,6 @@ export default function WeeklyPlaybook() {
 
   // Categorize items
   const benchItems = useMemo(() => items.filter((i) => i.zone === "bench"), [items]);
-  const queueItems = useMemo(() => items.filter((i) => i.zone === "queue"), [items]);
   const oneBigThingItem = useMemo(() => items.find((i) => i.zone === "one_big_thing") || null, [items]);
   const powerPlaysByDay = useMemo(() => {
     const map: Record<string, typeof items> = {};
@@ -115,13 +114,12 @@ export default function WeeklyPlaybook() {
     description?: string;
     domain?: PlaybookDomain;
     sub_tag_id?: string;
-    zone: "bench" | "power_play" | "queue";
   }) => {
     createItem.mutate({
       title: data.title,
       description: data.description,
       priority_level: "mid",
-      zone: data.zone,
+      zone: "bench",
       domain: data.domain,
       sub_tag_id: data.sub_tag_id,
     });
@@ -230,7 +228,7 @@ export default function WeeklyPlaybook() {
             <PlaybookDayView
               date={selectedDate}
               items={powerPlaysByDay[selectedDateStr] || []}
-              queueItems={queueItems}
+              queueItems={[]}
               onToggleComplete={handleToggleComplete}
               onDelete={(id) => deleteItem.mutate(id)}
               onUnschedule={(id) => unscheduleItem.mutate(id)}

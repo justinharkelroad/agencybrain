@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { PlaybookDomain, PlaybookZone } from "@/hooks/useFocusItems";
+import type { PlaybookDomain } from "@/hooks/useFocusItems";
 import type { PlaybookTag } from "@/hooks/usePlaybookTags";
 
 interface CreatePlaybookItemDialogProps {
@@ -29,7 +29,6 @@ interface CreatePlaybookItemDialogProps {
     description?: string;
     domain?: PlaybookDomain;
     sub_tag_id?: string;
-    zone: PlaybookZone;
   }) => void;
 }
 
@@ -50,7 +49,6 @@ export function CreatePlaybookItemDialog({
   const [description, setDescription] = useState("");
   const [domain, setDomain] = useState<PlaybookDomain | "">("");
   const [subTagId, setSubTagId] = useState<string>("");
-  const [zone, setZone] = useState<PlaybookZone>("bench");
 
   const availableTags = domain ? tags.filter((t) => t.domain === domain) : [];
 
@@ -61,14 +59,12 @@ export function CreatePlaybookItemDialog({
       description: description.trim() || undefined,
       domain: domain || undefined,
       sub_tag_id: subTagId || undefined,
-      zone,
     });
     onOpenChange(false);
     setTitle("");
     setDescription("");
     setDomain("");
     setSubTagId("");
-    setZone("bench");
   };
 
   return (
@@ -129,18 +125,6 @@ export function CreatePlaybookItemDialog({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label>Add to</Label>
-            <Select value={zone} onValueChange={(v) => setZone(v as PlaybookZone)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="bench">The Bench</SelectItem>
-                <SelectItem value="queue">Queue</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
         </div>
 
         <DialogFooter>
