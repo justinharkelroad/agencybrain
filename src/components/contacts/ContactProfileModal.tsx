@@ -33,6 +33,8 @@ import { generateHouseholdKey } from '@/lib/household-key';
 import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
 import { sendRenewalToWinback } from '@/lib/sendToWinback';
 import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';
+import { ScheduleTaskDialog, type ScheduleTaskDialogContact } from '@/components/onboarding/ScheduleTaskDialog';
+import { useScheduleAdhocTask } from '@/hooks/useScheduleAdhocTask';
 import { BreakupLetterModal } from '@/components/sales/BreakupLetterModal';
 import { MoveToQuotedDialog, type QuotedProduct } from '@/components/lqs/MoveToQuotedDialog';
 import { useNavigate } from 'react-router-dom';
@@ -106,6 +108,7 @@ export function ContactProfileModal({
   const [moveToQuotedSource, setMoveToQuotedSource] = useState<'lqs' | 'winback' | null>(null);
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [isSavingContact, setIsSavingContact] = useState(false);
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [editFirstName, setEditFirstName] = useState('');
   const [editLastName, setEditLastName] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -139,6 +142,7 @@ export function ContactProfileModal({
   // Module-specific activity logging
   const logCancelAuditActivity = useLogCancelAuditActivity();
   const createRenewalActivity = useCreateRenewalActivity();
+  const scheduleTask = useScheduleAdhocTask({ staffSessionToken });
 
   // Determine which stage to display
   // After a mutation, prefer the fresh profile stage over the stale passedStage prop
@@ -181,10 +185,47 @@ export function ContactProfileModal({
     ];
   }, [profile]);
 
-  // Reset hasMutated flag when modal closes
+  // Build task contact from profile
+  const taskContact: ScheduleTaskDialogContact | null = useMemo(() => {
+    if (!contactId || !profile) return null;
+    return {
+      id: contactId,
+      firstName: profile.first_name || '',
+      lastName: profile.last_name || '',
+      phones: profile.phones?.filter(Boolean) as string[] || [],
+      emails: profile.emails?.filter(Boolean) as string[] || [],
+    };
+  }, [contactId, profile]);
+
+  // Determine sourceModule and moduleRecordId for task scheduling
+  const scheduleSourceModule = defaultSourceModule === 'manual' ? undefined : defaultSourceModule;
+  const scheduleModuleRecordId = cancelAuditRecord?.id || winbackHousehold?.id || renewalRecord?.id || lqsHousehold?.id || sourceRecordId;
+
+  const handleScheduleTask = async (data: {
+    contactId: string;
+    contactName: string;
+    dueDate: string;
+    actionType: 'call' | 'text' | 'email' | 'other';
+    title: string;
+    description?: string;
+  }) => {
+    await scheduleTask.mutateAsync({
+      contactId: data.contactId,
+      dueDate: data.dueDate,
+      actionType: data.actionType,
+      title: data.title,
+      description: data.description,
+      sourceModule: scheduleSourceModule,
+      moduleRecordId: scheduleModuleRecordId,
+    });
+    toast.success(`Task scheduled for ${data.contactName}`);
+  };
+
+  // Reset state when modal closes
   useEffect(() => {
     if (!open) {
       setHasMutated(false);
+      setScheduleDialogOpen(false);
     }
   }, [open]);
 
@@ -1194,14 +1235,24 @@ export function ContactProfileModal({
                   </div>
                 )}
 
-                {showBreakupLetterAction && (
-                  <div className="mt-2">
+                {/* Schedule Task - available for all modules */}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setScheduleDialogOpen(true)}
+                    disabled={scheduleTask.isPending || !agencyId}
+                  >
+                    <Calendar className="h-4 w-4 mr-1" />
+                    Schedule Task
+                  </Button>
+                  {showBreakupLetterAction && (
                     <Button size="sm" variant="outline" onClick={() => setBreakupLetterModalOpen(true)}>
                       <FileText className="h-4 w-4 mr-1" />
                       Generate Breakup Letter
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
               </SheetHeader>
 
               <Separator className="my-4" />
@@ -1366,6 +1417,24 @@ export function ContactProfileModal({
           }}
           loading={moduleActionLoading === 'promote_to_quoted' || moduleActionLoading === 'quoted'}
           agencyId={agencyId}
+        />
+      )}
+
+      {agencyId && (
+        <ScheduleTaskDialog
+          open={scheduleDialogOpen}
+          onOpenChange={setScheduleDialogOpen}
+          agencyId={agencyId}
+          initialContact={taskContact}
+          lockContact={!!taskContact}
+          defaultTitle={
+            defaultSourceModule === 'winback' ? 'Winback follow-up'
+            : defaultSourceModule === 'cancel_audit' ? 'Cancel audit follow-up'
+            : defaultSourceModule === 'renewal' ? 'Renewal follow-up'
+            : defaultSourceModule === 'lqs' ? 'Lead follow-up'
+            : 'Follow-up'
+          }
+          onSchedule={handleScheduleTask}
         />
       )}
 
