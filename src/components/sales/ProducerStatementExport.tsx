@@ -69,7 +69,18 @@ function getTierMetricLabel(tierMetric: string | undefined): string {
   }
 }
 
-function getTierMetricValue(payout: CompPayout, tierMetric: string | undefined): string {
+function getTierMetricValue(
+  payout: CompPayout,
+  tierMetric: string | undefined,
+  snapshot: CalculationSnapshot | null
+): string {
+  const snapshotValue = snapshot?.inputs.tierMetricValueUsed;
+  if (typeof snapshotValue === "number") {
+    return tierMetric === "premium"
+      ? formatCurrency(snapshotValue)
+      : String(snapshotValue);
+  }
+
   switch (tierMetric) {
     case "premium":
       return formatCurrency(payout.written_premium || 0);
@@ -125,7 +136,7 @@ export function ProducerStatementExport({
     : (payout.chargeback_count || 0);
   const tierMetric = calculationSnapshot?.inputs.tierMetric;
   const tierMetricLabel = getTierMetricLabel(tierMetric);
-  const tierMetricValue = getTierMetricValue(payout, tierMetric);
+  const tierMetricValue = getTierMetricValue(payout, tierMetric, calculationSnapshot);
   const tierThresholdDisplay = payout.tier_commission_value != null
     ? tierMetric === "premium"
       ? formatCurrency(payout.tier_threshold_met || 0)

@@ -256,12 +256,16 @@ export interface CalculationSnapshot {
   inputs: {
     writtenItems: number;
     writtenPremium: number;
+    writtenPolicies: number;
+    writtenHouseholds: number;
+    writtenPoints: number;
     issuedItems: number;
     issuedPremium: number;
     chargebackCount: number;
     chargebackPremium: number;
     tierMetric: string;
     tierMetricSource: string;
+    tierMetricValueUsed: number;
     tierQualificationSource?: 'sales_table' | 'statement_fallback' | 'issued_statement' | 'manual_override';
     chargebackRule: string;
   };

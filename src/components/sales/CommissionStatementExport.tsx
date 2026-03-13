@@ -44,6 +44,19 @@ function getTierMetricLabel(tierMetric: string | undefined): string {
 }
 
 function getTierMetricValue(payout: PayoutCalculation, tierMetric: string | undefined): string {
+  const snapshotValue = payout.calculationSnapshot?.inputs.tierMetricValueUsed;
+  if (typeof snapshotValue === "number") {
+    return tierMetric === "premium"
+      ? formatCurrency(snapshotValue)
+      : String(snapshotValue);
+  }
+
+  if (typeof payout.tierMatch?.metricValue === "number") {
+    return tierMetric === "premium"
+      ? formatCurrency(payout.tierMatch.metricValue)
+      : String(payout.tierMatch.metricValue);
+  }
+
   switch (tierMetric) {
     case "premium":
       return formatCurrency(payout.writtenPremium);

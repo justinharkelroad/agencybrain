@@ -78,6 +78,19 @@ export function PayoutDetailSheet({ payout, open, onOpenChange, formatCurrency }
   };
 
   const getTierAchievedValue = () => {
+    const snapshotValue = payout.calculationSnapshot?.inputs.tierMetricValueUsed;
+    if (typeof snapshotValue === "number") {
+      return tierMetric === 'premium'
+        ? formatCurrency(snapshotValue)
+        : `${snapshotValue}`;
+    }
+
+    if (typeof payout.tierMatch?.metricValue === "number") {
+      return tierMetric === 'premium'
+        ? formatCurrency(payout.tierMatch.metricValue)
+        : `${payout.tierMatch.metricValue}`;
+    }
+
     switch (tierMetric) {
       case 'premium':
         return formatCurrency(payout.writtenPremium);

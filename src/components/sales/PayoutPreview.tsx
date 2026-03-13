@@ -529,6 +529,16 @@ export function PayoutPreview({
 
       if (useManualWrittenMetrics) {
         const override = manualOverrides.find((entry) => entry.subProdCode === code);
+        const usesBrokeredRules =
+          plan.brokered_counts_toward_tier ||
+          plan.include_brokered_in_bundling ||
+          (plan.brokered_flat_rate || 0) > 0 ||
+          (plan.brokered_tiers?.length || 0) > 0;
+        const hasSelfGenModifiers = Boolean(
+          plan.commission_modifiers?.self_gen_requirement?.enabled ||
+          plan.commission_modifiers?.self_gen_kicker?.enabled ||
+          plan.commission_modifiers?.self_gen_bonus?.enabled
+        );
 
         if (override) {
           for (const field of manualWholeNumberFields) {
@@ -547,23 +557,28 @@ export function PayoutPreview({
             blockers.push(`${teamMember.name} is missing ${getManualMetricLabel(requiredField)} for fallback written-tiering on plan "${plan.name}".`);
             continue;
           }
+        }
 
-          const usesBrokeredRules =
-            plan.brokered_counts_toward_tier ||
-            plan.include_brokered_in_bundling ||
-            (plan.brokered_flat_rate || 0) > 0 ||
-            (plan.brokered_tiers?.length || 0) > 0;
-
-          const hasManualBrokeredValue = Boolean(
+        const hasManualBrokeredValue = Boolean(
+          override &&
+          (
             override.brokeredItems !== null ||
             override.brokeredPremium !== null ||
             override.brokeredPolicies !== null ||
             override.brokeredHouseholds !== null
-          );
+          )
+        );
 
-          if (usesBrokeredRules && !hasManualBrokeredValue) {
-            auditWarnings.push(`${teamMember.name} is on "${plan.name}", which uses brokered business rules. Enter manual brokered metrics if this producer had brokered production during the month.`);
-          }
+        if (usesBrokeredRules && !hasManualBrokeredValue) {
+          auditWarnings.push(`${teamMember.name} is on "${plan.name}", which uses brokered business rules. Enter manual brokered metrics if this producer had brokered production during the month.`);
+        }
+
+        if (plan.include_brokered_in_bundling) {
+          auditWarnings.push(`${teamMember.name} is on "${plan.name}", which includes brokered business in bundling calculations. Manual fallback does not replace brokered bundling percentages, so bundling math still depends on dashboard sales data.`);
+        }
+
+        if (hasSelfGenModifiers) {
+          auditWarnings.push(`${teamMember.name} is on "${plan.name}", which uses self-gen modifiers. Manual fallback does not replace self-gen tracking, so those adjustments still depend on dashboard sales data.`);
         }
       }
 

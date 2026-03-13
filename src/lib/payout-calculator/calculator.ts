@@ -863,7 +863,8 @@ export function calculateSelfGenKicker(
 export function calculateCommission(
   performance: SubProducerPerformance,
   plan: CompPlan,
-  tierMatch: TierMatch | null
+  tierMatch: TierMatch | null,
+  effectiveWrittenMetrics?: WrittenMetrics
 ): { baseCommission: number; bonusAmount: number; totalPayout: number } {
   if (!tierMatch) {
     return { baseCommission: 0, bonusAmount: 0, totalPayout: 0 };
@@ -916,7 +917,7 @@ export function calculateCommission(
       break;
     case 'flat_per_household':
       // Commission value is a flat amount per household
-      baseCommission = performance.writtenHouseholds * commissionValue;
+      baseCommission = (effectiveWrittenMetrics?.writtenHouseholds ?? performance.writtenHouseholds) * commissionValue;
       break;
     default:
       // Default to percentage of effective net premium
@@ -997,7 +998,7 @@ function getBundleTypeEffectiveRate(
 export function calculateCommissionWithBundleConfigs(
   performance: SubProducerPerformance,
   bundleConfigs: BundleConfigs,
-  tierMetric: string,
+  resolvedMetricValue: number,
   chargebackRule: string,
   tierMatch?: TierMatch | null  // Added: fallback tier rate for unconfigured bundle types
 ): {
@@ -1006,9 +1007,6 @@ export function calculateCommissionWithBundleConfigs(
 } {
   const breakdown: Array<{ bundleType: string; premium: number; items: number; commission: number }> = [];
   let totalCommission = 0;
-
-  // Get the overall metric value for tier matching
-  const metricValue = getMetricValue(performance, tierMetric);
 
   // Fallback tier rate for bundle types without explicit config
   const fallbackTierRate = tierMatch?.commissionValue || 0;
@@ -1027,7 +1025,7 @@ export function calculateCommissionWithBundleConfigs(
     let payoutType = 'percent_of_premium'; // Default payout type
 
     if (config && config.enabled) {
-      effectiveRate = getBundleTypeEffectiveRate(config, metricValue);
+      effectiveRate = getBundleTypeEffectiveRate(config, resolvedMetricValue);
       payoutType = config.payout_type || 'percent_of_premium';
     } else {
       // No config for this bundle type - use the plan's tier rate
@@ -1610,14 +1608,14 @@ export function calculateMemberPayout(
     const result = calculateCommissionWithBundleConfigs(
       performance,
       plan.bundle_configs!,
-      plan.tier_metric,
+      metricValue,
       plan.chargeback_rule,
       tierMatch  // Pass tier rate for fallback
     );
     baseCommission = result.totalCommission;
     commissionByBundleType = result.breakdown;
   } else {
-    const result = calculateCommission(performance, plan, tierMatch);
+    const result = calculateCommission(performance, plan, tierMatch, effectiveWrittenMetrics);
     baseCommission = result.baseCommission;
   }
 
@@ -1654,7 +1652,7 @@ export function calculateMemberPayout(
             metricValue,
           };
           // Recalculate base commission at demoted tier
-          const result = calculateCommission(performance, plan, tierMatch);
+          const result = calculateCommission(performance, plan, tierMatch, effectiveWrittenMetrics);
           selfGenPenaltyAmount = baseCommission - result.baseCommission;
           baseCommission = result.baseCommission;
         }
@@ -1696,7 +1694,7 @@ export function calculateMemberPayout(
             metricValue,
           };
           // Recalculate at promoted tier
-          const result = calculateCommission(performance, plan, tierMatch);
+          const result = calculateCommission(performance, plan, tierMatch, effectiveWrittenMetrics);
           selfGenBonusAmount = result.baseCommission - baseCommission;
           baseCommission = result.baseCommission;
         }
@@ -1723,18 +1721,23 @@ export function calculateMemberPayout(
 
   // Calculate total payout
   const totalPayout = baseCommission + promoBonus.bonusAmount + selfGenKickerAmount + selfGenBonusAmount + brokeredCommission;
+  const effectiveWrittenPoints = customPointsCalculated ?? effectiveWrittenMetrics.writtenPoints ?? performance.writtenPoints;
 
   // Build calculation snapshot for audit trail (Phase 8)
   const calculationSnapshot: CalculationSnapshot = {
     inputs: {
       writtenItems: effectiveWrittenMetrics.writtenItems,
       writtenPremium: effectiveWrittenMetrics.writtenPremium,
+      writtenPolicies: effectiveWrittenMetrics.writtenPolicies,
+      writtenHouseholds: effectiveWrittenMetrics.writtenHouseholds,
+      writtenPoints: effectiveWrittenPoints,
       issuedItems: performance.issuedItems,
       issuedPremium: performance.issuedPremium,
       chargebackCount: performance.chargebackCount,
       chargebackPremium: performance.chargebackPremium,
       tierMetric: plan.tier_metric,
       tierMetricSource,
+      tierMetricValueUsed: metricValue,
       tierQualificationSource: resolvedTierQualificationSource,
       chargebackRule: plan.chargeback_rule,
     },
@@ -1770,8 +1773,6 @@ export function calculateMemberPayout(
   };
 
   console.log(`[calculateMemberPayout] ${performance.teamMemberName}: creditInsureds=${performance.creditInsureds?.length || 0}, chargebackInsureds=${performance.chargebackInsureds?.length || 0}`);
-
-  const effectiveWrittenPoints = customPointsCalculated ?? effectiveWrittenMetrics.writtenPoints ?? performance.writtenPoints;
 
   return {
     teamMemberId: performance.teamMemberId || '',
