@@ -42,6 +42,13 @@ async function processStaffUpload(
   staffToken: string,
   queryClient: ReturnType<typeof useQueryClient>
 ) {
+  const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
+    e.preventDefault();
+    e.returnValue = 'Upload is still processing. Leaving will stop the upload.';
+    return e.returnValue;
+  };
+  window.addEventListener('beforeunload', beforeUnloadHandler);
+
   try {
     const { data, error } = await supabase.functions.invoke('upload_staff_renewals', {
       headers: { 'x-staff-session': staffToken },
@@ -86,6 +93,8 @@ async function processStaffUpload(
       description: error.message || 'An error occurred during processing',
       variant: 'destructive',
     });
+  } finally {
+    window.removeEventListener('beforeunload', beforeUnloadHandler);
   }
 }
 
@@ -97,6 +106,14 @@ async function processInBackground(
   displayName: string,
   queryClient: ReturnType<typeof useQueryClient>
 ) {
+  // Guard against browser close/refresh during processing
+  const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
+    e.preventDefault();
+    e.returnValue = 'Upload is still processing. Leaving will stop the upload.';
+    return e.returnValue;
+  };
+  window.addEventListener('beforeunload', beforeUnloadHandler);
+
   try {
     const dateRange = getRenewalDateRange(records);
     
@@ -360,5 +377,7 @@ async function processInBackground(
       description: error.message || 'An error occurred during processing',
       variant: 'destructive',
     });
+  } finally {
+    window.removeEventListener('beforeunload', beforeUnloadHandler);
   }
 }

@@ -123,6 +123,15 @@ async function processWithProgress(
 ) {
   const { agencyId, userId, staffMemberId, displayName } = context;
 
+  // Guard against browser close/refresh during processing
+  const beforeUnloadHandler = (e: BeforeUnloadEvent) => {
+    e.preventDefault();
+    e.returnValue = 'Upload is still processing. Leaving will stop the upload.';
+    return e.returnValue;
+  };
+  window.addEventListener('beforeunload', beforeUnloadHandler);
+
+  try {
   // 1. Create upload record
   const { data: uploadData, error: uploadError } = await supabase
     .from('cancel_audit_uploads')
@@ -253,6 +262,9 @@ async function processWithProgress(
     result: { recordsCreated, recordsUpdated, recordsDropped, errors: errorCount },
     errorMessage: null,
   });
+  } finally {
+    window.removeEventListener('beforeunload', beforeUnloadHandler);
+  }
 }
 
 function invalidateCancelAuditQueries(queryClient: ReturnType<typeof useQueryClient>) {
