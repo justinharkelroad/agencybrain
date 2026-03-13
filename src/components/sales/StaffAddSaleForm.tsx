@@ -35,7 +35,7 @@ import { classifyBundle, type ExistingProductFlag } from "@/lib/bundle-classifie
 import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-products";
 import { getSupabaseFunctionErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
-import type { LqsSalePrefill } from "@/lib/lqs-sale-prefill";
+import type { SalesPrefill } from "@/lib/lqs-sale-prefill";
 import { isCrossSaleLeadSource } from "@/lib/lead-source-utils";
 import {
   Dialog,
@@ -82,12 +82,12 @@ type Policy = {
 };
 
 interface StaffAddSaleFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (result?: { saleId: string }) => void;
   agencyId?: string;
   staffSessionToken?: string;
   staffTeamMemberId?: string | null;
   leadSources?: { id: string; name: string }[];
-  prefillSale?: LqsSalePrefill | null;
+  prefillSale?: SalesPrefill | null;
 }
 
 
@@ -574,7 +574,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
       const saleLevelBrokeredCarrierId = firstBrokeredPolicy?.brokeredCarrierId || undefined;
 
       const salePayload = {
-        household_id: prefillSale?.householdId || undefined,
+        household_id: prefillSale?.source === 'lqs_household' ? prefillSale.householdId : undefined,
         lead_source_id: leadSourceId,
         prior_insurance_company_id: priorInsuranceCompanyId || undefined,
         brokered_carrier_id: saleLevelBrokeredCarrierId,
@@ -671,7 +671,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         // Don't reset form yet - will be done when modals close
       } else {
         resetForm();
-        onSuccess?.();
+        onSuccess?.({ saleId });
       }
     },
     onError: (error) => {
@@ -1616,7 +1616,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
               // Modal closed - clean up and call onSuccess
               setNewSaleData(null);
               resetForm();
-              onSuccess?.();
+              onSuccess?.({ saleId: newSaleData.saleId });
             }
           }}
           saleId={newSaleData.saleId}
@@ -1629,7 +1629,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
             setNewSaleData(null);
             setApplySequenceModalOpen(false);
             resetForm();
-            onSuccess?.();
+            onSuccess?.({ saleId: newSaleData.saleId });
           }}
         />
       )}

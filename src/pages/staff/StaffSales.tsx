@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useSearchParams, Navigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams, Navigate } from "react-router-dom";
 import { useStaffAuth } from "@/hooks/useStaffAuth";
 import { hasSalesAccess } from "@/lib/salesBetaAccess";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,7 +20,9 @@ import { PdfUploadForm } from "@/components/sales/PdfUploadForm";
 import { StaffAddSaleForm } from "@/components/sales/StaffAddSaleForm";
 import { StaffEditSaleModal } from "@/components/staff/StaffEditSaleModal";
 import { Button } from "@/components/ui/button";
-import type { LqsSalePrefill } from "@/lib/lqs-sale-prefill";
+import type { SalesPrefill, WinbackSaleCompletionContext } from "@/lib/lqs-sale-prefill";
+import * as winbackApi from "@/lib/winbackApi";
+import { toast } from "sonner";
 
 type Period = "this_month" | "last_month" | "this_year" | "last_90_days" | "custom";
 
@@ -128,11 +130,18 @@ export default function StaffSales() {
   const { user, sessionToken } = useStaffAuth();
   const queryClient = useQueryClient();
   const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "overview");
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
-  const locationPrefillSale = (location.state as { prefillSale?: LqsSalePrefill } | null)?.prefillSale ?? null;
-  const [prefillSale, setPrefillSale] = useState<LqsSalePrefill | null>(locationPrefillSale);
+  const locationState = (location.state as {
+    prefillSale?: SalesPrefill;
+    winbackCompletion?: WinbackSaleCompletionContext;
+  } | null);
+  const locationPrefillSale = locationState?.prefillSale ?? null;
+  const locationWinbackCompletion = locationState?.winbackCompletion ?? null;
+  const [prefillSale, setPrefillSale] = useState<SalesPrefill | null>(locationPrefillSale);
+  const [winbackCompletion, setWinbackCompletion] = useState<WinbackSaleCompletionContext | null>(locationWinbackCompletion);
   const [period, setPeriod] = useState<Period>("this_month");
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(undefined);
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(undefined);
@@ -159,10 +168,14 @@ export default function StaffSales() {
     setPrefillSale(locationPrefillSale);
   }, [locationPrefillSale]);
 
+  useEffect(() => {
+    setWinbackCompletion(locationWinbackCompletion);
+  }, [locationWinbackCompletion]);
+
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     setSearchParams({ tab });
-    if (tab !== "add") {
+    if (tab !== "add" && tab !== "upload") {
       setPrefillSale(null);
     }
   };
@@ -215,10 +228,32 @@ export default function StaffSales() {
   const totals = salesResponse?.totals || { premium: 0, items: 0, points: 0, policies: 0 };
   const leadSources = salesResponse?.lead_sources || [];
 
-  const handleSaleCreated = () => {
-    queryClient.invalidateQueries({ queryKey: ["staff-sales"] });
-    setActiveTab("overview");
-    setPrefillSale(null);
+  const handleSaleCreated = async (result?: { saleId: string }) => {
+    try {
+      queryClient.invalidateQueries({ queryKey: ["staff-sales"] });
+      setActiveTab("overview");
+      setPrefillSale(null);
+      if (winbackCompletion) {
+        if (!result?.saleId) {
+          throw new Error("Sale saved but no sale ID was returned");
+        }
+
+        const completion = await winbackApi.completeWonBackFromSale(winbackCompletion, result.saleId);
+        if (!completion.success) {
+          throw new Error(completion.error || "Failed to mark winback as won back");
+        }
+
+        queryClient.invalidateQueries({ queryKey: ["winback-households"] });
+        queryClient.invalidateQueries({ queryKey: ["winback-activity-summary"] });
+        queryClient.invalidateQueries({ queryKey: ["winback-stats"] });
+        setWinbackCompletion(null);
+        toast.success("Sale recorded and Winback marked won back");
+        navigate(winbackCompletion.returnPath);
+      }
+    } catch (error) {
+      console.error("[StaffSales] Failed to finalize winback sale:", error);
+      toast.error(error instanceof Error ? error.message : "Sale saved but Winback could not be finalized");
+    }
   };
 
   if (!user) {
@@ -305,6 +340,29 @@ export default function StaffSales() {
           )}
         </div>
       </div>
+
+      {winbackCompletion && (
+        <Card className="mb-6 border-green-200 bg-green-50/60">
+          <CardContent className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <p className="font-medium text-green-900">Complete Winback in Sales</p>
+              <p className="text-sm text-green-800">
+                Use the same Add Sale or Upload PDF flow you already use. After the sale is saved, this record will automatically count as Won Back in Winback HQ.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setWinbackCompletion(null);
+                setPrefillSale(null);
+                navigate(winbackCompletion.returnPath);
+              }}
+            >
+              Back to Winback
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
         <TabsList className="flex w-full overflow-x-auto no-scrollbar gap-1 md:grid md:grid-cols-7 md:max-w-4xl">
@@ -493,6 +551,7 @@ export default function StaffSales() {
             leadSources={leadSources}
             prefillSale={prefillSale}
             onSuccess={handleSaleCreated}
+            key={prefillSale?.source === 'lqs_household' ? prefillSale.householdId : prefillSale?.source === 'winback_household' ? prefillSale.winbackHouseholdId : 'new'}
           />
         </TabsContent>
 
@@ -505,6 +564,7 @@ export default function StaffSales() {
             leadSources={leadSources}
             onSuccess={handleSaleCreated}
             onSwitchToManual={handleSwitchToManualEntry}
+            prefillSale={prefillSale}
           />
         </TabsContent>
 

@@ -59,6 +59,7 @@ import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-produ
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
 import { isCrossSaleLeadSource } from "@/lib/lead-source-utils";
 import { invokeSupabaseFunctionWithSessionRefresh } from "@/lib/invokeSupabaseFunctionWithSessionRefresh";
+import type { SalesPrefill } from "@/lib/lqs-sale-prefill";
 
 interface ExtractedSaleData {
   customerName: string;
@@ -117,9 +118,10 @@ interface TeamMember {
 }
 
 interface PdfUploadFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (result?: { saleId: string }) => void;
   onSwitchToManual?: () => void;
   agencyId?: string | null;
+  prefillSale?: SalesPrefill | null;
   // Staff portal props
   staffSessionToken?: string;
   staffUserId?: string;
@@ -249,6 +251,7 @@ export function PdfUploadForm({
   onSuccess,
   onSwitchToManual,
   agencyId,
+  prefillSale,
   staffSessionToken,
   staffUserId,
   staffTeamMemberId,
@@ -338,6 +341,20 @@ export function PdfUploadForm({
       carrierName: string;
     }>;
   } | null>(null);
+
+  useEffect(() => {
+    if (!prefillSale) return;
+
+    setCustomerName(prefillSale.customerName || '');
+    setCustomerEmail(prefillSale.customerEmail || '');
+    setCustomerPhone(formatPhoneNumber(prefillSale.customerPhone || ''));
+    setCustomerZip(prefillSale.customerZip || '');
+    setLeadSourceId(prefillSale.leadSourceId || '');
+    setSaleDate(prefillSale.saleDate ? toLocalDate(new Date(`${prefillSale.saleDate}T12:00:00`)) || todayLocal() : todayLocal());
+    setHasExistingPolicies(false);
+    setExistingPolicyTypes([]);
+    setIsOneCallClose(false);
+  }, [prefillSale]);
 
   // Fetch policy types with linked product_types for comp fields
   const { data: productTypes = [] } = useQuery<ProductType[]>({
@@ -637,7 +654,7 @@ export function PdfUploadForm({
       const saleId = result?.sale_id;
       if (!saleId || !effectiveAgencyId) {
         resetForm();
-        onSuccess?.();
+        onSuccess?.(saleId ? { saleId } : undefined);
         return;
       }
 
@@ -1514,7 +1531,7 @@ export function PdfUploadForm({
           if (!open) {
             setNewSaleData(null);
             resetForm();
-            onSuccess?.();
+            onSuccess?.({ saleId: newSaleData.saleId });
           }
         }}
         saleId={newSaleData.saleId}
@@ -1527,7 +1544,7 @@ export function PdfUploadForm({
           setNewSaleData(null);
           setApplySequenceModalOpen(false);
           resetForm();
-          onSuccess?.();
+          onSuccess?.({ saleId: newSaleData.saleId });
         }}
       />
     )}

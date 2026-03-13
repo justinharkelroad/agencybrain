@@ -4,6 +4,7 @@ import { startOfDay, startOfWeek, endOfWeek, format, subDays } from 'date-fns';
 import { generateHouseholdKey } from './lqs-quote-parser';
 import { classifyBundle } from './bundle-classifier';
 import type { DateRange } from 'react-day-picker';
+import type { WinbackSaleCompletionContext } from './lqs-sale-prefill';
 
 // Types
 export interface WinbackStats {
@@ -529,6 +530,76 @@ export async function updateHouseholdStatus(
   });
 
   return { success: true, assigned_to: updateData.assigned_to };
+}
+
+export async function completeWonBackFromSale(
+  context: WinbackSaleCompletionContext,
+  saleId: string
+): Promise<{ success: boolean; error?: string }> {
+  if (isStaffUser()) {
+    return callStaffWinback('complete_won_back_from_sale', {
+      householdId: context.householdId,
+      saleId,
+      oldStatus: context.oldStatus,
+      currentUserTeamMemberId: context.actorTeamMemberId || null,
+    });
+  }
+
+  const { data: sale, error: saleError } = await supabase
+    .from('sales')
+    .select('contact_id')
+    .eq('id', saleId)
+    .eq('agency_id', context.agencyId)
+    .maybeSingle();
+
+  if (saleError) throw saleError;
+  if (!sale) {
+    return { success: false, error: 'Sale not found for this agency' };
+  }
+
+  const { data: updatedRows, error: updateError, count } = await supabase
+    .from('winback_households')
+    .update({
+      status: 'won_back',
+      contact_id: sale.contact_id || undefined,
+      updated_at: new Date().toISOString(),
+    }, { count: 'exact' })
+    .eq('id', context.householdId)
+    .eq('agency_id', context.agencyId)
+    .eq('status', context.oldStatus)
+    .select('id');
+
+  if (updateError) throw updateError;
+
+  if (count === 0 || !updatedRows || updatedRows.length === 0) {
+    return { success: false, error: 'Winback household was no longer in an active status' };
+  }
+
+  const { error: activityError } = await supabase
+    .from('winback_activities')
+    .insert({
+      household_id: context.householdId,
+      agency_id: context.agencyId,
+      activity_type: 'status_change',
+      old_status: context.oldStatus,
+      new_status: 'won_back',
+      created_by_team_member_id: context.actorTeamMemberId || null,
+      created_by_name: context.actorName || 'Unknown',
+    });
+
+  if (activityError) throw activityError;
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('winback:activity_logged', {
+      detail: {
+        agencyId: context.agencyId,
+        activityType: 'status_change',
+        householdId: context.householdId,
+      },
+    }));
+  }
+
+  return { success: true };
 }
 
 /**

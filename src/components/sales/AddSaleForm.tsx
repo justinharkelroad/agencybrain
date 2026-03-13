@@ -38,7 +38,7 @@ import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-produ
 import { assertNoDuplicateSalePolicies } from "@/lib/salesDuplicatePolicies";
 import { getSupabaseFunctionErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCustomerProductsSelector";
-import type { LqsSalePrefill } from "@/lib/lqs-sale-prefill";
+import type { SalesPrefill } from "@/lib/lqs-sale-prefill";
 import { isCrossSaleLeadSource } from "@/lib/lead-source-utils";
 import { invokeSupabaseFunctionWithSessionRefresh } from "@/lib/invokeSupabaseFunctionWithSessionRefresh";
 import {
@@ -129,9 +129,9 @@ type SaleForEdit = {
 };
 
 interface AddSaleFormProps {
-  onSuccess?: () => void;
+  onSuccess?: (result?: { saleId: string }) => void;
   editSale?: SaleForEdit | null;
-  prefillSale?: LqsSalePrefill | null;
+  prefillSale?: SalesPrefill | null;
   onCancelEdit?: () => void;
 }
 
@@ -739,7 +739,10 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
 
       const salePayload = {
         sale_id: isEditMode && editSale ? editSale.id : undefined,
-        household_id: !isEditMode ? prefillSale?.householdId || undefined : undefined,
+        household_id:
+          !isEditMode && prefillSale?.source === 'lqs_household'
+            ? prefillSale.householdId
+            : undefined,
         team_member_id: producerId || undefined,
         lead_source_id: leadSourceId,
         prior_insurance_company_id: priorInsuranceCompanyId || undefined,
@@ -867,7 +870,7 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
         // Don't call onSuccess yet - will be called when modal closes
       } else {
         resetForm();
-        onSuccess?.();
+        onSuccess?.({ saleId });
       }
     },
     onError: (error) => {
@@ -1846,7 +1849,7 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
               // Modal closed - clean up and call onSuccess
               setNewSaleData(null);
               resetForm();
-              onSuccess?.();
+              onSuccess?.({ saleId: newSaleData.saleId });
             }
           }}
           saleId={newSaleData.saleId}
@@ -1859,7 +1862,7 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
             setNewSaleData(null);
             setApplySequenceModalOpen(false);
             resetForm();
-            onSuccess?.();
+            onSuccess?.({ saleId: newSaleData.saleId });
           }}
         />
       )}

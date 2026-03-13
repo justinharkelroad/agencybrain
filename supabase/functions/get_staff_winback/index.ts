@@ -530,6 +530,88 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "complete_won_back_from_sale": {
+        const { householdId, saleId, oldStatus, currentUserTeamMemberId } = params;
+
+        if (!householdId || !saleId || !oldStatus) {
+          return new Response(JSON.stringify({ error: "householdId, saleId, and oldStatus are required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const { data: household } = await supabase
+          .from("winback_households")
+          .select("id")
+          .eq("id", householdId)
+          .eq("agency_id", agencyId)
+          .single();
+
+        if (!household) {
+          return new Response(JSON.stringify({ error: "Household not found" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const { data: sale } = await supabase
+          .from("sales")
+          .select("contact_id")
+          .eq("id", saleId)
+          .eq("agency_id", agencyId)
+          .single();
+
+        if (!sale) {
+          return new Response(JSON.stringify({ error: "Sale not found" }), {
+            status: 404,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const teamMemberId = verified.staffMemberId || currentUserTeamMemberId;
+        const { data: updatedRows, error: updateError, count } = await supabase
+          .from("winback_households")
+          .update({
+            status: "won_back",
+            contact_id: sale.contact_id || undefined,
+            updated_at: new Date().toISOString(),
+          }, { count: "exact" })
+          .eq("id", householdId)
+          .eq("agency_id", agencyId)
+          .eq("status", oldStatus)
+          .select("id");
+
+        if (updateError) throw updateError;
+
+        if (count === 0 || !updatedRows || updatedRows.length === 0) {
+          result = { success: false, error: "Household not in expected active status" };
+          break;
+        }
+
+        let userName = "Unknown";
+        if (teamMemberId) {
+          const { data: member } = await supabase
+            .from("team_members")
+            .select("name")
+            .eq("id", teamMemberId)
+            .single();
+          if (member) userName = member.name;
+        }
+
+        await supabase.from("winback_activities").insert({
+          household_id: householdId,
+          agency_id: agencyId,
+          activity_type: "status_change",
+          old_status: oldStatus,
+          new_status: "won_back",
+          created_by_team_member_id: teamMemberId || null,
+          created_by_name: userName,
+        });
+
+        result = { success: true };
+        break;
+      }
+
       case "update_assignment": {
         const { householdId, assignedTo } = params;
 
