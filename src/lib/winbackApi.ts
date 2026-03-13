@@ -9,6 +9,7 @@ import type { WinbackSaleCompletionContext } from './lqs-sale-prefill';
 // Types
 export interface WinbackStats {
   totalHouseholds: number;
+  readyNow: number;
   untouched: number;
   inProgress: number;
   wonBack: number;
@@ -74,6 +75,7 @@ export interface TeamMember {
 interface ListHouseholdsParams {
   agencyId: string;
   activeTab: 'active' | 'dismissed';
+  activeView: 'ready' | 'all';
   search: string;
   statusFilter: string;
   terminationAgeFilter: 'all' | '0_30' | '31_60' | '61_120' | '121_plus';
@@ -276,8 +278,9 @@ export async function getStats(agencyId: string): Promise<WinbackStats> {
   const today = new Date();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
+  const todayStr = format(startOfDay(today), 'yyyy-MM-dd');
 
-  const [totalRes, untouchedRes, inProgressRes, wonBackRes, dismissedRes, teedUpRes] =
+  const [totalRes, readyNowRes, untouchedRes, inProgressRes, wonBackRes, dismissedRes, teedUpRes] =
     await Promise.all([
       supabase
         .from('winback_households')
@@ -286,6 +289,15 @@ export async function getStats(agencyId: string): Promise<WinbackStats> {
         .neq('status', 'dismissed')
         .neq('status', 'moved_to_quoted')
         .not('earliest_winback_date', 'is', null),
+      supabase
+        .from('winback_households')
+        .select('id', { count: 'exact', head: true })
+        .eq('agency_id', agencyId)
+        .neq('status', 'dismissed')
+        .neq('status', 'moved_to_quoted')
+        .neq('status', 'won_back')
+        .not('earliest_winback_date', 'is', null)
+        .lte('earliest_winback_date', todayStr),
       supabase
         .from('winback_households')
         .select('id', { count: 'exact', head: true })
@@ -322,6 +334,7 @@ export async function getStats(agencyId: string): Promise<WinbackStats> {
 
   return {
     totalHouseholds: totalRes.count || 0,
+    readyNow: readyNowRes.count || 0,
     untouched: untouchedRes.count || 0,
     inProgress: inProgressRes.count || 0,
     wonBack: wonBackRes.count || 0,
@@ -336,6 +349,7 @@ export async function listHouseholds(params: ListHouseholdsParams): Promise<{ ho
   if (isStaffUser()) {
     return callStaffWinback('list_households', {
       activeTab: params.activeTab,
+      activeView: params.activeView,
       search: params.search,
       statusFilter: params.statusFilter,
       terminationAgeFilter: params.terminationAgeFilter,
@@ -363,6 +377,11 @@ export async function listHouseholds(params: ListHouseholdsParams): Promise<{ ho
     query = query.eq('status', 'dismissed');
   } else {
     query = query.neq('status', 'dismissed').neq('status', 'moved_to_quoted');
+    if (params.activeView === 'ready') {
+      query = query
+        .neq('status', 'won_back')
+        .lte('earliest_winback_date', format(startOfDay(new Date()), 'yyyy-MM-dd'));
+    }
   }
 
   // Status filter
@@ -802,7 +821,15 @@ export async function pushToNextCycle(
   today.setHours(0, 0, 0, 0);
 
   for (const policy of policies) {
+    if (!policy.termination_effective_date) {
+      throw new Error(`Policy ${policy.id} is missing a termination effective date`);
+    }
+
     const terminationDate = new Date(policy.termination_effective_date);
+    if (Number.isNaN(terminationDate.getTime())) {
+      throw new Error(`Policy ${policy.id} has an invalid termination effective date`);
+    }
+
     const policyTermMonths = policy.policy_term_months || 12;
 
     const competitorRenewalDate = new Date(terminationDate);
@@ -817,10 +844,18 @@ export async function pushToNextCycle(
     const newWinbackDate = new Date(competitorRenewalDate);
     newWinbackDate.setDate(newWinbackDate.getDate() - contactDaysBefore);
 
-    await supabase
+    const nextWinbackDate = newWinbackDate.toISOString().split('T')[0];
+    const { data: updatedPolicy, error: updatePolicyError } = await supabase
       .from('winback_policies')
-      .update({ calculated_winback_date: newWinbackDate.toISOString().split('T')[0] })
-      .eq('id', policy.id);
+      .update({ calculated_winback_date: nextWinbackDate })
+      .eq('id', policy.id)
+      .select('id, calculated_winback_date')
+      .single();
+
+    if (updatePolicyError) throw updatePolicyError;
+    if (!updatedPolicy || updatedPolicy.calculated_winback_date !== nextWinbackDate) {
+      throw new Error(`Failed to update winback date for policy ${policy.id}`);
+    }
   }
 
   // Recalculate aggregates
@@ -844,17 +879,19 @@ export async function pushToNextCycle(
         .sort()
         .at(-1) || null;
 
-      await supabase
+      const { error: householdFallbackError } = await supabase
         .from('winback_households')
         .update({
           earliest_winback_date: actionablePolicies[0]?.calculated_winback_date || null,
           latest_non_rewrite_termination_date: latestTerminationDate,
         })
         .eq('id', householdId);
+
+      if (householdFallbackError) throw householdFallbackError;
     }
   }
 
-  await supabase
+  const { error: householdUpdateError } = await supabase
     .from('winback_households')
     .update({
       status: 'untouched',
@@ -863,9 +900,11 @@ export async function pushToNextCycle(
     })
     .eq('id', householdId);
 
+  if (householdUpdateError) throw householdUpdateError;
+
   // Log the action
   const userName = teamMembers.find(m => m.id === currentUserTeamMemberId)?.name || 'Unknown';
-  await supabase.from('winback_activities').insert({
+  const { error: activityInsertError } = await supabase.from('winback_activities').insert({
     household_id: householdId,
     agency_id: agencyId,
     activity_type: 'note',
@@ -873,6 +912,8 @@ export async function pushToNextCycle(
     created_by_team_member_id: currentUserTeamMemberId || null,
     created_by_name: userName,
   });
+
+  if (activityInsertError) throw activityInsertError;
 }
 
 // ============ Permanent Delete ============

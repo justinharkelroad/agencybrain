@@ -27,6 +27,7 @@ export interface Household {
   policy_count: number;
   total_premium_potential_cents: number;
   earliest_winback_date: string | null;
+  latest_non_rewrite_termination_date: string | null;
   policy_types?: string[];
   contact_id: string | null;
   activity_count: number;
@@ -47,6 +48,7 @@ interface WinbackHouseholdTableProps {
   onViewProfile?: (contactId: string) => void;
   selectedIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
+  showLatestTerminationDate?: boolean;
 }
 
 function SortHeader({
@@ -116,6 +118,7 @@ export function WinbackHouseholdTable({
   onViewProfile,
   selectedIds,
   onSelectionChange,
+  showLatestTerminationDate = false,
 }: WinbackHouseholdTableProps) {
   const today = startOfDay(new Date());
   const hasSelection = selectedIds !== undefined && onSelectionChange !== undefined;
@@ -209,6 +212,9 @@ export function WinbackHouseholdTable({
             >
               Premium
             </SortHeader>
+            {showLatestTerminationDate && (
+              <TableHead>Latest Termination</TableHead>
+            )}
             <SortHeader
               column="earliest_winback_date"
               currentColumn={sortColumn}
@@ -240,6 +246,9 @@ export function WinbackHouseholdTable({
           {households.map((household) => {
             const winbackDate = household.earliest_winback_date
               ? parseISO(household.earliest_winback_date)
+              : null;
+            const latestTerminationDate = household.latest_non_rewrite_termination_date
+              ? parseISO(household.latest_non_rewrite_termination_date)
               : null;
             const isOverdue = winbackDate && isBefore(winbackDate, today);
 
@@ -317,6 +326,15 @@ export function WinbackHouseholdTable({
                 <TableCell className="text-right font-medium">
                   {formatCurrency(household.total_premium_potential_cents)}
                 </TableCell>
+                {showLatestTerminationDate && (
+                  <TableCell>
+                    {latestTerminationDate ? (
+                      <span>{format(latestTerminationDate, 'MMM d, yyyy')}</span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                )}
                 <TableCell>
                   {winbackDate ? (
                     <span className={cn(isOverdue && 'text-red-500 font-medium')}>

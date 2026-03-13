@@ -26,6 +26,8 @@ interface WinbackFiltersProps {
   onDateRangeChange: (range: DateRange | undefined) => void;
   onClearFilters: () => void;
   showStatusFilter?: boolean;
+  showQuickDateFilters?: boolean;
+  showDateRangeFilter?: boolean;
 }
 
 const quickDateOptions: { value: QuickDateFilter; label: string }[] = [
@@ -64,6 +66,8 @@ export function WinbackFilters({
   onDateRangeChange,
   onClearFilters,
   showStatusFilter = true,
+  showQuickDateFilters = true,
+  showDateRangeFilter = true,
 }: WinbackFiltersProps) {
   const [calendarOpen, setCalendarOpen] = useState(false);
 
@@ -106,24 +110,26 @@ export function WinbackFilters({
     search ||
     (showStatusFilter && statusFilter !== 'all') ||
     terminationAgeFilter !== 'all' ||
-    quickDateFilter !== 'all' ||
-    dateRange;
+    (showQuickDateFilters && quickDateFilter !== 'all') ||
+    (showDateRangeFilter && dateRange);
 
   return (
     <div className="space-y-4">
       {/* Quick date filter tabs */}
-      <div className="flex flex-wrap gap-2">
-        {quickDateOptions.map((option) => (
-          <Button
-            key={option.value}
-            variant={quickDateFilter === option.value ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handleQuickDateChange(option.value)}
-          >
-            {option.label}
-          </Button>
-        ))}
-      </div>
+      {showQuickDateFilters && (
+        <div className="flex flex-wrap gap-2">
+          {quickDateOptions.map((option) => (
+            <Button
+              key={option.value}
+              variant={quickDateFilter === option.value ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => handleQuickDateChange(option.value)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+      )}
 
       {/* Search, Status, Date Range */}
       <div className="flex flex-wrap gap-3">
@@ -168,42 +174,44 @@ export function WinbackFilters({
         </Select>
 
         {/* Date Range Picker */}
-        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className={cn(
-                'w-[240px] justify-start text-left font-normal',
-                !dateRange && 'text-muted-foreground'
-              )}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {dateRange?.from ? (
-                dateRange.to ? (
-                  <>
-                    {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d, yyyy')}
-                  </>
+        {showDateRangeFilter && (
+          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  'w-[240px] justify-start text-left font-normal',
+                  !dateRange && 'text-muted-foreground'
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, 'MMM d')} - {format(dateRange.to, 'MMM d, yyyy')}
+                    </>
+                  ) : (
+                    format(dateRange.from, 'MMM d, yyyy')
+                  )
                 ) : (
-                  format(dateRange.from, 'MMM d, yyyy')
-                )
-              ) : (
-                'Winback date range'
-              )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="range"
-              defaultMonth={dateRange?.from}
-              selected={dateRange}
-              onSelect={(range) => {
-                onDateRangeChange(range);
-                onQuickDateChange('all');
-              }}
-              numberOfMonths={2}
-            />
-          </PopoverContent>
-        </Popover>
+                  'Winback date range'
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={dateRange}
+                onSelect={(range) => {
+                  onDateRangeChange(range);
+                  onQuickDateChange('all');
+                }}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
 
         {/* Clear Filters */}
         {hasActiveFilters && (

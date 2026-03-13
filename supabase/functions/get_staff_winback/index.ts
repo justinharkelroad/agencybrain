@@ -232,7 +232,7 @@ Deno.serve(async (req) => {
         weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
         const weekEndStr = weekEnd.toISOString().split("T")[0];
 
-        const [totalRes, untouchedRes, inProgressRes, wonBackRes, dismissedRes, teedUpRes] =
+        const [totalRes, readyNowRes, untouchedRes, inProgressRes, wonBackRes, dismissedRes, teedUpRes] =
           await Promise.all([
             supabase
               .from("winback_households")
@@ -241,6 +241,15 @@ Deno.serve(async (req) => {
               .neq("status", "dismissed")
               .neq("status", "moved_to_quoted")
               .not("earliest_winback_date", "is", null),
+            supabase
+              .from("winback_households")
+              .select("id", { count: "exact", head: true })
+              .eq("agency_id", agencyId)
+              .neq("status", "dismissed")
+              .neq("status", "moved_to_quoted")
+              .neq("status", "won_back")
+              .not("earliest_winback_date", "is", null)
+              .lte("earliest_winback_date", localToday),
             supabase
               .from("winback_households")
               .select("id", { count: "exact", head: true })
@@ -277,6 +286,7 @@ Deno.serve(async (req) => {
 
         result = {
           totalHouseholds: totalRes.count || 0,
+          readyNow: readyNowRes.count || 0,
           untouched: untouchedRes.count || 0,
           inProgress: inProgressRes.count || 0,
           wonBack: wonBackRes.count || 0,
@@ -287,7 +297,7 @@ Deno.serve(async (req) => {
       }
 
       case "list_households": {
-        const { activeTab, search, statusFilter, terminationAgeFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize } = params;
+        const { activeTab, activeView, search, statusFilter, terminationAgeFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize } = params;
         
         let query = supabase
           .from("winback_households")
@@ -302,6 +312,11 @@ Deno.serve(async (req) => {
           query = query.eq("status", "dismissed");
         } else {
           query = query.neq("status", "dismissed").neq("status", "moved_to_quoted");
+          if (activeView === "ready") {
+            query = query
+              .neq("status", "won_back")
+              .lte("earliest_winback_date", localDateStr(agencyTz));
+          }
         }
 
         // Status filter
@@ -722,7 +737,15 @@ Deno.serve(async (req) => {
         today.setHours(0, 0, 0, 0);
 
         for (const policy of policies) {
+          if (!policy.termination_effective_date) {
+            throw new Error(`Policy ${policy.id} is missing a termination effective date`);
+          }
+
           const terminationDate = new Date(policy.termination_effective_date);
+          if (Number.isNaN(terminationDate.getTime())) {
+            throw new Error(`Policy ${policy.id} has an invalid termination effective date`);
+          }
+
           const policyTermMonths = policy.policy_term_months || 12;
 
           const competitorRenewalDate = new Date(terminationDate);
@@ -737,10 +760,18 @@ Deno.serve(async (req) => {
           const newWinbackDate = new Date(competitorRenewalDate);
           newWinbackDate.setDate(newWinbackDate.getDate() - contactDaysBefore);
 
-          await supabase
+          const nextWinbackDate = newWinbackDate.toISOString().split("T")[0];
+          const { data: updatedPolicy, error: updatePolicyError } = await supabase
             .from("winback_policies")
-            .update({ calculated_winback_date: newWinbackDate.toISOString().split("T")[0] })
-            .eq("id", policy.id);
+            .update({ calculated_winback_date: nextWinbackDate })
+            .eq("id", policy.id)
+            .select("id, calculated_winback_date")
+            .single();
+
+          if (updatePolicyError) throw updatePolicyError;
+          if (!updatedPolicy || updatedPolicy.calculated_winback_date !== nextWinbackDate) {
+            throw new Error(`Failed to update winback date for policy ${policy.id}`);
+          }
         }
 
         // Try to recalculate aggregates
@@ -765,18 +796,20 @@ Deno.serve(async (req) => {
               .sort()
               .at(-1) || null;
 
-            await supabase
+            const { error: householdFallbackError } = await supabase
               .from("winback_households")
               .update({
                 earliest_winback_date: actionablePolicies[0]?.calculated_winback_date || null,
                 latest_non_rewrite_termination_date: latestTerminationDate,
               })
               .eq("id", householdId);
+
+            if (householdFallbackError) throw householdFallbackError;
           }
         }
 
         // Reset status and assignment
-        await supabase
+        const { error: householdUpdateError } = await supabase
           .from("winback_households")
           .update({
             status: "untouched",
@@ -784,6 +817,8 @@ Deno.serve(async (req) => {
             updated_at: new Date().toISOString(),
           })
           .eq("id", householdId);
+
+        if (householdUpdateError) throw householdUpdateError;
 
         // Log the action
         const teamMemberId = verified.staffMemberId || currentUserTeamMemberId;
@@ -797,7 +832,7 @@ Deno.serve(async (req) => {
           if (member) userName = member.name;
         }
 
-        await supabase.from("winback_activities").insert({
+        const { error: activityInsertError } = await supabase.from("winback_activities").insert({
           household_id: householdId,
           agency_id: agencyId,
           activity_type: "note",
@@ -805,6 +840,8 @@ Deno.serve(async (req) => {
           created_by_team_member_id: teamMemberId || null,
           created_by_name: userName,
         });
+
+        if (activityInsertError) throw activityInsertError;
 
         result = { success: true };
         break;

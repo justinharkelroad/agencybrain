@@ -48,6 +48,7 @@ import type { AIWinbackExtendedFilters } from '@/types/winbackAIQuery';
 
 interface Stats {
   totalHouseholds: number;
+  readyNow: number;
   untouched: number;
   inProgress: number;
   wonBack: number;
@@ -146,12 +147,14 @@ export default function WinbackHQ() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [mainTab, setMainTab] = useState<'opportunities' | 'analysis'>('opportunities');
   const [activeTab, setActiveTab] = useState<'active' | 'dismissed'>('active');
+  const [activeView, setActiveView] = useState<'ready' | 'all'>('ready');
 
   // Data
   const [households, setHouseholds] = useState<Household[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalHouseholds: 0,
+    readyNow: 0,
     untouched: 0,
     inProgress: 0,
     wonBack: 0,
@@ -285,6 +288,7 @@ export default function WinbackHQ() {
     aiClearQuery();
     handleClearFilters();
     setActiveTab('active');
+    setActiveView('ready');
     setSortColumn('earliest_winback_date');
     setSortDirection('asc');
     setAiExtendedFilters({});
@@ -345,6 +349,7 @@ export default function WinbackHQ() {
       const { households: householdsData, count } = await winbackApi.listHouseholds({
         agencyId: agency,
         activeTab,
+        activeView,
         search,
         statusFilter,
         terminationAgeFilter,
@@ -415,7 +420,7 @@ export default function WinbackHQ() {
     if (agencyId && teamMembers.length > 0) {
       loadHouseholds(agencyId, teamMembers);
     }
-  }, [agencyId, activeTab, search, statusFilter, terminationAgeFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize]);
+  }, [agencyId, activeTab, activeView, search, statusFilter, terminationAgeFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize]);
 
   useEffect(() => {
     if (activeTab === 'dismissed' && statusFilter !== 'all') {
@@ -423,6 +428,18 @@ export default function WinbackHQ() {
       setCurrentPage(1);
     }
   }, [activeTab, statusFilter]);
+
+  useEffect(() => {
+    if (activeTab !== 'active') return;
+    if (activeView === 'ready') {
+      if (statusFilter === 'won_back') {
+        setStatusFilter('all');
+      }
+      setQuickDateFilter('all');
+      setDateRange(undefined);
+      setCurrentPage(1);
+    }
+  }, [activeTab, activeView, statusFilter]);
 
   // Unified initial data fetch (uses winbackApi for both staff and non-staff)
   const fetchInitialData = async (agency: string, staffTeamMemberId: string | null) => {
@@ -524,15 +541,22 @@ export default function WinbackHQ() {
     setCurrentPage(1);
   };
 
-  const handleStatCardClick = (card: 'total' | 'teed_up' | 'untouched' | 'in_progress' | 'won_back') => {
+  const handleStatCardClick = (card: 'total' | 'ready_now' | 'teed_up' | 'untouched' | 'in_progress' | 'won_back') => {
     // Clear all filters first
     setSearch('');
     setTerminationAgeFilter('all');
     setCurrentPage(1);
 
-    if (card === 'teed_up') {
+    if (card === 'ready_now') {
+      setActiveTab('active');
+      setActiveView('ready');
+      setStatusFilter('all');
+      setQuickDateFilter('all');
+      setDateRange(undefined);
+    } else if (card === 'teed_up') {
       const today = startOfDay(new Date());
       setActiveTab('active');
+      setActiveView('all');
       setStatusFilter('all');
       setQuickDateFilter('this_week');
       setDateRange({
@@ -544,6 +568,7 @@ export default function WinbackHQ() {
       setQuickDateFilter('all');
       setDateRange(undefined);
       setActiveTab('active');
+      setActiveView('all');
       setStatusFilter(card === 'total' ? 'all' : card as WinbackStatus);
     }
   };
@@ -732,7 +757,7 @@ export default function WinbackHQ() {
           />
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             <Card
               className="cursor-pointer hover:border-primary/50 transition-colors"
               onClick={() => handleStatCardClick('total')}
@@ -745,6 +770,22 @@ export default function WinbackHQ() {
                 <div className="flex items-center text-sm text-muted-foreground">
                   <Users className="h-4 w-4 mr-1" />
                   Active opportunities
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card
+              className="cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => handleStatCardClick('ready_now')}
+            >
+              <CardHeader className="pb-2">
+                <CardDescription>Ready Now</CardDescription>
+                <CardTitle className="text-3xl">{stats.readyNow}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center text-sm text-muted-foreground">
+                  <Calendar className="h-4 w-4 mr-1" />
+                  Ready to contact today
                 </div>
               </CardContent>
             </Card>
@@ -848,11 +889,24 @@ export default function WinbackHQ() {
           {/* Household Tabs */}
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'active' | 'dismissed')}>
             <TabsList>
-              <TabsTrigger value="active">Active ({activeTab === 'active' ? totalCount : stats.totalHouseholds})</TabsTrigger>
+              <TabsTrigger value="active">Active ({stats.totalHouseholds})</TabsTrigger>
               <TabsTrigger value="dismissed">Dismissed ({stats.dismissed})</TabsTrigger>
             </TabsList>
 
             <TabsContent value="active" className="space-y-4 mt-4">
+              <Tabs
+                value={activeView}
+                onValueChange={(v) => {
+                  setActiveView(v as 'ready' | 'all');
+                  setCurrentPage(1);
+                }}
+              >
+                <TabsList>
+                  <TabsTrigger value="ready">Ready to Contact ({stats.readyNow})</TabsTrigger>
+                  <TabsTrigger value="all">All Active ({stats.totalHouseholds})</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
               <WinbackFilters
                 search={search}
                 onSearchChange={(v) => {
@@ -880,6 +934,8 @@ export default function WinbackHQ() {
                   setCurrentPage(1);
                 }}
                 onClearFilters={handleClearFilters}
+                showQuickDateFilters={activeView === 'all'}
+                showDateRangeFilter={activeView === 'all'}
               />
 
               <WinbackHouseholdTable
@@ -892,6 +948,7 @@ export default function WinbackHQ() {
                 onViewProfile={handleViewProfile}
                 selectedIds={selectedIds}
                 onSelectionChange={setSelectedIds}
+                showLatestTerminationDate={terminationAgeFilter !== 'all'}
               />
 
               <WinbackPagination
@@ -944,6 +1001,7 @@ export default function WinbackHQ() {
                 onViewProfile={handleViewProfile}
                 selectedIds={selectedIds}
                 onSelectionChange={setSelectedIds}
+                showLatestTerminationDate={terminationAgeFilter !== 'all'}
               />
 
               <WinbackPagination
