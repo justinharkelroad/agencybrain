@@ -262,11 +262,6 @@ export function PdfUploadForm({
   // Fetch lead sources for admin mode
   const { leadSources: adminLeadSources } = useLeadSources();
   const activeLeadSources = isStaffMode ? staffLeadSources : adminLeadSources;
-  const selectedLeadSourceName = activeLeadSources.find((source) => source.id === leadSourceId)?.name || "";
-  const requiresExistingProductsForCrossSale = useMemo(
-    () => isCrossSaleLeadSource(selectedLeadSourceName) && existingPolicyTypes.length === 0,
-    [existingPolicyTypes.length, selectedLeadSourceName],
-  );
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],
     queryFn: async () => {
@@ -302,6 +297,11 @@ export function PdfUploadForm({
   const [isOneCallClose, setIsOneCallClose] = useState(false);
   const [existingPolicyTypes, setExistingPolicyTypes] = useState<string[]>([]);
   const [saleDate, setSaleDate] = useState<Date>(todayLocal());
+  const selectedLeadSourceName = activeLeadSources.find((source) => source.id === leadSourceId)?.name || "";
+  const requiresExistingProductsForCrossSale = useMemo(
+    () => isCrossSaleLeadSource(selectedLeadSourceName) && existingPolicyTypes.length === 0,
+    [existingPolicyTypes.length, selectedLeadSourceName],
+  );
 
   // Edit modal state
   const [editingPolicy, setEditingPolicy] = useState<StagedPolicy | null>(null);
