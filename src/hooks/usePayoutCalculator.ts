@@ -468,6 +468,27 @@ export function usePayoutCalculator(agencyId: string | null) {
       throw new Error("All payouts in a save batch must belong to the same month and year");
     }
 
+    const integerFieldChecks: Array<{ key: keyof PayoutCalculation; label: string }> = [
+      { key: "writtenItems", label: "written items" },
+      { key: "writtenPolicies", label: "written policies" },
+      { key: "writtenHouseholds", label: "written households" },
+      { key: "issuedItems", label: "issued items" },
+      { key: "issuedPolicies", label: "issued policies" },
+      { key: "chargebackCount", label: "chargeback count" },
+      { key: "eligibleChargebackCount", label: "eligible chargeback count" },
+      { key: "excludedChargebackCount", label: "excluded chargeback count" },
+      { key: "netItems", label: "net items" },
+    ];
+
+    for (const payout of payouts) {
+      for (const field of integerFieldChecks) {
+        const value = payout[field.key];
+        if (typeof value === "number" && !Number.isInteger(value)) {
+          throw new Error(`${payout.teamMemberName} has ${field.label} = ${value}. Count fields must be whole numbers.`);
+        }
+      }
+    }
+
     const payoutRows = payouts.map((p) => ({
       team_member_id: p.teamMemberId,
       agency_id: agencyId,
@@ -621,7 +642,7 @@ export function usePayoutCalculator(agencyId: string | null) {
     },
     onError: (error) => {
       console.error("Error saving payouts:", error);
-      toast.error("Failed to save payouts");
+      toast.error(error instanceof Error ? error.message : "Failed to save payouts");
     },
   });
 
@@ -723,7 +744,7 @@ export function usePayoutCalculator(agencyId: string | null) {
     },
     onError: (error) => {
       console.error("Error saving and finalizing payouts:", error);
-      toast.error("Failed to save and finalize payouts");
+      toast.error(error instanceof Error ? error.message : "Failed to save and finalize payouts");
     },
   });
 

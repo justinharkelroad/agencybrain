@@ -1472,9 +1472,12 @@ export function calculateMemberPayout(
 
   // Determine metric value based on tier_metric_source
   let resolvedTierQualificationSource: TierQualificationContext['source'];
+  const usingManualTierMetrics = tierQualificationContext?.source === 'manual_override';
 
   if (tierMetricSource === 'written' && writtenMetrics) {
-    const filteredWrittenMetrics = getFilteredWrittenMetrics(writtenMetrics, policyTypeFilter);
+    const filteredWrittenMetrics = usingManualTierMetrics
+      ? writtenMetrics
+      : getFilteredWrittenMetrics(writtenMetrics, policyTypeFilter);
     resolvedTierQualificationSource = tierQualificationContext?.source || 'sales_table';
     // Use sales table data for tier qualification (manual entries)
     switch (plan.tier_metric) {

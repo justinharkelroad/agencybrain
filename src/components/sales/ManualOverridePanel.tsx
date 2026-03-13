@@ -66,6 +66,32 @@ type BulkField =
   | "brokeredPolicies"
   | "brokeredHouseholds";
 
+const WHOLE_NUMBER_FIELDS = new Set<BulkField>([
+  "writtenItems",
+  "writtenPolicies",
+  "writtenHouseholds",
+  "brokeredItems",
+  "brokeredPolicies",
+  "brokeredHouseholds",
+]);
+
+function getInputStep(field: BulkField): string {
+  return WHOLE_NUMBER_FIELDS.has(field) ? "1" : "0.01";
+}
+
+function getInputMode(field: BulkField): "numeric" | "decimal" {
+  return WHOLE_NUMBER_FIELDS.has(field) ? "numeric" : "decimal";
+}
+
+function isValidFieldValue(field: BulkField, value: string): boolean {
+  if (value === "") return true;
+  if (WHOLE_NUMBER_FIELDS.has(field)) {
+    return /^\d+$/.test(value);
+  }
+
+  return !Number.isNaN(Number(value));
+}
+
 export function ManualOverridePanel({
   subProducerData,
   teamMembers,
@@ -180,11 +206,23 @@ export function ManualOverridePanel({
     field: BulkField,
     value: string
   ) => {
+    if (!isValidFieldValue(field, value)) {
+      return;
+    }
+
     const parsedValue = value === "" ? null : Number(value);
     const nextOverrides = overrides.map((override) =>
       override.subProdCode === subProdCode ? { ...override, [field]: parsedValue } : override
     );
     onChange(nextOverrides);
+  };
+
+  const handleBulkValueChange = (field: BulkField, value: string) => {
+    if (!isValidFieldValue(field, value)) {
+      return;
+    }
+
+    setBulkValues((current) => ({ ...current, [field]: value }));
   };
 
   const toggleSelection = (code: string) => {
@@ -321,8 +359,10 @@ export function ManualOverridePanel({
                   <Label className="text-xs text-muted-foreground">Items Written</Label>
                   <Input
                     type="number"
+                    step={getInputStep("writtenItems")}
+                    inputMode={getInputMode("writtenItems")}
                     value={bulkValues.writtenItems}
-                    onChange={(e) => setBulkValues((current) => ({ ...current, writtenItems: e.target.value }))}
+                    onChange={(e) => handleBulkValueChange("writtenItems", e.target.value)}
                     className="w-24"
                   />
                 </div>
@@ -330,8 +370,10 @@ export function ManualOverridePanel({
                   <Label className="text-xs text-muted-foreground">Premium Written</Label>
                   <Input
                     type="number"
+                    step={getInputStep("writtenPremium")}
+                    inputMode={getInputMode("writtenPremium")}
                     value={bulkValues.writtenPremium}
-                    onChange={(e) => setBulkValues((current) => ({ ...current, writtenPremium: e.target.value }))}
+                    onChange={(e) => handleBulkValueChange("writtenPremium", e.target.value)}
                     className="w-32"
                   />
                 </div>
@@ -339,8 +381,10 @@ export function ManualOverridePanel({
                   <Label className="text-xs text-muted-foreground">Policies Written</Label>
                   <Input
                     type="number"
+                    step={getInputStep("writtenPolicies")}
+                    inputMode={getInputMode("writtenPolicies")}
                     value={bulkValues.writtenPolicies}
-                    onChange={(e) => setBulkValues((current) => ({ ...current, writtenPolicies: e.target.value }))}
+                    onChange={(e) => handleBulkValueChange("writtenPolicies", e.target.value)}
                     className="w-28"
                   />
                 </div>
@@ -348,8 +392,10 @@ export function ManualOverridePanel({
                   <Label className="text-xs text-muted-foreground">Households</Label>
                   <Input
                     type="number"
+                    step={getInputStep("writtenHouseholds")}
+                    inputMode={getInputMode("writtenHouseholds")}
                     value={bulkValues.writtenHouseholds}
-                    onChange={(e) => setBulkValues((current) => ({ ...current, writtenHouseholds: e.target.value }))}
+                    onChange={(e) => handleBulkValueChange("writtenHouseholds", e.target.value)}
                     className="w-24"
                   />
                 </div>
@@ -357,8 +403,10 @@ export function ManualOverridePanel({
                   <Label className="text-xs text-muted-foreground">Points</Label>
                   <Input
                     type="number"
+                    step={getInputStep("writtenPoints")}
+                    inputMode={getInputMode("writtenPoints")}
                     value={bulkValues.writtenPoints}
-                    onChange={(e) => setBulkValues((current) => ({ ...current, writtenPoints: e.target.value }))}
+                    onChange={(e) => handleBulkValueChange("writtenPoints", e.target.value)}
                     className="w-24"
                   />
                 </div>
@@ -368,8 +416,10 @@ export function ManualOverridePanel({
                   <Label className="text-xs text-muted-foreground">Brokered Items</Label>
                   <Input
                     type="number"
+                    step={getInputStep("brokeredItems")}
+                    inputMode={getInputMode("brokeredItems")}
                     value={bulkValues.brokeredItems}
-                    onChange={(e) => setBulkValues((current) => ({ ...current, brokeredItems: e.target.value }))}
+                    onChange={(e) => handleBulkValueChange("brokeredItems", e.target.value)}
                     className="w-24"
                   />
                 </div>
@@ -377,8 +427,10 @@ export function ManualOverridePanel({
                   <Label className="text-xs text-muted-foreground">Brokered Premium</Label>
                   <Input
                     type="number"
+                    step={getInputStep("brokeredPremium")}
+                    inputMode={getInputMode("brokeredPremium")}
                     value={bulkValues.brokeredPremium}
-                    onChange={(e) => setBulkValues((current) => ({ ...current, brokeredPremium: e.target.value }))}
+                    onChange={(e) => handleBulkValueChange("brokeredPremium", e.target.value)}
                     className="w-32"
                   />
                 </div>
@@ -386,8 +438,10 @@ export function ManualOverridePanel({
                   <Label className="text-xs text-muted-foreground">Brokered Policies</Label>
                   <Input
                     type="number"
+                    step={getInputStep("brokeredPolicies")}
+                    inputMode={getInputMode("brokeredPolicies")}
                     value={bulkValues.brokeredPolicies}
-                    onChange={(e) => setBulkValues((current) => ({ ...current, brokeredPolicies: e.target.value }))}
+                    onChange={(e) => handleBulkValueChange("brokeredPolicies", e.target.value)}
                     className="w-28"
                   />
                 </div>
@@ -395,8 +449,10 @@ export function ManualOverridePanel({
                   <Label className="text-xs text-muted-foreground">Brokered Households</Label>
                   <Input
                     type="number"
+                    step={getInputStep("brokeredHouseholds")}
+                    inputMode={getInputMode("brokeredHouseholds")}
                     value={bulkValues.brokeredHouseholds}
-                    onChange={(e) => setBulkValues((current) => ({ ...current, brokeredHouseholds: e.target.value }))}
+                    onChange={(e) => handleBulkValueChange("brokeredHouseholds", e.target.value)}
                     className="w-32"
                   />
                 </div>
@@ -411,6 +467,9 @@ export function ManualOverridePanel({
               </div>
               <p className="text-xs text-muted-foreground">
                 These values replace missing dashboard inputs only. Issued production and chargebacks still come from the uploaded reports, while brokered inputs can be entered here when a plan counts or pays brokered business.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Item, policy, and household fields must be whole numbers.
               </p>
             </div>
 
@@ -488,6 +547,8 @@ export function ManualOverridePanel({
                       <TableCell>
                         <Input
                           type="number"
+                          step={getInputStep("writtenItems")}
+                          inputMode={getInputMode("writtenItems")}
                           placeholder="—"
                           value={producer.override?.writtenItems ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "writtenItems", e.target.value)}
@@ -498,6 +559,8 @@ export function ManualOverridePanel({
                       <TableCell>
                         <Input
                           type="number"
+                          step={getInputStep("writtenPremium")}
+                          inputMode={getInputMode("writtenPremium")}
                           placeholder="—"
                           value={producer.override?.writtenPremium ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "writtenPremium", e.target.value)}
@@ -508,6 +571,8 @@ export function ManualOverridePanel({
                       <TableCell>
                         <Input
                           type="number"
+                          step={getInputStep("writtenPolicies")}
+                          inputMode={getInputMode("writtenPolicies")}
                           placeholder="—"
                           value={producer.override?.writtenPolicies ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "writtenPolicies", e.target.value)}
@@ -518,6 +583,8 @@ export function ManualOverridePanel({
                       <TableCell>
                         <Input
                           type="number"
+                          step={getInputStep("writtenHouseholds")}
+                          inputMode={getInputMode("writtenHouseholds")}
                           placeholder="—"
                           value={producer.override?.writtenHouseholds ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "writtenHouseholds", e.target.value)}
@@ -528,6 +595,8 @@ export function ManualOverridePanel({
                       <TableCell>
                         <Input
                           type="number"
+                          step={getInputStep("writtenPoints")}
+                          inputMode={getInputMode("writtenPoints")}
                           placeholder="—"
                           value={producer.override?.writtenPoints ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "writtenPoints", e.target.value)}
@@ -538,6 +607,8 @@ export function ManualOverridePanel({
                       <TableCell>
                         <Input
                           type="number"
+                          step={getInputStep("brokeredItems")}
+                          inputMode={getInputMode("brokeredItems")}
                           placeholder="—"
                           value={producer.override?.brokeredItems ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "brokeredItems", e.target.value)}
@@ -548,6 +619,8 @@ export function ManualOverridePanel({
                       <TableCell>
                         <Input
                           type="number"
+                          step={getInputStep("brokeredPremium")}
+                          inputMode={getInputMode("brokeredPremium")}
                           placeholder="—"
                           value={producer.override?.brokeredPremium ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "brokeredPremium", e.target.value)}
@@ -558,6 +631,8 @@ export function ManualOverridePanel({
                       <TableCell>
                         <Input
                           type="number"
+                          step={getInputStep("brokeredPolicies")}
+                          inputMode={getInputMode("brokeredPolicies")}
                           placeholder="—"
                           value={producer.override?.brokeredPolicies ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "brokeredPolicies", e.target.value)}
@@ -568,6 +643,8 @@ export function ManualOverridePanel({
                       <TableCell>
                         <Input
                           type="number"
+                          step={getInputStep("brokeredHouseholds")}
+                          inputMode={getInputMode("brokeredHouseholds")}
                           placeholder="—"
                           value={producer.override?.brokeredHouseholds ?? ""}
                           onChange={(e) => handleOverrideChange(producer.code, "brokeredHouseholds", e.target.value)}

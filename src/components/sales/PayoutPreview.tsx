@@ -117,6 +117,15 @@ function getManualMetricLabel(field: keyof ManualOverride): string {
   }
 }
 
+const manualWholeNumberFields: Array<{ key: keyof ManualOverride; label: string }> = [
+  { key: "writtenItems", label: "manual written items" },
+  { key: "writtenPolicies", label: "manual written policies" },
+  { key: "writtenHouseholds", label: "manual written households" },
+  { key: "brokeredItems", label: "manual brokered items" },
+  { key: "brokeredPolicies", label: "manual brokered policies" },
+  { key: "brokeredHouseholds", label: "manual brokered households" },
+];
+
 export function PayoutPreview({
   agencyId,
   subProducerData,
@@ -519,11 +528,21 @@ export function PayoutPreview({
       }
 
       if (useManualWrittenMetrics) {
+        const override = manualOverrides.find((entry) => entry.subProdCode === code);
+
+        if (override) {
+          for (const field of manualWholeNumberFields) {
+            const value = override[field.key];
+            if (typeof value === "number" && !Number.isInteger(value)) {
+              blockers.push(`${teamMember.name} has ${field.label} = ${value}. Count fields must be whole numbers before running comp.`);
+            }
+          }
+        }
+
         if (plan.tier_metric_source !== "written") {
           auditWarnings.push(`${teamMember.name} is on "${plan.name}", which tiers on issued metrics. Manual fallback entries will not affect their tier.`);
         } else {
           const requiredField = getRequiredManualMetricField(plan.tier_metric || "items");
-          const override = manualOverrides.find((entry) => entry.subProdCode === code);
           if (!override || override[requiredField] === null || override[requiredField] === undefined) {
             blockers.push(`${teamMember.name} is missing ${getManualMetricLabel(requiredField)} for fallback written-tiering on plan "${plan.name}".`);
             continue;
