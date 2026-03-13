@@ -1,8 +1,9 @@
 import { useCore4Stats, Core4Domain } from '@/hooks/useCore4Stats';
 import { useFlowStats } from '@/hooks/useFlowStats';
+import { usePlaybookStats } from '@/hooks/usePlaybookStats';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Dumbbell, Heart, Briefcase, Flame, ChevronRight, Loader2, Zap } from 'lucide-react';
+import { Dumbbell, Heart, Briefcase, Flame, ChevronRight, Loader2, Zap, Target } from 'lucide-react';
 import { LatinCross } from '@/components/icons/LatinCross';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -28,10 +29,11 @@ export function Core4Card() {
   } = useCore4Stats();
 
   const flowStats = useFlowStats();
+  const playbookStats = usePlaybookStats();
 
-  // Combined weekly: Core 4 (max 28) + Flow (max 7) = 35
-  const combinedWeeklyPoints = weeklyPoints + flowStats.weeklyProgress;
-  const combinedWeeklyGoal = 35;
+  // Combined weekly: Core 4 (max 28) + Flow (max 7) + Playbook (max 20) = 55
+  const combinedWeeklyPoints = weeklyPoints + flowStats.weeklyProgress + playbookStats.weeklyPoints;
+  const combinedWeeklyGoal = 55;
 
   const isDomainCompleted = (domain: Core4Domain): boolean => {
     if (!todayEntry) return false;
@@ -57,11 +59,11 @@ export function Core4Card() {
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <CardTitle className="text-lg font-semibold">Core 4 + Flow</CardTitle>
+            <CardTitle className="text-lg font-semibold">Personal Growth</CardTitle>
             <HelpButton videoKey="core4_page" />
             <SectionHelpTip
-              title="Core 4 + Flow"
-              body="Tracks completion of daily Core 4 habits and weekly Flow activity so users can focus on execution consistency."
+              title="Personal Growth Score"
+              body="Tracks Core 4 habits (28pts), Flow sessions (7pts), and Weekly Playbook Power Plays (20pts) for a combined 55-point weekly score."
             />
             {currentStreak > 0 && (
               <div className="flex items-center gap-1 text-orange-500">
@@ -156,12 +158,15 @@ export function Core4Card() {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-2xl font-bold">{combinedWeeklyPoints}</span>
-                <span className="text-[10px] text-muted-foreground">/35</span>
+                <span className="text-[10px] text-muted-foreground">/55</span>
               </div>
             </div>
-            <div className="flex justify-center gap-3 text-xs text-muted-foreground">
-              <span>Core 4: <span className="text-foreground font-medium">{weeklyPoints}/28</span></span>
-              <span>Flow: <span className="text-foreground font-medium">{flowStats.weeklyProgress}/7</span></span>
+            <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+              <div className="flex gap-3">
+                <span>Core 4: <span className="text-foreground font-medium">{weeklyPoints}/28</span></span>
+                <span>Flow: <span className="text-foreground font-medium">{flowStats.weeklyProgress}/7</span></span>
+              </div>
+              <span>Playbook: <span className="text-foreground font-medium">{playbookStats.weeklyPoints}/20</span></span>
             </div>
           </div>
 

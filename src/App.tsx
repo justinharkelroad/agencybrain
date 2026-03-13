@@ -37,6 +37,7 @@ import ScorecardFormBuilder from "./pages/ScorecardFormBuilder";
 import ScorecardFormEditor from "./pages/ScorecardFormEditor";
 import PublicFormRoute from "./pages/PublicFormRoute";
 import Dashboard from "./pages/Dashboard";
+import WeeklyPlaybook from "./pages/WeeklyPlaybook";
 import MetricsEditRedirect from "./components/MetricsEditRedirect";
 import { LegacyScorecardsSubmissionsRedirect } from "./components/LegacyScorecardsRedirect";
 import OnboardingTasksPrototype from "./pages/prototype/OnboardingTasksPrototype";
@@ -58,6 +59,7 @@ import RoleplayReports from "./pages/admin/RoleplayReports";
 import ClientDetail from "./pages/admin/ClientDetail";
 import FieldMappingSetup from "./pages/admin/FieldMappingSetup";
 import AdminFocusManagement from "./pages/admin/AdminFocusManagement";
+import AdminPlaybookTags from "./pages/admin/AdminPlaybookTags";
 import AdminChatbot from "./pages/admin/AdminChatbot";
 import AdminSupportTickets from "./pages/admin/AdminSupportTickets";
 import AdminTraining from "./pages/admin/AdminTraining";
@@ -152,6 +154,7 @@ import ExchangeMessages from "./pages/ExchangeMessages";
 import ExchangePostPage from "./pages/ExchangePost";
 import StaffFlows from "./pages/staff/StaffFlows";
 import StaffCore4 from "./pages/staff/StaffCore4";
+import StaffWeeklyPlaybook from "./pages/staff/StaffWeeklyPlaybook";
 import StaffFlowProfile from "./pages/staff/StaffFlowProfile";
 import StaffFlowStart from "./pages/staff/StaffFlowStart";
 import StaffFlowSession from "./pages/staff/StaffFlowSession";
@@ -735,6 +738,13 @@ const App = () => {
                 </SidebarLayout>
               </ProtectedRoute>
             } />
+            <Route path="/weekly-playbook" element={
+              <ProtectedRoute>
+                <SidebarLayout>
+                  <WeeklyPlaybook />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
             <Route path="/settings" element={
               <ProtectedRoute>
                 <SidebarLayout>
@@ -876,6 +886,13 @@ const App = () => {
               <ProtectedRoute requireAdmin>
                 <SidebarLayout>
                   <AdminFocusManagement />
+                </SidebarLayout>
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/playbook-tags" element={
+              <ProtectedRoute requireAdmin>
+                <SidebarLayout>
+                  <AdminPlaybookTags />
                 </SidebarLayout>
               </ProtectedRoute>
             } />
@@ -1219,6 +1236,8 @@ const App = () => {
               <Route path="account" element={<StaffAccountSettings />} />
               {/* Core 4 */}
               <Route path="core4" element={<StaffCore4 />} />
+              {/* Weekly Playbook */}
+              <Route path="weekly-playbook" element={<StaffWeeklyPlaybook />} />
               {/* Flows */}
               <Route path="flows" element={<StaffFlows />} />
               <Route path="flows/profile" element={<StaffFlowProfile />} />

@@ -11,6 +11,7 @@ import MonthOverMonthTrends from '@/components/client/MonthOverMonthTrends';
 // ReportingPeriods — hidden (being phased out)
 import RoleplaySessionsCard from '@/components/client/RoleplaySessionsCard';
 import { MyCurrentFocus } from '@/components/focus/MyCurrentFocus';
+import { TodaysPowerPlays } from '@/components/playbook/TodaysPowerPlays';
 import { TeamCore4Overview } from '@/components/core4/TeamCore4Overview';
 import { Core4Card } from '@/components/core4/Core4Card';
 import { supabase } from '@/lib/supabaseClient';
@@ -297,23 +298,21 @@ const Dashboard = () => {
                   </AccordionItem>
                 )}
 
-                {/* 4. Focus Targets */}
-                {canViewFocusTargets && (
-                  <AccordionItem value="focus">
-                    <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/60 hover:bg-muted/90 transition-all border-l-[3px] border-l-primary/70 shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-none dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
-                      <span className="flex items-center gap-2">
-                        Focus Targets
-                        <SectionHelpTip
-                          title="Focus Targets"
-                          body="Highlights the current goals and priority actions your team should execute to stay on pace this period."
-                        />
-                      </span>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <MyCurrentFocus />
-                    </AccordionContent>
-                  </AccordionItem>
-                )}
+                {/* 4. Today's Power Plays */}
+                <AccordionItem value="focus">
+                  <AccordionTrigger className="text-lg font-semibold rounded-lg px-4 py-3 bg-muted/60 hover:bg-muted/90 transition-all border-l-[3px] border-l-primary/70 shadow-sm hover:shadow-md dark:shadow-none dark:hover:shadow-none dark:rounded-none dark:px-0 dark:py-4 dark:bg-transparent dark:hover:bg-transparent dark:border-l-0">
+                    <span className="flex items-center gap-2">
+                      Today&apos;s Power Plays
+                      <SectionHelpTip
+                        title="Today's Power Plays"
+                        body="Your top 4 scheduled actions for today from your Weekly Playbook. Complete them to earn points toward your Personal Growth score."
+                      />
+                    </span>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <TodaysPowerPlays />
+                  </AccordionContent>
+                </AccordionItem>
 
                 {/* 5. Renewal Summary */}
                 <AccordionItem value="renewals">
@@ -368,7 +367,7 @@ const Dashboard = () => {
               {(isAgencyOwner || isKeyEmployee) && <TeamCore4Overview />}
               {canViewPerformanceMetrics && <PerformanceMetrics />}
               {canViewMonthOverMonthTrends && <MonthOverMonthTrends />}
-              {canViewFocusTargets && <MyCurrentFocus />}
+              <TodaysPowerPlays />
               <RenewalSummaryWidget agencyId={agencyId} />
               {canViewRoleplaySessions && <RoleplaySessionsCard />}
               {/* Metrics Dashboard, Shared Insights, Reporting Periods — hidden (being phased out) */}

@@ -320,6 +320,47 @@ export type Database = {
           },
         ]
       }
+      agency_playbook_tags: {
+        Row: {
+          id: string
+          agency_id: string
+          domain: string
+          name: string
+          is_active: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          agency_id: string
+          domain: string
+          name: string
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          agency_id?: string
+          domain?: string
+          name?: string
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agency_playbook_tags_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agency_call_balance: {
         Row: {
           addon_calls_limit: number | null
@@ -5338,52 +5379,70 @@ export type Database = {
           agency_id: string | null
           column_order: number
           column_status: string
+          completed: boolean
           completed_at: string | null
           created_at: string
           description: string | null
+          domain: string | null
           id: string
           priority_level: string
+          scheduled_date: string | null
           source_name: string | null
           source_session_id: string | null
           source_type: string | null
+          sub_tag_id: string | null
           team_member_id: string | null
           title: string
           updated_at: string
           user_id: string | null
+          week_key: string | null
+          zone: string
         }
         Insert: {
           agency_id?: string | null
           column_order?: number
           column_status?: string
+          completed?: boolean
           completed_at?: string | null
           created_at?: string
           description?: string | null
+          domain?: string | null
           id?: string
           priority_level: string
+          scheduled_date?: string | null
           source_name?: string | null
           source_session_id?: string | null
           source_type?: string | null
+          sub_tag_id?: string | null
           team_member_id?: string | null
           title: string
           updated_at?: string
           user_id?: string | null
+          week_key?: string | null
+          zone?: string
         }
         Update: {
           agency_id?: string | null
           column_order?: number
           column_status?: string
+          completed?: boolean
           completed_at?: string | null
           created_at?: string
           description?: string | null
+          domain?: string | null
           id?: string
           priority_level?: string
+          scheduled_date?: string | null
           source_name?: string | null
           source_session_id?: string | null
           source_type?: string | null
+          sub_tag_id?: string | null
           team_member_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string | null
+          week_key?: string | null
+          zone?: string
         }
         Relationships: [
           {
@@ -5398,6 +5457,13 @@ export type Database = {
             columns: ["source_session_id"]
             isOneToOne: false
             referencedRelation: "flow_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "focus_items_sub_tag_id_fkey"
+            columns: ["sub_tag_id"]
+            isOneToOne: false
+            referencedRelation: "agency_playbook_tags"
             referencedColumns: ["id"]
           },
           {

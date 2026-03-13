@@ -1,0 +1,192 @@
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { format, startOfWeek, addDays, subDays } from "date-fns";
+import { useFocusItems } from "@/hooks/useFocusItems";
+import { usePlaybookStats } from "@/hooks/usePlaybookStats";
+import { usePlaybookTags } from "@/hooks/usePlaybookTags";
+import { useAuth } from "@/lib/auth";
+import { getWeekKey } from "@/lib/date-utils";
+import { supabase } from "@/integrations/supabase/client";
+import { PlaybookWeekHeader } from "@/components/playbook/PlaybookWeekHeader";
+import { PlaybookDayView } from "@/components/playbook/PlaybookDayView";
+import { PlaybookBenchPanel } from "@/components/playbook/PlaybookBenchPanel";
+import { ScheduleItemDialog } from "@/components/playbook/ScheduleItemDialog";
+import { CreatePlaybookItemDialog } from "@/components/playbook/CreatePlaybookItemDialog";
+import { Loader2 } from "lucide-react";
+import type { PlaybookDomain } from "@/hooks/useFocusItems";
+
+export default function WeeklyPlaybook() {
+  const { user, isKeyEmployee, keyEmployeeAgencyId } = useAuth();
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
+    const today = new Date().getDay();
+    // Mon=0, Tue=1, ..., Fri=4. If weekend, default to Mon
+    return today >= 1 && today <= 5 ? today - 1 : 0;
+  });
+  const [scheduleItemId, setScheduleItemId] = useState<string | null>(null);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+
+  const weekKey = getWeekKey(weekStart);
+  const { items, isLoading, createItem, completeItem, uncompleteItem, deleteItem, scheduleItem, unscheduleItem } = useFocusItems(weekKey);
+  const { weeklyPoints, dailyCompleted } = usePlaybookStats();
+
+  // Resolve agency ID from auth context (profiles for owners, key_employees for KEs)
+  const [agencyId, setAgencyId] = useState<string | null>(null);
+  useEffect(() => {
+    if (isKeyEmployee && keyEmployeeAgencyId) {
+      setAgencyId(keyEmployeeAgencyId);
+      return;
+    }
+    if (!user?.id) return;
+    supabase
+      .from("profiles")
+      .select("agency_id")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.agency_id) setAgencyId(data.agency_id);
+      });
+  }, [user?.id, isKeyEmployee, keyEmployeeAgencyId]);
+  const { tags } = usePlaybookTags(agencyId);
+
+  const selectedDate = addDays(weekStart, selectedDayIndex);
+  const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
+
+  // Categorize items
+  const benchItems = useMemo(() => items.filter((i) => i.zone === "bench"), [items]);
+  const queueItems = useMemo(() => items.filter((i) => i.zone === "queue"), [items]);
+  const powerPlaysByDay = useMemo(() => {
+    const map: Record<string, typeof items> = {};
+    items
+      .filter((i) => i.zone === "power_play" && i.scheduled_date)
+      .forEach((item) => {
+        const d = item.scheduled_date!;
+        if (!map[d]) map[d] = [];
+        map[d].push(item);
+      });
+    return map;
+  }, [items]);
+
+  // Day counts for header dots and schedule dialog
+  const dayItemCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < 5; i++) {
+      const d = format(addDays(weekStart, i), "yyyy-MM-dd");
+      counts[d] = (powerPlaysByDay[d] || []).length;
+    }
+    return counts;
+  }, [weekStart, powerPlaysByDay]);
+
+  const dayCompletedCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < 5; i++) {
+      const d = format(addDays(weekStart, i), "yyyy-MM-dd");
+      counts[d] = (powerPlaysByDay[d] || []).filter((it) => it.completed).length;
+    }
+    return counts;
+  }, [weekStart, powerPlaysByDay]);
+
+  const handleToggleComplete = useCallback(
+    (id: string) => {
+      const item = items.find((i) => i.id === id);
+      if (!item) return;
+      if (item.completed) uncompleteItem.mutate(id);
+      else completeItem.mutate(id);
+    },
+    [items, completeItem, uncompleteItem]
+  );
+
+  const handleScheduleConfirm = (date: string, domain?: PlaybookDomain, subTagId?: string) => {
+    if (!scheduleItemId) return;
+    scheduleItem.mutate({ id: scheduleItemId, date, domain, sub_tag_id: subTagId });
+    setScheduleItemId(null);
+  };
+
+  const handleCreateNew = (data: {
+    title: string;
+    description?: string;
+    domain?: PlaybookDomain;
+    sub_tag_id?: string;
+    zone: "bench" | "power_play" | "queue";
+  }) => {
+    createItem.mutate({
+      title: data.title,
+      description: data.description,
+      priority_level: "mid",
+      zone: data.zone,
+      domain: data.domain,
+      sub_tag_id: data.sub_tag_id,
+    });
+  };
+
+  const scheduleTargetItem = scheduleItemId ? items.find((i) => i.id === scheduleItemId) : null;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 py-6 max-w-6xl">
+      <h1 className="text-2xl font-bold mb-6">Weekly Playbook</h1>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
+        {/* Main content — week view */}
+        <div className="space-y-6">
+          <PlaybookWeekHeader
+            weekStart={weekStart}
+            selectedDayIndex={selectedDayIndex}
+            onSelectDay={setSelectedDayIndex}
+            onPrevWeek={() => setWeekStart((prev) => subDays(prev, 7))}
+            onNextWeek={() => setWeekStart((prev) => addDays(prev, 7))}
+            weeklyPoints={weeklyPoints}
+            dayItemCounts={dayItemCounts}
+            dayCompletedCounts={dayCompletedCounts}
+          />
+
+          <PlaybookDayView
+            date={selectedDate}
+            items={powerPlaysByDay[selectedDateStr] || []}
+            queueItems={queueItems}
+            onToggleComplete={handleToggleComplete}
+            onDelete={(id) => deleteItem.mutate(id)}
+            onUnschedule={(id) => unscheduleItem.mutate(id)}
+          />
+        </div>
+
+        {/* Sidebar — The Bench */}
+        <div className="lg:border-l lg:pl-6">
+          <PlaybookBenchPanel
+            items={benchItems}
+            onSchedule={(id) => setScheduleItemId(id)}
+            onDelete={(id) => deleteItem.mutate(id)}
+            onCreateNew={() => setShowCreateDialog(true)}
+          />
+        </div>
+      </div>
+
+      {/* Schedule dialog */}
+      {scheduleTargetItem && (
+        <ScheduleItemDialog
+          open={!!scheduleItemId}
+          onOpenChange={(open) => { if (!open) setScheduleItemId(null); }}
+          itemTitle={scheduleTargetItem.title}
+          weekStart={weekStart}
+          tags={tags}
+          dayItemCounts={dayItemCounts}
+          onConfirm={handleScheduleConfirm}
+        />
+      )}
+
+      {/* Create dialog */}
+      <CreatePlaybookItemDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        tags={tags}
+        onConfirm={handleCreateNew}
+      />
+    </div>
+  );
+}

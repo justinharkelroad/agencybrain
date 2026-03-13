@@ -272,9 +272,10 @@ export default function FlowSession() {
         source_type: "flow",
         source_name: template.name,
         source_session_id: session.id,
+        zone: "bench",
       });
-      
-      toast.success("Action added to your Focus List!");
+
+      toast.success("Action added to your Bench!");
     } catch (error) {
       console.error("Failed to add to focus:", error);
       toast.error("Failed to add to Focus List");

@@ -1,4 +1,4 @@
-import { startOfDay } from 'date-fns';
+import { startOfDay, getISOWeek, getISOWeekYear } from 'date-fns';
 
 /**
  * Get UTC timestamp strings for a local date's boundaries.
@@ -14,4 +14,15 @@ export function getLocalDayBoundsInUTC(localDate: Date) {
     startUTC: localStart.toISOString(),
     endUTC: localEnd.toISOString(),
   };
+}
+
+/**
+ * Returns an ISO 8601 week key like '2026-W11' for the given date.
+ * Uses date-fns getISOWeek/getISOWeekYear for correct ISO week numbering
+ * (weeks start on Monday, week 1 contains the first Thursday of the year).
+ */
+export function getWeekKey(date: Date): string {
+  const week = getISOWeek(date);
+  const year = getISOWeekYear(date);
+  return `${year}-W${String(week).padStart(2, '0')}`;
 }

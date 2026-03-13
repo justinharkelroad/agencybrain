@@ -9,6 +9,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { AlertTriangle, CheckCircle, XCircle, Target, Plus } from 'lucide-react';
 import { getRingColor } from '@/components/rings/colors';
 import { StaffFocusTargets } from './StaffFocusTargets';
+import { StaffTodaysPowerPlays } from '@/components/playbook/StaffTodaysPowerPlays';
 import { StaffTeamOverview } from './StaffTeamOverview';
 import { StaffRoleplaySessions } from './StaffRoleplaySessions';
 import { AgencyDailyGoals } from '@/components/dashboard/AgencyDailyGoals';
@@ -474,8 +475,8 @@ export function StaffDashboard() {
       {/* Monthly Missions - Only show if missions exist */}
       <StaffCore4MonthlyMissions hideEmptyDomains />
 
-      {/* Focus Targets Section - All staff see this */}
-      <StaffFocusTargets />
+      {/* Today's Power Plays - Weekly Playbook widget */}
+      <StaffTodaysPowerPlays />
 
       {/* Manager-only sections */}
       {isManager && (

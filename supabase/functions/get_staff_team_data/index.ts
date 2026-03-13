@@ -81,10 +81,10 @@ serve(async (req) => {
 
     switch (type) {
       case 'focus_items': {
-        // Focus items - get items for this team member
+        // Focus items - get items for this team member (includes playbook columns)
         const { data: focusItems, error } = await supabase
           .from('focus_items')
-          .select('id, title, description, priority_level, column_status, created_at, completed_at, column_order')
+          .select('id, title, description, priority_level, column_status, created_at, completed_at, column_order, zone, scheduled_date, domain, sub_tag_id, week_key, completed, source_type, source_name, source_session_id')
           .eq('team_member_id', teamMemberId)
           .order('column_order', { ascending: true });
 
@@ -97,10 +97,216 @@ serve(async (req) => {
         break;
       }
 
+      case 'playbook_items': {
+        // Playbook view: bench + queue + this week's power plays
+        const { week_key } = body;
+        const { data: focusItems, error } = await supabase
+          .from('focus_items')
+          .select('id, title, description, priority_level, column_status, created_at, completed_at, column_order, zone, scheduled_date, domain, sub_tag_id, week_key, completed, source_type, source_name, source_session_id')
+          .eq('team_member_id', teamMemberId)
+          .or(week_key
+            ? `zone.eq.bench,zone.eq.queue,and(zone.eq.power_play,week_key.eq.${week_key})`
+            : 'zone.eq.bench,zone.eq.queue')
+          .order('column_order', { ascending: true });
+
+        if (error) {
+          console.error('Error fetching playbook items:', error);
+          throw error;
+        }
+
+        responseData = { focus_items: focusItems || [] };
+        break;
+      }
+
+      case 'playbook_stats': {
+        // Get completed power play items for a week range
+        const { monday, friday } = body;
+        const { data: items, error } = await supabase
+          .from('focus_items')
+          .select('scheduled_date, completed')
+          .eq('team_member_id', teamMemberId)
+          .eq('zone', 'power_play')
+          .eq('completed', true)
+          .gte('scheduled_date', monday)
+          .lte('scheduled_date', friday);
+
+        if (error) {
+          console.error('Error fetching playbook stats:', error);
+          throw error;
+        }
+
+        responseData = { items: items || [] };
+        break;
+      }
+
+      case 'schedule_playbook_item': {
+        const { id, date, domain: itemDomain, sub_tag_id } = body;
+        if (!id || !date) {
+          return new Response(
+            JSON.stringify({ error: 'Item ID and date are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Server-side enforcement: max 4 power plays per day
+        const { count: existingCount, error: countError } = await supabase
+          .from('focus_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('team_member_id', teamMemberId)
+          .eq('zone', 'power_play')
+          .eq('scheduled_date', date)
+          .neq('id', id);
+
+        if (countError) throw countError;
+        if ((existingCount ?? 0) >= 4) {
+          return new Response(
+            JSON.stringify({ error: 'Maximum 4 Power Plays per day' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Calculate ISO 8601 week_key
+        // Parse date at UTC noon to avoid timezone issues
+        const dateObj = new Date(date + 'T12:00:00Z');
+        // ISO 8601: week starts on Monday, week 1 contains the first Thursday of the year
+        // Find Thursday of the same ISO week (Thu determines which year the week belongs to)
+        const dayOfWeek = dateObj.getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+        const thursday = new Date(dateObj);
+        // Shift to Thursday: Sun=-3, Mon=+3, Tue=+2, Wed=+1, Thu=0, Fri=-1, Sat=-2
+        thursday.setUTCDate(dateObj.getUTCDate() + (4 - (dayOfWeek || 7)));
+        const year = thursday.getUTCFullYear();
+        // Jan 4 is always in ISO week 1
+        const jan4 = new Date(Date.UTC(year, 0, 4));
+        const jan4Day = jan4.getUTCDay() || 7; // Mon=1..Sun=7
+        const startOfWeek1 = new Date(jan4);
+        startOfWeek1.setUTCDate(jan4.getUTCDate() - (jan4Day - 1)); // Monday of week 1
+        const diffMs = thursday.getTime() - startOfWeek1.getTime();
+        const weekNum = Math.floor(diffMs / (7 * 86400000)) + 1;
+        const weekKey = `${year}-W${String(weekNum).padStart(2, '0')}`;
+
+        const updateData: any = {
+          zone: 'power_play',
+          scheduled_date: date,
+          week_key: weekKey,
+          updated_at: new Date().toISOString(),
+        };
+        if (itemDomain) updateData.domain = itemDomain;
+        if (sub_tag_id !== undefined) updateData.sub_tag_id = sub_tag_id;
+
+        const { data: item, error } = await supabase
+          .from('focus_items')
+          .update(updateData)
+          .eq('id', id)
+          .eq('team_member_id', teamMemberId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        responseData = { focus_item: item };
+        break;
+      }
+
+      case 'complete_playbook_item': {
+        const { id } = body;
+        if (!id) {
+          return new Response(
+            JSON.stringify({ error: 'Item ID is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: item, error } = await supabase
+          .from('focus_items')
+          .update({ completed: true, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .eq('team_member_id', teamMemberId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        responseData = { focus_item: item };
+        break;
+      }
+
+      case 'uncomplete_playbook_item': {
+        const { id } = body;
+        if (!id) {
+          return new Response(
+            JSON.stringify({ error: 'Item ID is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: item, error } = await supabase
+          .from('focus_items')
+          .update({ completed: false, updated_at: new Date().toISOString() })
+          .eq('id', id)
+          .eq('team_member_id', teamMemberId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        responseData = { focus_item: item };
+        break;
+      }
+
+      case 'unschedule_playbook_item': {
+        const { id } = body;
+        if (!id) {
+          return new Response(
+            JSON.stringify({ error: 'Item ID is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: item, error } = await supabase
+          .from('focus_items')
+          .update({
+            zone: 'bench',
+            scheduled_date: null,
+            week_key: null,
+            completed: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id)
+          .eq('team_member_id', teamMemberId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        responseData = { focus_item: item };
+        break;
+      }
+
+      case 'set_playbook_domain': {
+        const { id, domain: newDomain, sub_tag_id } = body;
+        if (!id || !newDomain) {
+          return new Response(
+            JSON.stringify({ error: 'Item ID and domain are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const updateData: any = { domain: newDomain, updated_at: new Date().toISOString() };
+        if (sub_tag_id !== undefined) updateData.sub_tag_id = sub_tag_id;
+
+        const { data: item, error } = await supabase
+          .from('focus_items')
+          .update(updateData)
+          .eq('id', id)
+          .eq('team_member_id', teamMemberId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        responseData = { focus_item: item };
+        break;
+      }
+
       case 'create_focus_item': {
         // Create a new focus item
-        const { title, description, priority_level, column_status = 'backlog', column_order = 0 } = body;
-        
+        const { title, description, priority_level, column_status = 'backlog', column_order = 0, zone: createZone, domain: createDomain, sub_tag_id: createSubTagId } = body;
+
         if (!title || !priority_level) {
           return new Response(
             JSON.stringify({ error: 'Title and priority_level are required' }),
@@ -108,17 +314,21 @@ serve(async (req) => {
           );
         }
 
+        const insertData: any = {
+          title,
+          description: description || null,
+          priority_level,
+          column_status,
+          column_order,
+          team_member_id: teamMemberId,
+          zone: createZone || 'bench',
+        };
+        if (createDomain) insertData.domain = createDomain;
+        if (createSubTagId) insertData.sub_tag_id = createSubTagId;
+
         const { data: newItem, error } = await supabase
           .from('focus_items')
-          .insert({
-            title,
-            description: description || null,
-            priority_level,
-            column_status,
-            column_order,
-            team_member_id: teamMemberId,
-            // user_id left null for staff-created items (they don't have Supabase auth)
-          })
+          .insert(insertData)
           .select()
           .single();
 
