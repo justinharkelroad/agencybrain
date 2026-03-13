@@ -26,6 +26,8 @@ export interface StaffFocusItem {
   sub_tag_id: string | null;
   week_key: string | null;
   completed: boolean;
+  completion_proof: string | null;
+  completion_feeling: string | null;
 }
 
 export interface CreateFocusItemData {
@@ -284,6 +286,60 @@ export function useStaffFocusItems(weekKey?: string) {
     onError: () => toast.error("Failed to set domain"),
   });
 
+  // Set item as One Big Thing for the week
+  const setOneBigThing = useMutation({
+    mutationFn: async ({ id, wk }: { id: string; wk: string }) => {
+      if (!sessionToken) throw new Error("No session token");
+      const { data, error } = await supabase.functions.invoke('get_staff_team_data', {
+        headers: { 'x-staff-session': sessionToken },
+        body: { type: 'set_one_big_thing', id, week_key: wk },
+      });
+      if (error) throw error;
+      return data?.focus_item;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success("Set as your One Big Thing!");
+    },
+    onError: () => toast.error("Failed to set One Big Thing"),
+  });
+
+  // Complete One Big Thing with reflection
+  const completeOneBigThing = useMutation({
+    mutationFn: async ({ id, proof, feeling }: { id: string; proof: string; feeling: string }) => {
+      if (!sessionToken) throw new Error("No session token");
+      const { data, error } = await supabase.functions.invoke('get_staff_team_data', {
+        headers: { 'x-staff-session': sessionToken },
+        body: { type: 'complete_one_big_thing', id, completion_proof: proof, completion_feeling: feeling },
+      });
+      if (error) throw error;
+      return data?.focus_item;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success("One Big Thing complete!");
+    },
+    onError: () => toast.error("Failed to complete"),
+  });
+
+  // Clear One Big Thing back to bench
+  const clearOneBigThing = useMutation({
+    mutationFn: async (id: string) => {
+      if (!sessionToken) throw new Error("No session token");
+      const { data, error } = await supabase.functions.invoke('get_staff_team_data', {
+        headers: { 'x-staff-session': sessionToken },
+        body: { type: 'clear_one_big_thing', id },
+      });
+      if (error) throw error;
+      return data?.focus_item;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success("Moved back to Bench");
+    },
+    onError: () => toast.error("Failed to clear One Big Thing"),
+  });
+
   return {
     items,
     isLoading,
@@ -296,5 +352,8 @@ export function useStaffFocusItems(weekKey?: string) {
     uncompleteItem,
     unscheduleItem,
     setDomain,
+    setOneBigThing,
+    completeOneBigThing,
+    clearOneBigThing,
   };
 }

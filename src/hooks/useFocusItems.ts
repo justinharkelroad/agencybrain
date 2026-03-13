@@ -5,7 +5,7 @@ import { getWeekKey } from "@/lib/date-utils";
 
 export type PriorityLevel = "top" | "mid" | "low";
 export type ColumnStatus = "backlog" | "week1" | "week2" | "next_call" | "completed";
-export type PlaybookZone = "bench" | "power_play" | "queue";
+export type PlaybookZone = "bench" | "power_play" | "queue" | "one_big_thing";
 export type PlaybookDomain = "body" | "being" | "balance" | "business";
 
 export interface FocusItem {
@@ -30,6 +30,8 @@ export interface FocusItem {
   sub_tag_id: string | null;
   week_key: string | null;
   completed: boolean;
+  completion_proof: string | null;
+  completion_feeling: string | null;
 }
 
 export interface CreateFocusItemData {
@@ -82,12 +84,12 @@ export function useFocusItems(weekKey?: string) {
         .order("column_order", { ascending: true });
 
       if (weekKey) {
-        // For playbook view: bench + queue + this week's power plays
+        // For playbook view: bench + queue + this week's power plays + one big thing
         query = supabase
           .from("focus_items")
           .select("*")
           .eq("user_id", user.id)
-          .or(`zone.eq.bench,zone.eq.queue,and(zone.eq.power_play,week_key.eq.${weekKey})`)
+          .or(`zone.eq.bench,zone.eq.queue,and(zone.eq.power_play,week_key.eq.${weekKey}),and(zone.eq.one_big_thing,week_key.eq.${weekKey})`)
           .order("column_order", { ascending: true });
       }
 
@@ -353,6 +355,80 @@ export function useFocusItems(weekKey?: string) {
     onError: () => toast.error("Failed to set domain"),
   });
 
+  // Set an item as the One Big Thing for the current week
+  const setOneBigThing = useMutation({
+    mutationFn: async ({ id, wk }: { id: string; wk: string }) => {
+      const { data, error } = await supabase
+        .from("focus_items")
+        .update({
+          zone: "one_big_thing",
+          week_key: wk,
+          scheduled_date: null,
+          completed: false,
+          completion_proof: null,
+          completion_feeling: null,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success("Set as your One Big Thing!");
+    },
+    onError: () => toast.error("Failed to set One Big Thing"),
+  });
+
+  // Complete the One Big Thing with reflection
+  const completeOneBigThing = useMutation({
+    mutationFn: async ({ id, proof, feeling }: { id: string; proof: string; feeling: string }) => {
+      const { data, error } = await supabase
+        .from("focus_items")
+        .update({
+          completed: true,
+          completion_proof: proof || null,
+          completion_feeling: feeling || null,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success("One Big Thing complete!");
+    },
+    onError: () => toast.error("Failed to complete"),
+  });
+
+  // Clear the One Big Thing back to bench
+  const clearOneBigThing = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase
+        .from("focus_items")
+        .update({
+          zone: "bench",
+          week_key: null,
+          completed: false,
+          completion_proof: null,
+          completion_feeling: null,
+        })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      invalidate();
+      toast.success("Moved back to Bench");
+    },
+    onError: () => toast.error("Failed to clear One Big Thing"),
+  });
+
   return {
     items,
     isLoading,
@@ -365,5 +441,8 @@ export function useFocusItems(weekKey?: string) {
     uncompleteItem,
     unscheduleItem,
     setDomain,
+    setOneBigThing,
+    completeOneBigThing,
+    clearOneBigThing,
   };
 }

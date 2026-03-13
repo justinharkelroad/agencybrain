@@ -9,6 +9,7 @@ import { getWeekKey } from "@/lib/date-utils";
 import { PlaybookWeekHeader } from "@/components/playbook/PlaybookWeekHeader";
 import { PlaybookDayView } from "@/components/playbook/PlaybookDayView";
 import { PlaybookBenchPanel } from "@/components/playbook/PlaybookBenchPanel";
+import { OneBigThingCard } from "@/components/playbook/OneBigThingCard";
 import { ScheduleItemDialog } from "@/components/playbook/ScheduleItemDialog";
 import { CreatePlaybookItemDialog } from "@/components/playbook/CreatePlaybookItemDialog";
 import { Loader2 } from "lucide-react";
@@ -28,7 +29,7 @@ export default function StaffWeeklyPlaybook() {
   const [dropTargetDate, setDropTargetDate] = useState<string | null>(null);
 
   const weekKey = getWeekKey(weekStart);
-  const { items, isLoading, createItem, completeItem, uncompleteItem, deleteItem, scheduleItem, unscheduleItem } = useStaffFocusItems(weekKey);
+  const { items, isLoading, createItem, completeItem, uncompleteItem, deleteItem, scheduleItem, unscheduleItem, setOneBigThing, completeOneBigThing, clearOneBigThing } = useStaffFocusItems(weekKey);
   const { weeklyPoints, dailyCompleted } = useStaffPlaybookStats();
 
   // Staff users have agency_id on their user record
@@ -38,8 +39,13 @@ export default function StaffWeeklyPlaybook() {
   const selectedDate = addDays(weekStart, selectedDayIndex);
   const selectedDateStr = format(selectedDate, "yyyy-MM-dd");
 
+  // Is the current week in the past? (Friday of the week is before today)
+  const weekFriday = addDays(weekStart, 4);
+  const isPastWeek = isBefore(startOfDay(weekFriday), startOfDay(new Date()));
+
   const benchItems = useMemo(() => items.filter((i) => i.zone === "bench"), [items]);
   const queueItems = useMemo(() => items.filter((i) => i.zone === "queue"), [items]);
+  const oneBigThingItem = useMemo(() => items.find((i) => i.zone === "one_big_thing") || null, [items]);
   const powerPlaysByDay = useMemo(() => {
     const map: Record<string, typeof items> = {};
     items
@@ -119,13 +125,23 @@ export default function StaffWeeklyPlaybook() {
     if (!over) return;
 
     const overId = String(over.id);
+    const itemId = active.data.current?.itemId as string;
+    if (!itemId) return;
+
+    // Handle One Big Thing drop
+    if (overId === "one-big-thing-drop") {
+      if (oneBigThingItem) {
+        toast.error("Clear the current One Big Thing first");
+        return;
+      }
+      setOneBigThing.mutate({ id: itemId, wk: weekKey });
+      return;
+    }
+
     if (!overId.startsWith("day-drop-")) return;
 
     const dateStr = over.data.current?.dateStr as string;
     if (!dateStr) return;
-
-    const itemId = active.data.current?.itemId as string;
-    if (!itemId) return;
 
     const dropDate = new Date(dateStr + "T12:00:00");
     const today = startOfDay(new Date());
@@ -165,6 +181,14 @@ export default function StaffWeeklyPlaybook() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
           <div className="space-y-6">
+            <OneBigThingCard
+              item={oneBigThingItem}
+              onComplete={(id, proof, feeling) => completeOneBigThing.mutate({ id, proof, feeling })}
+              onUncomplete={(id) => uncompleteItem.mutate(id)}
+              onClear={(id) => clearOneBigThing.mutate(id)}
+              readOnly={isPastWeek}
+            />
+
             <PlaybookWeekHeader
               weekStart={weekStart}
               selectedDayIndex={selectedDayIndex}

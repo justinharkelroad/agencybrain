@@ -98,14 +98,14 @@ serve(async (req) => {
       }
 
       case 'playbook_items': {
-        // Playbook view: bench + queue + this week's power plays
+        // Playbook view: bench + queue + this week's power plays + one big thing
         const { week_key } = body;
         const { data: focusItems, error } = await supabase
           .from('focus_items')
-          .select('id, title, description, priority_level, column_status, created_at, completed_at, column_order, zone, scheduled_date, domain, sub_tag_id, week_key, completed, source_type, source_name, source_session_id')
+          .select('id, title, description, priority_level, column_status, created_at, completed_at, column_order, zone, scheduled_date, domain, sub_tag_id, week_key, completed, completion_proof, completion_feeling, source_type, source_name, source_session_id')
           .eq('team_member_id', teamMemberId)
           .or(week_key
-            ? `zone.eq.bench,zone.eq.queue,and(zone.eq.power_play,week_key.eq.${week_key})`
+            ? `zone.eq.bench,zone.eq.queue,and(zone.eq.power_play,week_key.eq.${week_key}),and(zone.eq.one_big_thing,week_key.eq.${week_key})`
             : 'zone.eq.bench,zone.eq.queue')
           .order('column_order', { ascending: true });
 
@@ -293,6 +293,109 @@ serve(async (req) => {
         const { data: item, error } = await supabase
           .from('focus_items')
           .update(updateData)
+          .eq('id', id)
+          .eq('team_member_id', teamMemberId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        responseData = { focus_item: item };
+        break;
+      }
+
+      case 'set_one_big_thing': {
+        const { id, week_key: obtWeekKey } = body;
+        if (!id || !obtWeekKey) {
+          return new Response(
+            JSON.stringify({ error: 'Item ID and week_key are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Check if there's already a one big thing for this week
+        const { count: existingObt, error: obtCountError } = await supabase
+          .from('focus_items')
+          .select('id', { count: 'exact', head: true })
+          .eq('team_member_id', teamMemberId)
+          .eq('zone', 'one_big_thing')
+          .eq('week_key', obtWeekKey)
+          .neq('id', id);
+
+        if (obtCountError) throw obtCountError;
+        if ((existingObt ?? 0) > 0) {
+          return new Response(
+            JSON.stringify({ error: 'A One Big Thing already exists for this week' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: item, error } = await supabase
+          .from('focus_items')
+          .update({
+            zone: 'one_big_thing',
+            week_key: obtWeekKey,
+            scheduled_date: null,
+            completed: false,
+            completion_proof: null,
+            completion_feeling: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id)
+          .eq('team_member_id', teamMemberId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        responseData = { focus_item: item };
+        break;
+      }
+
+      case 'complete_one_big_thing': {
+        const { id, completion_proof, completion_feeling } = body;
+        if (!id) {
+          return new Response(
+            JSON.stringify({ error: 'Item ID is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: item, error } = await supabase
+          .from('focus_items')
+          .update({
+            completed: true,
+            completion_proof: completion_proof || null,
+            completion_feeling: completion_feeling || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id)
+          .eq('team_member_id', teamMemberId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        responseData = { focus_item: item };
+        break;
+      }
+
+      case 'clear_one_big_thing': {
+        const { id } = body;
+        if (!id) {
+          return new Response(
+            JSON.stringify({ error: 'Item ID is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: item, error } = await supabase
+          .from('focus_items')
+          .update({
+            zone: 'bench',
+            week_key: null,
+            completed: false,
+            completion_proof: null,
+            completion_feeling: null,
+            updated_at: new Date().toISOString(),
+          })
           .eq('id', id)
           .eq('team_member_id', teamMemberId)
           .select()
