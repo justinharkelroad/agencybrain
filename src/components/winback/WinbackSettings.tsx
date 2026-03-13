@@ -54,7 +54,7 @@ export function WinbackSettings({ agencyId, contactDaysBefore, onSettingsChange 
       <CardContent>
         <div className="flex items-end gap-3">
           <div className="flex-1">
-            <Label htmlFor="contactDays">Days before competitor renewal</Label>
+            <Label htmlFor="contactDays">Days before estimated competitor renewal to surface in HQ</Label>
             <Input
               id="contactDays"
               type="number"
@@ -72,7 +72,7 @@ export function WinbackSettings({ agencyId, contactDaysBefore, onSettingsChange 
         </div>
 
         <p className="text-xs text-muted-foreground mt-3">
-          Winback opportunities will appear {days} days before their estimated competitor renewal date.
+          Changing this recalculates each household&apos;s Winback Date used for filters, sorting, and Teed Up This Week.
         </p>
       </CardContent>
     </Card>
