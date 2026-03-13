@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,7 @@ interface ScheduleItemDialogProps {
   tags: PlaybookTag[];
   dayItemCounts: Record<string, number>;
   onConfirm: (date: string, domain?: PlaybookDomain, subTagId?: string) => void;
+  defaultDate?: string;
 }
 
 const domainOptions: { value: PlaybookDomain; label: string }[] = [
@@ -44,10 +45,18 @@ export function ScheduleItemDialog({
   tags,
   dayItemCounts,
   onConfirm,
+  defaultDate,
 }: ScheduleItemDialogProps) {
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [domain, setDomain] = useState<PlaybookDomain | "">("");
   const [subTagId, setSubTagId] = useState<string>("");
+
+  // Pre-select date when opened from drag-and-drop
+  useEffect(() => {
+    if (open && defaultDate) {
+      setSelectedDate(defaultDate);
+    }
+  }, [open, defaultDate]);
 
   // Reset state when dialog opens/closes
   const resetState = () => {

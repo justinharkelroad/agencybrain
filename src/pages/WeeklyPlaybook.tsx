@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { format, startOfWeek, addDays, subDays } from "date-fns";
+import { format, startOfWeek, addDays, subDays, isBefore, startOfDay } from "date-fns";
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { useFocusItems } from "@/hooks/useFocusItems";
 import { usePlaybookStats } from "@/hooks/usePlaybookStats";
 import { usePlaybookTags } from "@/hooks/usePlaybookTags";
@@ -12,6 +13,7 @@ import { PlaybookBenchPanel } from "@/components/playbook/PlaybookBenchPanel";
 import { ScheduleItemDialog } from "@/components/playbook/ScheduleItemDialog";
 import { CreatePlaybookItemDialog } from "@/components/playbook/CreatePlaybookItemDialog";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import type { PlaybookDomain } from "@/hooks/useFocusItems";
 
 export default function WeeklyPlaybook() {
@@ -24,6 +26,7 @@ export default function WeeklyPlaybook() {
   });
   const [scheduleItemId, setScheduleItemId] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [draggingItem, setDraggingItem] = useState<{ id: string; title: string } | null>(null);
 
   const weekKey = getWeekKey(weekStart);
   const { items, isLoading, createItem, completeItem, uncompleteItem, deleteItem, scheduleItem, unscheduleItem } = useFocusItems(weekKey);
@@ -118,6 +121,58 @@ export default function WeeklyPlaybook() {
     });
   };
 
+  // Drag and drop
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const data = event.active.data.current;
+    if (data?.itemId) {
+      setDraggingItem({ id: data.itemId, title: data.title });
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setDraggingItem(null);
+    const { active, over } = event;
+    if (!over) return;
+
+    const overId = String(over.id);
+    if (!overId.startsWith("day-drop-")) return;
+
+    const dateStr = over.data.current?.dateStr as string;
+    if (!dateStr) return;
+
+    const itemId = active.data.current?.itemId as string;
+    if (!itemId) return;
+
+    // Check if day is in the past
+    const dropDate = new Date(dateStr + "T12:00:00");
+    const today = startOfDay(new Date());
+    if (isBefore(startOfDay(dropDate), today)) {
+      toast.error("Can't schedule to a past day");
+      return;
+    }
+
+    // Check 4-item limit
+    if ((dayItemCounts[dateStr] || 0) >= 4) {
+      toast.error("This day already has 4 Power Plays");
+      return;
+    }
+
+    // If item has a domain already, schedule directly; otherwise open dialog
+    const item = items.find((i) => i.id === itemId);
+    if (item?.domain) {
+      scheduleItem.mutate({ id: itemId, date: dateStr });
+    } else {
+      // Open schedule dialog with this item, pre-selecting the dropped day
+      setScheduleItemId(itemId);
+      setDropTargetDate(dateStr);
+    }
+  };
+
+  // Track pre-selected date from drag-and-drop
+  const [dropTargetDate, setDropTargetDate] = useState<string | null>(null);
+
   const scheduleTargetItem = scheduleItemId ? items.find((i) => i.id === scheduleItemId) : null;
 
   if (isLoading) {
@@ -129,64 +184,76 @@ export default function WeeklyPlaybook() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 max-w-6xl">
-      <h1 className="text-2xl font-bold mb-6">Weekly Playbook</h1>
+    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="container mx-auto px-4 py-6 max-w-6xl">
+        <h1 className="text-2xl font-bold mb-6">Weekly Playbook</h1>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
-        {/* Main content — week view */}
-        <div className="space-y-6">
-          <PlaybookWeekHeader
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6">
+          {/* Main content — week view */}
+          <div className="space-y-6">
+            <PlaybookWeekHeader
+              weekStart={weekStart}
+              selectedDayIndex={selectedDayIndex}
+              onSelectDay={setSelectedDayIndex}
+              onPrevWeek={() => setWeekStart((prev) => subDays(prev, 7))}
+              onNextWeek={() => setWeekStart((prev) => addDays(prev, 7))}
+              weeklyPoints={weeklyPoints}
+              dayItemCounts={dayItemCounts}
+              dayCompletedCounts={dayCompletedCounts}
+            />
+
+            <PlaybookDayView
+              date={selectedDate}
+              items={powerPlaysByDay[selectedDateStr] || []}
+              queueItems={queueItems}
+              onToggleComplete={handleToggleComplete}
+              onDelete={(id) => deleteItem.mutate(id)}
+              onUnschedule={(id) => unscheduleItem.mutate(id)}
+            />
+          </div>
+
+          {/* Sidebar — The Bench */}
+          <div className="lg:border-l lg:pl-6">
+            <PlaybookBenchPanel
+              items={benchItems}
+              onSchedule={(id) => setScheduleItemId(id)}
+              onDelete={(id) => deleteItem.mutate(id)}
+              onCreateNew={() => setShowCreateDialog(true)}
+            />
+          </div>
+        </div>
+
+        {/* Drag overlay */}
+        <DragOverlay>
+          {draggingItem && (
+            <div className="rounded-md border bg-card px-3 py-2 shadow-lg text-xs font-medium max-w-[200px] truncate">
+              {draggingItem.title}
+            </div>
+          )}
+        </DragOverlay>
+
+        {/* Schedule dialog */}
+        {scheduleTargetItem && (
+          <ScheduleItemDialog
+            open={!!scheduleItemId}
+            onOpenChange={(open) => { if (!open) { setScheduleItemId(null); setDropTargetDate(null); } }}
+            itemTitle={scheduleTargetItem.title}
             weekStart={weekStart}
-            selectedDayIndex={selectedDayIndex}
-            onSelectDay={setSelectedDayIndex}
-            onPrevWeek={() => setWeekStart((prev) => subDays(prev, 7))}
-            onNextWeek={() => setWeekStart((prev) => addDays(prev, 7))}
-            weeklyPoints={weeklyPoints}
+            tags={tags}
             dayItemCounts={dayItemCounts}
-            dayCompletedCounts={dayCompletedCounts}
+            onConfirm={handleScheduleConfirm}
+            defaultDate={dropTargetDate || undefined}
           />
+        )}
 
-          <PlaybookDayView
-            date={selectedDate}
-            items={powerPlaysByDay[selectedDateStr] || []}
-            queueItems={queueItems}
-            onToggleComplete={handleToggleComplete}
-            onDelete={(id) => deleteItem.mutate(id)}
-            onUnschedule={(id) => unscheduleItem.mutate(id)}
-          />
-        </div>
-
-        {/* Sidebar — The Bench */}
-        <div className="lg:border-l lg:pl-6">
-          <PlaybookBenchPanel
-            items={benchItems}
-            onSchedule={(id) => setScheduleItemId(id)}
-            onDelete={(id) => deleteItem.mutate(id)}
-            onCreateNew={() => setShowCreateDialog(true)}
-          />
-        </div>
-      </div>
-
-      {/* Schedule dialog */}
-      {scheduleTargetItem && (
-        <ScheduleItemDialog
-          open={!!scheduleItemId}
-          onOpenChange={(open) => { if (!open) setScheduleItemId(null); }}
-          itemTitle={scheduleTargetItem.title}
-          weekStart={weekStart}
+        {/* Create dialog */}
+        <CreatePlaybookItemDialog
+          open={showCreateDialog}
+          onOpenChange={setShowCreateDialog}
           tags={tags}
-          dayItemCounts={dayItemCounts}
-          onConfirm={handleScheduleConfirm}
+          onConfirm={handleCreateNew}
         />
-      )}
-
-      {/* Create dialog */}
-      <CreatePlaybookItemDialog
-        open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        tags={tags}
-        onConfirm={handleCreateNew}
-      />
-    </div>
+      </div>
+    </DndContext>
   );
 }

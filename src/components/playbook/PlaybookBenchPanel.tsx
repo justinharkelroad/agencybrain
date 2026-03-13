@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, Search, Plus, Dumbbell, Heart, Briefcase } from "lucide-react";
+import { Calendar, Search, Plus, GripVertical, Dumbbell, Heart, Briefcase } from "lucide-react";
 import { LatinCross } from "@/components/icons/LatinCross";
+import { useDraggable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import type { FocusItem, PlaybookDomain } from "@/hooks/useFocusItems";
 import type { StaffFocusItem } from "@/hooks/useStaffFocusItems";
@@ -120,6 +121,16 @@ function BenchItem({
   onSchedule: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `bench-${item.id}`,
+    data: { itemId: item.id, title: item.title },
+    disabled: item.completed,
+  });
+
+  const style = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
+    : undefined;
+
   const domainColors: Record<string, string> = {
     body: "bg-emerald-500",
     being: "bg-purple-500",
@@ -129,11 +140,19 @@ function BenchItem({
 
   return (
     <div
+      ref={setNodeRef}
+      style={style}
       className={cn(
         "group flex items-center gap-2 rounded-md border px-2.5 py-2 text-sm transition-all",
-        item.completed ? "bg-muted/30 border-border/50" : "bg-card border-border hover:shadow-sm"
+        item.completed ? "bg-muted/30 border-border/50" : "bg-card border-border hover:shadow-sm",
+        isDragging && "opacity-50 shadow-lg z-50"
       )}
     >
+      {!item.completed && (
+        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none">
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50" />
+        </div>
+      )}
       {item.domain && (
         <div className={cn("h-2 w-2 rounded-full shrink-0", domainColors[item.domain])} />
       )}
