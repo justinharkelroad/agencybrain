@@ -67,7 +67,7 @@ interface WinbackHouseholdModalProps {
   currentUserTeamMemberId: string | null;
   agencyId: string | null;
   staffSessionToken?: string | null;
-  onUpdate: () => void;
+  onUpdate: () => void | Promise<void>;
   contactDaysBefore?: number;
 }
 
@@ -102,6 +102,7 @@ export function WinbackHouseholdModal({
   contactDaysBefore = 45,
 }: WinbackHouseholdModalProps) {
   const navigate = useNavigate();
+  const [localHousehold, setLocalHousehold] = useState<Household | null>(household);
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(false);
@@ -113,6 +114,7 @@ export function WinbackHouseholdModal({
   const [localStatus, setLocalStatus] = useState<Household['status']>('untouched');
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const scheduleTask = useScheduleAdhocTask({ staffSessionToken });
+  const activeHousehold = localHousehold ?? household;
 
   useEffect(() => {
     if (!open) {
@@ -121,6 +123,7 @@ export function WinbackHouseholdModal({
     }
 
     if (household) {
+      setLocalHousehold(household);
       setScheduleDialogOpen(false);
       setAssignedTo(household.assigned_to || 'unassigned');
       setLocalStatus(household.status);
@@ -136,6 +139,28 @@ export function WinbackHouseholdModal({
         await winbackApi.getHouseholdDetails(householdId);
       setPolicies(fetchedPolicies as Policy[]);
       setActivities(fetchedActivities as Activity[]);
+      setLocalHousehold((prev) => {
+        if (!prev || prev.id !== householdId) return prev;
+
+        const actionablePolicies = (fetchedPolicies as Policy[]).filter((policy) => policy.account_type !== 'C/R');
+        const earliestWinbackDate =
+          actionablePolicies
+            .map((policy) => policy.calculated_winback_date)
+            .filter((value): value is string => Boolean(value))
+            .sort()[0] || null;
+        const latestTerminationDate =
+          actionablePolicies
+            .map((policy) => policy.termination_effective_date)
+            .filter((value): value is string => Boolean(value))
+            .sort()
+            .at(-1) || null;
+
+        return {
+          ...prev,
+          earliest_winback_date: earliestWinbackDate,
+          latest_non_rewrite_termination_date: latestTerminationDate,
+        };
+      });
     } catch (err) {
       console.error('Error fetching household details:', err);
       toast.error('Failed to load household details');
@@ -146,7 +171,7 @@ export function WinbackHouseholdModal({
   };
 
   const logActivity = async (type: string, notes: string, products?: QuotedProduct[]) => {
-    if (!household || !agencyId) return;
+    if (!activeHousehold || !agencyId) return;
 
     try {
       // SPECIAL CASE: "quoted" triggers full LQS transition, not just activity log
@@ -161,14 +186,14 @@ export function WinbackHouseholdModal({
         if (winbackApi.isStaffUser()) {
           // Staff users: call edge function for full flow
           const result = await winbackApi.winbackToQuoted(
-            household.id,
+            activeHousehold.id,
             agencyId,
-            household.contact_id || null,
-            household.first_name || '',
-            household.last_name || '',
-            household.zip_code || '',
-            household.phone ? [household.phone] : [],
-            household.email || null,
+            activeHousehold.contact_id || null,
+            activeHousehold.first_name || '',
+            activeHousehold.last_name || '',
+            activeHousehold.zip_code || '',
+            activeHousehold.phone ? [activeHousehold.phone] : [],
+            activeHousehold.email || null,
             currentUserTeamMemberId,
             products
           );
@@ -214,9 +239,9 @@ export function WinbackHouseholdModal({
 
           // Step 2: Create/update LQS record
           const householdKey = generateHouseholdKey(
-            household.first_name || '',
-            household.last_name || '',
-            household.zip_code
+            activeHousehold.first_name || '',
+            activeHousehold.last_name || '',
+            activeHousehold.zip_code
           );
 
           const today = format(new Date(), 'yyyy-MM-dd');
@@ -226,18 +251,18 @@ export function WinbackHouseholdModal({
             .upsert({
               agency_id: agencyId,
               household_key: householdKey,
-              first_name: (household.first_name || '').toUpperCase(),
-              last_name: (household.last_name || '').toUpperCase(),
-              zip_code: household.zip_code || '',
-              contact_id: household.contact_id || null,
+              first_name: (activeHousehold.first_name || '').toUpperCase(),
+              last_name: (activeHousehold.last_name || '').toUpperCase(),
+              zip_code: activeHousehold.zip_code || '',
+              contact_id: activeHousehold.contact_id || null,
               status: 'quoted',
               lead_source_id: winbackLeadSourceId,
               team_member_id: currentUserTeamMemberId || null,
               first_quote_date: today,
               lead_received_date: today,
               updated_at: new Date().toISOString(),
-              phone: household.phone ? [household.phone] : [],
-              email: household.email || null,
+              phone: activeHousehold.phone ? [activeHousehold.phone] : [],
+              email: activeHousehold.email || null,
             }, {
               onConflict: 'agency_id,household_key',
             });
@@ -280,7 +305,7 @@ export function WinbackHouseholdModal({
 
           // Step 3: Update winback status to moved_to_quoted
           const winbackResult = await winbackApi.transitionToQuoted(
-            household.id,
+            activeHousehold.id,
             agencyId,
             currentUserTeamMemberId,
             teamMembers
@@ -295,7 +320,7 @@ export function WinbackHouseholdModal({
 
           // Step 4: Log the activity
           await winbackApi.logActivity(
-            household.id,
+            activeHousehold.id,
             agencyId,
             'quoted',
             notes || 'Moved to Quoted Household',
@@ -310,7 +335,7 @@ export function WinbackHouseholdModal({
 
         // Refresh activities to show the new "Quoted" entry (non-critical)
         try {
-          const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
+          const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(activeHousehold.id);
           setActivities(refreshedActivities as Activity[]);
         } catch (refreshErr) {
           console.warn('Failed to refresh activities after quote transition:', refreshErr);
@@ -320,7 +345,7 @@ export function WinbackHouseholdModal({
 
       // Normal activity logging for other types (called, texted, emailed, etc.)
       await winbackApi.logActivity(
-        household.id,
+        activeHousehold.id,
         agencyId,
         type,
         notes,
@@ -333,7 +358,7 @@ export function WinbackHouseholdModal({
 
       // Refresh activities (non-critical)
       try {
-        const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
+        const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(activeHousehold.id);
         setActivities(refreshedActivities as Activity[]);
       } catch (refreshErr) {
         console.warn('Failed to refresh activities after logging:', refreshErr);
@@ -345,13 +370,13 @@ export function WinbackHouseholdModal({
   };
 
   const handleAssignmentChange = async (newAssignedTo: string) => {
-    if (!household) return;
+    if (!activeHousehold) return;
     setAssignedTo(newAssignedTo);
     
     setSaving(true);
     try {
       const result = await winbackApi.updateAssignment(
-        household.id,
+        activeHousehold.id,
         newAssignedTo,
         localStatus
       );
@@ -371,14 +396,14 @@ export function WinbackHouseholdModal({
   };
 
   const handleStatusChange = async (newStatus: Household['status']) => {
-    if (!household || !agencyId) return;
+    if (!activeHousehold || !agencyId) return;
 
     const oldStatus = localStatus;
     setSaving(true);
 
     try {
       const result = await winbackApi.updateHouseholdStatus(
-        household.id,
+        activeHousehold.id,
         agencyId,
         newStatus,
         oldStatus,
@@ -391,8 +416,8 @@ export function WinbackHouseholdModal({
       if (!result.success) {
         toast.error('Failed to update status', { description: 'Status may have already been changed' });
         // Refresh to get actual state
-        fetchHouseholdDetails(household.id);
-        onUpdate();
+        await fetchHouseholdDetails(activeHousehold.id);
+        await onUpdate();
         return;
       }
 
@@ -402,11 +427,11 @@ export function WinbackHouseholdModal({
 
       setLocalStatus(newStatus);
       toast.success(`Status changed to ${newStatus.replace('_', ' ')}`);
-      onUpdate();
+      await onUpdate();
 
       // Refresh activities to show the new status_change entry (non-critical)
       try {
-        const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
+        const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(activeHousehold.id);
         setActivities(refreshedActivities as Activity[]);
       } catch (refreshErr) {
         console.warn('Failed to refresh activities after status change:', refreshErr);
@@ -424,7 +449,7 @@ export function WinbackHouseholdModal({
   };
 
   const handleRecordSale = async () => {
-    if (!household || !agencyId) return;
+    if (!activeHousehold || !agencyId) return;
     if (!['untouched', 'in_progress', 'declined', 'no_contact'].includes(localStatus)) {
       toast.error('This record was already resolved or moved. Refresh to see the latest status.');
       return;
@@ -432,7 +457,7 @@ export function WinbackHouseholdModal({
 
     setSaving(true);
     try {
-      const customerName = `${household.first_name || ''} ${household.last_name || ''}`.trim();
+      const customerName = `${activeHousehold.first_name || ''} ${activeHousehold.last_name || ''}`.trim();
       const actorName = teamMembers.find((member) => member.id === currentUserTeamMemberId)?.name || null;
       const targetPath = staffSessionToken ? '/staff/sales?tab=add' : '/sales?tab=add';
       const winbackLeadSourceId = await winbackApi.getOrCreateWinbackLeadSource(agencyId);
@@ -442,11 +467,11 @@ export function WinbackHouseholdModal({
         state: {
           prefillSale: {
             source: 'winback_household',
-            winbackHouseholdId: household.id,
+            winbackHouseholdId: activeHousehold.id,
             customerName,
-            customerEmail: household.email || null,
-            customerPhone: household.phone || null,
-            customerZip: household.zip_code || null,
+            customerEmail: activeHousehold.email || null,
+            customerPhone: activeHousehold.phone || null,
+            customerZip: activeHousehold.zip_code || null,
             leadSourceId: winbackLeadSourceId,
             saleDate: format(new Date(), 'yyyy-MM-dd'),
             quoteDrafts: [],
@@ -458,7 +483,7 @@ export function WinbackHouseholdModal({
           },
           winbackCompletion: {
             source: 'winback_household',
-            householdId: household.id,
+            householdId: activeHousehold.id,
             agencyId,
             oldStatus: localStatus,
             actorTeamMemberId: currentUserTeamMemberId || null,
@@ -476,21 +501,23 @@ export function WinbackHouseholdModal({
   };
 
   const handleNotNow = async () => {
-    if (!household || !agencyId) return;
+    if (!activeHousehold || !agencyId) return;
     setSaving(true);
 
     try {
       await winbackApi.pushToNextCycle(
-        household.id,
+        activeHousehold.id,
         agencyId,
         contactDaysBefore,
         currentUserTeamMemberId,
         teamMembers
       );
 
+      await fetchHouseholdDetails(activeHousehold.id);
+      setAssignedTo('unassigned');
+      setLocalStatus('untouched');
+      await onUpdate();
       toast.success('Pushed to next renewal cycle');
-      onUpdate();
-      onOpenChange(false);
     } catch (err) {
       console.error('Error pushing to next cycle:', err);
       toast.error('Failed to update');
@@ -500,14 +527,14 @@ export function WinbackHouseholdModal({
   };
 
   const handlePermanentDelete = async () => {
-    if (!household || !agencyId) return;
+    if (!activeHousehold || !agencyId) return;
     setSaving(true);
 
     try {
-      await winbackApi.permanentDeleteHousehold(household.id);
+      await winbackApi.permanentDeleteHousehold(activeHousehold.id);
 
       toast.success('Household permanently deleted');
-      onUpdate();
+      await onUpdate();
       onOpenChange(false);
     } catch (err) {
       console.error('Error deleting household:', err);
@@ -517,18 +544,18 @@ export function WinbackHouseholdModal({
     }
   };
 
-  if (!household) return null;
+  if (!activeHousehold) return null;
 
   const today = startOfDay(new Date());
-  const fullName = `${household.first_name || ''} ${household.last_name || ''}`.trim();
-  const zipCode = household.zip_code?.substring(0, 5);
-  const taskContact: ScheduleTaskDialogContact | null = household.contact_id
+  const fullName = `${activeHousehold.first_name || ''} ${activeHousehold.last_name || ''}`.trim();
+  const zipCode = activeHousehold.zip_code?.substring(0, 5);
+  const taskContact: ScheduleTaskDialogContact | null = activeHousehold.contact_id
     ? {
-        id: household.contact_id,
-        firstName: household.first_name || '',
-        lastName: household.last_name || '',
-        phones: [household.phone].filter(Boolean) as string[],
-        emails: [household.email].filter(Boolean) as string[],
+        id: activeHousehold.contact_id,
+        firstName: activeHousehold.first_name || '',
+        lastName: activeHousehold.last_name || '',
+        phones: [activeHousehold.phone].filter(Boolean) as string[],
+        emails: [activeHousehold.email].filter(Boolean) as string[],
       }
     : null;
 
@@ -547,12 +574,12 @@ export function WinbackHouseholdModal({
       title: data.title,
       description: data.description,
       sourceModule: 'winback',
-      moduleRecordId: household.id,
+      moduleRecordId: activeHousehold.id,
     });
     toast.success(`Task scheduled for ${data.contactName}`);
     // Refresh activities in winback modal (uses local state, not React Query)
     try {
-      const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(household.id);
+      const { activities: refreshedActivities } = await winbackApi.getHouseholdDetails(activeHousehold.id);
       setActivities(refreshedActivities as Activity[]);
     } catch (refreshErr) {
       console.warn('Failed to refresh activities after task scheduling:', refreshErr);
@@ -574,19 +601,19 @@ export function WinbackHouseholdModal({
           <Card>
             <CardContent className="pt-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                {household.phone && (
+                {activeHousehold.phone && (
                   <div className="flex items-center gap-2">
                     <Phone className="h-4 w-4 text-muted-foreground" />
-                    <a href={`tel:${household.phone}`} className="text-primary hover:underline">
-                      {formatPhone(household.phone)}
+                    <a href={`tel:${activeHousehold.phone}`} className="text-primary hover:underline">
+                      {formatPhone(activeHousehold.phone)}
                     </a>
                   </div>
                 )}
-                {household.email && (
+                {activeHousehold.email && (
                   <div className="flex items-center gap-2">
                     <Mail className="h-4 w-4 text-muted-foreground" />
-                    <a href={`mailto:${household.email}`} className="text-primary hover:underline truncate">
-                      {household.email}
+                    <a href={`mailto:${activeHousehold.email}`} className="text-primary hover:underline truncate">
+                      {activeHousehold.email}
                     </a>
                   </div>
                 )}
@@ -596,8 +623,8 @@ export function WinbackHouseholdModal({
                     <span>ZIP: {zipCode}</span>
                   </div>
                 )}
-                {household.earliest_winback_date && (() => {
-                  const wb = parseISO(household.earliest_winback_date);
+                {activeHousehold.earliest_winback_date && (() => {
+                  const wb = parseISO(activeHousehold.earliest_winback_date);
                   return (
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -791,7 +818,7 @@ export function WinbackHouseholdModal({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete this household?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently delete {household?.first_name} {household?.last_name} and all associated policies from Win-Back HQ. This action cannot be undone.
+                      This will permanently delete {activeHousehold.first_name} {activeHousehold.last_name} and all associated policies from Win-Back HQ. This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
