@@ -663,10 +663,9 @@ async function uploadRecords(supabase: any, agencyId: string, teamMemberId: stri
 
   console.log(`[upload_records] Starting upload: ${records.length} records, type: ${reportType}`);
 
-  const errors: string[] = [];
   let recordsCreated = 0;
   let recordsUpdated = 0;
-  let recordsDeactivated = 0;
+  let errorCount = 0;
 
   // 1. Create upload record
   const { data: uploadData, error: uploadError } = await supabase
@@ -692,24 +691,8 @@ async function uploadRecords(supabase: any, agencyId: string, teamMemberId: stri
   const uploadId = uploadData.id;
   console.log(`[upload_records] Created upload record: ${uploadId}`);
 
-  // 2. Deactivate all existing records of this report type and stamp drop time
-  const { data: deactivatedData, error: deactivateError } = await supabase
-    .from("cancel_audit_records")
-    .update({ is_active: false, dropped_from_report_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-    .eq("agency_id", agencyId)
-    .eq("report_type", reportType)
-    .eq("is_active", true)
-    .select("id");
-
-  if (deactivateError) {
-    console.error("[upload_records] Failed to deactivate old records:", deactivateError);
-    throw deactivateError;
-  }
-
-  recordsDeactivated = deactivatedData?.length || 0;
-  console.log(`[upload_records] Deactivated ${recordsDeactivated} old records`);
-
-  // 3. Process records in batches using RPC function
+  // 2. Process records in parallel batches (50 at a time, like renewals).
+  //    DEACTIVATION HAPPENS AFTER — prevents partial-processing data loss.
   const totalBatches = Math.ceil(records.length / BATCH_SIZE);
 
   for (let batchIdx = 0; batchIdx < totalBatches; batchIdx++) {
@@ -717,49 +700,81 @@ async function uploadRecords(supabase: any, agencyId: string, teamMemberId: stri
     const end = Math.min(start + BATCH_SIZE, records.length);
     const batch = records.slice(start, end);
 
-    for (const record of batch) {
-      const { data, error: rpcError } = await supabase.rpc("upsert_cancel_audit_record", {
-        p_agency_id: agencyId,
-        p_policy_number: record.policy_number,
-        p_household_key: record.household_key,
-        p_insured_first_name: record.insured_first_name,
-        p_insured_last_name: record.insured_last_name,
-        p_insured_email: record.insured_email,
-        p_insured_phone: record.insured_phone,
-        p_insured_phone_alt: record.insured_phone_alt,
-        p_agent_number: record.agent_number,
-        p_product_name: record.product_name,
-        p_premium_cents: record.premium_cents,
-        p_no_of_items: record.no_of_items,
-        p_account_type: record.account_type,
-        p_report_type: record.report_type,
-        p_amount_due_cents: record.amount_due_cents,
-        p_cancel_status: record.cancel_status,
-        p_original_year: record.original_year,
-        p_cancel_date: record.cancel_date,
-        p_renewal_effective_date: record.renewal_effective_date,
-        p_pending_cancel_date: record.pending_cancel_date,
-        p_last_upload_id: uploadId,
-        p_city: record.city || null,
-        p_state: record.state || null,
-        p_zip_code: record.zip_code || null,
-        p_company_code: record.company_code || null,
-        p_premium_old_cents: record.premium_old_cents || 0,
-      });
+    const batchResults = await Promise.allSettled(
+      batch.map((record: any) =>
+        supabase.rpc("upsert_cancel_audit_record", {
+          p_agency_id: agencyId,
+          p_policy_number: record.policy_number,
+          p_household_key: record.household_key,
+          p_insured_first_name: record.insured_first_name,
+          p_insured_last_name: record.insured_last_name,
+          p_insured_email: record.insured_email,
+          p_insured_phone: record.insured_phone,
+          p_insured_phone_alt: record.insured_phone_alt,
+          p_agent_number: record.agent_number,
+          p_product_name: record.product_name,
+          p_premium_cents: record.premium_cents,
+          p_no_of_items: record.no_of_items,
+          p_account_type: record.account_type,
+          p_report_type: record.report_type,
+          p_amount_due_cents: record.amount_due_cents,
+          p_cancel_status: record.cancel_status,
+          p_original_year: record.original_year,
+          p_cancel_date: record.cancel_date,
+          p_renewal_effective_date: record.renewal_effective_date,
+          p_pending_cancel_date: record.pending_cancel_date,
+          p_last_upload_id: uploadId,
+          p_city: record.city || null,
+          p_state: record.state || null,
+          p_zip_code: record.zip_code || null,
+          p_company_code: record.company_code || null,
+          p_premium_old_cents: record.premium_old_cents || 0,
+        })
+      )
+    );
 
-      if (rpcError) {
-        errors.push(`Policy ${record.policy_number}: ${rpcError.message}`);
-      } else if (data && data[0]) {
-        if (data[0].was_created) {
-          recordsCreated++;
-        } else {
-          recordsUpdated++;
+    for (const result of batchResults) {
+      if (result.status === "fulfilled") {
+        const { data, error } = result.value;
+        if (error) {
+          errorCount++;
+          console.error("[upload_records] Record upsert error:", error.message);
+        } else if (data?.[0]) {
+          if (data[0].was_created) recordsCreated++;
+          else recordsUpdated++;
         }
+      } else {
+        errorCount++;
+        console.error("[upload_records] Record processing error:", result.reason);
       }
     }
+
+    console.log(`[upload_records] Batch ${batchIdx + 1}/${totalBatches} complete`);
   }
 
-  console.log(`[upload_records] Processed: created=${recordsCreated}, updated=${recordsUpdated}, errors=${errors.length}`);
+  console.log(`[upload_records] All records processed: created=${recordsCreated}, updated=${recordsUpdated}, errors=${errorCount}`);
+
+  // 3. DEACTIVATE AFTER processing — only records of this report_type that
+  //    were NOT touched by this upload (identified by last_upload_id).
+  const { data: deactivated, error: deactivateError } = await supabase
+    .from("cancel_audit_records")
+    .update({
+      is_active: false,
+      dropped_from_report_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("agency_id", agencyId)
+    .eq("report_type", reportType)
+    .eq("is_active", true)
+    .neq("last_upload_id", uploadId)
+    .select("id");
+
+  if (deactivateError) {
+    console.error("[upload_records] Failed to deactivate old records:", deactivateError);
+  }
+
+  const recordsDropped = deactivated?.length || 0;
+  console.log(`[upload_records] Deactivated ${recordsDropped} records not in this upload`);
 
   // 4. Update upload record with final counts
   const { error: updateError } = await supabase
@@ -775,13 +790,13 @@ async function uploadRecords(supabase: any, agencyId: string, teamMemberId: stri
   }
 
   return {
-    success: errors.length === 0,
+    success: errorCount === 0,
     uploadId,
     recordsProcessed: records.length,
     recordsCreated,
     recordsUpdated,
-    recordsDeactivated,
-    errors,
+    recordsDropped,
+    errors: errorCount > 0 ? [`${errorCount} records failed to process (check server logs)`] : [],
   };
 }
 
