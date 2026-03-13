@@ -169,16 +169,21 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
 
       if (existingBalance) {
         // Row exists — just update the limit
-        await supabase
+        const { error: balanceError } = await supabase
           .from('agency_call_balance')
           .update({
             subscription_calls_limit: settings.calls_limit,
             updated_at: new Date().toISOString(),
           })
           .eq('agency_id', agencyId);
+
+        if (balanceError) {
+          console.error('Error syncing to agency_call_balance:', balanceError);
+          toast.error('Settings saved but failed to sync call balance. Try again.');
+        }
       } else {
         // No row yet — create with period_start
-        await supabase
+        const { error: balanceError } = await supabase
           .from('agency_call_balance')
           .insert({
             agency_id: agencyId,
@@ -186,11 +191,11 @@ export function AdminAgencyCallScoring({ agencyId }: AdminAgencyCallScoringProps
             subscription_calls_used: 0,
             subscription_period_start: format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'),
           });
-      }
-      const balanceError = null;
 
-      if (balanceError) {
-        console.error('Error syncing to agency_call_balance:', balanceError);
+        if (balanceError) {
+          console.error('Error creating agency_call_balance:', balanceError);
+          toast.error('Settings saved but failed to create call balance. Try again.');
+        }
       }
 
       toast.success('Call scoring settings saved');
