@@ -238,6 +238,16 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
   }, [prefillSale]);
 
   useEffect(() => {
+    if (!prefillSale || leadSourceId) return;
+    if (prefillSale.source !== 'winback_household') return;
+
+    const winbackLeadSource = leadSources.find((source) => source.name.trim().toLowerCase() === 'winback');
+    if (winbackLeadSource) {
+      setLeadSourceId(winbackLeadSource.id);
+    }
+  }, [prefillSale, leadSourceId, leadSources]);
+
+  useEffect(() => {
     if (!prefillSale || productTypes.length === 0) return;
 
     const effectiveDate = prefillSale.saleDate

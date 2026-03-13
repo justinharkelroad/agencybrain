@@ -308,6 +308,16 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
     setIsOneCallClose(false);
   }, [isEditMode, prefillSale]);
 
+  useEffect(() => {
+    if (isEditMode || !prefillSale || leadSourceId) return;
+    if (prefillSale.source !== 'winback_household') return;
+
+    const winbackLeadSource = leadSources.find((source) => source.name.trim().toLowerCase() === 'winback');
+    if (winbackLeadSource) {
+      setLeadSourceId(winbackLeadSource.id);
+    }
+  }, [isEditMode, prefillSale, leadSourceId, leadSources]);
+
   // Fetch user's agency_id
   const { data: profile } = useQuery({
     queryKey: ["profile", user?.id],

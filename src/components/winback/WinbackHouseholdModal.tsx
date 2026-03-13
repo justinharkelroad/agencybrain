@@ -423,46 +423,56 @@ export function WinbackHouseholdModal({
     }
   };
 
-  const handleRecordSale = () => {
+  const handleRecordSale = async () => {
     if (!household || !agencyId) return;
     if (!['untouched', 'in_progress', 'declined', 'no_contact'].includes(localStatus)) {
       toast.error('This record was already resolved or moved. Refresh to see the latest status.');
       return;
     }
 
-    const customerName = `${household.first_name || ''} ${household.last_name || ''}`.trim();
-    const actorName = teamMembers.find((member) => member.id === currentUserTeamMemberId)?.name || null;
-    const targetPath = staffSessionToken ? '/staff/sales?tab=add' : '/sales?tab=add';
+    setSaving(true);
+    try {
+      const customerName = `${household.first_name || ''} ${household.last_name || ''}`.trim();
+      const actorName = teamMembers.find((member) => member.id === currentUserTeamMemberId)?.name || null;
+      const targetPath = staffSessionToken ? '/staff/sales?tab=add' : '/sales?tab=add';
+      const winbackLeadSourceId = await winbackApi.getOrCreateWinbackLeadSource(agencyId);
 
-    onOpenChange(false);
-    navigate(targetPath, {
-      state: {
-        prefillSale: {
-          source: 'winback_household',
-          winbackHouseholdId: household.id,
-          customerName,
-          customerEmail: household.email || null,
-          customerPhone: household.phone || null,
-          customerZip: household.zip_code || null,
-          saleDate: format(new Date(), 'yyyy-MM-dd'),
-          quoteDrafts: [],
-          referencePolicies: policies.map((policy) => ({
-            id: policy.id,
-            productName: policy.product_name || policy.product_code || 'Unknown Policy',
-            priorPolicyNumber: policy.policy_number || null,
-          })),
+      onOpenChange(false);
+      navigate(targetPath, {
+        state: {
+          prefillSale: {
+            source: 'winback_household',
+            winbackHouseholdId: household.id,
+            customerName,
+            customerEmail: household.email || null,
+            customerPhone: household.phone || null,
+            customerZip: household.zip_code || null,
+            leadSourceId: winbackLeadSourceId,
+            saleDate: format(new Date(), 'yyyy-MM-dd'),
+            quoteDrafts: [],
+            referencePolicies: policies.map((policy) => ({
+              id: policy.id,
+              productName: policy.product_name || policy.product_code || 'Unknown Policy',
+              priorPolicyNumber: policy.policy_number || null,
+            })),
+          },
+          winbackCompletion: {
+            source: 'winback_household',
+            householdId: household.id,
+            agencyId,
+            oldStatus: localStatus,
+            actorTeamMemberId: currentUserTeamMemberId || null,
+            actorName,
+            returnPath: staffSessionToken ? '/staff/winback' : '/winback',
+          },
         },
-        winbackCompletion: {
-          source: 'winback_household',
-          householdId: household.id,
-          agencyId,
-          oldStatus: localStatus,
-          actorTeamMemberId: currentUserTeamMemberId || null,
-          actorName,
-          returnPath: staffSessionToken ? '/staff/winback' : '/winback',
-        },
-      },
-    });
+      });
+    } catch (error) {
+      console.error('Failed to prepare Winback sale flow:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to prepare sale flow');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleNotNow = async () => {

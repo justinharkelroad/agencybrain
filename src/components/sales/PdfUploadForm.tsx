@@ -356,6 +356,16 @@ export function PdfUploadForm({
     setIsOneCallClose(false);
   }, [prefillSale]);
 
+  useEffect(() => {
+    if (!prefillSale || leadSourceId) return;
+    if (prefillSale.source !== 'winback_household') return;
+
+    const winbackLeadSource = activeLeadSources.find((source) => source.name.trim().toLowerCase() === 'winback');
+    if (winbackLeadSource) {
+      setLeadSourceId(winbackLeadSource.id);
+    }
+  }, [prefillSale, leadSourceId, activeLeadSources]);
+
   // Fetch policy types with linked product_types for comp fields
   const { data: productTypes = [] } = useQuery<ProductType[]>({
     queryKey: ["policy-types-for-pdf-upload", effectiveAgencyId],

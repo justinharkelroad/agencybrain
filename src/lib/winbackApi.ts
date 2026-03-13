@@ -226,6 +226,46 @@ export async function listTeamMembers(agencyId: string): Promise<TeamMember[]> {
   return data || [];
 }
 
+export async function getOrCreateWinbackLeadSource(agencyId: string): Promise<string> {
+  if (isStaffUser()) {
+    const result = await callStaffWinback<{ leadSourceId: string }>('get_or_create_winback_lead_source', {});
+    if (!result?.leadSourceId) {
+      throw new Error('Failed to load Winback lead source');
+    }
+    return result.leadSourceId;
+  }
+
+  const { data: existingSource, error: existingError } = await supabase
+    .from('lead_sources')
+    .select('id')
+    .eq('agency_id', agencyId)
+    .ilike('name', 'winback')
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+  if (existingSource?.id) return existingSource.id;
+
+  const { data: newSource, error: createError } = await supabase
+    .from('lead_sources')
+    .insert({
+      agency_id: agencyId,
+      name: 'Winback',
+      is_active: true,
+      is_self_generated: false,
+      cost_type: 'per_lead',
+      cost_per_lead_cents: 0,
+    })
+    .select('id')
+    .single();
+
+  if (createError || !newSource?.id) {
+    throw createError || new Error('Failed to create Winback lead source');
+  }
+
+  return newSource.id;
+}
+
 // ============ Stats ============
 
 export async function getStats(agencyId: string): Promise<WinbackStats> {

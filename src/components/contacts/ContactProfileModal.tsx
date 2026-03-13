@@ -530,6 +530,8 @@ export function ContactProfileModal({
           return;
         }
 
+        const winbackLeadSourceId = await winbackApi.getOrCreateWinbackLeadSource(agencyId);
+
         onClose();
         navigate(targetPath, {
           state: {
@@ -540,6 +542,7 @@ export function ContactProfileModal({
               customerEmail: profile.emails?.[0] || null,
               customerPhone: profile.phones?.[0] || null,
               customerZip: profile.zip_code || null,
+              leadSourceId: winbackLeadSourceId,
               saleDate: format(new Date(), 'yyyy-MM-dd'),
               quoteDrafts: [],
             },

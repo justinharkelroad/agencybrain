@@ -612,6 +612,44 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "get_or_create_winback_lead_source": {
+        let winbackLeadSourceId: string | null = null;
+
+        const { data: existingSource } = await supabase
+          .from("lead_sources")
+          .select("id")
+          .eq("agency_id", agencyId)
+          .ilike("name", "winback")
+          .limit(1)
+          .maybeSingle();
+
+        if (existingSource?.id) {
+          winbackLeadSourceId = existingSource.id;
+        } else {
+          const { data: newSource, error: createError } = await supabase
+            .from("lead_sources")
+            .insert({
+              agency_id: agencyId,
+              name: "Winback",
+              is_active: true,
+              is_self_generated: false,
+              cost_type: "per_lead",
+              cost_per_lead_cents: 0,
+            })
+            .select("id")
+            .single();
+
+          if (createError || !newSource?.id) {
+            throw createError || new Error("Failed to create Winback lead source");
+          }
+
+          winbackLeadSourceId = newSource.id;
+        }
+
+        result = { leadSourceId: winbackLeadSourceId };
+        break;
+      }
+
       case "update_assignment": {
         const { householdId, assignedTo } = params;
 

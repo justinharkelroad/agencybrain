@@ -44,11 +44,11 @@ const statusOptions: { value: WinbackStatus; label: string }[] = [
 ];
 
 const terminationAgeOptions: { value: TerminationAgeFilter; label: string }[] = [
-  { value: 'all', label: 'All Terminations' },
-  { value: '0_30', label: '0-30 Days' },
-  { value: '31_60', label: '31-60 Days' },
-  { value: '61_120', label: '61-120 Days' },
-  { value: '121_plus', label: '121+ Days' },
+  { value: 'all', label: 'All Since Termination' },
+  { value: '0_30', label: '0-30d ago' },
+  { value: '31_60', label: '31-60d ago' },
+  { value: '61_120', label: '61-120d ago' },
+  { value: '121_plus', label: '121+d ago' },
 ];
 
 export function WinbackFilters({
@@ -156,7 +156,7 @@ export function WinbackFilters({
 
         <Select value={terminationAgeFilter} onValueChange={(v) => onTerminationAgeChange(v as TerminationAgeFilter)}>
           <SelectTrigger className="w-[190px]">
-            <SelectValue placeholder="Termination age" />
+            <SelectValue placeholder="Since termination" />
           </SelectTrigger>
           <SelectContent>
             {terminationAgeOptions.map((option) => (
