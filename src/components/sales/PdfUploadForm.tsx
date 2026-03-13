@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { Suspense, lazy, useState, useCallback, useEffect, useMemo } from "react";
 import { useDropzone } from "react-dropzone";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,8 +33,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
-import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
 import { assertNoDuplicateSalePolicies } from "@/lib/salesDuplicatePolicies";
 import { getSupabaseFunctionErrorMessage } from "@/lib/supabaseFunctionErrors";
 import { 
@@ -60,6 +58,18 @@ import { ExistingCustomerProductsSelector } from "@/components/sales/ExistingCus
 import { isCrossSaleLeadSource } from "@/lib/lead-source-utils";
 import { invokeSupabaseFunctionWithSessionRefresh } from "@/lib/invokeSupabaseFunctionWithSessionRefresh";
 import type { SalesPrefill } from "@/lib/lqs-sale-prefill";
+
+const ApplySequenceModal = lazy(() =>
+  import("@/components/onboarding/ApplySequenceModal").then((module) => ({
+    default: module.ApplySequenceModal,
+  }))
+);
+
+const BreakupLetterModal = lazy(() =>
+  import("@/components/sales/BreakupLetterModal").then((module) => ({
+    default: module.BreakupLetterModal,
+  }))
+);
 
 interface ExtractedSaleData {
   customerName: string;
@@ -1534,29 +1544,31 @@ export function PdfUploadForm({
     </div>
 
     {newSaleData && effectiveAgencyId && (
-      <ApplySequenceModal
-        open={applySequenceModalOpen}
-        onOpenChange={(open) => {
-          setApplySequenceModalOpen(open);
-          if (!open) {
+      <Suspense fallback={null}>
+        <ApplySequenceModal
+          open={applySequenceModalOpen}
+          onOpenChange={(open) => {
+            setApplySequenceModalOpen(open);
+            if (!open) {
+              setNewSaleData(null);
+              resetForm();
+              onSuccess?.({ saleId: newSaleData.saleId });
+            }
+          }}
+          saleId={newSaleData.saleId}
+          customerName={newSaleData.customerName}
+          customerPhone={newSaleData.customerPhone}
+          customerEmail={newSaleData.customerEmail}
+          agencyId={effectiveAgencyId}
+          staffSessionToken={staffSessionToken || null}
+          onSuccess={() => {
             setNewSaleData(null);
+            setApplySequenceModalOpen(false);
             resetForm();
             onSuccess?.({ saleId: newSaleData.saleId });
-          }
-        }}
-        saleId={newSaleData.saleId}
-        customerName={newSaleData.customerName}
-        customerPhone={newSaleData.customerPhone}
-        customerEmail={newSaleData.customerEmail}
-        agencyId={effectiveAgencyId}
-        staffSessionToken={staffSessionToken || null}
-        onSuccess={() => {
-          setNewSaleData(null);
-          setApplySequenceModalOpen(false);
-          resetForm();
-          onSuccess?.({ saleId: newSaleData.saleId });
-        }}
-      />
+          }}
+        />
+      </Suspense>
     )}
 
     {newSaleData && effectiveAgencyId && (
@@ -1602,26 +1614,28 @@ export function PdfUploadForm({
     )}
 
     {newSaleData && effectiveAgencyId && (
-      <BreakupLetterModal
-        open={breakupLetterModalOpen}
-        onOpenChange={(open) => {
-          setBreakupLetterModalOpen(open);
-          if (!open) {
+      <Suspense fallback={null}>
+        <BreakupLetterModal
+          open={breakupLetterModalOpen}
+          onOpenChange={(open) => {
+            setBreakupLetterModalOpen(open);
+            if (!open) {
+              setApplySequenceModalOpen(true);
+            }
+          }}
+          agencyId={effectiveAgencyId}
+          customerName={newSaleData.customerName}
+          customerZip={newSaleData.customerZip}
+          customerEmail={newSaleData.customerEmail}
+          customerPhone={newSaleData.customerPhone}
+          policies={newSaleData.breakupPolicies}
+          sourceContext="sale_upload"
+          onContinueToSequence={() => {
+            setBreakupLetterModalOpen(false);
             setApplySequenceModalOpen(true);
-          }
-        }}
-        agencyId={effectiveAgencyId}
-        customerName={newSaleData.customerName}
-        customerZip={newSaleData.customerZip}
-        customerEmail={newSaleData.customerEmail}
-        customerPhone={newSaleData.customerPhone}
-        policies={newSaleData.breakupPolicies}
-        sourceContext="sale_upload"
-        onContinueToSequence={() => {
-          setBreakupLetterModalOpen(false);
-          setApplySequenceModalOpen(true);
-        }}
-      />
+          }}
+        />
+      </Suspense>
     )}
     </>
   );

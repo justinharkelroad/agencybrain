@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { Suspense, lazy, useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -31,8 +31,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CalendarIcon, Plus, Trash2, Loader2, ChevronDown, ChevronRight, Building2, Building, ExternalLink, Phone } from "lucide-react";
 import { cn, toLocalDate, todayLocal, formatPhoneNumber } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ApplySequenceModal } from "@/components/onboarding/ApplySequenceModal";
-import { BreakupLetterModal } from "@/components/sales/BreakupLetterModal";
 import { classifyBundle, type ExistingProductFlag } from "@/lib/bundle-classifier";
 import { normalizeExistingCustomerProducts } from "@/lib/existing-customer-products";
 import { assertNoDuplicateSalePolicies } from "@/lib/salesDuplicatePolicies";
@@ -134,6 +132,18 @@ interface AddSaleFormProps {
   prefillSale?: SalesPrefill | null;
   onCancelEdit?: () => void;
 }
+
+const ApplySequenceModal = lazy(() =>
+  import("@/components/onboarding/ApplySequenceModal").then((module) => ({
+    default: module.ApplySequenceModal,
+  }))
+);
+
+const BreakupLetterModal = lazy(() =>
+  import("@/components/sales/BreakupLetterModal").then((module) => ({
+    default: module.BreakupLetterModal,
+  }))
+);
 
 
 function mapExistingTypes(existingTypes: string[]): ExistingProductFlag[] {
@@ -308,6 +318,9 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
     setIsOneCallClose(false);
   }, [isEditMode, prefillSale]);
 
+  // Fetch lead sources before any effects that depend on them
+  const { leadSources, loading: leadSourcesLoading } = useLeadSources();
+
   useEffect(() => {
     if (isEditMode || !prefillSale || leadSourceId) return;
     if (prefillSale.source !== 'winback_household') return;
@@ -431,8 +444,6 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
     enabled: !!profile?.agency_id,
   });
 
-  // Fetch lead sources
-  const { leadSources, loading: leadSourcesLoading } = useLeadSources();
   const selectedLeadSourceName = leadSources.find((source) => source.id === leadSourceId)?.name || "";
   const requiresExistingProductsForCrossSale =
     isCrossSaleLeadSource(selectedLeadSourceName) && existingPolicyTypes.length === 0;
@@ -1851,30 +1862,32 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
 
       {/* Apply Sequence Modal - shown after new sale creation */}
       {newSaleData && profile?.agency_id && (
-        <ApplySequenceModal
-          open={applySequenceModalOpen}
-          onOpenChange={(open) => {
-            setApplySequenceModalOpen(open);
-            if (!open) {
-              // Modal closed - clean up and call onSuccess
+        <Suspense fallback={null}>
+          <ApplySequenceModal
+            open={applySequenceModalOpen}
+            onOpenChange={(open) => {
+              setApplySequenceModalOpen(open);
+              if (!open) {
+                // Modal closed - clean up and call onSuccess
+                setNewSaleData(null);
+                resetForm();
+                onSuccess?.({ saleId: newSaleData.saleId });
+              }
+            }}
+            saleId={newSaleData.saleId}
+            customerName={newSaleData.customerName}
+            customerPhone={newSaleData.customerPhone}
+            customerEmail={newSaleData.customerEmail}
+            agencyId={profile.agency_id}
+            onSuccess={() => {
+              // Sequence was applied or skipped
               setNewSaleData(null);
+              setApplySequenceModalOpen(false);
               resetForm();
               onSuccess?.({ saleId: newSaleData.saleId });
-            }
-          }}
-          saleId={newSaleData.saleId}
-          customerName={newSaleData.customerName}
-          customerPhone={newSaleData.customerPhone}
-          customerEmail={newSaleData.customerEmail}
-          agencyId={profile.agency_id}
-          onSuccess={() => {
-            // Sequence was applied or skipped
-            setNewSaleData(null);
-            setApplySequenceModalOpen(false);
-            resetForm();
-            onSuccess?.({ saleId: newSaleData.saleId });
-          }}
-        />
+            }}
+          />
+        </Suspense>
       )}
 
       {newSaleData && profile?.agency_id && (
@@ -1920,26 +1933,28 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
       )}
 
       {newSaleData && profile?.agency_id && (
-        <BreakupLetterModal
-          open={breakupLetterModalOpen}
-          onOpenChange={(open) => {
-            setBreakupLetterModalOpen(open);
-            if (!open) {
+        <Suspense fallback={null}>
+          <BreakupLetterModal
+            open={breakupLetterModalOpen}
+            onOpenChange={(open) => {
+              setBreakupLetterModalOpen(open);
+              if (!open) {
+                setApplySequenceModalOpen(true);
+              }
+            }}
+            agencyId={profile.agency_id}
+            customerName={newSaleData.customerName}
+            customerZip={newSaleData.customerZip}
+            customerEmail={newSaleData.customerEmail}
+            customerPhone={newSaleData.customerPhone}
+            policies={newSaleData.breakupPolicies}
+            sourceContext="sale_upload"
+            onContinueToSequence={() => {
+              setBreakupLetterModalOpen(false);
               setApplySequenceModalOpen(true);
-            }
-          }}
-          agencyId={profile.agency_id}
-          customerName={newSaleData.customerName}
-          customerZip={newSaleData.customerZip}
-          customerEmail={newSaleData.customerEmail}
-          customerPhone={newSaleData.customerPhone}
-          policies={newSaleData.breakupPolicies}
-          sourceContext="sale_upload"
-          onContinueToSequence={() => {
-            setBreakupLetterModalOpen(false);
-            setApplySequenceModalOpen(true);
-          }}
-        />
+            }}
+          />
+        </Suspense>
       )}
     </form>
   );
