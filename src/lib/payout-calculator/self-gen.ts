@@ -26,6 +26,7 @@ export async function calculateSelfGenMetrics(
   periodStartDate: Date,
   periodEndDate: Date
 ): Promise<SelfGenMetrics> {
+  // Exclude brokered sales — self-gen measures core sales workflow lead generation
   const { data, error } = await supabase
     .from('sales')
     .select(`
@@ -38,6 +39,7 @@ export async function calculateSelfGenMetrics(
     `)
     .eq('agency_id', agencyId)
     .eq('team_member_id', teamMemberId)
+    .is('brokered_carrier_id', null)
     .gte('sale_date', format(periodStartDate, 'yyyy-MM-dd'))
     .lte('sale_date', format(periodEndDate, 'yyyy-MM-dd'));
 
@@ -46,7 +48,7 @@ export async function calculateSelfGenMetrics(
     return createEmptyMetrics();
   }
 
-  // Also fetch sales without lead_sources (count as non-self-gen)
+  // Also fetch sales without lead_sources (count as non-self-gen), excluding brokered
   const { data: salesWithoutSource, error: noSourceError } = await supabase
     .from('sales')
     .select(`
@@ -58,6 +60,7 @@ export async function calculateSelfGenMetrics(
     .eq('agency_id', agencyId)
     .eq('team_member_id', teamMemberId)
     .is('lead_source_id', null)
+    .is('brokered_carrier_id', null)
     .gte('sale_date', format(periodStartDate, 'yyyy-MM-dd'))
     .lte('sale_date', format(periodEndDate, 'yyyy-MM-dd'));
 
@@ -138,7 +141,9 @@ export async function calculateSelfGenMetricsBatch(
     return results;
   }
 
-  // Fetch all sales for these team members in the period
+  // Fetch all non-brokered sales for these team members in the period.
+  // Brokered sales are excluded from self-gen calculation because self-gen
+  // measures lead-generation performance on the core sales workflow.
   const { data, error } = await supabase
     .from('sales')
     .select(`
@@ -152,6 +157,7 @@ export async function calculateSelfGenMetricsBatch(
     `)
     .eq('agency_id', agencyId)
     .in('team_member_id', teamMemberIds)
+    .is('brokered_carrier_id', null)
     .gte('sale_date', format(periodStartDate, 'yyyy-MM-dd'))
     .lte('sale_date', format(periodEndDate, 'yyyy-MM-dd'));
 

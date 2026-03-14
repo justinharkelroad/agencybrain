@@ -367,7 +367,7 @@ export function normalizeProductType(product: string): string {
     'LANDLORD': 'Landlord/Dwelling',
     'PERSONAL UMBRELLA': 'Umbrella',
     'UMBRELLA': 'Umbrella',
-    'SPECIALTY AUTO': 'Auto',
+    'SPECIALTY AUTO': 'Specialty Auto',
     'MOTOR CLUB': 'Motor Club',
     'SCHEDULED PERSONAL PROPERTY': 'Scheduled Property',
     'MANUFACTURED HOME': 'Manufactured Home',

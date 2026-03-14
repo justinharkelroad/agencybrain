@@ -50,16 +50,18 @@ function parseNumericValue(value: any): number {
 }
 
 // Parse percentage values like "9%" or 0.09
+// Allstate rate columns use whole-number percentages (9 means 9%, 1 means 1%).
+// Excel may also return pre-divided decimals (0.09 means 9%).
+// Threshold: >= 1 is a whole-number percentage, < 1 is already a decimal rate.
 function parseRateValue(value: any): number {
   if (value === null || value === undefined || value === '') return 0;
   if (typeof value === 'number') {
-    // If > 1, assume percentage like 9 means 9%
-    return value > 1 ? value / 100 : value;
+    return value >= 1 ? value / 100 : value;
   }
   const str = String(value).replace('%', '').trim();
   const num = parseFloat(str);
   if (isNaN(num)) return 0;
-  return num > 1 ? num / 100 : num;
+  return num >= 1 ? num / 100 : num;
 }
 
 // Extract agent number from header area of the statement

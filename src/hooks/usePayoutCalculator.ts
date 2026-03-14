@@ -8,6 +8,7 @@ import { calculateSelfGenMetricsBatch, SelfGenMetrics } from "@/lib/payout-calcu
 import { SubProducerMetrics } from "@/lib/allstate-analyzer/sub-producer-analyzer";
 import { normalizePolicyType } from "@/lib/payout-calculator/policyTypeFilter";
 import { calculateCountableTotals, isExcludedProduct } from "@/lib/product-constants";
+import { assertPeriodNotFinalized } from "@/lib/payout-calculator/persist-guards";
 import { toast } from "sonner";
 
 // Manual override interface for testing compensation calculations
@@ -427,13 +428,19 @@ export function usePayoutCalculator(agencyId: string | null) {
 
   // The currently active assignment set is authoritative at run time.
   // Monthly comp uses whatever plan assignment is active when the admin calculates/finalizes.
+  // Scoped to agency-filtered team members (comp_plan_assignments has no agency_id column).
+  const teamMemberIds = teamMembers.map(tm => tm.id);
+  // Stable string key for React Query (avoids new array reference each render)
+  const teamMemberIdsKey = teamMemberIds.join(",");
   const { data: assignments = [] } = useQuery<Assignment[]>({
-    queryKey: ["comp-plan-assignments", agencyId],
-    enabled: !!agencyId,
+    queryKey: ["comp-plan-assignments", agencyId, teamMemberIdsKey],
+    enabled: !!agencyId && teamMemberIds.length > 0,
     queryFn: async () => {
+      if (teamMemberIds.length === 0) return [];
       const { data, error } = await supabase
         .from("comp_plan_assignments")
         .select("team_member_id, comp_plan_id")
+        .in("team_member_id", teamMemberIds)
         .is("end_date", null);
       if (error) throw error;
       return data || [];
@@ -467,6 +474,9 @@ export function usePayoutCalculator(agencyId: string | null) {
     if (mixedPeriod) {
       throw new Error("All payouts in a save batch must belong to the same month and year");
     }
+
+    // Protect finalized/paid rows from being overwritten by a re-calculation
+    await assertPeriodNotFinalized(supabase, agencyId, periodMonth, periodYear);
 
     const integerFieldChecks: Array<{ key: keyof PayoutCalculation; label: string }> = [
       { key: "writtenItems", label: "written items" },

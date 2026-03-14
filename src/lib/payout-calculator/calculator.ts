@@ -276,15 +276,22 @@ function getFilteredMetricFromPerformance(
 
   switch (tierMetric) {
     case "premium":
+      // When issued, use premiumWritten (statement-level issued premium).
+      // Both written/issued map to premiumWritten from statement data;
+      // netPremium deducts chargebacks which should not affect tier qualification.
       return matchingProducts.reduce((sum, p) => sum + (p.premiumWritten || 0), 0);
     case "items":
       return matchingProducts.reduce((sum, p) => sum + (p.itemsIssued || 0), 0);
     case "policies":
+      // creditCount is the best per-product proxy for policy count from statement data
       return matchingProducts.reduce((sum, p) => sum + (p.creditCount || 0), 0);
     case "households":
+      // Households = unique insureds. creditCount is per-product so may overcount
+      // when a customer has multiple products. Use creditCount as the available proxy.
       return matchingProducts.reduce((sum, p) => sum + (p.creditCount || 0), 0);
     case "points":
-      return matchingProducts.reduce((sum, p) => sum + (p.creditCount || 0), 0);
+      // Points use itemsIssued (item count) as the base, not creditCount
+      return matchingProducts.reduce((sum, p) => sum + (p.itemsIssued || 0), 0);
     default:
       return matchingProducts.reduce((sum, p) => sum + (p.premiumWritten || 0), 0);
   }
@@ -623,13 +630,12 @@ export function calculateBrokeredCommission(
       const tierMatch = findMatchingTier(brokeredTiers, brokeredMetrics.items);
       if (!tierMatch) return 0;
 
-      // Determine if tiered rate is % or flat based on value range
-      // Rates > 1 are typically flat per item, <= 1 are percentages
-      if (tierMatch.commissionValue > 1) {
-        return brokeredMetrics.items * tierMatch.commissionValue;
-      } else {
-        return brokeredMetrics.premium * tierMatch.commissionValue;
-      }
+      // Brokered tiered values default to flat-per-item interpretation.
+      // This is the default brokered_payout_type and the most common structure
+      // for brokered commission (e.g., $15/item at tier 1, $20/item at tier 2).
+      // Previously this guessed from the value itself (>1 = flat, <=1 = percent)
+      // which broke for small flat rates like $0.50-$1.00.
+      return brokeredMetrics.items * tierMatch.commissionValue;
     }
 
     default:

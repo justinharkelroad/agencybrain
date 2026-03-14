@@ -490,6 +490,19 @@ export function PayoutPreview({
       assignmentsByMember.set(assignment.team_member_id, existing);
     }
 
+    // Pre-flight: check for assigned team members with missing sub-producer codes.
+    // Only flag staff who are actually assigned to an active comp plan.
+    for (const member of teamMembers) {
+      const memberPlanIds = assignmentsByMember.get(member.id) || [];
+      if (memberPlanIds.length === 0) continue; // not assigned, skip
+      if (!member.sub_producer_code || !member.sub_producer_code.trim()) {
+        blockers.push(
+          `${member.name} is assigned to a comp plan but has no sub-producer code. ` +
+          `Set their sub-producer code in Team Settings before running comp.`
+        );
+      }
+    }
+
     const fullRuleProducts = new Set<string>();
 
     for (const producer of producers) {
