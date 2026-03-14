@@ -53,8 +53,8 @@ export default function StaffWeeklyDebrief() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-[#020817] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-white/40" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }

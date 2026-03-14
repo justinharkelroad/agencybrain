@@ -45,7 +45,7 @@
     --secondary: 230 45% 15%; /* #171A2F */
     --secondary-foreground: 0 0% 100%; /* White */
     
-    --background: 216 25% 95%; /* Warm blue-gray tint */
+    --background: 216 25% 93%; /* Warm blue-gray tint — enough contrast against white cards */
     --foreground: 0 0% 0%; /* Black */
 
     /* UI Colors */
@@ -87,7 +87,7 @@
 
     --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 100%;
+    --sidebar-background: 220 15% 98%;
 
     --sidebar-foreground: 240 5.3% 26.1%;
 
@@ -95,11 +95,11 @@
 
     --sidebar-primary-foreground: 0 0% 98%;
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent: 220 15% 94%;
 
     --sidebar-accent-foreground: 240 5.9% 10%;
 
-    --sidebar-border: 220 13% 91%;
+    --sidebar-border: 220 15% 88%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
@@ -232,7 +232,7 @@
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
   textarea,
   [role="combobox"] {
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 0 0 1px rgba(0, 0, 0, 0.02);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), inset 0 0 0 1px rgba(0, 0, 0, 0.04);
   }
 
   .dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
@@ -243,9 +243,10 @@
 
   /* Glass and Frosted utilities */
   .glass-surface {
-    background-color: hsl(var(--card) / 0.8);
-    border: 1px solid hsl(var(--border) / 0.5);
-    backdrop-filter: none;
+    background-color: hsl(var(--card) / 0.75);
+    border: 1px solid hsl(var(--border) / 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
   }
 
   .dark .glass-surface {
@@ -583,7 +584,7 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(0, 0, 0, 0.04) 50%,
+    rgba(0, 0, 0, 0.10) 50%,
     transparent 100%
   );
   pointer-events: none;

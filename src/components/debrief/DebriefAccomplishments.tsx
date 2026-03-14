@@ -47,22 +47,22 @@ export function DebriefAccomplishments({
   return (
     <div className="max-w-lg mx-auto px-4 py-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="text-center mb-6">
-        <h2 className="text-xl font-bold text-white">Your Accomplishments</h2>
-        <p className="text-sm text-white/50 mt-1">Here's what you got done this week</p>
+        <h2 className="text-xl font-bold text-foreground">Your Accomplishments</h2>
+        <p className="text-sm text-muted-foreground mt-1">Here's what you got done this week</p>
       </div>
 
       {/* Core 4 Summary */}
       {core4DaysCompleted > 0 && (
-        <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+        <div className="bg-foreground/5 rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
             <Flame className="h-4 w-4 text-orange-400" />
-            <span className="text-sm font-semibold text-white">Core 4</span>
+            <span className="text-sm font-semibold text-foreground">Core 4</span>
           </div>
-          <p className="text-sm text-white/60">
+          <p className="text-sm text-muted-foreground">
             {core4DaysCompleted === 7 ? (
               <span className="text-emerald-400 font-medium">Perfect week! All 4 domains every day.</span>
             ) : (
-              <>Completed all 4 domains on <span className="text-white font-medium">{core4DaysCompleted}</span> day{core4DaysCompleted !== 1 ? "s" : ""}</>
+              <>Completed all 4 domains on <span className="text-foreground font-medium">{core4DaysCompleted}</span> day{core4DaysCompleted !== 1 ? "s" : ""}</>
             )}
           </p>
         </div>
@@ -70,31 +70,31 @@ export function DebriefAccomplishments({
 
       {/* Flow Sessions */}
       {flowSessionCount > 0 && (
-        <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+        <div className="bg-foreground/5 rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
             <Sparkles className="h-4 w-4 text-violet-400" />
-            <span className="text-sm font-semibold text-white">Flows</span>
+            <span className="text-sm font-semibold text-foreground">Flows</span>
           </div>
-          <p className="text-sm text-white/60">
-            Completed <span className="text-white font-medium">{flowSessionCount}</span> flow session{flowSessionCount !== 1 ? "s" : ""}
+          <p className="text-sm text-muted-foreground">
+            Completed <span className="text-foreground font-medium">{flowSessionCount}</span> flow session{flowSessionCount !== 1 ? "s" : ""}
           </p>
         </div>
       )}
 
       {/* One Big Thing */}
       {oneBigThing && (
-        <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+        <div className="bg-foreground/5 rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
             <Target className="h-4 w-4 text-amber-400" />
-            <span className="text-sm font-semibold text-white">One Big Thing</span>
+            <span className="text-sm font-semibold text-foreground">One Big Thing</span>
           </div>
           <div className="flex items-center gap-2">
             {oneBigThing.completed ? (
               <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
             ) : (
-              <div className="h-4 w-4 rounded-full border border-white/30 shrink-0" />
+              <div className="h-4 w-4 rounded-full border border-border shrink-0" />
             )}
-            <span className={cn("text-sm", oneBigThing.completed ? "text-white" : "text-white/50")}>
+            <span className={cn("text-sm", oneBigThing.completed ? "text-foreground" : "text-muted-foreground")}>
               {oneBigThing.title}
             </span>
           </div>
@@ -103,10 +103,10 @@ export function DebriefAccomplishments({
 
       {/* Completed Power Plays by Domain */}
       {completedPowerPlays.length > 0 && (
-        <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+        <div className="bg-foreground/5 rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-3">
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-            <span className="text-sm font-semibold text-white">
+            <span className="text-sm font-semibold text-foreground">
               Completed Power Plays ({completedPowerPlays.length})
             </span>
           </div>
@@ -121,7 +121,7 @@ export function DebriefAccomplishments({
                       {dm.label}
                     </span>
                   )}
-                  <span className="text-sm text-white/70">{pp.title}</span>
+                  <span className="text-sm text-muted-foreground">{pp.title}</span>
                 </div>
               );
             })}
@@ -131,21 +131,21 @@ export function DebriefAccomplishments({
 
       {/* Gratitude Note */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-white/70">
+        <label className="text-sm font-medium text-muted-foreground">
           What are you grateful for this week?
         </label>
         <Textarea
           value={localNote}
           onChange={(e) => setLocalNote(e.target.value)}
           placeholder="Take a moment to acknowledge what went well..."
-          className="bg-white/5 border-white/10 text-white placeholder:text-white/30 min-h-[100px] resize-none"
+          className="bg-foreground/5 border-border text-foreground placeholder:text-muted-foreground min-h-[100px] resize-none"
         />
       </div>
 
       <div className="flex justify-end pt-2">
         <Button
           onClick={handleNext}
-          className="bg-white text-[#020817] hover:bg-white/90 rounded-full px-6"
+          className="bg-foreground text-background hover:bg-foreground/90 rounded-full px-6"
         >
           Continue
           <ArrowRight className="ml-2 h-4 w-4" />

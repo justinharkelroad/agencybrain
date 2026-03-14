@@ -53,10 +53,10 @@ export function ProducerPowerUpBanner() {
   if (dismissed !== false) return null;
 
   return (
-    <Card className="border-sky-500/40 bg-gradient-to-r from-[#1e283a] to-[#020817] text-white relative">
+    <Card className="border-sky-500/40 bg-gradient-to-r from-sky-50 to-slate-100 dark:from-[#1e283a] dark:to-[#020817] text-foreground dark:text-white relative">
       <button
         onClick={handleDismiss}
-        className="absolute top-3 right-3 text-gray-600 dark:text-gray-400 hover:text-white transition-colors"
+        className="absolute top-3 right-3 text-muted-foreground hover:text-foreground dark:text-gray-400 dark:hover:text-white transition-colors"
         aria-label="Dismiss banner"
       >
         <X className="h-4 w-4" />
@@ -70,7 +70,7 @@ export function ProducerPowerUpBanner() {
             <h3 className="font-semibold text-base leading-tight">
               The 6 Week Producer Challenge 2.0 is LIVE inside AgencyBrain
             </h3>
-            <p className="text-sm text-gray-300 mt-1">
+            <p className="text-sm text-muted-foreground dark:text-gray-300 mt-1">
               A structured 6-week challenge that turns your producers' daily agency habits into a system — and builds the kind of discipline that changes everything else too.
             </p>
           </div>

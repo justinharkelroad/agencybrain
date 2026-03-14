@@ -196,33 +196,33 @@ export function DebriefNextWeekPlanning({
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="text-center mb-4">
-        <h2 className="text-xl font-bold text-white">Plan Next Week</h2>
-        <p className="text-sm text-white/50 mt-1">
+        <h2 className="text-xl font-bold text-foreground">Plan Next Week</h2>
+        <p className="text-sm text-muted-foreground mt-1">
           Set your intention for {format(nextMonday, "MMM d")} - {format(addDays(nextMonday, 4), "MMM d")}
         </p>
       </div>
 
       {/* One Big Thing input */}
-      <div className="bg-white/5 rounded-xl p-5 border border-white/10 space-y-3">
+      <div className="bg-foreground/5 rounded-xl p-5 border border-border space-y-3">
         <div className="flex items-center gap-2">
           <Target className="h-5 w-5 text-amber-400" />
-          <span className="text-sm font-semibold text-white">One Big Thing</span>
+          <span className="text-sm font-semibold text-foreground">One Big Thing</span>
         </div>
-        <p className="text-xs text-white/50">
+        <p className="text-xs text-muted-foreground">
           What's the single most important thing you want to accomplish next week?
         </p>
         <Input
           value={localOBT}
           onChange={(e) => setLocalOBT(e.target.value)}
           placeholder="My One Big Thing for next week..."
-          className="bg-white/5 border-white/10 text-white placeholder:text-white/30"
+          className="bg-foreground/5 border-border text-foreground placeholder:text-muted-foreground"
         />
       </div>
 
       {/* Full playbook for next week — light theme container */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-white/40" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : (
         <div className="bg-background text-foreground rounded-xl border overflow-hidden">
@@ -304,14 +304,14 @@ export function DebriefNextWeekPlanning({
         <Button
           variant="ghost"
           onClick={onBack}
-          className="text-white/60 hover:text-white hover:bg-white/10 rounded-full"
+          className="text-muted-foreground hover:text-foreground hover:bg-foreground/10 rounded-full"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
         </Button>
         <Button
           onClick={handleNext}
-          className="bg-white text-[#020817] hover:bg-white/90 rounded-full px-6"
+          className="bg-foreground text-background hover:bg-foreground/90 rounded-full px-6"
         >
           Continue
           <ArrowRight className="ml-2 h-4 w-4" />

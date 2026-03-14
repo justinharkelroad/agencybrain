@@ -135,22 +135,22 @@ export function DebriefWizard({
 
   if (isLoading || weekSummary.loading) {
     return (
-      <div className="min-h-screen bg-[#020817] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-white/40" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#020817] flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="border-b border-white/5 bg-[#020817]/95 backdrop-blur sticky top-0 z-10">
+      <header className="border-b border-border/50 bg-background/95 backdrop-blur sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-white/60">The Debrief</span>
+              <span className="text-sm font-medium text-muted-foreground">The Debrief</span>
               {step > 0 && (
-                <span className="text-xs text-white/30">
+                <span className="text-xs text-muted-foreground/70">
                   {STEP_LABELS[step]}
                 </span>
               )}
@@ -159,13 +159,13 @@ export function DebriefWizard({
               variant="ghost"
               size="sm"
               onClick={handleExit}
-              className="h-8 px-2 text-white/40 hover:text-white hover:bg-white/10"
+              className="h-8 px-2 text-muted-foreground hover:text-foreground hover:bg-foreground/10"
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
           {step > 0 && (
-            <Progress value={progress} className="h-1 bg-white/10 [&>div]:bg-white/40" />
+            <Progress value={progress} className="h-1 bg-muted [&>div]:bg-foreground/40" />
           )}
         </div>
       </header>

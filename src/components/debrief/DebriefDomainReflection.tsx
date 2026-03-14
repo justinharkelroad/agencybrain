@@ -136,8 +136,8 @@ export function DebriefDomainReflection({
   return (
     <div className="max-w-lg mx-auto px-4 py-6 space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="text-center mb-4">
-        <h2 className="text-xl font-bold text-white">Domain Reflections</h2>
-        <p className="text-sm text-white/50 mt-1">Reflect on each area of your life</p>
+        <h2 className="text-xl font-bold text-foreground">Domain Reflections</h2>
+        <p className="text-sm text-muted-foreground mt-1">Reflect on each area of your life</p>
       </div>
 
       <DebriefDomainTabs
@@ -147,16 +147,16 @@ export function DebriefDomainReflection({
       />
 
       {/* Domain-specific accomplishments */}
-      <div className={cn("rounded-xl p-4 border border-white/10", domainConfig.bgColor)}>
+      <div className={cn("rounded-xl p-4 border border-border", domainConfig.bgColor)}>
         <div className="flex items-center gap-2 mb-2">
           <DomainIcon className={cn("h-4 w-4", domainConfig.color)} />
-          <span className="text-sm font-semibold text-white capitalize">{activeDomain} this week</span>
+          <span className="text-sm font-semibold text-foreground capitalize">{activeDomain} this week</span>
         </div>
         {domainAccomplishments && (
           <div className="space-y-1.5">
             {domainAccomplishments.core4Days > 0 && (
-              <p className="text-xs text-white/60">
-                Core 4: checked <span className="text-white font-medium">{domainAccomplishments.core4Days}</span> day{domainAccomplishments.core4Days !== 1 ? "s" : ""}
+              <p className="text-xs text-muted-foreground">
+                Core 4: checked <span className="text-foreground font-medium">{domainAccomplishments.core4Days}</span> day{domainAccomplishments.core4Days !== 1 ? "s" : ""}
               </p>
             )}
             {domainAccomplishments.powerPlays.length > 0 && (
@@ -166,15 +166,15 @@ export function DebriefDomainReflection({
                     {pp.completed ? (
                       <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
                     ) : (
-                      <div className="h-3 w-3 rounded-full border border-white/30 shrink-0" />
+                      <div className="h-3 w-3 rounded-full border border-border shrink-0" />
                     )}
-                    <span className={pp.completed ? "text-white/70" : "text-white/40"}>{pp.title}</span>
+                    <span className={pp.completed ? "text-muted-foreground" : "text-muted-foreground/60"}>{pp.title}</span>
                   </div>
                 ))}
               </div>
             )}
             {domainAccomplishments.core4Days === 0 && domainAccomplishments.powerPlays.length === 0 && (
-              <p className="text-xs text-white/40 italic">No tracked activity this week</p>
+              <p className="text-xs text-muted-foreground/60 italic">No tracked activity this week</p>
             )}
           </div>
         )}
@@ -184,20 +184,20 @@ export function DebriefDomainReflection({
       <div className="space-y-4">
         {/* Wins */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-white/70">
+          <label className="text-sm font-medium text-muted-foreground">
             What wins did you have in <span className="capitalize">{activeDomain}</span> this week?
           </label>
           <Textarea
             value={currentReflection.wins}
             onChange={(e) => updateField("wins", e.target.value)}
             placeholder="What went well..."
-            className="bg-white/5 border-white/10 text-white placeholder:text-white/30 min-h-[80px] resize-none"
+            className="bg-foreground/5 border-border text-foreground placeholder:text-muted-foreground min-h-[80px] resize-none"
           />
         </div>
 
         {/* Course correction */}
         <div className="space-y-3">
-          <label className="text-sm font-medium text-white/70">
+          <label className="text-sm font-medium text-muted-foreground">
             Any course corrections you want to make?
           </label>
           <div className="flex gap-2">
@@ -206,8 +206,8 @@ export function DebriefDomainReflection({
               className={cn(
                 "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all border",
                 currentReflection.course_correction
-                  ? "bg-white text-[#020817] border-white"
-                  : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+                  ? "bg-foreground text-background border-foreground"
+                  : "bg-foreground/5 text-muted-foreground border-border hover:bg-foreground/10"
               )}
             >
               Yes
@@ -220,8 +220,8 @@ export function DebriefDomainReflection({
               className={cn(
                 "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all border",
                 !currentReflection.course_correction
-                  ? "bg-white text-[#020817] border-white"
-                  : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+                  ? "bg-foreground text-background border-foreground"
+                  : "bg-foreground/5 text-muted-foreground border-border hover:bg-foreground/10"
               )}
             >
               No
@@ -232,14 +232,14 @@ export function DebriefDomainReflection({
               value={currentReflection.course_correction_note}
               onChange={(e) => updateField("course_correction_note", e.target.value)}
               placeholder="What would you change or do differently..."
-              className="bg-white/5 border-white/10 text-white placeholder:text-white/30 min-h-[80px] resize-none animate-in fade-in slide-in-from-top-2 duration-300"
+              className="bg-foreground/5 border-border text-foreground placeholder:text-muted-foreground min-h-[80px] resize-none animate-in fade-in slide-in-from-top-2 duration-300"
             />
           )}
         </div>
 
         {/* Add tasks for next week */}
         <div className="space-y-3">
-          <label className="text-sm font-medium text-white/70">
+          <label className="text-sm font-medium text-muted-foreground">
             What do you want to accomplish in <span className="capitalize">{activeDomain}</span> next week?
           </label>
           <div className="flex gap-2">
@@ -247,7 +247,7 @@ export function DebriefDomainReflection({
               value={newTaskText}
               onChange={(e) => setNewTaskText(e.target.value)}
               placeholder={`Add a ${activeDomain} task for next week...`}
-              className="bg-white/5 border-white/10 text-white placeholder:text-white/30 flex-1"
+              className="bg-foreground/5 border-border text-foreground placeholder:text-muted-foreground flex-1"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
@@ -259,7 +259,7 @@ export function DebriefDomainReflection({
               onClick={handleAddTask}
               disabled={!newTaskText.trim()}
               size="icon"
-              className="bg-white/10 hover:bg-white/20 text-white border border-white/10 shrink-0"
+              className="bg-foreground/10 hover:bg-foreground/20 text-foreground border border-border shrink-0"
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -267,10 +267,10 @@ export function DebriefDomainReflection({
           {currentAddedTasks.length > 0 && (
             <div className="space-y-1.5">
               {currentAddedTasks.map((task, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs text-white/60 bg-white/5 rounded-lg px-3 py-2">
+                <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground bg-foreground/5 rounded-lg px-3 py-2">
                   <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
                   <span className="flex-1">{task}</span>
-                  <span className="text-white/30 text-[10px]">on bench</span>
+                  <span className="text-muted-foreground/50 text-[10px]">on bench</span>
                 </div>
               ))}
             </div>
@@ -279,7 +279,7 @@ export function DebriefDomainReflection({
 
         {/* Rating chips */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-white/70">
+          <label className="text-sm font-medium text-muted-foreground">
             Rate your <span className="capitalize">{activeDomain}</span> effort this week
           </label>
           <div className="flex gap-1.5 flex-wrap">
@@ -290,8 +290,8 @@ export function DebriefDomainReflection({
                 className={cn(
                   "w-9 h-9 rounded-lg text-sm font-semibold transition-all",
                   currentReflection.rating === n
-                    ? "bg-white text-[#020817] scale-110"
-                    : "bg-white/10 text-white/60 hover:bg-white/20"
+                    ? "bg-foreground text-background scale-110"
+                    : "bg-foreground/10 text-foreground/60 hover:bg-foreground/20"
                 )}
               >
                 {n}
@@ -305,7 +305,7 @@ export function DebriefDomainReflection({
         <Button
           variant="ghost"
           onClick={handleBack}
-          className="text-white/60 hover:text-white hover:bg-white/10 rounded-full"
+          className="text-muted-foreground hover:text-foreground hover:bg-foreground/10 rounded-full"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back
@@ -313,7 +313,7 @@ export function DebriefDomainReflection({
         <Button
           onClick={handleNext}
           disabled={!allDomainsRated}
-          className="bg-white text-[#020817] hover:bg-white/90 rounded-full px-6 disabled:opacity-40"
+          className="bg-foreground text-background hover:bg-foreground/90 rounded-full px-6 disabled:opacity-40"
         >
           {allDomainsRated ? "Continue" : "Rate all domains to continue"}
           <ArrowRight className="ml-2 h-4 w-4" />

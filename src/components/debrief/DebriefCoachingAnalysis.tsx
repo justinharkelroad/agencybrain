@@ -59,8 +59,8 @@ export function DebriefCoachingAnalysis({
     <div className="max-w-lg mx-auto px-4 py-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="text-center mb-4">
         <Sparkles className="h-6 w-6 text-amber-400 mx-auto mb-3" />
-        <h2 className="text-xl font-bold text-white">Your Coach's Analysis</h2>
-        <p className="text-sm text-white/50 mt-1">Personalized insights from your weekly debrief</p>
+        <h2 className="text-xl font-bold text-foreground">Your Coach's Analysis</h2>
+        <p className="text-sm text-muted-foreground mt-1">Personalized insights from your weekly debrief</p>
       </div>
 
       {/* Score summary */}
@@ -75,28 +75,28 @@ export function DebriefCoachingAnalysis({
             <Loader2 className="h-8 w-8 animate-spin text-amber-400" />
           </div>
           <div className="text-center">
-            <p className="text-sm text-white/70 font-medium">Analyzing your week...</p>
-            <p className="text-xs text-white/40 mt-1">Your coach is reviewing your reflections</p>
+            <p className="text-sm text-muted-foreground font-medium">Analyzing your week...</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">Your coach is reviewing your reflections</p>
           </div>
         </div>
       ) : error ? (
-        <div className="bg-white/5 rounded-xl p-6 border border-white/10 text-center space-y-3">
-          <p className="text-sm text-white/60">{error}</p>
+        <div className="bg-foreground/5 rounded-xl p-6 border border-border text-center space-y-3">
+          <p className="text-sm text-muted-foreground">{error}</p>
           <Button
             variant="ghost"
             size="sm"
             onClick={requestAnalysis}
-            className="text-white/50 hover:text-white hover:bg-white/10"
+            className="text-muted-foreground hover:text-foreground hover:bg-foreground/10"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
             Try Again
           </Button>
         </div>
       ) : analysis ? (
-        <div className="bg-gradient-to-br from-white/[0.08] to-white/[0.03] rounded-xl p-6 border border-white/10 space-y-1">
-          <div className="prose prose-sm prose-invert max-w-none">
+        <div className="bg-gradient-to-br from-foreground/[0.08] to-foreground/[0.03] rounded-xl p-6 border border-border space-y-1">
+          <div className="prose prose-sm dark:prose-invert max-w-none">
             {analysis.split('\n\n').map((paragraph, i) => (
-              <p key={i} className="text-sm text-white/80 leading-relaxed mb-4 last:mb-0">
+              <p key={i} className="text-sm text-foreground/80 leading-relaxed mb-4 last:mb-0">
                 {paragraph}
               </p>
             ))}
@@ -108,7 +108,7 @@ export function DebriefCoachingAnalysis({
         <Button
           variant="ghost"
           onClick={onBack}
-          className="text-white/60 hover:text-white hover:bg-white/10 rounded-full"
+          className="text-muted-foreground hover:text-foreground hover:bg-foreground/10 rounded-full"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back

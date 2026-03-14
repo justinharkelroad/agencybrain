@@ -45,7 +45,7 @@ export function DebriefScoreRing({ total, max, size = "lg", className }: Debrief
           cy="18"
           r="15.5"
           fill="none"
-          stroke="rgba(255,255,255,0.1)"
+          className="stroke-foreground/10"
           strokeWidth="2.5"
         />
         <circle
@@ -62,7 +62,7 @@ export function DebriefScoreRing({ total, max, size = "lg", className }: Debrief
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className={cn("font-bold", textClasses[size], getColor())}>{total}</span>
-        <span className="text-[10px] text-white/50 uppercase tracking-wider">/ {max}</span>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">/ {max}</span>
       </div>
     </div>
   );

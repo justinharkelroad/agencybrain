@@ -36,24 +36,24 @@ export function DebriefSundayBanner() {
   }
 
   return (
-    <div className="relative bg-gradient-to-r from-[#1e283a] to-[#020817] text-white rounded-xl p-5 mb-6 flex items-center justify-between">
+    <div className="relative bg-gradient-to-r from-sky-50 to-slate-100 dark:from-[#1e283a] dark:to-[#020817] text-foreground dark:text-white rounded-xl p-5 mb-6 flex items-center justify-between">
       <div className="flex items-center gap-4">
-        <div className="bg-white/10 rounded-lg p-2.5">
+        <div className="bg-foreground/10 rounded-lg p-2.5">
           <ClipboardEdit className="h-6 w-6 text-amber-400" />
         </div>
         <div>
           <p className="font-semibold text-base">Your Weekly Debrief is ready</p>
-          <p className="text-sm text-white/60 mt-0.5">Reflect on your week, plan the next one, and get your coaching analysis.</p>
+          <p className="text-sm text-muted-foreground dark:text-white/60 mt-0.5">Reflect on your week, plan the next one, and get your coaching analysis.</p>
         </div>
       </div>
       <div className="flex items-center gap-2">
         <Button
           onClick={() => navigate("/debrief")}
-          className="bg-white text-[#020817] hover:bg-white/90 font-semibold rounded-full px-6"
+          className="bg-foreground text-background hover:bg-foreground/90 font-semibold rounded-full px-6"
         >
           Begin Debrief
         </Button>
-        <button onClick={() => setDismissed(true)} className="text-white/30 hover:text-white/60 p-1">
+        <button onClick={() => setDismissed(true)} className="text-muted-foreground/50 hover:text-muted-foreground dark:text-white/30 dark:hover:text-white/60 p-1">
           <X className="h-4 w-4" />
         </button>
       </div>

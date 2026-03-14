@@ -31,7 +31,7 @@ export function DebriefHistory({ onViewDebrief }: DebriefHistoryProps) {
   if (isLoading) {
     return (
       <div className="flex justify-center py-8">
-        <Loader2 className="h-5 w-5 animate-spin text-white/40" />
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -51,23 +51,23 @@ export function DebriefHistory({ onViewDebrief }: DebriefHistoryProps) {
 
   return (
     <div className="mt-8 w-full max-w-sm mx-auto">
-      <p className="text-xs text-white/40 uppercase tracking-wider mb-3 text-center">Past Debriefs</p>
+      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 text-center">Past Debriefs</p>
       <div className="space-y-2">
         {reviews.map((r) => (
           <button
             key={r.id}
             onClick={() => onViewDebrief(r.week_key)}
-            className="w-full flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-4 py-3 transition-all text-left group"
+            className="w-full flex items-center gap-3 bg-foreground/5 hover:bg-foreground/10 border border-border rounded-lg px-4 py-3 transition-all text-left group"
           >
             <DebriefScoreRing total={r.total_points ?? 0} max={56} size="sm" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white">{r.week_key}</p>
-              <p className="text-xs text-white/40">
+              <p className="text-sm font-medium text-foreground">{r.week_key}</p>
+              <p className="text-xs text-muted-foreground">
                 {r.core4_points ?? 0}/28 · {r.flow_points ?? 0}/7 · {r.playbook_points ?? 0}/21
                 {getAvgRating(r.domain_reflections as Record<string, unknown> | null) && ` · Avg ${getAvgRating(r.domain_reflections as Record<string, unknown> | null)}/10`}
               </p>
             </div>
-            <ChevronRight className="h-4 w-4 text-white/21 group-hover:text-white/50 transition-colors" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
           </button>
         ))}
       </div>

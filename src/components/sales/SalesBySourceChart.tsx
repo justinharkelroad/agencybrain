@@ -279,7 +279,7 @@ export function SalesBySourceChart({ agencyId, startDate, endDate, staffSessionT
               <Tooltip
                 cursor={false}
                 contentStyle={{
-                  backgroundColor: 'hsl(222 47% 11%)',
+                  backgroundColor: 'hsl(var(--popover))',
                   border: '1px solid hsl(var(--border))',
                   borderRadius: '8px',
                   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',

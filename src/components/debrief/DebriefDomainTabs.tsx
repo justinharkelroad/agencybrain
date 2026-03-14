@@ -29,7 +29,7 @@ export function DebriefDomainTabs({ activeDomain, onDomainChange, completedDomai
               "flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border transition-all",
               isActive
                 ? color + " border-current"
-                : "bg-white/5 text-white/40 border-white/10 hover:bg-white/10"
+                : "bg-foreground/5 text-muted-foreground border-border hover:bg-foreground/10"
             )}
           >
             <div className="relative">
@@ -45,4 +45,3 @@ export function DebriefDomainTabs({ activeDomain, onDomainChange, completedDomai
     </div>
   );
 }
-
