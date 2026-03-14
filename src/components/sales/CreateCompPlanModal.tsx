@@ -997,6 +997,9 @@ export function CreateCompPlanModal({
 
               {useProductRates && (
                 <div className="space-y-3 pt-2">
+                  <p className="text-xs text-muted-foreground">
+                    Only products listed below will earn commission. Any product not added here receives $0.
+                  </p>
                   {Object.entries(productRates).map(([productName, config]) => (
                     <div
                       key={productName}
