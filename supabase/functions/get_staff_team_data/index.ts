@@ -760,7 +760,7 @@ serve(async (req) => {
             total_points: scores.totalPoints || 0,
             status: 'completed',
             completed_at: new Date().toISOString(),
-            current_step: 4,
+            current_step: 5,
             updated_at: new Date().toISOString(),
           })
           .eq('id', review_id)

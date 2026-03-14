@@ -5,6 +5,7 @@ import { DebriefWizard } from "@/components/debrief/DebriefWizard";
 import { useStaffWeekSummary } from "@/hooks/useStaffWeekSummary";
 import { useStaffWeeklyDebrief } from "@/hooks/useStaffWeeklyDebrief";
 import { useStaffFocusItems } from "@/hooks/useStaffFocusItems";
+import { supabase } from "@/integrations/supabase/client";
 import type { WeeklyReview } from "@/hooks/useWeeklyDebrief";
 import { Loader2 } from "lucide-react";
 
@@ -30,6 +31,16 @@ export default function StaffWeeklyDebrief() {
   } = useStaffWeeklyDebrief(weekKey);
 
   const { createItem } = useStaffFocusItems();
+
+  const handleRequestAnalysis = async (reviewId: string): Promise<string> => {
+    // Staff uses the edge function with staff session header
+    // For now, the analyze_debrief function requires JWT auth — staff will see a graceful fallback
+    const { data, error } = await supabase.functions.invoke("analyze_debrief", {
+      body: { review_id: reviewId },
+    });
+    if (error) throw error;
+    return data?.analysis || "";
+  };
 
   const handleAddToBench = (title: string, domain: string) => {
     createItem.mutate({
@@ -62,6 +73,7 @@ export default function StaffWeeklyDebrief() {
       onSaveDomainReflection={(domain, reflection) => saveDomainReflection.mutate({ domain, reflection })}
       onAddToBench={handleAddToBench}
       onSaveNextWeekOBT={(obt) => saveNextWeekOBT.mutate(obt)}
+      onRequestAnalysis={handleRequestAnalysis}
       onCompleteDebrief={(scores) => completeDebrief.mutateAsync(scores)}
     />
   );

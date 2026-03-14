@@ -52,6 +52,14 @@ export default function WeeklyDebrief() {
   // Focus items for creating bench items from domain reflections
   const { createItem } = useFocusItems();
 
+  const handleRequestAnalysis = async (reviewId: string): Promise<string> => {
+    const { data, error } = await supabase.functions.invoke("analyze_debrief", {
+      body: { review_id: reviewId },
+    });
+    if (error) throw error;
+    return data?.analysis || "";
+  };
+
   const handleAddToBench = (title: string, domain: string) => {
     createItem.mutate({
       title,
@@ -83,6 +91,7 @@ export default function WeeklyDebrief() {
       onSaveDomainReflection={(domain, reflection) => saveDomainReflection.mutate({ domain, reflection })}
       onAddToBench={handleAddToBench}
       onSaveNextWeekOBT={(obt) => saveNextWeekOBT.mutate(obt)}
+      onRequestAnalysis={handleRequestAnalysis}
       onCompleteDebrief={(scores) => completeDebrief.mutateAsync(scores)}
     />
   );

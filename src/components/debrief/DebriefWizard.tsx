@@ -9,12 +9,14 @@ import { DebriefAccomplishments } from "./DebriefAccomplishments";
 import { DebriefDomainReflection } from "./DebriefDomainReflection";
 import { DebriefNextWeekPlanning } from "./DebriefNextWeekPlanning";
 import { DebriefSummary } from "./DebriefSummary";
+import { DebriefCoachingAnalysis } from "./DebriefCoachingAnalysis";
 import type { WeekSummaryData } from "@/hooks/useWeekSummary";
 import type { DomainReflection, WeeklyReview } from "@/hooks/useWeeklyDebrief";
 import confetti from "canvas-confetti";
 
-const TOTAL_STEPS = 5; // 0: Welcome, 1: Accomplishments, 2: Domains, 3: Next Week, 4: Summary
-const STEP_LABELS = ["Welcome", "Accomplishments", "Reflections", "Next Week", "Summary"];
+// 0: Welcome, 1: Accomplishments, 2: Domains, 3: Next Week, 4: Summary, 5: Coaching + Seal
+const TOTAL_STEPS = 6;
+const STEP_LABELS = ["Welcome", "Accomplishments", "Reflections", "Next Week", "Summary", "Coaching"];
 
 interface DebriefWizardProps {
   weekLabel: string;
@@ -29,6 +31,7 @@ interface DebriefWizardProps {
   onSaveDomainReflection: (domain: string, reflection: DomainReflection) => void;
   onAddToBench: (title: string, domain: string) => void;
   onSaveNextWeekOBT: (obt: string) => void;
+  onRequestAnalysis: (reviewId: string) => Promise<string>;
   onCompleteDebrief: (scores: {
     core4Points: number;
     flowPoints: number;
@@ -50,6 +53,7 @@ export function DebriefWizard({
   onSaveDomainReflection,
   onAddToBench,
   onSaveNextWeekOBT,
+  onRequestAnalysis,
   onCompleteDebrief,
 }: DebriefWizardProps) {
   const navigate = useNavigate();
@@ -61,14 +65,14 @@ export function DebriefWizard({
     if (review && review.status === "in_progress" && review.current_step > 0) {
       setStep(review.current_step);
     }
-  }, [review?.id]);
+  }, [review?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // If review is already completed, show summary
+  // If review is already completed, show coaching step
   useEffect(() => {
     if (review && review.status === "completed") {
       setStep(TOTAL_STEPS - 1);
     }
-  }, [review?.status]);
+  }, [review?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const progress = ((step + 1) / TOTAL_STEPS) * 100;
 
@@ -88,7 +92,6 @@ export function DebriefWizard({
         await onCreateOrResume(agencyId);
       } catch (err) {
         console.error("Failed to create debrief record:", err);
-        // Still advance — user can reflect even if persistence fails
       }
     }
     goToStep(1);
@@ -104,7 +107,6 @@ export function DebriefWizard({
         totalPoints: weekSummary.totalPoints,
       });
 
-      // Fire confetti
       confetti({
         particleCount: 150,
         spread: 70,
@@ -112,12 +114,11 @@ export function DebriefWizard({
         colors: ["#34d399", "#60a5fa", "#fbbf24", "#f472b6"],
       });
 
-      toast.success("Debrief sealed! Great work this week.");
+      toast.success("Debrief sealed! Check your email for the full report.");
 
-      // Navigate after celebration
       setTimeout(() => {
         navigate(exitPath);
-      }, 2000);
+      }, 2500);
     } catch {
       toast.error("Failed to seal debrief");
     } finally {
@@ -213,8 +214,19 @@ export function DebriefWizard({
             domainReflections={review?.domain_reflections || {}}
             gratitudeNote={review?.gratitude_note || null}
             nextWeekOBT={review?.next_week_one_big_thing || null}
-            onSeal={handleSeal}
+            onNext={() => goToStep(5)}
             onBack={() => goToStep(3)}
+          />
+        )}
+
+        {step === 5 && (
+          <DebriefCoachingAnalysis
+            weekSummary={weekSummary}
+            reviewId={review?.id || null}
+            existingAnalysis={(review as Record<string, unknown>)?.coaching_analysis as string | null || null}
+            onRequestAnalysis={() => onRequestAnalysis(review!.id)}
+            onSeal={handleSeal}
+            onBack={() => goToStep(4)}
             sealing={sealing}
           />
         )}

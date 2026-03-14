@@ -172,7 +172,7 @@ export function useWeeklyDebrief(weekKey: string) {
           total_points: scores.totalPoints,
           status: "completed",
           completed_at: new Date().toISOString(),
-          current_step: 4,
+          current_step: 5,
           updated_at: new Date().toISOString(),
         })
         .eq("id", review.id);

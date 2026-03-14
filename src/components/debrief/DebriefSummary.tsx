@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Stamp, Heart, Brain, Scale, Briefcase } from "lucide-react";
+import { ArrowLeft, ArrowRight, Heart, Brain, Scale, Briefcase } from "lucide-react";
 import { DebriefScoreRing } from "./DebriefScoreRing";
 import type { WeekSummaryData } from "@/hooks/useWeekSummary";
 import type { DomainReflection } from "@/hooks/useWeeklyDebrief";
@@ -18,9 +18,8 @@ interface DebriefSummaryProps {
   domainReflections: Record<string, DomainReflection>;
   gratitudeNote: string | null;
   nextWeekOBT: string | null;
-  onSeal: () => void;
+  onNext: () => void;
   onBack: () => void;
-  sealing: boolean;
 }
 
 export function DebriefSummary({
@@ -29,9 +28,8 @@ export function DebriefSummary({
   domainReflections,
   gratitudeNote,
   nextWeekOBT,
-  onSeal,
+  onNext,
   onBack,
-  sealing,
 }: DebriefSummaryProps) {
   return (
     <div className="max-w-lg mx-auto px-4 py-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -125,13 +123,11 @@ export function DebriefSummary({
           Back
         </Button>
         <Button
-          onClick={onSeal}
-          disabled={sealing}
-          size="lg"
-          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-8 rounded-full"
+          onClick={onNext}
+          className="bg-white text-[#020817] hover:bg-white/90 rounded-full px-6"
         >
-          <Stamp className="mr-2 h-5 w-5" />
-          {sealing ? "Sealing..." : "Seal Your Debrief"}
+          Get Your Coaching Analysis
+          <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
     </div>
