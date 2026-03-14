@@ -1,12 +1,15 @@
 import { DebriefScoreRing } from "./DebriefScoreRing";
 import { DebriefHistory } from "./DebriefHistory";
+import { DebriefStatsView } from "./DebriefStatsView";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
 import type { WeekSummaryData } from "@/hooks/useWeekSummary";
+import type { DebriefStatsData } from "@/hooks/useDebriefStats";
 
 interface DebriefWelcomeProps {
   weekSummary: WeekSummaryData;
   weekLabel: string;
+  stats: DebriefStatsData;
   onBegin: () => void;
   onViewDebrief?: (weekKey: string) => void;
 }
@@ -19,27 +22,27 @@ function getMessage(pct: number): string {
   return "A new week is a new opportunity.";
 }
 
-export function DebriefWelcome({ weekSummary, weekLabel, onBegin, onViewDebrief }: DebriefWelcomeProps) {
+export function DebriefWelcome({ weekSummary, weekLabel, stats, onBegin, onViewDebrief }: DebriefWelcomeProps) {
   const { core4Points, flowPoints, playbookPoints, totalPoints } = weekSummary;
   const pct = totalPoints / 56;
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-6 animate-in fade-in duration-700">
+    <div className="flex flex-col items-center text-center px-6 py-8 animate-in fade-in duration-700">
       <div className="mb-2">
         <Sparkles className="h-6 w-6 text-amber-400 mx-auto mb-4 animate-pulse" />
         <p className="text-xs text-white/40 uppercase tracking-[0.2em] mb-1">Week in Review</p>
         <p className="text-sm text-white/60 font-medium">{weekLabel}</p>
       </div>
 
-      <div className="my-8">
+      <div className="my-6">
         <DebriefScoreRing total={totalPoints} max={56} size="lg" />
       </div>
 
-      <p className="text-lg text-white/80 font-medium mb-6 max-w-sm">
+      <p className="text-lg text-white/80 font-medium mb-4 max-w-sm">
         {getMessage(pct)}
       </p>
 
-      <div className="flex gap-6 text-center mb-10">
+      <div className="flex gap-6 text-center mb-8">
         <div>
           <p className="text-xl font-bold text-white">{core4Points}</p>
           <p className="text-[10px] text-white/40 uppercase tracking-wider">Core 4 / 28</p>
@@ -54,6 +57,11 @@ export function DebriefWelcome({ weekSummary, weekLabel, onBegin, onViewDebrief 
           <p className="text-xl font-bold text-white">{playbookPoints}</p>
           <p className="text-[10px] text-white/40 uppercase tracking-wider">Playbook / 21</p>
         </div>
+      </div>
+
+      {/* Stats dashboard */}
+      <div className="w-full max-w-2xl mb-8">
+        <DebriefStatsView stats={stats} />
       </div>
 
       <Button

@@ -12,6 +12,7 @@ import { DebriefSummary } from "./DebriefSummary";
 import { DebriefCoachingAnalysis } from "./DebriefCoachingAnalysis";
 import type { WeekSummaryData } from "@/hooks/useWeekSummary";
 import type { DomainReflection, WeeklyReview } from "@/hooks/useWeeklyDebrief";
+import type { DebriefStatsData } from "@/hooks/useDebriefStats";
 import confetti from "canvas-confetti";
 
 // 0: Welcome, 1: Accomplishments, 2: Domains, 3: Next Week, 4: Summary, 5: Coaching + Seal
@@ -21,6 +22,7 @@ const STEP_LABELS = ["Welcome", "Accomplishments", "Reflections", "Next Week", "
 interface DebriefWizardProps {
   weekLabel: string;
   weekSummary: WeekSummaryData;
+  stats: DebriefStatsData;
   review: WeeklyReview | null;
   isLoading: boolean;
   agencyId: string | null;
@@ -43,6 +45,7 @@ interface DebriefWizardProps {
 export function DebriefWizard({
   weekLabel,
   weekSummary,
+  stats,
   review,
   isLoading,
   agencyId,
@@ -173,6 +176,7 @@ export function DebriefWizard({
           <DebriefWelcome
             weekSummary={weekSummary}
             weekLabel={weekLabel}
+            stats={stats}
             onBegin={handleBegin}
             onViewDebrief={(weekKey) => {
               toast.info(`Viewing ${weekKey} — coming soon`);

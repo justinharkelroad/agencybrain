@@ -9,6 +9,7 @@ import { DebriefWizard } from "@/components/debrief/DebriefWizard";
 import { useWeekSummary } from "@/hooks/useWeekSummary";
 import { useWeeklyDebrief } from "@/hooks/useWeeklyDebrief";
 import { useFocusItems } from "@/hooks/useFocusItems";
+import { useDebriefStats } from "@/hooks/useDebriefStats";
 import { Loader2 } from "lucide-react";
 import type { PlaybookDomain } from "@/hooks/useFocusItems";
 
@@ -40,6 +41,7 @@ export default function WeeklyDebrief() {
   }, [user?.id, isKeyEmployee, keyEmployeeAgencyId]);
 
   const weekSummary = useWeekSummary(weekKey);
+  const stats = useDebriefStats(weekKey);
   const {
     review,
     isLoading,
@@ -87,6 +89,7 @@ export default function WeeklyDebrief() {
     <DebriefWizard
       weekLabel={weekLabel}
       weekSummary={weekSummary}
+      stats={stats}
       review={review}
       isLoading={isLoading}
       agencyId={agencyId}
