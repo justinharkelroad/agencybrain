@@ -1,0 +1,20 @@
+name: Sunday Debrief Reminder
+
+on:
+  schedule:
+    # Run every hour from 11 UTC to 15 UTC on Sundays
+    # Covers 7 AM for all US timezones (EST through PST)
+    - cron: '0 11,12,13,14,15 * * 0'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  send-reminder:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Debrief Reminder
+        run: |
+          curl -X POST \
+            'https://wjqyccbytctqwceuhzhk.supabase.co/functions/v1/send-debrief-reminder' \
+            -H 'Content-Type: application/json' \
+            -H 'Authorization: Bearer ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}' \
+            -d '{}'

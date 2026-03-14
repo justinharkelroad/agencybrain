@@ -174,6 +174,9 @@ export function DebriefWizard({
             weekSummary={weekSummary}
             weekLabel={weekLabel}
             onBegin={handleBegin}
+            onViewDebrief={(weekKey) => {
+              toast.info(`Viewing ${weekKey} — coming soon`);
+            }}
           />
         )}
 

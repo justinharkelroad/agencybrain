@@ -1,4 +1,5 @@
 import { DebriefScoreRing } from "./DebriefScoreRing";
+import { DebriefHistory } from "./DebriefHistory";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
 import type { WeekSummaryData } from "@/hooks/useWeekSummary";
@@ -7,6 +8,7 @@ interface DebriefWelcomeProps {
   weekSummary: WeekSummaryData;
   weekLabel: string;
   onBegin: () => void;
+  onViewDebrief?: (weekKey: string) => void;
 }
 
 function getMessage(pct: number): string {
@@ -17,7 +19,7 @@ function getMessage(pct: number): string {
   return "A new week is a new opportunity.";
 }
 
-export function DebriefWelcome({ weekSummary, weekLabel, onBegin }: DebriefWelcomeProps) {
+export function DebriefWelcome({ weekSummary, weekLabel, onBegin, onViewDebrief }: DebriefWelcomeProps) {
   const { core4Points, flowPoints, playbookPoints, totalPoints } = weekSummary;
   const pct = totalPoints / 55;
 
@@ -62,6 +64,8 @@ export function DebriefWelcome({ weekSummary, weekLabel, onBegin }: DebriefWelco
         Begin Your Debrief
         <ArrowRight className="ml-2 h-4 w-4" />
       </Button>
+
+      {onViewDebrief && <DebriefHistory onViewDebrief={onViewDebrief} />}
     </div>
   );
 }

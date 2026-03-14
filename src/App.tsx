@@ -161,7 +161,6 @@ import StaffFlowStart from "./pages/staff/StaffFlowStart";
 import StaffFlowSession from "./pages/staff/StaffFlowSession";
 import StaffFlowComplete from "./pages/staff/StaffFlowComplete";
 import StaffSales from "./pages/staff/StaffSales";
-import StaffWeeklyDebrief from "./pages/staff/StaffWeeklyDebrief";
 import StaffOnboardingTasks from "./pages/staff/StaffOnboardingTasks";
 import StaffTeamRings from "./pages/staff/StaffTeamRings";
 import StaffMeetingFrameWrapper from "./pages/staff/StaffMeetingFrameWrapper";
@@ -1281,12 +1280,6 @@ const App = () => {
               {/* Win-Back HQ */}
               <Route path="winback" element={<WinbackHQ />} />
             </Route>
-            {/* Staff Debrief - Full screen (no sidebar) */}
-            <Route path="/staff/debrief" element={
-              <StaffProtectedRoute>
-                <StaffWeeklyDebrief />
-              </StaffProtectedRoute>
-            } />
             {/* Staff Flows Routes - Full screen (no sidebar) */}
             <Route path="/staff/flows/start/:slug" element={
               <StaffProtectedRoute>

@@ -31,6 +31,7 @@ import { AgencyMetricRings } from '@/components/dashboard/AgencyMetricRings';
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
 import { Plus } from 'lucide-react';
 import { ProducerPowerUpBanner } from '@/components/dashboard/ProducerPowerUpBanner';
+import { DebriefSundayBanner } from '@/components/dashboard/DebriefSundayBanner';
 import { PlannerExperiencePreview } from '@/components/staff/PlannerExperiencePreview';
 import { SectionHelpTip } from '@/components/ui/section-help-tip';
 import { useMissionControlAccess } from '@/hooks/useMissionControlAccess';
@@ -219,6 +220,7 @@ const Dashboard = () => {
           </div>
         </div>
         </div>
+        <DebriefSundayBanner />
         {(isAgencyOwner || isKeyEmployee) && <ProducerPowerUpBanner />}
         <PeriodRefreshProvider>
           {dashboardCallMetricsEnabled ? (

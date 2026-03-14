@@ -237,6 +237,9 @@ verify_jwt = false
 [functions.analyze_debrief]
 verify_jwt = true
 
+[functions.send-debrief-reminder]
+verify_jwt = false
+
 [functions.invite_key_employee]
 verify_jwt = true
 

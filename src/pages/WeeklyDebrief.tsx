@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
+import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getWeekKey } from "@/lib/date-utils";
+import { isStrictlyOneOnOne } from "@/utils/tierAccess";
 import { format, startOfWeek } from "date-fns";
 import { DebriefWizard } from "@/components/debrief/DebriefWizard";
 import { useWeekSummary } from "@/hooks/useWeekSummary";
@@ -11,7 +13,7 @@ import { Loader2 } from "lucide-react";
 import type { PlaybookDomain } from "@/hooks/useFocusItems";
 
 export default function WeeklyDebrief() {
-  const { user, isKeyEmployee, keyEmployeeAgencyId, loading: authLoading } = useAuth();
+  const { user, isKeyEmployee, keyEmployeeAgencyId, membershipTier, loading: authLoading } = useAuth();
   const [agencyId, setAgencyId] = useState<string | null>(null);
 
   // Current ISO week
@@ -75,6 +77,10 @@ export default function WeeklyDebrief() {
         <Loader2 className="h-8 w-8 animate-spin text-white/40" />
       </div>
     );
+  }
+
+  if (!isStrictlyOneOnOne(membershipTier)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (
