@@ -65,7 +65,7 @@ export function DebriefCoachingAnalysis({
 
       {/* Score summary */}
       <div className="flex justify-center">
-        <DebriefScoreRing total={weekSummary.totalPoints} max={55} size="sm" />
+        <DebriefScoreRing total={weekSummary.totalPoints} max={56} size="sm" />
       </div>
 
       {/* Analysis content */}

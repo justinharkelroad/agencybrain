@@ -59,15 +59,15 @@ export function DebriefHistory({ onViewDebrief }: DebriefHistoryProps) {
             onClick={() => onViewDebrief(r.week_key)}
             className="w-full flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-4 py-3 transition-all text-left group"
           >
-            <DebriefScoreRing total={r.total_points ?? 0} max={55} size="sm" />
+            <DebriefScoreRing total={r.total_points ?? 0} max={56} size="sm" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white">{r.week_key}</p>
               <p className="text-xs text-white/40">
-                {r.core4_points ?? 0}/28 · {r.flow_points ?? 0}/7 · {r.playbook_points ?? 0}/20
+                {r.core4_points ?? 0}/28 · {r.flow_points ?? 0}/7 · {r.playbook_points ?? 0}/21
                 {getAvgRating(r.domain_reflections as Record<string, unknown> | null) && ` · Avg ${getAvgRating(r.domain_reflections as Record<string, unknown> | null)}/10`}
               </p>
             </div>
-            <ChevronRight className="h-4 w-4 text-white/20 group-hover:text-white/50 transition-colors" />
+            <ChevronRight className="h-4 w-4 text-white/21 group-hover:text-white/50 transition-colors" />
           </button>
         ))}
       </div>

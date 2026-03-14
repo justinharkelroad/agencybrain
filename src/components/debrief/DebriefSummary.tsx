@@ -40,7 +40,7 @@ export function DebriefSummary({
 
       {/* Score */}
       <div className="flex justify-center">
-        <DebriefScoreRing total={weekSummary.totalPoints} max={55} size="md" />
+        <DebriefScoreRing total={weekSummary.totalPoints} max={56} size="md" />
       </div>
 
       <div className="flex justify-center gap-6 text-center">

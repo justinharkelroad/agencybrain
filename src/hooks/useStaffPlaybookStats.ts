@@ -41,12 +41,15 @@ export function useStaffPlaybookStats(): PlaybookStats {
         if (d === todayStr) todayCompleted++;
       });
 
-      const weeklyPoints = Object.values(dailyCompleted).reduce(
+      const powerPlayPoints = Object.values(dailyCompleted).reduce(
         (sum, count) => sum + Math.min(count, 4),
         0
       );
 
-      return { weeklyPoints: Math.min(weeklyPoints, 20), todayCompleted, dailyCompleted };
+      // Check OBT completion (included in the result items if completed)
+      const obtPoint = (result?.obt_completed) ? 1 : 0;
+
+      return { weeklyPoints: Math.min(powerPlayPoints, 20) + obtPoint, todayCompleted, dailyCompleted };
     },
     enabled: !!sessionToken && !!teamMemberId,
   });

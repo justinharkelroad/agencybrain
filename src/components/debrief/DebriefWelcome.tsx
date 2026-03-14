@@ -21,7 +21,7 @@ function getMessage(pct: number): string {
 
 export function DebriefWelcome({ weekSummary, weekLabel, onBegin, onViewDebrief }: DebriefWelcomeProps) {
   const { core4Points, flowPoints, playbookPoints, totalPoints } = weekSummary;
-  const pct = totalPoints / 55;
+  const pct = totalPoints / 56;
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-6 animate-in fade-in duration-700">
@@ -32,7 +32,7 @@ export function DebriefWelcome({ weekSummary, weekLabel, onBegin, onViewDebrief 
       </div>
 
       <div className="my-8">
-        <DebriefScoreRing total={totalPoints} max={55} size="lg" />
+        <DebriefScoreRing total={totalPoints} max={56} size="lg" />
       </div>
 
       <p className="text-lg text-white/80 font-medium mb-6 max-w-sm">
@@ -52,7 +52,7 @@ export function DebriefWelcome({ weekSummary, weekLabel, onBegin, onViewDebrief 
         <div className="w-px bg-white/10" />
         <div>
           <p className="text-xl font-bold text-white">{playbookPoints}</p>
-          <p className="text-[10px] text-white/40 uppercase tracking-wider">Playbook / 20</p>
+          <p className="text-[10px] text-white/40 uppercase tracking-wider">Playbook / 21</p>
         </div>
       </div>
 

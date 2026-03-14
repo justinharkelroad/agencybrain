@@ -31,9 +31,9 @@ export function Core4Card() {
   const flowStats = useFlowStats();
   const playbookStats = usePlaybookStats();
 
-  // Combined weekly: Core 4 (max 28) + Flow (max 7) + Playbook (max 20) = 55
+  // Combined weekly: Core 4 (max 28) + Flow (max 7) + Playbook (max 21) = 56
   const combinedWeeklyPoints = weeklyPoints + flowStats.weeklyProgress + playbookStats.weeklyPoints;
-  const combinedWeeklyGoal = 55;
+  const combinedWeeklyGoal = 56;
 
   const isDomainCompleted = (domain: Core4Domain): boolean => {
     if (!todayEntry) return false;
@@ -63,7 +63,7 @@ export function Core4Card() {
             <HelpButton videoKey="core4_page" />
             <SectionHelpTip
               title="Personal Growth Score"
-              body="Tracks Core 4 habits (28pts), Flow sessions (7pts), and Weekly Playbook Power Plays (20pts) for a combined 55-point weekly score."
+              body="Tracks Core 4 habits (28pts), Flow sessions (7pts), and Weekly Playbook (21pts: 20 Power Plays + 1 One Big Thing) for a combined 56-point weekly score."
             />
             {currentStreak > 0 && (
               <div className="flex items-center gap-1 text-orange-500">
@@ -158,7 +158,7 @@ export function Core4Card() {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-2xl font-bold">{combinedWeeklyPoints}</span>
-                <span className="text-[10px] text-muted-foreground">/55</span>
+                <span className="text-[10px] text-muted-foreground">/56</span>
               </div>
             </div>
             <div className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
@@ -166,7 +166,7 @@ export function Core4Card() {
                 <span>Core 4: <span className="text-foreground font-medium">{weeklyPoints}/28</span></span>
                 <span>Flow: <span className="text-foreground font-medium">{flowStats.weeklyProgress}/7</span></span>
               </div>
-              <span>Playbook: <span className="text-foreground font-medium">{playbookStats.weeklyPoints}/20</span></span>
+              <span>Playbook: <span className="text-foreground font-medium">{playbookStats.weeklyPoints}/21</span></span>
             </div>
           </div>
 

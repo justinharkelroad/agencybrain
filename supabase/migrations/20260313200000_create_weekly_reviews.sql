@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS public.weekly_reviews (
   week_key text NOT NULL,                    -- e.g. '2026-W11'
   core4_points int NOT NULL DEFAULT 0,       -- snapshot 0-28
   flow_points int NOT NULL DEFAULT 0,        -- snapshot 0-7
-  playbook_points int NOT NULL DEFAULT 0,    -- snapshot 0-20
-  total_points int NOT NULL DEFAULT 0,       -- snapshot 0-55
+  playbook_points int NOT NULL DEFAULT 0,    -- snapshot 0-21
+  total_points int NOT NULL DEFAULT 0,       -- snapshot 0-56
   domain_reflections jsonb DEFAULT '{}',     -- { body: {wins,carry_forward,rating}, ... }
   gratitude_note text,
   next_week_one_big_thing text,

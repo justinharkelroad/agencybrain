@@ -23,9 +23,9 @@ The user's data will include three score systems. You must understand what they 
 
 - FLOWS (0-7 points): One point per day for completing a guided reflection or journaling session. 7 means they reflected every day. This measures inner work — the Being dimension in action. Even 3-4 is meaningful. Zero means they skipped the mirror entirely.
 
-- PLAYBOOK (0-20 points): Completed power plays (action items) scheduled across the work week. Max 4 per day × 5 business days = 20. This measures execution — did they do the things they said they'd do? This is where intention meets action. 15+ is strong execution. Below 8 means most of what they planned didn't get done.
+- PLAYBOOK (0-21 points): Completed power plays (action items) scheduled across the work week (max 4 per day × 5 business days = 20) PLUS 1 point for completing their One Big Thing = 21 max. This measures execution — did they do the things they said they'd do? This is where intention meets action. 16+ is strong execution. Below 8 means most of what they planned didn't get done.
 
-- TOTAL (0-55): The sum. This is the weekly life score. 40+ is an elite week. 25-39 is solid. Below 25 means significant areas were neglected. But never reduce a person to their number — the number is a mirror, not a verdict.
+- TOTAL (0-56): The sum. This is the weekly life score. 42+ is an elite week. 28-41 is solid. Below 28 means significant areas were neglected. But never reduce a person to their number — the number is a mirror, not a verdict.
 
 - DOMAIN SELF-RATINGS (1-10): Their honest self-assessment of effort in each domain. These are subjective and often more revealing than the objective scores. A 3 means they know they fell short. A 9 means they felt they brought it. Pay attention to gaps between the self-rating and the objective data — those gaps are coaching gold.
 
@@ -66,7 +66,7 @@ If they have no power plays scheduled, address it: "You planned your One Big Thi
 
 7. SPEAK TO IDENTITY AND CLOSE WITH FIRE. This is the final paragraph and the most important one. Behavior change doesn't last through willpower. It lasts when someone starts to see themselves differently. Every debrief is a brick in that new identity. Speak to it: "The kind of person who sits down every week, looks at their life across every domain, tells the truth about what they see, and makes a plan — that person is building something that can't be taken away. That's not productivity. That's stewardship. You're stewarding the life, the family, the team, and the calling that God gave you." Then close with fire. Their team is watching. Their kids are watching. Their spouse is watching. They are setting the standard — not someday, but right now, in how they show up this coming week. End with a single sentence they'll carry with them. Make it land.
 
-WHEN SCORES ARE ALL HIGH (8+ across domains, 40+ total):
+WHEN SCORES ARE ALL HIGH (8+ across domains, 42+ total):
 Do not manufacture problems. Do not go soft either. This is the moment to raise the ceiling. Ask: "What happens if you stack three more weeks like this? Who are you six months from now? This isn't maintenance mode — this is compound interest and you're just getting started. The question isn't whether you can sustain this. The question is: what becomes possible for your family, your team, and your legacy if you do?"
 
 TONE:
@@ -203,7 +203,7 @@ serve(async (req) => {
     // Prior week accountability
     if (priorReview) {
       userMessage += `PRIOR WEEK (${priorReview.week_key}):\n`;
-      userMessage += `- Score: ${priorReview.total_points}/55\n`;
+      userMessage += `- Score: ${priorReview.total_points}/56\n`;
       if (priorReview.next_week_one_big_thing) {
         userMessage += `- Their One Big Thing commitment was: "${priorReview.next_week_one_big_thing}"\n`;
       }
@@ -219,8 +219,8 @@ serve(async (req) => {
     userMessage += `THIS WEEK'S SCORES:\n`;
     userMessage += `- Core 4: ${review.core4_points}/28 (daily consistency — 4 domains × 7 days)\n`;
     userMessage += `- Flows: ${review.flow_points}/7 (guided reflections completed this week)\n`;
-    userMessage += `- Playbook: ${review.playbook_points}/20 (power plays executed — action items completed)\n`;
-    userMessage += `- TOTAL: ${review.total_points}/55\n\n`;
+    userMessage += `- Playbook: ${review.playbook_points}/21 (power plays executed — action items completed)\n`;
+    userMessage += `- TOTAL: ${review.total_points}/56\n\n`;
 
     if (review.gratitude_note) {
       userMessage += `GRATITUDE NOTE: "${review.gratitude_note}"\n\n`;
@@ -346,7 +346,7 @@ serve(async (req) => {
           title: '🎯 Your Weekly Debrief',
           subtitle: `${userName} • ${review.week_key}`,
           bodyContent: `
-            ${EmailComponents.summaryBox(`Total Score: ${review.total_points}/55 — Core 4: ${review.core4_points}/28 | Flows: ${review.flow_points}/7 | Playbook: ${review.playbook_points}/20`)}
+            ${EmailComponents.summaryBox(`Total Score: ${review.total_points}/56 — Core 4: ${review.core4_points}/28 | Flows: ${review.flow_points}/7 | Playbook: ${review.playbook_points}/21`)}
 
             ${review.gratitude_note ? `
               <div style="margin-bottom: 16px; padding: 16px; background: #f0fdf4; border-radius: 8px; border-left: 4px solid ${BRAND.colors.green};">
