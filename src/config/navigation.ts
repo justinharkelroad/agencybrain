@@ -56,6 +56,7 @@ export type NavItem = {
   featureCheck?: string;
   settingCheck?: 'callScoringEnabled';
   requiresTier?: '1:1';  // Requires 1:1 Coaching tier - Boardroom users see gate modal
+  ownerOnly?: boolean;   // Only visible to agency owners (not key employees)
   adminOnly?: boolean;   // Only visible to system admins (not regular agency owners)
   emailRestriction?: string;  // Only visible to this specific email address
   challengeAccess?: boolean;  // Requires agency to be in challenge beta list
@@ -814,8 +815,9 @@ export const navigationConfig: NavEntry[] = [
         icon: ClipboardEdit,
         type: 'link',
         url: '/debrief',
-        access: { staff: true, manager: true, owner: true },
+        access: { staff: false, manager: false, owner: true },
         requiresTier: '1:1',
+        ownerOnly: true,
       },
       {
         id: 'weekly-playbook',

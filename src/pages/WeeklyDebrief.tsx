@@ -81,7 +81,7 @@ export default function WeeklyDebrief() {
     );
   }
 
-  if (!isStrictlyOneOnOne(membershipTier)) {
+  if (!isStrictlyOneOnOne(membershipTier) || isKeyEmployee) {
     return <Navigate to="/dashboard" replace />;
   }
 

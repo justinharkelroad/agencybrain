@@ -108,7 +108,7 @@ const adminOnlyItems = [
 ];
 
 export function AppSidebar({ onOpenROI }: AppSidebarProps) {
-  const { signOut, isAdmin, isAgencyOwner, user, membershipTier } = useAuth();
+  const { signOut, isAdmin, isAgencyOwner, isKeyEmployee, user, membershipTier } = useAuth();
   const { open: sidebarOpen, setOpenMobile, isMobile } = useSidebar();
   const { filterNavigation, loading: accessLoading, agencyId } = useSidebarAccess();
   const { hasAccess: hasSalesExperienceAccess } = useSalesExperienceAccess();
@@ -536,7 +536,10 @@ useEffect(() => {
                 {!accessLoading && visibleNavigation.map((entry) => {
                   if (isNavFolder(entry)) {
                     // Get visible items for this folder
-                    const visibleItems = entry.items;
+                    const visibleItems = entry.items.filter((item) => {
+                      if ('ownerOnly' in item && item.ownerOnly && isKeyEmployee) return false;
+                      return true;
+                    });
 
                     // Badge for Sales Experience folder (unread coach messages)
                     const folderBadge = entry.id === 'sales-experience' && seUnreadCount > 0 ? (
