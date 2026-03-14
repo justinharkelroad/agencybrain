@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowRight, ArrowLeft, CheckCircle2, Heart, Brain, Scale, Briefcase } from "lucide-react";
+import { ArrowRight, ArrowLeft, CheckCircle2, Heart, Brain, Scale, Briefcase, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { DebriefDomainTabs } from "./DebriefDomainTabs";
 import type { WeekSummaryData } from "@/hooks/useWeekSummary";
 import type { DomainReflection } from "@/hooks/useWeeklyDebrief";
@@ -12,37 +14,21 @@ const DOMAIN_CONFIG = {
     icon: Heart,
     color: "text-red-400",
     bgColor: "bg-red-500/10",
-    prompts: [
-      "What wins did you have in Body this week?",
-      "What's one thing you want to carry forward?",
-    ],
   },
   being: {
     icon: Brain,
     color: "text-purple-400",
     bgColor: "bg-purple-500/10",
-    prompts: [
-      "What wins did you have in Being this week?",
-      "What's one thing you want to carry forward?",
-    ],
   },
   balance: {
     icon: Scale,
     color: "text-blue-400",
     bgColor: "bg-blue-500/10",
-    prompts: [
-      "What wins did you have in Balance this week?",
-      "What's one thing you want to carry forward?",
-    ],
   },
   business: {
     icon: Briefcase,
     color: "text-amber-400",
     bgColor: "bg-amber-500/10",
-    prompts: [
-      "What wins did you have in Business this week?",
-      "What's one thing you want to carry forward?",
-    ],
   },
 } as const;
 
@@ -52,6 +38,7 @@ interface DebriefDomainReflectionProps {
   weekSummary: WeekSummaryData;
   domainReflections: Record<string, DomainReflection>;
   onSaveDomainReflection: (domain: string, reflection: DomainReflection) => void;
+  onAddToBench: (title: string, domain: string) => void;
   onNext: () => void;
   onBack: () => void;
 }
@@ -60,17 +47,25 @@ export function DebriefDomainReflection({
   weekSummary,
   domainReflections,
   onSaveDomainReflection,
+  onAddToBench,
   onNext,
   onBack,
 }: DebriefDomainReflectionProps) {
   const domains = ["body", "being", "balance", "business"] as const;
   const [activeDomain, setActiveDomain] = useState<string>(domains[0]);
-  const [localReflections, setLocalReflections] = useState<Record<string, DomainReflection>>({
-    body: { wins: "", carry_forward: "", rating: 0 },
-    being: { wins: "", carry_forward: "", rating: 0 },
-    balance: { wins: "", carry_forward: "", rating: 0 },
-    business: { wins: "", carry_forward: "", rating: 0 },
-    ...domainReflections,
+  const [localReflections, setLocalReflections] = useState<Record<string, DomainReflection>>(() => {
+    const base: Record<string, DomainReflection> = {};
+    for (const d of domains) {
+      base[d] = { wins: "", carry_forward: "", course_correction: false, course_correction_note: "", rating: 0 };
+    }
+    return { ...base, ...domainReflections };
+  });
+
+  // New task input per domain
+  const [newTaskText, setNewTaskText] = useState("");
+  // Track tasks added during this session (for display)
+  const [addedTasks, setAddedTasks] = useState<Record<string, string[]>>({
+    body: [], being: [], balance: [], business: [],
   });
 
   // Sync from parent when domainReflections changes
@@ -81,11 +76,13 @@ export function DebriefDomainReflection({
     }));
   }, [domainReflections]);
 
-  const currentReflection = localReflections[activeDomain] || { wins: "", carry_forward: "", rating: 0 };
+  const currentReflection = localReflections[activeDomain] || {
+    wins: "", carry_forward: "", course_correction: false, course_correction_note: "", rating: 0,
+  };
   const domainConfig = DOMAIN_CONFIG[activeDomain as keyof typeof DOMAIN_CONFIG];
   const DomainIcon = domainConfig.icon;
 
-  const updateField = (field: keyof DomainReflection, value: string | number) => {
+  const updateField = (field: keyof DomainReflection, value: string | number | boolean) => {
     const updated = { ...currentReflection, [field]: value };
     setLocalReflections((prev) => ({ ...prev, [activeDomain]: updated }));
   };
@@ -97,7 +94,6 @@ export function DebriefDomainReflection({
 
   const domainAccomplishments = weekSummary.domains[activeDomain as keyof typeof weekSummary.domains];
 
-  // Save current domain reflection before switching or advancing
   const saveCurrentDomain = () => {
     onSaveDomainReflection(activeDomain, currentReflection);
   };
@@ -105,6 +101,7 @@ export function DebriefDomainReflection({
   const handleDomainChange = (domain: string) => {
     saveCurrentDomain();
     setActiveDomain(domain);
+    setNewTaskText("");
   };
 
   const handleNext = () => {
@@ -117,10 +114,24 @@ export function DebriefDomainReflection({
     onBack();
   };
 
+  const handleAddTask = () => {
+    const text = newTaskText.trim();
+    if (!text) return;
+    onAddToBench(text, activeDomain);
+    setAddedTasks((prev) => ({
+      ...prev,
+      [activeDomain]: [...(prev[activeDomain] || []), text],
+    }));
+    setNewTaskText("");
+    toast.success("Added to bench");
+  };
+
   const allDomainsRated = domains.every((d) => {
     const r = localReflections[d];
     return r && r.rating > 0;
   });
+
+  const currentAddedTasks = addedTasks[activeDomain] || [];
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6 space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -171,8 +182,11 @@ export function DebriefDomainReflection({
 
       {/* Reflection prompts */}
       <div className="space-y-4">
+        {/* Wins */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-white/70">{domainConfig.prompts[0]}</label>
+          <label className="text-sm font-medium text-white/70">
+            What wins did you have in <span className="capitalize">{activeDomain}</span> this week?
+          </label>
           <Textarea
             value={currentReflection.wins}
             onChange={(e) => updateField("wins", e.target.value)}
@@ -181,14 +195,86 @@ export function DebriefDomainReflection({
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-white/70">{domainConfig.prompts[1]}</label>
-          <Textarea
-            value={currentReflection.carry_forward}
-            onChange={(e) => updateField("carry_forward", e.target.value)}
-            placeholder="What will you carry into next week..."
-            className="bg-white/5 border-white/10 text-white placeholder:text-white/30 min-h-[80px] resize-none"
-          />
+        {/* Course correction */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-white/70">
+            Any course corrections you want to make?
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => updateField("course_correction", true)}
+              className={cn(
+                "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all border",
+                currentReflection.course_correction
+                  ? "bg-white text-[#020817] border-white"
+                  : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+              )}
+            >
+              Yes
+            </button>
+            <button
+              onClick={() => {
+                updateField("course_correction", false);
+                updateField("course_correction_note", "");
+              }}
+              className={cn(
+                "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all border",
+                !currentReflection.course_correction
+                  ? "bg-white text-[#020817] border-white"
+                  : "bg-white/5 text-white/50 border-white/10 hover:bg-white/10"
+              )}
+            >
+              No
+            </button>
+          </div>
+          {currentReflection.course_correction && (
+            <Textarea
+              value={currentReflection.course_correction_note}
+              onChange={(e) => updateField("course_correction_note", e.target.value)}
+              placeholder="What would you change or do differently..."
+              className="bg-white/5 border-white/10 text-white placeholder:text-white/30 min-h-[80px] resize-none animate-in fade-in slide-in-from-top-2 duration-300"
+            />
+          )}
+        </div>
+
+        {/* Add tasks for next week */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium text-white/70">
+            What do you want to accomplish in <span className="capitalize">{activeDomain}</span> next week?
+          </label>
+          <div className="flex gap-2">
+            <Input
+              value={newTaskText}
+              onChange={(e) => setNewTaskText(e.target.value)}
+              placeholder={`Add a ${activeDomain} task for next week...`}
+              className="bg-white/5 border-white/10 text-white placeholder:text-white/30 flex-1"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddTask();
+                }
+              }}
+            />
+            <Button
+              onClick={handleAddTask}
+              disabled={!newTaskText.trim()}
+              size="icon"
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/10 shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          {currentAddedTasks.length > 0 && (
+            <div className="space-y-1.5">
+              {currentAddedTasks.map((task, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs text-white/60 bg-white/5 rounded-lg px-3 py-2">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
+                  <span className="flex-1">{task}</span>
+                  <span className="text-white/30 text-[10px]">on bench</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Rating chips */}
@@ -229,7 +315,7 @@ export function DebriefDomainReflection({
           disabled={!allDomainsRated}
           className="bg-white text-[#020817] hover:bg-white/90 rounded-full px-6 disabled:opacity-40"
         >
-          {allDomainsRated ? "Continue" : `Rate all domains to continue`}
+          {allDomainsRated ? "Continue" : "Rate all domains to continue"}
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>

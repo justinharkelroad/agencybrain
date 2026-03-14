@@ -168,14 +168,18 @@ export default function WeeklyPlaybook() {
       return;
     }
 
-    // Check 4-item limit
-    if ((dayItemCounts[dateStr] || 0) >= 4) {
+    // Check 4-item limit (exclude the dragged item if it's already on this day)
+    const item = items.find((i) => i.id === itemId);
+    const alreadyOnDay = item?.scheduled_date === dateStr;
+    if (!alreadyOnDay && (dayItemCounts[dateStr] || 0) >= 4) {
       toast.error("This day already has 4 Power Plays");
       return;
     }
 
+    // If dropping on the same day, no-op
+    if (alreadyOnDay) return;
+
     // If item has a domain already, schedule directly; otherwise open dialog
-    const item = items.find((i) => i.id === itemId);
     if (item?.domain) {
       scheduleItem.mutate({ id: itemId, date: dateStr });
     } else {

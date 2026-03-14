@@ -4,6 +4,7 @@ import { format, startOfWeek } from "date-fns";
 import { DebriefWizard } from "@/components/debrief/DebriefWizard";
 import { useStaffWeekSummary } from "@/hooks/useStaffWeekSummary";
 import { useStaffWeeklyDebrief } from "@/hooks/useStaffWeeklyDebrief";
+import { useStaffFocusItems } from "@/hooks/useStaffFocusItems";
 import type { WeeklyReview } from "@/hooks/useWeeklyDebrief";
 import { Loader2 } from "lucide-react";
 
@@ -28,6 +29,17 @@ export default function StaffWeeklyDebrief() {
     completeDebrief,
   } = useStaffWeeklyDebrief(weekKey);
 
+  const { createItem } = useStaffFocusItems();
+
+  const handleAddToBench = (title: string, domain: string) => {
+    createItem.mutate({
+      title,
+      priority_level: "mid",
+      zone: "bench",
+      domain: domain as "body" | "being" | "balance" | "business",
+    });
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-[#020817] flex items-center justify-center">
@@ -48,6 +60,7 @@ export default function StaffWeeklyDebrief() {
       onSaveStep={(step) => saveStep.mutate(step)}
       onSaveGratitudeNote={(note) => saveGratitudeNote.mutate(note)}
       onSaveDomainReflection={(domain, reflection) => saveDomainReflection.mutate({ domain, reflection })}
+      onAddToBench={handleAddToBench}
       onSaveNextWeekOBT={(obt) => saveNextWeekOBT.mutate(obt)}
       onCompleteDebrief={(scores) => completeDebrief.mutateAsync(scores)}
     />

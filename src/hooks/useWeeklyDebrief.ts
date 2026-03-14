@@ -5,6 +5,8 @@ import { useAuth } from "@/lib/auth";
 export interface DomainReflection {
   wins: string;
   carry_forward: string;
+  course_correction: boolean;
+  course_correction_note: string;
   rating: number;
 }
 

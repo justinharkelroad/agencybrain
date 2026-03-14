@@ -27,6 +27,7 @@ interface DebriefWizardProps {
   onSaveStep: (step: number) => void;
   onSaveGratitudeNote: (note: string) => void;
   onSaveDomainReflection: (domain: string, reflection: DomainReflection) => void;
+  onAddToBench: (title: string, domain: string) => void;
   onSaveNextWeekOBT: (obt: string) => void;
   onCompleteDebrief: (scores: {
     core4Points: number;
@@ -47,6 +48,7 @@ export function DebriefWizard({
   onSaveStep,
   onSaveGratitudeNote,
   onSaveDomainReflection,
+  onAddToBench,
   onSaveNextWeekOBT,
   onCompleteDebrief,
 }: DebriefWizardProps) {
@@ -188,6 +190,7 @@ export function DebriefWizard({
             weekSummary={weekSummary}
             domainReflections={review?.domain_reflections || {}}
             onSaveDomainReflection={onSaveDomainReflection}
+            onAddToBench={onAddToBench}
             onNext={() => goToStep(3)}
             onBack={() => goToStep(1)}
           />

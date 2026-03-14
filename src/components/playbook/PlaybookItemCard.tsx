@@ -1,9 +1,10 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Trash2, ArrowLeft, Sparkles, Dumbbell, Heart, Briefcase } from "lucide-react";
+import { MoreHorizontal, Trash2, ArrowLeft, Sparkles, Dumbbell, Heart, Briefcase, GripVertical } from "lucide-react";
 import { LatinCross } from "@/components/icons/LatinCross";
 import { cn } from "@/lib/utils";
+import { useDraggable } from "@dnd-kit/core";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,15 +52,33 @@ export function PlaybookItemCard({
   const dc = domain ? domainConfig[domain] : null;
   const DomainIcon = dc?.icon;
 
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `scheduled-${id}`,
+    data: { itemId: id, title },
+    disabled: readOnly || completed,
+  });
+
+  const style = transform
+    ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
+    : undefined;
+
   return (
     <div
+      ref={setNodeRef}
+      style={style}
       className={cn(
         "group flex items-start gap-3 rounded-lg border p-3 transition-all",
         completed
           ? "bg-muted/30 border-border/50"
-          : "bg-card border-border hover:shadow-sm"
+          : "bg-card border-border hover:shadow-sm",
+        isDragging && "opacity-50 shadow-lg z-50"
       )}
     >
+      {!readOnly && !completed && (
+        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing touch-none mt-0.5">
+          <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+        </div>
+      )}
       <Checkbox
         checked={completed}
         onCheckedChange={() => !readOnly && onToggleComplete(id)}

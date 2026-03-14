@@ -168,12 +168,14 @@ export function DebriefNextWeekPlanning({
     const dateStr = over.data.current?.dateStr as string;
     if (!dateStr) return;
 
-    if ((dayItemCounts[dateStr] || 0) >= 4) {
+    const item = items.find((i) => i.id === itemId);
+    const alreadyOnDay = item?.scheduled_date === dateStr;
+    if (!alreadyOnDay && (dayItemCounts[dateStr] || 0) >= 4) {
       toast.error("This day already has 4 Power Plays");
       return;
     }
+    if (alreadyOnDay) return;
 
-    const item = items.find((i) => i.id === itemId);
     if (item?.domain) {
       scheduleItem.mutate({ id: itemId, date: dateStr });
     } else {
