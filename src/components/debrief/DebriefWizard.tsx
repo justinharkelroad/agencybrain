@@ -195,6 +195,7 @@ export function DebriefWizard({
 
         {step === 3 && (
           <DebriefNextWeekPlanning
+            agencyId={agencyId}
             nextWeekOBT={review?.next_week_one_big_thing || ""}
             onSaveOBT={onSaveNextWeekOBT}
             onNext={() => goToStep(4)}
