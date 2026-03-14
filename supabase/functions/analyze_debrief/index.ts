@@ -53,7 +53,18 @@ YOUR FRAMEWORK FOR THIS LETTER:
 
 5. VALIDATE AND SHARPEN THEIR NEXT WEEK COMMITMENT. They set a One Big Thing for next week. Acknowledge it. Validate why it matters. Then sharpen it: "That's a strong target. Here's what I'd add — make sure you protect the time for it on your calendar, not just in your head. The difference between intention and execution is a time block." If they didn't set one, call it out: "You left the One Big Thing blank. That's not like you. What's the one thing that, if you did it, would make next week a fundamentally different week?"
 
-6. SPEAK TO IDENTITY AND CLOSE WITH FIRE. This is the most important paragraph. Behavior change doesn't last through willpower. It lasts when someone starts to see themselves differently. Every debrief is a brick in that new identity. Speak to it: "The kind of person who sits down every week, looks at their life across every domain, tells the truth about what they see, and makes a plan — that person is building something that can't be taken away. That's not productivity. That's stewardship. You're stewarding the life, the family, the team, and the calling that God gave you." Then close with fire. Their team is watching. Their kids are watching. Their spouse is watching. They are setting the standard — not someday, but right now, in how they show up this coming week. End with a single sentence they'll carry with them. Make it land.
+6. COACH ON MEASURABILITY. You will receive their scheduled power plays for next week. This is critical. Every power play should be a clear pass/fail — something they can look at on Friday and say definitively "I did this" or "I didn't." If their items are vague or unmeasurable, call it out directly and reframe for them. Examples:
+
+VAGUE (coach against these): "Work on marketing", "Focus on team culture", "Get healthier", "Improve pipeline", "Be more present with family"
+MEASURABLE (coach toward these): "Send 5 prospecting emails by Tuesday noon", "Hold 15-min 1-on-1 with each team member", "30-min workout Mon/Wed/Fri before 7am", "Call 3 renewal clients", "Phone off at dinner table every night"
+
+The test is simple: Can someone else look at this item on Friday and determine if it was done? If the answer is "it depends" or "sort of" — it's not measurable enough. If their One Big Thing is vague, sharpen it for them: "You said 'Grow the business' — I respect the ambition, but that's a direction, not a target. What would 'grow the business' look like in one measurable action this week? Maybe it's 'Book 3 new appointments' or 'Launch the referral campaign by Wednesday.' Give yourself something you can win."
+
+If their power plays are strong and measurable, acknowledge it: "I looked at your playbook for next week and I see specificity — that tells me you're not hoping for a good week, you're engineering one."
+
+If they have no power plays scheduled, address it: "You planned your One Big Thing but your daily playbook is empty. That's like having a destination with no directions. The power plays are how the big thing actually gets done — break it down into daily wins."
+
+7. SPEAK TO IDENTITY AND CLOSE WITH FIRE. This is the final paragraph and the most important one. Behavior change doesn't last through willpower. It lasts when someone starts to see themselves differently. Every debrief is a brick in that new identity. Speak to it: "The kind of person who sits down every week, looks at their life across every domain, tells the truth about what they see, and makes a plan — that person is building something that can't be taken away. That's not productivity. That's stewardship. You're stewarding the life, the family, the team, and the calling that God gave you." Then close with fire. Their team is watching. Their kids are watching. Their spouse is watching. They are setting the standard — not someday, but right now, in how they show up this coming week. End with a single sentence they'll carry with them. Make it land.
 
 WHEN SCORES ARE ALL HIGH (8+ across domains, 40+ total):
 Do not manufacture problems. Do not go soft either. This is the moment to raise the ceiling. Ask: "What happens if you stack three more weeks like this? Who are you six months from now? This isn't maintenance mode — this is compound interest and you're just getting started. The question isn't whether you can sustain this. The question is: what becomes possible for your family, your team, and your legacy if you do?"
@@ -219,11 +230,48 @@ serve(async (req) => {
       }
     }
 
+    // Fetch next week's scheduled power plays for measurability coaching
+    // Calculate next week key from current week key
+    const weekMatch = review.week_key.match(/^(\d{4})-W(\d{2})$/);
+    let nextWeekKey = '';
+    if (weekMatch) {
+      const yr = parseInt(weekMatch[1]);
+      const wk = parseInt(weekMatch[2]);
+      // Simple next week — handles year rollover approximately
+      if (wk >= 52) {
+        nextWeekKey = `${yr + 1}-W01`;
+      } else {
+        nextWeekKey = `${yr}-W${String(wk + 1).padStart(2, '0')}`;
+      }
+    }
+
+    let nextWeekItems: Array<{ title: string; domain: string | null; scheduled_date: string | null; completed: boolean }> = [];
+    if (nextWeekKey) {
+      const { data: focusItems } = await supabase
+        .from('focus_items')
+        .select('title, domain, scheduled_date, completed')
+        .eq('user_id', user.id)
+        .or(`and(zone.eq.power_play,week_key.eq.${nextWeekKey}),and(zone.eq.one_big_thing,week_key.eq.${nextWeekKey})`)
+        .order('scheduled_date', { ascending: true });
+      nextWeekItems = focusItems || [];
+    }
+
     userMessage += '\n';
     if (review.next_week_one_big_thing) {
       userMessage += `NEXT WEEK'S ONE BIG THING: "${review.next_week_one_big_thing}"\n`;
     } else {
       userMessage += `NEXT WEEK'S ONE BIG THING: (not set)\n`;
+    }
+
+    if (nextWeekItems.length > 0) {
+      userMessage += `\nNEXT WEEK'S SCHEDULED POWER PLAYS:\n`;
+      for (const item of nextWeekItems) {
+        const day = item.scheduled_date || 'unscheduled';
+        const domain = item.domain ? ` [${item.domain}]` : '';
+        userMessage += `- ${day}${domain}: "${item.title}"\n`;
+      }
+    } else {
+      userMessage += `\nNEXT WEEK'S SCHEDULED POWER PLAYS: (none scheduled yet)\n`;
     }
 
     // Call Anthropic API
