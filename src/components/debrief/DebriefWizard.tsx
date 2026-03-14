@@ -82,7 +82,12 @@ export function DebriefWizard({
 
   const handleBegin = async () => {
     if (!review) {
-      await onCreateOrResume(agencyId);
+      try {
+        await onCreateOrResume(agencyId);
+      } catch (err) {
+        console.error("Failed to create debrief record:", err);
+        // Still advance — user can reflect even if persistence fails
+      }
     }
     goToStep(1);
   };
