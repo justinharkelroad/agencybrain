@@ -357,6 +357,7 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
           id,
           name,
           allow_multiple_items,
+          is_vc_item,
           product_type:product_types(
             name,
             category,
@@ -374,7 +375,9 @@ export function AddSaleForm({ onSuccess, editSale, prefillSale, onCancelEdit }: 
         allow_multiple_items: pt.allow_multiple_items ?? false,
         category: (pt.product_type as any)?.category || 'General',
         default_points: (pt.product_type as any)?.default_points ?? 0,
-        is_vc_item: (pt.product_type as any)?.is_vc_item ?? false,
+        is_vc_item: (pt as any).is_vc_item != null
+          ? !!(pt as any).is_vc_item
+          : ((pt.product_type as any)?.is_vc_item ?? false),
         canonical_name: (pt.product_type as any)?.name || null,
       }));
     },

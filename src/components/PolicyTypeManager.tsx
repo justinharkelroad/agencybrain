@@ -30,6 +30,7 @@ interface PolicyType {
   order_index: number;
   product_type_id?: string | null;
   product_type: ProductType | null;
+  is_vc_item: boolean | null; // null = inherit from product_type
 }
 
 interface PolicyTypeManagerProps {
@@ -53,7 +54,7 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
       const { data, error } = await supabase
         .from('policy_types')
         .select(`
-          id, name, is_active, allow_multiple_items, order_index, product_type_id,
+          id, name, is_active, allow_multiple_items, order_index, product_type_id, is_vc_item,
           product_type:product_types(id, name, category, default_points, is_vc_item)
         `)
         .eq('agency_id', agencyId)
@@ -320,7 +321,6 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
                       <Badge className="bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/50">
                         <Link className="h-3 w-3 mr-1" />
                         {type.product_type.default_points} pts
-                        {type.product_type.is_vc_item && " • VC"}
                       </Badge>
                     ) : (
                       <Badge variant="outline" className="border-orange-500/50 text-orange-600 dark:text-orange-400">
@@ -328,10 +328,49 @@ export function PolicyTypeManager({ agencyId }: PolicyTypeManagerProps) {
                         Not Linked
                       </Badge>
                     )}
+                    {(() => {
+                      const effectiveVc = type.is_vc_item !== null
+                        ? type.is_vc_item
+                        : (type.product_type?.is_vc_item ?? false);
+                      const isOverride = type.is_vc_item !== null;
+                      if (effectiveVc) {
+                        return (
+                          <Badge className={isOverride
+                            ? "bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/50"
+                            : "bg-green-500/20 text-green-600 dark:text-green-400 border-green-500/50"
+                          }>
+                            VC{isOverride && " (override)"}
+                          </Badge>
+                        );
+                      } else if (isOverride) {
+                        return (
+                          <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
+                            No VC (override)
+                          </Badge>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 pr-2 border-r border-border/40">
+                    <span className="text-xs text-muted-foreground">VC</span>
+                    <Switch
+                      checked={type.is_vc_item !== null
+                        ? type.is_vc_item
+                        : (type.product_type?.is_vc_item ?? false)}
+                      onCheckedChange={(checked) => {
+                        const inheritedValue = type.product_type?.is_vc_item ?? false;
+                        // If the new value matches inherited, store null (inherit) instead of explicit
+                        const valueToStore = checked === inheritedValue ? null : checked;
+                        updatePolicyType(type.id, { is_vc_item: valueToStore } as Partial<PolicyType>);
+                      }}
+                      disabled={loading}
+                    />
+                  </div>
+
                   <div className="flex items-center gap-2 pr-2 border-r border-border/40">
                     <span className="text-xs text-muted-foreground">Multi-item</span>
                     <Switch

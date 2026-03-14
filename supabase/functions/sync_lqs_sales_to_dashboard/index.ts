@@ -17,6 +17,7 @@ interface SyncRequest {
   agency_id: string;
   date_start?: string;
   date_end?: string;
+  lqs_sale_ids?: string[];
   include_unassigned?: boolean;
   team_member_ids?: string[];
   dry_run?: boolean;
@@ -43,6 +44,7 @@ interface LqsSaleRow {
 interface PolicyTypeMeta {
   id: string;
   name: string;
+  is_vc_item: boolean | null; // per-agency override; null = inherit from product_type
   product_type: {
     name: string | null;
     default_points: number | null;
@@ -267,32 +269,42 @@ serve(async (req) => {
     }
 
     const includeUnassigned = body.include_unassigned ?? true;
+    const requestedSaleIds = Array.isArray(body.lqs_sale_ids)
+      ? Array.from(new Set(body.lqs_sale_ids.filter((value): value is string =>
+          typeof value === "string" && value.length > 0
+        )))
+      : null;
     const teamMemberIds = body.team_member_ids ?? [];
 
-    let baseQuery = admin
-      .from("lqs_sales")
-      .select(
-        "id, household_id, sale_date, team_member_id, product_type, items_sold, policies_sold, premium_cents, policy_number, source_reference_id, is_one_call_close, sync_status",
-      )
-      .eq("agency_id", agencyId)
-      .is("source_reference_id", null)
-      .or("sync_status.is.null,sync_status.eq.failed");
+    let rows: LqsSaleRow[] = [];
+    if (!requestedSaleIds || requestedSaleIds.length > 0) {
+      let baseQuery = admin
+        .from("lqs_sales")
+        .select(
+          "id, household_id, sale_date, team_member_id, product_type, items_sold, policies_sold, premium_cents, policy_number, source_reference_id, is_one_call_close, sync_status",
+        )
+        .eq("agency_id", agencyId)
+        .is("source_reference_id", null)
+        .or("sync_status.is.null,sync_status.eq.failed");
 
-    if (body.date_start) {
-      baseQuery = baseQuery.gte("sale_date", body.date_start);
-    }
-    if (body.date_end) baseQuery = baseQuery.lte("sale_date", body.date_end);
-    if (!includeUnassigned) {
-      baseQuery = baseQuery.not("team_member_id", "is", null);
-    }
-    if (teamMemberIds.length > 0) {
-      baseQuery = baseQuery.in("team_member_id", teamMemberIds);
-    }
+      if (requestedSaleIds) {
+        baseQuery = baseQuery.in("id", requestedSaleIds);
+      }
+      if (body.date_start) {
+        baseQuery = baseQuery.gte("sale_date", body.date_start);
+      }
+      if (body.date_end) baseQuery = baseQuery.lte("sale_date", body.date_end);
+      if (!includeUnassigned) {
+        baseQuery = baseQuery.not("team_member_id", "is", null);
+      }
+      if (teamMemberIds.length > 0) {
+        baseQuery = baseQuery.in("team_member_id", teamMemberIds);
+      }
 
-    const { data: allRows, error } = await baseQuery;
-    if (error) return json(500, { error: error.message });
-
-    const rows = (allRows || []) as LqsSaleRow[];
+      const { data: allRows, error } = await baseQuery;
+      if (error) return json(500, { error: error.message });
+      rows = (allRows || []) as LqsSaleRow[];
+    }
 
     if (mode === "preview") {
       const excludedRows = rows.filter((r) =>
@@ -678,7 +690,7 @@ serve(async (req) => {
     const { data: policyTypesData, error: policyTypesError } = await admin
       .from("policy_types")
       .select(
-        "id, name, product_type:product_types(name, default_points, is_vc_item)",
+        "id, name, is_vc_item, product_type:product_types(name, default_points, is_vc_item)",
       )
       .eq("agency_id", agencyId);
 
@@ -749,7 +761,9 @@ serve(async (req) => {
         const policyType = policyByNormalizedName.get(normalized);
         const resolvedProductType = unwrapProductTypeMeta(policyType?.product_type ?? null);
         const defaultPoints = resolvedProductType?.default_points || 0;
-        const isVc = !!resolvedProductType?.is_vc_item;
+        const isVc = policyType?.is_vc_item != null
+          ? !!policyType.is_vc_item
+          : !!resolvedProductType?.is_vc_item;
         const itemCount = row.items_sold || 0;
         const premium = toDollars(row.premium_cents);
 
