@@ -57,7 +57,7 @@ export function OneBigThingCard({ item, onComplete, onUncomplete, onClear, readO
           readOnly
             ? "border-border/40 bg-muted/10 opacity-60"
             : isOver
-              ? "border-primary bg-primary/5 scale-[1.01]"
+              ? "border-emerald-500 bg-emerald-500/10 scale-[1.01]"
               : "border-border/60 bg-muted/20"
         )}
       >

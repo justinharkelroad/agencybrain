@@ -52,7 +52,7 @@ function DroppableDayTab({
             ? "bg-primary/10 text-primary hover:bg-primary/20"
             : "bg-muted/50 text-muted-foreground hover:bg-muted",
         isPast && !selected && "opacity-60",
-        isOver && !isPast && total < 4 && "ring-2 ring-primary ring-offset-1 scale-105"
+        isOver && !isPast && total < 4 && "ring-2 ring-emerald-500 ring-offset-2 ring-offset-background scale-105"
       )}
     >
       <span className="font-medium">{label}</span>
