@@ -1,0 +1,215 @@
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import { X, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
+import { DebriefWelcome } from "./DebriefWelcome";
+import { DebriefAccomplishments } from "./DebriefAccomplishments";
+import { DebriefDomainReflection } from "./DebriefDomainReflection";
+import { DebriefNextWeekPlanning } from "./DebriefNextWeekPlanning";
+import { DebriefSummary } from "./DebriefSummary";
+import type { WeekSummaryData } from "@/hooks/useWeekSummary";
+import type { DomainReflection, WeeklyReview } from "@/hooks/useWeeklyDebrief";
+import confetti from "canvas-confetti";
+
+const TOTAL_STEPS = 5; // 0: Welcome, 1: Accomplishments, 2: Domains, 3: Next Week, 4: Summary
+const STEP_LABELS = ["Welcome", "Accomplishments", "Reflections", "Next Week", "Summary"];
+
+interface DebriefWizardProps {
+  weekLabel: string;
+  weekSummary: WeekSummaryData;
+  review: WeeklyReview | null;
+  isLoading: boolean;
+  agencyId: string | null;
+  exitPath: string;
+  onCreateOrResume: (agencyId: string | null) => Promise<unknown>;
+  onSaveStep: (step: number) => void;
+  onSaveGratitudeNote: (note: string) => void;
+  onSaveDomainReflection: (domain: string, reflection: DomainReflection) => void;
+  onSaveNextWeekOBT: (obt: string) => void;
+  onCompleteDebrief: (scores: {
+    core4Points: number;
+    flowPoints: number;
+    playbookPoints: number;
+    totalPoints: number;
+  }) => Promise<void>;
+}
+
+export function DebriefWizard({
+  weekLabel,
+  weekSummary,
+  review,
+  isLoading,
+  agencyId,
+  exitPath,
+  onCreateOrResume,
+  onSaveStep,
+  onSaveGratitudeNote,
+  onSaveDomainReflection,
+  onSaveNextWeekOBT,
+  onCompleteDebrief,
+}: DebriefWizardProps) {
+  const navigate = useNavigate();
+  const [step, setStep] = useState(0);
+  const [sealing, setSealing] = useState(false);
+
+  // Resume at saved step if review exists
+  useEffect(() => {
+    if (review && review.status === "in_progress" && review.current_step > 0) {
+      setStep(review.current_step);
+    }
+  }, [review?.id]);
+
+  // If review is already completed, show summary
+  useEffect(() => {
+    if (review && review.status === "completed") {
+      setStep(TOTAL_STEPS - 1);
+    }
+  }, [review?.status]);
+
+  const progress = ((step + 1) / TOTAL_STEPS) * 100;
+
+  const goToStep = useCallback(
+    (newStep: number) => {
+      setStep(newStep);
+      if (review) {
+        onSaveStep(newStep);
+      }
+    },
+    [review, onSaveStep]
+  );
+
+  const handleBegin = async () => {
+    if (!review) {
+      await onCreateOrResume(agencyId);
+    }
+    goToStep(1);
+  };
+
+  const handleSeal = async () => {
+    setSealing(true);
+    try {
+      await onCompleteDebrief({
+        core4Points: weekSummary.core4Points,
+        flowPoints: weekSummary.flowPoints,
+        playbookPoints: weekSummary.playbookPoints,
+        totalPoints: weekSummary.totalPoints,
+      });
+
+      // Fire confetti
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ["#34d399", "#60a5fa", "#fbbf24", "#f472b6"],
+      });
+
+      toast.success("Debrief sealed! Great work this week.");
+
+      // Navigate after celebration
+      setTimeout(() => {
+        navigate(exitPath);
+      }, 2000);
+    } catch {
+      toast.error("Failed to seal debrief");
+    } finally {
+      setSealing(false);
+    }
+  };
+
+  const handleExit = () => {
+    navigate(exitPath);
+  };
+
+  if (isLoading || weekSummary.loading) {
+    return (
+      <div className="min-h-screen bg-[#020817] flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-white/40" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#020817] flex flex-col">
+      {/* Header */}
+      <header className="border-b border-white/5 bg-[#020817]/95 backdrop-blur sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-white/60">The Debrief</span>
+              {step > 0 && (
+                <span className="text-xs text-white/30">
+                  {STEP_LABELS[step]}
+                </span>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExit}
+              className="h-8 px-2 text-white/40 hover:text-white hover:bg-white/10"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+          {step > 0 && (
+            <Progress value={progress} className="h-1 bg-white/10 [&>div]:bg-white/40" />
+          )}
+        </div>
+      </header>
+
+      {/* Content */}
+      <main className="flex-1 overflow-y-auto">
+        {step === 0 && (
+          <DebriefWelcome
+            weekSummary={weekSummary}
+            weekLabel={weekLabel}
+            onBegin={handleBegin}
+          />
+        )}
+
+        {step === 1 && (
+          <DebriefAccomplishments
+            weekSummary={weekSummary}
+            gratitudeNote={review?.gratitude_note || ""}
+            onGratitudeChange={onSaveGratitudeNote}
+            onNext={() => goToStep(2)}
+          />
+        )}
+
+        {step === 2 && (
+          <DebriefDomainReflection
+            weekSummary={weekSummary}
+            domainReflections={review?.domain_reflections || {}}
+            onSaveDomainReflection={onSaveDomainReflection}
+            onNext={() => goToStep(3)}
+            onBack={() => goToStep(1)}
+          />
+        )}
+
+        {step === 3 && (
+          <DebriefNextWeekPlanning
+            nextWeekOBT={review?.next_week_one_big_thing || ""}
+            onSaveOBT={onSaveNextWeekOBT}
+            onNext={() => goToStep(4)}
+            onBack={() => goToStep(2)}
+          />
+        )}
+
+        {step === 4 && (
+          <DebriefSummary
+            weekSummary={weekSummary}
+            weekLabel={weekLabel}
+            domainReflections={review?.domain_reflections || {}}
+            gratitudeNote={review?.gratitude_note || null}
+            nextWeekOBT={review?.next_week_one_big_thing || null}
+            onSeal={handleSeal}
+            onBack={() => goToStep(3)}
+            sealing={sealing}
+          />
+        )}
+      </main>
+    </div>
+  );
+}

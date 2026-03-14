@@ -38,6 +38,7 @@ import ScorecardFormEditor from "./pages/ScorecardFormEditor";
 import PublicFormRoute from "./pages/PublicFormRoute";
 import Dashboard from "./pages/Dashboard";
 import WeeklyPlaybook from "./pages/WeeklyPlaybook";
+import WeeklyDebrief from "./pages/WeeklyDebrief";
 import MetricsEditRedirect from "./components/MetricsEditRedirect";
 import { LegacyScorecardsSubmissionsRedirect } from "./components/LegacyScorecardsRedirect";
 import OnboardingTasksPrototype from "./pages/prototype/OnboardingTasksPrototype";
@@ -160,6 +161,7 @@ import StaffFlowStart from "./pages/staff/StaffFlowStart";
 import StaffFlowSession from "./pages/staff/StaffFlowSession";
 import StaffFlowComplete from "./pages/staff/StaffFlowComplete";
 import StaffSales from "./pages/staff/StaffSales";
+import StaffWeeklyDebrief from "./pages/staff/StaffWeeklyDebrief";
 import StaffOnboardingTasks from "./pages/staff/StaffOnboardingTasks";
 import StaffTeamRings from "./pages/staff/StaffTeamRings";
 import StaffMeetingFrameWrapper from "./pages/staff/StaffMeetingFrameWrapper";
@@ -745,6 +747,11 @@ const App = () => {
                 </SidebarLayout>
               </ProtectedRoute>
             } />
+            <Route path="/debrief" element={
+              <ProtectedRoute>
+                <WeeklyDebrief />
+              </ProtectedRoute>
+            } />
             <Route path="/settings" element={
               <ProtectedRoute>
                 <SidebarLayout>
@@ -1274,6 +1281,12 @@ const App = () => {
               {/* Win-Back HQ */}
               <Route path="winback" element={<WinbackHQ />} />
             </Route>
+            {/* Staff Debrief - Full screen (no sidebar) */}
+            <Route path="/staff/debrief" element={
+              <StaffProtectedRoute>
+                <StaffWeeklyDebrief />
+              </StaffProtectedRoute>
+            } />
             {/* Staff Flows Routes - Full screen (no sidebar) */}
             <Route path="/staff/flows/start/:slug" element={
               <StaffProtectedRoute>

@@ -648,6 +648,129 @@ serve(async (req) => {
         break;
       }
 
+      case 'weekly_review': {
+        // Get weekly review for current staff user
+        const { week_key } = body;
+        if (!week_key) {
+          return new Response(
+            JSON.stringify({ error: 'week_key is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { data: review, error: reviewError } = await supabase
+          .from('staff_weekly_reviews')
+          .select('*')
+          .eq('staff_user_id', session.staff_user_id)
+          .eq('week_key', week_key)
+          .maybeSingle();
+
+        if (reviewError) throw reviewError;
+        responseData = { review: review || null };
+        break;
+      }
+
+      case 'weekly_review_create': {
+        // Create or resume a weekly review
+        const { week_key } = body;
+        if (!week_key) {
+          return new Response(
+            JSON.stringify({ error: 'week_key is required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Check if already exists
+        const { data: existing } = await supabase
+          .from('staff_weekly_reviews')
+          .select('*')
+          .eq('staff_user_id', session.staff_user_id)
+          .eq('week_key', week_key)
+          .maybeSingle();
+
+        if (existing) {
+          responseData = { review: existing };
+          break;
+        }
+
+        const { data: newReview, error: createError } = await supabase
+          .from('staff_weekly_reviews')
+          .insert({
+            staff_user_id: session.staff_user_id,
+            team_member_id: teamMemberId,
+            agency_id: agencyId,
+            week_key,
+            status: 'in_progress',
+            current_step: 0,
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        responseData = { review: newReview };
+        break;
+      }
+
+      case 'weekly_review_update': {
+        // Update weekly review fields
+        const { review_id, updates } = body;
+        if (!review_id || !updates) {
+          return new Response(
+            JSON.stringify({ error: 'review_id and updates are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Whitelist allowed fields
+        const allowedFields = ['current_step', 'gratitude_note', 'domain_reflections', 'next_week_one_big_thing'];
+        const safeUpdates: any = { updated_at: new Date().toISOString() };
+        for (const field of allowedFields) {
+          if (updates[field] !== undefined) {
+            safeUpdates[field] = updates[field];
+          }
+        }
+
+        const { error: updateError } = await supabase
+          .from('staff_weekly_reviews')
+          .update(safeUpdates)
+          .eq('id', review_id)
+          .eq('staff_user_id', session.staff_user_id); // Security: only update own reviews
+
+        if (updateError) throw updateError;
+        responseData = { success: true };
+        break;
+      }
+
+      case 'weekly_review_complete': {
+        // Seal the weekly review
+        const { review_id, scores } = body;
+        if (!review_id || !scores) {
+          return new Response(
+            JSON.stringify({ error: 'review_id and scores are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const { error: completeError } = await supabase
+          .from('staff_weekly_reviews')
+          .update({
+            core4_points: scores.core4Points || 0,
+            flow_points: scores.flowPoints || 0,
+            playbook_points: scores.playbookPoints || 0,
+            total_points: scores.totalPoints || 0,
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            current_step: 4,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', review_id)
+          .eq('staff_user_id', session.staff_user_id); // Security: only complete own reviews
+
+        if (completeError) throw completeError;
+        responseData = { success: true };
+        break;
+      }
+
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid request type' }),

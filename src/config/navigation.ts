@@ -809,6 +809,14 @@ export const navigationConfig: NavEntry[] = [
     access: { staff: true, manager: true, owner: true },
     items: [
       {
+        id: 'weekly-debrief',
+        title: 'The Debrief',
+        icon: ClipboardEdit,
+        type: 'link',
+        url: '/debrief',
+        access: { staff: true, manager: true, owner: true },
+      },
+      {
         id: 'weekly-playbook',
         title: 'Weekly Playbook',
         icon: Target,
@@ -1192,6 +1200,14 @@ export const staffNavigationConfig: NavEntry[] = [
     isFolder: true,
     access: { staff: true, manager: true, owner: true },
     items: [
+      {
+        id: 'weekly-debrief',
+        title: 'The Debrief',
+        icon: ClipboardEdit,
+        type: 'link',
+        url: '/staff/debrief',
+        access: { staff: true, manager: true, owner: true },
+      },
       {
         id: 'weekly-playbook',
         title: 'Weekly Playbook',
