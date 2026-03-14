@@ -80,17 +80,17 @@ export function DebriefSummary({
         </div>
       </div>
 
-      {/* Key Reflections */}
-      {Object.entries(domainReflections).some(([, r]) => r.carry_forward) && (
+      {/* Course Corrections */}
+      {Object.entries(domainReflections).some(([, r]) => r.course_correction && r.course_correction_note) && (
         <div className="bg-white/5 rounded-xl p-4 border border-white/10 space-y-2">
-          <p className="text-sm font-semibold text-white">Carrying Forward</p>
+          <p className="text-sm font-semibold text-white">Course Corrections</p>
           {DOMAIN_META.map(({ key, label, color }) => {
             const reflection = domainReflections[key];
-            if (!reflection?.carry_forward) return null;
+            if (!reflection?.course_correction || !reflection?.course_correction_note) return null;
             return (
               <div key={key} className="text-xs">
                 <span className={cn("font-medium", color)}>{label}:</span>{" "}
-                <span className="text-white/60">{reflection.carry_forward}</span>
+                <span className="text-white/60">{reflection.course_correction_note}</span>
               </div>
             );
           })}

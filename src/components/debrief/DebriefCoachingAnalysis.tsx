@@ -27,9 +27,16 @@ export function DebriefCoachingAnalysis({
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Sync from prop when it changes (e.g. review refetched after save)
+  useEffect(() => {
+    if (existingAnalysis && !analysis) {
+      setAnalysis(existingAnalysis);
+    }
+  }, [existingAnalysis]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Auto-request analysis on mount if we don't have one
   useEffect(() => {
-    if (!analysis && reviewId && !analyzing) {
+    if (!analysis && !existingAnalysis && reviewId && !analyzing && !error) {
       requestAnalysis();
     }
   }, [reviewId]); // eslint-disable-line react-hooks/exhaustive-deps
