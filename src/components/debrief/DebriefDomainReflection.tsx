@@ -214,8 +214,8 @@ export function DebriefDomainReflection({
             </button>
             <button
               onClick={() => {
-                updateField("course_correction", false);
-                updateField("course_correction_note", "");
+                const updated = { ...currentReflection, course_correction: false, course_correction_note: "" };
+                setLocalReflections((prev) => ({ ...prev, [activeDomain]: updated }));
               }}
               className={cn(
                 "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all border",
