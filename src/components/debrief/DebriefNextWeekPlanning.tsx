@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ArrowRight, ArrowLeft, Target, Loader2 } from "lucide-react";
-import { format, addDays, startOfWeek, addWeeks, isBefore, startOfDay } from "date-fns";
+import { ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
+import { format, addDays, startOfWeek, addWeeks } from "date-fns";
 import { getWeekKey } from "@/lib/date-utils";
 import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { useFocusItems } from "@/hooks/useFocusItems";
@@ -31,13 +30,6 @@ export function DebriefNextWeekPlanning({
   onNext,
   onBack,
 }: DebriefNextWeekPlanningProps) {
-  const [localOBT, setLocalOBT] = useState(nextWeekOBT);
-
-  // Sync when prop changes (e.g. navigating back after save)
-  useEffect(() => {
-    setLocalOBT(nextWeekOBT);
-  }, [nextWeekOBT]);
-
   // Next week dates
   const currentMonday = startOfWeek(new Date(), { weekStartsOn: 1 });
   const nextMonday = addWeeks(currentMonday, 1);
@@ -187,8 +179,10 @@ export function DebriefNextWeekPlanning({
   const scheduleTargetItem = scheduleItemId ? items.find((i) => i.id === scheduleItemId) : null;
 
   const handleNext = () => {
-    if (localOBT !== nextWeekOBT) {
-      onSaveOBT(localOBT);
+    // Auto-sync the OBT item title to the review record
+    const obtTitle = oneBigThingItem?.title || "";
+    if (obtTitle !== nextWeekOBT) {
+      onSaveOBT(obtTitle);
     }
     onNext();
   };
@@ -200,23 +194,6 @@ export function DebriefNextWeekPlanning({
         <p className="text-sm text-muted-foreground mt-1">
           Set your intention for {format(nextMonday, "MMM d")} - {format(addDays(nextMonday, 4), "MMM d")}
         </p>
-      </div>
-
-      {/* One Big Thing input */}
-      <div className="bg-foreground/5 rounded-xl p-5 border border-border space-y-3">
-        <div className="flex items-center gap-2">
-          <Target className="h-5 w-5 text-amber-400" />
-          <span className="text-sm font-semibold text-foreground">One Big Thing</span>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          What's the single most important thing you want to accomplish next week?
-        </p>
-        <Input
-          value={localOBT}
-          onChange={(e) => setLocalOBT(e.target.value)}
-          placeholder="My One Big Thing for next week..."
-          className="bg-foreground/5 border-border text-foreground placeholder:text-muted-foreground"
-        />
       </div>
 
       {/* Full playbook for next week — light theme container */}
