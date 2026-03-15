@@ -386,9 +386,9 @@ export default function StaffFormSubmission() {
     const quotedTarget = targets['quoted_households'] ?? targets['quoted_count'] ??
                          targets['policies_quoted'] ?? targets['households_quoted'] ?? 0;
 
-    // Show Quoted Households if: enabled OR has target OR has dashboard data, AND not already on form
-    const shouldAddQuoted = (quotedEnabled || hasQuotedTarget || dashboardQuotedCount > 0) &&
-                            !formKpiKeys.has('quoted_households');
+    // Show Quoted Households only if enabled in scorecard rules for this form's role
+    // (targets and dashboard data are role-agnostic, so they can't gate display)
+    const shouldAddQuoted = quotedEnabled && !formKpiKeys.has('quoted_households');
 
     if (shouldAddQuoted && quotedTarget > 0) {
       kpiPerformance.push({
@@ -412,8 +412,8 @@ export default function StaffFormSubmission() {
 
     const soldTarget = targets['items_sold'] ?? targets['sold_items'] ?? targets['sold_count'] ?? 0;
 
-    const shouldAddSold = (soldEnabled || hasSoldTarget || dashboardSoldCount > 0) &&
-                          !formKpiKeys.has('items_sold');
+    // Show Items Sold only if enabled in scorecard rules for this form's role
+    const shouldAddSold = soldEnabled && !formKpiKeys.has('items_sold');
 
     if (shouldAddSold && soldTarget > 0) {
       kpiPerformance.push({
