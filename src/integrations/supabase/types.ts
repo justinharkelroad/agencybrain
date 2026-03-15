@@ -104,6 +104,7 @@ export type Database = {
           notifications_email_enabled: boolean | null
           notifications_lateness_enabled: boolean | null
           notifications_submissions_enabled: boolean | null
+          onboarding_completed_at: string | null
           owner_rollup_time: string | null
           phone: string | null
           rc_ingest_key: string
@@ -156,6 +157,7 @@ export type Database = {
           notifications_email_enabled?: boolean | null
           notifications_lateness_enabled?: boolean | null
           notifications_submissions_enabled?: boolean | null
+          onboarding_completed_at?: string | null
           owner_rollup_time?: string | null
           phone?: string | null
           rc_ingest_key?: string
@@ -208,6 +210,7 @@ export type Database = {
           notifications_email_enabled?: boolean | null
           notifications_lateness_enabled?: boolean | null
           notifications_submissions_enabled?: boolean | null
+          onboarding_completed_at?: string | null
           owner_rollup_time?: string | null
           phone?: string | null
           rc_ingest_key?: string
@@ -5416,6 +5419,8 @@ export type Database = {
           column_status: string
           completed: boolean
           completed_at: string | null
+          completion_feeling: string | null
+          completion_proof: string | null
           created_at: string
           description: string | null
           domain: string | null
@@ -5439,6 +5444,8 @@ export type Database = {
           column_status?: string
           completed?: boolean
           completed_at?: string | null
+          completion_feeling?: string | null
+          completion_proof?: string | null
           created_at?: string
           description?: string | null
           domain?: string | null
@@ -5462,6 +5469,8 @@ export type Database = {
           column_status?: string
           completed?: boolean
           completed_at?: string | null
+          completion_feeling?: string | null
+          completion_proof?: string | null
           created_at?: string
           description?: string | null
           domain?: string | null
@@ -7094,6 +7103,7 @@ export type Database = {
           quoted_count: number | null
           quoted_entity: string | null
           role: Database["public"]["Enums"]["app_member_role"] | null
+          scoring_role: Database["public"]["Enums"]["app_member_role"] | null
           sold_items: number | null
           sold_policies: number | null
           sold_premium_cents: number | null
@@ -7124,6 +7134,7 @@ export type Database = {
           quoted_count?: number | null
           quoted_entity?: string | null
           role?: Database["public"]["Enums"]["app_member_role"] | null
+          scoring_role?: Database["public"]["Enums"]["app_member_role"] | null
           sold_items?: number | null
           sold_policies?: number | null
           sold_premium_cents?: number | null
@@ -7154,6 +7165,7 @@ export type Database = {
           quoted_count?: number | null
           quoted_entity?: string | null
           role?: Database["public"]["Enums"]["app_member_role"] | null
+          scoring_role?: Database["public"]["Enums"]["app_member_role"] | null
           sold_items?: number | null
           sold_policies?: number | null
           sold_premium_cents?: number | null
@@ -8183,6 +8195,7 @@ export type Database = {
           agency_id: string
           assigned_to_staff_user_id: string | null
           assigned_to_user_id: string | null
+          call_outcome: string | null
           completed_at: string | null
           completed_by_staff_user_id: string | null
           completed_by_user_id: string | null
@@ -8209,6 +8222,7 @@ export type Database = {
           agency_id: string
           assigned_to_staff_user_id?: string | null
           assigned_to_user_id?: string | null
+          call_outcome?: string | null
           completed_at?: string | null
           completed_by_staff_user_id?: string | null
           completed_by_user_id?: string | null
@@ -8235,6 +8249,7 @@ export type Database = {
           agency_id?: string
           assigned_to_staff_user_id?: string | null
           assigned_to_user_id?: string | null
+          call_outcome?: string | null
           completed_at?: string | null
           completed_by_staff_user_id?: string | null
           completed_by_user_id?: string | null
@@ -8332,6 +8347,65 @@ export type Database = {
             columns: ["step_id"]
             isOneToOne: false
             referencedRelation: "onboarding_sequence_steps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_tokens: {
+        Row: {
+          agency_name: string | null
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          metadata: Json | null
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          tier: string
+          token: string
+          used_at: string | null
+          used_by_agency_id: string | null
+          used_by_user_id: string | null
+        }
+        Insert: {
+          agency_name?: string | null
+          created_at?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          metadata?: Json | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tier?: string
+          token?: string
+          used_at?: string | null
+          used_by_agency_id?: string | null
+          used_by_user_id?: string | null
+        }
+        Update: {
+          agency_name?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          metadata?: Json | null
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tier?: string
+          token?: string
+          used_at?: string | null
+          used_by_agency_id?: string | null
+          used_by_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_tokens_used_by_agency_id_fkey"
+            columns: ["used_by_agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
             referencedColumns: ["id"]
           },
         ]
@@ -8595,6 +8669,7 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_vc_item: boolean | null
           name: string
           order_index: number
           product_type_id: string | null
@@ -8606,6 +8681,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_vc_item?: boolean | null
           name: string
           order_index?: number
           product_type_id?: string | null
@@ -8617,6 +8693,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_vc_item?: boolean | null
           name?: string
           order_index?: number
           product_type_id?: string | null
@@ -12161,6 +12238,91 @@ export type Database = {
           },
         ]
       }
+      staff_weekly_reviews: {
+        Row: {
+          agency_id: string | null
+          coaching_analysis: string | null
+          completed_at: string | null
+          core4_points: number
+          created_at: string | null
+          current_step: number
+          domain_reflections: Json | null
+          flow_points: number
+          gratitude_note: string | null
+          id: string
+          next_week_one_big_thing: string | null
+          playbook_points: number
+          staff_user_id: string
+          status: string
+          team_member_id: string | null
+          total_points: number
+          updated_at: string | null
+          week_key: string
+        }
+        Insert: {
+          agency_id?: string | null
+          coaching_analysis?: string | null
+          completed_at?: string | null
+          core4_points?: number
+          created_at?: string | null
+          current_step?: number
+          domain_reflections?: Json | null
+          flow_points?: number
+          gratitude_note?: string | null
+          id?: string
+          next_week_one_big_thing?: string | null
+          playbook_points?: number
+          staff_user_id: string
+          status?: string
+          team_member_id?: string | null
+          total_points?: number
+          updated_at?: string | null
+          week_key: string
+        }
+        Update: {
+          agency_id?: string | null
+          coaching_analysis?: string | null
+          completed_at?: string | null
+          core4_points?: number
+          created_at?: string | null
+          current_step?: number
+          domain_reflections?: Json | null
+          flow_points?: number
+          gratitude_note?: string | null
+          id?: string
+          next_week_one_big_thing?: string | null
+          playbook_points?: number
+          staff_user_id?: string
+          status?: string
+          team_member_id?: string | null
+          total_points?: number
+          updated_at?: string | null
+          week_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_weekly_reviews_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_weekly_reviews_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "staff_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_weekly_reviews_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       standalone_sales_process: {
         Row: {
           agency_id: string
@@ -13838,6 +14000,74 @@ export type Database = {
           },
         ]
       }
+      weekly_reviews: {
+        Row: {
+          agency_id: string | null
+          coaching_analysis: string | null
+          completed_at: string | null
+          core4_points: number
+          created_at: string | null
+          current_step: number
+          domain_reflections: Json | null
+          flow_points: number
+          gratitude_note: string | null
+          id: string
+          next_week_one_big_thing: string | null
+          playbook_points: number
+          status: string
+          total_points: number
+          updated_at: string | null
+          user_id: string
+          week_key: string
+        }
+        Insert: {
+          agency_id?: string | null
+          coaching_analysis?: string | null
+          completed_at?: string | null
+          core4_points?: number
+          created_at?: string | null
+          current_step?: number
+          domain_reflections?: Json | null
+          flow_points?: number
+          gratitude_note?: string | null
+          id?: string
+          next_week_one_big_thing?: string | null
+          playbook_points?: number
+          status?: string
+          total_points?: number
+          updated_at?: string | null
+          user_id: string
+          week_key: string
+        }
+        Update: {
+          agency_id?: string | null
+          coaching_analysis?: string | null
+          completed_at?: string | null
+          core4_points?: number
+          created_at?: string | null
+          current_step?: number
+          domain_reflections?: Json | null
+          flow_points?: number
+          gratitude_note?: string | null
+          id?: string
+          next_week_one_big_thing?: string | null
+          playbook_points?: number
+          status?: string
+          total_points?: number
+          updated_at?: string | null
+          user_id?: string
+          week_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekly_reviews_agency_id_fkey"
+            columns: ["agency_id"]
+            isOneToOne: false
+            referencedRelation: "agencies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       winback_activities: {
         Row: {
           activity_type: string
@@ -14250,6 +14480,7 @@ export type Database = {
           outbound_calls: number | null
           quoted_households: number | null
           role: Database["public"]["Enums"]["app_member_role"] | null
+          scoring_role: Database["public"]["Enums"]["app_member_role"] | null
           talk_minutes: number | null
           team_member_id: string | null
           team_member_name: string | null
@@ -14289,6 +14520,7 @@ export type Database = {
           quoted_households: number | null
           rep_name: string | null
           role: Database["public"]["Enums"]["app_member_role"] | null
+          scoring_role: Database["public"]["Enums"]["app_member_role"] | null
           sold_policies: number | null
           sold_premium_cents: number | null
           streak_count: number | null
@@ -14386,6 +14618,7 @@ export type Database = {
           quoted_households: number | null
           rep_name: string | null
           role: Database["public"]["Enums"]["app_member_role"] | null
+          scoring_role: Database["public"]["Enums"]["app_member_role"] | null
           sold_policies: number | null
           sold_premium_cents: number | null
           streak_count: number | null
@@ -14960,6 +15193,10 @@ export type Database = {
         Args: { p_assignment_id: string }
         Returns: number
       }
+      get_sequence_team_stats: {
+        Args: { p_agency_id: string; p_date?: string }
+        Returns: Json
+      }
       get_staff_call_details: {
         Args: {
           p_agency_id?: string
@@ -15257,6 +15494,10 @@ export type Database = {
       normalize_product_type: {
         Args: { p_product_type: string }
         Returns: string
+      }
+      provision_boardroom_defaults: {
+        Args: { p_agency_id: string }
+        Returns: undefined
       }
       recalculate_all_winback_dates: {
         Args: { p_agency_id: string; p_contact_days_before?: number }
