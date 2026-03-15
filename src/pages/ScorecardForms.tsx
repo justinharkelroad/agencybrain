@@ -530,6 +530,27 @@ export default function ScorecardForms() {
                       </Button>
                     </CardContent>
                   </Card>
+                  <Card className="md:col-span-2">
+                    <CardHeader>
+                      <CardTitle className="text-lg">Hybrid Targets & Details</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3 md:flex md:space-y-0 md:gap-3">
+                      <EnhancedKPIConfigDialog title="Configure Hybrid KPIs" type="hybrid" agencyId={isStaffUser ? staffAgencyId! : agencyId} isStaffMode={isStaffUser}>
+                        <Button variant="outline" className="w-full">
+                          <Target className="h-4 w-4 mr-2" />
+                          Configure Hybrid KPIs
+                        </Button>
+                      </EnhancedKPIConfigDialog>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start"
+                        onClick={() => navigate(isStaffUser ? "/staff/metrics/settings?role=hybrid" : "/settings?tab=scorecards&role=hybrid")}
+                      >
+                        <Award className="h-4 w-4 mr-2" />
+                        Hybrid Scoring Rules
+                      </Button>
+                    </CardContent>
+                  </Card>
                 </div>
               </CardContent>
             </Card>
