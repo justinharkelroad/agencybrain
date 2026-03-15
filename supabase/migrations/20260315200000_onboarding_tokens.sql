@@ -36,7 +36,17 @@ CREATE POLICY "admins_read_onboarding_tokens"
     )
   );
 
--- Service-role handles all writes (edge functions)
+-- Admin insert access (generate tokens from admin dashboard)
+CREATE POLICY "admins_insert_onboarding_tokens"
+  ON onboarding_tokens FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+    )
+  );
+
+-- Service-role handles all other writes (edge functions)
 
 -- =================================================================
 -- 2. Add onboarding_completed_at to agencies
