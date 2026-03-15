@@ -1,0 +1,1 @@
+DELETE FROM weekly_reviews WHERE id = '6dc5a49e-a4a6-4a0c-accc-59588d202372';
