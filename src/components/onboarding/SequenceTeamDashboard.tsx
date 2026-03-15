@@ -537,12 +537,14 @@ export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySe
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium truncate block">{seq.name}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs shrink-0">
+                    <div className="flex items-center gap-1.5 text-xs shrink-0 ml-2">
                       {seq.overdue > 0 && (
-                        <span className="text-red-500 font-medium">{seq.overdue} overdue</span>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 bg-red-500/10 text-red-500 font-bold">
+                          {seq.overdue}
+                        </Badge>
                       )}
-                      <span className="text-muted-foreground">
-                        {seqTodayTotal > 0 ? `${seq.completed_today}/${seqTodayTotal} today` : 'none today'}
+                      <span className="text-muted-foreground whitespace-nowrap">
+                        {seqTodayTotal > 0 ? `${seq.completed_today}/${seqTodayTotal}` : '—'}
                       </span>
                       <Badge
                         variant="secondary"
