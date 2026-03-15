@@ -163,7 +163,96 @@ export function useDebriefStats(weekKey: string): DebriefStatsData {
       currentPlaybook += obtPoint; // Add OBT to playbook total
       const currentTotal = currentCore4 + currentFlow + currentPlaybook;
 
-      // Find previous week in reviews
+      // Fetch historical raw tracking data for comparison scores
+      // (covers weeks before the debrief feature existed)
+      const lookbackStart = format(subWeeks(monday, 52), "yyyy-MM-dd");
+
+      const [histC4Res, histFlowRes, histPPRes, histOBTRes] = await Promise.all([
+        supabase.from("core4_entries")
+          .select("date, body_completed, being_completed, balance_completed, business_completed")
+          .eq("user_id", user.id)
+          .gte("date", lookbackStart),
+        supabase.from("flow_sessions")
+          .select("completed_at")
+          .eq("user_id", user.id)
+          .eq("status", "completed")
+          .not("completed_at", "is", null)
+          .gte("completed_at", lookbackStart + "T00:00:00"),
+        supabase.from("focus_items")
+          .select("scheduled_date")
+          .eq("user_id", user.id)
+          .eq("zone", "power_play")
+          .eq("completed", true)
+          .gte("scheduled_date", lookbackStart),
+        supabase.from("focus_items")
+          .select("week_key")
+          .eq("user_id", user.id)
+          .eq("zone", "one_big_thing")
+          .eq("completed", true),
+      ]);
+
+      // Group raw data into synthetic weekly totals
+      const syntheticWeeks = new Map<string, { core4: number; flow: number; playbook: number }>();
+
+      (histC4Res.data || []).forEach((e) => {
+        const wk = getWeekKey(new Date(e.date + "T12:00:00"));
+        if (!syntheticWeeks.has(wk)) syntheticWeeks.set(wk, { core4: 0, flow: 0, playbook: 0 });
+        syntheticWeeks.get(wk)!.core4 +=
+          (e.body_completed ? 1 : 0) + (e.being_completed ? 1 : 0) +
+          (e.balance_completed ? 1 : 0) + (e.business_completed ? 1 : 0);
+      });
+
+      // Deduplicate flow sessions by date (max 1 point per day)
+      const flowByWeek = new Map<string, Set<string>>();
+      (histFlowRes.data || []).forEach((s) => {
+        const d = format(new Date(s.completed_at), "yyyy-MM-dd");
+        const wk = getWeekKey(new Date(s.completed_at));
+        if (!flowByWeek.has(wk)) flowByWeek.set(wk, new Set());
+        flowByWeek.get(wk)!.add(d);
+      });
+      flowByWeek.forEach((dates, wk) => {
+        if (!syntheticWeeks.has(wk)) syntheticWeeks.set(wk, { core4: 0, flow: 0, playbook: 0 });
+        syntheticWeeks.get(wk)!.flow = dates.size;
+      });
+
+      (histPPRes.data || []).forEach((pp) => {
+        if (!pp.scheduled_date) return;
+        const wk = getWeekKey(new Date(pp.scheduled_date + "T12:00:00"));
+        if (!syntheticWeeks.has(wk)) syntheticWeeks.set(wk, { core4: 0, flow: 0, playbook: 0 });
+        syntheticWeeks.get(wk)!.playbook += 1;
+      });
+
+      (histOBTRes.data || []).forEach((obt) => {
+        if (!obt.week_key) return;
+        if (!syntheticWeeks.has(obt.week_key))
+          syntheticWeeks.set(obt.week_key, { core4: 0, flow: 0, playbook: 0 });
+        syntheticWeeks.get(obt.week_key)!.playbook += 1;
+      });
+
+      // Merge: prefer completed weekly_reviews, fall back to synthetic scores
+      const reviewWeekSet = new Set(allReviews.map((r) => r.week_key));
+      const allWeekKeys = new Set([...Array.from(syntheticWeeks.keys()), ...Array.from(reviewWeekSet)]);
+      const mergedSnapshots: WeeklyScoreSnapshot[] = [];
+      allWeekKeys.forEach((wk) => {
+        if (wk === weekKey) return; // Exclude current week
+        const review = allReviews.find((r) => r.week_key === wk);
+        if (review) {
+          mergedSnapshots.push(review);
+        } else {
+          const s = syntheticWeeks.get(wk);
+          if (s && s.core4 + s.flow + s.playbook > 0) {
+            mergedSnapshots.push({
+              week_key: wk,
+              core4_points: s.core4,
+              flow_points: s.flow,
+              playbook_points: s.playbook,
+              total_points: s.core4 + s.flow + s.playbook,
+            });
+          }
+        }
+      });
+
+      // Find previous week in merged data
       const prevWeekMatch = weekKey.match(/^(\d{4})-W(\d{2})$/);
       let prevWeekKey = "";
       if (prevWeekMatch) {
@@ -172,42 +261,29 @@ export function useDebriefStats(weekKey: string): DebriefStatsData {
         prevWeekKey = wk <= 1 ? `${yr - 1}-W52` : `${yr}-W${String(wk - 1).padStart(2, "0")}`;
       }
 
-      const prevReview = allReviews.find((r) => r.week_key === prevWeekKey);
+      const prevReview = mergedSnapshots.find((r) => r.week_key === prevWeekKey);
       const prevTotal = prevReview?.total_points ?? 0;
       const prevCore4 = prevReview?.core4_points ?? 0;
       const prevFlow = prevReview?.flow_points ?? 0;
       const prevPlaybook = prevReview?.playbook_points ?? 0;
 
-      // Calculate averages
-      const fourWeekAgo = format(subWeeks(monday, 4), "yyyy-MM-dd");
-      const yearStart = format(startOfYear(now), "yyyy-MM-dd");
-
-      const recentReviews = allReviews.filter((r) => r.week_key >= getWeekKey(subWeeks(now, 4)));
-      const yearReviews = allReviews.filter((r) => r.week_key >= getWeekKey(startOfYear(now)));
+      // Calculate averages from merged data (reviews + synthetic)
+      const recentSnapshots = mergedSnapshots.filter((r) => r.week_key >= getWeekKey(subWeeks(now, 4)));
+      const yearSnapshots = mergedSnapshots.filter((r) => r.week_key >= getWeekKey(startOfYear(now)));
 
       const avg = (arr: number[]) => (arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0);
 
-      const fourWeekAvg = avg(recentReviews.map((r) => r.total_points));
-      const yearAvg = avg(yearReviews.map((r) => r.total_points));
-      const overallAvg = avg(allReviews.map((r) => r.total_points));
+      const fourWeekAvg = avg(recentSnapshots.map((r) => r.total_points));
+      const yearAvg = avg(yearSnapshots.map((r) => r.total_points));
+      const overallAvg = avg(mergedSnapshots.map((r) => r.total_points));
 
-      // Weekday averages from all historical reviews' daily data
-      // We don't have per-day data in reviews, so use current week data as "selected week"
-      // and pad with averages from Core4 entries over last 12 weeks
-      const twelveWeeksAgo = format(subWeeks(now, 12), "yyyy-MM-dd");
-      const { data: historicalCore4 } = await supabase
-        .from("core4_entries")
-        .select("date, body_completed, being_completed, balance_completed, business_completed")
-        .eq("user_id", user.id)
-        .gte("date", twelveWeeksAgo);
-
-      // Build weekday averages (0=Mon through 6=Sun)
+      // Weekday averages from historical Core4 data (reuse already-fetched data)
       const weekdayTotals: Array<{ core4Sum: number; count: number }> = Array.from({ length: 7 }, () => ({
         core4Sum: 0,
         count: 0,
       }));
 
-      (historicalCore4 || []).forEach((entry) => {
+      (histC4Res.data || []).forEach((entry) => {
         const d = new Date(entry.date + "T12:00:00");
         const dow = (d.getDay() + 6) % 7; // Convert Sun=0 to Mon=0
         const pts =
@@ -223,8 +299,8 @@ export function useDebriefStats(weekKey: string): DebriefStatsData {
       const weekdayAverages = dayLabels.map((day, i) => ({
         day,
         core4: weekdayTotals[i].count > 0 ? parseFloat((weekdayTotals[i].core4Sum / weekdayTotals[i].count).toFixed(1)) : 0,
-        flow: 0, // Would need historical flow data per day — approximate for now
-        playbook: 0, // Would need historical power play data per day
+        flow: 0,
+        playbook: 0,
       }));
 
       const makeStat = (current: number, max: number, prev: number): CategoryStats => ({
