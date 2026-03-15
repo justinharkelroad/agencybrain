@@ -1,5 +1,6 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { format } from "date-fns";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from '@/lib/supabaseClient';
@@ -1981,7 +1982,7 @@ export default function Agency() {
                      />
                    </div>
                    
-                   {memberForm.role === 'Hybrid' && (
+                   {memberForm.role === 'Hybrid' && format(new Date(), 'yyyy-MM-dd') < '2026-03-22' && (
                      <div className="grid grid-cols-4 items-start gap-3">
                        <Label className="text-right">Teams</Label>
                        <div className="col-span-3 space-y-2">

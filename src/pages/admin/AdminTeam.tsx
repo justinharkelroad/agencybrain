@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabaseClient";
@@ -273,7 +274,7 @@ export default function AdminTeam() {
                        </Select>
                      </div>
                      
-                     {form.role === 'Hybrid' && (
+                     {form.role === 'Hybrid' && format(new Date(), 'yyyy-MM-dd') < '2026-03-22' && (
                        <div className="grid grid-cols-4 items-start gap-3">
                          <Label className="text-right">Teams</Label>
                          <div className="col-span-3 space-y-2">
@@ -400,7 +401,7 @@ export default function AdminTeam() {
                         )}
                       </TableCell>
                       <TableCell>{m.email}</TableCell>
-                      <TableCell>{m.role}{m.role === 'Hybrid' && m.hybrid_team_assignments?.length > 0 && ` (${m.hybrid_team_assignments.join(', ')})`}</TableCell>
+                      <TableCell>{m.role}{m.role === 'Hybrid' && m.hybrid_team_assignments?.length > 0 && format(new Date(), 'yyyy-MM-dd') < '2026-03-22' && ` (${m.hybrid_team_assignments.join(', ')})`}</TableCell>
                       <TableCell>{m.employment}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5 flex-wrap">
