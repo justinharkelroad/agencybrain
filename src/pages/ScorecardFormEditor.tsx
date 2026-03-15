@@ -113,7 +113,7 @@ interface RepeaterSection {
 
 interface FormSchema {
   title: string;
-  role: 'Sales' | 'Service';
+  role: 'Sales' | 'Service' | 'Hybrid';
   kpis: KPIField[];
   customFields?: CustomField[];
   repeaterSections?: {
@@ -470,7 +470,9 @@ export default function ScorecardFormEditor() {
     if (!formSchema) return;
     const updatedKPIs = [...formSchema.kpis];
     // Select defaults based on form role, with fallback to other role
-    const roleTargets = formSchema.role === 'Service' ? SERVICE_KPI_TARGETS : SALES_KPI_TARGETS;
+    const roleTargets = formSchema.role === 'Hybrid'
+      ? { ...SERVICE_KPI_TARGETS, ...SALES_KPI_TARGETS }
+      : formSchema.role === 'Service' ? SERVICE_KPI_TARGETS : SALES_KPI_TARGETS;
     const otherTargets = formSchema.role === 'Service' ? SALES_KPI_TARGETS : SERVICE_KPI_TARGETS;
     const defaultTargets = roleTargets[slug] || otherTargets[slug];
     
@@ -609,7 +611,7 @@ export default function ScorecardFormEditor() {
                   <Label htmlFor="role">Team Role</Label>
                   <Select 
                     value={formSchema.role} 
-                    onValueChange={(value: 'Sales' | 'Service') => {
+                    onValueChange={(value: 'Sales' | 'Service' | 'Hybrid') => {
                       setFormSchema(prev => prev ? { 
                         ...prev, 
                         role: value
@@ -622,6 +624,7 @@ export default function ScorecardFormEditor() {
                     <SelectContent>
                       <SelectItem value="Sales">Sales</SelectItem>
                       <SelectItem value="Service">Service</SelectItem>
+                      <SelectItem value="Hybrid">Hybrid</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -746,6 +749,7 @@ export default function ScorecardFormEditor() {
                 sendImmediateEmail: formSchema.settings.sendImmediateEmail ?? true,
                 additionalImmediateRecipients: formSchema.settings.additionalImmediateRecipients ?? [],
                 sendDailySummary: formSchema.settings.sendDailySummary ?? false,
+                // Hybrid defaults to sales_team — there is no hybrid_team recipient group
                 dailySummaryRecipients: formSchema.settings.dailySummaryRecipients ?? (formSchema.role === 'Service' ? 'service_team' : 'sales_team'),
                 customSummaryRecipients: formSchema.settings.customSummaryRecipients ?? [],
               }}
@@ -761,6 +765,7 @@ export default function ScorecardFormEditor() {
                 sendImmediateEmail: formSchema.settings.sendImmediateEmail ?? true,
                 additionalImmediateRecipients: formSchema.settings.additionalImmediateRecipients ?? [],
                 sendDailySummary: formSchema.settings.sendDailySummary ?? false,
+                // Hybrid defaults to sales_team — there is no hybrid_team recipient group
                 dailySummaryRecipients: formSchema.settings.dailySummaryRecipients ?? (formSchema.role === 'Service' ? 'service_team' : 'sales_team'),
                 customSummaryRecipients: formSchema.settings.customSummaryRecipients ?? [],
               }}

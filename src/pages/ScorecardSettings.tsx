@@ -19,28 +19,28 @@ interface KPIOption {
 }
 
 interface ScorecardSettingsProps {
-  role?: "Sales" | "Service";
+  role?: "Sales" | "Service" | "Hybrid";
 }
 
 export default function ScorecardSettings({ role: propRole = "Sales" }: ScorecardSettingsProps) {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
-  
+
   // Detect staff mode
   const staffToken = localStorage.getItem('staff_session_token');
   const staffAgencyId = localStorage.getItem('staff_agency_id');
   const isStaffMode = !!staffToken && !!staffAgencyId;
-  
+
   // Get role from URL param or prop (URL takes priority for staff mode)
   const urlRole = searchParams.get('role');
-  const initialRole = urlRole === 'service' ? 'Service' : urlRole === 'sales' ? 'Sales' : propRole;
-  
+  const initialRole: "Sales" | "Service" | "Hybrid" = urlRole === 'service' ? 'Service' : urlRole === 'hybrid' ? 'Hybrid' : urlRole === 'sales' ? 'Sales' : propRole;
+
   const [agencyId, setAgencyId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [availableMetrics, setAvailableMetrics] = useState<KPIOption[]>([]);
-  
-  const [selectedRole, setSelectedRole] = useState<"Sales" | "Service">(initialRole);
+
+  const [selectedRole, setSelectedRole] = useState<"Sales" | "Service" | "Hybrid">(initialRole);
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([
     "outbound_calls", "talk_minutes", "quoted_count", "sold_items"
   ]);
@@ -143,8 +143,9 @@ export default function ScorecardSettings({ role: propRole = "Sales" }: Scorecar
           .eq('agency_id', currentAgencyId)
           .eq('is_active', true);
 
-        // Filter: role-specific KPIs OR hybrid KPIs (role = NULL)
-        if (selectedRole) {
+        // Filter: role-specific KPIs OR null-role KPIs
+        // Hybrid sees ALL KPIs (Sales + Service + null-role)
+        if (selectedRole && selectedRole !== 'Hybrid') {
           kpiQuery = kpiQuery.or(`role.eq.${selectedRole},role.is.null`);
         }
 
@@ -302,13 +303,14 @@ export default function ScorecardSettings({ role: propRole = "Sales" }: Scorecar
             <CardTitle>Scorecard Settings</CardTitle>
             <div className="flex items-center gap-4">
               <Label htmlFor="role-select">Role:</Label>
-              <Select value={selectedRole} onValueChange={(value: "Sales" | "Service") => setSelectedRole(value)}>
-                <SelectTrigger id="role-select" className="w-32">
+              <Select value={selectedRole} onValueChange={(value: "Sales" | "Service" | "Hybrid") => setSelectedRole(value)}>
+                <SelectTrigger id="role-select" className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Sales">Sales</SelectItem>
                   <SelectItem value="Service">Service</SelectItem>
+                  <SelectItem value="Hybrid">Hybrid</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -463,7 +465,7 @@ export default function ScorecardSettings({ role: propRole = "Sales" }: Scorecar
               <div className="flex gap-2">
                 <EnhancedKPIConfigDialog
                   title={`Configure ${selectedRole} KPI Targets`}
-                  type={selectedRole.toLowerCase() as "sales" | "service"}
+                  type={selectedRole.toLowerCase() as "sales" | "service" | "hybrid"}
                   agencyId={agencyId}
                 >
                   <Button variant="outline">

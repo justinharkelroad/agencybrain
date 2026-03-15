@@ -403,7 +403,8 @@ serve(async (req) => {
           .eq('is_active', true);
         
         // If role is provided, filter by role or null
-        if (role) {
+        // Hybrid sees ALL KPIs (Sales + Service + null-role)
+        if (role && role !== 'Hybrid') {
           query = query.or(`role.eq.${role},role.is.null`);
         }
         

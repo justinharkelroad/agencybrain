@@ -16,7 +16,7 @@ import { toast } from "sonner";
 interface KPIManagementDialogProps {
   children: React.ReactNode;
   memberId: string;
-  role: "Sales" | "Service";
+  role: "Sales" | "Service" | "Hybrid";
   onKPIUpdated?: () => void;
 }
 

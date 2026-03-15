@@ -51,7 +51,7 @@ interface LeadSource {
 
 interface FormSchema {
   title: string;
-  role: 'Sales' | 'Service';
+  role: 'Sales' | 'Service' | 'Hybrid';
   kpis: KPIField[];
   customFields?: CustomField[];
   leadSources?: LeadSource[];

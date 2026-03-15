@@ -86,7 +86,7 @@ interface RepeaterSection {
 
 interface FormSchema {
   title: string;
-  role: 'Sales' | 'Service';
+  role: 'Sales' | 'Service' | 'Hybrid';
   kpis: KPIField[];
   customFields?: CustomField[];
   repeaterSections?: {
@@ -175,7 +175,7 @@ export default function ScorecardFormBuilder() {
   const [currentMemberId, setCurrentMemberId] = useState<string>("");
 
   const roleParam = searchParams.get('role')?.toLowerCase();
-  const initialRole: 'Sales' | 'Service' = roleParam === 'service' ? 'Service' : 'Sales';
+  const initialRole: 'Sales' | 'Service' | 'Hybrid' = roleParam === 'service' ? 'Service' : roleParam === 'hybrid' ? 'Hybrid' : 'Sales';
   
   const [formSchema, setFormSchema] = useState<FormSchema>({
     title: `${initialRole} Scorecard`,
@@ -283,9 +283,11 @@ export default function ScorecardFormBuilder() {
       // Create KPI fields for preselected metrics
       const kpiFields: KPIField[] = preselectedSlugs.map((slug, index) => {
         const matchedKpi = agencyKpis.find(k => k.slug === slug);
-        // Use role-specific defaults based on initialRole, with fallback to other role
-        const roleTargets = initialRole === 'Service' ? SERVICE_KPI_TARGETS : SALES_KPI_TARGETS;
-        const otherTargets = initialRole === 'Service' ? SALES_KPI_TARGETS : SERVICE_KPI_TARGETS;
+        // Use role-specific defaults based on form role, with fallback to other role
+        const roleTargets = formSchema.role === 'Hybrid'
+          ? { ...SERVICE_KPI_TARGETS, ...SALES_KPI_TARGETS }
+          : formSchema.role === 'Service' ? SERVICE_KPI_TARGETS : SALES_KPI_TARGETS;
+        const otherTargets = formSchema.role === 'Service' ? SALES_KPI_TARGETS : SERVICE_KPI_TARGETS;
         const defaultTarget = roleTargets[slug] || otherTargets[slug] || { minimum: 0, goal: 0, excellent: 0 };
         return {
           key: `preselected_kpi_${index}_${slug}`,
@@ -305,7 +307,7 @@ export default function ScorecardFormBuilder() {
     }
   }, [agencyKpis, scorecardRules]);
 
-  const handleRoleChange = (newRole: 'Sales' | 'Service') => {
+  const handleRoleChange = (newRole: 'Sales' | 'Service' | 'Hybrid') => {
     setFormSchema(prev => ({
       ...prev,
       role: newRole,
@@ -434,7 +436,9 @@ export default function ScorecardFormBuilder() {
   const updateKpiSelection = (index: number, kpiId: string, slug: string, label: string) => {
     const updatedKPIs = [...formSchema.kpis];
     // Select defaults based on form role, with fallback to other role
-    const roleTargets = formSchema.role === 'Service' ? SERVICE_KPI_TARGETS : SALES_KPI_TARGETS;
+    const roleTargets = formSchema.role === 'Hybrid'
+      ? { ...SERVICE_KPI_TARGETS, ...SALES_KPI_TARGETS }
+      : formSchema.role === 'Service' ? SERVICE_KPI_TARGETS : SALES_KPI_TARGETS;
     const otherTargets = formSchema.role === 'Service' ? SALES_KPI_TARGETS : SERVICE_KPI_TARGETS;
     const defaultTargets = roleTargets[slug] || otherTargets[slug];
     
@@ -564,6 +568,7 @@ export default function ScorecardFormBuilder() {
                     <SelectContent>
                       <SelectItem value="Sales">Sales</SelectItem>
                       <SelectItem value="Service">Service</SelectItem>
+                      <SelectItem value="Hybrid">Hybrid</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

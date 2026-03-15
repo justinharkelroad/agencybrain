@@ -26,10 +26,10 @@ export default function Settings() {
   
   // Get initial role from URL params (normalize case - URL may have lowercase)
   const roleFromUrl = searchParams.get('role')?.toLowerCase();
-  const initialRole: "Sales" | "Service" = roleFromUrl === 'service' ? "Service" : "Sales";
-  
+  const initialRole: "Sales" | "Service" | "Hybrid" = roleFromUrl === 'service' ? "Service" : roleFromUrl === 'hybrid' ? "Hybrid" : "Sales";
+
   // Scorecard Settings
-  const [selectedRole, setSelectedRole] = useState<"Sales" | "Service">(initialRole);
+  const [selectedRole, setSelectedRole] = useState<"Sales" | "Service" | "Hybrid">(initialRole);
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>([]);
   const [nRequired, setNRequired] = useState<number>(2);
   const [weights, setWeights] = useState<Record<string, number>>({});
@@ -78,8 +78,9 @@ export default function Settings() {
         .eq('agency_id', profile.agency_id)
         .eq('is_active', true);
 
-      // Filter: role-specific KPIs OR hybrid KPIs (role = NULL)
-      if (selectedRole) {
+      // Filter: role-specific KPIs OR null-role KPIs
+      // Hybrid sees ALL KPIs (Sales + Service + null-role)
+      if (selectedRole && selectedRole !== 'Hybrid') {
         kpiQuery = kpiQuery.or(`role.eq.${selectedRole},role.is.null`);
       }
 
@@ -288,13 +289,24 @@ export default function Settings() {
                     <button
                       onClick={() => setSelectedRole("Service")}
                       className={cn(
-                        "px-4 py-2 text-sm font-medium rounded-r-md transition-colors",
-                        selectedRole === "Service" 
-                          ? "bg-primary text-primary-foreground" 
+                        "px-4 py-2 text-sm font-medium transition-colors",
+                        selectedRole === "Service"
+                          ? "bg-primary text-primary-foreground"
                           : "hover:bg-muted"
                       )}
                     >
                       Service
+                    </button>
+                    <button
+                      onClick={() => setSelectedRole("Hybrid")}
+                      className={cn(
+                        "px-4 py-2 text-sm font-medium rounded-r-md transition-colors",
+                        selectedRole === "Hybrid"
+                          ? "bg-primary text-primary-foreground"
+                          : "hover:bg-muted"
+                      )}
+                    >
+                      Hybrid
                     </button>
                   </div>
                 </div>
@@ -430,7 +442,7 @@ export default function Settings() {
                   <div className="flex gap-2">
                     <EnhancedKPIConfigDialog
                       title={`Configure ${selectedRole} KPI Targets`}
-                      type={selectedRole.toLowerCase() as "sales" | "service"}
+                      type={selectedRole.toLowerCase() as "sales" | "service" | "hybrid"}
                       agencyId={agencyId}
                     >
                       <Button variant="outline">

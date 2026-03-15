@@ -26,7 +26,7 @@ interface KPIData {
 
 interface EnhancedKPIConfigDialogProps {
   title: string;
-  type: "sales" | "service";
+  type: "sales" | "service" | "hybrid";
   children: React.ReactNode;
   agencyId?: string;
   isStaffMode?: boolean;
@@ -48,7 +48,7 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
     };
   } | null>(null);
 
-  const normalizedRole = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase() as 'Sales' | 'Service';
+  const normalizedRole = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase() as 'Sales' | 'Service' | 'Hybrid';
 
   useEffect(() => {
     if (isOpen && agencyId) {
@@ -103,7 +103,8 @@ export function EnhancedKPIConfigDialog({ title, type, children, agencyId, isSta
           .select('*')
           .eq('agency_id', agencyId)
           .eq('is_active', true)
-          .or(`role.eq.${normalizedRole},role.is.null`)
+          // Hybrid sees ALL KPIs (Sales + Service + null-role)
+          .or(normalizedRole === 'Hybrid' ? `role.is.null,role.eq.Sales,role.eq.Service,role.eq.Hybrid` : `role.eq.${normalizedRole},role.is.null`)
           .order('label');
 
         if (kpisError) throw kpisError;
