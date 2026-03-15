@@ -358,8 +358,11 @@ interface SequenceTeamDashboardProps {
   onFilterBySequence?: (sequenceName: string) => void;
 }
 
+const VISIBLE_MEMBERS_DEFAULT = 5;
+
 export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySequence }: SequenceTeamDashboardProps) {
   const [sortBy, setSortBy] = useState<'overdue' | 'completion' | 'name'>('overdue');
+  const [showAllMembers, setShowAllMembers] = useState(false);
   const { data: stats, isLoading } = useSequenceTeamStats(agencyId);
 
   const sortedMembers = useMemo(() => {
@@ -566,7 +569,7 @@ export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySe
             Team Members ({sortedMembers.length})
           </p>
           <div className="space-y-2">
-            {sortedMembers.map((member) => (
+            {(showAllMembers ? sortedMembers : sortedMembers.slice(0, VISIBLE_MEMBERS_DEFAULT)).map((member) => (
               <TeamMemberRow
                 key={member.id}
                 member={member}
@@ -574,6 +577,16 @@ export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySe
               />
             ))}
           </div>
+          {sortedMembers.length > VISIBLE_MEMBERS_DEFAULT && (
+            <button
+              onClick={() => setShowAllMembers(!showAllMembers)}
+              className="w-full mt-2 py-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+            >
+              {showAllMembers
+                ? 'Show less'
+                : `Show all ${sortedMembers.length} members`}
+            </button>
+          )}
         </div>
       </CardContent>
     </Card>
