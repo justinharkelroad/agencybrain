@@ -1,5 +1,8 @@
 import { useState, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { getStepConfig } from "@/components/onboarding-wizard/stepConfig";
+import type { SalesManagerData, SalesManagerResult } from "@/components/onboarding-wizard/StepSalesManager";
+import type { QuestionnaireAnswers } from "@/components/onboarding-wizard/StepQuestionnaire";
 
 export interface TokenData {
   valid: boolean;
@@ -27,6 +30,29 @@ export function useOnboardingWizard(token: string | null) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [agencyId, setAgencyId] = useState<string | null>(null);
   const [teamMembers, setTeamMembers] = useState<TeamMemberResult[]>([]);
+  const [managerTeamMemberId, setManagerTeamMemberId] = useState<string | null>(null);
+  const [managerPhone, setManagerPhone] = useState<string | null>(null);
+  const [salesManagerResult, setSalesManagerResult] = useState<SalesManagerResult | null>(null);
+
+  // Get the step config for the current tier
+  const stepConfig = tokenData ? getStepConfig(tokenData.tier) : null;
+
+  // Find the index of a step by its ID
+  const findStepIndex = useCallback(
+    (stepId: string) => stepConfig?.findIndex((s) => s.id === stepId) ?? -1,
+    [stepConfig]
+  );
+
+  // Advance to the next step after the given step ID
+  const advancePast = useCallback(
+    (stepId: string) => {
+      const idx = findStepIndex(stepId);
+      if (idx >= 0 && stepConfig && idx + 1 < stepConfig.length) {
+        setStep(idx + 1);
+      }
+    },
+    [findStepIndex, stepConfig]
+  );
 
   const validateToken = useCallback(async () => {
     if (!token) {
@@ -43,7 +69,6 @@ export function useOnboardingWizard(token: string | null) {
       );
 
       if (fnError) {
-        // Check error context for specific status codes
         const errorBody = fnError.context?.json ? await fnError.context.json().catch(() => null) : null;
         if (errorBody?.error?.includes("already been used")) {
           setStatus("used");
@@ -145,7 +170,7 @@ export function useOnboardingWizard(token: string | null) {
           throw new Error(errorBody?.error || "Failed to save agency details");
         }
 
-        setStep(2);
+        advancePast("agency_details");
         return data;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to save agency details";
@@ -155,7 +180,54 @@ export function useOnboardingWizard(token: string | null) {
         setIsSubmitting(false);
       }
     },
-    []
+    [advancePast]
+  );
+
+  const saveSalesManager = useCallback(
+    async (managerData: SalesManagerData) => {
+      setIsSubmitting(true);
+      setError(null);
+
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke(
+          "complete-onboarding-step",
+          {
+            body: {
+              step: "sales_manager",
+              data: managerData,
+            },
+          }
+        );
+
+        if (fnError) {
+          const errorBody = fnError.context?.json ? await fnError.context.json().catch(() => null) : null;
+          throw new Error(errorBody?.error || "Failed to save sales manager");
+        }
+
+        if (data?.manager_team_member_id) {
+          setManagerTeamMemberId(data.manager_team_member_id);
+          setManagerPhone(managerData.manager?.phone || null);
+          setSalesManagerResult({
+            name: managerData.manager!.name,
+            email: managerData.manager!.email,
+            invite_url: data.invite_url,
+            manager_team_member_id: data.manager_team_member_id,
+          });
+        } else {
+          // Owner on calls — no delegate, advance immediately
+          advancePast("sales_manager");
+        }
+
+        return data;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to save sales manager";
+        setError(msg);
+        throw err;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [advancePast]
   );
 
   const addTeamMembers = useCallback(
@@ -183,7 +255,8 @@ export function useOnboardingWizard(token: string | null) {
           setTeamMembers(data.members);
         }
 
-        setStep(3);
+        // Don't advance here — the results screen has a "Continue" button
+        // that calls onSkip which advances past add_team
         return data;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to add team members";
@@ -196,19 +269,93 @@ export function useOnboardingWizard(token: string | null) {
     []
   );
 
+  const saveWhatToExpect = useCallback(
+    async (data: { startDate: string }) => {
+      setIsSubmitting(true);
+      setError(null);
+
+      try {
+        const { data: result, error: fnError } = await supabase.functions.invoke(
+          "complete-onboarding-step",
+          {
+            body: {
+              step: "what_to_expect",
+              data: {
+                start_date: data.startDate,
+                manager_team_member_id: managerTeamMemberId,
+              },
+            },
+          }
+        );
+
+        if (fnError) {
+          const errorBody = fnError.context?.json ? await fnError.context.json().catch(() => null) : null;
+          throw new Error(errorBody?.error || "Failed to save start date");
+        }
+
+        advancePast("what_to_expect");
+        return result;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to save start date";
+        setError(msg);
+        throw err;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [advancePast, managerTeamMemberId]
+  );
+
+  const saveQuestionnaire = useCallback(
+    async (answers: QuestionnaireAnswers) => {
+      setIsSubmitting(true);
+      setError(null);
+
+      try {
+        const { data, error: fnError } = await supabase.functions.invoke(
+          "complete-onboarding-step",
+          {
+            body: {
+              step: "questionnaire",
+              data: { ...answers, manager_phone: managerPhone },
+            },
+          }
+        );
+
+        if (fnError) {
+          const errorBody = fnError.context?.json ? await fnError.context.json().catch(() => null) : null;
+          throw new Error(errorBody?.error || "Failed to save questionnaire");
+        }
+
+        advancePast("questionnaire");
+        return data;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to save questionnaire";
+        setError(msg);
+        throw err;
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [advancePast, managerPhone]
+  );
+
   const completeOnboarding = useCallback(async () => {
     setIsSubmitting(true);
     try {
       await supabase.functions.invoke("complete-onboarding-step", {
-        body: { step: "complete", data: {} },
+        body: {
+          step: "complete",
+          data: { tier: tokenData?.tier },
+        },
       });
-      // Stay on step 3 (StepComplete) — user navigates away via buttons
+      // Stay on complete step — user navigates away via buttons
     } catch (err) {
       console.error("Complete onboarding error:", err);
     } finally {
       setIsSubmitting(false);
     }
-  }, []);
+  }, [tokenData?.tier]);
 
   return {
     status,
@@ -219,10 +366,14 @@ export function useOnboardingWizard(token: string | null) {
     isSubmitting,
     agencyId,
     teamMembers,
+    salesManagerResult,
     validateToken,
     createAccount,
     saveAgencyDetails,
+    saveSalesManager,
     addTeamMembers,
+    saveWhatToExpect,
+    saveQuestionnaire,
     completeOnboarding,
   };
 }

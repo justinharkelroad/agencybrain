@@ -155,8 +155,8 @@ serve(async (req) => {
     if (tokenRow.stripe_subscription_id) {
       agencyUpdate.stripe_subscription_id = tokenRow.stripe_subscription_id;
     }
-    // Set subscription_status for Boardroom
-    if (tokenRow.tier === "Boardroom") {
+    // Set subscription_status for Boardroom and 1:1 Coaching
+    if (tokenRow.tier === "Boardroom" || tokenRow.tier === "1:1 Coaching") {
       agencyUpdate.subscription_status = "active";
     }
 

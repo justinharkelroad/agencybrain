@@ -25,6 +25,7 @@ interface StepAddTeamProps {
   isSubmitting: boolean;
   error: string | null;
   savedMembers: TeamMemberResult[];
+  tier?: string;
   onSubmit: (members: MemberRow[]) => void;
   onSkip: () => void;
   onBack: () => void;
@@ -34,6 +35,7 @@ export function StepAddTeam({
   isSubmitting,
   error,
   savedMembers,
+  tier,
   onSubmit,
   onSkip,
   onBack,
@@ -127,7 +129,7 @@ export function StepAddTeam({
         </p>
 
         <Button onClick={onSkip} className="w-full">
-          Continue to Dashboard
+          {tier === "1:1 Coaching" ? "Continue" : "Continue to Dashboard"}
         </Button>
       </div>
     );
@@ -141,6 +143,17 @@ export function StepAddTeam({
           Add team members who'll use the daily scorecard. You can always add more later.
         </p>
       </div>
+
+      {tier === "1:1 Coaching" && (
+        <div className="mb-6 p-4 rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30">
+          <p className="text-sm text-blue-800 dark:text-blue-300 leading-relaxed">
+            Your team will receive email reminders on <span className="font-medium">Mondays, Wednesdays, and Fridays</span> with
+            training lessons. They'll complete everything inside AgencyBrain, and
+            you'll be able to track their progress and get feedback based on what
+            they're learning.
+          </p>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {members.map((member, idx) => (

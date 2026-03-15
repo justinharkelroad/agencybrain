@@ -19,10 +19,14 @@ export default function Onboard() {
     setStep,
     isSubmitting,
     teamMembers,
+    salesManagerResult,
     validateToken,
     createAccount,
     saveAgencyDetails,
+    saveSalesManager,
     addTeamMembers,
+    saveWhatToExpect,
+    saveQuestionnaire,
     completeOnboarding,
   } = useOnboardingWizard(token);
 
@@ -126,9 +130,13 @@ export default function Onboard() {
       isSubmitting={isSubmitting}
       error={error}
       teamMembers={teamMembers}
+      salesManagerResult={salesManagerResult}
       onCreateAccount={(password, fullName) => createAccount(password, fullName)}
       onSaveAgencyDetails={saveAgencyDetails}
+      onSaveSalesManager={saveSalesManager}
       onAddTeamMembers={addTeamMembers}
+      onSaveWhatToExpect={saveWhatToExpect}
+      onSaveQuestionnaire={saveQuestionnaire}
       onCompleteOnboarding={completeOnboarding}
     />
   );

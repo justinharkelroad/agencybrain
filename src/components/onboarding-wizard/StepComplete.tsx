@@ -9,10 +9,11 @@ const BOARDROOM_ZOOM_LINK =
   "https://us06web.zoom.us/j/86232632504?pwd=MibtJb0wP8N0wt2md2hm8ECK9CAAY3.1";
 
 interface StepCompleteProps {
+  tier?: string;
   onComplete: () => void;
 }
 
-export function StepComplete({ onComplete }: StepCompleteProps) {
+export function StepComplete({ tier, onComplete }: StepCompleteProps) {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -26,6 +27,8 @@ export function StepComplete({ onComplete }: StepCompleteProps) {
     onComplete();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const isCoaching = tier === "1:1 Coaching";
+
   return (
     <div className="max-w-md mx-auto px-4 py-12 text-center">
       <div className="mb-8">
@@ -34,38 +37,61 @@ export function StepComplete({ onComplete }: StepCompleteProps) {
         </div>
         <h1 className="text-2xl font-bold mb-2">You're All Set!</h1>
         <p className="text-muted-foreground">
-          Your AgencyBrain account is ready to go.
+          {isCoaching
+            ? "Your 8-Week Experience is ready to go."
+            : "Your AgencyBrain account is ready to go."}
         </p>
       </div>
 
-      {/* Boardroom Call Card */}
-      <Card className="mb-8 text-left border-primary/20 bg-primary/5">
-        <CardContent className="pt-5 pb-5">
-          <div className="flex items-start gap-3 mb-3">
-            <Calendar className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-            <div>
-              <h3 className="font-semibold text-sm mb-1">
-                Book Your Boardroom Call
-              </h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Your Boardroom membership includes access to our monthly 2-hour
-                group coaching call, typically held on the second Tuesday of each
-                month. Please check the schedule as dates may shift due to
-                events and conferences.
-              </p>
+      {/* Tier-specific card */}
+      {isCoaching ? (
+        <Card className="mb-8 text-left border-primary/20 bg-primary/5">
+          <CardContent className="pt-5 pb-5">
+            <div className="flex items-start gap-3">
+              <Calendar className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+              <div>
+                <h3 className="font-semibold text-sm mb-1">
+                  Your 8-Week Experience
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Your coaching program is set up and ready. Make sure your
+                  calls are booked, review the Sales Process PDF, and explore
+                  your AgencyBrain dashboard. Your team's training lessons will
+                  begin on your selected start date.
+                </p>
+              </div>
             </div>
-          </div>
-          <a
-            href={BOARDROOM_ZOOM_LINK}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline ml-8"
-          >
-            Join the Boardroom Zoom
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="mb-8 text-left border-primary/20 bg-primary/5">
+          <CardContent className="pt-5 pb-5">
+            <div className="flex items-start gap-3 mb-3">
+              <Calendar className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+              <div>
+                <h3 className="font-semibold text-sm mb-1">
+                  Book Your Boardroom Call
+                </h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Your Boardroom membership includes access to our monthly 2-hour
+                  group coaching call, typically held on the second Tuesday of each
+                  month. Please check the schedule as dates may shift due to
+                  events and conferences.
+                </p>
+              </div>
+            </div>
+            <a
+              href={BOARDROOM_ZOOM_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline ml-8"
+            >
+              Join the Boardroom Zoom
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tips */}
       <div className="mb-8 text-left space-y-3 text-sm text-muted-foreground">

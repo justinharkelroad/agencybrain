@@ -48,8 +48,12 @@ export function StepAgencyDetails({
       setLocalError("Agency name is required");
       return;
     }
+    if (!phone.trim()) {
+      setLocalError("Phone number is required");
+      return;
+    }
 
-    onSubmit(agencyName.trim(), timezone, phone.trim() || undefined);
+    onSubmit(agencyName.trim(), timezone, phone.trim());
   };
 
   const displayError = localError || error;
@@ -94,7 +98,7 @@ export function StepAgencyDetails({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phone">Phone (optional)</Label>
+          <Label htmlFor="phone">Phone</Label>
           <Input
             id="phone"
             type="tel"
