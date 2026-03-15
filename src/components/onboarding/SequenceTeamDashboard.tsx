@@ -28,6 +28,7 @@ import {
   Loader2,
   Workflow,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -358,11 +359,11 @@ interface SequenceTeamDashboardProps {
   onFilterBySequence?: (sequenceName: string) => void;
 }
 
-const VISIBLE_MEMBERS_DEFAULT = 5;
+const MEMBERS_PER_PAGE = 5;
 
 export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySequence }: SequenceTeamDashboardProps) {
   const [sortBy, setSortBy] = useState<'overdue' | 'completion' | 'name'>('overdue');
-  const [showAllMembers, setShowAllMembers] = useState(false);
+  const [memberPage, setMemberPage] = useState(0);
   const { data: stats, isLoading } = useSequenceTeamStats(agencyId);
 
   const sortedMembers = useMemo(() => {
@@ -424,7 +425,7 @@ export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySe
           </CardTitle>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Sort:</span>
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+            <Select value={sortBy} onValueChange={(v) => { setSortBy(v as typeof sortBy); setMemberPage(0); }}>
               <SelectTrigger className="h-7 w-[130px] text-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -563,31 +564,57 @@ export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySe
         )}
 
         {/* ── Per-Member Breakdown ── */}
-        <div>
-          <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5 px-1">
-            <TrendingUp className="h-3.5 w-3.5" />
-            Team Members ({sortedMembers.length})
-          </p>
-          <div className="space-y-2">
-            {(showAllMembers ? sortedMembers : sortedMembers.slice(0, VISIBLE_MEMBERS_DEFAULT)).map((member) => (
-              <TeamMemberRow
-                key={member.id}
-                member={member}
-                onDrillDown={onFilterByMember ? () => onFilterByMember(member.id, member.type) : undefined}
-              />
-            ))}
-          </div>
-          {sortedMembers.length > VISIBLE_MEMBERS_DEFAULT && (
-            <button
-              onClick={() => setShowAllMembers(!showAllMembers)}
-              className="w-full mt-2 py-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-            >
-              {showAllMembers
-                ? 'Show less'
-                : `Show all ${sortedMembers.length} members`}
-            </button>
-          )}
-        </div>
+        {(() => {
+          const totalPages = Math.ceil(sortedMembers.length / MEMBERS_PER_PAGE);
+          const startIdx = memberPage * MEMBERS_PER_PAGE;
+          const visibleMembers = sortedMembers.slice(startIdx, startIdx + MEMBERS_PER_PAGE);
+
+          return (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5 px-1">
+                <TrendingUp className="h-3.5 w-3.5" />
+                Team Members ({sortedMembers.length})
+                {totalPages > 1 && (
+                  <span className="ml-auto text-[10px] text-muted-foreground/60">
+                    {startIdx + 1}–{Math.min(startIdx + MEMBERS_PER_PAGE, sortedMembers.length)} of {sortedMembers.length}
+                  </span>
+                )}
+              </p>
+              <div className="space-y-2">
+                {visibleMembers.map((member) => (
+                  <TeamMemberRow
+                    key={member.id}
+                    member={member}
+                    onDrillDown={onFilterByMember ? () => onFilterByMember(member.id, member.type) : undefined}
+                  />
+                ))}
+              </div>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-2 px-1">
+                  <button
+                    onClick={() => setMemberPage(p => Math.max(0, p - 1))}
+                    disabled={memberPage === 0}
+                    className="text-xs font-medium text-primary hover:text-primary/80 disabled:text-muted-foreground/40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5 inline mr-0.5" />
+                    Prev
+                  </button>
+                  <span className="text-[10px] text-muted-foreground">
+                    {memberPage + 1}/{totalPages}
+                  </span>
+                  <button
+                    onClick={() => setMemberPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={memberPage >= totalPages - 1}
+                    className="text-xs font-medium text-primary hover:text-primary/80 disabled:text-muted-foreground/40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                    <ChevronRight className="h-3.5 w-3.5 inline ml-0.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </CardContent>
     </Card>
   );
