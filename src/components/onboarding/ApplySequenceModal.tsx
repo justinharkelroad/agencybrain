@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -82,6 +82,7 @@ export function ApplySequenceModal({
   staffSessionToken,
 }: ApplySequenceModalProps) {
   const isStaffContext = !!staffSessionToken;
+  const queryClient = useQueryClient();
   const [selectedSequenceId, setSelectedSequenceId] = useState<string>('');
   const [assigneeValue, setAssigneeValue] = useState<string>(''); // "staff:<uuid>" or "user:<uuid>"
   const [startDate, setStartDate] = useState<Date>(todayLocal());
@@ -279,6 +280,13 @@ export function ApplySequenceModal({
 
       setSuccess(true);
       toast.success('Sequence applied successfully!');
+
+      // Refresh sequence and task queries so the UI updates immediately
+      queryClient.invalidateQueries({ queryKey: ['contact-sequence-progress'] });
+      queryClient.invalidateQueries({ queryKey: ['onboarding-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['onboarding-tasks-today'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-onboarding-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['sequence-team-stats'] });
 
       // Delay closing to show success state
       // Only call onSuccess (not onOpenChange) to avoid double callback execution
