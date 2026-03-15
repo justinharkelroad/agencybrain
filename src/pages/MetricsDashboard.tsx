@@ -355,10 +355,10 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
             <MetricTile title={metricConfig.soldTitle} value={tilesObject.sold_items} icon={<Award className="h-5 w-5" />} />
           )}
           {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && (role === 'Service' || role === 'Hybrid') && tilesObject.cross_sells_uncovered !== undefined && (
-            <MetricTile title={metricConfig.quotedTitle} value={tilesObject.cross_sells_uncovered || 0} icon={<TrendingUp className="h-5 w-5" />} />
+            <MetricTile title={metricConfig.getKpiLabel('cross_sells_uncovered')} value={tilesObject.cross_sells_uncovered || 0} icon={<TrendingUp className="h-5 w-5" />} />
           )}
           {metricConfig.selectedMetrics.includes('mini_reviews') && (role === 'Service' || role === 'Hybrid') && tilesObject.mini_reviews !== undefined && (
-            <MetricTile title={metricConfig.soldTitle} value={tilesObject.mini_reviews || 0} icon={<Award className="h-5 w-5" />} />
+            <MetricTile title={metricConfig.getKpiLabel('mini_reviews')} value={tilesObject.mini_reviews || 0} icon={<Award className="h-5 w-5" />} />
           )}
         </div>}
 
@@ -380,8 +380,8 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
                     {metricConfig.selectedMetrics.includes('talk_minutes') && <Th>{metricConfig.getKpiLabel('talk_minutes')}</Th>}
                     {(metricConfig.selectedMetrics.includes('quoted_count') || metricConfig.selectedMetrics.includes('quoted_households')) && (role === 'Sales' || role === 'Hybrid') && <Th>{metricConfig.quotedTitle}</Th>}
                     {(metricConfig.selectedMetrics.includes('sold_items') || metricConfig.selectedMetrics.includes('items_sold')) && (role === 'Sales' || role === 'Hybrid') && <Th>{metricConfig.soldTitle}</Th>}
-                    {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && (role === 'Service' || role === 'Hybrid') && <Th>{metricConfig.quotedTitle}</Th>}
-                    {metricConfig.selectedMetrics.includes('mini_reviews') && (role === 'Service' || role === 'Hybrid') && <Th>{metricConfig.soldTitle}</Th>}
+                    {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && (role === 'Service' || role === 'Hybrid') && <Th>{metricConfig.getKpiLabel('cross_sells_uncovered')}</Th>}
+                    {metricConfig.selectedMetrics.includes('mini_reviews') && (role === 'Service' || role === 'Hybrid') && <Th>{metricConfig.getKpiLabel('mini_reviews')}</Th>}
                     <Th>Pass Days</Th>
                     <Th>Score</Th>
                     <Th>Streak</Th>
