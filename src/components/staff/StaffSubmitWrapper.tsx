@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, FileText } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface FormTemplate {
   id: string;
@@ -33,10 +34,16 @@ export function StaffSubmitWrapper() {
         setLoading(true);
         setError(null);
 
-        // Get forms matching agency + role (Hybrid and Manager can see all forms)
-        const roles = (user.role === 'Hybrid' || user.role === 'Manager')
-          ? ['Sales', 'Service', 'Hybrid']
-          : [user.role, 'Hybrid'];
+        // Get forms matching agency + role
+        // After March 22 2026: Hybrid members only see Hybrid forms (dedicated scorecard)
+        // Before that date: Hybrid and Manager can see all forms
+        const HYBRID_LOCKDOWN_DATE = '2026-03-22';
+        const isHybridLocked = format(new Date(), 'yyyy-MM-dd') >= HYBRID_LOCKDOWN_DATE;
+        const roles = (user.role === 'Hybrid' && isHybridLocked)
+          ? ['Hybrid']
+          : (user.role === 'Hybrid' || user.role === 'Manager')
+            ? ['Sales', 'Service', 'Hybrid']
+            : [user.role, 'Hybrid'];
 
         const { data: formTemplates, error: formsError } = await supabase
           .from('form_templates')
