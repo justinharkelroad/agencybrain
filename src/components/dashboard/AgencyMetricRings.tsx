@@ -245,7 +245,8 @@ export function AgencyMetricRings({
     const member = allTeamMembers?.find((m) => m.id === selectedMember);
     if (member?.role === "Service") return "Service";
     if (member?.role === "Manager") return "Manager";
-    return "Sales"; // Sales + Hybrid both use the Sales dashboard
+    if (member?.role === "Hybrid") return "All"; // Hybrid members may have data under any role
+    return "Sales";
   }, [selectedMember, allTeamMembers]);
 
   const { data: dashboardData } = useDashboardDaily(agencySlug, dashboardRole, selectedDate);
