@@ -35,6 +35,7 @@ const ACTION_BUTTON_STYLES: Record<ActivityType, string> = {
   payment_made: 'bg-green-500/15 hover:bg-green-500/25 text-green-600 dark:text-green-400 border-green-500/50 dark:border-green-500/30',
   payment_promised: 'bg-yellow-500/15 hover:bg-yellow-500/25 text-yellow-600 dark:text-yellow-400 border-yellow-500/50 dark:border-yellow-500/30',
   note: 'bg-gray-500/15 hover:bg-gray-500/25 text-gray-600 dark:text-gray-400 border-gray-500/50 dark:border-gray-500/30',
+  task_scheduled: 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border-amber-500/50 dark:border-amber-500/30',
 };
 
 const ACTION_ICONS: Record<ActivityType, React.ComponentType<{ className?: string }>> = {
@@ -46,6 +47,7 @@ const ACTION_ICONS: Record<ActivityType, React.ComponentType<{ className?: strin
   payment_made: DollarSign,
   payment_promised: Handshake,
   note: StickyNote,
+  task_scheduled: StickyNote,
 };
 
 const ACTION_SHORT_LABELS: Record<ActivityType, string> = {
@@ -57,6 +59,7 @@ const ACTION_SHORT_LABELS: Record<ActivityType, string> = {
   payment_made: 'Paid',
   payment_promised: 'Promised',
   note: 'Note',
+  task_scheduled: 'Task',
 };
 
 const ACTIVITY_ORDER: ActivityType[] = [
