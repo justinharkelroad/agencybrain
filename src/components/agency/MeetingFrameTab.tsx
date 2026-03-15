@@ -162,9 +162,12 @@ export function MeetingFrameTab({ agencyId }: MeetingFrameTabProps) {
     }
 
     // No rules at all — use role defaults (same 4 as other ring displays)
+    // Hybrid shows both Sales + Service defaults since they do both
     const defaults = selectedMemberRole === 'Service'
       ? ['outbound_calls', 'talk_minutes', 'cross_sells_uncovered', 'mini_reviews']
-      : ['outbound_calls', 'talk_minutes', 'quoted_households', 'items_sold'];
+      : selectedMemberRole === 'Hybrid'
+        ? ['outbound_calls', 'talk_minutes', 'quoted_households', 'items_sold', 'cross_sells_uncovered', 'mini_reviews']
+        : ['outbound_calls', 'talk_minutes', 'quoted_households', 'items_sold'];
     return defaults
       .filter(key => kpiByKey.has(key))
       .map(key => {

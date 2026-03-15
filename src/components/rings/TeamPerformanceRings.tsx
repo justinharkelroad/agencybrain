@@ -246,17 +246,16 @@ export default function TeamPerformanceRings({
         setNRequired(requiredHits);
 
         // Role-based default targets and metrics (use STANDARD UI keys)
+        // Hybrid merges both Sales + Service defaults since they do both
         const getDefaultTarget = (metricKey: string) => {
-          const defaults = role === 'Sales'
-            ? {
-                outbound_calls: 100,
-                talk_minutes: 180,
-                quoted_households: 5,
-                items_sold: 2,
-                sold_policies: 1,
-                sold_premium_cents: 50000,
-              }
-            : { outbound_calls: 30, talk_minutes: 180, cross_sells_uncovered: 2, mini_reviews: 5 };
+          const salesDefaults = {
+            outbound_calls: 100, talk_minutes: 180,
+            quoted_households: 5, items_sold: 2, sold_policies: 1, sold_premium_cents: 50000,
+          };
+          const serviceDefaults = { outbound_calls: 30, talk_minutes: 180, cross_sells_uncovered: 2, mini_reviews: 5 };
+          const defaults = role === 'Service' ? serviceDefaults
+            : role === 'Hybrid' ? { ...salesDefaults, ...serviceDefaults }
+            : salesDefaults;
 
           return (defaults as any)[metricKey] || 0;
         };
