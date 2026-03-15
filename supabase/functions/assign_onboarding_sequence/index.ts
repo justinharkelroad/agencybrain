@@ -280,6 +280,8 @@ serve(async (req) => {
     }
 
     // Verify the assignee exists and belongs to this agency
+    let assigneeName = 'Unknown';
+
     if (assigned_to_staff_user_id) {
       // Validate staff user
       const { data: staffUser, error: staffError } = await supabase
@@ -309,6 +311,7 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      assigneeName = staffUser.display_name || staffUser.username || 'Staff';
     } else if (assigned_to_user_id) {
       // Validate profile user
       const { data: profileUser, error: profileError } = await supabase
@@ -331,6 +334,7 @@ serve(async (req) => {
           { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      assigneeName = profileUser.full_name || profileUser.email || 'User';
     }
 
     // Multiple active sequences per contact/sale/household are allowed.
@@ -387,13 +391,7 @@ serve(async (req) => {
     // Log activity to contact timeline
     const resolvedContactId = contact_id || null;
     if (resolvedContactId) {
-      const assigneeName = assigned_to_staff_user_id
-        ? ((staffUser as any)?.display_name || (staffUser as any)?.username || 'Staff')
-        : ((profileUser as any)?.full_name || (profileUser as any)?.email || 'User');
-
-      const creatorName = assignedByStaffUserId
-        ? assigneeName  // Staff assigned to themselves
-        : ((profileUser as any)?.full_name || (profileUser as any)?.email || 'System');
+      const creatorName = assignedByStaffUserId ? assigneeName : (assigneeName !== 'Unknown' ? assigneeName : 'System');
 
       await supabase.from('contact_activities').insert({
         agency_id: agencyId,
