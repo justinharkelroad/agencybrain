@@ -225,6 +225,63 @@ const dateStr = format(someLocalDate, 'yyyy-MM-dd');
 - Cron email functions must use a 2-hour window (e.g. `localHour === 19 || localHour === 20`), NOT exact hour match — GitHub Actions skips cron runs unpredictably. Use `email_send_log` table dedup to prevent double-sends.
 - `onSuccess` callbacks that write metrics data MUST invalidate `['dashboard-daily']` query cache
 
+## Hybrid Role Rules (MANDATORY — deployed 2026-03-15, live 2026-03-22)
+
+Hybrid is a standalone scorecard role with its own metrics, form, and dashboard tab. It is NOT a combination of Sales + Service.
+
+### Rule 1: metrics_daily has TWO role columns
+
+- `role` — the team member's role at submission time (who they ARE)
+- `scoring_role` — which role's scorecard rules scored the day (how they were SCORED)
+
+For non-Hybrid members: `role` = `scoring_role` (always the same). For Hybrid members: `scoring_role` is resolved from `form_templates.role` by the AFTER trigger `recalculate_metrics_hits_pass`.
+
+### Rule 2: Dashboard filtering by role
+
+- **Sales/Service tabs**: filter by `role` column (`role.eq.Sales,role.eq.Hybrid` or `role.eq.Service,role.eq.Hybrid`) — existing behavior, includes Hybrid members
+- **Hybrid tab**: filter by `scoring_role` column (`scoring_role.eq.Hybrid`) — only Hybrid-scored work
+- **Main dashboard** (`AgencyMetricRings`): Hybrid members use `role='All'` to find data regardless of historical `role` values
+- **NEVER** use `scoring_role` for Sales/Service tabs — it breaks when Hybrid members have historical data under different roles
+
+### Rule 3: ONE metrics_daily row per member per day
+
+Multiple form submissions on the same day overwrite the same row (ON CONFLICT). The last submission wins. This is by design — do not try to create multiple rows per day.
+
+### Rule 4: KPI loading for Hybrid must show ALL KPIs
+
+When loading KPIs for Hybrid role (settings, form builder, labels), skip the `role.eq.${role},role.is.null` filter. Hybrid needs access to Sales-role, Service-role, AND null-role KPIs. Pattern: `if (role && role !== 'Hybrid') { query = query.or(...); }`
+
+### Rule 5: Dashboard-tracked metrics on form submission
+
+Only show dashboard-tracked metrics (Quoted Households, Items Sold) if they are enabled in the form's role's `scorecard_rules.selected_metrics`. Do NOT fall back to `hasQuotedTarget` or `dashboardQuotedCount` — those are role-agnostic and leak Sales metrics into Service/Hybrid forms.
+
+### Rule 6: Multi-form finalization is scoped by form_template_id
+
+The "clear finals" step in `staff_submit_form` and `submit_public_form` must include `.eq('form_template_id', sRow.form_template_id)`. Without this, the last form submitted on a given day clears ALL previous finals for that member+date, even from different form types.
+
+### Rule 7: Date-gated changes activate March 22, 2026
+
+Three UI changes are gated by `format(new Date(), 'yyyy-MM-dd') >= '2026-03-22'`:
+- `StaffSubmitWrapper.tsx` — Hybrid members only see Hybrid forms
+- `Agency.tsx` — hybrid_team_assignments checkboxes hidden
+- `AdminTeam.tsx` — same checkboxes + label hidden
+
+After the date passes and behavior is confirmed, these date checks can be replaced with permanent logic.
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `supabase/migrations/20260315100000_seed_hybrid_scorecard_rules.sql` | Seeds Hybrid rules, fixes KPI loading RPC |
+| `supabase/migrations/20260316100000_hybrid_dashboard_read_paths.sql` | scoring_role column, view update, RPC update |
+| `src/components/staff/StaffSubmitWrapper.tsx` | Form visibility — date-gated Hybrid lockdown |
+| `src/pages/Settings.tsx` | Hybrid scorecard rules configuration |
+| `src/pages/MetricsDashboard.tsx` | Hybrid dashboard tab |
+| `src/pages/StaffFormSubmission.tsx` | Dashboard-tracked metrics scoping |
+| `src/components/dashboard/AgencyMetricRings.tsx` | Main dashboard — role=All for Hybrid |
+| `supabase/functions/get_dashboard_daily/index.ts` | scoring_role filter for Hybrid tab |
+| `supabase/functions/get_member_month_snapshot/index.ts` | Per-day calendar scoring_role |
+
 ## Brand Colors
 
 - Dark gray blue: `#1e283a`
