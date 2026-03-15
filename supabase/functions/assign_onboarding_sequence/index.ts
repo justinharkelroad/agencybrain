@@ -333,57 +333,8 @@ serve(async (req) => {
       }
     }
 
-    // Check if an active sequence is already assigned to this contact or sale
-    if (contact_id) {
-      // Check for active sequence on this contact
-      const { data: existingContactInstance } = await supabase
-        .from('onboarding_instances')
-        .select('id, status')
-        .eq('contact_id', contact_id)
-        .eq('status', 'active')
-        .maybeSingle();
-
-      if (existingContactInstance) {
-        return new Response(
-          JSON.stringify({ error: 'A sequence is already assigned to this contact' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-
-    if (sale_id) {
-      // Also check for active sequence on this sale
-      const { data: existingSaleInstance } = await supabase
-        .from('onboarding_instances')
-        .select('id, status')
-        .eq('sale_id', sale_id)
-        .eq('status', 'active')
-        .maybeSingle();
-
-      if (existingSaleInstance) {
-        return new Response(
-          JSON.stringify({ error: 'A sequence is already assigned to this sale' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
-
-    if (household_id) {
-      // Check for active sequence on this household
-      const { data: existingHouseholdInstance } = await supabase
-        .from('onboarding_instances')
-        .select('id, status')
-        .eq('household_id', household_id)
-        .eq('status', 'active')
-        .maybeSingle();
-
-      if (existingHouseholdInstance) {
-        return new Response(
-          JSON.stringify({ error: 'A sequence is already assigned to this household' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
+    // Multiple active sequences per contact/sale/household are allowed.
+    // Each sequence runs independently with its own tasks and timeline.
 
     // Create the onboarding instance
     // The trigger will automatically create all tasks

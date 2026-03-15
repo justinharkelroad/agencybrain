@@ -33,6 +33,9 @@ import { generateHouseholdKey } from '@/lib/household-key';
 import { resolveFunctionErrorMessage } from '@/lib/utils/resolve-function-error';
 import { sendRenewalToWinback } from '@/lib/sendToWinback';
 import { ApplySequenceModal } from '@/components/onboarding/ApplySequenceModal';
+import { SequenceProgressTracker } from '@/components/onboarding/SequenceProgressTracker';
+import { useContactSequenceProgress } from '@/hooks/useContactSequenceProgress';
+import { useManageSequence } from '@/hooks/useManageSequence';
 import { ScheduleTaskDialog, type ScheduleTaskDialogContact } from '@/components/onboarding/ScheduleTaskDialog';
 import { useScheduleAdhocTask } from '@/hooks/useScheduleAdhocTask';
 import { BreakupLetterModal } from '@/components/sales/BreakupLetterModal';
@@ -136,6 +139,13 @@ export function ContactProfileModal({
     agencyId
   );
 
+  // Sequence progress for this contact
+  const { instances: sequenceInstances, isLoading: sequencesLoading } = useContactSequenceProgress(
+    open ? contactId : null,
+    agencyId
+  );
+  const manageSequence = useManageSequence();
+
   // Activity logging mutation
   const logActivity = useLogContactActivity();
 
@@ -200,6 +210,33 @@ export function ContactProfileModal({
   // Determine sourceModule and moduleRecordId for task scheduling
   const scheduleSourceModule = defaultSourceModule === 'manual' ? undefined : defaultSourceModule;
   const scheduleModuleRecordId = cancelAuditRecord?.id || winbackHousehold?.id || renewalRecord?.id || lqsHousehold?.id || sourceRecordId;
+
+  const activeLqsRecord = useMemo(() => {
+    if (!profile?.lqs_records?.length) return null;
+
+    if (lqsHousehold?.id) {
+      const directRecord = profile.lqs_records.find((record) => record.id === lqsHousehold.id);
+      if ((directRecord?.status || '').toLowerCase() === 'quoted') return directRecord;
+    }
+
+    const sortedRecords = [...profile.lqs_records].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    return sortedRecords.find((record) => (record.status || '').toLowerCase() === 'quoted') || null;
+  }, [profile?.lqs_records, lqsHousehold?.id]);
+
+  const quotedOwnershipSummary = useMemo(() => {
+    if (!activeLqsRecord) return null;
+
+    const recordStatus = (activeLqsRecord.status || '').toLowerCase();
+    if (recordStatus !== 'quoted' && displayStage !== 'quoted') return null;
+
+    return {
+      ownerName: activeLqsRecord.team_member_name?.trim() || null,
+      leadSourceName: activeLqsRecord.lead_source_name?.trim() || null,
+    };
+  }, [activeLqsRecord, displayStage]);
 
   const handleScheduleTask = async (data: {
     contactId: string;
@@ -1158,6 +1195,40 @@ export function ContactProfileModal({
                   )}
                 </div>
 
+                {quotedOwnershipSummary && (
+                  <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/12 via-background to-background px-4 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700 dark:text-amber-300">
+                          Quoted Household LSP
+                        </p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {quotedOwnershipSummary.ownerName || 'Unassigned'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {quotedOwnershipSummary.ownerName
+                            ? `${quotedOwnershipSummary.ownerName} is working this lead.`
+                            : 'No LSP is assigned to this quoted household yet.'}
+                        </p>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className="border-amber-500/40 bg-background/80 text-amber-700 dark:text-amber-300"
+                      >
+                        {quotedOwnershipSummary.ownerName ? 'Assigned' : 'Needs LSP'}
+                      </Badge>
+                    </div>
+                    {quotedOwnershipSummary.leadSourceName && (
+                      <div className="mt-3 text-xs text-muted-foreground">
+                        Lead source:{' '}
+                        <span className="font-medium text-foreground">
+                          {quotedOwnershipSummary.leadSourceName}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Quick actions - module-specific or generic */}
                 {defaultSourceModule === 'cancel_audit' && cancelAuditRecord ? (
                   <CancelAuditQuickActions
@@ -1273,6 +1344,55 @@ export function ContactProfileModal({
                       events={journeyEvents || []}
                       currentStage={displayStage || 'open_lead'}
                     />
+                  </div>
+
+                  {/* Active Sequences */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium flex items-center gap-1.5">
+                        <Workflow className="h-4 w-4 text-muted-foreground" />
+                        Sequences
+                        {sequenceInstances && sequenceInstances.filter(i => i.status === 'active').length > 0 && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
+                            {sequenceInstances.filter(i => i.status === 'active').length} active
+                          </Badge>
+                        )}
+                      </h3>
+                    </div>
+                    {sequencesLoading ? (
+                      <Skeleton className="h-16 w-full" />
+                    ) : sequenceInstances && sequenceInstances.length > 0 ? (
+                      <SequenceProgressTracker
+                        instances={sequenceInstances}
+                        onCompleteSequence={(instanceId, name, remaining) => {
+                          if (!agencyId) return;
+                          manageSequence.mutate({
+                            instanceId,
+                            action: 'complete',
+                            agencyId,
+                            completedByUserId: userId || null,
+                          });
+                        }}
+                        onPauseSequence={(instanceId) => {
+                          if (!agencyId) return;
+                          manageSequence.mutate({
+                            instanceId,
+                            action: 'pause',
+                            agencyId,
+                          });
+                        }}
+                        onResumeSequence={(instanceId) => {
+                          if (!agencyId) return;
+                          manageSequence.mutate({
+                            instanceId,
+                            action: 'resume',
+                            agencyId,
+                          });
+                        }}
+                      />
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No sequences assigned.</p>
+                    )}
                   </div>
 
                   {/* Inline Add Note */}
