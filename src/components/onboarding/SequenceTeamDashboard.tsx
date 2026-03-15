@@ -224,7 +224,7 @@ function CallOutcomeBar({ outcomes }: { outcomes: CallOutcomeBreakdown }) {
 
 // ─── Team Member Row ────────────────────────────────────────────
 
-function TeamMemberRow({ member }: { member: TeamMemberStats }) {
+function TeamMemberRow({ member, onDrillDown }: { member: TeamMemberStats; onDrillDown?: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const totalCalls = Object.values(member.call_outcomes).reduce((s, v) => s + v, 0);
   const hasOverdue = member.overdue > 0;
@@ -322,6 +322,17 @@ function TeamMemberRow({ member }: { member: TeamMemberStats }) {
                 <CallOutcomeBar outcomes={member.call_outcomes} />
               </div>
             )}
+
+            {/* View tasks button */}
+            {onDrillDown && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDrillDown(); }}
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+              >
+                View {member.name.split(' ')[0]}'s tasks
+                <ChevronRight className="h-3 w-3" />
+              </button>
+            )}
           </div>
         </CollapsibleContent>
       </div>
@@ -333,9 +344,11 @@ function TeamMemberRow({ member }: { member: TeamMemberStats }) {
 
 interface SequenceTeamDashboardProps {
   agencyId: string | null;
+  onFilterByMember?: (memberId: string, memberType: 'staff' | 'user') => void;
+  onFilterBySequence?: (sequenceName: string) => void;
 }
 
-export function SequenceTeamDashboard({ agencyId }: SequenceTeamDashboardProps) {
+export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySequence }: SequenceTeamDashboardProps) {
   const [sortBy, setSortBy] = useState<'overdue' | 'completion' | 'name'>('overdue');
   const { data: stats, isLoading } = useSequenceTeamStats(agencyId);
 
@@ -489,7 +502,14 @@ export function SequenceTeamDashboard({ agencyId }: SequenceTeamDashboardProps) 
                 const seqTotal = seq.due_today + seq.overdue + seq.completed_today;
                 const seqRate = seqTotal > 0 ? Math.round((seq.completed_today / seqTotal) * 100) : 0;
                 return (
-                  <div key={`${seq.type}-${seq.name}`} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/30">
+                  <div
+                    key={`${seq.type}-${seq.name}`}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/30',
+                      onFilterBySequence && 'cursor-pointer hover:bg-muted/60 transition-colors'
+                    )}
+                    onClick={() => onFilterBySequence?.(seq.name)}
+                  >
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-medium truncate block">{seq.name}</span>
                     </div>
@@ -527,7 +547,11 @@ export function SequenceTeamDashboard({ agencyId }: SequenceTeamDashboardProps) 
           </p>
           <div className="space-y-2">
             {sortedMembers.map((member) => (
-              <TeamMemberRow key={member.id} member={member} />
+              <TeamMemberRow
+                key={member.id}
+                member={member}
+                onDrillDown={onFilterByMember ? () => onFilterByMember(member.id, member.type) : undefined}
+              />
             ))}
           </div>
         </div>

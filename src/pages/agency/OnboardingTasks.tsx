@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -109,6 +109,8 @@ export default function OnboardingTasksPage() {
   const [calendarView, setCalendarView] = useState<CalendarViewType>('week');
   // Schedule task dialog
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  // Ref for scrolling to task list from dashboard drill-down
+  const taskListRef = useRef<HTMLDivElement>(null);
 
   // Fetch user's profile for agency_id
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -415,6 +417,35 @@ export default function OnboardingTasksPage() {
     setProfileViewState({ contactId, customerName, currentTask: task });
   };
 
+  // Dashboard drill-down: filter by team member and scroll to task list
+  const scrollToTasks = useCallback(() => {
+    setTimeout(() => {
+      taskListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }, []);
+
+  const handleDashboardFilterByMember = useCallback((memberId: string, memberType: 'staff' | 'user') => {
+    setViewFilter(memberType === 'staff' ? `staff:${memberId}` : `user:${memberId}`);
+    setSelectedDate(null);
+    setSelectedSequence('all');
+    scrollToTasks();
+  }, [scrollToTasks]);
+
+  const handleDashboardFilterBySequence = useCallback((sequenceName: string) => {
+    // Match by name against the available sequences loaded from tasks
+    if (sequenceName === 'Manual Tasks') {
+      // No sequence filter for manual tasks — just keep "all" and let is_adhoc tasks show
+      setSelectedSequence('all');
+    } else {
+      const match = availableSequences.find(s => s.name === sequenceName);
+      if (match) {
+        setSelectedSequence(match.id);
+      }
+    }
+    setSelectedDate(null);
+    scrollToTasks();
+  }, [availableSequences, scrollToTasks]);
+
   // Get instance info for the reassign modal
   const reassignInstance = reassignState ? {
     id: reassignState.instanceId,
@@ -516,12 +547,16 @@ export default function OnboardingTasksPage() {
       {/* Team Accountability Dashboard - shown for managers viewing all agency */}
       {canViewAllAgency && viewFilter === 'all' && !isLoading && (
         <div className="mb-6">
-          <SequenceTeamDashboard agencyId={profile?.agency_id || null} />
+          <SequenceTeamDashboard
+            agencyId={profile?.agency_id || null}
+            onFilterByMember={handleDashboardFilterByMember}
+            onFilterBySequence={handleDashboardFilterBySequence}
+          />
         </div>
       )}
 
       {/* Filter Dropdowns - above the week view */}
-      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+      <div ref={taskListRef} className="flex items-center justify-between gap-4 mb-4 flex-wrap">
         <div className="flex items-center gap-4 flex-wrap">
         {/* View/Assignee Filter */}
         {canViewAllAgency && (
