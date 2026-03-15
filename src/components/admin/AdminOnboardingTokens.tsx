@@ -94,7 +94,7 @@ export function AdminOnboardingTokens() {
       setStripeCustomerId("");
 
       // Auto-copy link
-      const url = `https://myagencybrain.com/onboard?token=${data.token}`;
+      const url = `${window.location.origin}/onboard?token=${data.token}`;
       navigator.clipboard.writeText(url);
       toast.success("Token created and link copied to clipboard");
     },
@@ -104,7 +104,7 @@ export function AdminOnboardingTokens() {
   });
 
   const copyLink = (token: string, id: string) => {
-    const url = `https://myagencybrain.com/onboard?token=${token}`;
+    const url = `${window.location.origin}/onboard?token=${token}`;
     navigator.clipboard.writeText(url);
     setCopiedId(id);
     toast.success("Onboarding link copied");
