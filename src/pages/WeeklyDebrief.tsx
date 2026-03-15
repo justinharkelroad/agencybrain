@@ -6,6 +6,7 @@ import { getWeekKey } from "@/lib/date-utils";
 import { isStrictlyOneOnOne } from "@/utils/tierAccess";
 import { format, startOfWeek } from "date-fns";
 import { DebriefWizard } from "@/components/debrief/DebriefWizard";
+import { DebriefCompleted } from "@/components/debrief/DebriefCompleted";
 import { useWeekSummary } from "@/hooks/useWeekSummary";
 import { useWeeklyDebrief } from "@/hooks/useWeeklyDebrief";
 import { useFocusItems } from "@/hooks/useFocusItems";
@@ -83,6 +84,18 @@ export default function WeeklyDebrief() {
 
   if (!isStrictlyOneOnOne(membershipTier) || isKeyEmployee) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  // Show completed view when this week's debrief is sealed
+  if (review?.status === "completed") {
+    return (
+      <DebriefCompleted
+        review={review}
+        weekLabel={weekLabel}
+        stats={stats}
+        exitPath="/weekly-playbook"
+      />
+    );
   }
 
   return (

@@ -70,13 +70,6 @@ export function DebriefWizard({
     }
   }, [review?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // If review is already completed, show coaching step
-  useEffect(() => {
-    if (review && review.status === "completed") {
-      setStep(TOTAL_STEPS - 1);
-    }
-  }, [review?.status]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const progress = ((step + 1) / TOTAL_STEPS) * 100;
 
   const goToStep = useCallback(
