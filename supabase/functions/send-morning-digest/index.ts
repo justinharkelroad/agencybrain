@@ -62,6 +62,7 @@ interface RenewalsDue {
 }
 
 interface SequenceTasks {
+  assignedYesterday: { name: string; count: number }[];
   completedYesterday: { name: string; count: number }[];
   overdueTasks: { name: string; count: number }[];
   dueToday: { name: string; count: number }[];
@@ -573,15 +574,35 @@ async function fetchSequenceTasks(
   todayStart: string,
   todayStr: string
 ): Promise<SequenceTasks> {
+  const taskSelect = `
+    assigned_to_staff_user_id,
+    assigned_to_user_id,
+    staff_user:staff_users!onboarding_tasks_assigned_to_staff_user_id_fkey(display_name),
+    profile:profiles!onboarding_tasks_assigned_to_user_id_fkey(full_name, email)
+  `;
+
+  // New tasks assigned yesterday
+  const { data: assignedData } = await supabase
+    .from('onboarding_tasks')
+    .select(taskSelect)
+    .eq('agency_id', agencyId)
+    .gte('created_at', yesterdayStart)
+    .lt('created_at', todayStart);
+
+  const assignedByUser: Record<string, { name: string; count: number }> = {};
+  for (const task of (assignedData || []) as any[]) {
+    const name = task.staff_user?.display_name || task.profile?.full_name || task.profile?.email || 'Unknown';
+    if (!assignedByUser[name]) {
+      assignedByUser[name] = { name, count: 0 };
+    }
+    assignedByUser[name].count++;
+  }
+  const assignedYesterday = Object.values(assignedByUser).filter(u => u.count > 0);
+
   // Completed yesterday
   const { data: completedData } = await supabase
     .from('onboarding_tasks')
-    .select(`
-      assigned_to_staff_user_id,
-      assigned_to_user_id,
-      staff_user:staff_users!onboarding_tasks_assigned_to_staff_user_id_fkey(display_name),
-      profile:profiles!onboarding_tasks_assigned_to_user_id_fkey(full_name, email)
-    `)
+    .select(taskSelect)
     .eq('agency_id', agencyId)
     .eq('status', 'completed')
     .gte('completed_at', yesterdayStart)
@@ -633,6 +654,7 @@ async function fetchSequenceTasks(
   }
 
   return {
+    assignedYesterday,
     completedYesterday,
     overdueTasks: Object.values(overdueByUser).filter(u => u.count > 0),
     dueToday: Object.values(dueTodayByUser).filter(u => u.count > 0)
@@ -799,9 +821,10 @@ function buildEmailHtml(
 
   // Calculate wins (respecting section preferences)
   const totalCompleted = sequenceTasks.completedYesterday.reduce((sum, u) => sum + u.count, 0);
+  const totalAssigned = sequenceTasks.assignedYesterday.reduce((sum, u) => sum + u.count, 0);
   const hasWins =
     (sections.trainingCompletions && trainingCompletions.length > 0) ||
-    (sections.sequenceTasks && (totalCompleted > 0 || sequenceTasks.dueToday.length > 0 || totalOverdue > 0));
+    (sections.sequenceTasks && (totalAssigned > 0 || totalCompleted > 0 || sequenceTasks.dueToday.length > 0 || totalOverdue > 0));
 
   // Check if any highlights sections are enabled
   const hasHighlights = sections.salesSnapshot || sections.activityMetrics || sections.callScoring;
@@ -957,9 +980,9 @@ function buildEmailHtml(
 
         ${sections.sequenceTasks && totalOverdue > 0 ? `
         <div>
-          <strong style="color: #991b1b;">${totalOverdue} overdue sequence ${totalOverdue === 1 ? 'task' : 'tasks'}</strong>
+          <strong style="color: #991b1b;">${totalOverdue} ${totalOverdue === 1 ? 'task' : 'tasks'} not completed (past due)</strong>
           <div style="font-size: 13px; color: #7f1d1d; margin-top: 4px;">
-            ${sequenceTasks.overdueTasks.map(u => `${u.name} (${u.count})`).join(', ')}
+            ${sequenceTasks.overdueTasks.map(u => `${u.name}: ${u.count} ${u.count === 1 ? 'task' : 'tasks'}`).join(' · ')}
           </div>
         </div>
         ` : ''}
@@ -982,9 +1005,18 @@ function buildEmailHtml(
         </div>
         ` : ''}
 
+        ${sections.sequenceTasks && totalAssigned > 0 ? `
+        <div style="margin-bottom: 12px;">
+          <strong style="color: #166534;">New Tasks Assigned: ${totalAssigned}</strong>
+          <div style="font-size: 13px; color: #15803d; margin-top: 4px;">
+            ${sequenceTasks.assignedYesterday.map(u => `${u.name} (${u.count})`).join(', ')}
+          </div>
+        </div>
+        ` : ''}
+
         ${sections.sequenceTasks && totalCompleted > 0 ? `
         <div style="margin-bottom: ${sections.sequenceTasks && sequenceTasks.dueToday.length > 0 ? '12px' : '0'};">
-          <strong style="color: #166534;">Sequence Tasks Completed: ${totalCompleted}</strong>
+          <strong style="color: #166534;">Tasks Completed: ${totalCompleted}</strong>
           <div style="font-size: 13px; color: #15803d; margin-top: 4px;">
             ${sequenceTasks.completedYesterday.map(u => `${u.name} (${u.count})`).join(', ')}
           </div>
