@@ -44,7 +44,7 @@ export function useOnboardingWizard(token: string | null) {
 
       if (fnError) {
         // Check error context for specific status codes
-        const errorBody = fnError.context ? await fnError.context.json().catch(() => null) : null;
+        const errorBody = fnError.context?.json ? await fnError.context.json().catch(() => null) : null;
         if (errorBody?.error?.includes("already been used")) {
           setStatus("used");
           setError("This onboarding link has already been used");
@@ -93,7 +93,7 @@ export function useOnboardingWizard(token: string | null) {
         );
 
         if (fnError) {
-          const errorBody = fnError.context ? await fnError.context.json().catch(() => null) : null;
+          const errorBody = fnError.context?.json ? await fnError.context.json().catch(() => null) : null;
           throw new Error(errorBody?.error || fnError.message || "Account creation failed");
         }
 
@@ -141,7 +141,7 @@ export function useOnboardingWizard(token: string | null) {
         );
 
         if (fnError) {
-          const errorBody = fnError.context ? await fnError.context.json().catch(() => null) : null;
+          const errorBody = fnError.context?.json ? await fnError.context.json().catch(() => null) : null;
           throw new Error(errorBody?.error || "Failed to save agency details");
         }
 
@@ -175,7 +175,7 @@ export function useOnboardingWizard(token: string | null) {
         );
 
         if (fnError) {
-          const errorBody = fnError.context ? await fnError.context.json().catch(() => null) : null;
+          const errorBody = fnError.context?.json ? await fnError.context.json().catch(() => null) : null;
           throw new Error(errorBody?.error || "Failed to add team members");
         }
 
@@ -202,7 +202,7 @@ export function useOnboardingWizard(token: string | null) {
       await supabase.functions.invoke("complete-onboarding-step", {
         body: { step: "complete", data: {} },
       });
-      setStep(4);
+      // Stay on step 3 (StepComplete) — user navigates away via buttons
     } catch (err) {
       console.error("Complete onboarding error:", err);
     } finally {

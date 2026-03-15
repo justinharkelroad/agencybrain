@@ -1,13 +1,12 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import {
-  CheckCircle2,
-  Users,
-  LayoutDashboard,
-  Phone,
-} from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { CheckCircle2, Calendar, ExternalLink } from "lucide-react";
 import confetti from "canvas-confetti";
+
+const BOARDROOM_ZOOM_LINK =
+  "https://us06web.zoom.us/j/86232632504?pwd=MibtJb0wP8N0wt2md2hm8ECK9CAAY3.1";
 
 interface StepCompleteProps {
   onComplete: () => void;
@@ -17,7 +16,6 @@ export function StepComplete({ onComplete }: StepCompleteProps) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Fire confetti on mount
     confetti({
       particleCount: 150,
       spread: 70,
@@ -25,51 +23,70 @@ export function StepComplete({ onComplete }: StepCompleteProps) {
       colors: ["#34d399", "#60a5fa", "#fbbf24", "#f472b6"],
     });
 
-    // Mark onboarding complete
     onComplete();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const quickLinks = [
-    {
-      icon: Users,
-      label: "Invite your team to the staff portal",
-      href: "/agency",
-    },
-    {
-      icon: LayoutDashboard,
-      label: "Explore your dashboard",
-      href: "/dashboard",
-    },
-    {
-      icon: Phone,
-      label: "Set up AI Call Scoring",
-      href: "/call-scoring",
-    },
-  ];
-
   return (
     <div className="max-w-md mx-auto px-4 py-12 text-center">
-      <div className="mb-6">
+      <div className="mb-8">
         <div className="mx-auto w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
           <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
         </div>
         <h1 className="text-2xl font-bold mb-2">You're All Set!</h1>
         <p className="text-muted-foreground">
-          Your AgencyBrain account is ready. Here are some things to do next:
+          Your AgencyBrain account is ready to go.
         </p>
       </div>
 
-      <div className="space-y-3 mb-8 text-left">
-        {quickLinks.map((link) => (
-          <button
-            key={link.href}
-            onClick={() => navigate(link.href)}
-            className="w-full flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors text-left"
+      {/* Boardroom Call Card */}
+      <Card className="mb-8 text-left border-primary/20 bg-primary/5">
+        <CardContent className="pt-5 pb-5">
+          <div className="flex items-start gap-3 mb-3">
+            <Calendar className="h-5 w-5 text-primary mt-0.5 shrink-0" />
+            <div>
+              <h3 className="font-semibold text-sm mb-1">
+                Book Your Boardroom Call
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Your Boardroom membership includes access to our monthly 2-hour
+                group coaching call, typically held on the second Tuesday of each
+                month. Please check the schedule as dates may shift due to
+                events and conferences.
+              </p>
+            </div>
+          </div>
+          <a
+            href={BOARDROOM_ZOOM_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline ml-8"
           >
-            <link.icon className="h-5 w-5 text-muted-foreground shrink-0" />
-            <span className="text-sm font-medium">{link.label}</span>
-          </button>
-        ))}
+            Join the Boardroom Zoom
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </CardContent>
+      </Card>
+
+      {/* Tips */}
+      <div className="mb-8 text-left space-y-3 text-sm text-muted-foreground">
+        <p>
+          As you explore, look for the <span className="font-medium text-foreground">play icons</span> in
+          the top navigation — these are short help videos that walk you through
+          each feature.
+        </p>
+        <p>
+          Questions? Email us anytime at{" "}
+          <a
+            href="mailto:info@standardplaybook.com"
+            className="font-medium text-primary hover:underline"
+          >
+            info@standardplaybook.com
+          </a>
+        </p>
+        <p>
+          Run into a bug? Use the <span className="font-medium text-foreground">bug button</span> in
+          the bottom-right corner of any page to report it.
+        </p>
       </div>
 
       <Button
@@ -77,7 +94,7 @@ export function StepComplete({ onComplete }: StepCompleteProps) {
         className="w-full"
         size="lg"
       >
-        Go to Dashboard
+        Enter AgencyBrain
       </Button>
     </div>
   );
