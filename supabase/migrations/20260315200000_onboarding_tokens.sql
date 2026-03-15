@@ -1,12 +1,14 @@
 -- Self-service onboarding: token table + provision function
 -- Allows admin to generate onboarding links for new Boardroom clients
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
 -- =================================================================
 -- 1. onboarding_tokens table
 -- =================================================================
 CREATE TABLE onboarding_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  token TEXT NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(32), 'hex'),
+  token TEXT NOT NULL UNIQUE DEFAULT encode(extensions.gen_random_bytes(32), 'hex'),
   email TEXT NOT NULL,
   agency_name TEXT,
   tier TEXT NOT NULL DEFAULT 'Boardroom',
@@ -192,7 +194,7 @@ BEGIN
   -- ---------------------------------------------------------------
   IF v_sales_form_id IS NOT NULL THEN
     INSERT INTO form_links (form_template_id, token)
-    VALUES (v_sales_form_id, encode(gen_random_bytes(16), 'hex'))
+    VALUES (v_sales_form_id, encode(extensions.gen_random_bytes(16), 'hex'))
     ON CONFLICT DO NOTHING;
 
     -- Bind KPI versions to sales form
@@ -207,7 +209,7 @@ BEGIN
 
   IF v_service_form_id IS NOT NULL THEN
     INSERT INTO form_links (form_template_id, token)
-    VALUES (v_service_form_id, encode(gen_random_bytes(16), 'hex'))
+    VALUES (v_service_form_id, encode(extensions.gen_random_bytes(16), 'hex'))
     ON CONFLICT DO NOTHING;
 
     -- Bind KPI versions to service form
