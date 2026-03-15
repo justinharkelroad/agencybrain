@@ -36,7 +36,14 @@ serve(async (req) => {
     const weekNum = Math.ceil(((tempDate.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
     const weekKey = `${tempDate.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
 
-    console.log('Debrief reminder check for week:', weekKey);
+    // Human-friendly label: "Week of March 9"
+    // Monday of the current ISO week = today - (dayOfWeek - 1)
+    const monday = new Date(now);
+    const dow = monday.getUTCDay() || 7; // 1=Mon...7=Sun
+    monday.setUTCDate(monday.getUTCDate() - (dow - 1));
+    const weekLabel = `Week of ${monday.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
+
+    console.log('Debrief reminder check for week:', weekKey, weekLabel);
 
     // Find 1:1 coaching clients (agency owners) who haven't completed this week's debrief
     const { data: profiles, error: profilesError } = await supabase
@@ -136,7 +143,7 @@ serve(async (req) => {
 
       const emailHtml = buildEmailHtml({
         title: 'Your Weekly Debrief is Ready',
-        subtitle: weekKey,
+        subtitle: weekLabel,
         bodyContent: `
           ${EmailComponents.paragraph(`Good morning, ${firstName}.`)}
           ${EmailComponents.paragraph(`It's Sunday — time to close out the week and set yourself up for what's next.`)}
@@ -153,7 +160,7 @@ serve(async (req) => {
       return {
         from: BRAND.fromEmail,
         to: p.email,
-        subject: `Your Weekly Debrief is Ready — ${weekKey}`,
+        subject: `Your Weekly Debrief is Ready — ${weekLabel}`,
         html: emailHtml,
       };
     });
