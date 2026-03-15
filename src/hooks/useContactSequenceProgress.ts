@@ -41,7 +41,8 @@ export function useContactSequenceProgress(
     queryFn: async (): Promise<SequenceInstanceInfo[]> => {
       if (!contactId || !agencyId) return [];
 
-      const { data, error } = await supabase
+      // 1. Direct match by contact_id
+      const { data: directData, error: directError } = await supabase
         .from('onboarding_instances')
         .select(`
           id, sequence_id, status, start_date, created_at,
@@ -55,12 +56,51 @@ export function useContactSequenceProgress(
         .eq('agency_id', agencyId)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('[useContactSequenceProgress] Error:', error);
+      if (directError) {
+        console.error('[useContactSequenceProgress] Error:', directError);
         return [];
       }
 
-      return mapRawInstances(data || []);
+      const directIds = new Set((directData || []).map((i: any) => i.id));
+
+      // 2. Also find instances linked via onboarding_tasks.contact_id
+      //    (tasks denormalize contact_id, catching instances assigned via sale/household)
+      const { data: taskLinkedData } = await supabase
+        .from('onboarding_tasks')
+        .select('instance_id')
+        .eq('contact_id', contactId)
+        .eq('agency_id', agencyId)
+        .not('instance_id', 'is', null);
+
+      const extraInstanceIds = [
+        ...new Set(
+          (taskLinkedData || [])
+            .map((t: any) => t.instance_id)
+            .filter((id: string) => !directIds.has(id))
+        ),
+      ];
+
+      let allInstances = directData || [];
+
+      if (extraInstanceIds.length > 0) {
+        const { data: extraData } = await supabase
+          .from('onboarding_instances')
+          .select(`
+            id, sequence_id, status, start_date, created_at,
+            sequence:onboarding_sequences(id, name),
+            tasks:onboarding_tasks(
+              id, title, action_type, day_number, due_date, status,
+              completed_at, completion_notes
+            )
+          `)
+          .in('id', extraInstanceIds)
+          .eq('agency_id', agencyId)
+          .order('created_at', { ascending: false });
+
+        allInstances = [...allInstances, ...(extraData || [])];
+      }
+
+      return mapRawInstances(allInstances);
     },
     // Only auto-fetch for agency portal (not in staff mode)
     enabled: !!contactId && !!agencyId && !isStaffMode,
