@@ -253,14 +253,14 @@ export function OnboardingTaskCard({
                 </span>
               )}
 
-              {/* Sequence Name or Ad-hoc Badge */}
+              {/* Sequence Name or Manual Task Badge */}
               {task.is_adhoc ? (
                 <Badge
                   variant="outline"
                   className="text-xs font-normal border-amber-400 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10"
                 >
                   <Zap className="h-3 w-3 mr-1" />
-                  Ad-hoc
+                  Manual
                 </Badge>
               ) : task.instance?.sequence && (
                 <Badge variant="outline" className="text-xs font-normal">

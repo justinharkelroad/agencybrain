@@ -336,11 +336,11 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile, 
               {/* Day Number - hide for adhoc tasks */}
               {!isAdhoc && <span>Day {task.day_number}</span>}
 
-              {/* Sequence Name or Ad-hoc badge */}
+              {/* Sequence Name or Manual task badge */}
               {isAdhoc ? (
                 <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-400 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10">
                   <Zap className="h-2.5 w-2.5 mr-0.5" />
-                  Ad-hoc
+                  Manual
                 </Badge>
               ) : task.instance?.sequence && (
                 <span className="text-muted-foreground/70">{task.instance.sequence.name}</span>
