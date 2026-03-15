@@ -494,10 +494,12 @@ serve(async (req) => {
 
       const workDate = sRow.work_date ?? sRow.submission_date;
 
-      // 1) Clear any existing finals for same TM + date
+      // 1) Clear any existing finals for same TM + date + form template
+      // Scoped to form_template_id so multiple form types can be final on the same day
       await supabase
         .from('submissions')
         .update({ final: false })
+        .eq('form_template_id', sRow.form_template_id)
         .eq('team_member_id', sRow.team_member_id)
         .or(`work_date.eq.${workDate},and(work_date.is.null,submission_date.eq.${workDate})`)
         .eq('final', true);

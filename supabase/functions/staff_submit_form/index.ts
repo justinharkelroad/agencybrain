@@ -430,10 +430,13 @@ Deno.serve(async (req) => {
 
       const effectiveWorkDate = sRow.work_date ?? sRow.submission_date;
 
-      // Clear any existing finals for same TM + date
+      // Clear any existing finals for same TM + date + form template
+      // Scoped to form_template_id so multiple form types can be final on the same day
+      // (e.g., Hybrid member submitting both a Sales form and a Hybrid form)
       const { error: clearError } = await supabase
         .from('submissions')
         .update({ final: false })
+        .eq('form_template_id', sRow.form_template_id)
         .eq('team_member_id', sRow.team_member_id)
         .or(`work_date.eq.${effectiveWorkDate},and(work_date.is.null,submission_date.eq.${effectiveWorkDate})`)
         .eq('final', true);
