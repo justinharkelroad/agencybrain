@@ -47,12 +47,13 @@ import { SevenDayOutlook } from '@/components/onboarding/SevenDayOutlook';
 import { MonthlyTaskCalendar } from '@/components/onboarding/MonthlyTaskCalendar';
 import { ScheduleTaskDialog } from '@/components/onboarding/ScheduleTaskDialog';
 import { ContactIntelligencePanel } from '@/components/onboarding/ContactIntelligencePanel';
-import type { FollowUpData } from '@/components/onboarding/TaskCompleteDialog';
+import type { FollowUpData, CallOutcome } from '@/components/onboarding/TaskCompleteDialog';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useScheduleAdhocTask } from '@/hooks/useScheduleAdhocTask';
 import { useManageSequence } from '@/hooks/useManageSequence';
 import { HelpButton } from '@/components/HelpButton';
+import { SequenceTeamDashboard } from '@/components/onboarding/SequenceTeamDashboard';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -209,10 +210,10 @@ export default function OnboardingTasksPage() {
   // Complete task mutation
   const completeTask = useCompleteOnboardingTask();
 
-  const handleCompleteTask = async (taskId: string, notes?: string, followUp?: FollowUpData) => {
+  const handleCompleteTask = async (taskId: string, notes?: string, followUp?: FollowUpData, callOutcome?: CallOutcome) => {
     setCompletingTaskId(taskId);
     try {
-      await completeTask.mutateAsync({ taskId, notes });
+      await completeTask.mutateAsync({ taskId, notes, callOutcome });
 
       // Handle follow-up scheduling (when called from ContactIntelligencePanel)
       if (followUp) {
@@ -511,6 +512,13 @@ export default function OnboardingTasksPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Team Accountability Dashboard - shown for managers viewing all agency */}
+      {canViewAllAgency && viewFilter === 'all' && !isLoading && (
+        <div className="mb-6">
+          <SequenceTeamDashboard agencyId={profile?.agency_id || null} />
+        </div>
+      )}
 
       {/* Filter Dropdowns - above the week view */}
       <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">

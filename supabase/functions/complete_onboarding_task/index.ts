@@ -9,7 +9,10 @@ const corsHeaders = {
 interface CompleteTaskRequest {
   task_id: string;
   notes?: string | null;
+  call_outcome?: string | null;
 }
+
+const VALID_CALL_OUTCOMES = ['connected', 'voicemail', 'no_answer', 'wrong_number', 'callback_requested'];
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -57,7 +60,15 @@ serve(async (req) => {
     }
 
     const body: CompleteTaskRequest = await req.json();
-    const { task_id, notes } = body;
+    const { task_id, notes, call_outcome } = body;
+
+    // Validate call_outcome if provided
+    if (call_outcome && !VALID_CALL_OUTCOMES.includes(call_outcome)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid call_outcome value' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!task_id) {
       return new Response(
@@ -99,15 +110,20 @@ serve(async (req) => {
     }
 
     // Update the task to completed
+    const updatePayload: Record<string, unknown> = {
+      status: 'completed',
+      completed_at: new Date().toISOString(),
+      completed_by_user_id: user.id,
+      completion_notes: notes || null,
+      updated_at: new Date().toISOString(),
+    };
+    if (call_outcome) {
+      updatePayload.call_outcome = call_outcome;
+    }
+
     const { error: updateError } = await supabase
       .from('onboarding_tasks')
-      .update({
-        status: 'completed',
-        completed_at: new Date().toISOString(),
-        completed_by_user_id: user.id,
-        completion_notes: notes || null,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', task_id);
 
     if (updateError) {

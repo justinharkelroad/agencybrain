@@ -68,7 +68,7 @@ import { SevenDayOutlook } from '@/components/onboarding/SevenDayOutlook';
 import { MonthlyTaskCalendar } from '@/components/onboarding/MonthlyTaskCalendar';
 import { ContactIntelligencePanel } from '@/components/onboarding/ContactIntelligencePanel';
 import { TaskCompleteDialog } from '@/components/onboarding/TaskCompleteDialog';
-import type { FollowUpData } from '@/components/onboarding/TaskCompleteDialog';
+import type { FollowUpData, CallOutcome } from '@/components/onboarding/TaskCompleteDialog';
 import type { ActionType } from '@/hooks/useStaffOnboardingTasks';
 import type { OnboardingTask } from '@/hooks/useOnboardingTasks';
 import { useManageSequence } from '@/hooks/useManageSequence';
@@ -152,7 +152,7 @@ function getStatusStyles(task: StaffOnboardingTask): {
 
 interface StaffTaskCardProps {
   task: StaffOnboardingTask;
-  onComplete: (taskId: string, notes?: string, followUp?: FollowUpData) => Promise<void>;
+  onComplete: (taskId: string, notes?: string, followUp?: FollowUpData, callOutcome?: CallOutcome) => Promise<void>;
   isCompleting?: boolean;
   onViewProfile?: (contactId: string, customerName: string) => void;
   onClickTask?: (task: StaffOnboardingTask) => void;
@@ -227,11 +227,11 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile, 
     }
   };
 
-  const handleComplete = async (taskId: string, notes?: string, followUp?: FollowUpData) => {
+  const handleComplete = async (taskId: string, notes?: string, followUp?: FollowUpData, callOutcome?: CallOutcome) => {
     if (completing || isCompleting) return;
     setCompleting(true);
     try {
-      await onComplete(taskId, notes, followUp);
+      await onComplete(taskId, notes, followUp, callOutcome);
     } catch {
       // Parent already shows error toast
     } finally {
@@ -633,10 +633,10 @@ export default function StaffOnboardingTasks() {
     }
   };
 
-  const handleComplete = async (taskId: string, notes?: string, followUp?: FollowUpData) => {
+  const handleComplete = async (taskId: string, notes?: string, followUp?: FollowUpData, callOutcome?: CallOutcome) => {
     setCompletingTaskId(taskId);
     try {
-      await completeTask.mutateAsync({ taskId, notes });
+      await completeTask.mutateAsync({ taskId, notes, callOutcome });
 
       // If follow-up was scheduled, create the adhoc task
       if (followUp) {

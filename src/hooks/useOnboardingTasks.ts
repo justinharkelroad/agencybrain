@@ -260,11 +260,12 @@ export function useCompleteOnboardingTask() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ taskId, notes }: { taskId: string; notes?: string }) => {
+    mutationFn: async ({ taskId, notes, callOutcome }: { taskId: string; notes?: string; callOutcome?: string }) => {
       const { data, error } = await supabase.functions.invoke('complete_onboarding_task', {
         body: {
           task_id: taskId,
           notes: notes || null,
+          call_outcome: callOutcome || null,
         },
       });
 
@@ -279,6 +280,8 @@ export function useCompleteOnboardingTask() {
       queryClient.invalidateQueries({ queryKey: ['onboarding-tasks-today'] });
       // Also invalidate the overdue count for the sidebar badge
       queryClient.invalidateQueries({ queryKey: ['overdue-task-count'] });
+      // Refresh team accountability dashboard
+      queryClient.invalidateQueries({ queryKey: ['sequence-team-stats'] });
     },
   });
 }

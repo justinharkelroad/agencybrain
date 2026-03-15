@@ -46,6 +46,7 @@ export function useManageSequence() {
       queryClient.invalidateQueries({ queryKey: ['contact-profile'] });
       queryClient.invalidateQueries({ queryKey: ['overdue-task-count'] });
       queryClient.invalidateQueries({ queryKey: ['staff-overdue-task-count'] });
+      queryClient.invalidateQueries({ queryKey: ['sequence-team-stats'] });
 
       const actionLabel =
         params.action === 'complete' ? 'completed' :

@@ -123,7 +123,7 @@ export function useCompleteStaffOnboardingTask() {
   const { sessionToken } = useStaffAuth();
 
   return useMutation({
-    mutationFn: async ({ taskId, notes }: { taskId: string; notes?: string }) => {
+    mutationFn: async ({ taskId, notes, callOutcome }: { taskId: string; notes?: string; callOutcome?: string }) => {
       if (!sessionToken) {
         throw new Error('No session token');
       }
@@ -133,6 +133,7 @@ export function useCompleteStaffOnboardingTask() {
         body: {
           task_id: taskId,
           notes: notes || null,
+          call_outcome: callOutcome || null,
         },
       });
 
@@ -153,6 +154,8 @@ export function useCompleteStaffOnboardingTask() {
       queryClient.invalidateQueries({ queryKey: ['staff-onboarding-tasks'] });
       // Also invalidate the overdue count for the sidebar badge
       queryClient.invalidateQueries({ queryKey: ['staff-overdue-task-count'] });
+      // Refresh team accountability dashboard (staff completions affect it too)
+      queryClient.invalidateQueries({ queryKey: ['sequence-team-stats'] });
     },
   });
 }

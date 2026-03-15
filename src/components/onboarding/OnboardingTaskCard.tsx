@@ -32,10 +32,11 @@ import { format, isToday, isPast, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { OnboardingTask, ActionType } from '@/hooks/useOnboardingTasks';
 import { TaskCompleteDialog } from './TaskCompleteDialog';
+import type { CallOutcome } from './TaskCompleteDialog';
 
 interface OnboardingTaskCardProps {
   task: OnboardingTask;
-  onComplete: (taskId: string, notes?: string) => Promise<void>;
+  onComplete: (taskId: string, notes?: string, followUp?: any, callOutcome?: CallOutcome) => Promise<void>;
   isCompleting?: boolean;
   showAssignee?: boolean;
   showCustomer?: boolean;
@@ -147,11 +148,11 @@ export function OnboardingTaskCard({
     }
   };
 
-  const handleComplete = async (_taskId: string, notes?: string) => {
+  const handleComplete = async (_taskId: string, notes?: string, followUp?: any, callOutcome?: CallOutcome) => {
     if (completing || isCompleting) return;
     setCompleting(true);
     try {
-      await onComplete(task.id, notes);
+      await onComplete(task.id, notes, followUp, callOutcome);
     } catch {
       // Parent already shows error toast
     } finally {

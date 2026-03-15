@@ -26,7 +26,7 @@ import type { OnboardingTask } from '@/hooks/useOnboardingTasks';
 interface CustomerTasksGroupProps {
   customerName: string;
   tasks: OnboardingTask[];
-  onCompleteTask: (taskId: string, notes?: string) => Promise<void>;
+  onCompleteTask: (taskId: string, notes?: string, followUp?: any, callOutcome?: any) => Promise<void>;
   completingTaskId?: string | null;
   showAssignee?: boolean;
   defaultExpanded?: boolean;

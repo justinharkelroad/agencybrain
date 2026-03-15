@@ -39,10 +39,17 @@ import {
   ChevronRight,
   CalendarIcon,
   Plus,
+  PhoneCall,
+  Voicemail,
+  PhoneMissed,
+  PhoneOff,
+  PhoneForwarded,
 } from 'lucide-react';
 import { format, addDays, addWeeks } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { ActionType } from '@/hooks/useOnboardingTasks';
+
+export type CallOutcome = 'connected' | 'voicemail' | 'no_answer' | 'wrong_number' | 'callback_requested';
 
 export interface FollowUpData {
   dueDate: Date;
@@ -57,7 +64,7 @@ interface TaskCompleteDialogProps {
   taskTitle: string;
   customerName: string;
   actionType: ActionType;
-  onComplete: (taskId: string, notes?: string, followUp?: FollowUpData) => Promise<void>;
+  onComplete: (taskId: string, notes?: string, followUp?: FollowUpData, callOutcome?: CallOutcome) => Promise<void>;
   contactId?: string; // Required for follow-up scheduling
 }
 
@@ -74,6 +81,14 @@ const ACTION_LABELS: Record<ActionType, string> = {
   email: 'Email',
   other: 'Task',
 };
+
+const CALL_OUTCOME_OPTIONS: { value: CallOutcome; label: string; icon: React.ElementType; color: string }[] = [
+  { value: 'connected', label: 'Connected — Spoke with customer', icon: PhoneCall, color: 'text-green-500' },
+  { value: 'voicemail', label: 'Voicemail left', icon: Voicemail, color: 'text-blue-500' },
+  { value: 'no_answer', label: 'No answer — No voicemail', icon: PhoneMissed, color: 'text-amber-500' },
+  { value: 'callback_requested', label: 'Customer requested callback', icon: PhoneForwarded, color: 'text-purple-500' },
+  { value: 'wrong_number', label: 'Wrong number', icon: PhoneOff, color: 'text-red-500' },
+];
 
 const QUICK_DATE_OPTIONS = [
   { label: 'Tomorrow', days: 1 },
@@ -94,6 +109,7 @@ export function TaskCompleteDialog({
 }: TaskCompleteDialogProps) {
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [callOutcome, setCallOutcome] = useState<CallOutcome | ''>('');
 
   // Follow-up state
   const [followUpExpanded, setFollowUpExpanded] = useState(false);
@@ -106,13 +122,17 @@ export function TaskCompleteDialog({
   const actionLabel = ACTION_LABELS[actionType] || 'Task';
 
   // Notes are required for call tasks
-  const notesRequired = actionType === 'call';
+  const isCallTask = actionType === 'call';
+  const notesRequired = isCallTask;
   const notesValid = !notesRequired || notes.trim().length > 0;
+
+  // Call outcome required for call tasks
+  const callOutcomeValid = !isCallTask || callOutcome !== '';
 
   // Follow-up validation: if expanded and date selected, title is required
   const followUpValid = !followUpExpanded || !followUpDate || followUpTitle.trim().length > 0;
 
-  const canSubmit = notesValid && followUpValid;
+  const canSubmit = notesValid && followUpValid && callOutcomeValid;
 
   const handleQuickDate = (days: number) => {
     const date = addDays(new Date(), days);
@@ -137,10 +157,16 @@ export function TaskCompleteDialog({
           }
         : undefined;
 
-      await onComplete(taskId, notes.trim() || undefined, followUp);
+      await onComplete(
+        taskId,
+        notes.trim() || undefined,
+        followUp,
+        callOutcome || undefined,
+      );
 
       // Reset state
       setNotes('');
+      setCallOutcome('');
       setFollowUpExpanded(false);
       setFollowUpDate(undefined);
       setFollowUpActionType('call');
@@ -153,6 +179,7 @@ export function TaskCompleteDialog({
 
   const handleCancel = () => {
     setNotes('');
+    setCallOutcome('');
     setFollowUpExpanded(false);
     setFollowUpDate(undefined);
     setFollowUpActionType('call');
@@ -174,6 +201,40 @@ export function TaskCompleteDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Call Outcome - required for call tasks */}
+          {isCallTask && (
+            <div className="space-y-2">
+              <Label>Call Outcome <span className="text-destructive">*</span></Label>
+              <div className="grid gap-1.5">
+                {CALL_OUTCOME_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  const isSelected = callOutcome === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setCallOutcome(option.value)}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-lg border text-sm text-left transition-all',
+                        isSelected
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary/30'
+                          : 'border-border hover:border-primary/40 hover:bg-muted/50'
+                      )}
+                    >
+                      <Icon className={cn('h-4 w-4 shrink-0', isSelected ? option.color : 'text-muted-foreground')} />
+                      <span className={isSelected ? 'font-medium' : ''}>{option.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {callOutcome === '' && (
+                <p className="text-xs text-muted-foreground">
+                  Select the call outcome before completing.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="notes">
               {notesRequired ? 'Notes (required for calls)' : 'Notes (optional)'}
@@ -181,7 +242,7 @@ export function TaskCompleteDialog({
             <Textarea
               id="notes"
               placeholder={
-                actionType === 'call'
+                isCallTask
                   ? "What was discussed? Any follow-up needed?"
                   : "Add any notes about this task..."
               }

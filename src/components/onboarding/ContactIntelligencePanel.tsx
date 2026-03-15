@@ -83,7 +83,7 @@ interface ContactIntelligencePanelProps {
   staffSessionToken?: string | null;
   displayName?: string;
   // Callbacks
-  onCompleteTask?: (taskId: string, notes?: string, followUp?: FollowUpData) => Promise<void>;
+  onCompleteTask?: (taskId: string, notes?: string, followUp?: FollowUpData, callOutcome?: any) => Promise<void>;
   onTaskCompleted?: () => void;
   onActivityLogged?: () => void;
 }
@@ -241,10 +241,10 @@ export function ContactIntelligencePanel({
     }
   };
 
-  const handleTaskCompleted = async (taskId: string, notes?: string, followUp?: FollowUpData) => {
+  const handleTaskCompleted = async (taskId: string, notes?: string, followUp?: FollowUpData, callOutcome?: any) => {
     if (!onCompleteTask) return;
     try {
-      await onCompleteTask(taskId, notes, followUp);
+      await onCompleteTask(taskId, notes, followUp, callOutcome);
       setShowCompleteDialog(false);
       onTaskCompleted?.();
     } catch {
