@@ -17,7 +17,9 @@ export type ContactActivityType =
   | 'policy_renewed'
   | 'account_saved'
   | 'call_scored'
-  | 'task_scheduled';
+  | 'task_scheduled'
+  | 'sequence_assigned'
+  | 'task_completed';
 
 // Call directions
 export type CallDirection = 'inbound' | 'outbound';

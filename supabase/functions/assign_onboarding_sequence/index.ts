@@ -284,7 +284,7 @@ serve(async (req) => {
       // Validate staff user
       const { data: staffUser, error: staffError } = await supabase
         .from('staff_users')
-        .select('id, agency_id, is_active')
+        .select('id, agency_id, is_active, display_name, username')
         .eq('id', assigned_to_staff_user_id)
         .single();
 
@@ -313,7 +313,7 @@ serve(async (req) => {
       // Validate profile user
       const { data: profileUser, error: profileError } = await supabase
         .from('profiles')
-        .select('id, agency_id')
+        .select('id, agency_id, full_name, email')
         .eq('id', assigned_to_user_id)
         .single();
 
@@ -383,6 +383,31 @@ serve(async (req) => {
       ? `staff user ${assigned_to_staff_user_id}`
       : `profile user ${assigned_to_user_id}`;
     console.log(`[assign_onboarding_sequence] Instance ${instance.id} created with ${taskCount} tasks for ${targetLabel}, assigned to ${assigneeLabel}`);
+
+    // Log activity to contact timeline
+    const resolvedContactId = contact_id || null;
+    if (resolvedContactId) {
+      const assigneeName = assigned_to_staff_user_id
+        ? ((staffUser as any)?.display_name || (staffUser as any)?.username || 'Staff')
+        : ((profileUser as any)?.full_name || (profileUser as any)?.email || 'User');
+
+      const creatorName = assignedByStaffUserId
+        ? assigneeName  // Staff assigned to themselves
+        : ((profileUser as any)?.full_name || (profileUser as any)?.email || 'System');
+
+      await supabase.from('contact_activities').insert({
+        agency_id: agencyId,
+        contact_id: resolvedContactId,
+        source_module: 'manual',
+        activity_type: 'sequence_assigned',
+        source_record_id: instance.id,
+        subject: `${sequence.name} sequence started`,
+        notes: `Assigned to ${assigneeName} · ${taskCount} task${taskCount !== 1 ? 's' : ''} · Starting ${start_date}`,
+        created_by_user_id: assignedByUserId || null,
+        created_by_staff_id: assignedByStaffUserId || null,
+        created_by_display_name: creatorName,
+      });
+    }
 
     return new Response(
       JSON.stringify({

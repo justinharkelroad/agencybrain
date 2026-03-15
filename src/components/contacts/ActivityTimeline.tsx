@@ -1,5 +1,5 @@
 import { format, formatDistanceToNow, isToday, isYesterday } from 'date-fns';
-import { Phone, Mail, FileText, Calendar, CheckCircle, XCircle, AlertCircle, MessageSquare, ClipboardList } from 'lucide-react';
+import { Phone, Mail, FileText, Calendar, CheckCircle, XCircle, AlertCircle, MessageSquare, ClipboardList, Workflow, CheckSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ContactActivity, SourceModule, ContactActivityType } from '@/types/contact';
@@ -196,6 +196,10 @@ function getActivityIcon(type: string) {
       return AlertCircle;
     case 'task_scheduled':
       return ClipboardList;
+    case 'sequence_assigned':
+      return Workflow;
+    case 'task_completed':
+      return CheckSquare;
     default:
       return FileText;
   }
@@ -220,6 +224,10 @@ function getActivityDotColor(type: string): string {
       return 'bg-red-500';
     case 'task_scheduled':
       return 'bg-amber-500';
+    case 'sequence_assigned':
+      return 'bg-primary';
+    case 'task_completed':
+      return 'bg-green-500';
     default:
       return 'bg-gray-400';
   }
@@ -256,6 +264,10 @@ function formatActivityTitle(activity: ContactActivity): string {
       return 'Call Scored';
     case 'task_scheduled':
       return activity.subject || 'Task Scheduled';
+    case 'sequence_assigned':
+      return activity.subject || 'Sequence Assigned';
+    case 'task_completed':
+      return activity.subject || 'Task Completed';
     default:
       return (type as string).replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   }

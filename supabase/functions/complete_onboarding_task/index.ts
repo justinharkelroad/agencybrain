@@ -48,7 +48,7 @@ serve(async (req) => {
     // Get user's agency_id
     const { data: profile } = await supabaseAuth
       .from('profiles')
-      .select('agency_id')
+      .select('agency_id, full_name, email')
       .eq('id', user.id)
       .single();
 
@@ -83,7 +83,7 @@ serve(async (req) => {
     // Fetch the task and verify it belongs to this agency
     const { data: task, error: taskError } = await supabase
       .from('onboarding_tasks')
-      .select('id, agency_id, status, instance_id')
+      .select('id, agency_id, status, instance_id, title, action_type, contact_id')
       .eq('id', task_id)
       .single();
 
@@ -160,6 +160,25 @@ serve(async (req) => {
     }
 
     console.log(`[complete_onboarding_task] Task ${task_id} completed by user ${user.id}`);
+
+    // Log activity to contact timeline
+    const taskContactId = task.contact_id || null;
+    if (taskContactId) {
+      const displayName = profile.full_name || profile.email || 'User';
+      const outcomeLabel = call_outcome ? ` · ${call_outcome.replace(/_/g, ' ')}` : '';
+      await supabase.from('contact_activities').insert({
+        agency_id: profile.agency_id,
+        contact_id: taskContactId,
+        source_module: 'manual',
+        activity_type: 'task_completed',
+        source_record_id: task.id,
+        subject: `${task.title} completed`,
+        notes: notes ? `${notes}${outcomeLabel}` : (outcomeLabel ? outcomeLabel.slice(3) : null),
+        outcome: call_outcome ? call_outcome.replace(/_/g, ' ') : null,
+        created_by_user_id: user.id,
+        created_by_display_name: displayName,
+      });
+    }
 
     return new Response(
       JSON.stringify({
