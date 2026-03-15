@@ -44,9 +44,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (roleFilter && !['Sales', 'Service'].includes(roleFilter)) {
+    if (roleFilter && !['Sales', 'Service', 'Hybrid'].includes(roleFilter)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid role. Use Sales or Service.' }),
+        JSON.stringify({ error: 'Invalid role. Use Sales, Service, or Hybrid.' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }

@@ -34,7 +34,7 @@ interface MetricsSnapshotResponse {
 
 interface UseMetricsSnapshotOptions {
   date: string;
-  role?: 'Sales' | 'Service';
+  role?: 'Sales' | 'Service' | 'Hybrid';
   teamMemberId?: string;
   prefer?: AuthPreference;
   enabled?: boolean;

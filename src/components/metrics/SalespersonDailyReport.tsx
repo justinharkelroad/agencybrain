@@ -25,7 +25,7 @@ interface ScorecardRules {
 
 interface SalespersonDailyReportProps {
   agencyId: string;
-  role: "Sales" | "Service";
+  role: "Sales" | "Service" | "Hybrid";
   kpiLabels: Record<string, string>;
   scorecardRules?: ScorecardRules;
 }
@@ -70,7 +70,7 @@ export default function SalespersonDailyReport({
         .select("id, name")
         .eq("agency_id", agencyId)
         .eq("status", "active")
-        .eq("role", role)
+        .or(role === 'Hybrid' ? 'role.eq.Hybrid' : `role.eq.${role},role.eq.Hybrid`)
         .order("name");
 
       if (error) throw error;
@@ -100,13 +100,12 @@ export default function SalespersonDailyReport({
 
     const metrics = (selectedMetrics || []).filter(Boolean);
 
-    // Filter metrics based on role
+    // Filter metrics based on role — Hybrid shows all metrics
     const roleMetrics = metrics.filter((slug) => {
+      if (role === "Hybrid") return true;
       if (role === "Sales") {
-        // Sales-specific metrics
         return ["outbound_calls", "talk_minutes", "quoted_count", "quoted_households", "sold_items", "items_sold"].includes(slug);
       } else {
-        // Service-specific metrics
         return ["outbound_calls", "talk_minutes", "cross_sells_uncovered", "mini_reviews"].includes(slug);
       }
     });

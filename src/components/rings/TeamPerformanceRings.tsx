@@ -179,7 +179,7 @@ export default function TeamPerformanceRings({
             .from('scorecard_rules')
             .select('ring_metrics, n_required')
             .eq('agency_id', agencyId)
-            .eq('role', role as 'Sales' | 'Service')
+            .eq('role', role as 'Sales' | 'Service' | 'Hybrid')
             .single();
           rules = rulesData;
 

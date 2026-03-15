@@ -97,9 +97,9 @@ serve(async (req) => {
     }
 
     // Validate role parameter
-    if (!role || !['Sales', 'Service', 'Manager', 'All'].includes(role)) {
+    if (!role || !['Sales', 'Service', 'Hybrid', 'Manager', 'All'].includes(role)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid or missing role parameter. Use "Sales", "Service", "Manager", or "All"' }),
+        JSON.stringify({ error: 'Invalid or missing role parameter. Use "Sales", "Service", "Hybrid", "Manager", or "All"' }),
         {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -154,10 +154,14 @@ serve(async (req) => {
       .eq('date', workDate);
 
     if (role !== 'All') {
-      const roleFilter = role === 'Manager'
-        ? `role.eq.Manager`
-        : `role.eq.${role},role.eq.Hybrid`;
-      query = query.or(roleFilter);
+      if (role === 'Manager') {
+        query = query.or(`role.eq.Manager`);
+      } else {
+        // Filter by scoring_role — shows work scored by that role's rules
+        // Sales tab: Sales-scored work (includes Hybrid members who submitted Sales forms)
+        // Hybrid tab: Hybrid-scored work only
+        query = query.eq('scoring_role', role);
+      }
     }
 
     const { data, error } = await query
@@ -255,7 +259,7 @@ serve(async (req) => {
     const lqsByTeamMember = new Map<string, number>();
     let lqsQuotedTotal = 0;
     let lqsUnassignedCount = 0;
-    const shouldUseLqsQuotedCounts = role === 'Sales' || role === 'All';
+    const shouldUseLqsQuotedCounts = role === 'Sales' || role === 'Hybrid' || role === 'All';
     if (lqsError) {
       console.error('Dashboard daily lqs_households query error:', lqsError);
       // Non-fatal — fall back to metrics_daily only

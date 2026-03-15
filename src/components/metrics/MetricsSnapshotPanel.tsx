@@ -6,7 +6,7 @@ import { useMetricsSnapshot } from '@/hooks/useMetricsSnapshot';
 
 interface MetricsSnapshotPanelProps {
   date: string;
-  role?: 'Sales' | 'Service';
+  role?: 'Sales' | 'Service' | 'Hybrid';
   prefer?: 'staff' | 'supabase' | 'auto';
   teamMemberId?: string;
   title?: string;

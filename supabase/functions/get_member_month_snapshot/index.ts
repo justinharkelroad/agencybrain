@@ -84,8 +84,8 @@ serve(async (req) => {
     }
 
     // Get scorecard rules to find selected_metrics for this agency and role
-    // For Hybrid members, try Sales rules first, then Service (no scorecard_rules exist for 'Hybrid')
-    const rolesToTry = member.role === 'Hybrid' ? ['Sales', 'Service'] : [member.role];
+    // For Hybrid members, try Hybrid rules first, then Sales, then Service as fallback
+    const rolesToTry = member.role === 'Hybrid' ? ['Hybrid', 'Sales', 'Service'] : [member.role];
     let scorecardRule: { selected_metrics: string[] } | null = null;
 
     for (const roleToTry of rolesToTry) {
@@ -105,19 +105,18 @@ serve(async (req) => {
       }
     }
 
-    // Use selected_metrics length as required count, default to 5
-    const selectedMetrics: string[] = scorecardRule?.selected_metrics || [];
-    const requiredCount = selectedMetrics.length > 0 ? selectedMetrics.length : 5;
+    // Default required count from member's role-based rules (fallback for days without scoring_role)
+    const defaultSelectedMetrics: string[] = scorecardRule?.selected_metrics || [];
+    const defaultRequiredCount = defaultSelectedMetrics.length > 0 ? defaultSelectedMetrics.length : 5;
 
-    console.log('Selected metrics for', member.name, ':', selectedMetrics, 'Required count:', requiredCount);
-
-    // Get member metrics data for the month
+    // Get member metrics data for the month (include scoring_role for per-day rule resolution)
     const { data, error } = await supabase
       .from('metrics_daily')
       .select(`
         date,
         pass,
         hits,
+        scoring_role,
         outbound_calls,
         talk_minutes,
         quoted_count,
@@ -136,24 +135,43 @@ serve(async (req) => {
       console.error('Member snapshot query error:', error);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch member snapshot data' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
 
+    // For Hybrid members: look up required_count per scoring_role so each day's
+    // tooltip reflects the correct rule set (Sales-scored days vs Hybrid-scored days)
+    const requiredCountByRole: Record<string, number> = {};
+    if (member.role === 'Hybrid') {
+      const uniqueRoles = [...new Set((data || []).map((r: any) => r.scoring_role).filter(Boolean))];
+      for (const sr of uniqueRoles) {
+        const { data: rule } = await supabase
+          .from('scorecard_rules')
+          .select('selected_metrics')
+          .eq('agency_id', member.agency_id)
+          .eq('role', sr)
+          .maybeSingle();
+        const metrics = rule?.selected_metrics || [];
+        requiredCountByRole[sr as string] = metrics.length > 0 ? metrics.length : defaultRequiredCount;
+      }
+    }
+
     // Transform data into expected days format
-    const days = (data || []).map(row => {
-      // Use the hits value from the row (already calculated during submission)
-      // or calculate based on selected metrics if hits is null
+    const days = (data || []).map((row: any) => {
       const metCount = row.hits ?? 0;
+      // Per-day required_count: use scoring_role-specific count if available, else default
+      const reqCount = (member.role === 'Hybrid' && row.scoring_role)
+        ? (requiredCountByRole[row.scoring_role] ?? defaultRequiredCount)
+        : defaultRequiredCount;
 
       return {
         date: row.date,
         pass: row.pass ?? false,
         met_count: metCount,
-        required_count: requiredCount
+        required_count: reqCount
       };
     });
 

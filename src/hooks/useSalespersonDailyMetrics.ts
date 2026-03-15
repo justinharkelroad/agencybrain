@@ -41,7 +41,7 @@ interface UseSalespersonDailyMetricsOptions {
   teamMemberId?: string | null;
   startDate: Date;
   endDate: Date;
-  role?: "Sales" | "Service";
+  role?: "Sales" | "Service" | "Hybrid";
 }
 
 export function useSalespersonDailyMetrics({
@@ -95,9 +95,13 @@ export function useSalespersonDailyMetrics({
         query = query.eq("team_member_id", teamMemberId);
       }
 
-      // Filter by role if specified
+      // Filter by role if specified — for Sales/Service, also include Hybrid members
       if (role) {
-        query = query.eq("role", role);
+        if (role === 'Hybrid') {
+          query = query.eq("role", "Hybrid");
+        } else {
+          query = query.or(`role.eq.${role},role.eq.Hybrid`);
+        }
       }
 
       const { data, error } = await query;

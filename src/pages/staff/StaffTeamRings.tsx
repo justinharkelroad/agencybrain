@@ -45,7 +45,7 @@ export default function StaffTeamRings() {
   const [rows, setRows] = useState<TeamMetricRow[]>([]);
   const [ringMetrics, setRingMetrics] = useState<string[]>(["outbound_calls", "talk_minutes", "quoted_count", "sold_items"]);
   const [targets, setTargets] = useState<Record<string, Record<string, number>>>({});
-  const [selectedRole, setSelectedRole] = useState<"Sales" | "Service">("Sales");
+  const [selectedRole, setSelectedRole] = useState<"Sales" | "Service" | "Hybrid">("Sales");
   const [selectedDate, setSelectedDate] = useState<string>(
     format(getPreviousBusinessDay(), "yyyy-MM-dd")
   );
@@ -176,7 +176,7 @@ export default function StaffTeamRings() {
 
         // Get target with role-based fallback
         const targetValue = Number(memberTargets[key]);
-        const roleDefaults = selectedRole === "Sales" 
+        const roleDefaults = (selectedRole === "Sales" || selectedRole === "Hybrid")
           ? { outbound_calls: 100, talk_minutes: 180, quoted_count: 5, sold_items: 2, sold_policies: 1, sold_premium: 500 }
           : { outbound_calls: 30, talk_minutes: 180, cross_sells_uncovered: 2, mini_reviews: 5 };
         
@@ -237,13 +237,14 @@ export default function StaffTeamRings() {
           <div className="flex flex-wrap items-center gap-4 mt-4">
             <div className="flex items-center gap-2">
               <Label htmlFor="role-select">Role:</Label>
-              <Select value={selectedRole} onValueChange={(value: "Sales" | "Service") => setSelectedRole(value)}>
-                <SelectTrigger id="role-select" className="w-32">
+              <Select value={selectedRole} onValueChange={(value: "Sales" | "Service" | "Hybrid") => setSelectedRole(value)}>
+                <SelectTrigger id="role-select" className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Sales">Sales</SelectItem>
                   <SelectItem value="Service">Service</SelectItem>
+                  <SelectItem value="Hybrid">Hybrid</SelectItem>
                 </SelectContent>
               </Select>
             </div>

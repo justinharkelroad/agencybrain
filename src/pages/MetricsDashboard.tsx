@@ -24,7 +24,7 @@ import SalespersonDailyReport from '@/components/metrics/SalespersonDailyReport'
 import { MetricsSnapshotPanel } from '@/components/metrics/MetricsSnapshotPanel';
 
 
-type Role = "Sales" | "Service";
+type Role = "Sales" | "Service" | "Hybrid";
 type Tiles = {
   outbound_calls: number; 
   talk_minutes: number; 
@@ -272,6 +272,7 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
                 >
                   <option value="Sales">Sales</option>
                   <option value="Service">Service</option>
+                  <option value="Hybrid">Hybrid</option>
                 </select>
               </div>
               <div className="flex flex-col space-y-2">
@@ -347,16 +348,16 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
           {metricConfig.selectedMetrics.includes('talk_minutes') && (
             <MetricTile title={metricConfig.getKpiLabel('talk_minutes')} value={tilesObject.talk_minutes} icon={<Users className="h-5 w-5" />} />
           )}
-          {(metricConfig.selectedMetrics.includes('quoted_count') || metricConfig.selectedMetrics.includes('quoted_households')) && role === 'Sales' && (
+          {(metricConfig.selectedMetrics.includes('quoted_count') || metricConfig.selectedMetrics.includes('quoted_households')) && (role === 'Sales' || role === 'Hybrid') && (
             <MetricTile title={metricConfig.quotedTitle} value={tilesObject.quoted} icon={<TrendingUp className="h-5 w-5" />} />
           )}
-          {(metricConfig.selectedMetrics.includes('sold_items') || metricConfig.selectedMetrics.includes('items_sold')) && role === 'Sales' && (
+          {(metricConfig.selectedMetrics.includes('sold_items') || metricConfig.selectedMetrics.includes('items_sold')) && (role === 'Sales' || role === 'Hybrid') && (
             <MetricTile title={metricConfig.soldTitle} value={tilesObject.sold_items} icon={<Award className="h-5 w-5" />} />
           )}
-          {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && tilesObject.cross_sells_uncovered !== undefined && (
+          {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && (role === 'Service' || role === 'Hybrid') && tilesObject.cross_sells_uncovered !== undefined && (
             <MetricTile title={metricConfig.quotedTitle} value={tilesObject.cross_sells_uncovered || 0} icon={<TrendingUp className="h-5 w-5" />} />
           )}
-          {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && tilesObject.mini_reviews !== undefined && (
+          {metricConfig.selectedMetrics.includes('mini_reviews') && (role === 'Service' || role === 'Hybrid') && tilesObject.mini_reviews !== undefined && (
             <MetricTile title={metricConfig.soldTitle} value={tilesObject.mini_reviews || 0} icon={<Award className="h-5 w-5" />} />
           )}
         </div>}
@@ -377,10 +378,10 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
                     <Th>Rep</Th>
                     {metricConfig.selectedMetrics.includes('outbound_calls') && <Th>{metricConfig.getKpiLabel('outbound_calls')}</Th>}
                     {metricConfig.selectedMetrics.includes('talk_minutes') && <Th>{metricConfig.getKpiLabel('talk_minutes')}</Th>}
-                    {(metricConfig.selectedMetrics.includes('quoted_count') || metricConfig.selectedMetrics.includes('quoted_households')) && role === 'Sales' && <Th>{metricConfig.quotedTitle}</Th>}
-                    {(metricConfig.selectedMetrics.includes('sold_items') || metricConfig.selectedMetrics.includes('items_sold')) && role === 'Sales' && <Th>{metricConfig.soldTitle}</Th>}
-                    {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && <Th>{metricConfig.quotedTitle}</Th>}
-                    {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && <Th>{metricConfig.soldTitle}</Th>}
+                    {(metricConfig.selectedMetrics.includes('quoted_count') || metricConfig.selectedMetrics.includes('quoted_households')) && (role === 'Sales' || role === 'Hybrid') && <Th>{metricConfig.quotedTitle}</Th>}
+                    {(metricConfig.selectedMetrics.includes('sold_items') || metricConfig.selectedMetrics.includes('items_sold')) && (role === 'Sales' || role === 'Hybrid') && <Th>{metricConfig.soldTitle}</Th>}
+                    {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && (role === 'Service' || role === 'Hybrid') && <Th>{metricConfig.quotedTitle}</Th>}
+                    {metricConfig.selectedMetrics.includes('mini_reviews') && (role === 'Service' || role === 'Hybrid') && <Th>{metricConfig.soldTitle}</Th>}
                     <Th>Pass Days</Th>
                     <Th>Score</Th>
                     <Th>Streak</Th>
@@ -403,10 +404,10 @@ export default function MetricsDashboard({ staffAgencyProfile, defaultDate }: Me
                         <Td className="font-medium">{r.name || r.rep_name}</Td>
                         {metricConfig.selectedMetrics.includes('outbound_calls') && <Td>{r.outbound_calls}</Td>}
                         {metricConfig.selectedMetrics.includes('talk_minutes') && <Td>{r.talk_minutes}</Td>}
-                        {(metricConfig.selectedMetrics.includes('quoted_count') || metricConfig.selectedMetrics.includes('quoted_households')) && role === 'Sales' && <Td>{r.quoted_count}</Td>}
-                        {(metricConfig.selectedMetrics.includes('sold_items') || metricConfig.selectedMetrics.includes('items_sold')) && role === 'Sales' && <Td>{r.sold_items}</Td>}
-                        {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && role === 'Service' && <Td>{r.cross_sells_uncovered || 0}</Td>}
-                        {metricConfig.selectedMetrics.includes('mini_reviews') && role === 'Service' && <Td>{r.mini_reviews || 0}</Td>}
+                        {(metricConfig.selectedMetrics.includes('quoted_count') || metricConfig.selectedMetrics.includes('quoted_households')) && (role === 'Sales' || role === 'Hybrid') && <Td>{r.quoted_count}</Td>}
+                        {(metricConfig.selectedMetrics.includes('sold_items') || metricConfig.selectedMetrics.includes('items_sold')) && (role === 'Sales' || role === 'Hybrid') && <Td>{r.sold_items}</Td>}
+                        {metricConfig.selectedMetrics.includes('cross_sells_uncovered') && (role === 'Service' || role === 'Hybrid') && <Td>{r.cross_sells_uncovered || 0}</Td>}
+                        {metricConfig.selectedMetrics.includes('mini_reviews') && (role === 'Service' || role === 'Hybrid') && <Td>{r.mini_reviews || 0}</Td>}
                         <Td>
                           <Badge variant={r.pass ? "default" : "secondary"}>
                             {r.pass ? 1 : 0}
