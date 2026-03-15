@@ -63,7 +63,8 @@ export default function StaffWeeklyDebrief() {
     <DebriefWizard
       weekLabel={weekLabel}
       weekSummary={weekSummary}
-      review={review as WeeklyReview | null}
+      stats={{ total: { current: 0, max: 0, pct: 0, delta: 0, deltaPct: 0 }, core4: { current: 0, max: 0, pct: 0, delta: 0, deltaPct: 0 }, flow: { current: 0, max: 0, pct: 0, delta: 0, deltaPct: 0 }, playbook: { current: 0, max: 0, pct: 0, delta: 0, deltaPct: 0 }, previousWeek: 0, fourWeekAvg: 0, yearAvg: 0, overallAvg: 0 }}
+      review={review as unknown as WeeklyReview | null}
       isLoading={isLoading}
       agencyId={user?.agency_id || null}
       exitPath="/staff/weekly-playbook"

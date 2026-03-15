@@ -13,7 +13,7 @@ export async function invokeSupabaseFunctionWithSessionRefresh<TResponse>(
   functionName: string,
   options: Parameters<typeof supabase.functions.invoke>[1],
 ): Promise<{ data: TResponse | null; error: FunctionInvokeError }> {
-  const firstAttempt = await supabase.functions.invoke<TResponse>(functionName, options);
+  const firstAttempt = await supabase.functions.invoke(functionName, options) as { data: TResponse | null; error: FunctionInvokeError };
   if (!firstAttempt.error) return firstAttempt;
 
   const firstMessage = await extractSupabaseFunctionErrorMessage(firstAttempt.error);
@@ -24,5 +24,5 @@ export async function invokeSupabaseFunctionWithSessionRefresh<TResponse>(
     return firstAttempt;
   }
 
-  return await supabase.functions.invoke<TResponse>(functionName, options);
+  return await supabase.functions.invoke(functionName, options) as { data: TResponse | null; error: FunctionInvokeError };
 }

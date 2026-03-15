@@ -8,7 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * of the React hook and Supabase singleton.
  */
 export async function assertPeriodNotFinalized(
-  client: Pick<SupabaseClient, "from">,
+  client: Pick<SupabaseClient, "from"> | { from: (...args: any[]) => any },
   agencyId: string,
   periodMonth: number,
   periodYear: number,

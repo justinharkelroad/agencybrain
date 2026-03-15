@@ -19,11 +19,13 @@ type DuplicatePolicyRow = {
   }[] | null;
 };
 
-function getSalesRecord(row: DuplicatePolicyRow): DuplicatePolicyRow["sales"] extends (infer U)[] | null ? U | null : never {
+type SalesRecord = { id: string; agency_id: string; source: string | null; customer_name: string | null; sale_date: string | null };
+
+function getSalesRecord(row: DuplicatePolicyRow): SalesRecord | null {
   if (Array.isArray(row.sales)) {
     return row.sales[0] ?? null;
   }
-  return row.sales as never;
+  return row.sales as SalesRecord | null;
 }
 
 function formatSaleDate(value: string | null | undefined): string {

@@ -694,7 +694,7 @@ export function StaffAddSaleForm({ onSuccess, agencyId, staffSessionToken, staff
         // Don't reset form yet - will be done when modals close
       } else {
         resetForm();
-        onSuccess?.({ saleId });
+        onSuccess?.({ saleId: data?.sale_id || data?.id || '' });
       }
     },
     onError: (error) => {

@@ -659,7 +659,7 @@ export function PdfUploadForm({
         if (error) {
           throw new Error(await getSupabaseFunctionErrorMessage(error));
         }
-        if (data?.error) throw new Error(data.error);
+        if ((data as any)?.error) throw new Error((data as any).error);
 
         return data;
       }

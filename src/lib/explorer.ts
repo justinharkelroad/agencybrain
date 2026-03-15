@@ -45,7 +45,7 @@ export async function fetchExplorerData(q: ExplorerQuery): Promise<ExplorerRespo
 
   const res = await fetchWithAuth("explorer_feed", {
     method: "POST",
-    body: q,
+    body: q as Record<string, unknown>,
   });
 
   if (!res.ok) {

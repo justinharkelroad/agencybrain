@@ -230,7 +230,7 @@ export function DebriefWizard({
           <DebriefCoachingAnalysis
             weekSummary={weekSummary}
             reviewId={review?.id || null}
-            existingAnalysis={(review as Record<string, unknown>)?.coaching_analysis as string | null ?? null}
+            existingAnalysis={(review as unknown as Record<string, unknown>)?.coaching_analysis as string | null ?? null}
             onRequestAnalysis={() => {
               if (!review?.id) return Promise.reject(new Error("No review"));
               return onRequestAnalysis(review.id);

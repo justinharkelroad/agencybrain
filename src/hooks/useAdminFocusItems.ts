@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabaseClient";
 import { toast } from "sonner";
-import type { PriorityLevel, ColumnStatus, CreateFocusItemData, UpdateFocusItemData } from "./useFocusItems";
+import type { PriorityLevel, ColumnStatus, CreateFocusItemData, UpdateFocusItemData, PlaybookZone, PlaybookDomain } from "./useFocusItems";
 
 export interface AdminFocusItem {
   id: string;
@@ -18,6 +18,14 @@ export interface AdminFocusItem {
   source_type: string | null;
   source_name: string | null;
   source_session_id: string | null;
+  zone: PlaybookZone;
+  scheduled_date: string | null;
+  domain: PlaybookDomain | null;
+  sub_tag_id: string | null;
+  week_key: string | null;
+  completed: boolean;
+  completion_proof: string | null;
+  completion_feeling: string | null;
 }
 
 export function useAdminFocusItems(targetUserId?: string) {
