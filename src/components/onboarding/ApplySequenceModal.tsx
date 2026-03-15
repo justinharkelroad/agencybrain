@@ -281,8 +281,10 @@ export function ApplySequenceModal({
       setSuccess(true);
       toast.success('Sequence applied successfully!');
 
-      // Refresh sequence and task queries so the UI updates immediately
-      queryClient.invalidateQueries({ queryKey: ['contact-sequence-progress'] });
+      // Refresh all related queries so the UI updates immediately
+      await queryClient.invalidateQueries({ queryKey: ['contact-sequence-progress'] });
+      queryClient.invalidateQueries({ queryKey: ['contact-profile'] });
+      queryClient.invalidateQueries({ queryKey: ['contact-journey'] });
       queryClient.invalidateQueries({ queryKey: ['onboarding-tasks'] });
       queryClient.invalidateQueries({ queryKey: ['onboarding-tasks-today'] });
       queryClient.invalidateQueries({ queryKey: ['staff-onboarding-tasks'] });
