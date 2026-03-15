@@ -521,7 +521,7 @@ export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySe
               <Workflow className="h-3.5 w-3.5" />
               By Sequence
             </p>
-            <div className="grid gap-1.5">
+            <div className="grid gap-1.5 overflow-hidden">
               {by_sequence.map((seq) => {
                 const seqTodayTotal = seq.due_today + seq.completed_today;
                 const seqRate = seqTodayTotal > 0 ? Math.round((seq.completed_today / seqTodayTotal) * 100) : 0;
@@ -529,15 +529,13 @@ export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySe
                   <div
                     key={`${seq.type}-${seq.name}`}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2 rounded-lg bg-muted/30',
+                      'flex items-start justify-between gap-3 px-3 py-2 rounded-lg bg-muted/30 min-w-0',
                       onFilterBySequence && 'cursor-pointer hover:bg-muted/60 transition-colors'
                     )}
                     onClick={() => onFilterBySequence?.(seq.name)}
                   >
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-medium truncate block">{seq.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-xs shrink-0 ml-2">
+                    <span className="text-sm font-medium min-w-0">{seq.name}</span>
+                    <div className="flex items-center gap-1.5 text-xs shrink-0">
                       {seq.overdue > 0 && (
                         <Badge variant="secondary" className="text-[10px] px-1.5 bg-red-500/10 text-red-500 font-bold">
                           {seq.overdue}
