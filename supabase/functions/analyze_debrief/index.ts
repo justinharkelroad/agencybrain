@@ -83,6 +83,7 @@ WRITING RULES — DO NOT BREAK THESE:
 - NEVER start more than one paragraph with "I" — vary your openings.
 - Avoid "journey," "resonate," "landscape," "navigate," "unlock," "level up," "game-changer," "deep dive," and "at the end of the day."
 - Do not use em dashes more than twice in the entire letter. Use periods. Short sentences hit harder.
+- NEVER use gendered terms of address like "brother," "sister," "my man," "king," "queen," etc. We do not collect gender information. Do not infer gender from context (e.g., mentioning a wife does not mean the user is male). Use their name, "you," or no address at all.
 - Write like a human who happens to be a great writer — not like an AI trying to sound profound.
 
 FORMAT:
@@ -312,6 +313,23 @@ serve(async (req) => {
     const anthropicData = await anthropicResponse.json();
     const analysis = anthropicData.content?.[0]?.text || '';
 
+    // Human-friendly week label: "Week of March 9"
+    const wkMatch = review.week_key.match(/^(\d{4})-W(\d{2})$/);
+    let weekLabel = review.week_key;
+    if (wkMatch) {
+      const yr = parseInt(wkMatch[1]);
+      const wk = parseInt(wkMatch[2]);
+      // ISO week 1 contains Jan 4, so Monday of week 1 = Jan 4 - (dayOfWeek-1)
+      // Simpler: Jan 4 of the year is always in ISO week 1. Monday of week N = Monday of week 1 + (N-1)*7
+      const jan4 = new Date(Date.UTC(yr, 0, 4));
+      const jan4Day = jan4.getUTCDay() || 7;
+      const week1Monday = new Date(jan4);
+      week1Monday.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
+      const targetMonday = new Date(week1Monday);
+      targetMonday.setUTCDate(week1Monday.getUTCDate() + (wk - 1) * 7);
+      weekLabel = `Week of ${targetMonday.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`;
+    }
+
     // Save analysis to the review record
     await supabase
       .from('weekly_reviews')
@@ -344,7 +362,7 @@ serve(async (req) => {
 
         const emailHtml = buildEmailHtml({
           title: '🎯 Your Weekly Debrief',
-          subtitle: `${userName} • ${review.week_key}`,
+          subtitle: `${userName} • ${weekLabel}`,
           bodyContent: `
             ${EmailComponents.summaryBox(`Total Score: ${review.total_points}/56 — Core 4: ${review.core4_points}/28 | Flows: ${review.flow_points}/7 | Playbook: ${review.playbook_points}/21`)}
 
@@ -382,7 +400,7 @@ serve(async (req) => {
           body: JSON.stringify({
             from: BRAND.fromEmail,
             to: user.email,
-            subject: `Your Weekly Debrief — ${review.week_key}`,
+            subject: `Your Weekly Debrief — ${weekLabel}`,
             html: emailHtml,
           }),
         });
