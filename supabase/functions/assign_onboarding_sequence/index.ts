@@ -37,6 +37,7 @@ serve(async (req) => {
     let agencyId: string;
     let assignedByUserId: string | null = null;
     let assignedByStaffUserId: string | null = null;
+    let assignerName = 'System';
 
     // Check for staff session token first
     const staffSessionToken = req.headers.get('x-staff-session');
@@ -63,7 +64,7 @@ serve(async (req) => {
       // Get staff user details
       const { data: staffUser, error: staffError } = await supabaseService
         .from('staff_users')
-        .select('id, agency_id, is_active')
+        .select('id, agency_id, is_active, display_name, username')
         .eq('id', session.staff_user_id)
         .single();
 
@@ -76,6 +77,7 @@ serve(async (req) => {
 
       agencyId = staffUser.agency_id;
       assignedByStaffUserId = staffUser.id;
+      assignerName = staffUser.display_name || staffUser.username || 'Staff';
       console.log('[assign_onboarding_sequence] Authenticated via staff session:', staffUser.id);
 
     } else if (authHeader) {
@@ -93,10 +95,10 @@ serve(async (req) => {
         );
       }
 
-      // Get user's agency_id
+      // Get user's agency_id and name
       const { data: profile } = await supabaseAuth
         .from('profiles')
-        .select('agency_id')
+        .select('agency_id, full_name, email')
         .eq('id', user.id)
         .single();
 
@@ -109,6 +111,7 @@ serve(async (req) => {
 
       agencyId = profile.agency_id;
       assignedByUserId = user.id;
+      assignerName = profile.full_name || profile.email || 'User';
       console.log('[assign_onboarding_sequence] Authenticated via JWT:', user.id);
 
     } else {
@@ -391,8 +394,6 @@ serve(async (req) => {
     // Log activity to contact timeline
     const resolvedContactId = contact_id || null;
     if (resolvedContactId) {
-      const creatorName = assignedByStaffUserId ? assigneeName : (assigneeName !== 'Unknown' ? assigneeName : 'System');
-
       await supabase.from('contact_activities').insert({
         agency_id: agencyId,
         contact_id: resolvedContactId,
@@ -400,10 +401,10 @@ serve(async (req) => {
         activity_type: 'sequence_assigned',
         source_record_id: instance.id,
         subject: `${sequence.name} sequence started`,
-        notes: `Assigned to ${assigneeName} · ${taskCount} task${taskCount !== 1 ? 's' : ''} · Starting ${start_date}`,
+        notes: `Assigned to ${assigneeName} by ${assignerName} · ${taskCount} task${taskCount !== 1 ? 's' : ''} · Starting ${start_date}`,
         created_by_user_id: assignedByUserId || null,
         created_by_staff_id: assignedByStaffUserId || null,
-        created_by_display_name: creatorName,
+        created_by_display_name: assignerName,
       });
     }
 
