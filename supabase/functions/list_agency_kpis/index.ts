@@ -59,35 +59,36 @@ serve(async (req) => {
       .is('kpi_versions.valid_to', null);
     
     // Filter by role if provided (include role-specific OR agency-wide NULL role)
-    if (role) {
+    // Hybrid sees ALL KPIs so it picks up full labels from Sales/Service-role KPIs
+    if (role && role !== 'Hybrid') {
       query = query.or(`role.eq.${role},role.is.null`);
     }
-    
+
     const { data, error } = await query;
-    
+
     if (error) {
       console.error('Error fetching KPI labels:', error);
       return new Response(
         JSON.stringify({ error: 'Failed to fetch KPI labels' }),
-        { 
-          status: 500, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
-    
+
     // Build a map of slug -> current label
     // Deduplicate: role-specific labels take priority over NULL role labels
     const labelMap: Record<string, string> = {};
     const nullLabels: Record<string, string> = {};
-    
+
     data?.forEach((kpi: any) => {
       const currentVersion = kpi.kpi_versions?.[0];
       if (currentVersion) {
-        if (kpi.role === role) {
-          // Role-specific takes priority
+        if (kpi.role !== null) {
+          // Role-specific takes priority (for Hybrid: any role's label wins over null)
           labelMap[kpi.key] = currentVersion.label;
-        } else if (kpi.role === null && !labelMap[kpi.key]) {
+        } else if (!labelMap[kpi.key]) {
           // NULL fallback only if no role-specific exists yet
           nullLabels[kpi.key] = currentVersion.label;
         }
