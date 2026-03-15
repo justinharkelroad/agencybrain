@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ChevronDown, ChevronRight, User, AlertCircle, UserCog, MoreVertical, CheckCircle2, Pause } from 'lucide-react';
+import { parseISO, isToday, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { OnboardingTaskCard } from './OnboardingTaskCard';
 import type { OnboardingTask } from '@/hooks/useOnboardingTasks';
@@ -54,10 +55,21 @@ export function CustomerTasksGroup({
 }: CustomerTasksGroupProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
-  // Count tasks by status
-  const overdueCount = tasks.filter(t => t.status === 'overdue').length;
-  const dueCount = tasks.filter(t => t.status === 'due').length;
-  const pendingCount = tasks.filter(t => t.status === 'pending').length;
+  // Count tasks by date (not stale status field — status isn't auto-promoted)
+  const overdueCount = tasks.filter(t => {
+    if (t.status === 'completed') return false;
+    const d = parseISO(t.due_date);
+    return isPast(d) && !isToday(d);
+  }).length;
+  const dueCount = tasks.filter(t => {
+    if (t.status === 'completed') return false;
+    return isToday(parseISO(t.due_date));
+  }).length;
+  const pendingCount = tasks.filter(t => {
+    if (t.status === 'completed') return false;
+    const d = parseISO(t.due_date);
+    return !isPast(d) && !isToday(d);
+  }).length;
   const completedCount = tasks.filter(t => t.status === 'completed').length;
   const activeCount = overdueCount + dueCount + pendingCount;
 

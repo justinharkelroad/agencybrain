@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { format, parseISO, isToday, isPast } from 'date-fns';
 import {
   Select,
   SelectContent,
@@ -384,11 +384,17 @@ export default function OnboardingTasksPage() {
     }
   };
 
-  // Calculate stats
+  // Calculate stats using date-based logic (status field isn't auto-promoted)
   const stats = useMemo(() => {
-    const overdue = activeTasks.filter(t => t.status === 'overdue').length;
-    const dueToday = activeTasks.filter(t => t.status === 'due').length;
-    const upcoming = activeTasks.filter(t => t.status === 'pending').length;
+    const overdue = activeTasks.filter(t => {
+      const d = parseISO(t.due_date);
+      return isPast(d) && !isToday(d);
+    }).length;
+    const dueToday = activeTasks.filter(t => isToday(parseISO(t.due_date))).length;
+    const upcoming = activeTasks.filter(t => {
+      const d = parseISO(t.due_date);
+      return !isPast(d) && !isToday(d);
+    }).length;
     const completedToday = completedTodayTasks.length;
 
     return { overdue, dueToday, upcoming, completedToday };
