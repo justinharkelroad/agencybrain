@@ -7,6 +7,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-staff-session',
 };
 
+/** Returns ISO 8601 week key like '2026-W11' */
+function getWeekKey(date: Date): string {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNum = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+}
+
 const SYSTEM_PROMPT = `You are speaking directly to someone who has just finished their weekly debrief — a structured reflection across four domains of life: Body, Being, Balance, and Business. They sat down, looked honestly at their week, celebrated what went right, flagged where they need to course correct, rated their own effort 1-10 in each domain, and planned their next week. That act alone puts them in rare company. Most people never stop to look.
 
 Your role is their coach. Not a motivational speaker. Not a therapist. A coach — someone who has walked alongside high-performing men and women in the insurance industry, who understands that the people leading agencies and serving families carry an enormous weight, and who believes one thing above all else:
@@ -28,6 +38,9 @@ The user's data will include three score systems. You must understand what they 
 - TOTAL (0-56): The sum. This is the weekly life score. 42+ is an elite week. 28-41 is solid. Below 28 means significant areas were neglected. But never reduce a person to their number — the number is a mirror, not a verdict.
 
 - DOMAIN SELF-RATINGS (1-10): Their honest self-assessment of effort in each domain. These are subjective and often more revealing than the objective scores. A 3 means they know they fell short. A 9 means they felt they brought it. Pay attention to gaps between the self-rating and the objective data — those gaps are coaching gold.
+
+HISTORICAL CONTEXT:
+You may receive up to 8 weeks of prior score data. Use it to name multi-week trends with specific numbers ("Core 4 climbed from 14 to 18 to 22 — that trajectory is no accident"), spot persistent gaps ("Balance has been your lowest domain four weeks running"), and hold accountability on past commitments beyond just last week. Patterns are more powerful coaching tools than snapshots. If no history exists, skip trend commentary.
 
 THE FOUR COMMITMENTS:
 
@@ -178,12 +191,12 @@ serve(async (req) => {
     // Fetch prior week's completed review for accountability bridge
     const { data: priorReviews } = await supabase
       .from('weekly_reviews')
-      .select('week_key, total_points, next_week_one_big_thing, status, domain_reflections')
+      .select('week_key, total_points, core4_points, flow_points, playbook_points, next_week_one_big_thing, status, domain_reflections')
       .eq('user_id', user.id)
       .eq('status', 'completed')
       .neq('week_key', review.week_key)
       .order('week_key', { ascending: false })
-      .limit(1);
+      .limit(8);
 
     const priorReview = priorReviews?.[0] || null;
 
@@ -194,12 +207,137 @@ serve(async (req) => {
       .eq('user_id', user.id)
       .eq('status', 'completed');
 
+    // Fetch historical raw tracking data for multi-week trend context
+    const lookbackDate = new Date();
+    lookbackDate.setUTCDate(lookbackDate.getUTCDate() - 12 * 7);
+    const lookbackStr = `${lookbackDate.getUTCFullYear()}-${String(lookbackDate.getUTCMonth() + 1).padStart(2, '0')}-${String(lookbackDate.getUTCDate()).padStart(2, '0')}`;
+
+    const [histC4, histFlow, histPP, histOBT] = await Promise.all([
+      supabase.from('core4_entries')
+        .select('date, body_completed, being_completed, balance_completed, business_completed')
+        .eq('user_id', user.id)
+        .gte('date', lookbackStr),
+      supabase.from('flow_sessions')
+        .select('completed_at')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .not('completed_at', 'is', null)
+        .gte('completed_at', lookbackStr + 'T00:00:00'),
+      supabase.from('focus_items')
+        .select('scheduled_date')
+        .eq('user_id', user.id)
+        .eq('zone', 'power_play')
+        .eq('completed', true)
+        .gte('scheduled_date', lookbackStr),
+      supabase.from('focus_items')
+        .select('week_key')
+        .eq('user_id', user.id)
+        .eq('zone', 'one_big_thing')
+        .eq('completed', true),
+    ]);
+
+    // Build synthetic weekly scores from raw tracking data
+    const syntheticWeeks = new Map<string, { core4: number; flow: number; playbook: number }>();
+
+    for (const e of (histC4.data || [])) {
+      const wk = getWeekKey(new Date(e.date + 'T12:00:00'));
+      if (!syntheticWeeks.has(wk)) syntheticWeeks.set(wk, { core4: 0, flow: 0, playbook: 0 });
+      syntheticWeeks.get(wk)!.core4 +=
+        (e.body_completed ? 1 : 0) + (e.being_completed ? 1 : 0) +
+        (e.balance_completed ? 1 : 0) + (e.business_completed ? 1 : 0);
+    }
+
+    const flowByWeek = new Map<string, Set<string>>();
+    for (const s of (histFlow.data || [])) {
+      const dateStr = s.completed_at.split('T')[0];
+      const wk = getWeekKey(new Date(s.completed_at));
+      if (!flowByWeek.has(wk)) flowByWeek.set(wk, new Set());
+      flowByWeek.get(wk)!.add(dateStr);
+    }
+    flowByWeek.forEach((dates, wk) => {
+      if (!syntheticWeeks.has(wk)) syntheticWeeks.set(wk, { core4: 0, flow: 0, playbook: 0 });
+      syntheticWeeks.get(wk)!.flow = dates.size;
+    });
+
+    for (const pp of (histPP.data || [])) {
+      if (!pp.scheduled_date) continue;
+      const wk = getWeekKey(new Date(pp.scheduled_date + 'T12:00:00'));
+      if (!syntheticWeeks.has(wk)) syntheticWeeks.set(wk, { core4: 0, flow: 0, playbook: 0 });
+      syntheticWeeks.get(wk)!.playbook += 1;
+    }
+
+    for (const obt of (histOBT.data || [])) {
+      if (!obt.week_key) continue;
+      if (!syntheticWeeks.has(obt.week_key))
+        syntheticWeeks.set(obt.week_key, { core4: 0, flow: 0, playbook: 0 });
+      syntheticWeeks.get(obt.week_key)!.playbook += 1;
+    }
+
+    // Merge: prefer debrief review data, fall back to synthetic scores
+    const reviewByWeek = new Map((priorReviews || []).map((r: any) => [r.week_key, r]));
+    const allHistWeeks = new Set([
+      ...Array.from(syntheticWeeks.keys()),
+      ...Array.from(reviewByWeek.keys()),
+    ]);
+
+    const historicalWeeks: Array<{
+      week_key: string; total: number; core4: number; flow: number; playbook: number;
+      fromDebrief: boolean; obt?: string; ratings?: string;
+    }> = [];
+
+    allHistWeeks.forEach((wk) => {
+      if (wk === review.week_key) return;
+      const rev = reviewByWeek.get(wk);
+      if (rev) {
+        const dr = rev.domain_reflections || {};
+        const ratings = ['body', 'being', 'balance', 'business']
+          .map(d => `${d[0].toUpperCase()}:${dr[d]?.rating || '?'}`).join(' ');
+        historicalWeeks.push({
+          week_key: wk,
+          total: rev.total_points || 0,
+          core4: rev.core4_points || 0,
+          flow: rev.flow_points || 0,
+          playbook: rev.playbook_points || 0,
+          fromDebrief: true,
+          obt: rev.next_week_one_big_thing || undefined,
+          ratings,
+        });
+      } else {
+        const s = syntheticWeeks.get(wk);
+        if (s && s.core4 + s.flow + s.playbook > 0) {
+          historicalWeeks.push({
+            week_key: wk,
+            total: s.core4 + s.flow + s.playbook,
+            core4: s.core4, flow: s.flow, playbook: s.playbook,
+            fromDebrief: false,
+          });
+        }
+      }
+    });
+
+    historicalWeeks.sort((a, b) => b.week_key.localeCompare(a.week_key));
+    const recentHistory = historicalWeeks.slice(0, 8);
+
     // Build the user message with full context
     const reflections = review.domain_reflections || {};
     const domainLabels = ['body', 'being', 'balance', 'business'];
 
     let userMessage = `DEBRIEF FOR: ${userName}\nWEEK: ${review.week_key}\n`;
     userMessage += `DEBRIEF NUMBER: ${(debriefCount || 0) + 1} (${debriefCount === 0 ? 'This is their FIRST debrief ever' : `They have completed ${debriefCount} previous debrief${debriefCount === 1 ? '' : 's'}`})\n\n`;
+
+    // Historical trend (compact)
+    if (recentHistory.length > 0) {
+      userMessage += 'WEEKLY TREND (newest first):\n';
+      for (const hw of recentHistory) {
+        userMessage += `${hw.week_key}: ${hw.total}/56 (C4:${hw.core4} F:${hw.flow} PB:${hw.playbook})`;
+        if (hw.fromDebrief) {
+          if (hw.ratings) userMessage += ` [${hw.ratings}]`;
+          if (hw.obt) userMessage += ` OBT:"${hw.obt}"`;
+        }
+        userMessage += '\n';
+      }
+      userMessage += '\n';
+    }
 
     // Prior week accountability
     if (priorReview) {
