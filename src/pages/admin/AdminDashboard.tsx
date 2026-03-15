@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { AdminOnboardingTokens } from '@/components/admin/AdminOnboardingTokens';
 
 interface Agency {
   id: string;
@@ -928,6 +929,19 @@ const getSubmissionStatus = (profile: Profile) => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Onboarding Links Section */}
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle>Client Onboarding</CardTitle>
+            <CardDescription>
+              Generate self-service onboarding links for new clients
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AdminOnboardingTokens />
+          </CardContent>
+        </Card>
       </main>
     </div>
   );

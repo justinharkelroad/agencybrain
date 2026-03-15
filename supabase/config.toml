@@ -599,3 +599,13 @@ verify_jwt = true
 
 [functions.mission-control-coach-brain]
 verify_jwt = true
+
+# Self-service onboarding functions
+[functions.validate-onboarding-token]
+verify_jwt = false
+
+[functions.self-signup-onboarding]
+verify_jwt = false
+
+[functions.complete-onboarding-step]
+verify_jwt = true

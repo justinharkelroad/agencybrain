@@ -77,6 +77,7 @@ import Agency from "./pages/Agency";
 import AgencyMember from "./pages/agency/AgencyMember";
 import SequenceBuilder from "./pages/agency/SequenceBuilder";
 import OnboardingTasks from "./pages/agency/OnboardingTasks";
+import Onboard from "./pages/Onboard";
 import NotFound from "./pages/NotFound";
 import Health from "./pages/Health";
 import Landing from "./pages/Landing";
@@ -266,6 +267,8 @@ const App = () => {
             <Route path="/six-week-challenge" element={<ChallengeLanding />} />
             <Route path="/challenge-success" element={<ChallengeSuccess />} />
             <Route path="/accept-key-employee-invite" element={<AcceptKeyEmployeeInvite />} />
+            {/* Self-service onboarding wizard */}
+            <Route path="/onboard" element={<Onboard />} />
             {/* Prototype Routes - UI Development */}
             <Route path="/prototype/onboarding-tasks" element={<OnboardingTasksPrototype />} />
             <Route path="/prototype/sequence-builder" element={<SequenceBuilderPrototype />} />
