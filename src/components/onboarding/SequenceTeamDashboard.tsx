@@ -228,7 +228,8 @@ function TeamMemberRow({ member, onDrillDown }: { member: TeamMemberStats; onDri
   const [expanded, setExpanded] = useState(false);
   const totalCalls = Object.values(member.call_outcomes).reduce((s, v) => s + v, 0);
   const hasOverdue = member.overdue > 0;
-  const totalActionable = member.due_today + member.overdue + member.completed_today;
+  const memberTodayTotal = member.due_today + member.completed_today;
+  const memberTodayRate = memberTodayTotal > 0 ? Math.round((member.completed_today / memberTodayTotal) * 100) : 0;
 
   return (
     <Collapsible open={expanded} onOpenChange={setExpanded}>
@@ -240,12 +241,12 @@ function TeamMemberRow({ member, onDrillDown }: { member: TeamMemberStats; onDri
       >
         <CollapsibleTrigger asChild>
           <button className="w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors rounded-lg text-left">
-            {/* Ring */}
+            {/* Ring — today's completion rate */}
             <ProgressRing
-              value={member.completion_rate}
+              value={memberTodayRate}
               size={56}
               strokeWidth={4}
-              centerValue={`${member.completion_rate}%`}
+              centerValue={memberTodayTotal > 0 ? `${memberTodayRate}%` : '—'}
             />
 
             {/* Name + stats */}
@@ -278,13 +279,22 @@ function TeamMemberRow({ member, onDrillDown }: { member: TeamMemberStats; onDri
               </div>
             </div>
 
-            {/* Completion fraction */}
+            {/* Today's fraction + overdue count */}
             <div className="text-right shrink-0">
-              <p className="text-lg font-bold">
-                {member.completed_today}
-                <span className="text-muted-foreground font-normal text-sm">/{totalActionable}</span>
-              </p>
-              <p className="text-[10px] text-muted-foreground">completed</p>
+              {memberTodayTotal > 0 ? (
+                <>
+                  <p className="text-lg font-bold">
+                    {member.completed_today}
+                    <span className="text-muted-foreground font-normal text-sm">/{memberTodayTotal}</span>
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">today</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-bold text-muted-foreground">—</p>
+                  <p className="text-[10px] text-muted-foreground">none today</p>
+                </>
+              )}
             </div>
 
             <div className="shrink-0 text-muted-foreground">
@@ -397,8 +407,9 @@ export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySe
   }
 
   const { totals, by_sequence } = stats;
-  // Total actionable = remaining due + remaining overdue + already completed today
-  const totalActionable = totals.due_today + totals.overdue + totals.completed_today;
+  // Today's tasks = tasks that were due today (remaining + already completed)
+  const todayTotal = totals.due_today + totals.completed_today;
+  const todayRate = todayTotal > 0 ? Math.round((totals.completed_today / todayTotal) * 100) : 0;
 
   return (
     <Card className="overflow-hidden">
@@ -426,56 +437,65 @@ export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySe
 
       <CardContent className="space-y-5">
         {/* ── Team Overview Rings ── */}
-        <div className="flex items-center justify-center gap-6 flex-wrap py-2">
+        <div className="flex items-center justify-center gap-8 flex-wrap py-2">
+          {/* Ring 1: Today's Tasks — fills up as tasks are completed */}
           <ProgressRing
-            value={totals.completion_rate}
+            value={todayRate}
             size={110}
             strokeWidth={7}
-            label="Completion"
-            sublabel={`${totals.completed_today}/${totalActionable}`}
+            label="Today's Tasks"
+            sublabel={todayTotal > 0 ? `${totals.completed_today}/${todayTotal} done` : 'none due'}
           />
-          {totals.overdue > 0 && (
-            <div className="flex flex-col items-center">
-              <div className="relative" style={{ width: 80, height: 80 }}>
-                <svg
-                  width={80}
-                  height={80}
-                  className="transform -rotate-90"
-                  style={{ filter: 'drop-shadow(0 0 8px rgba(239,68,68,0.3))' }}
-                >
+
+          {/* Ring 2: Past Due — overdue backlog (separate from today) */}
+          <div className="flex flex-col items-center">
+            <div className="relative" style={{ width: 110, height: 110 }}>
+              <svg
+                width={110}
+                height={110}
+                className="transform -rotate-90"
+                style={totals.overdue > 0 ? { filter: 'drop-shadow(0 0 8px rgba(239,68,68,0.3))' } : undefined}
+              >
+                <circle
+                  cx={55} cy={55} r={48}
+                  fill="none"
+                  className="stroke-foreground/8"
+                  strokeWidth={7}
+                />
+                {totals.overdue > 0 && (
                   <circle
-                    cx={40} cy={40} r={35}
-                    fill="none"
-                    className="stroke-foreground/8"
-                    strokeWidth={5}
-                  />
-                  <circle
-                    cx={40} cy={40} r={35}
-                    fill="none" stroke="#EF4444" strokeWidth={5}
+                    cx={55} cy={55} r={48}
+                    fill="none" stroke="#EF4444" strokeWidth={7}
                     strokeLinecap="round"
-                    strokeDasharray={2 * Math.PI * 35}
+                    strokeDasharray={2 * Math.PI * 48}
                     strokeDashoffset={0}
                   />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-xl font-bold text-red-500">{totals.overdue}</span>
-                  <span className="text-[10px] text-muted-foreground">tasks</span>
-                </div>
+                )}
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className={cn('text-2xl font-bold', totals.overdue > 0 ? 'text-red-500' : 'text-green-500')}>
+                  {totals.overdue > 0 ? totals.overdue : '0'}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {totals.overdue > 0 ? 'past due' : 'all clear'}
+                </span>
               </div>
-              <span className="text-xs font-medium text-red-500 mt-1.5">Past Due</span>
             </div>
-          )}
+            <span className={cn('text-xs font-medium mt-1.5', totals.overdue > 0 ? 'text-red-500' : 'text-green-500')}>
+              Past Due
+            </span>
+          </div>
+
+          {/* Ring 3: Calls Connected — only when there are call completions */}
           {totalCalls > 0 && (
-            <div className="flex flex-col items-center">
-              <ProgressRing
-                value={teamCallOutcomes.connected > 0 ? (teamCallOutcomes.connected / totalCalls) * 100 : 0}
-                size={80}
-                strokeWidth={5}
-                centerValue={String(teamCallOutcomes.connected)}
-                sublabel={`/${totalCalls}`}
-                label="Calls Connected"
-              />
-            </div>
+            <ProgressRing
+              value={(teamCallOutcomes.connected / totalCalls) * 100}
+              size={110}
+              strokeWidth={7}
+              centerValue={String(teamCallOutcomes.connected)}
+              sublabel={`/${totalCalls} calls`}
+              label="Connected"
+            />
           )}
         </div>
 
@@ -499,8 +519,8 @@ export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySe
             </p>
             <div className="grid gap-1.5">
               {by_sequence.map((seq) => {
-                const seqTotal = seq.due_today + seq.overdue + seq.completed_today;
-                const seqRate = seqTotal > 0 ? Math.round((seq.completed_today / seqTotal) * 100) : 0;
+                const seqTodayTotal = seq.due_today + seq.completed_today;
+                const seqRate = seqTodayTotal > 0 ? Math.round((seq.completed_today / seqTodayTotal) * 100) : 0;
                 return (
                   <div
                     key={`${seq.type}-${seq.name}`}
@@ -518,7 +538,7 @@ export function SequenceTeamDashboard({ agencyId, onFilterByMember, onFilterBySe
                         <span className="text-red-500 font-medium">{seq.overdue} overdue</span>
                       )}
                       <span className="text-muted-foreground">
-                        {seq.completed_today}/{seqTotal} done
+                        {seqTodayTotal > 0 ? `${seq.completed_today}/${seqTodayTotal} today` : 'none today'}
                       </span>
                       <Badge
                         variant="secondary"
