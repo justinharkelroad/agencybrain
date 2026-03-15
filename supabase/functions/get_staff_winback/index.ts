@@ -297,7 +297,7 @@ Deno.serve(async (req) => {
       }
 
       case "list_households": {
-        const { activeTab, activeView, search, statusFilter, terminationAgeFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize } = params;
+        const { activeTab, activeView, search, statusFilter, terminationAgeFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize, premiumMinCents, premiumMaxCents, policyCountMin, policyCountMax, city, state, zipCode, assignedTeamMemberId } = params;
         
         let query = supabase
           .from("winback_households")
@@ -346,6 +346,36 @@ Deno.serve(async (req) => {
           query = query.or(
             `first_name.ilike.%${searchLower}%,last_name.ilike.%${searchLower}%,phone.ilike.%${searchLower}%,email.ilike.%${searchLower}%`
           );
+        }
+
+        // AI extended filters — server-side for correct pagination
+        if (premiumMinCents != null) {
+          query = query.gte("total_premium_potential_cents", premiumMinCents);
+        }
+        if (premiumMaxCents != null) {
+          query = query.lte("total_premium_potential_cents", premiumMaxCents);
+        }
+        if (policyCountMin != null) {
+          query = query.gte("policy_count", policyCountMin);
+        }
+        if (policyCountMax != null) {
+          query = query.lte("policy_count", policyCountMax);
+        }
+        if (city?.length) {
+          query = query.or(city.map((c: string) => `city.ilike.${c}`).join(","));
+        }
+        if (state?.length) {
+          query = query.or(state.map((s: string) => `state.ilike.${s}`).join(","));
+        }
+        if (zipCode?.length) {
+          query = query.in("zip_code", zipCode);
+        }
+        if (assignedTeamMemberId) {
+          if (assignedTeamMemberId === "unassigned") {
+            query = query.is("assigned_to", null);
+          } else {
+            query = query.eq("assigned_to", assignedTeamMemberId);
+          }
         }
 
         // Sorting

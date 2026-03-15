@@ -447,8 +447,16 @@ export default function Renewals() {
     if (showAssignedToMe && context?.staffTeamMemberId) {
       f.assignedTeamMemberId = context.staffTeamMemberId;
     }
+    // Hide Renewal Taken — server-side so pagination counts are correct
+    if (hideRenewalTaken) {
+      f.excludeRenewalStatuses = ['Renewal Taken'];
+    }
+    // Hide In Cancel Audit — server-side so pagination counts are correct
+    if (hideInCancelAudit && activeCancelPolicies?.size) {
+      f.excludePolicyNumbers = Array.from(activeCancelPolicies);
+    }
     return f;
-  }, [filters, activeTab, searchQuery, chartDateFilter, showAssignedToMe, context?.staffTeamMemberId]);
+  }, [filters, activeTab, searchQuery, chartDateFilter, showAssignedToMe, context?.staffTeamMemberId, hideRenewalTaken, hideInCancelAudit, activeCancelPolicies]);
 
   const { data: recordsData, isLoading: recordsLoading } = useRenewalRecords(context?.agencyId || null, effectiveFilters, currentPage, pageSize);
   const records = recordsData?.records || [];
@@ -562,15 +570,8 @@ export default function Renewals() {
       );
     }
 
-    // Hide "Renewal Taken" filter (if toggle is on)
-    if (hideRenewalTaken) {
-      result = result.filter(r => r.renewal_status !== 'Renewal Taken');
-    }
-
-    // Hide renewals that are in active cancel audit (if toggle is on)
-    if (hideInCancelAudit && activeCancelPolicies?.size) {
-      result = result.filter(r => !activeCancelPolicies.has(r.policy_number));
-    }
+    // Note: hideRenewalTaken and hideInCancelAudit are now applied server-side
+    // in effectiveFilters so pagination counts are correct
 
     // First Term Only filter (if toggle is on)
     if (showFirstTermOnly) {
@@ -692,7 +693,7 @@ export default function Renewals() {
     if (sortCriteria.length === 0) return result;
 
     return [...result].sort(compare);
-  }, [records, sortCriteria, showPriorityOnly, hideRenewalTaken, hideInCancelAudit, showFirstTermOnly, activeCancelPolicies, chartDateFilter, chartDayFilter, aiExtendedFilters, activityFilter]);
+  }, [records, sortCriteria, showPriorityOnly, showFirstTermOnly, chartDateFilter, chartDayFilter, aiExtendedFilters, activityFilter]);
 
   const displayedRecords = showDroppedOnly ? droppedRecords : filteredAndSortedRecords;
   const toggleSelectAll = () => { selectedIds.size === displayedRecords.length ? setSelectedIds(new Set()) : setSelectedIds(new Set(displayedRecords.map(r => r.id))); };
@@ -839,7 +840,7 @@ export default function Renewals() {
         <div className="flex items-center gap-3 px-4 py-2 bg-green-500/15 border border-green-500/20 rounded-lg">
           <EyeOff className="h-4 w-4 text-green-600 dark:text-green-400" />
           <span className="text-sm text-green-600 dark:text-green-400">
-            Hiding {records.filter(r => r.renewal_status === 'Renewal Taken').length} "Renewal Taken" records
+            Hiding "Renewal Taken" records
           </span>
           <Button
             variant="ghost"
@@ -858,7 +859,7 @@ export default function Renewals() {
         <div className="flex items-center gap-3 px-4 py-2 bg-orange-500/15 border border-orange-500/20 rounded-lg">
           <EyeOff className="h-4 w-4 text-orange-600 dark:text-orange-400" />
           <span className="text-sm text-orange-600 dark:text-orange-400">
-            Hiding {records.filter(r => activeCancelPolicies.has(r.policy_number)).length} records in active Cancel Audit
+            Hiding {activeCancelPolicies.size} records in active Cancel Audit
           </span>
           <Button
             variant="ghost"

@@ -294,47 +294,8 @@ export default function WinbackHQ() {
     setAiExtendedFilters({});
   }, [aiClearQuery]);
 
-  // Client-side filtering for AI extended filters (premium, policyCount, city, state, zip, assignment)
-  const displayHouseholds = useMemo(() => {
-    let result = households;
-    const ext = aiExtendedFilters;
-
-    if (ext.premiumMin != null) {
-      const minCents = ext.premiumMin * 100;
-      result = result.filter(h => (h.total_premium_potential_cents || 0) >= minCents);
-    }
-    if (ext.premiumMax != null) {
-      const maxCents = ext.premiumMax * 100;
-      result = result.filter(h => (h.total_premium_potential_cents || 0) <= maxCents);
-    }
-    if (ext.policyCountMin != null) {
-      result = result.filter(h => (h.policy_count || 0) >= ext.policyCountMin!);
-    }
-    if (ext.policyCountMax != null) {
-      result = result.filter(h => (h.policy_count || 0) <= ext.policyCountMax!);
-    }
-    if (ext.city?.length) {
-      const cities = ext.city.filter(Boolean).map(c => c.toLowerCase());
-      result = result.filter(h => h.city && cities.includes(h.city.toLowerCase()));
-    }
-    if (ext.state?.length) {
-      const states = ext.state.filter(Boolean).map(s => s.toLowerCase());
-      result = result.filter(h => h.state && states.includes(h.state.toLowerCase()));
-    }
-    if (ext.zipCode?.length) {
-      const zips = ext.zipCode.filter(Boolean);
-      result = result.filter(h => h.zip_code && zips.includes(h.zip_code));
-    }
-    if (ext.assignedTeamMemberId) {
-      if (ext.assignedTeamMemberId === 'unassigned') {
-        result = result.filter(h => !h.assigned_to);
-      } else {
-        result = result.filter(h => h.assigned_to === ext.assignedTeamMemberId);
-      }
-    }
-
-    return result;
-  }, [households, aiExtendedFilters]);
+  // AI extended filters are now applied server-side for correct pagination
+  const displayHouseholds = households;
 
   // Handler for viewing profile - finds the household to pass to modal
   const handleViewProfile = (contactId: string) => {
@@ -358,6 +319,15 @@ export default function WinbackHQ() {
         sortDirection,
         currentPage,
         pageSize,
+        // AI extended filters — server-side for correct pagination
+        premiumMinCents: aiExtendedFilters.premiumMin != null ? aiExtendedFilters.premiumMin * 100 : undefined,
+        premiumMaxCents: aiExtendedFilters.premiumMax != null ? aiExtendedFilters.premiumMax * 100 : undefined,
+        policyCountMin: aiExtendedFilters.policyCountMin,
+        policyCountMax: aiExtendedFilters.policyCountMax,
+        city: aiExtendedFilters.city,
+        state: aiExtendedFilters.state,
+        zipCode: aiExtendedFilters.zipCode,
+        assignedTeamMemberId: aiExtendedFilters.assignedTeamMemberId,
       });
 
       // Map assigned_to to assigned_name + extract unique policy types + activity count
@@ -420,7 +390,7 @@ export default function WinbackHQ() {
     if (agencyId && teamMembers.length > 0) {
       loadHouseholds(agencyId, teamMembers);
     }
-  }, [agencyId, activeTab, activeView, search, statusFilter, terminationAgeFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize]);
+  }, [agencyId, activeTab, activeView, search, statusFilter, terminationAgeFilter, dateRange, sortColumn, sortDirection, currentPage, pageSize, aiExtendedFilters]);
 
   useEffect(() => {
     if (activeTab === 'dismissed' && statusFilter !== 'all') {

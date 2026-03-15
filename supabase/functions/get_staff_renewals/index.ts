@@ -449,6 +449,14 @@ serve(async (req) => {
     if (filters.renewalStatus?.length) {
       query = query.in('renewal_status', filters.renewalStatus);
     }
+    if (filters.excludeRenewalStatuses?.length) {
+      for (const status of filters.excludeRenewalStatuses) {
+        query = query.neq('renewal_status', status);
+      }
+    }
+    if (filters.excludePolicyNumbers?.length) {
+      query = query.not('policy_number', 'in', `(${filters.excludePolicyNumbers.join(',')})`);
+    }
     if (filters.productName?.length) {
       query = query.in('product_name', filters.productName);
     }

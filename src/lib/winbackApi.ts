@@ -84,6 +84,15 @@ interface ListHouseholdsParams {
   sortDirection: 'asc' | 'desc';
   currentPage: number;
   pageSize: number;
+  // AI extended filters — applied server-side for correct pagination
+  premiumMinCents?: number;
+  premiumMaxCents?: number;
+  policyCountMin?: number;
+  policyCountMax?: number;
+  city?: string[];
+  state?: string[];
+  zipCode?: string[];
+  assignedTeamMemberId?: string | 'unassigned';
 }
 
 function getTerminationAgeDateRange(filter: ListHouseholdsParams['terminationAgeFilter']) {
@@ -361,6 +370,14 @@ export async function listHouseholds(params: ListHouseholdsParams): Promise<{ ho
       sortDirection: params.sortDirection,
       currentPage: params.currentPage,
       pageSize: params.pageSize,
+      premiumMinCents: params.premiumMinCents,
+      premiumMaxCents: params.premiumMaxCents,
+      policyCountMin: params.policyCountMin,
+      policyCountMax: params.policyCountMax,
+      city: params.city,
+      state: params.state,
+      zipCode: params.zipCode,
+      assignedTeamMemberId: params.assignedTeamMemberId,
     });
   }
 
@@ -412,6 +429,36 @@ export async function listHouseholds(params: ListHouseholdsParams): Promise<{ ho
     query = query.or(
       `first_name.ilike.%${searchLower}%,last_name.ilike.%${searchLower}%,phone.ilike.%${searchLower}%,email.ilike.%${searchLower}%`
     );
+  }
+
+  // AI extended filters — server-side for correct pagination
+  if (params.premiumMinCents != null) {
+    query = query.gte('total_premium_potential_cents', params.premiumMinCents);
+  }
+  if (params.premiumMaxCents != null) {
+    query = query.lte('total_premium_potential_cents', params.premiumMaxCents);
+  }
+  if (params.policyCountMin != null) {
+    query = query.gte('policy_count', params.policyCountMin);
+  }
+  if (params.policyCountMax != null) {
+    query = query.lte('policy_count', params.policyCountMax);
+  }
+  if (params.city?.length) {
+    query = query.or(params.city.map(c => `city.ilike.${c}`).join(','));
+  }
+  if (params.state?.length) {
+    query = query.or(params.state.map(s => `state.ilike.${s}`).join(','));
+  }
+  if (params.zipCode?.length) {
+    query = query.in('zip_code', params.zipCode);
+  }
+  if (params.assignedTeamMemberId) {
+    if (params.assignedTeamMemberId === 'unassigned') {
+      query = query.is('assigned_to', null);
+    } else {
+      query = query.eq('assigned_to', params.assignedTeamMemberId);
+    }
   }
 
   // Sorting

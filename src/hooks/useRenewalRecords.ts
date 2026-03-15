@@ -19,6 +19,8 @@ export interface RenewalFilters {
   zipCode?: string[];
   city?: string[];
   state?: string[];
+  excludeRenewalStatuses?: string[];
+  excludePolicyNumbers?: string[];
 }
 
 export interface RenewalRecordsResult {
@@ -52,6 +54,8 @@ export function useRenewalRecords(
             filters: {
               currentStatus: filters.currentStatus,
               renewalStatus: filters.renewalStatus,
+              excludeRenewalStatuses: filters.excludeRenewalStatuses,
+              excludePolicyNumbers: filters.excludePolicyNumbers,
               productName: filters.productName,
               bundledStatus: filters.bundledStatus,
               accountType: filters.accountType,
@@ -93,6 +97,14 @@ export function useRenewalRecords(
       
       if (filters.currentStatus?.length) query = query.in('current_status', filters.currentStatus);
       if (filters.renewalStatus?.length) query = query.in('renewal_status', filters.renewalStatus);
+      if (filters.excludeRenewalStatuses?.length) {
+        for (const status of filters.excludeRenewalStatuses) {
+          query = query.neq('renewal_status', status);
+        }
+      }
+      if (filters.excludePolicyNumbers?.length) {
+        query = query.not('policy_number', 'in', `(${filters.excludePolicyNumbers.join(',')})`);
+      }
       if (filters.productName?.length) query = query.in('product_name', filters.productName);
       if (filters.bundledStatus === 'bundled') query = query.eq('multi_line_indicator', 'yes');
       else if (filters.bundledStatus === 'monoline') query = query.eq('multi_line_indicator', 'no');
