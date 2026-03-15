@@ -139,9 +139,10 @@ export function ContactProfileModal({
     agencyId
   );
 
-  // Sequence progress for this contact
-  const { instances: sequenceInstances, isLoading: sequencesLoading } = useContactSequenceProgress(
-    open ? contactId : null,
+  // Sequence progress for this contact (agency portal only — staff uses ContactIntelligencePanel)
+  const isStaffPortal = !!staffSessionToken;
+  const { data: sequenceInstances = [], isLoading: sequencesLoading } = useContactSequenceProgress(
+    open && !isStaffPortal ? contactId : null,
     agencyId
   );
   const manageSequence = useManageSequence();
@@ -1346,13 +1347,13 @@ export function ContactProfileModal({
                     />
                   </div>
 
-                  {/* Active Sequences */}
-                  <div>
+                  {/* Active Sequences (agency portal only — staff sees these in task queue sidebar) */}
+                  {!isStaffPortal && <div>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-medium flex items-center gap-1.5">
                         <Workflow className="h-4 w-4 text-muted-foreground" />
                         Sequences
-                        {sequenceInstances && sequenceInstances.filter(i => i.status === 'active').length > 0 && (
+                        {sequenceInstances.filter(i => i.status === 'active').length > 0 && (
                           <Badge variant="secondary" className="text-[10px] px-1.5 py-0 ml-1">
                             {sequenceInstances.filter(i => i.status === 'active').length} active
                           </Badge>
@@ -1361,7 +1362,7 @@ export function ContactProfileModal({
                     </div>
                     {sequencesLoading ? (
                       <Skeleton className="h-16 w-full" />
-                    ) : sequenceInstances && sequenceInstances.length > 0 ? (
+                    ) : sequenceInstances.length > 0 ? (
                       <SequenceProgressTracker
                         instances={sequenceInstances}
                         onCompleteSequence={(instanceId, name, remaining) => {
@@ -1393,7 +1394,7 @@ export function ContactProfileModal({
                     ) : (
                       <p className="text-sm text-muted-foreground">No sequences assigned.</p>
                     )}
-                  </div>
+                  </div>}
 
                   {/* Inline Add Note */}
                   <div>
