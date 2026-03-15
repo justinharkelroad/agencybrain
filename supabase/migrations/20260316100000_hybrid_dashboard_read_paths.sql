@@ -304,7 +304,7 @@ AS $$
   LEFT JOIN metrics_daily md
     ON md.team_member_id = tm.id
     AND md.date = p_date
-    AND md.scoring_role::text = p_role
+    AND (p_role <> 'Hybrid' OR md.scoring_role::text = 'Hybrid')
   WHERE tm.agency_id = p_agency
     AND (tm.role::text = p_role
          OR (p_role IN ('Sales', 'Service') AND tm.role::text = 'Hybrid'))

@@ -386,9 +386,12 @@ export default function StaffFormSubmission() {
     const quotedTarget = targets['quoted_households'] ?? targets['quoted_count'] ??
                          targets['policies_quoted'] ?? targets['households_quoted'] ?? 0;
 
-    // Show Quoted Households only if enabled in scorecard rules for this form's role
-    // (targets and dashboard data are role-agnostic, so they can't gate display)
-    const shouldAddQuoted = quotedEnabled && !formKpiKeys.has('quoted_households');
+    // For Hybrid forms: only show if enabled in Hybrid scorecard rules (prevents Sales target leaking)
+    // For Sales/Service forms: show if enabled OR has target OR has dashboard data (existing behavior)
+    const isHybridForm = (formTemplate?.schema_json?.role === 'Hybrid');
+    const shouldAddQuoted = isHybridForm
+      ? (quotedEnabled && !formKpiKeys.has('quoted_households'))
+      : ((quotedEnabled || hasQuotedTarget || dashboardQuotedCount > 0) && !formKpiKeys.has('quoted_households'));
 
     if (shouldAddQuoted && quotedTarget > 0) {
       kpiPerformance.push({
@@ -412,8 +415,10 @@ export default function StaffFormSubmission() {
 
     const soldTarget = targets['items_sold'] ?? targets['sold_items'] ?? targets['sold_count'] ?? 0;
 
-    // Show Items Sold only if enabled in scorecard rules for this form's role
-    const shouldAddSold = soldEnabled && !formKpiKeys.has('items_sold');
+    // Same Hybrid-only restriction for Items Sold
+    const shouldAddSold = isHybridForm
+      ? (soldEnabled && !formKpiKeys.has('items_sold'))
+      : ((soldEnabled || hasSoldTarget || dashboardSoldCount > 0) && !formKpiKeys.has('items_sold'));
 
     if (shouldAddSold && soldTarget > 0) {
       kpiPerformance.push({

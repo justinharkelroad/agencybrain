@@ -95,11 +95,13 @@ export function useSalespersonDailyMetrics({
         query = query.eq("team_member_id", teamMemberId);
       }
 
-      // Filter by role if specified — for Sales/Service, also include Hybrid members
+      // Filter by role if specified
       if (role) {
         if (role === 'Hybrid') {
-          query = query.eq("role", "Hybrid");
+          // Hybrid tab: only Hybrid-scored work
+          query = query.eq("scoring_role", "Hybrid");
         } else {
+          // Sales/Service: existing behavior — include Hybrid members
           query = query.or(`role.eq.${role},role.eq.Hybrid`);
         }
       }

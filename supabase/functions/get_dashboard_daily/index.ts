@@ -156,11 +156,12 @@ serve(async (req) => {
     if (role !== 'All') {
       if (role === 'Manager') {
         query = query.or(`role.eq.Manager`);
+      } else if (role === 'Hybrid') {
+        // Hybrid tab: show only Hybrid-scored work via scoring_role
+        query = query.eq('scoring_role', 'Hybrid');
       } else {
-        // Filter by scoring_role — shows work scored by that role's rules
-        // Sales tab: Sales-scored work (includes Hybrid members who submitted Sales forms)
-        // Hybrid tab: Hybrid-scored work only
-        query = query.eq('scoring_role', role);
+        // Sales/Service tabs: existing behavior — include Hybrid members
+        query = query.or(`role.eq.${role},role.eq.Hybrid`);
       }
     }
 
