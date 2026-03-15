@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useStaffAuth } from '@/hooks/useStaffAuth';
+import { useStaffPermissions } from '@/hooks/useStaffPermissions';
 import {
   useStaffOnboardingTasks,
   useCompleteStaffOnboardingTask,
@@ -61,6 +62,8 @@ import {
   Plus,
   PanelRightOpen,
   Pause,
+  Users,
+  User,
 } from 'lucide-react';
 import { format, parseISO, isToday, isPast } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -154,6 +157,7 @@ interface StaffTaskCardProps {
   task: StaffOnboardingTask;
   onComplete: (taskId: string, notes?: string, followUp?: FollowUpData, callOutcome?: CallOutcome) => Promise<void>;
   isCompleting?: boolean;
+  showAssignee?: boolean;
   onViewProfile?: (contactId: string, customerName: string) => void;
   onClickTask?: (task: StaffOnboardingTask) => void;
 }
@@ -194,7 +198,7 @@ function getCustomerEmail(task: StaffOnboardingTask): string | null {
   return task.instance?.customer_email || task.contact?.emails?.[0] || null;
 }
 
-function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile, onClickTask }: StaffTaskCardProps) {
+function StaffTaskCard({ task, onComplete, isCompleting = false, showAssignee = false, onViewProfile, onClickTask }: StaffTaskCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
@@ -332,6 +336,14 @@ function StaffTaskCard({ task, onComplete, isCompleting = false, onViewProfile, 
                 <Calendar className="h-3 w-3" />
                 {format(dueDate, 'MMM d')}
               </span>
+
+              {/* Assignee - shown in manager all-team view */}
+              {showAssignee && task.assignee && (
+                <span className="flex items-center gap-1 font-medium">
+                  <User className="h-3 w-3" />
+                  {task.assignee.display_name || task.assignee.username}
+                </span>
+              )}
 
               {/* Day Number - hide for adhoc tasks */}
               {!isAdhoc && <span>Day {task.day_number}</span>}
@@ -489,10 +501,12 @@ function groupTasksByCustomer(tasks: StaffOnboardingTask[]) {
 function CompletedTodaySection({
   tasks,
   onComplete,
+  showAssignee,
   onViewProfile,
 }: {
   tasks: StaffOnboardingTask[];
   onComplete: (taskId: string) => Promise<void>;
+  showAssignee?: boolean;
   onViewProfile?: (contactId: string, customerName: string) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -529,7 +543,7 @@ function CompletedTodaySection({
         <CollapsibleContent>
           <div className="p-4 pt-0 space-y-3">
             {tasks.map((task) => (
-              <StaffTaskCard key={task.id} task={task} onComplete={onComplete} onViewProfile={onViewProfile} />
+              <StaffTaskCard key={task.id} task={task} onComplete={onComplete} showAssignee={showAssignee} onViewProfile={onViewProfile} />
             ))}
           </div>
         </CollapsibleContent>
@@ -546,11 +560,25 @@ interface ProfileViewState {
 
 export default function StaffOnboardingTasks() {
   const { user, sessionToken } = useStaffAuth();
-  const { activeTasks, completedTodayTasks, stats, isLoading, error, refetch } =
-    useStaffOnboardingTasks();
+  const { isManager } = useStaffPermissions();
+
+  // Manager view filter: "my" = own tasks, "all" = all agency, "staff:<id>" = specific person
+  const [viewFilter, setViewFilter] = useState<string>(isManager ? 'all' : 'my');
+
+  // Derive view params from filter
+  const viewParams = useMemo(() => {
+    if (viewFilter === 'all') return { viewAll: true, viewStaffId: null };
+    if (viewFilter.startsWith('staff:')) return { viewAll: false, viewStaffId: viewFilter.split(':')[1] };
+    return { viewAll: false, viewStaffId: null }; // "my" — default behavior
+  }, [viewFilter]);
+
+  const { activeTasks, completedTodayTasks, stats, staffList, isLoading, error, refetch } =
+    useStaffOnboardingTasks(isManager ? { viewAll: viewParams.viewAll, viewStaffId: viewParams.viewStaffId } : undefined);
   const completeTask = useCompleteStaffOnboardingTask();
   const createAdhocTask = useCreateAdhocTask();
   const { toast } = useToast();
+
+  const showAssigneeColumn = isManager && viewFilter !== 'my' && !viewFilter.startsWith('staff:');
 
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   // Date filter - when a day is clicked in the outlook
@@ -790,7 +818,9 @@ export default function StaffOnboardingTasks() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Workflow className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold">Your Sequence Queue</h1>
+          <h1 className="text-2xl font-bold">
+            {isManager && viewFilter !== 'my' ? 'Team Sequence Queue' : 'Your Sequence Queue'}
+          </h1>
           <HelpButton videoKey="Sequence Builder & Queue" />
         </div>
 
@@ -892,8 +922,45 @@ export default function StaffOnboardingTasks() {
       </div>
 
       {/* Filters and View Toggle */}
-      <div className="flex items-center justify-between gap-4 mb-4">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+        <div className="flex items-center gap-4 flex-wrap">
+          {/* Manager View Filter */}
+          {isManager && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Viewing:</span>
+              <Select value={viewFilter} onValueChange={setViewFilter}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="my">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span>My Tasks</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>All Team</span>
+                    </div>
+                  </SelectItem>
+                  {staffList.map((staff) => {
+                    if (staff.id === user?.id) return null;
+                    return (
+                      <SelectItem key={staff.id} value={`staff:${staff.id}`}>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span>{staff.display_name || staff.username}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Sequence Filter */}
           {availableSequences.length > 0 && (
             <div className="flex items-center gap-2">
@@ -1133,6 +1200,7 @@ export default function StaffOnboardingTasks() {
                         task={task}
                         onComplete={handleComplete}
                         isCompleting={completingTaskId === task.id}
+                        showAssignee={showAssigneeColumn}
                         onViewProfile={handleViewProfile}
                         onClickTask={handleClickTask}
                       />
@@ -1186,6 +1254,7 @@ export default function StaffOnboardingTasks() {
             <CompletedTodaySection
               tasks={completedTodayTasks}
               onComplete={handleComplete}
+              showAssignee={showAssigneeColumn}
               onViewProfile={handleViewProfile}
             />
           )}

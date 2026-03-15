@@ -43,6 +43,12 @@ export interface StaffOnboardingTask {
       name: string;
     };
   };
+  // Assignee join (included when manager views all)
+  assignee?: {
+    id: string;
+    display_name: string | null;
+    username: string;
+  } | null;
   // Direct contact join for adhoc tasks
   contact?: {
     id: string;
@@ -60,24 +66,36 @@ export interface StaffTaskStats {
   completed_today: number;
 }
 
+interface StaffListItem {
+  id: string;
+  display_name: string | null;
+  username: string;
+  is_active: boolean;
+}
+
 interface StaffTasksResponse {
   active_tasks: StaffOnboardingTask[];
   completed_today_tasks: StaffOnboardingTask[];
   stats: StaffTaskStats;
   staff_user_id: string;
   agency_id: string;
+  viewing_all?: boolean;
+  target_staff_id?: string;
+  staff_list?: StaffListItem[];
 }
 
 /**
- * Hook to fetch onboarding tasks for the current staff user
+ * Hook to fetch onboarding tasks for the current staff user (or all agency tasks for managers)
  * Uses edge function with X-Staff-Session authentication
  */
-export function useStaffOnboardingTasks() {
+export function useStaffOnboardingTasks(options?: { viewAll?: boolean; viewStaffId?: string | null }) {
   const { sessionToken, user } = useStaffAuth();
   const today = format(todayLocal(), 'yyyy-MM-dd');
+  const viewAll = options?.viewAll || false;
+  const viewStaffId = options?.viewStaffId || null;
 
   const query = useQuery({
-    queryKey: ['staff-onboarding-tasks', user?.id, today],
+    queryKey: ['staff-onboarding-tasks', user?.id, today, viewAll, viewStaffId],
     queryFn: async (): Promise<StaffTasksResponse> => {
       if (!sessionToken) {
         throw new Error('No session token');
@@ -85,7 +103,11 @@ export function useStaffOnboardingTasks() {
 
       const { data, error } = await supabase.functions.invoke('get_staff_onboarding_tasks', {
         headers: { 'x-staff-session': sessionToken },
-        body: { include_completed_today: true },
+        body: {
+          include_completed_today: true,
+          view_all: viewAll,
+          view_staff_id: viewStaffId,
+        },
       });
 
       if (error) {
@@ -108,6 +130,7 @@ export function useStaffOnboardingTasks() {
     activeTasks: query.data?.active_tasks || [],
     completedTodayTasks: query.data?.completed_today_tasks || [],
     stats: query.data?.stats || { overdue: 0, due_today: 0, upcoming: 0, completed_today: 0 },
+    staffList: query.data?.staff_list || [],
     isLoading: query.isLoading,
     error: query.error,
     refetch: query.refetch,

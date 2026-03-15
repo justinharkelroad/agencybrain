@@ -104,7 +104,42 @@ serve(async (req) => {
 
     // Parse request body for optional filters
     const body = await req.json().catch(() => ({}));
-    const { include_completed_today = true } = body;
+    const { include_completed_today = true, view_all = false, view_staff_id = null } = body;
+
+    // Manager check: if requesting other staff's tasks, verify is_manager
+    let targetStaffId = staffUserId;
+    let viewingAll = false;
+
+    if (view_all || view_staff_id) {
+      const { data: managerCheck } = await supabase
+        .from('team_members')
+        .select('role')
+        .eq('staff_user_id', staffUserId)
+        .eq('agency_id', agencyId)
+        .maybeSingle();
+
+      const isManager = managerCheck?.role === 'Manager';
+
+      if (!isManager) {
+        console.warn(`[get_staff_onboarding_tasks] Non-manager ${staffUserId} attempted view_all/view_staff_id`);
+        // Silently fall back to own tasks (no error — just ignore the param)
+      } else if (view_all) {
+        viewingAll = true;
+      } else if (view_staff_id) {
+        // Verify target staff is in the same agency
+        const { data: targetStaff } = await supabase
+          .from('staff_users')
+          .select('id')
+          .eq('id', view_staff_id)
+          .eq('agency_id', agencyId)
+          .maybeSingle();
+
+        if (targetStaff) {
+          targetStaffId = view_staff_id;
+        }
+        // If target doesn't exist or wrong agency, fall back to own tasks
+      }
+    }
 
     // Get today's date in agency timezone for completed_today filter
     const { data: agencyRow } = await supabase
@@ -114,35 +149,43 @@ serve(async (req) => {
       .single();
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: agencyRow?.timezone || "America/New_York" }).format(new Date());
 
-    // Fetch active tasks (pending, due, overdue) assigned to this staff user
-    // Use left join to include adhoc tasks that don't have an instance
-    const { data: rawActiveTasks, error: activeError } = await supabase
+    // Fetch active tasks (pending, due, overdue)
+    // If manager viewing all: fetch all agency tasks; otherwise filter to target staff user
+    const selectFields = `
+      *,
+      instance:onboarding_instances(
+        id,
+        status,
+        customer_name,
+        customer_phone,
+        customer_email,
+        sale_id,
+        contact_id,
+        sequence:onboarding_sequences(id, name)
+      ),
+      assignee:staff_users!assigned_to_staff_user_id(id, display_name, username),
+      contact:agency_contacts(
+        id,
+        first_name,
+        last_name,
+        phones,
+        emails
+      )
+    `;
+
+    let activeQuery = supabase
       .from('onboarding_tasks')
-      .select(`
-        *,
-        instance:onboarding_instances(
-          id,
-          status,
-          customer_name,
-          customer_phone,
-          customer_email,
-          sale_id,
-          contact_id,
-          sequence:onboarding_sequences(id, name)
-        ),
-        contact:agency_contacts(
-          id,
-          first_name,
-          last_name,
-          phones,
-          emails
-        )
-      `)
+      .select(selectFields)
       .eq('agency_id', agencyId)
-      .eq('assigned_to_staff_user_id', staffUserId)
       .in('status', ['pending', 'due', 'overdue'])
       .order('due_date', { ascending: true })
       .order('created_at', { ascending: true });
+
+    if (!viewingAll) {
+      activeQuery = activeQuery.eq('assigned_to_staff_user_id', targetStaffId);
+    }
+
+    const { data: rawActiveTasks, error: activeError } = await activeQuery;
 
     // Filter out tasks from paused instances (adhoc tasks without an instance are kept)
     const activeTasks = (rawActiveTasks || []).filter(
@@ -158,36 +201,22 @@ serve(async (req) => {
     }
 
     // Fetch tasks completed today (if requested)
-    // Use left join to include adhoc tasks that don't have an instance
     let completedTodayTasks: any[] = [];
     if (include_completed_today) {
-      const { data: completedTasks, error: completedError } = await supabase
+      let completedQuery = supabase
         .from('onboarding_tasks')
-        .select(`
-          *,
-          instance:onboarding_instances(
-            id,
-            customer_name,
-            customer_phone,
-            customer_email,
-            sale_id,
-            contact_id,
-            sequence:onboarding_sequences(id, name)
-          ),
-          contact:agency_contacts(
-            id,
-            first_name,
-            last_name,
-            phones,
-            emails
-          )
-        `)
+        .select(selectFields)
         .eq('agency_id', agencyId)
-        .eq('assigned_to_staff_user_id', staffUserId)
         .eq('status', 'completed')
         .gte('completed_at', `${today}T00:00:00`)
         .lt('completed_at', `${today}T23:59:59.999`)
         .order('completed_at', { ascending: false });
+
+      if (!viewingAll) {
+        completedQuery = completedQuery.eq('assigned_to_staff_user_id', targetStaffId);
+      }
+
+      const { data: completedTasks, error: completedError } = await completedQuery;
 
       if (completedError) {
         console.error('[get_staff_onboarding_tasks] Error fetching completed tasks:', completedError);
@@ -205,7 +234,19 @@ serve(async (req) => {
       completed_today: completedTodayTasks.length,
     };
 
-    console.log(`[get_staff_onboarding_tasks] Found ${activeTasks?.length || 0} active tasks, ${completedTodayTasks.length} completed today for staff ${staffUserId}`);
+    // If manager is viewing all, include staff list for the filter dropdown
+    let staffList: any[] = [];
+    if (viewingAll || view_staff_id) {
+      const { data: allStaff } = await supabase
+        .from('staff_users')
+        .select('id, display_name, username, is_active')
+        .eq('agency_id', agencyId)
+        .eq('is_active', true)
+        .order('display_name');
+      staffList = allStaff || [];
+    }
+
+    console.log(`[get_staff_onboarding_tasks] Found ${activeTasks?.length || 0} active tasks, ${completedTodayTasks.length} completed today for ${viewingAll ? 'all agency' : `staff ${targetStaffId}`}`);
 
     return new Response(JSON.stringify({
       active_tasks: activeTasks || [],
@@ -213,6 +254,9 @@ serve(async (req) => {
       stats,
       staff_user_id: staffUserId,
       agency_id: agencyId,
+      viewing_all: viewingAll,
+      target_staff_id: targetStaffId,
+      staff_list: staffList,
     }), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

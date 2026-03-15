@@ -92,7 +92,9 @@ interface ViewFilterOption {
 export default function OnboardingTasksPage() {
   const { user, isAdmin, isAgencyOwner, isKeyEmployee } = useAuth();
   // Single dropdown: "my" = my tasks, "all" = all agency, or specific person
-  const [viewFilter, setViewFilter] = useState<string>('my');
+  // Owners/admins/KEs default to team view; regular users see their own
+  const canViewAllAgency = isAdmin || isAgencyOwner || isKeyEmployee;
+  const [viewFilter, setViewFilter] = useState<string>(canViewAllAgency ? 'all' : 'my');
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [reassignState, setReassignState] = useState<ReassignState | null>(null);
   // Profile sidebar state
@@ -392,8 +394,6 @@ export default function OnboardingTasksPage() {
   }, [activeTasks, completedTodayTasks]);
 
   const isLoading = profileLoading || tasksLoading;
-  // Managers, owners, key employees, and admins can view all agency tasks
-  const canViewAllAgency = isAdmin || isAgencyOwner || isKeyEmployee;
   // Only owners and admins can reassign sequences
   const canReassign = isAdmin || isAgencyOwner;
 
