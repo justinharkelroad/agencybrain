@@ -455,12 +455,12 @@ export default function OnboardingTasksPage() {
   } : null;
 
   return (
-    <div className="container mx-auto py-6 px-4 max-w-4xl">
+    <div className="container mx-auto py-6 px-4 max-w-7xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Workflow className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold">Your Sequence Queue</h1>
+          <h1 className="text-2xl font-bold">Sequence Queue</h1>
           <HelpButton videoKey="Sequence Builder & Queue" />
         </div>
 
@@ -485,68 +485,76 @@ export default function OnboardingTasksPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      {/* Two-column layout: Left = filters + tasks, Right = team dashboard */}
+      <div className={cn(
+        'gap-6',
+        canViewAllAgency && viewFilter === 'all' ? 'lg:grid lg:grid-cols-[1fr_380px]' : ''
+      )}>
+
+      {/* ── LEFT COLUMN: Filters + Calendar + Tasks ── */}
+      <div>
+      {/* Stats row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <Card className={stats.overdue > 0 ? 'border-red-300 dark:border-red-500/50 bg-red-50 dark:bg-red-500/15' : ''}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-full ${stats.overdue > 0 ? 'bg-red-100 dark:bg-red-500/20' : 'bg-muted'}`}>
-                <AlertCircle className={`h-4 w-4 ${stats.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <div className={`p-1.5 rounded-full ${stats.overdue > 0 ? 'bg-red-100 dark:bg-red-500/20' : 'bg-muted'}`}>
+                <AlertCircle className={`h-3.5 w-3.5 ${stats.overdue > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.overdue}</p>
-                <p className="text-xs text-muted-foreground">Overdue</p>
+                <p className="text-xl font-bold leading-none">{stats.overdue}</p>
+                <p className="text-[10px] text-muted-foreground">Overdue</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className={stats.dueToday > 0 ? 'border-blue-300 dark:border-blue-500/50 bg-blue-50 dark:bg-blue-500/15' : ''}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-full ${stats.dueToday > 0 ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-muted'}`}>
-                <CalendarClock className={`h-4 w-4 ${stats.dueToday > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <div className={`p-1.5 rounded-full ${stats.dueToday > 0 ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-muted'}`}>
+                <CalendarClock className={`h-3.5 w-3.5 ${stats.dueToday > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-muted-foreground'}`} />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.dueToday}</p>
-                <p className="text-xs text-muted-foreground">Due Today</p>
+                <p className="text-xl font-bold leading-none">{stats.dueToday}</p>
+                <p className="text-[10px] text-muted-foreground">Due Today</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-full bg-muted">
-                <Workflow className="h-4 w-4 text-muted-foreground" />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-full bg-muted">
+                <Workflow className="h-3.5 w-3.5 text-muted-foreground" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.upcoming}</p>
-                <p className="text-xs text-muted-foreground">Upcoming</p>
+                <p className="text-xl font-bold leading-none">{stats.upcoming}</p>
+                <p className="text-[10px] text-muted-foreground">Upcoming</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className={stats.completedToday > 0 ? 'border-green-200 dark:border-green-500/30 bg-green-50/50 dark:bg-green-500/15' : ''}>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-full ${stats.completedToday > 0 ? 'bg-green-100 dark:bg-green-500/20' : 'bg-muted'}`}>
-                <CheckCircle2 className={`h-4 w-4 ${stats.completedToday > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`} />
+          <CardContent className="p-3">
+            <div className="flex items-center gap-2">
+              <div className={`p-1.5 rounded-full ${stats.completedToday > 0 ? 'bg-green-100 dark:bg-green-500/20' : 'bg-muted'}`}>
+                <CheckCircle2 className={`h-3.5 w-3.5 ${stats.completedToday > 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`} />
               </div>
               <div>
-                <p className="text-2xl font-bold">{stats.completedToday}</p>
-                <p className="text-xs text-muted-foreground">Done Today</p>
+                <p className="text-xl font-bold leading-none">{stats.completedToday}</p>
+                <p className="text-[10px] text-muted-foreground">Done Today</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Team Accountability Dashboard - shown for managers viewing all agency */}
+      {/* Mobile-only team dashboard (hidden on desktop where it's in the sidebar) */}
       {canViewAllAgency && viewFilter === 'all' && !isLoading && (
-        <div className="mb-6">
+        <div className="lg:hidden mb-4">
           <SequenceTeamDashboard
             agencyId={profile?.agency_id || null}
             onFilterByMember={handleDashboardFilterByMember}
@@ -555,7 +563,7 @@ export default function OnboardingTasksPage() {
         </div>
       )}
 
-      {/* Filter Dropdowns - above the week view */}
+      {/* Filter Dropdowns - at the top of the left column */}
       <div ref={taskListRef} className="flex items-center justify-between gap-4 mb-4 flex-wrap">
         <div className="flex items-center gap-4 flex-wrap">
         {/* View/Assignee Filter */}
@@ -832,6 +840,23 @@ export default function OnboardingTasksPage() {
           showAssignee={showAssigneeColumn}
         />
       )}
+
+      </div>{/* END left column */}
+
+      {/* ── RIGHT COLUMN: Team Dashboard (sticky sidebar) ── */}
+      {canViewAllAgency && viewFilter === 'all' && !isLoading && (
+        <div className="hidden lg:block">
+          <div className="sticky top-6">
+            <SequenceTeamDashboard
+              agencyId={profile?.agency_id || null}
+              onFilterByMember={handleDashboardFilterByMember}
+              onFilterBySequence={handleDashboardFilterBySequence}
+            />
+          </div>
+        </div>
+      )}
+
+      </div>{/* END two-column grid */}
 
       {/* Reassign Modal */}
       <ReassignSequenceModal
